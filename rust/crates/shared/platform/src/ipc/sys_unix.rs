@@ -8,7 +8,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use dm_gocompat::oserr::syscall_error;
+use otter_gocompat::oserr::syscall_error;
 
 #[cfg(target_os = "linux")]
 pub(super) const ACCEPT_CALL: &str = "accept4";

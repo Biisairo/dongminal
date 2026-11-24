@@ -7,7 +7,7 @@ import { join } from 'path';
 import { test, expect, waitForInit } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
-const ROOT = tmpPath('dm-enc-' + process.pid);
+const ROOT = tmpPath('otter-enc-' + process.pid);
 const fx = () => realPath(ROOT);
 const P = (n: string) => join(fx(), n);
 const HANGUL_CP949 = Buffer.from([0xC7, 0xD1, 0xB1, 0xDB]); // "한글"

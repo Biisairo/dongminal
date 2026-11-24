@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/domain/wsentry` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/domain/wsentry` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! workspace.json 최상위의 두 목록 — `git.pinned[]` 와 `editors.list[]` — 을 함께 소유한다
 //! (EDITOR_TAB_SRS FR-EDT-116, D-17). 핀 하나를 더하면 같은 경로의 Editor 행이 함께 생겨야
@@ -14,24 +14,24 @@ mod mutate;
 
 use std::sync::{Arc, Mutex};
 
-use dm_gocompat::filepath;
-use dm_webserver_domain_git_core::{BoxFut, Ctx};
+use otter_gocompat::filepath;
+use otter_webserver_domain_git_core::{BoxFut, Ctx};
 
 pub use error::Error;
 pub use link::{link_editor_add, link_editor_remove, link_pin_add, link_pin_remove};
 
-/// 두 목록을 읽고 쓰기 위한 최소 표면이다. `dm_shared_workspace::Manager` 가 만족한다.
+/// 두 목록을 읽고 쓰기 위한 최소 표면이다. `otter_shared_workspace::Manager` 가 만족한다.
 pub trait WorkspaceStore: Send + Sync {
     fn snapshot(&self) -> (Arc<Vec<u8>>, u64);
-    fn save(&self, blob: &[u8], if_match: &str) -> Result<u64, dm_shared_workspace::Error>;
+    fn save(&self, blob: &[u8], if_match: &str) -> Result<u64, otter_shared_workspace::Error>;
 }
 
-impl WorkspaceStore for dm_shared_workspace::Manager {
+impl WorkspaceStore for otter_shared_workspace::Manager {
     fn snapshot(&self) -> (Arc<Vec<u8>>, u64) {
-        dm_shared_workspace::Manager::snapshot(self)
+        otter_shared_workspace::Manager::snapshot(self)
     }
-    fn save(&self, blob: &[u8], if_match: &str) -> Result<u64, dm_shared_workspace::Error> {
-        dm_shared_workspace::Manager::save(self, blob, if_match)
+    fn save(&self, blob: &[u8], if_match: &str) -> Result<u64, otter_shared_workspace::Error> {
+        otter_shared_workspace::Manager::save(self, blob, if_match)
     }
 }
 
@@ -116,7 +116,7 @@ fn ensure_root(dir: &str) -> Result<String, Error> {
     if dir.is_empty() {
         return Err(Error::Unavailable);
     }
-    fsx::mkdir_all(dir).map_err(|e| Error::Io(dm_gocompat::oserr::go_error_string(&e)))?;
+    fsx::mkdir_all(dir).map_err(|e| Error::Io(otter_gocompat::oserr::go_error_string(&e)))?;
     Ok(normalize_path(dir))
 }
 

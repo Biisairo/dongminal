@@ -24,7 +24,7 @@ import { TMP, tmpPath, realPath } from './osenv';
 // 형태는 git-remote.spec.ts 를 그대로 본뜬다 — 원격 표면의 e2e 규약이 두 벌이면
 // 한쪽만 고쳐진다.
 
-const FIXTURES = tmpPath('dm-git-fx-vrefresh-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-vrefresh-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
@@ -52,11 +52,11 @@ function copyPair(tag: string) {
 
 // 원격을 한 커밋 앞세운다 — 별도 클론에서 밀어야 bare 를 정직하게 움직인다.
 function advanceRemote(remote: string, text: string) {
-  const work = realPath(mkdtempSync(join(TMP, 'dm-git-adv-')));
+  const work = realPath(mkdtempSync(join(TMP, 'otter-git-adv-')));
   const clone = join(work, 'c');
   execFileSync('git', ['clone', '-q', remote, clone]);
-  git(clone, 'config', 'user.name', 'dm');
-  git(clone, 'config', 'user.email', 'dm@example.com');
+  git(clone, 'config', 'user.name', 'otter');
+  git(clone, 'config', 'user.email', 'otter@example.com');
   git(clone, 'config', 'commit.gpgsign', 'false');
   writeFileSync(join(clone, 'remote-side.txt'), text + '\n');
   git(clone, 'add', '-A');
@@ -429,7 +429,7 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await expect(hist(page).locator('.git-hist-row').first()).toBeVisible({ timeout: 15000 });
     const before = await hist(page).locator('.git-hist-row').count();
 
-    // dongminal 을 지나지 않는 변화다 — 쓰기 신호가 없으므로 폴링만이 근거다.
+    // otterminal 을 지나지 않는 변화다 — 쓰기 신호가 없으므로 폴링만이 근거다.
     writeFileSync(join(repo, 'outside.txt'), 'x');
     git(repo, 'add', 'outside.txt');
     git(repo, 'commit', '-qm', 'outside commit');
@@ -617,7 +617,7 @@ test.describe('증분 조회·회차 공유 (FR-OPT-4-8·4-9)', () => {
  * 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
  */
 
-const B6FX = tmpPath('dm-b6-git-view-refresh-' + process.pid);
+const B6FX = tmpPath('otter-b6-git-view-refresh-' + process.pid);
 test.beforeAll(() => { gitFixture(B6FX) });
 test.afterAll(() => { cleanGitFixture(B6FX) });
 const copyFx = makeCopyFx(B6FX);

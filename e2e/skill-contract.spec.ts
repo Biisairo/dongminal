@@ -5,17 +5,17 @@ import { join } from 'path';
 import { test, expect, plainWindows, waitForInit, waitSettled, rmTree } from './fixtures';
 import { TMP, realPath, slash } from './osenv';
 
-// 에이전트 명령(/dongminal:migration · /dongminal:issue-tree)이 실제로 밟는 접합면을 라이브 서버에서
+// 에이전트 명령(/otterminal:migration · /otterminal:issue-tree)이 실제로 밟는 접합면을 라이브 서버에서
 // 검증한다. 스킬 문서는 명령·인자만 적혀 있어 정적 대조로는 "그 이름이 존재한다"
 // 까지만 알 수 있다 — 여기서 실제 왕복이 통하는지, 응답에서 스킬이 기대하는 필드가
 // 나오는지를 확인한다.
 //
-// 접합면은 MCP 에서 dmctl + HTTP 로 교체됐다 (SKILL_INJECTION_SRS). dmctl 은 아래
+// 접합면은 MCP 에서 otterctl + HTTP 로 교체됐다 (SKILL_INJECTION_SRS). otterctl 은 아래
 // 엔드포인트를 부르는 얇은 CLI 이므로, 여기서 같은 엔드포인트를 직접 호출하는 것이
 // 스킬이 밟는 경로와 동일하다. 브라우저 페이지를 함께 띄우는 이유는 그것이
 // /api/commands/sse 구독자이기 때문이다 — 스킬의 delivered>0 전제를 만족시킨다.
 
-// dmctl list-workspace 가 /api/state 를 읽어 만드는 행에서 스킬이 캡처하는 값들.
+// otterctl list-workspace 가 /api/state 를 읽어 만드는 행에서 스킬이 캡처하는 값들.
 /**
  * 도구의 런타임 값이 자리잡은 `/api/state` (QUALITY_FIX_SRS FR-QFX-6).
  *
@@ -73,7 +73,7 @@ test.describe('스킬이 부르는 접합면 (라이브)', () => {
     await waitForInit(page);
   });
 
-  // dmctl who-am-i / list-workspace 가 파싱하는 필드가 서버 응답에 있는지.
+  // otterctl who-am-i / list-workspace 가 파싱하는 필드가 서버 응답에 있는지.
   // 스킬은 이 중 uuid 를 모든 단계의 식별자로 보관한다.
   test('/api/state 가 스킬이 캡처하는 식별자를 낸다', async ({ request }) => {
     const state = await (await request.get('/api/state')).json();
@@ -160,7 +160,7 @@ test.describe('스킬이 부르는 접합면 (라이브)', () => {
   });
 });
 
-// 에이전트 접합면 3종 (SKILL_INJECTION_SRS 묶음 B). dmctl read-screen /
+// 에이전트 접합면 3종 (SKILL_INJECTION_SRS 묶음 B). otterctl read-screen /
 // send-input / msg 가 부르는 경로다. Go 테스트는 fake 어댑터로 검증하므로
 // 실제 PTY 왕복은 여기서만 확인된다.
 test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
@@ -230,7 +230,7 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
       return (out.text || '') as string;
     };
 
-    await expect.poll(screen, { timeout: 10000 }).toContain('DONGMINAL-AGENT-MSG');
+    await expect.poll(screen, { timeout: 10000 }).toContain('OTTERMINAL-AGENT-MSG');
     // **본문도 기다린다.** 종전에는 여기서 한 번만 읽었는데, 머리글과 본문은 같은
     // 순간에 도착하지 않는다 — PTY 를 지나 화면에 그려지기까지의 틈이 있고,
     // 느린 러너에서는 그 틈에 걸린다 (2026-09-18 Windows 실측: 머리글은 왔고
@@ -437,11 +437,11 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     const p: string = member.preamble;
     expect(p, '생성 응답에 프리앰블이 없다').toBeTruthy();
     expect(p.trimStart().startsWith('{'), '프리앰블은 평문이다').toBe(false);
-    for (const want of [run.id, member.id, '형식만 본다', 'dmctl run report', 'AskUserQuestion']) {
+    for (const want of [run.id, member.id, '형식만 본다', 'otterctl run report', 'AskUserQuestion']) {
       expect(p, `프리앰블에 ${want} 가 없다`).toContain(want);
     }
     // 자리표시자가 아니라 실제 uuid 가 박힌 실행 가능한 예제여야 한다.
-    expect(p).toContain(`dmctl run report --run ${run.id} --member ${member.id}`);
+    expect(p).toContain(`otterctl run report --run ${run.id} --member ${member.id}`);
     // 화면 fingerprint 는 이 계열에서 추방 대상이다 (FR-SKL-2).
     for (const banned of ['Thinking...', '[대기]']) {
       expect(p).not.toContain(banned);
@@ -484,7 +484,7 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     // 1. 전용 창 — 응답이 창·시드 uuid 를 직접 준다 (list-workspace 재조회 없음).
     const win = await (
       await request.post('/api/commands', {
-        // 페이로드는 {action, args:{...}} 다 — dmctl 과 같은 형태여야 keepFocus 가
+        // 페이로드는 {action, args:{...}} 다 — otterctl 과 같은 형태여야 keepFocus 가
         // 브라우저까지 도달한다. 평평하게 보내면 조용히 유실되고, 전용 창이
         // 사용자 화면을 차지한다 (이 테스트를 쓰다 실제로 밟았다).
         data: { action: 'newWindow', args: { name: 'e2e-run-window', keepFocus: true } },
@@ -722,7 +722,7 @@ test.describe('detach CLI 의 HTTP 계약 (라이브)', () => {
 
 // 묶음 W — worktree 격리 (RUN_ORCHESTRATION_SRS §3.4). 여기서만 확인할 수 있는
 // 것은 **실제 바이너리의 배선**이다: Go 테스트는 서버 구조체에 관리자를 직접
-// 꽂지만, 운영 경로에서는 main 이 $DONGMINAL_HOME/worktrees 로 만들어 주입한다.
+// 꽂지만, 운영 경로에서는 main 이 $OTTERMINAL_HOME/worktrees 로 만들어 주입한다.
 //
 // 대상 저장소는 이 스펙이 만든 임시 저장소다 — 운영 저장소·사용자 홈을 건드리지
 // 않는다 (§4.3, 함정 1~3).
@@ -730,7 +730,7 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
   let repo = '';
 
   test.beforeAll(() => {
-    repo = mkdtempSync(join(TMP, 'dmn-e2e-repo-'));
+    repo = mkdtempSync(join(TMP, 'otter-e2e-repo-'));
     repo = realPath(repo);
     const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, stdio: 'pipe' });
     git('init', '-b', 'main');
@@ -761,11 +761,11 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
     const wt = run.worktree;
     expect(wt?.path, '공유 worktree 가 없다').toBeTruthy();
     // 관리 루트 밖에 만들면 정리의 안전 가드가 무의미해진다 (FR-WKT-10). 루트는
-    // $DONGMINAL_HOME/worktrees 다. 절대경로를 통째로 단정하지 않고 **모양**만
+    // $OTTERMINAL_HOME/worktrees 다. 절대경로를 통째로 단정하지 않고 **모양**만
     // 본다 — 인스턴스 홈은 `<이 실행의 뿌리>/w<워커>` 이고 워커 번호는 그때그때
     // 다르다 (E2E_PARALLEL_SRS FR-EPL-1).
     expect(slash(wt.path), `worktrees 루트 밖이다: ${wt.path}`)
-      .toMatch(/dongminal-e2e-[^/]+\/w\d+\/worktrees\//);
+      .toMatch(/otterminal-e2e-[^/]+\/w\d+\/worktrees\//);
     expect(existsSync(wt.path), '경로가 실제로 만들어지지 않았다').toBe(true);
     // --no-track: base 의 upstream 을 물려받지 않는다 (FR-WKT-2).
     expect(() => execFileSync('git', ['rev-parse', '--abbrev-ref', `${wt.branch}@{upstream}`],
@@ -806,7 +806,7 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
     })).json();
     const path = member.worktree.path;
     // 경로 확인 뒤에만 쓴다 — 빈 값이면 join 이 이 저장소 안에 파일을 만든다 (§4.3).
-    expect(slash(path), `worktrees 루트 밖이다: ${path}`).toMatch(/dongminal-e2e-[^/]+\/w\d+\/worktrees\//);
+    expect(slash(path), `worktrees 루트 밖이다: ${path}`).toMatch(/otterminal-e2e-[^/]+\/w\d+\/worktrees\//);
     const work = join(path, '작업물.txt');
     writeFileSync(work, '지우면 안 된다\n');
 
@@ -826,7 +826,7 @@ test.describe('worktree 격리의 HTTP 계약 (라이브)', () => {
   });
 
   test('비git 디렉터리의 격리 Run 은 명확히 실패한다', async ({ request }) => {
-    const plain = realPath(mkdtempSync(join(TMP, 'dmn-e2e-plain-')));
+    const plain = realPath(mkdtempSync(join(TMP, 'otter-e2e-plain-')));
     const r = await request.post('/api/runs', {
       data: { objective: 'e2e 비git', projection: 'inline', isolation: 'per-member', cwd: plain },
     });

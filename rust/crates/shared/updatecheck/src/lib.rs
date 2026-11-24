@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/updatecheck` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/updatecheck` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 최신 판을 캐시 한 칸에 담아 둔다 (UPDATE_NOTICE_SRS 묶음 확인). 끈 것은 실제로 나가지 않는다
 //! (§1.2): 꺼짐 판정은 확인의 입구에 있고, 날아가는 중에 꺼졌으면 돌아온 답도 버린다.
@@ -88,7 +88,7 @@ impl Checker {
         let killed = opt
             .getenv
             .as_ref()
-            .is_some_and(|g| g(dm_shared_dmenv::ENV_NO_CHECK) == "1");
+            .is_some_and(|g| g(otter_shared_otterenv::ENV_NO_CHECK) == "1");
         let enabled = opt.enabled;
         let snap = Snapshot {
             enabled: enabled && !killed,
@@ -139,7 +139,7 @@ impl Checker {
     }
 
     /// 토글을 바꾸고 `server.json` 에 적는다 (FR-UPD-13·14). 끔→켬 만이 트리거 ④ 다.
-    pub fn set_enabled(&self, on: bool) -> Result<(), dm_shared_serverconf::Error> {
+    pub fn set_enabled(&self, on: bool) -> Result<(), otter_shared_serverconf::Error> {
         let was = {
             let mut st = self.inner.lock();
             let was = st.enabled;
@@ -149,7 +149,7 @@ impl Checker {
             }
             was
         };
-        dm_shared_serverconf::set_update_check(&self.inner.opt.home, on)?;
+        otter_shared_serverconf::set_update_check(&self.inner.opt.home, on)?;
         if on && !was {
             self.trigger();
             let mut st = self.inner.lock();
@@ -221,7 +221,7 @@ impl Checker {
 
     /// 확인 한 회다. 밖으로 나가는 유일한 자리다.
     async fn run(&self) {
-        let res = dm_shared_release::latest(&self.inner.opt.endpoint).await;
+        let res = otter_shared_release::latest(&self.inner.opt.endpoint).await;
 
         let (changed, cast, settle) = {
             let mut st = self.inner.lock();
@@ -234,17 +234,17 @@ impl Checker {
                     Err(e) => {
                         // 실패는 캐시를 바꾸지 않는다 (FR-UPD-2e). 조용히 로그에만 남긴다 (FR-UPD-4).
                         next.failed = true;
-                        dm_shared_dmlog::warnf!(None, "판 확인 실패: {e}");
+                        otter_shared_otterlog::warnf!(None, "판 확인 실패: {e}");
                     }
                     Ok((tag, link)) => {
                         let current = &self.inner.opt.current;
                         next.failed = false;
-                        next.newer = dm_shared_release::comparable(current)
-                            && dm_shared_release::newer(&tag, current);
+                        next.newer = otter_shared_release::comparable(current)
+                            && otter_shared_release::newer(&tag, current);
                         next.latest = tag;
                         next.link = link;
                         next.checked_at =
-                            dm_gocompat::time::format_rfc3339(time::OffsetDateTime::now_utc());
+                            otter_gocompat::time::format_rfc3339(time::OffsetDateTime::now_utc());
                     }
                 }
                 changed = notable(&st.snap) != notable(&next);

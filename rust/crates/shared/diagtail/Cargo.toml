@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-diagtail"
+name = "otter-shared-diagtail"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

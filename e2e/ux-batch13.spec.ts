@@ -16,7 +16,7 @@ let ROOT = '';
 const BODY = Array.from({ length: 200 }, (_, i) => `line ${i + 1}`).join('\n') + '\n';
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-ub13-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-ub13-')));
   ROOT = j(BASE, 'root');
   fs.mkdirSync(ROOT, { recursive: true });
   fs.writeFileSync(j(ROOT, 'g.txt'), BODY);

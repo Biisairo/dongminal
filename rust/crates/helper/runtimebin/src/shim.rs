@@ -5,10 +5,10 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-use dm_gocompat::filepath;
-use dm_gocompat::json;
-use dm_shared_chatwire as chatwire;
-use dm_shared_dmenv as dmenv;
+use otter_gocompat::filepath;
+use otter_gocompat::json;
+use otter_shared_chatwire as chatwire;
+use otter_shared_otterenv as otterenv;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
@@ -18,8 +18,8 @@ use crate::ctx::{Ctx, Env, errf};
 use crate::http::{base_url, http_json_within, self_tool_id};
 
 pub(crate) const CLAUDE_CONFIG_DIR_ENV: &str = "CLAUDE_CONFIG_DIR";
-/// 주입하는 MCP 서버 이름이다. 도구는 `mcp__dongminal__chat_*` 로 보인다.
-pub(crate) const CHAT_MCP_SERVER: &str = "dongminal";
+/// 주입하는 MCP 서버 이름이다. 도구는 `mcp__otterminal__chat_*` 로 보인다.
+pub(crate) const CHAT_MCP_SERVER: &str = "otterminal";
 
 #[cfg(windows)]
 const PATH_FOLD_CASE: bool = true;
@@ -32,7 +32,7 @@ const PATH_FOLD_CASE: bool = false;
 /// `RunFn` 은 함수 포인터라 명령 이름을 붙잡지 못한다. 등록부 순서의 자리마다 진입점을 하나씩
 /// 두고, 자리 번호로 이름을 다시 읽는다 (Go 판은 클로저로 이름을 붙잡았다).
 pub(crate) fn runner(name: &str) -> Option<RunFn> {
-    let i = dm_shared_agentadapter::shim_commands()
+    let i = otter_shared_agentadapter::shim_commands()
         .iter()
         .position(|c| *c == name)?;
     SHIM_RUNNERS.get(i).copied()
@@ -44,7 +44,7 @@ pub(crate) const SHIM_RUNNERS: [RunFn; 4] =
     [run_shim::<0>, run_shim::<1>, run_shim::<2>, run_shim::<3>];
 
 fn run_shim<const I: usize>(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
-    match dm_shared_agentadapter::shim_commands().get(I) {
+    match otter_shared_agentadapter::shim_commands().get(I) {
         Some(cmd) => run_agent_shim(ctx, cmd, args),
         None => 127,
     }
@@ -52,7 +52,7 @@ fn run_shim<const I: usize>(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
 
 pub(crate) fn run_agent_shim(ctx: &mut Ctx<'_>, cmd: &str, args: &[String]) -> i32 {
     let env = ctx.env;
-    let home = env.get(dmenv::ENV_HOME);
+    let home = env.get(otterenv::ENV_HOME);
     let real = find_real_command(env, cmd, &env.get("PATH"), &shim_dir_of(&home));
     if real.is_empty() {
         errf!(ctx, "{cmd} 를 찾을 수 없습니다\n");
@@ -74,7 +74,7 @@ pub(crate) fn run_agent_shim(ctx: &mut Ctx<'_>, cmd: &str, args: &[String]) -> i
         if !reason.is_empty() {
             errf!(
                 ctx,
-                "dongminal: Claude 계정 지정을 적용하지 못했습니다 ({reason})\n"
+                "otterminal: Claude 계정 지정을 적용하지 못했습니다 ({reason})\n"
             );
             return 1;
         }
@@ -89,14 +89,14 @@ pub(crate) fn run_agent_shim(ctx: &mut Ctx<'_>, cmd: &str, args: &[String]) -> i
 }
 
 fn bin_of(home: &str) -> String {
-    filepath::join(&[home, dmenv::BIN_DIR])
+    filepath::join(&[home, otterenv::BIN_DIR])
 }
 
 fn shim_dir_of(home: &str) -> String {
     if home.is_empty() {
         return String::new();
     }
-    dmenv::agent_shims_dir_in(Path::new(&bin_of(home)))
+    otterenv::agent_shims_dir_in(Path::new(&bin_of(home)))
         .to_string_lossy()
         .into_owned()
 }
@@ -107,7 +107,7 @@ fn shim_hook_args(cmd: &str, home: &str) -> Vec<String> {
         return Vec::new();
     }
     let bin = bin_of(home);
-    let hooks = dmenv::agent_hooks_dir_in(Path::new(&bin));
+    let hooks = otterenv::agent_hooks_dir_in(Path::new(&bin));
     let settings = filepath::join(&[&*hooks.to_string_lossy(), &format!("{cmd}.json")]);
     let mut out = Vec::new();
     if fs::metadata(&settings).is_ok_and(|m| m.is_file()) {
@@ -129,7 +129,7 @@ fn shim_chat_args(home: &str, tool: &str) -> Vec<String> {
     if home.is_empty() || tool.is_empty() {
         return Vec::new();
     }
-    let p = dm_shared_platform::current();
+    let p = otter_shared_platform::current();
     if p.ipc
         .dial(&chatwire::socket_path(Path::new(home)), SHIM_CHAT_DIAL_WAIT)
         .is_err()
@@ -138,12 +138,12 @@ fn shim_chat_args(home: &str, tool: &str) -> Vec<String> {
     }
     let command = filepath::join(&[
         home,
-        dmenv::BIN_DIR,
-        &format!("dmctl{}", p.paths.exe_suffix()),
+        otterenv::BIN_DIR,
+        &format!("otterctl{}", p.paths.exe_suffix()),
     ]);
     let mut env = Map::new();
-    env.insert(dmenv::ENV_HOME.to_owned(), json!(home));
-    env.insert(dmenv::ENV_TOOL_ID.to_owned(), json!(tool));
+    env.insert(otterenv::ENV_HOME.to_owned(), json!(home));
+    env.insert(otterenv::ENV_TOOL_ID.to_owned(), json!(tool));
     let mut servers = Map::new();
     servers.insert(
         CHAT_MCP_SERVER.to_owned(),
@@ -164,7 +164,7 @@ fn shim_memory_prompt(home: &str) -> String {
     if home.is_empty() {
         return String::new();
     }
-    let path = filepath::join(&[home, dmenv::BIN_DIR, "agent-memory", "CLAUDE.md"]);
+    let path = filepath::join(&[home, otterenv::BIN_DIR, "agent-memory", "CLAUDE.md"]);
     if !fs::metadata(&path).is_ok_and(|m| m.is_file()) {
         return String::new();
     }
@@ -188,7 +188,7 @@ fn claude_launch_dir(env: &Env) -> (String, String) {
     let url = format!(
         "{}{}",
         base_url(env),
-        dm_shared_apipath::CLAUDE_ACCOUNTS_LAUNCH
+        otter_shared_apipath::CLAUDE_ACCOUNTS_LAUNCH
     );
     let budget = env.shim_budget.unwrap_or(SHIM_BUDGET);
     let r = http_json_within("POST", &url, &Value::Object(body), budget);
@@ -305,7 +305,7 @@ fn same_file(a: &Path, b: &Path) -> bool {
 
 fn exec_error(e: &io::Error) -> String {
     e.raw_os_error()
-        .map_or_else(|| e.to_string(), dm_gocompat::oserr::errno_string)
+        .map_or_else(|| e.to_string(), otter_gocompat::oserr::errno_string)
 }
 
 fn command_of(path: &str, argv: &[String], environ: &[String]) -> std::process::Command {

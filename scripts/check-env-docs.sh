@@ -5,9 +5,9 @@
 # 코드가 읽는 환경변수와 `docs/external/getting-started.md` 의 표가 **양방향으로**
 # 같아야 한다.
 #
-# 이 검사가 없던 동안 다섯이 문서 밖에 있었다 — `DONGMINAL_ATTENTION_IDLE_MS`·
-# `DONGMINAL_ATTENTION_BELL`·`DONGMINAL_CMD_RESULT_TIMEOUT_MS`·`DONGMINAL_URL_OPEN`·
-# `DONGMINAL_SHELL`. 로드맵조차 그 수를 넷으로 세고 있었다(`DONGMINAL_SHELL` 누락).
+# 이 검사가 없던 동안 다섯이 문서 밖에 있었다 — `OTTERMINAL_ATTENTION_IDLE_MS`·
+# `OTTERMINAL_ATTENTION_BELL`·`OTTERMINAL_CMD_RESULT_TIMEOUT_MS`·`OTTERMINAL_URL_OPEN`·
+# `OTTERMINAL_SHELL`. 로드맵조차 그 수를 넷으로 세고 있었다(`OTTERMINAL_SHELL` 누락).
 #
 # **문서는 조용히 낡는다.** 그래서 사람의 눈을 집행자로 두지 않는다 — 이것이
 # M5 의 핵심 장치이고, 같은 형태가 `commands.md`·`api.md`·`shortcuts.md` 에도 선다.
@@ -23,11 +23,11 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<'USAGE'
 환경변수 문서 대조
 
-  코드의 `DONGMINAL_*`(+ `PORT`)와 getting-started.md 의 표를 양방향 대조한다.
+  코드의 `OTTERMINAL_*`(+ `PORT`)와 getting-started.md 의 표를 양방향 대조한다.
 
   세는 것: rust/crates/ 의 **비검사 Rust 소스**에 나오는 변수 이름
   빼는 것: 시험 전용 소스 (검사 전용 변수는 제품 표면이 아니다),
-           빌드 각인 변수 DONGMINAL_BUILD_VERSION·DONGMINAL_BUILD_DAEMON
+           빌드 각인 변수 OTTERMINAL_BUILD_VERSION·OTTERMINAL_BUILD_DAEMON
 USAGE
   exit 0
 fi
@@ -36,7 +36,7 @@ source scripts/lib/rs-src.sh
 
 # 빌드 각인 변수 — 실행 중에 읽지 않는다. 빌드할 때 `option_env!` 가 바이너리에 새기는
 # 값이며 Go 판 `-ldflags -X` 의 자리다 (GO_REMOVAL_SRS Q-GRM-11, RUST_PORT_SRS FR-RSP-11).
-BUILD_STAMP='^(DONGMINAL_BUILD_VERSION|DONGMINAL_BUILD_DAEMON)$'
+BUILD_STAMP='^(OTTERMINAL_BUILD_VERSION|OTTERMINAL_BUILD_DAEMON)$'
 
 src=$(rs_src_files)
 if [[ -z "$src" ]]; then
@@ -45,7 +45,7 @@ if [[ -z "$src" ]]; then
 fi
 
 code_vars=$(
-  printf '%s\n' "$src" | xargs grep -hoE '"DONGMINAL_[A-Z0-9_]+"' 2>/dev/null \
+  printf '%s\n' "$src" | xargs grep -hoE '"OTTERMINAL_[A-Z0-9_]+"' 2>/dev/null \
     | tr -d '"' | grep -vE "$BUILD_STAMP" | sort -u
 )
 if printf '%s\n' "$src" | xargs grep -qE 'const ENV_PORT[A-Z_]*: &(\x27static )?str = "PORT"' 2>/dev/null; then
@@ -56,7 +56,7 @@ if grep -qE '\$\{?BINARY' scripts/build.sh 2>/dev/null; then
 fi
 
 doc_vars=$(
-  grep -oE '^\| `(DONGMINAL_[A-Z0-9_]+|PORT|BINARY)`' "$DOC" \
+  grep -oE '^\| `(OTTERMINAL_[A-Z0-9_]+|PORT|BINARY)`' "$DOC" \
     | sed -E 's/^\| `//; s/`$//' | sort -u
 )
 

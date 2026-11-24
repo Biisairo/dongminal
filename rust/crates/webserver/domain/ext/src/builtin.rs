@@ -4,8 +4,8 @@
 use std::collections::BTreeMap;
 use std::io;
 
-use dm_gocompat::filepath;
-use dm_gocompat::json;
+use otter_gocompat::filepath;
+use otter_gocompat::json;
 use rust_embed::RustEmbed;
 
 use crate::error::Error;
@@ -53,7 +53,7 @@ fn builtin_blob(id: &str) -> Result<Vec<u8>, Error> {
 pub(crate) type WriteDeployed = fn(&str, &[u8], u32) -> io::Result<()>;
 
 fn write_atomic(p: &str, data: &[u8], perm: u32) -> io::Result<()> {
-    dm_shared_platform::write_file_atomic(std::path::Path::new(p), data, perm)
+    otter_shared_platform::write_file_atomic(std::path::Path::new(p), data, perm)
 }
 
 /// 동봉 선언을 격리 칸으로 편다. 한 번만 펴고, 지운 것을 되살리지 않고, 실패는 그 팩만 죽인다.

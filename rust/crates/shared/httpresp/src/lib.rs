@@ -1,11 +1,11 @@
-//! Go 기준선 `dongminal/internal/shared/httpresp` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/httpresp` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! JSON 응답과 오류 응답을 쓰는 한 자리다 (OPTIMIZE_REFACTOR_SRS FR-OPT-9-4 ·
 //! REFACTOR3_DEDUP_GO_SRS FR-RDG-2). 오류 본문의 **모양**(방언)은 여기서 정하지 않는다.
 //!
 //! 이 crate 는 서버 전체의 응답 타입을 정한다. 핸들러는 [`Response`] 를 돌려준다.
 //! 본문은 [`Body`](`BoxBody<Bytes, BoxError>`)이며, 한 번에 쓰는 본문은 [`full`] 로,
-//! 스트림은 `dm-webserver-sse` 처럼 자기 `http_body::Body` 를 [`Body`] 로 감싸 만든다.
+//! 스트림은 `otter-webserver-sse` 처럼 자기 `http_body::Body` 를 [`Body`] 로 감싸 만든다.
 
 use bytes::Bytes;
 use http::{HeaderValue, StatusCode, header};
@@ -51,7 +51,7 @@ fn response(status: StatusCode, content_type: &'static str, body: impl Into<Byte
 /// v 를 JSON 으로 쓴다. Go `json.Encoder` 의 기본(끝 개행·HTML 이스케이프)과 같다.
 /// 인코딩에 실패하면 Go 처럼 상태와 헤더만 나가고 본문은 빈다.
 pub fn json<T: Serialize + ?Sized>(status: StatusCode, v: &T) -> Response {
-    let body = dm_gocompat::json::Encoder::new()
+    let body = otter_gocompat::json::Encoder::new()
         .encode(v)
         .unwrap_or_default();
     response(status, CONTENT_TYPE_JSON, body)

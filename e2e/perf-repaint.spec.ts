@@ -39,7 +39,7 @@ import { tmpPath, realPath } from './osenv';
  * (M6 §4-A-1).
  */
 
-const FIXTURES = tmpPath('dm-perf-repaint-' + process.pid);
+const FIXTURES = tmpPath('otter-perf-repaint-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
@@ -80,14 +80,14 @@ async function mutationsPerRound(page: Page, sels: string[], n = 2) {
 /** `sel` 의 요소마다 표식을 남긴다. 표식은 DOM 밖(속성이 아닌 프로퍼티)이라 다시 만들면 사라진다. */
 const mark = (page: Page, sel: string) => page.evaluate((s) => {
   const els = [...document.querySelectorAll('#area ' + s)];
-  els.forEach((el, i) => { (el as any).__dmMark = 'm' + i });
+  els.forEach((el, i) => { (el as any).__otterMark = 'm' + i });
   return els.length;
 }, sel);
 
 /** 표식이 남아 있는 요소의 수. */
 const kept = (page: Page, sel: string) => page.evaluate((s) => {
   const els = [...document.querySelectorAll('#area ' + s)];
-  return { total: els.length, kept: els.filter((el) => (el as any).__dmMark !== undefined).length };
+  return { total: els.length, kept: els.filter((el) => (el as any).__otterMark !== undefined).length };
 }, sel);
 
 const refresh = (page: Page) => page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
@@ -122,7 +122,7 @@ test.describe('묶음 P-A — 폴링이 목록을 통째로 갈아 끼우지 않
     // 바뀐 행은 새 요소이고(표식이 없다), 안 바뀐 행은 그대로다(표식이 남는다).
     const after = await page.evaluate(() => {
       const of = (name: string) =>
-        (document.querySelector(`#area .git-rm-row[data-remote="${name}"]`) as any)?.__dmMark ?? null;
+        (document.querySelector(`#area .git-rm-row[data-remote="${name}"]`) as any)?.__otterMark ?? null;
       return { origin: of('origin'), second: of('second') };
     });
     expect(after).toEqual({ origin: null, second: 'm1' });

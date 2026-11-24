@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/httproute` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/httproute` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 이 서버의 라우팅표 한 벌이다 (DRIFT_RECLAIM_SRS FR-DRC-10). 표는 **첫** 매칭 라우트를
 //! 고른다. Go 는 표가 핸들러를 직접 부르지만, 여기서는 고른 핸들러를 돌려주고 부르는 일은

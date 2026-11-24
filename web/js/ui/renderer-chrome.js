@@ -1,5 +1,5 @@
 /**
- * Dongminal — 렌더러의 가장자리: 사이드바·탑바·창의 사이드 (`Renderer.prototype` 증강)
+ * Otterminal — 렌더러의 가장자리: 사이드바·탑바·창의 사이드 (`Renderer.prototype` 증강)
  *
  * `renderer.js` 에서 **구간 이동**했다 (STRUCTURE_CLEANUP_SRS FR-STR-44).
  *
@@ -28,7 +28,7 @@ Object.assign(Renderer.prototype, {
    * FR-RPT-3: 목록을 비우고 다시 만들지 않는다.
    *
    * `render()` 는 사용자 행동뿐 아니라 **SSE `workspace_changed`** 로도 불린다 —
-   * 다른 브라우저나 다른 에이전트의 `dmctl` 이 워크스페이스를 고치면 사용자가
+   * 다른 브라우저나 다른 에이전트의 `otterctl` 이 워크스페이스를 고치면 사용자가
    * 아무것도 하지 않았는데 이 목록이 다시 만들어진다. 그러면 hover 로만 보이는
    * `×` 가 사라지고, 이름변경 더블클릭의 두 번째 클릭이 새 요소에 떨어지고,
    * 끌고 있던 창이 DOM 에서 빠져 재배치가 조용히 실패한다.

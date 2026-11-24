@@ -1,5 +1,5 @@
 /**
- * Dongminal — Branches 의 **다이얼로그 셋** (FE_MODULE_BOUNDARY_SRS FR-FMB-30).
+ * Otterminal — Branches 의 **다이얼로그 셋** (FE_MODULE_BOUNDARY_SRS FR-FMB-30).
  *
  * 생성(FR-GIT-158·159) · 이름 변경 · 업스트림 설정. 셋 다 골격이 20단계의
  * `GitDialog` 이고(FR-GIT-171), 각자는 **자기 검사와 실행만** 안다.

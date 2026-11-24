@@ -1,4 +1,4 @@
-//! paned 소켓 서버 — 서버(dongminal) 연결 하나를 받고, 도구의 출력·종료·전경·크기·알람을 그 연결로 민다.
+//! paned 소켓 서버 — 서버(otterminal) 연결 하나를 받고, 도구의 출력·종료·전경·크기·알람을 그 연결로 민다.
 
 use std::collections::BTreeMap;
 use std::io;
@@ -7,15 +7,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
-use dm_gocompat::json::RawMessage;
-use dm_gocompat::{filepath, oserr};
-use dm_shared_chatwire as chatwire;
-use dm_shared_dmlog::errorf;
-use dm_shared_edge::Status as EdgeStatus;
-use dm_shared_edgenode::{Change, Node};
-use dm_shared_platform::IpcListener;
-use dm_shared_toolhub::{Tool, ToolManager};
-use dm_shared_toolipc::{self as ipc, AttnEvent, ChatEvent, EdgeRef, EdgesEvent};
+use otter_gocompat::json::RawMessage;
+use otter_gocompat::{filepath, oserr};
+use otter_shared_chatwire as chatwire;
+use otter_shared_edge::Status as EdgeStatus;
+use otter_shared_edgenode::{Change, Node};
+use otter_shared_otterlog::errorf;
+use otter_shared_platform::IpcListener;
+use otter_shared_toolhub::{Tool, ToolManager};
+use otter_shared_toolipc::{self as ipc, AttnEvent, ChatEvent, EdgeRef, EdgesEvent};
 use tokio::runtime::Handle;
 
 use crate::conn::{Conn, lock};
@@ -36,7 +36,7 @@ pub trait ChatUser: Send + Sync {
 
 /// 세션 유지 교체다. 성공하면 응답을 쓴 뒤 부를 commit 을 돌려준다. 실패 문구는 응답의 error 다.
 pub type Reloader = Arc<
-    dyn Fn(dm_shared_handover::ReloadRequest) -> Result<Box<dyn FnOnce() + Send>, String>
+    dyn Fn(otter_shared_handover::ReloadRequest) -> Result<Box<dyn FnOnce() + Send>, String>
         + Send
         + Sync,
 >;
@@ -172,7 +172,7 @@ impl PanedServer {
 
     /// 소켓을 연다. 살아 있는 데몬이 이미 받고 있으면 오류다.
     pub fn listen(&self) -> io::Result<()> {
-        let ipc_t = &dm_shared_platform::current().ipc;
+        let ipc_t = &otter_shared_platform::current().ipc;
         let sock = &self.inner.sock_path;
         if ipc_t.dial(sock, DIAL_PROBE_TIMEOUT).is_ok() {
             return Err(io::Error::other(format!(
@@ -250,7 +250,7 @@ impl PanedServer {
 
     /// 연결·소켓·보고 소켓을 닫고 pid 파일을 지운다. 막혀 있는 accept 는 자기 접속으로 깨운다.
     pub fn close(&self) {
-        let ipc_t = &dm_shared_platform::current().ipc;
+        let ipc_t = &otter_shared_platform::current().ipc;
         self.inner.closed.store(true, Ordering::SeqCst);
         if let Some(c) = lock(&self.inner.curr).take() {
             c.stop();
@@ -291,7 +291,7 @@ impl PanedServer {
         if !c.edge.load(Ordering::SeqCst) {
             return;
         }
-        let r = |x: &Option<dm_shared_edgenode::Ref>| {
+        let r = |x: &Option<otter_shared_edgenode::Ref>| {
             x.as_ref().map(|r| EdgeRef {
                 fp: r.fp.clone(),
                 name: r.name.clone(),
@@ -404,7 +404,7 @@ impl Inner {
         let (w1, w2) = (Arc::downgrade(self), Arc::downgrade(self));
         let tool = Arc::downgrade(p);
         p.wire_relay_once(move |base_exit| {
-            let on_output: dm_shared_toolhub::OutputFn =
+            let on_output: otter_shared_toolhub::OutputFn =
                 Arc::new(move |id: &str, data: &[u8], end: i64| {
                     if let Some(c) = curr_of(&w1) {
                         c.enqueue(
@@ -418,7 +418,7 @@ impl Inner {
                         );
                     }
                 });
-            let on_exit: dm_shared_toolhub::ExitFn = Arc::new(move |id: &str| {
+            let on_exit: otter_shared_toolhub::ExitFn = Arc::new(move |id: &str| {
                 if let Some(c) = curr_of(&w2) {
                     let code = tool.upgrade().map_or(0, |t| t.exit_info().code);
                     c.enqueue(

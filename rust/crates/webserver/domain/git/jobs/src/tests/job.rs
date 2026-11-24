@@ -4,8 +4,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, SystemTime};
 
 #[cfg(unix)]
-use dm_webserver_domain_git_core::Ctx;
-use dm_webserver_domain_git_core::{self as core};
+use otter_webserver_domain_git_core::Ctx;
+use otter_webserver_domain_git_core::{self as core};
 use tokio::sync::{Notify, mpsc};
 
 use super::support::*;
@@ -91,7 +91,7 @@ mod proc {
     }
 
     fn await_gone(pid: i32, d: Duration) {
-        let p = &dm_shared_platform::current().process;
+        let p = &otter_shared_platform::current().process;
         let deadline = Instant::now() + d;
         while Instant::now() < deadline {
             if !p.alive(pid) {

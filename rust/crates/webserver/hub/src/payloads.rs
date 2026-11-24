@@ -2,13 +2,13 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dm_shared_toolhub::ToolInfo;
-use dm_webserver_sse::payload;
+use otter_shared_toolhub::ToolInfo;
+use otter_webserver_sse::payload;
 use serde::Serialize;
 
 /// 어휘 판정이다. `ended` 는 종료 신호 — 카드 제거(상태로 저장하지 않음).
 pub fn valid_activity_state(s: &str) -> bool {
-    dm_shared_activity::valid(s)
+    otter_shared_activity::valid(s)
 }
 
 #[derive(Serialize)]

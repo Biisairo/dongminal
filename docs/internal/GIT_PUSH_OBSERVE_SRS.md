@@ -381,7 +381,7 @@ D-POLL-2 의 `finally` 가 지킨 것은 **잠금**(`_refreshing`)이었고, 관
 | 단계 | 내용 | 리스크 |
 |---|---|---|
 | **1** | `hub/gitwatch.go` — 감시자와 표명 집합. Go 테스트 G-1~G-7 | LOW |
-| **2** | 합성 루트 배선 (`cmd/dongminal/main.go`) · status 핸들러의 표명 등록 | LOW |
+| **2** | 합성 루트 배선 (`cmd/otterminal/main.go`) · status 핸들러의 표명 등록 | LOW |
 | **3** | 브라우저 — `git_changed` 구독, signature 폴링 제거, status 30초 | MEDIUM |
 | **4** | e2e B-1~B-5 | MEDIUM |
 

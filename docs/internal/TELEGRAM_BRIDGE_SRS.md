@@ -59,7 +59,7 @@ Telegram 은 **보기 전용**이다. Telegram 에서 에이전트를 조작하�
 | 링크 버튼의 MagicDNS 짧은 이름 | `http://macmini-office:58146/` 은 "Wrong HTTP URL" 로 거절된다(2026-11-12) |
 | Mini App 주소 | HTTPS 만 받는다 |
 
-### 2.2 Claude Code hook (dongminal 이 이미 거는 것)
+### 2.2 Claude Code hook (otterminal 이 이미 거는 것)
 
 모두 보고만 하고 끝난다. PC 의 Claude Code 를 막지 않는다.
 
@@ -83,7 +83,7 @@ transcript JSONL 에는 응답 글·도구 호출·도구 결과 말고도 시�
 ### 3.1 설정
 
 - **FR-TGB-1** 설정 창에 Telegram 항목을 둔다. 항목은 켜기·끄기, 봇 token, 허용 계정(등록·해제), 무음 시간(분, 기본 5, 0 이면 무음 없음)이다.
-- **FR-TGB-2** 설정은 전용 파일 `~/.dongminal/telegram.json`(권한 600)에 둔다. 일반 설정(`settings.json`)에는 두지 않는다. 일반 설정은 모든 브라우저에 내려가기 때문이다.
+- **FR-TGB-2** 설정은 전용 파일 `~/.otterminal/telegram.json`(권한 600)에 둔다. 일반 설정(`settings.json`)에는 두지 않는다. 일반 설정은 모든 브라우저에 내려가기 때문이다.
 - **FR-TGB-3** token 은 쓰기 전용이다. API 응답·SSE·로그에는 token 을 싣지 않는다. 화면은 "설정됨" 과 봇 이름(`getMe.username`)만 보인다.
 - **FR-TGB-4** token 을 저장하면 서버가 `getMe` 로 확인한다. 실패하면 저장을 거절하고 이유를 보인다. (개정 2: 토픽 기능 확인을 뺐다)
 - **FR-TGB-5** token 을 바꾸면 허용 계정을 지운다.
@@ -146,7 +146,7 @@ transcript JSONL 에는 응답 글·도구 호출·도구 결과 말고도 시�
 - **NFR-TGB-1** 꺼져 있으면 Telegram 으로 아무 요청도 보내지 않고, transcript 를 읽지 않는다.
 - **NFR-TGB-2** 브리지는 PC 의 Claude Code 를 막지 않는다. 막는 hook(대기·결정 반환)을 쓰지 않는다. 사건은 큐로 받고, 큐가 차면 버린다.
 - **NFR-TGB-3** Telegram 은 long polling 으로 받는다(짝맞춤 때문). 들어오는 포트를 열지 않는다.
-- **NFR-TGB-4** Telegram 이 닿지 않거나 429 를 주면 받기는 지수 백오프로 다시 시도한다. 그동안 dongminal 의 다른 기능은 영향받지 않는다. 보내기에 실패한 알림은 로그만 남기고 다시 보내지 않는다.
+- **NFR-TGB-4** Telegram 이 닿지 않거나 429 를 주면 받기는 지수 백오프로 다시 시도한다. 그동안 otterminal 의 다른 기능은 영향받지 않는다. 보내기에 실패한 알림은 로그만 남기고 다시 보내지 않는다.
 - **NFR-TGB-5** transcript 는 완료 알림을 보낼 때 한 번만, 끝에서 최대 512KB 만 읽는다. 감시·주기 조회를 하지 않는다.
 - **NFR-TGB-6** 브리지는 AI 모델을 부르지 않는다.
 

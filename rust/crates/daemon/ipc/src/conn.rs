@@ -1,4 +1,4 @@
-//! 서버(dongminal) 연결 하나 — 요청 읽기, 응답·push 쓰기 큐, 느린 요청의 분리 (DAEMON_SPLIT_SRS FR-14).
+//! 서버(otterminal) 연결 하나 — 요청 읽기, 응답·push 쓰기 큐, 느린 요청의 분리 (DAEMON_SPLIT_SRS FR-14).
 
 use std::collections::{HashMap, VecDeque};
 use std::io::{BufRead, BufReader, Write};
@@ -8,11 +8,11 @@ use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex, Weak};
 use std::thread;
 
-use dm_gocompat::json;
-use dm_shared_dmlog::warnf;
-use dm_shared_platform::IpcStream;
-use dm_shared_toolhub::ToolManager;
-use dm_shared_toolipc::{self as ipc, PanedRequest};
+use otter_gocompat::json;
+use otter_shared_otterlog::warnf;
+use otter_shared_platform::IpcStream;
+use otter_shared_toolhub::ToolManager;
+use otter_shared_toolipc::{self as ipc, PanedRequest};
 use serde::Serialize;
 use tokio::runtime::Handle;
 use tokio::sync::Semaphore;
@@ -143,7 +143,7 @@ impl Conn {
             if n == 1 || n % DROP_LOG_EVERY == 0 {
                 warnf!(
                     None,
-                    "paned: output backpressure — dropped {n} chunks (slow dongminal?)"
+                    "paned: output backpressure — dropped {n} chunks (slow otterminal?)"
                 );
             }
         }

@@ -1,9 +1,9 @@
-//! `dmctl edges`·`dmctl edge` (Go dmctl_edge_test.go 의 관측 기대값).
+//! `otterctl edges`·`otterctl edge` (Go otterctl_edge_test.go 의 관측 기대값).
 
 use serde_json::Value;
 
 use super::*;
-use crate::dmctl::edge::parse_sub_args;
+use crate::otterctl::edge::parse_sub_args;
 
 const EDGES_FAKE_JSON: &str = r#"{
  "node":{"enabled":true,"port":58147,"bind":"0.0.0.0","name":"office","tag":"4321","advertise":"",
@@ -16,7 +16,7 @@ const EDGES_FAKE_JSON: &str = r#"{
 fn run(status: u16, body: &str, args: &[&str]) -> ((i32, String, String), Vec<Req>) {
     let srv = TestServer::fixed(status, body);
     let home = tempfile::tempdir().unwrap();
-    let got = dm(&srv.env(home.path()), args);
+    let got = ctl(&srv.env(home.path()), args);
     (got, srv.requests())
 }
 
@@ -140,14 +140,14 @@ fn edge_usage_never_posts() {
         &["edge", "close", "home/u-1"],
         &["edge", "notify"],
     ] {
-        assert_eq!(dm(&env, args).0, 2, "{args:?}");
+        assert_eq!(ctl(&env, args).0, 2, "{args:?}");
     }
     for args in [
         &["edge", "--help"][..],
         &["edge", "add", "--help"],
         &["edges", "--help"],
     ] {
-        let (rc, out, _) = dm(&env, args);
+        let (rc, out, _) = ctl(&env, args);
         assert!(rc == 0 && !out.is_empty(), "{args:?}");
     }
     // FR-PDM-70
@@ -156,7 +156,7 @@ fn edge_usage_never_posts() {
         &["peer", "invite"],
         &["peer", "remove", "home"],
     ] {
-        assert_ne!(dm(&env, args).0, 0, "{args:?}");
+        assert_ne!(ctl(&env, args).0, 0, "{args:?}");
     }
     assert!(srv.requests().is_empty());
 }
@@ -165,19 +165,19 @@ fn edge_usage_never_posts() {
 fn edge_usage_texts() {
     let home = tempfile::tempdir().unwrap();
     let env = env_at(home.path(), closed_port());
-    let (_, _, err) = dm(&env, &["edge", "bogus"]);
+    let (_, _, err) = ctl(&env, &["edge", "bogus"]);
     assert!(
-        err.starts_with("dmctl edge: 모르는 하위 명령 \"bogus\"\ndmctl edge — "),
+        err.starts_with("otterctl edge: 모르는 하위 명령 \"bogus\"\notterctl edge — "),
         "{err}"
     );
-    let (_, _, err) = dm(&env, &["edge", "add"]);
-    assert_eq!(err, "dmctl edge add: 인자가 1 개여야 합니다\n");
-    let (_, _, err) = dm(&env, &["edge", "invite", "--addr"]);
-    assert_eq!(err, "dmctl edge invite: --addr 에 값이 없습니다\n");
-    let (_, _, err) = dm(&env, &["edge", "add", "--bogus"]);
-    assert_eq!(err, "dmctl edge add: unknown argument: --bogus\n");
-    let (_, _, err) = dm(&env, &["edges", "--bogus"]);
-    assert_eq!(err, "dmctl edges: unknown argument: --bogus\n");
+    let (_, _, err) = ctl(&env, &["edge", "add"]);
+    assert_eq!(err, "otterctl edge add: 인자가 1 개여야 합니다\n");
+    let (_, _, err) = ctl(&env, &["edge", "invite", "--addr"]);
+    assert_eq!(err, "otterctl edge invite: --addr 에 값이 없습니다\n");
+    let (_, _, err) = ctl(&env, &["edge", "add", "--bogus"]);
+    assert_eq!(err, "otterctl edge add: unknown argument: --bogus\n");
+    let (_, _, err) = ctl(&env, &["edges", "--bogus"]);
+    assert_eq!(err, "otterctl edges: unknown argument: --bogus\n");
 }
 
 /// 상대가 보낸 주소·이름, 거절 본문도 찍기 전에 제어 문자를 지운다.
@@ -229,7 +229,7 @@ fn parse_sub_args_forms() {
     );
 }
 
-/// FR-PDM-66·67: dmctl edges 는 lastSeen 을 보이지 않는다.
+/// FR-PDM-66·67: otterctl edges 는 lastSeen 을 보이지 않는다.
 #[test]
 fn edges_hide_last_seen() {
     let body = EDGES_FAKE_JSON.replacen(

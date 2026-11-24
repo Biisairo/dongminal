@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/domain/git/jobs` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/domain/git/jobs` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 오래 걸리는 쓰기를 잡으로 돌리고(줄 흘림·취소·상한·보존), 저장소 단위 상호 배제를 맡는다.
 

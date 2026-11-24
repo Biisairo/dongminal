@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/hub` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/hub` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 커맨드 브로드캐스트(SSE)·포커스·응답 좌석·주의 추적기·git 관측 허브다.
 //!

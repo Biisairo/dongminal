@@ -17,7 +17,7 @@ const CONTEXT_WINDOWS: &[f64] = &[DEFAULT_WINDOW_TOKENS, 1_000_000.0];
 
 /// 에이전트가 모델 이름으로 말하는 창 크기. 말하지 않으면 `None` (FR-AAC-20).
 pub fn window_for_model(agent: &str, model: &str) -> Option<f64> {
-    let a = dm_shared_agentadapter::get(agent.trim()).ok()?;
+    let a = otter_shared_agentadapter::get(agent.trim()).ok()?;
     (a.context_window?)(model)
 }
 

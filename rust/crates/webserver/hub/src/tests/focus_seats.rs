@@ -56,7 +56,7 @@ struct Rec {
 impl SeatConn for Rec {
     fn send<'a>(&'a self, op: u8, payload: &'a [u8]) -> BoxFuture<'a, Result<(), WsError>> {
         Box::pin(async move {
-            assert_eq!(op, dm_shared_toolhub::OP_REPLY_SEAT);
+            assert_eq!(op, otter_shared_toolhub::OP_REPLY_SEAT);
             crate::lock(&self.got).push(payload[0]);
             if self.fail {
                 Err(WsError::ConnectionClosed)

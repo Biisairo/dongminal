@@ -68,10 +68,10 @@ jobs:
           cargo test --workspace --locked
 
       - name: doctor (플랫폼 계층)
-        run: cargo run --locked -q -p dongminal -- doctor
+        run: cargo run --locked -q -p otterminal -- doctor
 
       - name: verify (종단간 22항목)
-        run: cargo run --locked -q -p dongminal -- verify
+        run: cargo run --locked -q -p otterminal -- verify
 
   # ── 빌드 ──────────────────────────────────────────────────────────
   #
@@ -142,7 +142,7 @@ jobs:
           set -euo pipefail
           scripts/build.sh --os linux --arch ${{ matrix.arch }}
           # Q-GRM-1: Go 판처럼 의존이 없는 정적 바이너리여야 한다. 릴리스 노트가 그렇게 말한다.
-          out=dist/dongminal-linux-${{ matrix.arch }}
+          out=dist/otterminal-linux-${{ matrix.arch }}
           file "$out"
           if ! file "$out" | grep -Eq 'statically linked|static-pie linked'; then
             echo "::error::$out 이 정적 링크가 아닙니다."
@@ -269,13 +269,13 @@ jobs:
           find staging -type f -exec mv {} dist/ \;
           cd dist
           # 다섯 대상이 모두 있어야 한다. 하나라도 빠지면 멈춘다.
-          expected=(dongminal-darwin-arm64 dongminal-darwin-amd64 \
-                    dongminal-linux-amd64 dongminal-linux-arm64 \
-                    dongminal-windows-amd64.exe)
+          expected=(otterminal-darwin-arm64 otterminal-darwin-amd64 \
+                    otterminal-linux-amd64 otterminal-linux-arm64 \
+                    otterminal-windows-amd64.exe)
           for f in "${expected[@]}"; do
             [[ -f "$f" ]] || { echo "::error::애셋 누락: $f"; exit 1; }
           done
-          chmod +x dongminal-darwin-* dongminal-linux-*
+          chmod +x otterminal-darwin-* otterminal-linux-*
           sha256sum "${expected[@]}" > SHA256SUMS
           echo "── 애셋"
           ls -lh
@@ -342,30 +342,30 @@ jobs:
 
           **macOS (Apple Silicon)**
           \`\`\`bash
-          curl -fL -o dongminal https://github.com/${{ github.repository }}/releases/download/$VERSION/dongminal-darwin-arm64
-          chmod +x dongminal && xattr -d com.apple.quarantine dongminal
-          ./dongminal start
-          ./dongminal window
+          curl -fL -o otterminal https://github.com/${{ github.repository }}/releases/download/$VERSION/otterminal-darwin-arm64
+          chmod +x otterminal && xattr -d com.apple.quarantine otterminal
+          ./otterminal start
+          ./otterminal window
           \`\`\`
 
           **macOS (Intel)** — 위에서 \`darwin-arm64\` 를 \`darwin-amd64\` 로.
 
           **Linux / WSL**
           \`\`\`bash
-          curl -fL -o dongminal https://github.com/${{ github.repository }}/releases/download/$VERSION/dongminal-linux-amd64
-          chmod +x dongminal
-          ./dongminal start
+          curl -fL -o otterminal https://github.com/${{ github.repository }}/releases/download/$VERSION/otterminal-linux-amd64
+          chmod +x otterminal
+          ./otterminal start
           \`\`\`
 
           **Windows 10 1809+** (PowerShell)
           \`\`\`powershell
-          curl.exe -fL -o dongminal.exe https://github.com/${{ github.repository }}/releases/download/$VERSION/dongminal-windows-amd64.exe
-          .\\dongminal.exe start
-          .\\dongminal.exe window
+          curl.exe -fL -o otterminal.exe https://github.com/${{ github.repository }}/releases/download/$VERSION/otterminal-windows-amd64.exe
+          .\\otterminal.exe start
+          .\\otterminal.exe window
           \`\`\`
 
           브라우저에서 \`http://localhost:58146/\` 로 접속합니다.
-          \`./dongminal\` 을 인자 없이 실행하면 도움말이, \`./dongminal version\` 이 판을 냅니다.
+          \`./otterminal\` 을 인자 없이 실행하면 도움말이, \`./otterminal version\` 이 판을 냅니다.
 
           ## 확인
 
@@ -398,11 +398,11 @@ jobs:
 
           | 파일 | 대상 |
           |---|---|
-          | \`dongminal-darwin-arm64\` | macOS Apple Silicon |
-          | \`dongminal-darwin-amd64\` | macOS Intel |
-          | \`dongminal-linux-amd64\` | Linux x86_64 · WSL |
-          | \`dongminal-linux-arm64\` | Linux ARM64 |
-          | \`dongminal-windows-amd64.exe\` | Windows 10 1809+ |
+          | \`otterminal-darwin-arm64\` | macOS Apple Silicon |
+          | \`otterminal-darwin-amd64\` | macOS Intel |
+          | \`otterminal-linux-amd64\` | Linux x86_64 · WSL |
+          | \`otterminal-linux-arm64\` | Linux ARM64 |
+          | \`otterminal-windows-amd64.exe\` | Windows 10 1809+ |
 
           macOS 산출물은 코드 서명·공증을 하지 않았습니다. 위 \`xattr\` 한 줄이 그래서 필요합니다.
           EOF

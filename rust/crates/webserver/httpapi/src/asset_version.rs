@@ -46,7 +46,7 @@ pub(crate) fn compute_asset_version(fsys: &dyn StaticAssets) -> String {
     let mut names: Vec<String> = all
         .into_iter()
         .filter(|p| !p.starts_with(VENDOR_PREFIX))
-        .filter(|p| matches!(dm_gocompat::path::ext(p), ".js" | ".css"))
+        .filter(|p| matches!(otter_gocompat::path::ext(p), ".js" | ".css"))
         .collect();
     names.sort();
     let mut h = Sha256::new();

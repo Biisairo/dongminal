@@ -5,12 +5,12 @@
 
 use std::future::Future;
 
-use dm_shared_httpresp::Response;
-use dm_webserver_apierr::{self as apierr, Classify, Sentinel};
-use dm_webserver_domain_git_core::{Ctx, Kind};
-use dm_webserver_domain_git_query::Status;
-use dm_webserver_domain_git_write::{self as write, StashPopKept, StashPushOpts, WriteKind};
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_apierr::{self as apierr, Classify, Sentinel};
+use otter_webserver_domain_git_core::{Ctx, Kind};
+use otter_webserver_domain_git_query::Status;
+use otter_webserver_domain_git_write::{self as write, StashPopKept, StashPushOpts, WriteKind};
 use serde::Deserialize;
 
 use crate::GitServer;

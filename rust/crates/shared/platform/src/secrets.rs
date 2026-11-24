@@ -7,10 +7,10 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use dm_gocompat::oserr::{go_error_string, path_error};
+use otter_gocompat::oserr::{go_error_string, path_error};
 
 use crate::shell::{EnvFn, os_env};
-use dm_gocompat::filepath;
+use otter_gocompat::filepath;
 
 /// 비밀 저장소의 오류. 문구는 Go 와 같다.
 #[derive(Debug, Clone, PartialEq, Eq)]

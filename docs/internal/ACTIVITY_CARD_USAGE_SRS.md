@@ -9,7 +9,7 @@
 
 ### 1.1 목적 (Purpose)
 
-Activity 패널의 에이전트 카드는 상태(`working`·도구 이름)와 detail 만 보인다. 그 세션이 맥락을 얼마나 썼는지, 어떤 모델로 돌고 있는지는 `dmctl status` 로만 볼 수 있다. 이 SRS 는 카드에 그 두 가지를 한 줄로 더한다.
+Activity 패널의 에이전트 카드는 상태(`working`·도구 이름)와 detail 만 보인다. 그 세션이 맥락을 얼마나 썼는지, 어떤 모델로 돌고 있는지는 `otterctl status` 로만 볼 수 있다. 이 SRS 는 카드에 그 두 가지를 한 줄로 더한다.
 
 ### 1.2 범위 (Scope)
 
@@ -49,9 +49,9 @@ Activity 패널의 에이전트 카드는 상태(`working`·도구 이름)와 de
 
 ### 2.2 사용량은 서버에 이미 있다
 
-- `dmctl statusline` 프록시가 보낸 값은 `usageStore` 에 도구별로 있다 (`handlers_usage.go`).
+- `otterctl statusline` 프록시가 보낸 값은 `usageStore` 에 도구별로 있다 (`handlers_usage.go`).
 - `toolUsageView(toolID)` 가 그 값을 `context`(사용률·창 크기·토큰·출처)와 `usage`(모델·effort 등)로 돌려준다. statusLine 값이 없으면 Run 멤버에 한해 transcript 추정값으로 `context` 만 채운다.
-- 이 값은 지금 `dmctl status` 로만 나간다. 브라우저로 가는 경로는 없다.
+- 이 값은 지금 `otterctl status` 로만 나간다. 브라우저로 가는 경로는 없다.
 
 ## 3. 요구 (Requirements)
 

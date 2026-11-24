@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-use dm_shared_platform::{Secrets, SecretsError};
+use otter_shared_platform::{Secrets, SecretsError};
 
 use super::fakes::FakeHub;
 use super::fsenv::qe;
@@ -312,7 +312,7 @@ async fn claude_status_line_per_account() {
     assert_eq!(others.len(), 1);
     assert_eq!(others[0]["name"], "ze***@");
     assert!(!r.body.contains("zed@y.com"));
-    let acc = dm_webserver_domain_claudeacct::Account {
+    let acc = otter_webserver_domain_claudeacct::Account {
         email: "a@x.com".into(),
         org_uuid: "org-a".into(),
         ..Default::default()
@@ -338,7 +338,7 @@ async fn claude_accounts_switch_by_and_history() {
         .call(
             "POST",
             "/api/claude-accounts/switch",
-            &format!(r#"{{"id":"{id_a}","by":"dmctl"}}"#),
+            &format!(r#"{{"id":"{id_a}","by":"otterctl"}}"#),
         )
         .await;
     assert_eq!(r.status, 200, "{}", r.body);
@@ -365,7 +365,7 @@ async fn claude_accounts_switch_by_and_history() {
         (&ents[1]["trigger"], &ents[1]["by"], &ents[1]["to"]),
         (
             &serde_json::json!("manual"),
-            &serde_json::json!("dmctl"),
+            &serde_json::json!("otterctl"),
             &serde_json::json!(id_a)
         )
     );

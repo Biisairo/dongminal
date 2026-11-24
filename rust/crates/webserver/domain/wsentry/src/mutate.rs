@@ -1,6 +1,6 @@
 //! 두 목록의 read-modify-write (FR-EDT-22·35). 두 목록은 workspace.json 최상위에 산다 (FR-EDT-19).
 
-use dm_gocompat::json;
+use otter_gocompat::json;
 use serde_json::{Map, Value};
 
 use crate::{Error, Lists, Store};
@@ -35,7 +35,7 @@ impl Store {
             match work.save(&blob, &rev.to_string()) {
                 Ok(new_rev) => {
                     if let Some(c) = &self.commands {
-                        c.broadcast(&dm_webserver_sse::workspace_changed(new_rev));
+                        c.broadcast(&otter_webserver_sse::workspace_changed(new_rev));
                     }
                     return Ok(next);
                 }

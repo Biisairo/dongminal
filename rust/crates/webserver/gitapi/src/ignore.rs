@@ -6,13 +6,13 @@
 
 use std::io;
 
-use dm_gocompat::filepath;
-use dm_gocompat::oserr::{self, go_error_string, path_error};
-use dm_shared_httpresp::Response;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_query as query;
-use dm_webserver_domain_git_write::{self as write, IgnoreResult};
 use http::StatusCode;
+use otter_gocompat::filepath;
+use otter_gocompat::oserr::{self, go_error_string, path_error};
+use otter_shared_httpresp::Response;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_query as query;
+use otter_webserver_domain_git_write::{self as write, IgnoreResult};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -23,7 +23,7 @@ use crate::reply::{
 use crate::req::Req;
 
 /// HEAD 의 내용을 편집기 탭이 열 수 있는 파일로 놓는 자리다. 워킹 트리에는 쓰지 않는다.
-const HEAD_TEMP_DIR: &str = "dongminal-git-head";
+const HEAD_TEMP_DIR: &str = "otterminal-git-head";
 const HEAD_DIR_PERM: u32 = 0o700;
 const HEAD_READ_ONLY_PERM: u32 = 0o444;
 const HEAD_FILE_PERM: u32 = 0o600;

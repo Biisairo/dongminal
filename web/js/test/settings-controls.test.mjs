@@ -11,7 +11,7 @@ import { BASE, SETTINGS, load, plain } from './harness.mjs';
  * (REFACTOR3_FE_SETTINGS_SRS FR-FES-2) `_paintSettingControls` 가 섹션을 돌며 칠한다.
  */
 const CTLS = {
-  'ds-tabfix': 'check', 'ds-tabw': 'number', 'ds-uifs': 'number', 'ds-fgnames': 'check', 'ds-confirmleave': 'check',
+  'ds-tabfix': 'check', 'ds-tabw': 'number', 'ds-uifs': 'number', 'ds-fgnames': 'check', 'ds-confirmleave': 'check', 'ds-attnfavicon': 'check',
   'ds-claudefs': 'check', 'ds-termfs': 'number', 'ds-scrollspeed': 'number',
   // ISSUE_TREE_OPS_SRS FR-ITM-1
   'ds-mighook': 'check', 'ds-mighookpct': 'number', 'ds-treemig': 'check', 'ds-treemigpct': 'number',
@@ -27,7 +27,7 @@ function setup() {
       TermGpu: { enabled: () => false, setEnabled() {} }, I18N: { locale: 'ko', resolve: (v) => v },
       applyTabWidth() {}, applyUiFontScale() {},
       // 설정 전역 — 부팅 전의 값이다(`settings-state.js`). 숫자 넷은 블롭이 오기 전까지 비어 있다.
-      fgTabNames: true, claudeFullscreen: true, confirmLeave: false, editorWordWrap: false, editorMinimap: true,
+      fgTabNames: true, claudeFullscreen: true, confirmLeave: false, attnFavicon: true, editorWordWrap: false, editorMinimap: true,
       tabFixedWidth: false, tabWidthPx: 160, uiFontSize: undefined, termFontSize: undefined,
       claudeScrollSpeed: undefined, migrationHook: undefined, migrationHookCtxPct: undefined,
       issueTreeMigration: undefined, issueTreeCtxPct: undefined, focusEdgeLevel: 0, attnEdgeLevel: 5,
@@ -64,7 +64,7 @@ test('FEC-26: 컨트롤이 섹션의 행 선언에 한 번씩 있고, 포커스 
 test('FEC-26: _paintSettingControls 가 전역 값으로 칠하고, 치는 중인 탭 폭은 덮지 않는다', () => {
   const { ctx, els, app } = setup();
   Object.assign(ctx, {
-    fgTabNames: true, claudeFullscreen: true, confirmLeave: false, editorWordWrap: true,
+    fgTabNames: true, claudeFullscreen: true, confirmLeave: false, attnFavicon: true, editorWordWrap: true,
     editorMinimap: false, tabFixedWidth: true, tabWidthPx: 180,
     migrationHook: false, issueTreeMigration: true, uiFontSize: 18,
   });

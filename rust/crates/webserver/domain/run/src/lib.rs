@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/domain/run` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/domain/run` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! Run(runs.json, 멤버, 프리앰블, 컨텍스트)의 기록과 규칙이다.
 
@@ -9,8 +9,8 @@ mod store;
 
 use std::fmt;
 
-use dm_gocompat::json::is_empty;
-use dm_shared_activity as activity;
+use otter_gocompat::json::is_empty;
+use otter_shared_activity as activity;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub use assign::{AssignPatch, Assignment};

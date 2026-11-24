@@ -7,11 +7,11 @@ use std::time::Duration;
 use base64::Engine;
 use base64::alphabet;
 use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig};
-use dm_gocompat::json::RawMessage;
-use dm_shared_edge::Edge;
-use dm_shared_edgemesh::Frame;
-use dm_shared_humancmd::{self as humancmd, Body, OP_KICK, OP_KILL, Signed};
-use dm_shared_termtext::{self as termtext, FP_SHORT};
+use otter_gocompat::json::RawMessage;
+use otter_shared_edge::Edge;
+use otter_shared_edgemesh::Frame;
+use otter_shared_humancmd::{self as humancmd, Body, OP_KICK, OP_KILL, Signed};
+use otter_shared_termtext::{self as termtext, FP_SHORT};
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
 
@@ -241,7 +241,7 @@ impl Service {
         if !e.helper_key.is_empty() {
             if st.warned.get(fp) != Some(&key) {
                 st.warned.insert(fp.to_string(), key);
-                dm_shared_dmlog::warnf!(
+                otter_shared_otterlog::warnf!(
                     None,
                     "chat: 간선 상대 {} 의 도우미 키가 고정한 값과 다르다 — 그 노드의 사람 명령을 받지 않는다. 다시 고정하려면 간선을 다시 맺는다",
                     termtext::cut(fp, FP_SHORT)

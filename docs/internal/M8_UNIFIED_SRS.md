@@ -53,7 +53,7 @@
 | 말 | 뜻 |
 |---|---|
 | **어댑터** | `internal/shared/agentadapter.Adapter` — 에이전트 하나의 모든 차이가 사는 자리. 기동 방법·프레임 해석·승인 규약·재개 절차 |
-| **소비자** | 어댑터를 쓰는 쪽 — `ToolHub`·`AttnTracker`·Run 오케스트레이션·`dmctl`·브라우저. **에이전트 이름을 모른다** (FR-U-1) |
+| **소비자** | 어댑터를 쓰는 쪽 — `ToolHub`·`AttnTracker`·Run 오케스트레이션·`otterctl`·브라우저. **에이전트 이름을 모른다** (FR-U-1) |
 | **표면(surface)** | 에이전트가 자기 상태를 밖에 내보내는 통로. **프로토콜 표면**(claude `stream-json`·codex `app-server`·omp `--mode rpc-ui`)과 **터미널 표면**(PTY + 훅) |
 | **에이전트 도구** | PTY 가 없고 프로토콜 프레임만 오가는 도구 (축 C 묶음 T) |
 | **터미널 도구** | PTY 도구. 그 셸에서 뜬 에이전트가 **TUI 에이전트**이며 훅으로 관측된다 — **이 문서가 바꾸지 않는다** |
@@ -105,12 +105,12 @@
 | P2 | GO-48 | `architecture.md` 패키지 표에 11개 패키지 누락 | S |
 | P2 | TEST-23·25·26 | 픽스처 7벌 · 호스트 셸 의존 · 전역 훅 교체 | S×3 |
 | P2 | TEST-24 | ~~git 쓰기 0% 함수~~ → **기능 결손 아님으로 정정**(§1.6). 조치는 "커버리지 해석 주의 기록" 으로 축소 | S |
-| P1 | **FBE-01** | `dmctl` 의 10초 고정 타임아웃이 서버의 장기 보류(최대 180초)를 끊는다 — **실패로 보고된 승계가 실제로는 성공해 있고 재시도가 멤버·도구를 이중으로 만든다** | S(클라)+M(서버 ctx = `GO-12`) |
-| P1 | **FBE-02** | `dmctl` 레이아웃 명령 전부가 브라우저 미구독을 성공으로 보고(exit 0) — 같은 종단을 쓰는 `detach` 는 `delivered==0` 을 확인해 exit 1 을 낸다 | S |
+| P1 | **FBE-01** | `otterctl` 의 10초 고정 타임아웃이 서버의 장기 보류(최대 180초)를 끊는다 — **실패로 보고된 승계가 실제로는 성공해 있고 재시도가 멤버·도구를 이중으로 만든다** | S(클라)+M(서버 ctx = `GO-12`) |
+| P1 | **FBE-02** | `otterctl` 레이아웃 명령 전부가 브라우저 미구독을 성공으로 보고(exit 0) — 같은 종단을 쓰는 `detach` 는 `delivered==0` 을 확인해 exit 1 을 낸다 | S |
 | P1 | **FBE-04** | `POST /api/runs/close` 가 브라우저 없이도 "탭을 닫았다" 고 보고 → 존재하지 않는 Run 의 `runId` 표식이 탭에 영구히 남는다 | S |
 | P1 | **FBE-05·FBE-12** | 데몬 모드에서 `POST /api/tools/kill` 의 3초 유예가 적용되지 않는다(실측 50ms) — FR-BGK-7 위반이고 **데몬 모드가 기본 경로**다 | S/M |
-| P1 | **FBE-06** | codex 멤버는 `dmctl run launch` 경로에서 프리앰블을 통째로 잃는다 — 알리는 코드도 문서도 없다 | S |
-| P2 | **FBE-09~11·13~16·18** | `--isolated` 홈 상실 미고지 · 격리 홈 경로 미출력 · 터미널 리셋이 데몬 모드에서만 매 접속 · `dmctl status --member` 없음 · `--model` 무시 무경고 · CLI 에 `run delete`/`graph` 없음 · 없는 `--cwd` 가 조용히 홈으로 폴백 · 붙여넣기 종료 마커 미이스케이프 | S×8 |
+| P1 | **FBE-06** | codex 멤버는 `otterctl run launch` 경로에서 프리앰블을 통째로 잃는다 — 알리는 코드도 문서도 없다 | S |
+| P2 | **FBE-09~11·13~16·18** | `--isolated` 홈 상실 미고지 · 격리 홈 경로 미출력 · 터미널 리셋이 데몬 모드에서만 매 접속 · `otterctl status --member` 없음 · `--model` 무시 무경고 · CLI 에 `run delete`/`graph` 없음 · 없는 `--cwd` 가 조용히 홈으로 폴백 · 붙여넣기 종료 마커 미이스케이프 | S×8 |
 | P2 | **FUI-23** | Run 시작이 UI 에 없다(CLI 전용) — `FBE-15` 와 **반대 방향의 같은 격차**(UI 에는 close 가 없고 CLI 에는 delete 가 없다). 기록만 | S |
 | P2 | **`09` FR-GCC-3·4** | `write.SyncNext`·`StepOutcome` 죽은 코드가 도메인 계층에 남았다 — exported 라 자기 테스트로 초록을 유지해 커버리지·정적분석 어느 쪽도 잡지 못한다 | S |
 | P2 | **`09` D-WBR-8** | "다음 판에서 확인하고 지운다" 한 죽은 분기가 그대로 (`app-layout.js:732-736`) | S |
@@ -155,8 +155,8 @@
 | 층 | 신호원 | 코드 |
 |---|---|---|
 | L1 | OSC 알림 시퀀스 | `toolhub/attention.go` |
-| L1 | `dmctl notify <reason>` | `helper/runtimebin/dmctl_notify.go` |
-| L2 | 에이전트 훅의 활동 보고 → `done`·`waiting` 에서 파생 | `agentadapter.HookParse` → `dmctl activity` → `AttnTracker.SignalAgentEvent` |
+| L1 | `otterctl notify <reason>` | `helper/runtimebin/otterctl_notify.go` |
+| L2 | 에이전트 훅의 활동 보고 → `done`·`waiting` 에서 파생 | `agentadapter.HookParse` → `otterctl activity` → `AttnTracker.SignalAgentEvent` |
 | L2 | idle 추정 (무장·재무장·stale) | `toolhub/tool.go:maybeIdle`, `hub/attn_tracker.go:sweepIdle` |
 
 넷 중 셋이 에이전트를 위한 것이고, 그 셋이 서로를 전제한다. `FR-ATN-6` 의
@@ -220,7 +220,7 @@ P0 의 것(`/tmp/m8-spike/drive.py`), 원본은 `/tmp/m8-spike/p4/*.jsonl`. 턴 
 
 | 프레임 | codex `app-server` (JSON-RPC 2.0) | omp `--mode rpc-ui` (NDJSON) | 근거 |
 |---|---|---|---|
-| 기동·핸드셰이크 | `initialize`→`initialized`→`thread/start{cwd,model?,approvalPolicy?}` 를 **응답을 기다리지 않고 한 번에** 보내도 순서대로 처리된다. 요청 id 는 문자열이어도 된다 (`"dm-1"`). 빈 줄은 무시된다 | 기동 즉시 `ready{protocolVersion:1,supportedProtocolVersions:[1,2],maxFrameBytes:1048576}` → `extension_ui_request{setWidget}` → `available_commands_update{commands[]}`. `negotiate_protocol 2` 는 선택 — 안 하면 큰 프레임을 omp 가 줄여서(compact·shrink·overflow) 보낸다 | 실측 |
+| 기동·핸드셰이크 | `initialize`→`initialized`→`thread/start{cwd,model?,approvalPolicy?}` 를 **응답을 기다리지 않고 한 번에** 보내도 순서대로 처리된다. 요청 id 는 문자열이어도 된다 (`"otter-1"`). 빈 줄은 무시된다 | 기동 즉시 `ready{protocolVersion:1,supportedProtocolVersions:[1,2],maxFrameBytes:1048576}` → `extension_ui_request{setWidget}` → `available_commands_update{commands[]}`. `negotiate_protocol 2` 는 선택 — 안 하면 큰 프레임을 omp 가 줄여서(compact·shrink·overflow) 보낸다 | 실측 |
 | 세션 신원·모델 | `thread/start` 응답 `{thread{id,model,status,path},model,approvalPolicy,sandbox{type}}` — `cwd` 를 안 실으면 프로세스 cwd, `approvalPolicy` 를 안 실으면 설정 기본(`on-request`, sandbox `readOnly`). **부작용 없음** — `approvalPolicy`·`sandbox` 를 싣지 않으면 `~/.codex/config.toml` 에 신뢰 항목이 쓰이지 않는다 (P0 의 §9.3 ⑦ 부작용은 그 인자를 실었을 때였다) | `get_state` 응답 `data{sessionId,model{id,provider,name,contextWindow},contextUsage{tokens,contextWindow,percent},thinkingLevel,isStreaming}` | 실측 |
 | 모델 목록 | `model/list` 응답 `data[{id,model,displayName,description,hidden,supportedReasoningEfforts[]}]` — **자격증명 없이도 온다** (원격 갱신 실패는 stderr 401 로만) | `get_available_models` 응답 `data.models[{id,name,provider,contextWindow,…}]` (11개). `set_model{provider,modelId}` 응답이 모델 객체, 없는 모델은 `success:false,error:"Model not found: p/m"` | 실측 |
 | 턴 | `turn/start{threadId,input[{type:text,text}],model?,approvalPolicy?}` → 응답 `{turn{id,status:inProgress}}` → `thread/status/changed{active}` → `turn/started` → `item/started·completed{userMessage}` → (모델 없음: `thread/status/changed{systemError}` · `error{error{message,codexErrorInfo:unauthorized},willRetry:false}` · `turn/completed{turn{status:failed,error{message}}}`). `turn/start` 의 `model` 은 세션 파일에 남아 재개 때 `warning` 알림으로 되읽힌다 | `prompt{message}` → 즉시 `response{success}` → `agent_start` → `turn_start` → `message_start/end{role:user}` → `message_start{role:assistant}` → (모델 없음: `message_end{stopReason:"error",errorStatus:401,errorMessage}` · `turn_end` · `agent_end{messages[]}`). 스트리밍 중의 `prompt` 는 `streamingBehavior` 가 있어야 받는다 | 실측 (오류 턴) |
@@ -303,14 +303,14 @@ terminal_slash_commands/messaging_socket_path` · `result.terminal_reason/stop_r
 | `agentadapter.InstallAssets` · `claude_install.go` · `omp_install.go` · `install.go` | 훅·shim 자산 배포 |
 | `agentadapter.ParseUsage` · `ContextWindow` | 전사본·모델명에서 사용량 추정 |
 | `parseCodexHook` · `parseOmpHook` · claude 훅 파서 | 위 `HookParse` 의 구현 |
-| `helper/runtimebin/dmctl_activity.go` (+5 테스트) | 훅에서 활동 보고 |
+| `helper/runtimebin/otterctl_activity.go` (+5 테스트) | 훅에서 활동 보고 |
 | `helper/runtimebin/agenthooks.go` | 훅 자산 디렉터리 |
 | `shared/runtime/install.go`·`install_omp.go` | 훅 설치 분기 |
 | `toolhub/agentturn.go` · `Tool.turn` | 턴 상태 추적 (`FR-ATN-1·7`) |
 | `Tool.agentSeen` | "에이전트가 돌고 있다" — 활동 보고가 세운다 |
 | `AttnTracker.SignalAgentEvent` · `SetActivity` | 활동 보고의 수신단 |
 
-**`dmctl notify` 는 이 목록에 없다.** 그것은 에이전트 아닌 것들의 몫이며
+**`otterctl notify` 는 이 목록에 없다.** 그것은 에이전트 아닌 것들의 몫이며
 `FR-ATF-4`(*"명시적 신호는 누가 보냈든 알람이다"*)가 이미 그렇게 선을 그었다.
 
 ---
@@ -331,7 +331,7 @@ terminal_slash_commands/messaging_socket_path` · `result.terminal_reason/stop_r
 
 | ID | 요구 | 등급 |
 |---|---|---|
-| FR-U-1 | **어댑터가 인터페이스다.** 에이전트 하나의 모든 차이(기동 인자·프레임 스키마·승인 규약·재개·종료·사용량 위치)는 `Adapter` 안에서 끝난다. 소비자(`ToolHub`·`AttnTracker`·Run·`dmctl`·브라우저)는 **어댑터 ID 만 알고 에이전트를 모른다** — 에이전트 이름이 등록부 밖에 나오면 안 된다는 규약(`check-agent-names`)이 그것을 지킨다. | 필수 |
+| FR-U-1 | **어댑터가 인터페이스다.** 에이전트 하나의 모든 차이(기동 인자·프레임 스키마·승인 규약·재개·종료·사용량 위치)는 `Adapter` 안에서 끝난다. 소비자(`ToolHub`·`AttnTracker`·Run·`otterctl`·브라우저)는 **어댑터 ID 만 알고 에이전트를 모른다** — 에이전트 이름이 등록부 밖에 나오면 안 된다는 규약(`check-agent-names`)이 그것을 지킨다. | 필수 |
 | FR-U-2 | **같은 어댑터를 우선한다.** 한 `Adapter` 가 터미널 표면(`Launch`·`HookParse`·…)과 프로토콜 표면(`LaunchProto`·`Decode`·`Approve`·…)을 **함께** 든다. 프로토콜 쪽 필드가 비어 있으면 그 에이전트는 에이전트 도구로 뜰 수 없고, 소비자는 그 사실을 부재로 받는다(FR-APS-4). 한 구조체에 담을 수 없는 에이전트가 나오면 **GUI 용 어댑터를 같은 등록부에 따로** 둔다 — 소비자 쪽은 달라지지 않는다 (사용자 결정). | 필수 |
 | FR-U-3 | **병행.** 터미널 도구의 훅·활동 보고·idle 추정·전사본 추정은 **한 줄도 바뀌지 않는다.** 에이전트 도구는 프로토콜만 쓴다. 한 도구는 한 표면만 가지므로(에이전트 도구에는 PTY 가 없어 훅이 돌 자리가 없다) 두 신호 체계는 겹치지 않는다. 옛 묶음 H(`FR-AHR-1~5`)와 묶음 A 의 삭제 조항(`FR-AAL-10·11·12·20·21·22·30`)은 **폐기**. | 필수 |
 | FR-U-4 | **에이전트 도구는 TUI 의 어떤 기능도 막지 않는다.** 프로토콜이 주지 않는 것(로그인·설정 파일·TUI 전용 명령·세션 중 모델 전환이 안 되는 에이전트)은 **TUI 출구**(FR-AGT-10)로 간다. P0 스파이크의 기능 대조표가 무엇이 어느 길인지 확정한다 (§9.1 U-9). | 필수 |
@@ -371,16 +371,16 @@ terminal_slash_commands/messaging_socket_path` · `result.terminal_reason/stop_r
 - 500줄 초과 Go 파일 목록 축소(현재 `handlers_fs.go` 775 · `tool.go` 774 · `handlers_runs.go` 710 · `worktree.go` 701 · `doctor.go` 685). `main.go serve` 158줄 + `buildDeps` 3벌 → `Build(cfg)`/`App.Run(ctx)`/`App.Shutdown()`, 종료 순서 주석(`main.go:571-593`)이 코드가 된다. `doctor.go` 진단 11개가 `[]check{name, fn}` 표.
 - 중복 6건 해소: `decodeParams[T]` 제네릭 + JSON-RPC 코드 상수, `dataPath` 1벌, `HeadlessToolIDs` 부팅 중 1회 읽기, 스냅샷 프레이밍 1벌, `pollUntil(ctx, every, fn)` 1벌, 기본 터미널 크기 상수 1곳.
 - `worktree.go:600` 의 `strings.Contains(p, "..")` 오탐(`a..b` 정상 이름 거부) 해소 + 테스트.
-- Go 테스트: `gittest` 헬퍼로 픽스처 7벌 → 1벌, `DONGMINAL_SHELL` 을 `t.Setenv` 로 고정(조건부 `t.Skip` 110곳 감소).
+- Go 테스트: `gittest` 헬퍼로 픽스처 7벌 → 1벌, `OTTERMINAL_SHELL` 을 `t.Setenv` 로 고정(조건부 `t.Skip` 110곳 감소).
 - **`TEST-24` 정정 반영**: `Merge`·`Replay` 에 함수 단위 테스트를 새로 쓰지 않는다. `10 §4.4` 가 둘 다 기능 완성이고 계약이 `MergeArgs`(`write/branch_test.go:352-375`)와 HTTP 종단(`TestAPIGitBranchMerge`·`handlers_git_replay_test.go` 5건)에서 시험됨을 확인했다. 대신 **커버리지 리포트에 "래퍼 함수의 0% 는 결손이 아니다" 를 주석으로 남기고**, `OperationActions`·`Unwrap` 만 필요 여부를 개별 판단한다.
-- **`dmctl` 계약**: `runPost`/`runGet` 이 서브커맨드별 예산을 받는다(`dmctl_status.go:305-310` `wait` 가 이미 옳게 하는 형태). `run succeed` 가 `--timeout-ms + slack`, `preamble` 이 `handoffPreambleWait + slack`. 서버측 `time.Sleep` 루프가 `select { case <-ctx.Done() }` 로 바뀌어(=`GO-12`) 끊긴 요청의 부작용이 멈춘다. 전임자가 60초 뒤 답해도 `succeed` 가 성공으로 끝남을 통합 테스트로 확인.
-- `dmctlHTTPResult` 가 `delivered`(생성 명령은 `timedOut`·`newTabs` 도)를 판정한다 — 브라우저 없이 `dmctl new-tab` 을 실행하면 **exit 1** 과 `detach` 와 같은 문구가 나온다.
+- **`otterctl` 계약**: `runPost`/`runGet` 이 서브커맨드별 예산을 받는다(`otterctl_status.go:305-310` `wait` 가 이미 옳게 하는 형태). `run succeed` 가 `--timeout-ms + slack`, `preamble` 이 `handoffPreambleWait + slack`. 서버측 `time.Sleep` 루프가 `select { case <-ctx.Done() }` 로 바뀌어(=`GO-12`) 끊긴 요청의 부작용이 멈춘다. 전임자가 60초 뒤 답해도 `succeed` 가 성공으로 끝남을 통합 테스트로 확인.
+- `otterctlHTTPResult` 가 `delivered`(생성 명령은 `timedOut`·`newTabs` 도)를 판정한다 — 브라우저 없이 `otterctl new-tab` 을 실행하면 **exit 1** 과 `detach` 와 같은 문구가 나온다.
 - `POST /api/runs/close` 가 방송 결과를 그대로 `closed` 에 싣는다 — 브라우저 0 이면 `closedTabIDs` 에서 빠져 표식 해제가 정상 동작한다.
 - 데몬 모드에서 `POST /api/tools/kill` 의 유예가 **3초**다(현재 50ms) — `kill` RPC 에 grace 를 싣거나 데몬에 `terminate {id, graceMs}` 를 더한다. 백그라운드 claude 세션이 SIGTERM 후 이력을 남기고 종료함을 확인.
-- `dmctl run launch` 가 `PromptInjection != PromptArgv` 인 에이전트(codex)에서 stderr 로 안내를 낸다 — 프리앰블이 기동줄에 실리지 않으니 `wait --for ready` 뒤 별도로 붙여넣으라는 지시. 헬프의 3단계 절차에 그 분기가 명시된다.
+- `otterctl run launch` 가 `PromptInjection != PromptArgv` 인 에이전트(codex)에서 stderr 로 안내를 낸다 — 프리앰블이 기동줄에 실리지 않으니 `wait --for ready` 뒤 별도로 붙여넣으라는 지시. 헬프의 3단계 절차에 그 분기가 명시된다.
 - `--isolated` 가 도구 홈 상실을 헬프 또는 기동 로그에 알리고, `--foreground` 에서도 격리 홈 경로가 출력된다.
 - `termReset` 이 두 모드에서 같은 조건(첫 복원 시)·같은 순서로 나간다 — 데몬 모드에서 vim 이 도는 탭을 새로고침해도 마우스·bracketed paste 가 꺼지지 않는다.
-- `dmctl status --member <uuid>` 가 동작한다(현재 `wait` 만 `--member` 를 받는다). `dmctl run delete`·`run graph` 가 추가된다.
+- `otterctl status --member <uuid>` 가 동작한다(현재 `wait` 만 `--member` 를 받는다). `otterctl run delete`·`run graph` 가 추가된다.
 - 없는 `--cwd` 가 조용히 홈으로 폴백하지 않고 400 을 낸다.
 - `wrapPaste` 가 본문의 `ESC[201~` 를 제거하고, `apiToolMessage` 가 본문의 엔벨로프 구분자를 치환한다(후자는 보안 축과 조율 — M2 에서 처리했으면 확인만).
 - `write.SyncNext`·`StepOutcome` 과 그 자기 테스트가 제거되고 `app-layout.js:732-736` 의 죽은 editor 분기가 제거된다. **제거할 수 없는 보류가 있으면 M5 의 모범 사례대로 가드 테스트로 봉인**한다.
@@ -410,8 +410,8 @@ terminal_slash_commands/messaging_socket_path` · `result.terminal_reason/stop_r
 | 감지 규칙 | **`navigator.language` 를 쓰지 않는다.** 설정 키 `locale`(`ko`\|`en`)이 유일한 원천이다 — 단일 사용자 제품(결정 7)이고, 감지를 넣으면 e2e 155스펙이 브라우저 로케일에 의존한다 |
 | 폴백 | 활성 로케일에 없는 키는 `ko` 문장으로 표시하고 `console.warn` 한 번(키마다). `ko` 에도 없으면 **키 자체**를 표시하고 경고한다 |
 | `en` 카탈로그 | **전수 번역** — 폴백은 기계적 안전망이지 설계가 아니다 (`scripts/check-i18n.mjs` 가 ko·en 키 집합의 일치를 잡는다) |
-| 전환 | 설정을 저장하면 `localStorage['dm.locale']` 에 비추고 **페이지를 다시 연다** (D-B-1) |
-| 범위 밖 | CLI 출력(`dmctl`·`dongminal`) · 서버 로그 · `SETTINGS_SCHEMA` 의 `where`(문서 필드, Go 가 같은 바이트를 읽는다) · e2e·단위 테스트의 문자열 |
+| 전환 | 설정을 저장하면 `localStorage['otter.locale']` 에 비추고 **페이지를 다시 연다** (D-B-1) |
+| 범위 밖 | CLI 출력(`otterctl`·`otterminal`) · 서버 로그 · `SETTINGS_SCHEMA` 의 `where`(문서 필드, Go 가 같은 바이트를 읽는다) · e2e·단위 테스트의 문자열 |
 | 서버 오류 | 본문은 **바뀌지 않는다**(D-ERR-2). `X-Error-Code` 가 문장의 열쇠이고 문장은 프론트 카탈로그(`err.<code>`)가 든다 (FR-B-8 정정) |
 | 툴팁 | FR-TIP-2(`title` 은 영어)는 **ko 카탈로그의 데이터**로 유지된다 — 규약을 바꾸는 것은 카탈로그 diff 한 번이다 |
 
@@ -533,7 +533,7 @@ claude 의 승인 요청은 **stdio 제어 프레임**(`control_request{subtype:
 (*"모든 접근이 nil 을 견뎌야 한다"*), 이 문서는 그 계약을 종류로 승격시킨다.
 
 **FR-AGT-3** 에이전트 프로세스의 소유는 **터미널 도구의 셸과 같은 자리**다.
-직접 모드는 서버가, 데몬 모드는 `dongminald` 가 든다. 파이프(stdin/stdout/stderr)
+직접 모드는 서버가, 데몬 모드는 `otterminald` 가 든다. 파이프(stdin/stdout/stderr)
 가 PTY 를 대신할 뿐 소유 구조는 바뀌지 않는다.
 
 **FR-AGT-4** UI 는 **최소한** 다음을 그린다: 대화(사용자/에이전트 메시지) ·
@@ -564,7 +564,7 @@ claude 의 TUI 순서 `default → acceptEdits → plan → default` 를 어댑�
 
 **FR-AGT-8** (추가) 에이전트 도구는 **터미널 도구와 같은 소비자 길**을 지난다 —
 `ToolHub` 의 생성·조회·종료·백그라운드, `AttnTracker` 의 알람, Run 오케스트레이션의
-멤버, `dmctl` 의 조회·대기(`wait --for ready` 는 프로토콜의 `system:init` 이 답한다),
+멤버, `otterctl` 의 조회·대기(`wait --for ready` 는 프로토콜의 `system:init` 이 답한다),
 프리셋. 소비자 코드가 도구 종류를 묻는 자리는 **전송이 필요한 곳**(PTY 입출력·
 리사이즈·붙여넣기)뿐이어야 한다 (FR-U-1).
 
@@ -608,7 +608,7 @@ UI 로 노출한다.** 어댑터의 `Proto.Control`(§9.3 ③) 이 지원하는 
 >     자리**에 서고 그 탭은 닫힌다
 >   · **"반대 방향" 의 스파이크는 돌지 않았다** — 그 절반을 `M9_SRS` FR-M9-32·33 이
 >     맡는다. P7 의 실측이 답을 줬다: 세션 id 는 **이미 훅으로 서버에 도착하고 있고**
->     (dongminal 셸이 `claude` 를 래핑해 Run 밖의 탭에도 훅이 붙는다), 없던 것은
+>     (otterminal 셸이 `claude` 를 래핑해 Run 밖의 탭에도 훅이 붙는다), 없던 것은
 >     앉을 자리였다. 그리고 **세 에이전트가 다 되지는 않는다** — codex 는
 >     `Signals.Session` 선언이 없어 세션 신원을 말하지 못한다 (D-M9-21)
 >   · 반대 방향은 **탭을 닫지 않는다** (D-M9-20). 터미널 탭에는 사용자의 셸이 살기
@@ -623,7 +623,7 @@ UI 로 노출한다.** 어댑터의 `Proto.Control`(§9.3 ③) 이 지원하는 
 
 | 층 | 신호원 | 대상 |
 |---|---|---|
-| **L1 명시 신호** | 프로토콜의 `done`·**열린 승인 요청**, OSC 시퀀스, `dmctl notify` | 에이전트 도구 · 모두 |
+| **L1 명시 신호** | 프로토콜의 `done`·**열린 승인 요청**, OSC 시퀀스, `otterctl notify` | 에이전트 도구 · 모두 |
 | **L2 훅** | 활동 보고(`done`·`waiting`·`working`) — **지금 그대로** | 터미널 도구 |
 | **L2 idle 추정** | 무장·재무장·stale — **지금 그대로** | 터미널 도구 |
 
@@ -782,7 +782,7 @@ codex 의 프로토콜 표면은 app-server 뿐이다. experimental 딱지는 R-
 
 **대조 잡 (P4 결정, 2026-09-13)**: `internal/shared/agentadapter/drift_test.go` — 빌드 태그
 `agentdrift` 로 CI 밖에 있다. 어댑터의 `Launch`·`Handshake` 로 **실제 바이너리**(PATH 또는
-`DONGMINAL_AGENT_BIN_DIR`)를 띄워 세션 신원·모델 목록이 어댑터의 `Decode` 로 읽히는지,
+`OTTERMINAL_AGENT_BIN_DIR`)를 띄워 세션 신원·모델 목록이 어댑터의 `Decode` 로 읽히는지,
 핸드셰이크 동안 모르는 프레임이 없는지, stdin EOF 로 끝나는지를 잰다 — 무모델 프레임뿐이다
 (자격증명을 묻지 않는다). **주기는 야간이 아니라 사건이다**: M8 의 단계 착수마다 1회 ·
 에이전트 바이너리의 판이 오를 때 · 어댑터 파일을 고칠 때. 로컬에 스케줄러가 없고 자격증명이
@@ -797,7 +797,7 @@ codex 의 프로토콜 표면은 app-server 뿐이다. experimental 딱지는 R-
 열린 요청이 에이전트 쪽에서 만료되면 그 턴은 거부/실패로 끝난다. 알람을 세워 알릴
 뿐이며 대신 답하지 않는다 (FR-APS-6).
 
-**D-U-8 — L1(OSC·`dmctl notify`)은 남긴다.** (원문 D-6 그대로)
+**D-U-8 — L1(OSC·`otterctl notify`)은 남긴다.** (원문 D-6 그대로)
 
 **D-U-9 — 축 B 가 축 C 앞이다.** 새 UI 의 문구 100여 개가 키로 태어나야 축 B 가
 그것을 한 번 더 걷지 않는다 (§1.1). 축 C 가 지우는 UI 문구는 없다 (병행).
@@ -806,7 +806,7 @@ codex 의 프로토콜 표면은 app-server 뿐이다. experimental 딱지는 R-
 로드 시점에 한 번 평가되고 77파일이 그 이름을 읽는다 — 살아 있는 재렌더는 모든 소비처를
 고치는 일이고 그 값은 이 제품(단일 사용자, 전환은 드물다)에 없다. 설정 저장 → `localStorage`
 비추기 → `location.reload()`. 첫 페인트 전의 `<html lang>` 과 로케일 결정은 head 인라인
-스크립트가 같은 키(`dm.locale`)를 읽는다 (BOOT_SCREEN 의 `dm.themeVars` 와 같은 모양).
+스크립트가 같은 키(`otter.locale`)를 읽는다 (BOOT_SCREEN 의 `otter.themeVars` 와 같은 모양).
 
 **D-B-2 — 게이트가 한글만 본다.** 영어 리터럴을 잡을 기계적 기준이 없다(식별자·CSS 클래스·
 프로토콜 문자열과 구분 불가). 한글 0 이면 "ko 문장이 카탈로그 밖에 없다" 가 보장되고, en 은
@@ -833,7 +833,7 @@ ko 와 **키 집합이 같다**는 검사가 덮는다. CSS `content` 만 라틴
 **D-U-10 — 축 A ⑤(CLI 계약)는 C-a 뒤다.** Run 멤버의 기동 경로가 둘이 된 뒤 한 번에
 본다 — 먼저 고치면 C-a 가 다시 고친다.
 
-**D-A-1 — `dmctl` 의 대기 예산은 서버 상한의 사본이 아니라 같은 상수다.** (P6, FBE-01 클라이언트
+**D-A-1 — `otterctl` 의 대기 예산은 서버 상한의 사본이 아니라 같은 상수다.** (P6, FBE-01 클라이언트
 절반) `runPost`/`runGet` 이 예산을 받고, `succeed` 는 `--timeout-ms`(없으면 서버 기본 180초) + 여유,
 `preamble`(`run launch`·`wait --member`·`status --member` 의 멤버 해석)은 90초 + 여유, `close` 는
 20초 + 40초 여유다. 상한 셋은 `shared/runwait` 한 곳에 있고 서버(`httpapi`)와 CLI(`runtimebin`)가
@@ -842,8 +842,8 @@ ko 와 **키 집합이 같다**는 검사가 덮는다. CSS `content` 만 라틴
 잰다: 예산 계산이 순수 함수(`--timeout-ms 60000` → 70초)이고, 전송이 그 예산을 실제로 쓴다(짧은
 예산은 끊기고 긴 예산은 잇는다).
 
-**D-A-2 — `/api/commands` 를 지나는 `dmctl` 명령은 전부 `delivered` 를 판정한다.** (P6, FBE-02)
-`dmctlPost`·`dmctlSend` 가 응답의 `delivered`·`timedOut` 을 읽는다.
+**D-A-2 — `/api/commands` 를 지나는 `otterctl` 명령은 전부 `delivered` 를 판정한다.** (P6, FBE-02)
+`otterctlPost`·`otterctlSend` 가 응답의 `delivered`·`timedOut` 을 읽는다.
   이전 동작: 브라우저가 없어도 `{"ok":true,"delivered":0}` 를 찍고 exit 0
   새  동작: `delivered==0` 이면 `detach` 와 같은 문구("구독 중인 브라우저가 없습니다 — 페이지를
             새로고침하세요")로 **exit 1**. 생성 명령이 `timedOut` 이면 "브라우저가 결과를 답하지
@@ -862,7 +862,7 @@ ko 와 **키 집합이 같다**는 검사가 덮는다. CSS `content` 만 라틴
 **D-A-4 — codex 의 터미널 표면은 실측대로 `argv` · `--model` 이다.** (P6, FBE-06·14 — 사용자 결정
 2026-09-14 "선언 정정 + 안내 코드") codex 0.154.0 `--help`: `codex [OPTIONS] [PROMPT]` ·
 `-m, --model <MODEL>`. P0 의 "미확인 — 보수적으로 `stdin-after-start`" 는 실측으로 소멸한다.
-  이전 동작: `dmctl run launch --member <codex>` 가 `codex` 한 줄 — 프리앰블·모델 없음
+  이전 동작: `otterctl run launch --member <codex>` 가 `codex` 한 줄 — 프리앰블·모델 없음
   새  동작: `codex --model <m> '<프리앰블>'` — claude·omp 와 같은 한 줄
   이유:     실측. 헬프의 3단계 절차가 이 전제 위에 있었고 codex 만 조용히 어긋났다
 어댑터 계약의 다른 값(`PromptStdinAfterStart` · 빈 `ModelFlag`)은 남으므로 `runSubLaunch` 가 그것을
@@ -884,14 +884,14 @@ ko 와 **키 집합이 같다**는 검사가 덮는다. CSS `content` 만 라틴
 400. 샌드박스는 종전대로 배치기가 판정한다(FR-SBX-41). `toolhub` 의 홈 폴백(`tool.go`)은 **남긴다**
 — 그것은 되살림(`Restore`)의 길이며, tools.json 에 적힌 cwd 가 사라진 도구를 되살릴 때 홈으로
 떨어지는 것이 맞다. `cwdTool` 로 물려받은 cwd 도 같은 검사를 지난다.
-  이전 동작: `dmctl new-window --cwd /없는/경로` → 새 창이 홈에서 뜨고 exit 0
+  이전 동작: `otterctl new-window --cwd /없는/경로` → 새 창이 홈에서 뜨고 exit 0
   새  동작: 도구 생성이 400, 브라우저가 echo 하지 않아 `timedOut` → D-A-2 로 exit 1
   이유:     `manager.go` 의 주석("조용히 걸러 내면 왜 안 붙었는지 알 수 없다")이 이미 이 뜻이다
 
 **D-A-8 — 붙여넣기 본문의 종료 마커와 엔벨로프 구분자는 서버가 치환한다.** (P6, FBE-18)
 `wrapPaste` 는 본문의 `ESC[201~` 를 제거한다(모드가 켜져 있을 때만 — 꺼져 있으면 마커가 뜻이
-없다). `apiToolMessage` 는 본문의 `[DONGMINAL-AGENT-MSG` → `[\DONGMINAL-AGENT-MSG`,
-`[/DONGMINAL-AGENT-MSG` → `[\/DONGMINAL-AGENT-MSG` 로 바꾼다 — 역슬래시 하나가 "인용" 의 표식이고,
+없다). `apiToolMessage` 는 본문의 `[OTTERMINAL-AGENT-MSG` → `[\OTTERMINAL-AGENT-MSG`,
+`[/OTTERMINAL-AGENT-MSG` → `[\/OTTERMINAL-AGENT-MSG` 로 바꾼다 — 역슬래시 하나가 "인용" 의 표식이고,
 헤더의 정확한 바이트열은 서버가 만든 것 하나뿐이 된다. 04-Sec P0-1/2 는 Origin/CSRF 라 M2 가 이것을
 다루지 않았다 — 여기서 닫는다. `agent-context` 본문은 바꾸지 않는다(FR-CTX-3 최소, 훅 표면 불변 V-11).
 
@@ -918,12 +918,12 @@ porcelain 파서·slug·ref 검사 → `parse.go`·`naming.go` · `doctor.go` �
 순서대로 돈다. 항목의 함수 시그니처는 그대로이고 표는 그것을 닫아 넣는 클로저다. 실패 수 집계·
 로그 포획·임시 bin 은 표 밖(전후)이다.
 
-**D-A-12 — `serve` 는 `Build → Run → Shutdown` 이다.** (P7, GO-16) `cmd/dongminal/app.go` 의
+**D-A-12 — `serve` 는 `Build → Run → Shutdown` 이다.** (P7, GO-16) `cmd/otterminal/app.go` 의
 `buildApp(cfg, home, host, port) (*app, error)` 가 조립(데몬 연결·`buildDeps` 3벌·서버·해석층 배선)을,
 `app.run(ctx)` 이 기동(스위퍼·폴·감시·리퍼·HTTP)을, `app.shutdown()` 이 종료를 맡는다. 종료 순서는
 **슬라이스**다 — `shutdownSteps() []shutdownStep{name, fn}` 이 `[마커, 데몬 연결, 도구 저장, 샌드박스,
 LSP, 워크스페이스]` 를 그 순서로 들고 `shutdown` 은 그것을 돈다. 테스트가 이름 순서를 잰다 — 주석이
-코드가 된 자리다. 패키지는 `cmd/dongminal` 그대로다(`internal/webserver/app` 을 만들면 ①·②·④ 의
+코드가 된 자리다. 패키지는 `cmd/otterminal` 그대로다(`internal/webserver/app` 을 만들면 ①·②·④ 의
 패키지를 ③ 아래에서 import 하게 되어 축 규칙에 걸린다).
 
 **D-A-13 — Run 표식의 트리 조작은 `shared/workspace` 의 것이다.** (P7, GO-17) `applyRunMarks`·
@@ -984,7 +984,7 @@ main` + `user.*`) · `gittest.Repo(t)`(첫 커밋까지). 일곱 벌이 이것�
 `testpath.PinShell()` 로 `SHELL` 을 `/bin/bash`(없으면 `/bin/sh`)로 고정한다 — 호스트의 `$SHELL` 이
 검사 경로를 고르지 않는다. zsh 의 rc 사슬을 재는 검사(`history_shell_test`)는 셸 목록(`bash`·`zsh`)을
 서브테스트로 돌고, 없는 셸은 **이름을 남기고** Skip 한다 — "돈 항목 수" 가 아니라 어느 셸이 빠졌는지가
-보인다. Windows 는 무동작(`DONGMINAL_SHELL` 은 그쪽의 값이다).
+보인다. Windows 는 무동작(`OTTERMINAL_SHELL` 은 그쪽의 값이다).
 
 **D-A-22 — 테스트 훅의 교체는 restore 를 돌려주는 헬퍼 한 형식이다.** (P7, TEST-26 · GO-42 결정)
 `attnNow` 는 `stubAttnNow(t, f)` 하나로(`t.Cleanup` 복원). GO-42 의 구조체 필드 주입은 **하지 않는다** —
@@ -1002,12 +1002,12 @@ DoD 의 조건("`t.Parallel()` 도입 패키지")이 성립하지 않고(도입 
   이유:     닿을 수 없는 세션은 되살릴 길도 보일 자리도 없다 — 부팅이 버리는 것과 같은 것
 
 **D-A-24 — `wait` 의 기본 상한도 `runwait` 다.** (P7, P6 유산 — D-A-1 의 연장) `runwait.ActivityWait
-Default`(5분)·`ActivityWaitMax`(30분)을 서버(`/api/tools/activity/wait`)와 `dmctl wait` 가 함께 읽는다.
+Default`(5분)·`ActivityWaitMax`(30분)을 서버(`/api/tools/activity/wait`)와 `otterctl wait` 가 함께 읽는다.
 `waitClientDefaultBudgetMS` 사본은 지운다.
 
 **D-A-25 — 창·탭 생성 실패는 화면에 말한다.** (P7, P6 유산) 원격 명령 `newWindow`·`newTab` 과
 사이드바의 창 추가가 `_newTool` 의 거부(400 `tool_cwd_missing`·샌드박스 실패)를 `_notify` 로 보인다
-(`t('window.create_fail')`·`t('tab.create_fail')`). echo 는 내지 않는다 — `dmctl` 은 D-A-2 의 `timedOut`
+(`t('window.create_fail')`·`t('tab.create_fail')`). echo 는 내지 않는다 — `otterctl` 은 D-A-2 의 `timedOut`
 으로 exit 1 을 이미 받고, 빈 echo 는 "만들어졌다" 로 읽힌다. `_newAgentTool` 의 `opts.resume` 은
 지운다(재개는 `/api/agent/resume`, D-C-11).
 
@@ -1033,7 +1033,7 @@ kind, argv, reason)` 이 허용 목록 대신 **호출자의 인가**(submodule 
   이유:     `job.go` 의 규정("원격 작업은 분 단위이고 취소할 수 있어야 한다")에 서브모듈 clone 이 든다
 
 **D-C-1 — 에이전트 탭은 `type:"agent"` + `toolId` 다.** (P3) 탭 레코드가 종류를 들어야 브라우저가
-목록을 받기 전에도 어느 뷰를 그릴지 안다. `toolId` 를 보는 코드(닫기·복원·백그라운드·`dmctl
+목록을 받기 전에도 어느 뷰를 그릴지 안다. `toolId` 를 보는 코드(닫기·복원·백그라운드·`otterctl
 list-workspace`)는 그대로 닿고, `type==='terminal'` 을 묻던 자리 중 뜻이 "도구가 있는 탭" 이던
 곳(`allPids`)은 `toolId` 유무로 고친다. 종류를 묻는 자리는 D-U-4 의 셋 — 서버 해석층·뷰·전송 호출.
 
@@ -1041,7 +1041,7 @@ list-workspace`)는 그대로 닿고, `type==='terminal'` 을 묻던 자리 중 
 `ToolHooks.OnOutput`(기동 전에 배선, readPTY 고루틴이 부른다), 데몬 모드는 `ToolClient.SetOnOutput`
 의 사슬. 에이전트 도구의 바이트는 `AttnTracker.FeedOutput`(L1 OSC·L2 무장)을 **지나지 않는다**
 (FR-AAL-5) — 그 도구의 알람은 공통 이벤트에서 파생한 활동 보고(`idle`·`working`·`waiting`·`done`·
-`ended`)가 `activity/set` 과 **같은 함수**를 지나 세운다 (FR-APS-2·FR-AGT-8: `dmctl wait --for ready`
+`ended`)가 `activity/set` 과 **같은 함수**를 지나 세운다 (FR-APS-2·FR-AGT-8: `otterctl wait --for ready`
 가 `system:init` 에 답하는 길이 이것이다). 세션은 도구 하나에 하나, 해석은 절대 오프셋 위에서
 한다 — 생성 직후·재접속 뒤·틈이 보이면 `SnapshotTool(Since)` 로 되메운다 (§9.3 ④의 "틈").
 
@@ -1063,11 +1063,11 @@ relay)는 `Tool.Kind` 를 이미 알고 있으므로 싣는 데 비용이 없다
 재개 인자(`--resume <id>`)와 argv 없이 되살릴 수 없다 — 그 되살림은 P5 의 휴면·재개다. 샌드박스
 도구의 제외(FR-SBX-33)와 같은 자리. 데몬이 살아 있으면 서버 재시동은 넘긴다(도구는 데몬의 것).
 
-**D-C-6 — stderr 는 로그로 간다.** (P3) 에이전트 프로세스의 stderr 는 줄 단위로 `dmlog` 에 남긴다.
+**D-C-6 — stderr 는 로그로 간다.** (P3) 에이전트 프로세스의 stderr 는 줄 단위로 `otterlog` 에 남긴다.
 `output` 스트림에 섞지 않는다 — 청크가 줄과 무관해 JSON 한 줄이 갈린다. 연결 끊김의 사유를 UI 에
 싣는 것(§9.3 ④의 `stream:"stderr"`)은 FR-ABG-20 과 함께 P5.
 
-**D-C-7 — 실행 파일은 `DONGMINAL_AGENT_BIN_DIR` 이 먼저다.** (§9.3 ②의 전제) 그 디렉터리에
+**D-C-7 — 실행 파일은 `OTTERMINAL_AGENT_BIN_DIR` 이 먼저다.** (§9.3 ②의 전제) 그 디렉터리에
 `DetectCmd` 이름의 파일이 있으면 그것, 없으면 `PATH`. e2e 는 그 디렉터리에 가짜 에이전트를
 `DetectCmd` 이름으로 놓는다 — 서버·픽스처 어느 쪽에도 에이전트 이름 리터럴이 늘지 않는다.
 
@@ -1121,7 +1121,7 @@ name, sessionId, cwd, approval, permissionMode, model, dormant, reason, at, last
 "hibernated"|"closed"|"died", Detail: "exit <code>", IsError: died}`. 사유는
 서버가 안다: 휴면 절차 중이면 `hibernated`, 사용자가 닫는 중이면 `closed`, 그 밖은 `died`(오류 상태 —
 `idle` 로 읽지 않는다, 활동은 `ended`). 종료 코드는 종료와 함께 나온다 — 직접 모드
-`ExitObserver(id, ExitInfo)`, 데몬 모드 `exit` push 의 `code`. dmlog 에 남기는 것(D-C-6)은 그대로다.
+`ExitObserver(id, ExitInfo)`, 데몬 모드 `exit` push 의 `code`. otterlog 에 남기는 것(D-C-6)은 그대로다.
 공통 어휘가 바뀌지 않으므로 소비자가 바뀌는 자리는 뷰의 `exit` 분기 하나다.
 **개정 (2026-09-25, OPTIMIZE_REFACTOR_SRS D-OPT-6):** stderr 꼬리(마지막 8줄, 2 KiB)를 `ExitInfo` ·
 `exit` push 의 `stderr[]` 로 싣던 절은 폐기한다. 두 모드 모두에서 이미 사라진 기능이었고 남은 것은
@@ -1131,7 +1131,7 @@ name, sessionId, cwd, approval, permissionMode, model, dormant, reason, at, last
 프롬프트 뒤에 온다 — 첫 턴 전에는 되살릴 id 가 없다. `POST /api/agent/hibernate` 는 그때 409
 `agent_no_identity` 다. 활동 `idle` 은 신원이 아니라 **핸드셰이크 응답**에서 파생한다: claude 어댑터는
 `initialize` 응답을 `EvSession{SessionID:""}` 로 낸다("떴다, 신원은 아직 모른다" — FR-APS-4 의 부재) —
-`dmctl wait --for ready` 가 첫 턴 전에도 답을 얻는다. 가짜 claude 도 실제에 맞춘다: `system:init` 은 첫
+`otterctl wait --for ready` 가 첫 턴 전에도 답을 얻는다. 가짜 claude 도 실제에 맞춘다: `system:init` 은 첫
 `user` 프레임 뒤. `--resume` 은 세 판 다 이력 없이 신원만 되돌린다 (U-4).
 
 **D-C-17 — 휴면·오류 도구는 목록에 있다.** (FR-ABG-4 의 전제) `/api/state.tools` 는 toolhub 의 목록에
@@ -1149,7 +1149,7 @@ toolhub 목록을 그대로 본다. 브라우저의 `_applyRemoteWorkspace` 는 
 
 로드맵 §M8 DoD(§3.2)의 항목마다 그 문장이 곧 검증이다 — 경계 테스트(`go list -deps`),
 `-race -shuffle` 전량, 패닉 주입 테스트, `time.Sleep` 0 의 grep, `[]ToolInfo` 의 형
-단언 0, 두 서버 동시 기동 테스트, `dmctl` 의 exit 1 …
+단언 0, 두 서버 동시 기동 테스트, `otterctl` 의 exit 1 …
 
 ### 6.2 축 B
 
@@ -1221,7 +1221,7 @@ V-1~V-3·V-5·V-6 을 CI 에서 돈다. 실제 바이너리의 V-1 은 로컬·�
 - **ACP 채택.** 세 에이전트 모두 네이티브 표면이 더 풍부하다. 네 번째 에이전트의
   폴백 후보로만 둔다.
 - **자동 휴면.** (`FR-ABG-11`)
-- **`dmctl notify`·OSC 감지의 개정.** D-U-8.
+- **`otterctl notify`·OSC 감지의 개정.** D-U-8.
 - **승인 타임아웃 처리.** D-U-7.
 - **모바일 길게 누르기 메뉴** — 축 C 의 UI 에도 `CONTEXT_MENU_UNIFY` §6 이 그대로다.
 - **CLI 출력의 번역** — 축 B 의 정책이 "범위 밖" 으로 적을 가능성이 크다 (FR-B-1 이
@@ -1256,7 +1256,7 @@ PTY 를 전제하는 자리가 남아 있으면 거기서 깨진다. 완화: `Ne
 **R-5 — omp `--mode rpc-ui` 의 프레임 형식을 실측하지 않았다.** README 의 서술만
 근거다. omp 는 릴리스가 잦다. 완화: 착수 시 실측이 선행 조건이다 (§9.1).
 
-**R-6 — ~~터미널 표면 강등~~ (병행으로 폐기, D-U-3).** dongminal 을 쓰는
+**R-6 — ~~터미널 표면 강등~~ (병행으로 폐기, D-U-3).** otterminal 을 쓰는
 이유 중 하나가 여러 탭의 에이전트 감시다. 완화: 강등되어도 **알람은 울린다**
 (`FR-AAL-20`·`21`). 잃는 것은 활동 패널과 컨텍스트 관측이다.
 
@@ -1318,11 +1318,11 @@ ChatGPT 토큰이 만료(`2026-04-03`)·refresh 거부, omp 는 등록된 키 �
 | U-3 | claude `--permission-prompt-tool` 이 MCP 툴을 요구하는가, 그 호출 규약은 무엇인가 | **확인 — MCP 서버가 필요 없다.** `--permission-prompt-tool stdio`(헬프에 없는 숨은 값, 2.1.270 동작) 를 주면 승인이 stdout 의 `{type:"control_request",request_id,request:{subtype:"can_use_tool",tool_name,input,description,permission_suggestions[],blocked_path?,tool_use_id,requires_user_interaction?}}` 로 오고, stdin 으로 `{type:"control_response",response:{subtype:"success",request_id,response:{behavior:"allow",updatedInput}}}`(거부는 `behavior:"deny",message`) 를 보내면 그 한 프레임으로 도구가 실행됐다(파일 생성 확인). `permission_suggestions` 가 TUI 의 "항상 허용/디렉터리 추가/모드 전환" 선택지를 그대로 싣는다(FR-AGT-5 의 근거). `--permission-prompts host` 만 주고 이 플래그가 없으면 요청 없이 **자동 거부** — `system:permission_denied` 프레임과 `result.permission_denials[]`. `ExitPlanMode`·`AskUserQuestion` 도 같은 `can_use_tool` 로 온다(후자는 이 플래그가 있어야 `tools` 목록에 나타난다). **FR-APS-10 과 충돌 — §9.3 ⑥.** |
 | U-4 | 세 프로토콜 각각의 세션 재개 절차와 재개 시 이벤트 로그가 어디부터 오는가 (`FR-ABG-10`) | **확인 (셋 다 이력을 재생하지 않는다 — 새 이벤트만 온다).** claude: `-p --resume <session_id>` → 같은 `session_id` 로 `system:init` 부터, 이전 대화는 프레임으로 오지 않으나 모델은 기억한다(첫 메시지를 인용). 이력은 `~/.claude/projects/<cwd>/<id>.jsonl`(FR-AGT-6 이 읽지 않는 파일). `--fork-session` 으로 새 id 분기 가능. codex: `thread/resume{threadId}` → `thread/status/changed{idle}` + 응답의 `thread` 메타, 이력은 `thread/turns/list`·`thread/items/list` 로 **페이지 조회**(`includeTurns` 전량 하이드레이션은 deprecationNotice). omp: `--mode rpc-ui --resume <id prefix>` → `ready` 부터 같은 `sessionId`, 이력은 `get_messages`/`get_messages_page` 로 조회. **결론**: FR-ABG-4 의 재생 원천은 **우리 이벤트 로그**뿐이며, 재개는 세 어댑터 모두 "인자 하나(id)" 로 성립한다. |
 | U-5 | omp 의 사용량·컨텍스트 창이 프레임에 실리는가 (`FR-AGT-6`) | **확인 — 실린다.** `get_state.contextUsage{tokens,contextWindow,percent}`(라이브: 15,685/1,048,576) · `get_session_stats{tokens{input,output,reasoning,cacheRead,cacheWrite,total},cost,contextUsage}` · `message_end.message.usage{input,output,cacheRead,cacheWrite,totalTokens,cost{…}}`(라이브, 오류 턴이라 0). `model_changed` 이벤트가 모델의 `contextWindow` 를 든다. |
-| U-6 | claude `--bg`/`claude attach` 가 `FR-ABG-10` 의 휴면에 쓸 수 있는가 | **확인 — 쓸 수 없다(반대 방향).** `--bg` 는 `claude daemon run` + `bg-pty-host`(200×50 PTY) 를 띄워 **TUI 를 숨은 PTY 에 살려 두는** 기계다 — 프로세스가 사라지는 휴면이 아니라 dongminal 의 백그라운드 터미널 도구와 같은 자리. `claude stop <id>` 뒤 `--resume` 이 되므로 휴면의 실체는 **`--resume` 하나**다. 부수 발견: `claude agents --json` 이 **대화형 세션까지** `status: busy\|idle` 로 낸다 — 훅 없는 터미널 도구의 보조 신호 후보 (U-10 에 적음). |
+| U-6 | claude `--bg`/`claude attach` 가 `FR-ABG-10` 의 휴면에 쓸 수 있는가 | **확인 — 쓸 수 없다(반대 방향).** `--bg` 는 `claude daemon run` + `bg-pty-host`(200×50 PTY) 를 띄워 **TUI 를 숨은 PTY 에 살려 두는** 기계다 — 프로세스가 사라지는 휴면이 아니라 otterminal 의 백그라운드 터미널 도구와 같은 자리. `claude stop <id>` 뒤 `--resume` 이 되므로 휴면의 실체는 **`--resume` 하나**다. 부수 발견: `claude agents --json` 이 **대화형 세션까지** `status: busy\|idle` 로 낸다 — 훅 없는 터미널 도구의 보조 신호 후보 (U-10 에 적음). |
 | U-7 | 세 프로토콜의 종료 절차 — `ExitCommand` 를 대신할 것이 무엇인가 | **확인 — 셋 다 stdin EOF.** claude: `control_request{subtype:"interrupt"}` → `control_response{still_queued:[]}` + `result{subtype:"error_during_execution",terminal_reason:"aborted_streaming"}` 가 **0.01s**, 그 뒤 stdin 닫으면 **0.84s** 에 종료. codex: `turn/interrupt{threadId,turnId}` 가 있고 stdin 닫으면 **0.06s** 에 exit 0. omp: `abort` 명령이 있고 stdin 닫으면 열린 UI 요청을 거절·세션 dispose 후 exit 0 (**0.05s**, 문서 그대로). **주의**: omp 가 로그인 `input` 대기 중에 stdin 을 닫으면 `input` 재요청이 폭주했다(1,162회, 종료 5s 초과) — 호스트는 열린 요청에 `{cancelled:true}` 로 답한 뒤 닫아야 한다. |
 | U-8 | 데몬 모드에서 파이프 3개를 IPC 로 중계하는 비용 (`FR-AGT-3`, `NFR-3`) | **확인 — 같은 길로 간다. §9.3 ④.** |
 | U-9 | **기능 대조표** | **§9.3 ①.** |
-| U-10 | 세 TUI 가 내는 알림 시퀀스 | **확인.** claude: `preferredNotifChannel` ∈ `auto·iterm2(OSC 9)·iterm2_with_bell·kitty(OSC 99)·ghostty(OSC 777)·terminal_bell(BEL)·notifications_disabled`; 발화는 `idle_prompt`("Claude is waiting for your input") — 턴 완료 후 `messageIdleNotifThresholdMs`(기본 60,000) 경과·그 사이 키 입력 없음·다이얼로그 없음, 그리고 승인 프롬프트. PTY 실측: `iterm2_with_bell` + 승인 프롬프트에서 `OSC 9;Claude is waiting for your input` 포착(2초 임계값). `terminal_bell` 두 회차는 BEL 미포착(포커스 이탈 키가 "상호작용" 으로 읽혀 억제된 것으로 보임 — 조건은 바이너리에서 읽었고 발화는 미재현). 제목 OSC 0 에 상태 글리프(✳·◐·◑)가 실려 "working" 을 말한다. codex: `tui.notification_method` ∈ `osc9·bel`(`codex_tui::notifications::osc9`), 조건 `tui.notifications`/`notification_condition`. omp: `completion.notify`(기본 on)·`ask.notify`(on)·`error.notify`(off) → `TERMINAL.sendNotification` → 터미널 감지에 따라 OSC 9(iterm2·wezterm·ghostty·warp)·OSC 99(kitty)·**BEL(그 외 — dongminal 은 `TERM=xterm-256color` 만 주므로 여기)**; tmux 안에서는 DCS 패스스루 + BEL. dongminal 의 L1 은 OSC 9(9;4 제외)·99·777;notify 를 이미 잡고 BEL 은 `DONGMINAL_ATTENTION_BELL=1` 옵트인이다 — **선택지 C 는 세 TUI 모두에서 보조 채널로 성립**하되 omp 는 BEL 옵트인 또는 `TERM_PROGRAM` 힌트가 필요하다. |
+| U-10 | 세 TUI 가 내는 알림 시퀀스 | **확인.** claude: `preferredNotifChannel` ∈ `auto·iterm2(OSC 9)·iterm2_with_bell·kitty(OSC 99)·ghostty(OSC 777)·terminal_bell(BEL)·notifications_disabled`; 발화는 `idle_prompt`("Claude is waiting for your input") — 턴 완료 후 `messageIdleNotifThresholdMs`(기본 60,000) 경과·그 사이 키 입력 없음·다이얼로그 없음, 그리고 승인 프롬프트. PTY 실측: `iterm2_with_bell` + 승인 프롬프트에서 `OSC 9;Claude is waiting for your input` 포착(2초 임계값). `terminal_bell` 두 회차는 BEL 미포착(포커스 이탈 키가 "상호작용" 으로 읽혀 억제된 것으로 보임 — 조건은 바이너리에서 읽었고 발화는 미재현). 제목 OSC 0 에 상태 글리프(✳·◐·◑)가 실려 "working" 을 말한다. codex: `tui.notification_method` ∈ `osc9·bel`(`codex_tui::notifications::osc9`), 조건 `tui.notifications`/`notification_condition`. omp: `completion.notify`(기본 on)·`ask.notify`(on)·`error.notify`(off) → `TERMINAL.sendNotification` → 터미널 감지에 따라 OSC 9(iterm2·wezterm·ghostty·warp)·OSC 99(kitty)·**BEL(그 외 — otterminal 은 `TERM=xterm-256color` 만 주므로 여기)**; tmux 안에서는 DCS 패스스루 + BEL. otterminal 의 L1 은 OSC 9(9;4 제외)·99·777;notify 를 이미 잡고 BEL 은 `OTTERMINAL_ATTENTION_BELL=1` 옵트인이다 — **선택지 C 는 세 TUI 모두에서 보조 채널로 성립**하되 omp 는 BEL 옵트인 또는 `TERM_PROGRAM` 힌트가 필요하다. |
 
 ### 9.2 초안 검토에서 나온 정정 (R-a~R-k) — 이 문서에 반영된 상태
 
@@ -1337,7 +1337,7 @@ R-j → FR-U-4·FR-AGT-10 · R-k → D-U-3.
 |---|---|---|---|
 | R-a | V-1 · R-1·R-2·R-5 | "녹화된 픽스처가 아니라 실행" 은 **CI 에서 돌 수 없다** — 바이너리도 자격증명도 없다. 계약 드리프트 검사는 로컬·야간 잡으로 두고, CI·e2e 는 **가짜 에이전트**(세 프로토콜을 말하는 작은 Go 프로그램, `gittest` 픽스처와 같은 지위)로 돈다는 검증 전략을 §8 에 적어야 한다 | 세 표면 셋 다 불안정(experimental·비공개 계약·미실측)인데 검증이 실행 하나에 걸려 있다 |
 | R-b | NFR-2 ↔ FR-ABG-4·V-3 | "무한히 자라지 않는다(잘라낸다)" 와 "빠짐없이 재생한다" 가 충돌한다. 잘린 앞부분은 **요약 스냅샷 + 이후 증분**이거나, 잘렸음을 UI 가 표시한다 — 어느 쪽인지 정한다 | 두 요구가 같은 로그를 가리키며 반대 방향이다 |
-| R-c | U-3 · FR-APS-5 | claude 의 `--permission-prompt-tool` 은 **MCP 도구 서버**를 요구한다 — dongminal 이 MCP 서버를 하나 노출해야 한다. 그것은 실측 항목이 아니라 **범위 항목**이다(묶음 P 에 FR 로). 없으면 claude 의 승인 요청이 서버에 오지 않는다 | 승인 요청-응답(FR-APS-5·6, FR-AAL-3)이 이 문서의 핵심인데 claude 쪽 통로가 범위 밖에 있다 |
+| R-c | U-3 · FR-APS-5 | claude 의 `--permission-prompt-tool` 은 **MCP 도구 서버**를 요구한다 — otterminal 이 MCP 서버를 하나 노출해야 한다. 그것은 실측 항목이 아니라 **범위 항목**이다(묶음 P 에 FR 로). 없으면 claude 의 승인 요청이 서버에 오지 않는다 | 승인 요청-응답(FR-APS-5·6, FR-AAL-3)이 이 문서의 핵심인데 claude 쪽 통로가 범위 밖에 있다 |
 | R-d | FR-AAL-21 · D-1 | 전경 프로세스 판정은 `tmux`·`ssh` 안의 에이전트를 못 본다(전경이 `tmux`/`ssh`). 훅은 원격 안에서도 돌았으므로 이것은 D-1 이 잃는 것에 **더해지는** 손실이다 — D-1 의 대가 목록에 적고 받아들이거나, 등록부에 `tmux`·`ssh` 를 투명 셸로 둔다 | 터미널 표면의 알람이 "idle 하나" 에서 "idle 도 없음" 이 되는 경로가 있다 |
 | R-e | FR-AHR-4 | 사용자 홈의 훅 자산을 걷어내는 것은 **사용자 설정 파일(`~/.claude/settings.json` 등)을 고치는 파괴적 조작**이다. 우리가 심은 것만(표식으로 식별) · 백업 뒤 · 보고와 함께 — M3 의 백업 규약(FR-BAK)을 지나야 한다 | 조용한 실패를 없애려다 조용한 파괴가 되지 않게 |
 | R-f | FR-AGT-4 · 묶음 T | 새 UI 표면에 M7 이 세운 계약이 빠져 있다: `UIKit` 로 그린다(버튼·메뉴·모달), axe 표면에 든다(`ACCESSIBILITY_BASELINE_SRS` FR-A11Y-13 의 표면 목록), 키보드 계약(`UIKit.roving`·`dialogOpen`), 라이브 리전(승인 요청 도착), 토큰만 쓴다(게이트가 지킨다). 그리고 M9 뒤라면 **카탈로그 키로 태어난다** | M7·M9 뒤에 오는 첫 대형 UI 이므로 그 계약의 첫 적용 사례가 된다 |
@@ -1546,7 +1546,7 @@ PTY 화면 갱신보다 작다). **다른 것 둘**:
    프레임 하나가 떨어지면 승인 요청이 사라진다. 그래서 에이전트 도구의 `output` 은
    `enqueue(…, droppable=false)` — `exit` 이벤트와 같은 등급. 막히는 것은 그 도구의
    read 고루틴 하나이고, 그것은 파이프를 통해 에이전트에 역압을 준다. NFR-C-3 와의
-   충돌은 "죽은 dongminal" 에서만 생기며 그때는 도구가 멈추는 것이 맞다(오류 상태,
+   충돌은 "죽은 otterminal" 에서만 생기며 그때는 도구가 멈추는 것이 맞다(오류 상태,
    FR-ABG-20). 보조로 서버가 `end` 의 틈을 보면(`prev.end+len(data) != end`)
    `snapshot{since}` 로 메운다 — 링(`outbuf` max)이 그 틈보다 크면 회복된다.
 2. **줄 경계와 stderr.** 청크는 줄과 무관하므로 서버가 도구마다 줄 버퍼를 든다
@@ -1599,7 +1599,7 @@ PTY 화면 갱신보다 작다). **다른 것 둘**:
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-14 | **P7 완료 — M8 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-13, 전량 e2e 는 §1-14. 착수 실측(드리프트 셋 초록) 뒤 재감사 — GO-25·26·D-WBR-8 은 이미 해소(각각 술어의 성질·FR-TRS-12·D-WBR-19), 나머지는 열림. D-A-10~27 신설: 분리는 이동(D-A-10, 500줄 초과 26→20 · 지목 다섯 전부 500 아래) · doctor 표(D-A-11) · `serve`→`buildApp/run/shutdown` + 종료 순서 표(D-A-12) · Run 표식 트리 조작 `workspace.ApplyRunMarks`(D-A-13) · `..` 조각 판정(D-A-14, 동작 변경) · `shared/pollwait`(D-A-15, stop 대기 동작 변경) · JSON-RPC 코드·`decodeParams`·`RPCError`·`CodeToolCap`(D-A-16 — 구현 중 발견: 클라이언트가 오류 응답을 한 번도 오류로 읽지 않았다, 동작 변경) · `DefaultCols/Rows`(D-A-17) · `dataPath` 삭제(D-A-18) · Sync 상태기계 삭제(D-A-19) · `shared/gittest`(D-A-20) · 셸 고정 `PinShell`+셸별 서브테스트(D-A-21) · 훅 stub 한 형식·GO-42 는 조건 미충족 그대로(D-A-22) · 오류 세션 런타임 회수 `Reap`(D-A-23, 동작 변경) · `wait` 기본 상한 `runwait`(D-A-24) · 창·탭 생성 실패 `_notify`(D-A-25) · 남기는 것과 사유(D-A-26: GO-44·한국어 본문 9곳·§5-5 군집·이행 경로·`migrate`·docker 검사) · `submodule update` 는 작업(D-A-27, FBE-08, 동작 변경). §3.2 ⑥·⑦ 이 닫혔다 |
-| 2026-09-14 | **P6 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-11, 전량 e2e 는 §1-12. 착수 실측(드리프트 셋 초록) 뒤 재감사 — FBE-11 은 이미 해소(FR-TRS-12), codex 표면은 실측이 전제를 뒤집음(0.154.0 `[PROMPT]`·`--model`). D-A-1~9 신설: `shared/runwait` 예산(D-A-1) · `dmctlDelivery` exit 1(D-A-2, 동작 변경) · `closedTabs[].closed` 는 방송 결과(D-A-3) · codex 터미널 표면 argv·`--model` + `launchNotes`(D-A-4, 사용자 결정) · `status --member`(D-A-5) · `run delete`·`run graph`(D-A-6) · 없는 `cwd` 400 `tool_cwd_missing`(D-A-7) · `wrapPaste`·`quoteEnvelope`(D-A-8) · 격리 기동 안내·전경 도구 홈(D-A-9, 동작 변경). §3.2 ⑥ 의 `FBE-09~11` 은 P6 가 닫았다(인계서가 그것을 P6 DoD 로 들었다) |
+| 2026-09-14 | **P6 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-11, 전량 e2e 는 §1-12. 착수 실측(드리프트 셋 초록) 뒤 재감사 — FBE-11 은 이미 해소(FR-TRS-12), codex 표면은 실측이 전제를 뒤집음(0.154.0 `[PROMPT]`·`--model`). D-A-1~9 신설: `shared/runwait` 예산(D-A-1) · `otterctlDelivery` exit 1(D-A-2, 동작 변경) · `closedTabs[].closed` 는 방송 결과(D-A-3) · codex 터미널 표면 argv·`--model` + `launchNotes`(D-A-4, 사용자 결정) · `status --member`(D-A-5) · `run delete`·`run graph`(D-A-6) · 없는 `cwd` 400 `tool_cwd_missing`(D-A-7) · `wrapPaste`·`quoteEnvelope`(D-A-8) · 격리 기동 안내·전경 도구 홈(D-A-9, 동작 변경). §3.2 ⑥ 의 `FBE-09~11` 은 P6 가 닫았다(인계서가 그것을 P6 DoD 로 들었다) |
 | 2026-09-14 | **P5 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-9, 전량 e2e 는 §1-10. 세션이 프로세스보다 오래 산다(D-C-11 — `Dormant` hibernated·error, 같은 `toolId` 로 재개 `ReuseID`) · 디스크 `agents/<toolId>.jsonl`+`agents.json`(D-C-12·14) · 요약 스냅샷은 버려진 이벤트의 접힘(D-C-13) · `EvExit` 사유 + stderr 꼬리 `ExitInfo`(D-C-15, 데몬 `exit` push 가 실제 code·stderr 를 싣는다) · 신원 없는 도구는 휴면 불가, claude `initialize` 응답이 `idle`(D-C-16) · 휴면 세션은 `/api/state.tools` 에 합쳐진다(D-C-17). HTTP `hibernate`·`resume`, 오류 코드 셋. P4 발견 둘 해소(가짜 claude 의 init 시점 · codex rejoin). 발견: 틈 되메움이 readLoop 안의 RPC 였다(§2-30, 비동기로) |
 | 2026-09-14 | **P5 착수.** 드리프트 잡 셋 초록. §3.4.4 P5 착수 실측(omp 접두 무제한·모호하면 조용히 고른다 · codex `thread/resume` 이 살아 있는 thread 를 rejoin 한다 · 재 `initialize` 는 `Already initialized`). D-C-11~17 — 휴면·오류는 세션의 상태, 같은 `toolId` 로 재개(`ReuseID`) · 디스크 JSONL(SSE 와 같은 줄)+`agents.json` · 스냅샷은 버려진 이벤트의 접힘 · `EvExit` 가 사유를 든다 · 신원 없는 도구는 휴면 불가(claude 첫 턴 전) · 휴면 도구는 목록에 합쳐진다 |
 | 2026-09-13 | **P4 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-7, 전량 e2e 는 §1-8. codex·omp 어댑터가 같은 `Proto` 구조체에 들어갔다(FR-U-2 첫 판정 — §9.3 ③ P4 판정). §2.3.3 에 P4 재실측 표. D-U-5 의 대조 잡(`drift_test.go`, 사건 주기). F-4 의 설정 키 `agentApprovalMode`. `Handshake` 가 LaunchOpts 를 받는다 · `LaunchOpts.Approval` · `Question.FreeText`. 가짜 에이전트가 세 프로토콜을 말한다 (argv 모양으로 고른다). P4 발견 둘: claude 의 `system:init` 은 첫 프롬프트 뒤(§2-28) · codex 되살림은 thread 를 잃는다(P5) |

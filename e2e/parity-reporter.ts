@@ -43,7 +43,7 @@ import type { Reporter, TestCase, TestResult, FullResult, FullConfig } from '@pl
  * M6 이 막으려던 바로 그 상태를 다른 길로 만든다.
  *
  * **부채는 지운 것이 아니라 자리를 옮긴 것이다.** 수·목록·트레이스는 그대로
- * 남고(`parity-flaky.txt`·잡 요약·아티팩트), `DM_E2E_STRICT_FLAKY=1` 이 M6 의
+ * 남고(`parity-flaky.txt`·잡 요약·아티팩트), `OTTER_E2E_STRICT_FLAKY=1` 이 M6 의
  * 판정을 되살린다 — 계통 결함을 의심할 때 그 자리에서 켠다.
  */
 class ParityReporter implements Reporter {
@@ -92,7 +92,7 @@ class ParityReporter implements Reporter {
   /**
    * `onEnd` 가 `{status}` 를 돌려주면 playwright 가 그것을 최종 상태로 삼는다 —
    * 검사 결과를 고치지 않고 **실행의 판정만** 바꾸는 자리다. 지금은
-   * `DM_E2E_STRICT_FLAKY=1` 일 때만 그 길로 간다 (위 주석의 2026-09-16 개정).
+   * `OTTER_E2E_STRICT_FLAKY=1` 일 때만 그 길로 간다 (위 주석의 2026-09-16 개정).
    */
   async onEnd(_result: FullResult) {
     // 사유는 `test.skip(cond, '사유')` 의 그 문자열이다. playwright 는 그것을
@@ -127,18 +127,18 @@ class ParityReporter implements Reporter {
     // eslint-disable-next-line no-console
     console.log(lines.join('\n'));
     if (!this.flaky.length) return;
-    if (process.env.DM_E2E_STRICT_FLAKY !== '1') {
+    if (process.env.OTTER_E2E_STRICT_FLAKY !== '1') {
       // 부채는 남긴다 — 수·목록은 위에서 이미 찍혔고 트레이스는 아티팩트에 있다.
       // eslint-disable-next-line no-console
       console.log(
         `[parity] flaky ${this.flaky.length}건 — 실패로 올리지 않는다 (CI_GATES_SRS §3, 2026-09-16).\n` +
         '[parity] 재시도 한 번에 통과한 것까지가 flaky 다. 수와 트레이스는 남는다.\n' +
-        '[parity] 계통 결함을 의심하면 DM_E2E_STRICT_FLAKY=1 로 실패로 올린다.');
+        '[parity] 계통 결함을 의심하면 OTTER_E2E_STRICT_FLAKY=1 로 실패로 올린다.');
       return;
     }
     // eslint-disable-next-line no-console
     console.log(
-      `[parity] flaky ${this.flaky.length}건 — DM_E2E_STRICT_FLAKY=1 이므로 실패로 올린다.\n` +
+      `[parity] flaky ${this.flaky.length}건 — OTTER_E2E_STRICT_FLAKY=1 이므로 실패로 올린다.\n` +
       '[parity] 재시도에서 통과한 것은 "가끔 안 되는 것" 이며 사용자는 그것을 그대로 만난다.');
     return { status: 'failed' as const };
   }

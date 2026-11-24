@@ -3,8 +3,8 @@
 use std::io::Write;
 use std::path::Path;
 
-use dm_shared_dmenv as dmenv;
-use dm_shared_serverconf as serverconf;
+use otter_shared_otterenv as otterenv;
+use otter_shared_serverconf as serverconf;
 
 /// 기본 켜짐을 처음 한 번 말한다. `server.json` 의 `updateCheck` 키가 곧 "이미 알렸다" 다 (D-UPD-6).
 pub(crate) fn announce_update_check(
@@ -15,7 +15,7 @@ pub(crate) fn announce_update_check(
     if home.is_empty() {
         return;
     }
-    if getenv(dmenv::ENV_NO_CHECK) == "1" {
+    if getenv(otterenv::ENV_NO_CHECK) == "1" {
         // 이미 막혀 있다. 하지도 않을 일을 알리는 것은 거짓이다.
         return;
     }

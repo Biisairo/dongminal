@@ -19,7 +19,7 @@
 
 넷이다. **둘째가 본체이고 나머지 셋은 그 둘레다.**
 
-1. **`/dongminal:migration` 이 확인되면 묻지 않고 닫는다** — 판정의 근거가 화면이
+1. **`/otterminal:migration` 이 확인되면 묻지 않고 닫는다** — 판정의 근거가 화면이
    아니라 훅 상태이므로, 그 판정이 섰으면 되물을 것이 없다
 2. **에이전트 어댑터 강화** — *"agent 별로 다른 동작은 전부 adaptor 에서 끝나야 한다.
    밖에서는 무조건 agent adaptor 를 통해 동작한다"* (사용자 지시, 반복)
@@ -195,15 +195,15 @@ usage: {"tokens": 489801, "contextWindow": 1000000, "model": "claude-opus-5"}
 2. **한 수치가 둘 이상의 결함을 가질 수 있다.** 첫 고침 뒤에도 증상이 남으면
    *"안 고쳐졌다"* 가 아니라 **"둘이었다"** 를 먼저 의심한다
 
-### 2.4 인계가 드러낸 결함 — `dmctl msg` 가 GUI 에 닿지 않는다 (L11)
+### 2.4 인계가 드러낸 결함 — `otterctl msg` 가 GUI 에 닿지 않는다 (L11)
 
-이 SRS 를 낳은 인계 자체가 그 증거다: `dmctl msg --to <toolId>` 를 **두 번** 보냈고
+이 SRS 를 낳은 인계 자체가 그 증거다: `otterctl msg --to <toolId>` 를 **두 번** 보냈고
 둘 다 *"전송 완료"* 를 냈는데 `/api/agent/events` 에는 `session` 하나뿐이었다.
 
 경로를 따라가면 한 줄에서 끝난다.
 
 ```
-dmctl msg → POST /api/tools/message → apiToolMessage → s.ToolIO.SendPaste(toolID, …)
+otterctl msg → POST /api/tools/message → apiToolMessage → s.ToolIO.SendPaste(toolID, …)
                                                               │
   toolhub/bracketpaste.go:118 ─────────────────────────────────┘
       if p.Kind == KindAgent { return nil }      ← 성공으로 답하고 버린다
@@ -221,7 +221,7 @@ dmctl msg → POST /api/tools/message → apiToolMessage → s.ToolIO.SendPaste(
 
 명령서(`migration.md`)가 같은 자리에서 낡았다:
 
-- 3단계는 `--agent` 로 gui 탭을 열라 하고 7단계는 `dmctl msg` 를 쓰라 한다 — **닿지 않는다**
+- 3단계는 `--agent` 로 gui 탭을 열라 하고 7단계는 `otterctl msg` 를 쓰라 한다 — **닿지 않는다**
 - 8단계의 진단 갈래(*"엔벨로프가 입력줄에 문자열로 남아 있다"*)는 **PTY 를 전제**한다. gui 에는 입력줄이 없다
 - 9단계는 `working` 을 본 뒤에도 사용자에게 확인을 구한다 — **과제 1이 이것이다**
 
@@ -411,12 +411,12 @@ type Controls struct {
   이전 동작: 8단계가 `working` 을 본 뒤에도 마지막에 사용자에게 되묻는다
   새  동작: 8단계가 `working` 을 확인했으면 곧바로 닫는다. **확인하지 못했으면
              종전대로 멈추고 말한다** (절대 원칙 5는 그대로다)
-  이유:     판정의 근거가 화면이 아니라 **훅 상태**(`dmctl wait --for ready` ·
-             `dmctl status`)다. 그 판정이 섰는데 되묻는 것은 같은 답을 두 번 구하는 것
+  이유:     판정의 근거가 화면이 아니라 **훅 상태**(`otterctl wait --for ready` ·
+             `otterctl status`)다. 그 판정이 섰는데 되묻는 것은 같은 답을 두 번 구하는 것
 
 같은 변경에서 gui 갈래를 고친다:
 
-- 6단계: gui 는 `read-screen` 이 없다 — `dmctl status` 의 `live=true` 가 둘째 관문이다
+- 6단계: gui 는 `read-screen` 이 없다 — `otterctl status` 의 `live=true` 가 둘째 관문이다
 - 8단계: gui 의 진단 갈래는 **입력줄이 아니라 `/api/agent/events`** 다
 
 ### FR-M12-10 — 캐럿 앞의 토큰이 `/` 로 시작하면 찾는다 (과제 4)
@@ -606,10 +606,10 @@ description}]}` 가 **매번 통째로** 준다 — 우리가 세지 않는다.
 
 ### FR-M12-21 — GUI 에이전트도 **플러그인을 들고 뜬다** (접수 2026-09-16)
 
-> 사용자 접수: *"dongminal:migration 이 커맨드는 검색이 안되는데 왜그런지 확인"*
+> 사용자 접수: *"otterminal:migration 이 커맨드는 검색이 안되는데 왜그런지 확인"*
 
 **검색의 문제가 아니다.** 라이브 상태를 읽으니 그 세션의 명령 68개에
-`dongminal:migration` 이 **아예 없다.**
+`otterminal:migration` 이 **아예 없다.**
 
 까닭은 `claudeProtoLaunch` 의 argv 에 `--plugin-dir`·`--settings` 가 **없다**는 것이다.
 그 둘은 **셸 래퍼**(`shellhooks/posix/zdotdir/.zshrc` 의 `claude()` 함수)가 붙이므로,
@@ -620,7 +620,7 @@ description}]}` 가 **매번 통째로** 준다 — 우리가 세지 않는다.
 GUI:     claude -p --output-format stream-json …                                    ← 안 붙는다
 ```
 
-그래서 **GUI 에이전트는 `/dongminal:migration`·`/dongminal:team`·`/dongminal:workflow`
+그래서 **GUI 에이전트는 `/otterminal:migration`·`/otterminal:team`·`/otterminal:workflow`
 를 쓸 수 없다.** 인계를 GUI 로 넘기면 그 세션은 다음 인계를 스스로 하지 못한다.
 
   새 동작: 프로토콜 기동도 `PolicyInjection.Flags` 를 싣는다 — 선언은 이미 어댑터에
@@ -788,13 +788,13 @@ L8(omp 의 설명·힌트)과 L9(모델 고르기)는 **어댑터 안**의 결�
 | **V-M12-33** | e2e | 도구를 거절한 턴이 **중단으로** 적힌다 — 오류 빨강도, 경과(`0.1초 걸렸습니다`)도 서지 않는다 |
 | **V-M12-34** | Go 단위 | claude 의 기동 argv 가 **선언한 플래그 전부**(`PolicyInjection.Flags`)를 싣는다 · **깔려 있지 않으면 싣지 않는다** — 셸 래퍼의 `[[ -f ]]`·`[[ -d ]]` 와 같은 규약 (FR-M12-21) |
 | **V-M12-35** | Go 단위 | 기동 argv 를 만드는 문이 **하나다** (`agentLaunchArgv`) — 새 세션과 재개가 같은 문을 지난다. 선언은 종전에도 있었고 **읽는 쪽이 터미널 표면뿐**이었다 |
-| **V-M12-36** | e2e | GUI 에이전트의 슬래시 목록에 **`dongminal:migration` 이 선다** — 접수의 그 명령이다. **흉내를 원본에 맞췄다**: fake 가 `--plugin-dir` 의 `commands/*.md`·`skills/*/SKILL.md` 를 실제로 읽어 명령 목록에 올린다 |
+| **V-M12-36** | e2e | GUI 에이전트의 슬래시 목록에 **`otterminal:migration` 이 선다** — 접수의 그 명령이다. **흉내를 원본에 맞췄다**: fake 가 `--plugin-dir` 의 `commands/*.md`·`skills/*/SKILL.md` 를 실제로 읽어 명령 목록에 올린다 |
 
 ## 7. 갭
 
 | 갭 | 왜 열어 두는가 |
 |---|---|
-| **`dmctl msg` 의 CLI 홉을 합쳐서 재지 않는다** | 두 반쪽을 따로 잰다 — `TestDmctlMsg_SendsToAndFrom`(dmctl → `/api/tools/message`)과 `V-M12-19~21`(그 종단 → `sess.Prompt`). 합친 경로를 e2e 로 재려면 셸이 붙은 터미널 탭에서 실제 바이너리를 돌려야 하고, 그것은 느리고 흔들리며 **두 반쪽이 이미 결정적으로 재어진 자리**에 덧붙는 것이 없다 |
+| **`otterctl msg` 의 CLI 홉을 합쳐서 재지 않는다** | 두 반쪽을 따로 잰다 — `TestOtterctlMsg_SendsToAndFrom`(otterctl → `/api/tools/message`)과 `V-M12-19~21`(그 종단 → `sess.Prompt`). 합친 경로를 e2e 로 재려면 셸이 붙은 터미널 탭에서 실제 바이너리를 돌려야 하고, 그것은 느리고 흔들리며 **두 반쪽이 이미 결정적으로 재어진 자리**에 덧붙는 것이 없다 |
 | **codex 를 실측하지 않았다** | 이 기계에 설치돼 있지 않다. codex 에 대한 기술은 어댑터 소스와 그것이 근거로 삼은 JSON 스키마이며 **실측이 아니다**. `fakeagent` 의 codex 판이 재는 것은 *우리가 믿는 codex* 이지 codex 가 아니다 |
 | **omp 의 편집 도구를 `ToolEdit` 으로 옮기지 않는다** | omp 의 `Arguments` 는 도구마다 모양이 다르고, 편집 도구가 무엇을 싣는지 재지 못했다(실측한 턴에서 도구 호출이 나오지 않았다). 재지 않은 형식을 파싱하면 **없는 변경을 그린다** (D-M11-4) |
 | **omp 의 `model` 명령에 `Form` 을 달지 않는다** | 명령은 목록에 있으나(§2.2) 그 응답 형식을 재지 않았다. `Kind:"models"` 는 `status.models` 를 쓰므로 달 수 있어 보이지만, 고른 값을 **어떤 문자열로** 보내야 하는지가 omp 의 `provider/modelId` 규약과 얽힌다 — `control('set_model')` 이 이미 그 일을 하므로 **메뉴로 충분하다** |
@@ -807,7 +807,7 @@ L8(omp 의 설명·힌트)과 L9(모델 고르기)는 **어댑터 안**의 결�
 
 | 날짜 | 내용 |
 |---|---|
-| 2026-09-16 | **접수 일곱 — FR-M12-16~22 (재기만 끝냈다).** 사용자가 GUI 로 쓰며 낸 것이다. **전부 원인을 확정했다**: ① 서브에이전트 카드에 도구가 **한 줄도 안 선다** — 서브에는 `tool_start` 가 오지 않고 도구가 `assistant` 스냅샷에만 실리는데 화면이 그 블록을 버린다(누수 L2 와 같은 부류, 그때 고친 것이 본 대화 경로뿐이었다) ② `Ctrl+B` 는 **대응 제어가 있다** — CLI 바이너리의 SDK 클라이언트에 `control_request{subtype:"background_tasks", tool_use_id}` 와 `stop_task{task_id}` 가 그대로 있다 ③ **bg 와 서브에이전트는 프로토콜이 한 개념으로 준다** (`task_type: local_bash|local_agent`) — 원본이 *"1 shell, 2 local agents"* 로 모아 적는 함수까지 있다 ④ **`/dongminal:migration` 이 검색되지 않는 것은 검색의 문제가 아니다** — 그 세션의 명령 68개에 아예 없고, `claudeProtoLaunch` 가 `--plugin-dir`·`--settings` 를 싣지 않기 때문이다(셸 래퍼만 붙인다) ⑤ `Cmd+Shift+좌우` 는 **애초에 구현되지 않았다** (`!e.shiftKey` 가 우리 손을 막고 `_moveCaret` 은 언제나 선택을 접는다). 덤으로 `get_context_usage{detail}` 제어를 찾았다(§7 갭). D-M12-4 |
+| 2026-09-16 | **접수 일곱 — FR-M12-16~22 (재기만 끝냈다).** 사용자가 GUI 로 쓰며 낸 것이다. **전부 원인을 확정했다**: ① 서브에이전트 카드에 도구가 **한 줄도 안 선다** — 서브에는 `tool_start` 가 오지 않고 도구가 `assistant` 스냅샷에만 실리는데 화면이 그 블록을 버린다(누수 L2 와 같은 부류, 그때 고친 것이 본 대화 경로뿐이었다) ② `Ctrl+B` 는 **대응 제어가 있다** — CLI 바이너리의 SDK 클라이언트에 `control_request{subtype:"background_tasks", tool_use_id}` 와 `stop_task{task_id}` 가 그대로 있다 ③ **bg 와 서브에이전트는 프로토콜이 한 개념으로 준다** (`task_type: local_bash|local_agent`) — 원본이 *"1 shell, 2 local agents"* 로 모아 적는 함수까지 있다 ④ **`/otterminal:migration` 이 검색되지 않는 것은 검색의 문제가 아니다** — 그 세션의 명령 68개에 아예 없고, `claudeProtoLaunch` 가 `--plugin-dir`·`--settings` 를 싣지 않기 때문이다(셸 래퍼만 붙인다) ⑤ `Cmd+Shift+좌우` 는 **애초에 구현되지 않았다** (`!e.shiftKey` 가 우리 손을 막고 `_moveCaret` 은 언제나 선택을 접는다). 덤으로 `get_context_usage{detail}` 제어를 찾았다(§7 갭). D-M12-4 |
 | 2026-09-16 | **접수 넷 — FR-M12-11~15.** ① **컨텍스트 462% 는 결함이 둘이었다** — 창은 FR-M12-6 으로 이미 고쳐져 있었고(라이브 확인: 1000000) 분자가 따로 틀렸다. `result.usage` 는 **턴 안의 요청들을 합한 값**이며 §2.3 의 결론이 뒤집혔다(§2.3b — 잰 두 턴이 도구를 안 써 요청이 하나뿐이었다) ② **큐가 끊김보다 먼저 선다** — `interrupt` 의 응답은 *"프레임을 썼다"* 이지 *"턴이 끝났다"* 가 아니다. 사용자는 그것을 *새 프롬프트가 0초 만에 중단됐다* 로 읽었다 ③·④ 고르는 화면의 가독성·엔터와 도는 중 표시의 자리. **RED 를 보려고 흉내를 원본에 맞췄다** — fake 가 끊김의 `result` 를 같은 순간에 내어 검사가 초록이었다(§2-11). 계약이 바뀐 기존 검사 둘(`V-M11-65` 의 선택자 · `V-M9-39/40` 의 머리 계약)을 같은 변경에서 고쳤다 |
-| 2026-09-16 | **구현 — FR-M12-1~10.** 어댑터가 `Detail`·`ToolEdit`·`Background` 를 싣고(claude 는 블록에, codex·omp 는 `tool_start` 에 — **입력이 드러나는 시점이 프로토콜마다 다르다**), 화면의 `agentDetail`·`_isBackground` 가 사라지고 `_mkDiff` 가 어댑터가 준 어휘만 그린다. `/model`·`/config` 는 `ProtoCommand.Form` 선언으로 서고, `/model` 은 메뉴와 **같은 손**(`control('set_model')`)으로 합쳐졌다. `dmctl msg`·`send-input` 은 **문 하나**(`deliverToTool`)를 지나 에이전트 세션으로 간다. `claudePickModelUsage` 가 세션 모델로 고른다. **프로브가 목록의 범위를 고쳤다**: L2 를 무력화하니 codex 만 떨어졌고 omp 는 통과했다 — omp 의 shell 이 마침 `command` 를 써서 **우연히 맞고 있었다**(§2.1b). **기존 검사 셋이 계약 변경으로 떨어져 같은 변경에서 고쳤다** (`V-M11-65` 는 화면 대신 나가는 요청을 재게, `V-M11-66` 계열은 흉내에 `config` 를 더해, `TestFake_PongTurn` 은 명령 수 대신 선언의 유무를 재게). **FR-M12-7 은 범위를 좁혔다** — 초안의 방어는 FR-M12-6 이 이미 막는 경우까지 덮었다 |
-| 2026-09-16 | **초안.** 사용자가 과제 넷을 지정했고 둘째(어댑터 강화)가 본체다. **고치기 전에 세었다** — 사용자가 여섯을 지목했고 실제로는 **열둘**이었으며, 그중 지목된 하나(서브에이전트 묶기)는 이미 어댑터를 지나고 있었다. **실측이 가설 둘을 뒤집었다**: ① 300% 의 원인은 *"누적과 순간이 섞였다"* 가 아니다 — `result.usage` 는 턴별이고 분자는 옳다. 틀린 것은 **분모**이며, `modelUsage` 에 항목이 **둘**(haiku 200k · opus 1M)이고 사전순 첫 항목을 고르는 코드가 haiku 의 창을 집었다(주석은 *"보통 하나다"*). ② omp 의 명령 목록이 *"이름뿐"* 이라는 어댑터 주석이 **틀렸다** — 실측한 프레임이 `description`·`input.hint`·`subcommands`·`aliases` 를 전부 싣는다. **인계 자체가 결함 하나를 드러냈다**: `SendPaste` 가 `KindAgent` 에 `return nil` 이라 `dmctl msg` 가 *"전송 완료"* 를 내고 버린다 — 받는 쪽(`sess.Prompt`)은 이미 있고 부르는 곳이 없었다. D-M12-1·2·3 · FR-M12-1~10 · V-M12-1~26 |
+| 2026-09-16 | **구현 — FR-M12-1~10.** 어댑터가 `Detail`·`ToolEdit`·`Background` 를 싣고(claude 는 블록에, codex·omp 는 `tool_start` 에 — **입력이 드러나는 시점이 프로토콜마다 다르다**), 화면의 `agentDetail`·`_isBackground` 가 사라지고 `_mkDiff` 가 어댑터가 준 어휘만 그린다. `/model`·`/config` 는 `ProtoCommand.Form` 선언으로 서고, `/model` 은 메뉴와 **같은 손**(`control('set_model')`)으로 합쳐졌다. `otterctl msg`·`send-input` 은 **문 하나**(`deliverToTool`)를 지나 에이전트 세션으로 간다. `claudePickModelUsage` 가 세션 모델로 고른다. **프로브가 목록의 범위를 고쳤다**: L2 를 무력화하니 codex 만 떨어졌고 omp 는 통과했다 — omp 의 shell 이 마침 `command` 를 써서 **우연히 맞고 있었다**(§2.1b). **기존 검사 셋이 계약 변경으로 떨어져 같은 변경에서 고쳤다** (`V-M11-65` 는 화면 대신 나가는 요청을 재게, `V-M11-66` 계열은 흉내에 `config` 를 더해, `TestFake_PongTurn` 은 명령 수 대신 선언의 유무를 재게). **FR-M12-7 은 범위를 좁혔다** — 초안의 방어는 FR-M12-6 이 이미 막는 경우까지 덮었다 |
+| 2026-09-16 | **초안.** 사용자가 과제 넷을 지정했고 둘째(어댑터 강화)가 본체다. **고치기 전에 세었다** — 사용자가 여섯을 지목했고 실제로는 **열둘**이었으며, 그중 지목된 하나(서브에이전트 묶기)는 이미 어댑터를 지나고 있었다. **실측이 가설 둘을 뒤집었다**: ① 300% 의 원인은 *"누적과 순간이 섞였다"* 가 아니다 — `result.usage` 는 턴별이고 분자는 옳다. 틀린 것은 **분모**이며, `modelUsage` 에 항목이 **둘**(haiku 200k · opus 1M)이고 사전순 첫 항목을 고르는 코드가 haiku 의 창을 집었다(주석은 *"보통 하나다"*). ② omp 의 명령 목록이 *"이름뿐"* 이라는 어댑터 주석이 **틀렸다** — 실측한 프레임이 `description`·`input.hint`·`subcommands`·`aliases` 를 전부 싣는다. **인계 자체가 결함 하나를 드러냈다**: `SendPaste` 가 `KindAgent` 에 `return nil` 이라 `otterctl msg` 가 *"전송 완료"* 를 내고 버린다 — 받는 쪽(`sess.Prompt`)은 이미 있고 부르는 곳이 없었다. D-M12-1·2·3 · FR-M12-1~10 · V-M12-1~26 |

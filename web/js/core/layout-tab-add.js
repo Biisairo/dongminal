@@ -182,7 +182,7 @@ class LayoutTabAdd extends Controller {
     const id = newEntityId();
     const given = typeof opts.name === 'string' && opts.name;
     const name = clampEntityName(given ? opts.name : TAB_NAME_DEFAULT);
-    // FR-TAN-2: `dmctl new-tab --name` 으로 받은 이름은 manual 이다 — 워크플로우·
+    // FR-TAN-2: `otterctl new-tab --name` 으로 받은 이름은 manual 이다 — 워크플로우·
     // team 스킬의 역할명이 이 경로를 지나므로 그것만으로 만족된다.
     const tab = { id, name, type: TAB_TYPE_TERMINAL, toolId: p.id };
     if (given) tab.nameSource = NAME_SOURCE_MANUAL;

@@ -10,7 +10,7 @@ import { tmpPath, realPath } from './osenv';
 
 // UI_POLISH_SRS — 화면 다듬기. TC-UIP-1~6·8~12.
 
-const FIXTURES = tmpPath('dm-git-fx-uip-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-uip-' + process.pid);
 test.beforeAll(() => { gitFixture(FIXTURES); });
 test.afterAll(() => { cleanGitFixture(FIXTURES); });
 const fx = (name: string) => realPath(join(FIXTURES, name));

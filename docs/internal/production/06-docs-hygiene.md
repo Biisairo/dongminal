@@ -55,42 +55,42 @@ archive 이동 자체는 일관되게 이뤄지고 있음(구현 완료된 것�
 ### 2-1. `commands.md` vs 실제 CLI 서브커맨드
 
 **중요 정정**: 사용자 요청은 `internal/ctl/cli/`를 대조 대상으로 지정했으나, 그
-디렉터리는 `dongminal start/stop/doctor/verify` 등 **서버 관리용 CLI**이고,
-`commands.md`가 문서화하는 `dmctl`/`edit`/`detach`/`download`의 실제 구현은
-`internal/helper/runtimebin/dmctl.go`(멀티콜 서브커맨드 디스패치)에 있다.
-근거: `internal/helper/runtimebin/dmctl.go:13-153`.
+디렉터리는 `otterminal start/stop/doctor/verify` 등 **서버 관리용 CLI**이고,
+`commands.md`가 문서화하는 `otterctl`/`edit`/`detach`/`download`의 실제 구현은
+`internal/helper/runtimebin/otterctl.go`(멀티콜 서브커맨드 디스패치)에 있다.
+근거: `internal/helper/runtimebin/otterctl.go:13-153`.
 
-`dmctl.go`의 `dmctlHelp` 상수와 `runDmctlSpecial`/`runDmctlWithFlags`/
-`dmctlSimpleActions`에 등록된 전체 서브커맨드와 `commands.md`를 대조:
+`otterctl.go`의 `otterctlHelp` 상수와 `runOtterctlSpecial`/`runOtterctlWithFlags`/
+`otterctlSimpleActions`에 등록된 전체 서브커맨드와 `commands.md`를 대조:
 
 | 서브커맨드 | 코드에 존재 | commands.md 문서화 |
 |---|---|---|
 | new-window, new-tab, split-h/v, focus, close-tab/window, window-next/prev, tab-next/prev, tool-up/down/left/right, rename-tab, rename-window, list-workspace, who-am-i, send | ✅ | ✅ |
-| **open-editor** | ✅ (`dmctl.go:32,142`) | ❌ 없음 (`edit` 헬퍼가 내부적으로 이 액션을 브로드캐스트한다는 서술만 있음) |
-| **open-url** | ✅ (`dmctl.go:33,144`) | ❌ 없음 |
-| **notify** | ✅ (`dmctl.go:36,130`) | ❌ 없음 |
-| **activity** | ✅ (`dmctl.go:37,132`) | ❌ 없음 |
-| **agent-context** | ✅ (`dmctl.go:38,134`) | ❌ 없음 |
-| **read-screen / read-output** | ✅ (`dmctl.go:42-43,136`) | ❌ 없음 |
-| **send-input** | ✅ (`dmctl.go:44,138`) | ❌ 없음 |
-| **msg** | ✅ (`dmctl.go:45,140`) | ❌ 없음 |
-| **status / wait** | ✅ (`dmctl.go:46-47,146,148`) | ❌ 없음 |
-| **run start/member/launch/report/status/list/close** | ✅ (`dmctl.go:49-54,150`) | ❌ 없음 |
-| `rename-tab --auto` | ✅ (`dmctl.go:30,232-248`) | ❌ 없음 (`--auto` 플래그 미언급) |
-| `new-window --cwd` | ✅ (`dmctl.go:81`) | ❌ 없음 (`--name`/`-n`/`--sandbox`/`--workdir`만 문서화) |
+| **open-editor** | ✅ (`otterctl.go:32,142`) | ❌ 없음 (`edit` 헬퍼가 내부적으로 이 액션을 브로드캐스트한다는 서술만 있음) |
+| **open-url** | ✅ (`otterctl.go:33,144`) | ❌ 없음 |
+| **notify** | ✅ (`otterctl.go:36,130`) | ❌ 없음 |
+| **activity** | ✅ (`otterctl.go:37,132`) | ❌ 없음 |
+| **agent-context** | ✅ (`otterctl.go:38,134`) | ❌ 없음 |
+| **read-screen / read-output** | ✅ (`otterctl.go:42-43,136`) | ❌ 없음 |
+| **send-input** | ✅ (`otterctl.go:44,138`) | ❌ 없음 |
+| **msg** | ✅ (`otterctl.go:45,140`) | ❌ 없음 |
+| **status / wait** | ✅ (`otterctl.go:46-47,146,148`) | ❌ 없음 |
+| **run start/member/launch/report/status/list/close** | ✅ (`otterctl.go:49-54,150`) | ❌ 없음 |
+| `rename-tab --auto` | ✅ (`otterctl.go:30,232-248`) | ❌ 없음 (`--auto` 플래그 미언급) |
+| `new-window --cwd` | ✅ (`otterctl.go:81`) | ❌ 없음 (`--name`/`-n`/`--sandbox`/`--workdir`만 문서화) |
 
 역방향(문서에만 있고 코드에 없는 것)은 0건 — commands.md에 적힌 것은 전부 코드에
 실재한다.
 
-**[P1] `commands.md`가 `dmctl` 서브커맨드의 절반 가까이를 문서화하지 않는다**
-근거: `internal/helper/runtimebin/dmctl.go:36-57` (에이전트 접합면·오케스트레이션
+**[P1] `commands.md`가 `otterctl` 서브커맨드의 절반 가까이를 문서화하지 않는다**
+근거: `internal/helper/runtimebin/otterctl.go:36-57` (에이전트 접합면·오케스트레이션
 실행 기록 섹션 전체) vs `docs/external/commands.md:17-97`.
 현상: 에이전트 간 화면 읽기/입력 주입(`read-screen`, `send-input`, `msg`),
 상태 대기(`status`, `wait`), Run 오케스트레이션 기록(`run *`), `notify`/`activity`/
 `agent-context`, `open-editor`, `open-url` — 총 13개 이상의 서브커맨드가
 `commands.md`에 전무하다. `agent-orchestration.md`에서 이를 다루는지 확인했으나
 그 문서는 `api.md`의 `/api/tools/output`·`input`·`message` 3개만 링크할 뿐
-(`docs/external/agent-orchestration.md:124`), `dmctl` CLI 서브커맨드 목록 자체를
+(`docs/external/agent-orchestration.md:124`), `otterctl` CLI 서브커맨드 목록 자체를
 다루지 않는다. 사용자가 외부 문서만으로는 이 CLI 표면의 존재 자체를 알 수 없다.
 제안 조치: `commands.md`에 "에이전트 접합면"·"오케스트레이션 실행 기록" 절 추가,
 또는 `agent-orchestration.md`가 이 서브커맨드들의 사용법을 대신 다루도록 상호
@@ -112,7 +112,7 @@ api.md에 적힌 엔드포인트는 전부 코드에 실재함(역방향 불일�
 |---|---|---|
 | **`/api/git/*` 전체** | 60개 이상 (`gitapi/routes.go:16-88`: repos/status/stage/commit/branch/stash/tag/remote/fetch/pull/push/log/blame/diff 등) | **0건** |
 | **`/api/runs/*` 전체** | 13개 (`handlers_api.go:91-116`: 시작/멤버/보고/종료/graph/attach/detach/succeed/handoff/context/peers/preamble/delete) | **0건** |
-| `/api/tools/activity/get`, `/api/tools/activity/wait` | 2개 (`handlers_api.go:88-89`, `dmctl status`/`wait` 백엔드) | 0건 |
+| `/api/tools/activity/get`, `/api/tools/activity/wait` | 2개 (`handlers_api.go:88-89`, `otterctl status`/`wait` 백엔드) | 0건 |
 | `/api/tools/kill` | 1개 (`handlers_api.go:112`) | 0건 |
 | `/api/sandbox/*` | 5개 (`handlers_api.go:121-126`) | 0건 |
 | `/api/access` (GET/PUT) | 2개 (`handlers_api.go:134-135`) | 0건 |
@@ -188,7 +188,7 @@ README는 요약 표라 누락이 덜 치명적이나 shortcuts.md는 "기본값
 **[P1] LICENSE 파일과 README 라이선스 절이 모두 없다**
 근거: `LICENSE`/`LICENSE.md`/`LICENSE.txt` 파일 부재(§5), README.md 전문 검색
 결과 "license"/"라이선스" 0건, `.github/`에도 라이선스 관련 파일 없음.
-현상: GitHub 공개 저장소(`github.com/Biisairo/dongminal`)로 배포되는데
+현상: GitHub 공개 저장소(`github.com/Biisairo/otterminal`)로 배포되는데
 재사용·재배포·특허 조건이 명시되지 않았다. GitHub 기본 정책상 라이선스가
 없으면 "All rights reserved"로 간주되어 포크·기여·재배포가 법적으로
 불명확해진다.
@@ -218,7 +218,7 @@ garbage: 0
 `git ls-files` 결과, 다음은 **현재 전혀 추적되지 않는다**(모두 0건):
 
 ```
-git ls-files | grep -E "^dongminal$"        → 0건
+git ls-files | grep -E "^otterminal$"        → 0건
 git ls-files | grep -E "^dist/"             → 0건
 git ls-files | grep -E "^playwright-report/" → 0건
 git ls-files | grep -E "^test-results/"     → 0건
@@ -226,22 +226,22 @@ git ls-files | grep -E "^\.playwright-mcp/"  → 0건
 git ls-files | grep -E "^node_modules/"     → 0건
 ```
 
-`.gitignore`(전체 47줄)에 이미 `/dongminal`, `/dist/`, `node_modules/`,
+`.gitignore`(전체 47줄)에 이미 `/otterminal`, `/dist/`, `node_modules/`,
 `playwright-report/`, `test-results/`, `.playwright-mcp/` 전부 등재되어 있고
-(`.gitignore:2,47,29-31,37`), 작업 디렉터리의 16MB `dongminal` 바이너리·
+(`.gitignore:2,47,29-31,37`), 작업 디렉터리의 16MB `otterminal` 바이너리·
 `.playwright-mcp/`(143항목)·`dist/`·`node_modules/` 등은 git 추적 상태가 아닌
 untracked 파일임을 확인했다. **요청에서 전제한 "루트 바이너리·산출물이 git에
 추적된다"는 가정은 사실이 아니다** — 현재 워킹트리 위생은 양호하다.
 
 ### 실제 위생 문제 — **git 히스토리에 과거 바이너리가 반복 커밋되어 팩 크기를 부풀림 (재검증 완료)**
 
-audit-secops 축이 "`dongminal`(루트)·`dist/`·`playwright-report/`·`test-results/`·
+audit-secops 축이 "`otterminal`(루트)·`dist/`·`playwright-report/`·`test-results/`·
 `.playwright-mcp/`는 git 미추적이며 과거 커밋 이력도 없다"고 보고해 본 항목과의
 정합성을 team-lead 요청으로 재검증했다. 결론: **충돌 아님 — 서로 다른 경로를
 가리킨다.** secops가 확인한 5개 경로는 실측으로도 전부 이력 0건임을 재확인했고
-(`git log --all --oneline -- dongminal / dist/ / playwright-report/ /
+(`git log --all --oneline -- otterminal / dist/ / playwright-report/ /
 test-results/ / .playwright-mcp/` → 전부 `0`), 본 항목이 지적하는 것은 **그와
-다른 두 경로**(`remote-terminal`, `bin/dongminal`)다.
+다른 두 경로**(`remote-terminal`, `bin/otterminal`)다.
 
 **1MB 초과 blob 실측** (`git rev-list --objects --all | git cat-file
 --batch-check='%(objecttype) %(objectname) %(objectsize) %(rest)' | awk
@@ -250,14 +250,14 @@ test-results/ / .playwright-mcp/` → 전부 `0`), 본 항목이 지적하는 �
 ```
 28개 blob, 경로는 2종뿐:
   remote-terminal   27개  (최대 9,105,986 bytes)
-  bin/dongminal      1개  (9,086,770 bytes)
+  bin/otterminal      1개  (9,086,770 bytes)
 합계: 249,218,200 bytes (≈ 237.7 MiB, blob 원본 크기 합 — pack 압축 전)
 ```
 
 경로별 커밋 수 (`git log --all --oneline -- <경로>`):
 - `remote-terminal` → **29 커밋** (`91e74b8 remove binary` 포함 — 이후 제거됐으나
   히스토리에는 영구 보존)
-- `bin/dongminal` → **2 커밋** (`28a3026 이름 변경` 포함 — 개명 과정에서 생성)
+- `bin/otterminal` → **2 커밋** (`28a3026 이름 변경` 포함 — 개명 과정에서 생성)
 
 `git count-objects -vH` 재실행 결과(직전 보고와 사실상 동일, 오차는 감사
 진행 중 커밋 1건 반영):
@@ -270,15 +270,15 @@ size-pack: 79.67 MiB
 ```
 
 `.gitignore` 대조(`git check-ignore -v`):
-- `bin/dongminal` → `.gitignore:5:/bin` 규칙에 걸림 (현재는 막힘)
+- `bin/otterminal` → `.gitignore:5:/bin` 규칙에 걸림 (현재는 막힘)
 - `remote-terminal`(루트, `bin/` 아님) → **매칭 규칙 없음** — 현재 `.gitignore`는
-  `/dongminal`만 알고, 개명 전 이름 `remote-terminal`은 애초에 언급이 없다
+  `/otterminal`만 알고, 개명 전 이름 `remote-terminal`은 애초에 언급이 없다
   (이미 히스토리에만 남고 워킹트리엔 없는 파일이라 실질적 재발 위험은 낮음)
 - 둘 다 `git ls-files`엔 없음(현재 추적 안 됨) — secops 보고와 일치
 
 **[P2] git 히스토리에 프로젝트 개명 전 바이너리(`remote-terminal` 27개·
-`bin/dongminal` 1개, 합계 28개 blob·249,218,200 bytes)가 반복 커밋되어 팩(.git)
-크기를 79.67 MiB까지 불렸다 — secops가 확인한 5개 경로(`dongminal`/`dist/`/
+`bin/otterminal` 1개, 합계 28개 blob·249,218,200 bytes)가 반복 커밋되어 팩(.git)
+크기를 79.67 MiB까지 불렸다 — secops가 확인한 5개 경로(`otterminal`/`dist/`/
 `playwright-report/`/`test-results/`/`.playwright-mcp/`)와는 무관한, 별도의
 두 경로에서 발견됨**
 근거: 위 실측 명령 출력 전체.
@@ -286,7 +286,7 @@ size-pack: 79.67 MiB
 9MB급 바이너리 blob 28개가 히스토리에 영구 보존되어 clone 크기·pack 크기를
 필요 이상으로 키운다.
 제안 조치: 히스토리 재작성이 허용된다면(강제 push·팀 통보 필요) `git filter-repo`
-로 `remote-terminal`·`bin/dongminal` 경로를 히스토리에서 제거. 부담이 크면
+로 `remote-terminal`·`bin/otterminal` 경로를 히스토리에서 제거. 부담이 크면
 현행 유지도 선택지 — 다만 `git count-objects` 수치가 계속 늘어나는지는 주기적
 관찰 권장.
 규모: M (재작성 시 팀 전체 재-clone 필요 — 판단은 팀 몫)
@@ -326,7 +326,7 @@ size-pack: 79.67 MiB
 
 **go.mod**
 ```
-module dongminal
+module otterminal
 go 1.24.0
 
 require (
@@ -337,7 +337,7 @@ require golang.org/x/sys v0.36.0
 ```
 Go 1.24.0, 의존성 3개(직접 2 + 간접 1) — 매우 가벼움. 특이사항 없음.
 
-**package.json** (`dongminal-e2e`, private)
+**package.json** (`otterminal-e2e`, private)
 ```json
 devDependencies: { "@playwright/test": "^1.59.0" }
 scripts: e2e / e2e:ui / e2e:report
@@ -398,7 +398,7 @@ Added/Changed/Fixed/Removed 카테고리를 한국어로 일관 적용.
 1. **[P1]** `api.md`가 `/api/git/*`(60+ 종단)·`/api/runs/*`(13종단) 등 HTTP 표면
    절반 이상을 누락 — §2-2, 규모 L
 2. **[P1]** LICENSE 파일·README 라이선스 절 전무 — §3, 규모 S
-3. **[P1]** `commands.md`가 `dmctl` 에이전트 접합면·Run 오케스트레이션
+3. **[P1]** `commands.md`가 `otterctl` 에이전트 접합면·Run 오케스트레이션
    서브커맨드 13개 이상 누락 — §2-1, 규모 M
 4. **[P2]** SRS 113개 중 106개(94%)에 구현 상태 판별 필드 없음 — §1, 규모 M
 5. **[P2]** git 히스토리에 옛 9MB 바이너리 반복 커밋으로 팩 79.67MiB 팽창

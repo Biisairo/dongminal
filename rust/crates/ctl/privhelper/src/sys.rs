@@ -3,7 +3,7 @@
 use std::io;
 use std::path::Path;
 
-use dm_shared_platform::IpcStream;
+use otter_shared_platform::IpcStream;
 
 /// 이 OS 에 도우미가 있는가다 (FR-PCH-79).
 pub(crate) const SUPPORTED: bool = cfg!(target_os = "macos");
@@ -43,7 +43,7 @@ pub(crate) fn chown(path: &Path, uid: i64, gid: i64) -> io::Result<()> {
         let u = u32::try_from(uid).ok().map(Uid::from_raw);
         let g = u32::try_from(gid).ok().map(Gid::from_raw);
         nix::unistd::chown(path, u, g).map_err(|e| {
-            dm_gocompat::oserr::path_error("chown", &path.to_string_lossy(), io::Error::from(e))
+            otter_gocompat::oserr::path_error("chown", &path.to_string_lossy(), io::Error::from(e))
         })
     }
     #[cfg(not(unix))]

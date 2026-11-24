@@ -85,7 +85,7 @@
 이 문서의 고침 뒤에도 **되찾는 쪽의 1초는 그대로다.** 이 문서는 잃는 쪽의 한 벌을
 없앤 것이고, 되찾는 쪽의 한 벌은 설계상 남긴 것이기 때문이다 (FR-OTR-5).
 
-그 한 벌의 크기를 `dmctl read-output --bytes 0` 으로 쟀다:
+그 한 벌의 크기를 `otterctl read-output --bytes 0` 으로 쟀다:
 
 | 도구 | 재생 payload (tail) |
 |---|---|
@@ -173,7 +173,7 @@ FR-OTR-8·9 를 올린 빌드(사용자가 직접 빌드)에서 같은 자리를
 | resize → claude 첫 출력 | 33 ms |
 | claude 재그리기 끝 | 약 60~340 ms, 약 10 KB |
 
-되찾는 순간부터 claude 가 다 그리기까지 0.1~0.35초이고, 그중 dongminal 의 몫은 약
+되찾는 순간부터 claude 가 다 그리기까지 0.1~0.35초이고, 그중 otterminal 의 몫은 약
 40 ms 다. 나머지는 claude 프로세스 안의 일이라 이 문서가 더 줄일 자리는 없다.
 
 ## 3. 요구사항 (Requirements)

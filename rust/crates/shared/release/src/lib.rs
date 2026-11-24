@@ -1,18 +1,18 @@
-//! Go 기준선 `dongminal/internal/shared/release` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/release` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! **최신 릴리스가 무엇인가** 하나만 안다 (UPDATE_NOTICE_SRS FR-UPD-5).
 
 use std::fmt;
 use std::time::Duration;
 
-use dm_gocompat::neturl_err::{self, UrlError};
+use otter_gocompat::neturl_err::{self, UrlError};
 use serde::Deserialize;
 
 /// 릴리스가 사는 저장소다. 릴리스를 발행하는 곳과 같아야 한다.
-pub const REPO: &str = "Biisairo/dongminal";
+pub const REPO: &str = "Biisairo/otterminal";
 
 /// 최신 릴리스를 묻는 자리다.
-pub const API: &str = "https://api.github.com/repos/Biisairo/dongminal/releases/latest";
+pub const API: &str = "https://api.github.com/repos/Biisairo/otterminal/releases/latest";
 
 /// 확인에 주는 시간이다.
 pub const TIMEOUT: Duration = Duration::from_secs(5);
@@ -78,7 +78,7 @@ pub async fn latest(url: &str) -> Result<(String, String), Error> {
         }
     }
     body.truncate(BODY_LIMIT);
-    let b: LatestBody = dm_gocompat::json::Decoder::new()
+    let b: LatestBody = otter_gocompat::json::Decoder::new()
         .decode(&body)
         .map_err(|e| Error(e.to_string()))?;
     if b.tag_name.is_empty() {

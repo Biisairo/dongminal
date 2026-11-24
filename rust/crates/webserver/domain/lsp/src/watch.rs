@@ -4,8 +4,8 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 
-use dm_gocompat::filepath;
-use dm_gocompat::json;
+use otter_gocompat::filepath;
+use otter_gocompat::json;
 use serde::Serialize;
 
 use crate::service::{Service, under_root};
@@ -90,7 +90,7 @@ impl FileNotifier for Service {
                 continue;
             };
             if !t.enqueue(body) && t.ready.load(std::sync::atomic::Ordering::SeqCst) {
-                dm_shared_dmlog::warnf!(
+                otter_shared_otterlog::warnf!(
                     None,
                     "lsp: 끼워 넣기 줄이 찼다 ({}) — 변경 {n}개를 버린다",
                     t.root
@@ -101,7 +101,7 @@ impl FileNotifier for Service {
 }
 
 fn path_to_uri(p: &str) -> String {
-    dm_shared_platform::current().paths.file_uri(p)
+    otter_shared_platform::current().paths.file_uri(p)
 }
 
 /// git `--name-status` 한 줄 (A D M R C T).
@@ -175,7 +175,7 @@ impl RepoWatch {
         {
             match self.view.name_status(repo, &p.head, &cur.head) {
                 Ok(got) => ns = got,
-                Err(e) => dm_shared_dmlog::warnf!(
+                Err(e) => otter_shared_otterlog::warnf!(
                     None,
                     "lsp: {repo} 의 {}..{} 변경 목록을 얻지 못했다: {e}",
                     p.head,

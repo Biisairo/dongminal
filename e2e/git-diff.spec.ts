@@ -13,7 +13,7 @@ import { tmpPath, realPath, cssPath } from './osenv';
 // diff 렌더링은 편집 엔진의 Diff 편집기다 (FR-GIT-43) — 자체 하이라이트 엔진이
 // 없으므로 단정은 `editor.ts` 의 어댑터를 거친다.
 
-const FIXTURES = tmpPath('dm-git-fx-diff-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-diff-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

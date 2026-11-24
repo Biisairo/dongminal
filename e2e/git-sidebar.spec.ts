@@ -95,7 +95,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
   }) => {
     await waitForInit(page);
     const termWin = await page.evaluate(() => (window as any).app.ws.activeWindow);
-    const root = await pin(request, makeRepo('dm-repo-flw4-'));
+    const root = await pin(request, makeRepo('otter-repo-flw4-'));
     await openGitTab(page);
     await pinned(page, root).click();
     // FR-RTU-72: 행 클릭은 **그 경로의 Repo 창으로 전환**한다. 뷰 탭은 열지
@@ -108,7 +108,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
       .toBe(root);
 
     // 핀을 눌러 그 저장소의 Repo 창이 활성이 됐다 — 터미널로 돌아가야 cd 를 칠 수 있다.
-    const other = makeRepo('dm-repo-flw4b-');
+    const other = makeRepo('otter-repo-flw4b-');
     await page.evaluate((id) => (window as any).app.layout.switchWindow(id), termWin);
     await page.waitForSelector('#area .pn.focused .xterm-screen', { state: 'visible', timeout: 15000 });
     await page.click('#area .pn.focused .xterm-screen');
@@ -144,7 +144,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
 
   test('S4 (V16): 핀한 리포가 목록에 나오고 × 로 사라진다', async ({ page, request }) => {
     await waitForInit(page);
-    const root = await pin(request, makeRepo('dm-repo-a-'));
+    const root = await pin(request, makeRepo('otter-repo-a-'));
     await openGitTab(page);
     const item = pinned(page, root);
     await expect(item).toHaveCount(1, { timeout: 10000 });
@@ -158,7 +158,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
 
   test('S5 (V17): 항목 클릭이 Git 창을 활성화하고 그 리포를 활성으로 만든다', async ({ page, request }) => {
     await waitForInit(page);
-    const root = await pin(request, makeRepo('dm-repo-b-'));
+    const root = await pin(request, makeRepo('otter-repo-b-'));
     await openGitTab(page);
     const item = pinned(page, root);
     await expect(item).toHaveCount(1, { timeout: 10000 });
@@ -179,8 +179,8 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
   // 전부가 관측되므로, 열어 본 적 없는 리포에도 **최신** 배지가 선다.
   test('S6 (V-GOB-1·4): Git 탭에 들어가면 핀 전부의 배지가 최신이 된다', async ({ page, request }) => {
     await waitForInit(page);
-    const ra = await pin(request, makeRepo('dm-repo-c-'));
-    const rb = await pin(request, makeRepo('dm-repo-d-'));
+    const ra = await pin(request, makeRepo('otter-repo-c-'));
+    const rb = await pin(request, makeRepo('otter-repo-d-'));
     // 관측을 미리 일으키지 **않는다** — 탭 진입이 스스로 만들어야 한다.
     await openGitTab(page);
     const a = pinned(page, ra), b = pinned(page, rb);
@@ -200,7 +200,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
   // 상태만 만든다 — 폴링을 멈출 방법이 화면에는 없기 때문이다.
   test('S6b (V-GOB-4): 관측이 오래되면 배지가 stale 로 흐려진다', async ({ page, request }) => {
     await waitForInit(page);
-    const ra = await pin(request, makeRepo('dm-repo-c2-'));
+    const ra = await pin(request, makeRepo('otter-repo-c2-'));
     await openGitTab(page);
     const a = pinned(page, ra);
     await expect(a.locator('.git-badge')).toHaveText('1', { timeout: 10000 });
@@ -256,7 +256,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
   });
   test('S8 (V16): 서버가 쓴 핀은 클라이언트의 409 재시도 저장에도 살아남는다', async ({ page, request }) => {
     await waitForInit(page);
-    const root = await pin(request, makeRepo('dm-repo-e-'));
+    const root = await pin(request, makeRepo('otter-repo-e-'));
     await expect(pinned(page, root)).toHaveCount(1, { timeout: 10000 });
 
     // 핀은 서버가 workspace.json 에 직접 쓴다 (O1). 클라이언트 사본에 git 이 없는
@@ -293,7 +293,7 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
  * `TEST-7` 로 `git-ui-revision` 에서 옮겨 왔다 — 납품 묶음("UI 개정")이 아니라
  * **이 기능**이 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
  */
-const GURFX = tmpPath('dm-gur-sidebar-' + process.pid);
+const GURFX = tmpPath('otter-gur-sidebar-' + process.pid);
 test.beforeAll(() => { gitFixture(GURFX) });
 test.afterAll(() => { cleanGitFixture(GURFX) });
 const gurFx = (n: string) => realPath(join(GURFX, n));
@@ -325,7 +325,7 @@ async function gurWaitFiles(page: Page, min = 1) {
 
 test.describe('UI 개정 — 터미널의 리포를 딛는 근거 (D-FLW-6, 옛 FR-GIT-210)', () => {
   // follow 행은 사라졌지만(FR-FLW-1) 그것이 잡아낸 사실은 그대로다: 포커스가
-  // 터미널을 떠나면 서버는 자기 cwd(=dongminal 저장소)로 답한다. 이제 그 값을
+  // 터미널을 떠나면 서버는 자기 cwd(=otterminal 저장소)로 답한다. 이제 그 값을
   // 딛는 것은 `+ Add` 이므로 계약도 그 자리로 옮긴다.
   test('V87 (D-FLW-6): Git 창을 보는 중에 연 + Add 가 마지막 터미널의 리포를 채운다', async ({ page }) => {
     const repo = gurFx('with-remote');
@@ -344,7 +344,7 @@ test.describe('UI 개정 — 터미널의 리포를 딛는 근거 (D-FLW-6, 옛 
     await page.click('#repo-add');
     const dlg = page.locator('#editor-add-dlg');
     await expect(dlg).toBeVisible({ timeout: 10000 });
-    // dongminal 자신이 아니라 마지막 터미널의 리포다.
+    // otterminal 자신이 아니라 마지막 터미널의 리포다.
     await expect(dlg.locator('.eda-path')).toHaveValue(repo, { timeout: 15000 });
   });
 
@@ -797,7 +797,7 @@ test.describe('배지 — 잘렸으면 하한이라고 말한다', () => {
 
   test('TC-WRD-21: 잘렸으면 `+` 가 붙고 툴팁이 사유를 말한다', async ({ page, request }) => {
     await truncateBadges(page, true);
-    await pin(request, makeRepo('dm-repo-trunc-'));
+    await pin(request, makeRepo('otter-repo-trunc-'));
     await waitForInit(page);
     await openGitTab(page);
     await expect(badge(page)).toHaveText('3+', { timeout: 15000 });
@@ -806,7 +806,7 @@ test.describe('배지 — 잘렸으면 하한이라고 말한다', () => {
 
   test('TC-WRD-22: 잘리지 않았으면 표기가 그대로다', async ({ page, request }) => {
     await truncateBadges(page, false);
-    await pin(request, makeRepo('dm-repo-plain-'));
+    await pin(request, makeRepo('otter-repo-plain-'));
     await waitForInit(page);
     await openGitTab(page);
     await expect(badge(page)).toHaveText('3', { timeout: 15000 });

@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/edgenode` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/edgenode` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 노드 하나: 설정 저장소, 신원, 짝 맺기, 노드 포트 HTTP(`/edge/v1/*`), 로컬 API 의 동작(`do_op`),
 //! 간선 계층 결선이다.
@@ -10,15 +10,15 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 
-use dm_shared_dmenv as dmenv;
-use dm_shared_dmlog as dmlog;
-use dm_shared_edge::{
+use http::{Method, Request, StatusCode};
+use hyper::body::Incoming;
+use otter_shared_edge::{
     self as edge, CallError, Client, Config, Dial, Edge, Error as EdgeError, Handler, Identity,
     IdentityError, Pairing, RateLimiter, Status, Store,
 };
-use dm_shared_edgemesh::{Invite, Mesh};
-use http::{Method, Request, StatusCode};
-use hyper::body::Incoming;
+use otter_shared_edgemesh::{Invite, Mesh};
+use otter_shared_otterenv as otterenv;
+use otter_shared_otterlog as otterlog;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
@@ -32,7 +32,7 @@ const PAIR_RATE_KEY: &str = "pair-addr:";
 /// 짝 맺기 요청에 싣는 판이다.
 const PROTO: i64 = 1;
 const LEGACY_SPAWNS_FILE: &str = "peer-spawns.json";
-const BODY_LIMIT: i64 = dm_shared_httpreq::SMALL_LIMIT;
+const BODY_LIMIT: i64 = otter_shared_httpreq::SMALL_LIMIT;
 
 pub const CODE_BAD_REQUEST: &str = "bad_request";
 pub const CODE_NOT_FOUND: &str = "not_found";
@@ -127,13 +127,13 @@ impl Node {
         let now: NowFn = o
             .now
             .clone()
-            .unwrap_or_else(|| Arc::new(dm_gocompat::time::now_local));
+            .unwrap_or_else(|| Arc::new(otter_gocompat::time::now_local));
         if let Err(e) = edge::migrate_legacy_files(&o.home) {
-            dmlog::info(
+            otterlog::info(
                 None,
                 &format!(
                     "edge config: 옛 홈 파일을 정리하지 못했다: {}",
-                    dm_gocompat::oserr::go_error_string(&e)
+                    otter_gocompat::oserr::go_error_string(&e)
                 ),
                 &[],
             );
@@ -142,17 +142,17 @@ impl Node {
         if let Err(e) = std::fs::remove_file(&spawns)
             && e.kind() != std::io::ErrorKind::NotFound
         {
-            let e = dm_gocompat::oserr::path_error("remove", &spawns.to_string_lossy(), e);
-            dmlog::info(
+            let e = otter_gocompat::oserr::path_error("remove", &spawns.to_string_lossy(), e);
+            otterlog::info(
                 None,
                 &format!(
                     "peer-spawns.json 을 지우지 못했다: {}",
-                    dm_gocompat::oserr::go_error_string(&e)
+                    otter_gocompat::oserr::go_error_string(&e)
                 ),
                 &[],
             );
         }
-        let store = Store::open(o.home.join(dmenv::EDGES_FILE), &o.hostname);
+        let store = Store::open(o.home.join(otterenv::EDGES_FILE), &o.hostname);
         let id = edge::load_or_create_identity(&o.home)?;
         let client = match &o.dial {
             Some(d) => Client::via(id.clone(), d.clone()),
@@ -237,13 +237,13 @@ impl Node {
         })
     }
 
-    async fn route(self: Arc<Self>, req: Request<Incoming>) -> dm_shared_httpresp::Response {
+    async fn route(self: Arc<Self>, req: Request<Incoming>) -> otter_shared_httpresp::Response {
         let path = req.uri().path().to_string();
         let post = req.method() == Method::POST;
         match path.as_str() {
             PAIR_PATH if post => self.pair(req).await,
             UNPAIR_PATH if post => self.unpair(&req),
-            dm_shared_edgemesh::PATH if self.mesh.is_some() => match &self.mesh {
+            otter_shared_edgemesh::PATH if self.mesh.is_some() => match &self.mesh {
                 Some(m) => m.handler()(req).await,
                 None => write_fail(StatusCode::NOT_FOUND, CODE_NOT_FOUND, "not found"),
             },
@@ -258,7 +258,7 @@ impl Node {
     }
 
     /// 짝 맺기를 받는다 (FR-EPR-3·6·7). 출발지마다 상한을 둔다.
-    async fn pair(&self, req: Request<Incoming>) -> dm_shared_httpresp::Response {
+    async fn pair(&self, req: Request<Incoming>) -> otter_shared_httpresp::Response {
         #[derive(Deserialize, Default)]
         #[serde(default)]
         struct In {
@@ -349,7 +349,7 @@ impl Node {
         struct Out {
             name: String,
         }
-        dm_shared_httpresp::json(
+        otter_shared_httpresp::json(
             StatusCode::OK,
             &Out {
                 name: self.store.config().name,
@@ -358,7 +358,7 @@ impl Node {
     }
 
     /// 상대가 이 노드와의 간선을 지웠다는 알림이다.
-    fn unpair(&self, req: &Request<Incoming>) -> dm_shared_httpresp::Response {
+    fn unpair(&self, req: &Request<Incoming>) -> otter_shared_httpresp::Response {
         let fp = edge::client_fingerprint(req).to_string();
         let resolved = self.store.resolve(&fp);
         let name = resolved
@@ -387,7 +387,7 @@ impl Node {
             by_peer: true,
             ..Change::default()
         });
-        dm_shared_httpresp::json(StatusCode::OK, &serde_json_empty())
+        otter_shared_httpresp::json(StatusCode::OK, &serde_json_empty())
     }
 
     /// 상대가 이 노드를 간선이 아니라고 답했다. 이 쪽에서도 지운다 (FR-EPR-22·41).
@@ -399,7 +399,7 @@ impl Node {
             return;
         }
         if let Err(err) = self.store.remove(fp) {
-            dmlog::info(None, &format!("edge forget: {err}"), &[]);
+            otterlog::info(None, &format!("edge forget: {err}"), &[]);
             return;
         }
         self.pairing.revoke(fp);
@@ -429,16 +429,17 @@ fn serde_json_empty() -> Empty {
     Empty {}
 }
 
-fn write_fail(status: StatusCode, code: &str, msg: &str) -> dm_shared_httpresp::Response {
-    dm_shared_httpresp::fail_code(status, code, msg)
+fn write_fail(status: StatusCode, code: &str, msg: &str) -> otter_shared_httpresp::Response {
+    otter_shared_httpresp::fail_code(status, code, msg)
 }
 
 /// 본문을 JSON 으로 읽는다. 실패하면 답할 응답이다.
 async fn read_json<T: serde::de::DeserializeOwned>(
     req: Request<Incoming>,
-) -> Result<T, Box<dm_shared_httpresp::Response>> {
-    use dm_shared_httpreq::{DecodeError, Empty as EmptyBody, ReadError};
-    match dm_shared_httpreq::decode_json(req.into_body(), BODY_LIMIT, EmptyBody::AsObject).await {
+) -> Result<T, Box<otter_shared_httpresp::Response>> {
+    use otter_shared_httpreq::{DecodeError, Empty as EmptyBody, ReadError};
+    match otter_shared_httpreq::decode_json(req.into_body(), BODY_LIMIT, EmptyBody::AsObject).await
+    {
         Ok(v) => Ok(v),
         Err(DecodeError::Read(e)) => {
             let code = if matches!(e, ReadError::TooLarge) {
@@ -446,8 +447,8 @@ async fn read_json<T: serde::de::DeserializeOwned>(
             } else {
                 CODE_BAD_REQUEST
             };
-            let mut resp = write_fail(dm_shared_httpreq::status(&e), code, "read body");
-            dm_shared_httpreq::mark_response(&e, &mut resp);
+            let mut resp = write_fail(otter_shared_httpreq::status(&e), code, "read body");
+            otter_shared_httpreq::mark_response(&e, &mut resp);
             Err(Box::new(resp))
         }
         Err(DecodeError::NotJson(_)) => Err(Box::new(write_fail(
@@ -460,7 +461,7 @@ async fn read_json<T: serde::de::DeserializeOwned>(
 
 fn audit(dir: &str, name: &str, op: &str, status: StatusCode) {
     let name = if name.is_empty() { "-" } else { name };
-    dmlog::info(
+    otterlog::info(
         None,
         &format!(
             "edge audit dir={dir} edge={name} op={op} status={}",

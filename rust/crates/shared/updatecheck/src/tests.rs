@@ -162,7 +162,7 @@ async fn disabled_never_leaves() {
 async fn env_kill_switch_wins() {
     let p = new_probe("v9.9.9", true).await;
     let getenv: Getenv = Arc::new(|k: &str| {
-        if k == dm_shared_dmenv::ENV_NO_CHECK {
+        if k == otter_shared_otterenv::ENV_NO_CHECK {
             "1".into()
         } else {
             String::new()
@@ -290,7 +290,7 @@ async fn newer_version_is_reported() {
     assert!(s.newer, "v1.10.0 > v1.9.0 을 놓쳤다: {s:?}");
     assert_eq!(s.latest, "v1.10.0");
     assert_eq!(s.link, "https://example/rel/v1.10.0");
-    assert!(dm_gocompat::time::parse_rfc3339(&s.checked_at).is_ok());
+    assert!(otter_gocompat::time::parse_rfc3339(&s.checked_at).is_ok());
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -415,7 +415,8 @@ async fn set_enabled_persists_and_stops() {
     f.wait_settle().await;
     f.c.set_enabled(false).unwrap();
     f.quiet().await;
-    let data = std::fs::read_to_string(home.path().join(dm_shared_serverconf::FILE_NAME)).unwrap();
+    let data =
+        std::fs::read_to_string(home.path().join(otter_shared_serverconf::FILE_NAME)).unwrap();
     assert!(
         data.contains(r#""updateCheck": false"#),
         "server.json 에 남지 않았다: {data}"
@@ -479,7 +480,7 @@ fn snapshot_json_shape() {
         ..Snapshot::default()
     };
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal(&s).unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal(&s).unwrap()).unwrap(),
         r#"{"enabled":true,"current":"v1.0.0","newer":false,"failed":false}"#
     );
     let s = Snapshot {
@@ -491,7 +492,7 @@ fn snapshot_json_shape() {
         ..s
     };
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal(&s).unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal(&s).unwrap()).unwrap(),
         r#"{"enabled":true,"current":"v1.0.0","latest":"v2","newer":true,"link":"l","checkedAt":"t","failed":true}"#
     );
 }
@@ -524,7 +525,7 @@ impl std::io::Write for LogBuf {
 #[tokio::test(flavor = "multi_thread")]
 async fn failure_is_logged_with_go_error_text() {
     let buf = LogBuf::default();
-    dm_shared_dmlog::init(dm_shared_dmlog::Options {
+    otter_shared_otterlog::init(otter_shared_otterlog::Options {
         level: "warn".into(),
         out: Some(Box::new(buf.clone())),
     });
@@ -550,10 +551,10 @@ async fn failure_is_logged_with_go_error_text() {
         .unwrap();
     c.stop();
     let text = String::from_utf8(buf.0.lock().unwrap().clone()).unwrap();
-    dm_shared_dmlog::reset();
+    otter_shared_otterlog::reset();
     let want = format!(
         "판 확인 실패: Get \"{url}\": dial tcp 127.0.0.1:{port}: connect: connection refused"
     );
-    let want = format!("msg={}", dm_gocompat::strconv::quote(&want));
+    let want = format!("msg={}", otter_gocompat::strconv::quote(&want));
     assert!(text.contains(&want), "{text}");
 }

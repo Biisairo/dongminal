@@ -104,7 +104,7 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 | C-7 | 압축 중이나 압축 뒤에 상태가 틀린다 | `SessionStart(source=compact)` 를 idle 로 읽는다. 수동 `/compact` 는 PreCompact 로 working 이 된 뒤 끝을 알리는 훅이 없다 | 문서. 실측하지 않았다 (R-2) |
 | C-8 | 백그라운드 서브에이전트의 보고가 사용자 턴으로 읽혀 done 알람이 한 번 더 운다 | 보고 프롬프트가 `<agent-message` 로 시작하는데, 배경 표식 목록에 없다 | §2.2 15.4s |
 | C-9 | Esc 로 중단하면 `working` 에 멈춘다 | 사용자 중단에는 어떤 훅도 오지 않는다 | 문서. 보완하지 않는다 (D-ASV-1) |
-| C-10 | 끝난 서브에이전트가 하위 카드에 `working` · `SubagentHandback` 으로 남고 지워지지 않는다 | 끝의 `PostToolUse(SubagentHandback)`(working)와 두 번째 `SubagentStop`(done)이 약 30ms 차이로 온다. 둘은 서로 다른 `dmctl activity` 프로세스가 보내므로 서버에 닿는 순서가 바뀔 수 있고, 바뀌면 done 이 working 으로 덮인다. `working` 에는 지우는 기한이 없다 | §2.4 |
+| C-10 | 끝난 서브에이전트가 하위 카드에 `working` · `SubagentHandback` 으로 남고 지워지지 않는다 | 끝의 `PostToolUse(SubagentHandback)`(working)와 두 번째 `SubagentStop`(done)이 약 30ms 차이로 온다. 둘은 서로 다른 `otterctl activity` 프로세스가 보내므로 서버에 닿는 순서가 바뀔 수 있고, 바뀌면 done 이 working 으로 덮인다. `working` 에는 지우는 기한이 없다 | §2.4 |
 
 ### 2.4 실측 2 (2026-11-11, Claude Code 2.1.322)
 
@@ -132,8 +132,8 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 ### 3.1 묶음 H — 훅 해석과 배선
 
 - **FR-ASV-1** claude 활동 훅 배선(`claudeHookEvents`)에 `PermissionRequest`·`PostToolUseFailure`·`SubagentStart`·`StopFailure`·`PostCompact` 를 더한다. 맥락 훅(`ctx-hook`)의 배선은 바꾸지 않는다.
-- **FR-ASV-2** 훅 보고(`Report`)는 `AgentID`·`AgentType` 을 싣는다. `dmctl activity` 는 `AgentID` 가 있으면 `agentId`·`agentType` 을 활동 보고 본문에 더한다.
-- **FR-ASV-3** 내부 에이전트 훅(`agent_id` 있음, `agent_type` 빔)은 **어느 상태도 바꾸지 않는다**. `dmctl activity` 는 이 훅을 보고하지 않는다. (C-1)
+- **FR-ASV-2** 훅 보고(`Report`)는 `AgentID`·`AgentType` 을 싣는다. `otterctl activity` 는 `AgentID` 가 있으면 `agentId`·`agentType` 을 활동 보고 본문에 더한다.
+- **FR-ASV-3** 내부 에이전트 훅(`agent_id` 있음, `agent_type` 빔)은 **어느 상태도 바꾸지 않는다**. `otterctl activity` 는 이 훅을 보고하지 않는다. (C-1)
 - **FR-ASV-4** main 훅의 해석은 아래 표를 따른다. 표에 없는 훅과 표에서 "무시" 인 경우는 보고하지 않는다.
 
   | 훅 | 조건 | 상태 | tool | detail |
@@ -154,7 +154,7 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
   | `SessionStart` | 그 밖 | idle | | `source` |
   | `SessionEnd` | | ended | | |
 
-- **FR-ASV-5** 서브에이전트 훅의 해석은 아래 표를 따른다. 결과는 **서브에이전트 활동**이며 main 의 상태·알람·턴 표시를 건드리지 않는다. 단 `PermissionRequest`·`Notification` 은 main 해석(FR-ASV-4)도 함께 한다 — 사람을 기다리게 하는 것은 세션 전체의 일이다. 그래서 `dmctl activity` 는 이 두 훅을 main 보고와 서브에이전트 보고로 두 번 보낸다.
+- **FR-ASV-5** 서브에이전트 훅의 해석은 아래 표를 따른다. 결과는 **서브에이전트 활동**이며 main 의 상태·알람·턴 표시를 건드리지 않는다. 단 `PermissionRequest`·`Notification` 은 main 해석(FR-ASV-4)도 함께 한다 — 사람을 기다리게 하는 것은 세션 전체의 일이다. 그래서 `otterctl activity` 는 이 두 훅을 main 보고와 서브에이전트 보고로 두 번 보낸다.
 
   | 훅 | 서브에이전트 상태 | tool | detail |
   |---|---|---|---|
@@ -168,7 +168,7 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
   `SubagentHandback` 행은 일반 도구 행보다 앞선다 (C-10, D-ASV-13).
 
 - **FR-ASV-6** ~~배경 프롬프트 표식(`backgroundPromptMarks`)에 `<agent-message` 를 더한다. (C-8)~~ → **폐기 (2026-11-12, `ATTENTION_FIRING_SRS` D-12·13).** 배경 턴의 종료도 알람이 되므로 표식 목록 자체를 걷었다. `<agent-message` 로 깨어난 턴도 턴의 시작(`working`)이다
-- **FR-ASV-7** `dmctl activity` 는 무엇을 하든 0 으로 끝나고 stdout 에 아무것도 쓰지 않는다 (종전 NFR-AAP-5). `PermissionRequest` 훅이 출력하지 않으면 권한 흐름은 바뀌지 않는다 (Claude Code 문서).
+- **FR-ASV-7** `otterctl activity` 는 무엇을 하든 0 으로 끝나고 stdout 에 아무것도 쓰지 않는다 (종전 NFR-AAP-5). `PermissionRequest` 훅이 출력하지 않으면 권한 흐름은 바뀌지 않는다 (Claude Code 문서).
 
 ### 3.2 묶음 S — 서브에이전트 활동 (서버)
 
@@ -212,7 +212,7 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
   - `windows` 는 `five_hour`·`seven_day` 를 이 순서로 앞에 두고, 나머지 이름은 사전 순으로 뒤에 둔다.
   - `usedPct`·`resetsAt` 은 입력 그대로다. 없으면 싣지 않는다. `resetsAt` 은 유닉스 초다. 값이 `1e12` 를 넘으면 밀리초로 보고 1,000 으로 나눈다 (R-4).
   - `resetsInSec` 는 초기화까지 남은 시간(초)이다. **응답을 만드는 시각에 서버가 셈한다**: `max(0, resetsAt - 서버 지금)`. `resetsAt` 이 없으면 싣지 않는다. 브라우저 시계는 서버와 다를 수 있으므로(원격 접속) 남은 시간은 서버의 셈만 쓴다 (D-ASV-10).
-  - `dmctl status --json` 도 같은 `limits` 를 최상위에 싣는다. 사람용 출력은 창마다 `5h 34% (resets in 2h 0m)` 꼴의 한 줄이다.
+  - `otterctl status --json` 도 같은 `limits` 를 최상위에 싣는다. 사람용 출력은 창마다 `5h 34% (resets in 2h 0m)` 꼴의 한 줄이다.
   - `level` 은 `usedPct` 가 `limitWarnPct`(70) 이상이면 `warn`, `limitCriticalPct`(90) 이상이면 `critical`, 그 밖이면 빈 글자다. 두 상수는 서버 한 곳에 둔다.
 
 ### 3.4 묶음 V — 화면 (클라이언트)
@@ -253,7 +253,7 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 
 ### 3.5 비기능
 
-- **NFR-ASV-1** 훅 하나에 대한 `dmctl activity` 의 HTTP 요청은 종전처럼 최대 한 번이다. 예외는 서브에이전트의 `PermissionRequest`·`Notification`(FR-ASV-5)이며 최대 두 번이다. 각 요청은 종전 시한(`hookBudget`)을 지킨다.
+- **NFR-ASV-1** 훅 하나에 대한 `otterctl activity` 의 HTTP 요청은 종전처럼 최대 한 번이다. 예외는 서브에이전트의 `PermissionRequest`·`Notification`(FR-ASV-5)이며 최대 두 번이다. 각 요청은 종전 시한(`hookBudget`)을 지킨다.
 - **NFR-ASV-2** 새 조회 주기를 만들지 않는다. 새 SSE 이벤트는 `tool_subagent_activity` 하나다.
 - **NFR-ASV-3** 하위 카드와 Usage 바닥은 패널 최소 폭에서 패널 폭을 넘지 않는다. 넘치면 글자 부분만 말줄임으로 준다.
 - **NFR-ASV-4** 툴팁은 영어, 화면 문구는 i18n 키로 둔다(기존 규약).
@@ -276,7 +276,7 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 | D-ASV-12 | Usage 바닥은 스크롤 영역 밖에 둔다 | 사용자가 요청했다(2026-11-11): "사용률 창은 스크롤 밖이고 남은 공간에서 스크롤이 되어야지". 종전(D-ASV-11)의 `position:sticky` 바닥은 스크롤 영역 안에 겹쳐 목록을 덮었고, 스크롤바도 바닥 뒤까지 내려갔다 |
 | D-ASV-13 | `SubagentHandback` 도구 훅은 done 이다 | 이 도구는 서브에이전트의 마지막 일이다(§2.4 ⑤). 끝에 오는 훅이 모두 done 이 되므로 도착 순서가 바뀌어도 결과가 같다. 보고 시각으로 순서를 바로잡는 길은 보고 형식과 데몬까지 바꾸고, 프로세스 시작 시각도 30ms 안에서 뒤집힐 수 있어 고르지 않았다 |
 | D-ASV-14 | 놓친 신호는 안전망이 지운다. 조건은 main 이 쉬고, statusLine 이 돌고 있다고 하지 않고, 2분간 갱신이 없는 것이다 | 하네스가 끝내는 방식을 또 바꾸면 D-ASV-13 만으로는 다시 남는다. 포그라운드 서브에이전트가 도는 동안 main 은 `working` 이고, 백그라운드 서브에이전트는 statusLine 이 `running` 으로 알린다. 그래서 도는 서브에이전트는 지우지 않는다 |
-| D-ASV-10 | 초기화까지 남은 시간은 서버가 셈해 `resetsInSec` 로 내려 준다 | 사용자가 요청했다. 원격 브라우저의 시계가 서버와 다르면 브라우저의 셈은 틀린다. `dmctl status` 도 같은 값을 보인다 |
+| D-ASV-10 | 초기화까지 남은 시간은 서버가 셈해 `resetsInSec` 로 내려 준다 | 사용자가 요청했다. 원격 브라우저의 시계가 서버와 다르면 브라우저의 셈은 틀린다. `otterctl status` 도 같은 값을 보인다 |
 
 ## 5. 검증 (Verification)
 
@@ -286,18 +286,18 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 | TC-ASV-2 | FR-ASV-2·3·4 | Go: §2.2 실측 입력을 본뜬 main 훅 표 전부 | 표대로 상태·tool·detail 이 나온다. "무시" 는 보고가 없다. 내부 에이전트 `SubagentStop` 은 보고가 없다 |
 | TC-ASV-3 | FR-ASV-5 | Go: 서브에이전트 훅 표 전부 | 서브에이전트 보고가 `AgentID`·`AgentType` 과 함께 나온다. `PermissionRequest`·waiting 알림은 main 보고도 나온다 |
 | TC-ASV-4 | FR-ASV-6 (개정) | Go: `<agent-message from=…>` 프롬프트 | `working` 을 보고한다 |
-| TC-ASV-5 | FR-ASV-2·7, NFR-ASV-1 | Go: 시험 서버로 `dmctl activity` 실행 | 본문에 `agentId`·`agentType` 이 실린다. 두 번 보내는 경우만 요청이 둘이다. stdout 이 비고 종료 코드가 0 이다 |
+| TC-ASV-5 | FR-ASV-2·7, NFR-ASV-1 | Go: 시험 서버로 `otterctl activity` 실행 | 본문에 `agentId`·`agentType` 이 실린다. 두 번 보내는 경우만 요청이 둘이다. stdout 이 비고 종료 코드가 0 이다 |
 | TC-ASV-6 | §2.2 순서 재연 | Go: §2.2 표의 훅 순서를 서버에 차례로 보고 | main 상태의 마지막 값이 done 이다(C-1·C-2·C-3 재발 없음). 서브에이전트 활동이 working→done 이 된다 |
 | TC-ASV-7 | FR-ASV-10·11·12 | Go: 서브에이전트 보고 / 33개 / done 후 시각 경과 / main ended / 수거 | main 활동이 그대로다 / 32개다 / 지워진다 / 지워진다 / 지워진다 |
 | TC-ASV-8 | FR-ASV-13 | Go: 서브에이전트 보고 | `tool_subagent_activity` 가 정해진 본문으로 방송된다. `tool_activity` 는 방송되지 않는다 |
 | TC-ASV-9 | FR-ASV-14·15·16 | Go: statusLine 목록과 활동을 겹치게·따로 보고 | 합집합이 정해진 순서로 나오고, `state` 우선순위와 `description` 이 맞다 |
-| TC-ASV-10 | FR-ASV-20·21 | Go: 한도 보고 → 도구 수거 → 조회 / 이름 순서 / 경계값 69·70·89·90 / 서버 시각을 고정하고 `resetsAt` 을 초·밀리초·지난 시각으로 / `dmctl status` | 값이 남는다 / `five_hour`·`seven_day` 가 앞이다 / 등급이 맞다 / `resetsInSec` 가 맞고 지난 시각은 0 이다 / `limits` 와 사람용 한 줄이 나온다. 보고가 없으면 `limits` 가 빈 배열이다 |
+| TC-ASV-10 | FR-ASV-20·21 | Go: 한도 보고 → 도구 수거 → 조회 / 이름 순서 / 경계값 69·70·89·90 / 서버 시각을 고정하고 `resetsAt` 을 초·밀리초·지난 시각으로 / `otterctl status` | 값이 남는다 / `five_hour`·`seven_day` 가 앞이다 / 등급이 맞다 / `resetsInSec` 가 맞고 지난 시각은 0 이다 / `limits` 와 사람용 한 줄이 나온다. 보고가 없으면 `limits` 가 빈 배열이다 |
 | TC-ASV-11 | FR-ASV-30·31·34·35 | JS 단위: 카드·목록형 줄 조합 | 모델·effort 가 막대보다 앞이다. 값 없는 부분은 원소가 없다. done 흐림이 붙는다 |
 | TC-ASV-12 | FR-ASV-32·33 | JS 단위: 보기 전환·접기 | 폴더형은 하위 카드 항목이 main 카드 뒤에 서고, 접으면 없다. 목록형은 카드 안에 선다. 설정이 저장소에 남는다 |
 | TC-ASV-13 | FR-ASV-36·37 | JS 단위: SSE 로 기존·새 서브에이전트 갱신, main 없음 | 바뀐다 / 더해진다 / 버린다. `sig` 가 그려지는 값의 변화에만 바뀐다 |
 | TC-ASV-14 | FR-ASV-41·42·43 | JS 단위: `resetsInSec` 368000·7800·2100·0·없음, 창 이름 넷과 모르는 이름, 오래된 관측, 빈 목록 | `4d 6h`·`2h 10m`·`35m`·soon·남은 시간 줄 없음 / 정해진 이름 / `as of` 가 선다 / 바닥이 없다 |
 | TC-ASV-15 | FR-ASV-33·40, NFR-ASV-3 | e2e: 서브에이전트와 한도를 보고한 뒤 패널을 최소 폭으로 | 하위 카드가 보이고 보기 전환이 동작한다. Usage 바닥이 패널 아랫변에 붙는다. (개정 2026-11-11) 바닥은 스크롤 몸통 밖이고, 몸통의 아랫변이 바닥의 윗변과 같다 — 목록이 길어 스크롤해도 바닥과 겹치지 않는다. 패널 폭을 넘지 않는다 |
-| TC-ASV-16 | 전체 | 수동: 새로 빌드하고 데몬을 다시 띄운 뒤, dongminal 의 claude 세션에서 서브에이전트를 부름 | 턴이 끝나면 카드가 done 으로 남고 1분 뒤에도 waiting 이 되지 않는다. 하위 카드가 working→done 으로 바뀐다. Usage 바닥에 현재 세션·이번 주가 보인다 |
+| TC-ASV-16 | 전체 | 수동: 새로 빌드하고 데몬을 다시 띄운 뒤, otterminal 의 claude 세션에서 서브에이전트를 부름 | 턴이 끝나면 카드가 done 으로 남고 1분 뒤에도 waiting 이 되지 않는다. 하위 카드가 working→done 으로 바뀐다. Usage 바닥에 현재 세션·이번 주가 보인다 |
 
 | TC-ASV-17 | FR-ASV-5 | Go: `SubagentHandback` 의 `PreToolUse`·`PostToolUse`·`PostToolUseFailure` 서브에이전트 훅 | 서브에이전트 보고가 done 이고 tool 이 `SubagentHandback` 이다. main 보고는 없다 |
 | TC-ASV-18 | §2.4 순서 재연, C-10 | Go: §2.4 의 끝 순서를 그대로, 그리고 마지막 두 훅을 뒤바꿔 서버에 보고 | 두 경우 모두 서브에이전트 활동이 done 이다 |
@@ -324,4 +324,4 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 | R-5 | 내부 에이전트를 "`agent_type` 이 빈 것" 으로 가르는 것은 문서와 실측에 기댄 판정이다 | MEDIUM | 판마다 바뀌면 C-1 이 되살아난다. 판정을 함수 하나에 두고 시험(TC-ASV-2)으로 고정한다 |
 | R-6 | `PermissionRequest` 로 waiting 알람이 종전보다 약 6초 빨리 운다 | LOW | 동작 변경으로 기록한다. 같은 대기의 되풀이는 FR-ATN-15 가 막는다 |
 | R-7 | 안전망이 도는 백그라운드 서브에이전트를 지울 수 있다. statusLine 보고가 끊기고(15초 넘게) 한 도구가 2분 넘게 돌 때다 | LOW | 지워도 그 서브에이전트의 다음 훅이 활동을 다시 만든다. 화면에서 잠깐 사라질 뿐이다 |
-| R-8 | 고친 해석은 `dmctl` 에 있다. 새 빌드의 `dmctl` 이 깔려야 적용된다 | LOW | 구현 뒤 적용 절차를 사용자에게 알린다. 안전망은 서버에 있어 서버만 새로 띄워도 동작한다 |
+| R-8 | 고친 해석은 `otterctl` 에 있다. 새 빌드의 `otterctl` 이 깔려야 적용된다 | LOW | 구현 뒤 적용 절차를 사용자에게 알린다. 안전망은 서버에 있어 서버만 새로 띄워도 동작한다 |

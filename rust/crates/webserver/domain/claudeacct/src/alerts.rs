@@ -1,7 +1,7 @@
 //! 알림 (FR-CAC-100·100a·101). 이름은 표시 이름뿐이다 — 이메일·ID·토큰을 싣지 않는다.
 
-use dm_gocompat::json::is_empty;
-use dm_gocompat::time::{Zone, to_zone};
+use otter_gocompat::json::is_empty;
+use otter_gocompat::time::{Zone, to_zone};
 use serde::Serialize;
 use time::OffsetDateTime;
 
@@ -47,7 +47,7 @@ pub struct Alert {
 
 /// unix 초의 로컬 날짜(`2006-01-02`).
 fn local_day(unix: i64) -> String {
-    local_day_in(unix, dm_gocompat::time::local())
+    local_day_in(unix, otter_gocompat::time::local())
 }
 
 /// `zone` 에서 본 unix 초의 날짜(`2006-01-02`). `time` 이 담지 못하는 시각은 빈 글이다.

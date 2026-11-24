@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-sandbox"
+name = "otter-shared-sandbox"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,10 +10,10 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-shared-diagtail = { path = "../diagtail" }
-dm-shared-dmenv = { path = "../dmenv" }
-dm-shared-platform = { path = "../platform" }
-dm-gocompat = { path = "../../gocompat", features = ["reqwest"] }
+otter-shared-diagtail = { path = "../diagtail" }
+otter-shared-otterenv = { path = "../otterenv" }
+otter-shared-platform = { path = "../platform" }
+otter-gocompat = { path = "../../gocompat", features = ["reqwest"] }
 reqwest = { workspace = true }
 rustls = { workspace = true }
 serde = { workspace = true }

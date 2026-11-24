@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use dm_gocompat::oserr::{go_error_string, path_error};
-use dm_shared_dmenv as dmenv;
+use otter_gocompat::oserr::{go_error_string, path_error};
+use otter_shared_otterenv as otterenv;
 use p256::pkcs8::{DecodePrivateKey, DecodePublicKey};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, PrivateSec1KeyDer};
 use sha2::{Digest, Sha256};
@@ -18,7 +18,7 @@ use time::OffsetDateTime;
 pub const CERT_VALIDITY: Duration = Duration::from_secs(10 * 365 * 24 * 3600);
 const KEY_FILE_PERM: u32 = 0o600;
 const CERT_FILE_PERM: u32 = 0o644;
-const COMMON_NAME: &str = "dongminal node";
+const COMMON_NAME: &str = "otterminal node";
 const SERIAL_BYTES: usize = 16;
 const BACKDATE: Duration = Duration::from_secs(3600);
 const PEM_LINE: usize = 64;
@@ -83,13 +83,13 @@ pub(crate) type WriteFn = dyn Fn(&Path, &[u8], u32) -> io::Result<()>;
 /// 오류다 — 신원은 조용히 바꾸지 않는다.
 pub fn load_or_create_identity(dir: &Path) -> Result<Identity, IdentityError> {
     load_or_create_with(dir, &|p, d, m| {
-        dm_shared_platform::write_file_atomic(p, d, m)
+        otter_shared_platform::write_file_atomic(p, d, m)
     })
 }
 
 pub(crate) fn load_or_create_with(dir: &Path, write: &WriteFn) -> Result<Identity, IdentityError> {
-    let cert_path = dir.join(dmenv::EDGE_CERT_FILE);
-    let key_path = dir.join(dmenv::EDGE_KEY_FILE);
+    let cert_path = dir.join(otterenv::EDGE_CERT_FILE);
+    let key_path = dir.join(otterenv::EDGE_KEY_FILE);
     let cert_exists = file_exists(&cert_path)?;
     let key_exists = file_exists(&key_path)?;
     if cert_exists && key_exists {

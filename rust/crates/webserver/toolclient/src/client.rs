@@ -8,11 +8,11 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use dm_gocompat::json::{self, ErrorKind, RawMessage};
-use dm_shared_dmlog::{errorf, infof, warnf};
-use dm_shared_platform::IpcStream;
-use dm_shared_toolhub::{DaemonInfo, ExitInfo};
-use dm_shared_toolipc::{
+use otter_gocompat::json::{self, ErrorKind, RawMessage};
+use otter_shared_otterlog::{errorf, infof, warnf};
+use otter_shared_platform::IpcStream;
+use otter_shared_toolhub::{DaemonInfo, ExitInfo};
+use otter_shared_toolipc::{
     AttnEvent, ChatEvent, EdgesEvent, HelloParams, METHOD_HELLO, PROTOCOL_VERSION, ReportEvent,
     RpcError, SERVER_FEATURES,
 };
@@ -204,7 +204,7 @@ impl ToolClient {
 
     /// 지금 연결된 데몬이 hello 에서 name 기능을 말했는가다 (D-OPT-1).
     pub fn has_feature(&self, name: &str) -> bool {
-        dm_shared_toolipc::has_feature(&lock(&self.inner.st).features, name)
+        otter_shared_toolipc::has_feature(&lock(&self.inner.st).features, name)
     }
 
     /// 마지막 hello 가 말한 데몬의 판이다 (FR-VHL-2).
@@ -303,7 +303,7 @@ fn parse_hello(res: &HelloReply) -> DaemonInfo {
 impl Inner {
     /// 연결 하나를 세우고 읽기 루프를 띄운 뒤 hello 를 마친다. 첫 연결과 재접속마다 부른다.
     fn connect(self: &Arc<Self>) -> Result<(), Error> {
-        let stream = dm_shared_platform::current()
+        let stream = otter_shared_platform::current()
             .ipc
             .dial(&self.sock_path, TOOL_DIAL_TIMEOUT)
             .map_err(Error::Io)?;
@@ -617,7 +617,7 @@ impl Inner {
                 {
                     errorf!(
                         None,
-                        "toolclient: respawning dongminald after {fails} failed dials"
+                        "toolclient: respawning otterminald after {fails} failed dials"
                     );
                     let _ = spawn();
                 }

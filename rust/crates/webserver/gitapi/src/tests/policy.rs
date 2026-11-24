@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use dm_webserver_domain_git_core::{self as core, Hint};
-use dm_webserver_domain_git_write as write;
+use otter_webserver_domain_git_core::{self as core, Hint};
+use otter_webserver_domain_git_write as write;
 use serde_json::json;
 
 use super::harness::*;
@@ -125,7 +125,7 @@ fn policy_routes_registered() {
     for ep in policy_endpoints() {
         let path = ep.split('?').next().unwrap();
         assert!(
-            dm_webserver_httproute::dispatch(&crate::routes::ROUTES, "GET", path).is_some(),
+            otter_webserver_httproute::dispatch(&crate::routes::ROUTES, "GET", path).is_some(),
             "{path}"
         );
     }

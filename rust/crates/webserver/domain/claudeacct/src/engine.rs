@@ -8,8 +8,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
-use dm_gocompat::json::{self, is_empty};
 use futures_util::future::BoxFuture;
+use otter_gocompat::json::{self, is_empty};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use tokio_util::sync::CancellationToken;
@@ -256,7 +256,7 @@ impl Engine {
             Err(e) => return Err(e.into()),
         };
         let Ok(f) = json::unmarshal::<UsageFileIn>(&b) else {
-            dm_shared_dmlog::infof!(
+            otter_shared_otterlog::infof!(
                 None,
                 "claude-accounts: {USAGE_FILE} 가 깨졌다 — 비우고 시작한다"
             );
@@ -290,11 +290,11 @@ impl Engine {
             return;
         }
         self.writes.fetch_add(1, Ordering::Relaxed);
-        if let Err(e) = dm_shared_platform::write_file_atomic(&self.path(), &b, FILE_MODE) {
-            dm_shared_dmlog::infof!(
+        if let Err(e) = otter_shared_platform::write_file_atomic(&self.path(), &b, FILE_MODE) {
+            otter_shared_otterlog::infof!(
                 None,
                 "claude-accounts: {USAGE_FILE} 를 쓰지 못했다: {}",
-                dm_gocompat::oserr::go_error_string(&e)
+                otter_gocompat::oserr::go_error_string(&e)
             );
         }
     }
@@ -644,8 +644,8 @@ impl Engine {
                 Sentinel::Invalid,
                 format!(
                     "프로그램 {} 와 티켓 {} 가 맞지 않습니다",
-                    dm_gocompat::strconv::quote(program),
-                    dm_gocompat::strconv::quote(grant_id)
+                    otter_gocompat::strconv::quote(program),
+                    otter_gocompat::strconv::quote(grant_id)
                 ),
             ));
         }
@@ -769,7 +769,10 @@ impl Engine {
                 return Err((cur, e));
             }
             if let Err(e) = self.svc.backup.write(&a.id, &next) {
-                dm_shared_dmlog::infof!(None, "claude-accounts: 활성 계정 백업을 쓰지 못했다: {e}");
+                otter_shared_otterlog::infof!(
+                    None,
+                    "claude-accounts: 활성 계정 백업을 쓰지 못했다: {e}"
+                );
             }
             return Ok(next);
         }
@@ -824,7 +827,10 @@ impl Engine {
             return Err((cur, e));
         }
         if let Err(e) = self.svc.backup.write(&a.id, &next) {
-            dm_shared_dmlog::infof!(None, "claude-accounts: 고정 계정 백업을 쓰지 못했다: {e}");
+            otter_shared_otterlog::infof!(
+                None,
+                "claude-accounts: 고정 계정 백업을 쓰지 못했다: {e}"
+            );
         }
         Ok(next)
     }

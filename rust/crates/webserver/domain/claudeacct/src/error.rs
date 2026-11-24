@@ -4,7 +4,7 @@
 use std::fmt;
 use std::io;
 
-use dm_gocompat::oserr::go_error_string;
+use otter_gocompat::oserr::go_error_string;
 
 /// Go 의 이름 붙은 오류 값.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -174,14 +174,14 @@ impl From<io::Error> for Error {
     }
 }
 
-impl From<dm_gocompat::json::Error> for Error {
-    fn from(e: dm_gocompat::json::Error) -> Self {
+impl From<otter_gocompat::json::Error> for Error {
+    fn from(e: otter_gocompat::json::Error) -> Self {
         Self::new(e.to_string())
     }
 }
 
-impl From<dm_shared_platform::SecretsError> for Error {
-    fn from(e: dm_shared_platform::SecretsError) -> Self {
+impl From<otter_shared_platform::SecretsError> for Error {
+    fn from(e: otter_shared_platform::SecretsError) -> Self {
         Self::new(e.to_string())
     }
 }

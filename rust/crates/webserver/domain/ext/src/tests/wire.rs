@@ -11,7 +11,7 @@ use crate::install::Outcome;
 use crate::locate::{Missing, Status};
 
 fn json(v: &impl serde::Serialize) -> String {
-    String::from_utf8(dm_gocompat::json::marshal(v).unwrap()).unwrap()
+    String::from_utf8(otter_gocompat::json::marshal(v).unwrap()).unwrap()
 }
 
 #[test]
@@ -133,7 +133,7 @@ async fn http_fetch_cancelled() {
         e.to_string(),
         format!(
             "Get {}: context canceled",
-            dm_gocompat::strconv::quote(&url)
+            otter_gocompat::strconv::quote(&url)
         )
     );
     drop(l);
@@ -154,8 +154,8 @@ mod host_exec {
             .exec(
                 &Ctx::background(),
                 "sh",
-                &args(&["-c", "echo out; echo err 1>&2; echo $DM_X"]),
-                &["DM_X=v".to_owned()],
+                &args(&["-c", "echo out; echo err 1>&2; echo $OTTER_X"]),
+                &["OTTER_X=v".to_owned()],
                 &dir,
             )
             .await;
@@ -182,11 +182,11 @@ mod host_exec {
     async fn not_found_text() {
         let (_d, dir) = tmp();
         let r = HostExec
-            .exec(&Ctx::background(), "dm-no-such-tool-xyz", &[], &[], &dir)
+            .exec(&Ctx::background(), "otter-no-such-tool-xyz", &[], &[], &dir)
             .await;
         assert_eq!(
             r.err.as_deref(),
-            Some(r#"exec: "dm-no-such-tool-xyz": executable file not found in $PATH"#)
+            Some(r#"exec: "otter-no-such-tool-xyz": executable file not found in $PATH"#)
         );
     }
 

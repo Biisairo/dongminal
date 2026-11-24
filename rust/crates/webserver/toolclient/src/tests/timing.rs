@@ -5,8 +5,8 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use dm_shared_toolhub::{Placement, ToolInfo};
-use dm_shared_toolipc::{METHOD_CREATE, METHOD_HELLO, METHOD_LIST, PROTOCOL_VERSION};
+use otter_shared_toolhub::{Placement, ToolInfo};
+use otter_shared_toolipc::{METHOD_CREATE, METHOD_HELLO, METHOD_LIST, PROTOCOL_VERSION};
 use serde_json::json;
 
 use super::{Peer, chan, listen, next_line, ok_fake, resp, version, wait_until};
@@ -35,7 +35,7 @@ fn call_timeout() {
     );
     assert_eq!(
         err.to_string(),
-        r#"dial dongminald: hello: paned call "hello" timed out"#
+        r#"dial otterminald: hello: paned call "hello" timed out"#
     );
 }
 
@@ -245,7 +245,7 @@ fn heartbeat_skips_while_call_pending() {
         .inner
         .call_raw(
             METHOD_CREATE,
-            &dm_shared_toolipc::CreateParams::default(),
+            &otter_shared_toolipc::CreateParams::default(),
             within,
         )
         .unwrap_err();
@@ -264,8 +264,8 @@ fn heartbeat_keeps_live_daemon() {
     let mut first = String::new();
     for i in 0..4 {
         let line = next_line(&lines);
-        let req: dm_shared_toolipc::PanedRequest =
-            dm_gocompat::json::unmarshal(line.as_bytes()).unwrap();
+        let req: otter_shared_toolipc::PanedRequest =
+            otter_gocompat::json::unmarshal(line.as_bytes()).unwrap();
         assert_eq!(req.method, METHOD_HELLO, "{line}");
         let p = String::from_utf8(req.params.0).unwrap();
         if i == 0 {

@@ -117,7 +117,7 @@ LSP 는 서버 중개(REST)를 걷어 내고 `@codemirror/lsp-client` 와 WebSoc
 - 서버가 언어 서버 프로세스와 문서 동기화를 맡는다. 브라우저는 REST 만 부른다:
   `/api/lsp/{status,paths,close,install,definition,references,hover}` (`handlers_api.go:196-204`).
 - 진단은 hub 의 `lsp_diagnostics` 액션으로 브라우저에 밀어 준다.
-- 이 API 를 부르는 쪽은 **웹 편집기 하나뿐**이다. dmctl·CLI 는 쓰지 않는다.
+- 이 API 를 부르는 쪽은 **웹 편집기 하나뿐**이다. otterctl·CLI 는 쓰지 않는다.
 - `ResyncPath`(파일 저장 뒤)·`ResyncRepo`(`git_changed` 뒤)는 **열린 문서만** 디스크 판으로
   맞춘다. 열리지 않은 파일은 알리지 않는다 (`manager.go:414` 주석이 비목표로 밝힌다).
 - `git_changed` 는 저장소 경로만 싣는다. 바뀐 파일 목록은 없다 (`deps.go:167`).

@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use dm_gocompat::json::{self, RawMessage, is_empty};
+use otter_gocompat::json::{self, RawMessage, is_empty};
 use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
@@ -69,7 +69,7 @@ pub(crate) fn parse_resets_at(s: &str) -> i64 {
     if s.is_empty() {
         return 0;
     }
-    dm_gocompat::time::parse_rfc3339_nano(s).map_or(0, |t| t.unix_timestamp())
+    otter_gocompat::time::parse_rfc3339_nano(s).map_or(0, |t| t.unix_timestamp())
 }
 
 /// 사용량 응답을 해석한다. 창이 하나도 없거나 형식이 틀리면 오류다.

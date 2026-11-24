@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use dm_webserver_apierr as apierr;
+use otter_webserver_apierr as apierr;
 use tempfile::TempDir;
 
 use super::harness::q;
@@ -350,7 +350,7 @@ fn bundle_f_routes_registered() {
         ("POST", "/api/git/uncommitted/clean"),
     ] {
         assert!(
-            dm_webserver_httproute::dispatch(&crate::routes::ROUTES, method, path).is_some(),
+            otter_webserver_httproute::dispatch(&crate::routes::ROUTES, method, path).is_some(),
             "{method} {path} 라우트가 없다"
         );
     }

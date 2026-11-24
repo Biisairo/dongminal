@@ -36,11 +36,11 @@ struct Msg {
 
 fn read_msg(e: &mut PipeEnd) -> Msg {
     let b = read_frame(&mut e.input).unwrap();
-    dm_gocompat::json::unmarshal(&b).unwrap()
+    otter_gocompat::json::unmarshal(&b).unwrap()
 }
 
 fn uri(p: &str) -> String {
-    dm_shared_platform::current().paths.file_uri(p)
+    otter_shared_platform::current().paths.file_uri(p)
 }
 
 fn uris(m: &Msg) -> Vec<String> {

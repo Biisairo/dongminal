@@ -1,5 +1,5 @@
 /**
- * Dongminal — **Diff 탭과 Console 탭**의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
+ * Otterminal — **Diff 탭과 Console 탭**의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
  *
  * 축·편집기 설정·hunk 표면, 그리고 명령 기록. 둘이 한 파일인 이유는 Console 이
  * 열 줄 남짓이고 **둘 다 "방금 무슨 일이 있었나" 를 보여주는 표면**이기 때문이다.
@@ -103,7 +103,7 @@ const GIT_DIFF_ERR={
   git_missing:GIT_ERR_GIT_MISSING,
 };
 
-// Console 은 터미널이 아니다. dongminal 이 사용자를 대신해 실행한 git 명령의
+// Console 은 터미널이 아니다. otterminal 이 사용자를 대신해 실행한 git 명령의
 // 기록이며, 그 명령들은 서버 프로세스 안에서 돌아 사용자의 터미널에는 남지 않는다.
 //
 // 폴링(FR-GIT-18~24)은 1초에 한 번 기록되므로 거르지 않으면 목록이 그것으로만

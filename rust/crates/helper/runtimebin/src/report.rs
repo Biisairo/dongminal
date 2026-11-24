@@ -5,9 +5,9 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use dm_gocompat::json::{self, Encoder, RawMessage};
-use dm_shared_agentrec as agentrec;
-use dm_shared_dmenv as dmenv;
+use otter_gocompat::json::{self, Encoder, RawMessage};
+use otter_shared_agentrec as agentrec;
+use otter_shared_otterenv as otterenv;
 use serde::Serialize;
 
 use crate::ctx::Env;
@@ -37,7 +37,7 @@ pub(crate) fn post_report<T: Serialize + ?Sized>(
             };
         }
     };
-    let home = env.get(dmenv::ENV_HOME);
+    let home = env.get(otterenv::ENV_HOME);
     if !home.is_empty() && !budget.is_zero() {
         let start = Instant::now();
         if send_report_socket(Path::new(&home), method, &raw, budget / 2) {
@@ -59,7 +59,7 @@ pub(crate) fn post_report<T: Serialize + ?Sized>(
 /// home 의 보고 소켓에 보내고 데몬이 받았는가를 돌려준다.
 fn send_report_socket(home: &Path, method: &str, raw: &[u8], within: Duration) -> bool {
     let deadline = Instant::now() + within;
-    let Ok(mut c) = dm_shared_platform::current()
+    let Ok(mut c) = otter_shared_platform::current()
         .ipc
         .dial(&agentrec::socket_path(home), within)
     else {

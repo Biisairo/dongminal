@@ -1,6 +1,6 @@
 use std::fs;
 
-use dm_shared_workspace::{FilePersister, Liveness};
+use otter_shared_workspace::{FilePersister, Liveness};
 
 use super::*;
 

@@ -1,9 +1,9 @@
-//! Go edgerelay 와 섞어 써도 중계가 되는가 (FR-RSP-23). `DM_PARITY_GO_RELAY_BIN` 이 없으면 건너뛴다.
+//! Go edgerelay 와 섞어 써도 중계가 되는가 (FR-RSP-23). `OTTER_PARITY_GO_RELAY_BIN` 이 없으면 건너뛴다.
 //!
 //! ```sh
-//! rust/scripts/hermetic.sh env DM_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh rust/target/go-ref/relayref rust/crates/shared/edgerelay/testdata/goref
-//! rust/scripts/hermetic.sh env DM_PARITY_GO_RELAY_BIN=$PWD/rust/target/go-ref/relayref \
-//!     cargo test -p dm-shared-edgerelay --test go_interop
+//! rust/scripts/hermetic.sh env OTTER_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh rust/target/go-ref/relayref rust/crates/shared/edgerelay/testdata/goref
+//! rust/scripts/hermetic.sh env OTTER_PARITY_GO_RELAY_BIN=$PWD/rust/target/go-ref/relayref \
+//!     cargo test -p otter-shared-edgerelay --test go_interop
 //! ```
 
 use std::io::{BufRead, BufReader as StdBufReader};
@@ -11,8 +11,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command, Stdio};
 use std::time::Duration;
 
-use dm_shared_edge::Acceptor;
-use dm_shared_edgerelay::{
+use otter_shared_edge::Acceptor;
+use otter_shared_edgerelay::{
     DIAL_SOCKET_FILE, NODE_SOCKET_FILE, Port, dialer, listen_node, serve_dial,
 };
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -96,15 +96,15 @@ async fn round_trip<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin>(
 
 fn short_dir() -> tempfile::TempDir {
     tempfile::Builder::new()
-        .prefix("dmg")
+        .prefix("otterg")
         .tempdir_in("/tmp")
         .unwrap()
 }
 
 fn bin() -> Option<PathBuf> {
-    let b = std::env::var_os("DM_PARITY_GO_RELAY_BIN").map(PathBuf::from);
+    let b = std::env::var_os("OTTER_PARITY_GO_RELAY_BIN").map(PathBuf::from);
     if b.is_none() {
-        eprintln!("DM_PARITY_GO_RELAY_BIN 이 없어 건너뛴다");
+        eprintln!("OTTER_PARITY_GO_RELAY_BIN 이 없어 건너뛴다");
     }
     b
 }

@@ -293,23 +293,27 @@ fn eof_when_shell_exits() {
 #[test]
 fn start_errors_are_go_shaped() {
     let e = err_of(PosixPty.start(
-        spec("dm-no-such-shell-7f3c", &["x"], vec![], "/tmp/w"),
+        spec("otter-no-such-shell-7f3c", &["x"], vec![], "/tmp/w"),
         80,
         24,
     ));
     assert_eq!(
         e.to_string(),
-        "pty start dm-no-such-shell-7f3c (cwd=/tmp/w): exec: \"dm-no-such-shell-7f3c\": executable file not found in $PATH"
+        "pty start otter-no-such-shell-7f3c (cwd=/tmp/w): exec: \"otter-no-such-shell-7f3c\": executable file not found in $PATH"
     );
-    let e = err_of(PosixPty.start(spec("/bin/sh", &["sh"], vec![], "/nonexistent-dm"), 80, 24));
+    let e = err_of(PosixPty.start(
+        spec("/bin/sh", &["sh"], vec![], "/nonexistent-otter"),
+        80,
+        24,
+    ));
     assert_eq!(
         e.to_string(),
-        "pty start /bin/sh (cwd=/nonexistent-dm): chdir /nonexistent-dm: no such file or directory"
+        "pty start /bin/sh (cwd=/nonexistent-otter): chdir /nonexistent-otter: no such file or directory"
     );
-    let e = err_of(PosixPty.start(spec("/nonexistent-dm/sh", &["sh"], vec![], ""), 80, 24));
+    let e = err_of(PosixPty.start(spec("/nonexistent-otter/sh", &["sh"], vec![], ""), 80, 24));
     assert_eq!(
         e.to_string(),
-        "pty start /nonexistent-dm/sh (cwd=): fork/exec /nonexistent-dm/sh: no such file or directory"
+        "pty start /nonexistent-otter/sh (cwd=): fork/exec /nonexistent-otter/sh: no such file or directory"
     );
 }
 
@@ -325,20 +329,20 @@ fn bare_name_resolves_via_parent_path() {
 fn resolve_reports_err_dot() {
     use std::os::unix::fs::PermissionsExt;
     let d = tempfile::tempdir().unwrap();
-    let exe = d.path().join("dm-dot-shell");
+    let exe = d.path().join("otter-dot-shell");
     std::fs::write(&exe, b"#!/bin/sh\n").unwrap();
     std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let rel = dm_gocompat::filepath::rel(
+    let rel = otter_gocompat::filepath::rel(
         &std::env::current_dir().unwrap().to_string_lossy(),
         &d.path().to_string_lossy(),
     )
     .unwrap();
     assert_eq!(
-        resolve_in("dm-dot-shell", &rel).unwrap_err(),
-        r#"exec: "dm-dot-shell": cannot run executable found relative to current directory"#
+        resolve_in("otter-dot-shell", &rel).unwrap_err(),
+        r#"exec: "otter-dot-shell": cannot run executable found relative to current directory"#
     );
     assert_eq!(
-        resolve_in("dm-no-such-shell-7f3c", &rel).unwrap_err(),
-        r#"exec: "dm-no-such-shell-7f3c": executable file not found in $PATH"#
+        resolve_in("otter-no-such-shell-7f3c", &rel).unwrap_err(),
+        r#"exec: "otter-no-such-shell-7f3c": executable file not found in $PATH"#
     );
 }

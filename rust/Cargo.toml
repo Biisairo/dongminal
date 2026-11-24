@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/cmd/dongminal",
+    "crates/cmd/otterminal",
     "crates/ctl/cli",
     "crates/ctl/decidx",
     "crates/ctl/errdoc",
@@ -25,8 +25,8 @@ members = [
     "crates/shared/apipath",
     "crates/shared/chatwire",
     "crates/shared/diagtail",
-    "crates/shared/dmenv",
-    "crates/shared/dmlog",
+    "crates/shared/otterenv",
+    "crates/shared/otterlog",
     "crates/shared/edge",
     "crates/shared/edgemesh",
     "crates/shared/edgenode",
@@ -87,7 +87,6 @@ members = [
     "crates/webserver/seam/toolaccess",
     "crates/webserver/sse",
     "crates/webserver/toolclient",
-    "parity",
 ]
 
 [workspace.package]
@@ -99,7 +98,7 @@ license = "MIT"
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
 # 릴리스 빌드가 빌드 경로를 새기지 않게 한다 (scripts/build.sh, Go -trimpath).
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(dongminal_trimpath)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(otterminal_trimpath)"] }
 
 [workspace.lints.clippy]
 dbg_macro = "deny"

@@ -9,17 +9,17 @@ import { isWin, tmpPath } from './e2e/osenv';
 // **환경변수를 먼저 보는 것이 핵심이다.** 이 파일은 워커 프로세스마다 다시
 // 평가되므로, 여기서 `Date.now()+pid` 로 만들면 워커마다 **다른 뿌리**가 나온다
 // (실측: 워커가 자기만의 뿌리를 만들고 그 아래 없는 바이너리를 실행해 ENOENT).
-// `globalSetup` 이 이 값을 `DM_E2E_RUN` 에 박고, 워커는 그것을 읽는다.
-export const E2E_RUN_ENV = 'DM_E2E_RUN';
+// `globalSetup` 이 이 값을 `OTTER_E2E_RUN` 에 박고, 워커는 그것을 읽는다.
+export const E2E_RUN_ENV = 'OTTER_E2E_RUN';
 export const E2E_HOME =
-  process.env[E2E_RUN_ENV] || tmpPath('dongminal-e2e-' + Date.now() + '-' + process.pid);
+  process.env[E2E_RUN_ENV] || tmpPath('otterminal-e2e-' + Date.now() + '-' + process.pid);
 
 // 서버 바이너리. `globalSetup` 이 한 번 만들고 워커가 그것을 실행한다
 // (FR-EPL-8) — `go run` 을 워커마다 부르면 같은 컴파일을 N 번 기다린다.
-export const E2E_BIN = E2E_HOME + '/dongminal-e2e' + (isWin ? '.exe' : '');
+export const E2E_BIN = E2E_HOME + '/otterminal-e2e' + (isWin ? '.exe' : '');
 
 // 가짜 에이전트가 놓이는 디렉터리 (M8_UNIFIED_SRS V-12 · D-C-7). `globalSetup` 이
-// 만들고 워커의 서버가 `DONGMINAL_AGENT_BIN_DIR` 로 받는다.
+// 만들고 워커의 서버가 `OTTERMINAL_AGENT_BIN_DIR` 로 받는다.
 
 // 워커 0 의 포트. 워커 i 는 `E2E_PORT0 + i` 를 쓴다 (FR-EPL-1).
 //

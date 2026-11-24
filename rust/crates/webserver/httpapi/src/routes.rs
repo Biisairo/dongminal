@@ -4,7 +4,7 @@
 
 use std::sync::LazyLock;
 
-use dm_webserver_httproute::{
+use otter_webserver_httproute::{
     METHOD_DELETE, METHOD_GET, Matcher, Route, any, get, post, put, when,
 };
 
@@ -14,7 +14,7 @@ use crate::req::{BoxFut, Handler, Req};
 /// 처리기 하나를 표의 함수로 감싼다.
 macro_rules! h {
     ($m:ident) => {{
-        fn f<'a>(s: &'a Server, r: &'a mut Req) -> BoxFut<'a, dm_shared_httpresp::Response> {
+        fn f<'a>(s: &'a Server, r: &'a mut Req) -> BoxFut<'a, otter_shared_httpresp::Response> {
             Box::pin(s.$m(r))
         }
         f as Handler
@@ -275,7 +275,7 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
 
 #[cfg(test)]
 impl Server {
-    async fn api_test_panic(&self, _r: &mut Req) -> dm_shared_httpresp::Response {
+    async fn api_test_panic(&self, _r: &mut Req) -> otter_shared_httpresp::Response {
         panic!("시험 패닉")
     }
 }

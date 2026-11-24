@@ -2,8 +2,8 @@ use super::*;
 
 #[test]
 fn human_ops_are_humancmd() {
-    assert_eq!(OP_KILL, dm_shared_humancmd::OP_KILL);
-    assert_eq!(OP_KICK, dm_shared_humancmd::OP_KICK);
+    assert_eq!(OP_KILL, otter_shared_humancmd::OP_KILL);
+    assert_eq!(OP_KICK, otter_shared_humancmd::OP_KICK);
 }
 
 #[test]

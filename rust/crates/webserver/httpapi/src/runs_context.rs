@@ -5,12 +5,12 @@
 
 use std::time::Duration;
 
-use dm_shared_dmlog::{errorf, infof};
-use dm_shared_httpresp::Response;
-use dm_shared_pollwait as pollwait;
-use dm_shared_runwait as runwait;
-use dm_webserver_domain_run::{self as run, ContextObservation, ContextPolicy, Member, Record};
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_shared_otterlog::{errorf, infof};
+use otter_shared_pollwait as pollwait;
+use otter_shared_runwait as runwait;
+use otter_webserver_domain_run::{self as run, ContextObservation, ContextPolicy, Member, Record};
 use serde::Deserialize;
 
 use crate::Server;
@@ -43,7 +43,7 @@ struct PolicyOrch {
 /// (5.5.8)가 쓴다.
 #[allow(dead_code)]
 pub(crate) fn parse_context_policy(blob: &[u8]) -> ContextPolicy {
-    let Ok(cfg) = dm_gocompat::json::unmarshal::<Option<PolicyBlob>>(blob) else {
+    let Ok(cfg) = otter_gocompat::json::unmarshal::<Option<PolicyBlob>>(blob) else {
         return ContextPolicy::default_policy();
     };
     let o = cfg.and_then(|c| c.orchestration).unwrap_or_default();
@@ -265,7 +265,7 @@ impl Server {
             return;
         }
         let body = format!(
-            "[CONTEXT-ALERT run={} member={} role={} level={level}]\n{}\n승계: dmctl run succeed --member {} --at <새 탭 uuid> | --headless",
+            "[CONTEXT-ALERT run={} member={} role={} level={level}]\n{}\n승계: otterctl run succeed --member {} --at <새 탭 uuid> | --headless",
             rec.short,
             m.id,
             m.role,
@@ -450,7 +450,7 @@ impl Server {
              너는 곧 승계된다 — 같은 역할·같은 작업 트리의 새 멤버가 이 일을 이어받는다.\n\
              지금까지의 상태를 후임이 읽을 수 있게 남겨라. 무엇을 했는가 / 지금 어디까지\n\
              왔는가 / 다음에 무엇을 해야 하는가 / 알아야 할 함정. 아래를 한 번 실행한다.\n\
-             dmctl run handoff --member {} --summary - <<'SUM'\n...본문...\nSUM",
+             otterctl run handoff --member {} --summary - <<'SUM'\n...본문...\nSUM",
             rec.short, prev.id, prev.id
         );
         let envelope = agent_envelope(ENVELOPE_SERVER_SENDER, &prev.tool_id, &ask);
@@ -490,7 +490,7 @@ impl Server {
                     "[run] handoff 시한 초과 run={} member={} wait={} — 요약 없이 승계하고 기다림을 프리앰블로 넘긴다",
                     rec.short,
                     prev.id,
-                    dm_gocompat::time::format_std_duration(wait)
+                    otter_gocompat::time::format_std_duration(wait)
                 );
                 (baseline, true)
             }

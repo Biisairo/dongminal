@@ -1,6 +1,6 @@
 //! gitdir 과 common-dir.
 
-use dm_gocompat::filepath;
+use otter_gocompat::filepath;
 
 use crate::ctx::Ctx;
 use crate::error::{Error, Kind};

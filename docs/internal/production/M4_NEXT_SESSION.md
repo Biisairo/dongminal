@@ -60,14 +60,14 @@ M4 를 시작한다. **M2·M3 의 로드맵 항목은 전부 닫혔다.**
 ## 착수 순서 (로드맵이 정하지 않았으므로 제안)
 
   ① `TLS-2` 노출 판정 확장 — **다른 전부의 전제다.** 지금 `0.0.0.0`/`::` 만 봐서
-     `DONGMINAL_HOST=192.168.x` 가 `local-only` 로 오표시되고, **인증 강제가 그
+     `OTTERMINAL_HOST=192.168.x` 가 `local-only` 로 오표시되고, **인증 강제가 그
      판정에 걸리므로** 여기가 틀리면 강제가 통째로 빠져나간다. 표 기반 테스트로
      고정한다 (`127.0.0.1`·`::1`·`localhost` = 로컬 / `0.0.0.0`·`::`·`192.168.x`·
      `10.x`·`100.64.x` = 노출)
-  ② `G1-2` 자격증명 (`dongminal auth init/rotate/show`, `auth.json` 0600)
+  ② `G1-2` 자격증명 (`otterminal auth init/rotate/show`, `auth.json` 0600)
   ③ `G1-1`·`G1-3` 인증 판정과 세션 — `authGate` 를 채운다
   ④ `G1-4` 무차별 대입 방어 (백오프·잠금·`crypto/subtle`)
-  ⑤ `SEC-3` 기동 거부 + `dongminal auth init` 안내
+  ⑤ `SEC-3` 기동 거부 + `otterminal auth init` 안내
   ⑥ `G1-5` TLS 두 플래그 · `TLS-1` 알림 결손 셋
   ⑦ `G10-1` 보안 경계 문서 · README 의 "인증이 없으므로" 제거
 
@@ -79,8 +79,8 @@ M4 를 시작한다. **M2·M3 의 로드맵 항목은 전부 닫혔다.**
   · `GET /api/health` — 어긋남을 답하는 자리. **"노출 중" 표시가 여기 붙는다**
     (`G10-1` ⑤가 요구한다)
   · `WriteStateFile` — 상태 파일 세대 3. **`auth.json` 도 이 자리를 쓴다**
-  · `dongminal rollback` — 상태 파일을 세대로 되돌린다
-  · `dongminal doctor --bundle` — 신고용 번들. **마스킹은 `SanitizeRemote` 한 벌**이며
+  · `otterminal rollback` — 상태 파일을 세대로 되돌린다
+  · `otterminal doctor --bundle` — 신고용 번들. **마스킹은 `SanitizeRemote` 한 벌**이며
     `auth.json` 을 담을지는 이 마일스톤이 정해야 한다 (지금은 담지 않는다)
 
 ## 열어 둔 둘 — 근거가 있으니 함부로 닫지 마라

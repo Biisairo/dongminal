@@ -11,7 +11,7 @@ use crate::{Ctx, Error, Output, Runner, WriteRunner};
 /// Go `testpath.Abs`: 어느 OS 에서도 절대경로가 되는 경로.
 pub(crate) fn abs(parts: &[&str]) -> String {
     let root = if cfg!(windows) { "C:\\" } else { "/" };
-    dm_gocompat::filepath::join(&[&[root], parts].concat())
+    otter_gocompat::filepath::join(&[&[root], parts].concat())
 }
 
 pub(crate) fn abs_r() -> String {
@@ -29,7 +29,7 @@ pub(crate) fn abs_user_repo() -> String {
 
 /// Go `gittest.Path`. git 이 없으면 None — 시험은 건너뛴다.
 pub(crate) fn git_path() -> Option<String> {
-    dm_shared_platform::look_path("git")
+    otter_shared_platform::look_path("git")
 }
 
 /// Go `gittest.Run`.
@@ -64,8 +64,8 @@ pub(crate) struct Temp {
 
 pub(crate) fn temp_dir() -> Temp {
     let dir = TempDir::new().expect("tempdir");
-    let path =
-        dm_gocompat::filepath::eval_symlinks(&dir.path().to_string_lossy()).expect("eval_symlinks");
+    let path = otter_gocompat::filepath::eval_symlinks(&dir.path().to_string_lossy())
+        .expect("eval_symlinks");
     Temp { _dir: dir, path }
 }
 

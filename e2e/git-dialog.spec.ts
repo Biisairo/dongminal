@@ -13,7 +13,7 @@ import { tmpPath } from './osenv';
 // 모으는 단계다. 그래서 여기서 재는 것은 **골격 자체**이고, 흡수한 다이얼로그가
 // 그것을 쓰는지는 D1 이 가른다.
 
-const FIXTURES = tmpPath('dm-git-fx-dialog-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-dialog-' + process.pid);
 
 const DESKTOP = { width: 1280, height: 720 };
 const MOBILE = { width: 390, height: 640 };

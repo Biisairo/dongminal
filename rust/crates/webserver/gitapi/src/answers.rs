@@ -6,13 +6,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use dm_webserver_action::{self as action, Answer, allow, deny};
-use dm_webserver_apierr::{self as apierr, Classify};
-use dm_webserver_domain_git_core::Ctx;
-use dm_webserver_domain_git_jobs::{self as jobs, Exclusion, Keys, SLOT_INDEX};
-use dm_webserver_domain_git_query::{self as query, FileEntry, Status};
-use dm_webserver_domain_git_store::Store;
-use dm_webserver_domain_git_write as write;
+use otter_webserver_action::{self as action, Answer, allow, deny};
+use otter_webserver_apierr::{self as apierr, Classify};
+use otter_webserver_domain_git_core::Ctx;
+use otter_webserver_domain_git_jobs::{self as jobs, Exclusion, Keys, SLOT_INDEX};
+use otter_webserver_domain_git_query::{self as query, FileEntry, Status};
+use otter_webserver_domain_git_store::Store;
+use otter_webserver_domain_git_write as write;
 
 use crate::GitServer;
 use crate::reply::{Obj, obj};
@@ -223,7 +223,7 @@ impl GitServer {
                 String::new(),
             ));
         }
-        if !dm_gocompat::filepath::is_abs(path) {
+        if !otter_gocompat::filepath::is_abs(path) {
             return Ok((
                 deny(BAD_REQUEST, apierr::CODE_ABS_PATH_NEEDED, None),
                 String::new(),

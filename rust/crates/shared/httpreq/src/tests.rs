@@ -126,7 +126,7 @@ struct Inner {
 
 fn decode_err(s: &str) -> DecodeError {
     DecodeError::NotJson(
-        dm_gocompat::json::unmarshal::<DeleteReq>(s.as_bytes())
+        otter_gocompat::json::unmarshal::<DeleteReq>(s.as_bytes())
             .err()
             .expect("오류여야 한다"),
     )

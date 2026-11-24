@@ -3,7 +3,7 @@ use std::process::Command;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use dm_shared_platform::{Group, Process, ShutdownSignal};
+use otter_shared_platform::{Group, Process, ShutdownSignal};
 
 use crate::homelayout::{DAEMON_PID_FILE, DAEMON_SOCK_FILE};
 use crate::proc::{Procs, daemon_ours, kill_port, stop_daemon};
@@ -93,11 +93,11 @@ fn stop_home(pid: &str) -> tempfile::TempDir {
 
 /// 답하는 소켓을 세운 홈이다. 이것이 없으면 FBE-07 판정 때문에 종료 갈래에 닿지 못한다.
 pub(crate) struct LiveSocket {
-    _listener: dm_shared_platform::IpcListener,
+    _listener: otter_shared_platform::IpcListener,
 }
 
 pub(crate) fn live_socket(home: &Path) -> LiveSocket {
-    let tr = dm_shared_platform::current().ipc;
+    let tr = otter_shared_platform::current().ipc;
     let ep = tr.endpoint(home);
     let _ = tr.remove(&ep);
     let ln = tr.listen(&ep).unwrap();
@@ -131,7 +131,7 @@ fn stop_daemon_still_alive_reports_failure() {
     assert!(d.path().join(DAEMON_PID_FILE).exists());
     assert_eq!(
         out,
-        "dongminald 정지 중 pid=4242...\n강제 종료...\ndongminald pid=4242 가 아직 살아 있습니다\n"
+        "otterminald 정지 중 pid=4242...\n강제 종료...\notterminald pid=4242 가 아직 살아 있습니다\n"
     );
 }
 
@@ -145,7 +145,7 @@ fn stop_daemon_terminate_succeeds() {
     assert_eq!(f.counts(), (1, 0));
     assert!(!d.path().join(DAEMON_PID_FILE).exists());
     assert!(!d.path().join(DAEMON_SOCK_FILE).exists());
-    assert_eq!(out, "dongminald 정지 중 pid=4242...\n");
+    assert_eq!(out, "otterminald 정지 중 pid=4242...\n");
 }
 
 #[test]
@@ -164,7 +164,7 @@ fn stop_daemon_stale_pidfile_is_success() {
     let (ok, out) = stop(d.path(), &f);
     assert!(ok);
     assert!(!d.path().join(DAEMON_PID_FILE).exists());
-    assert_eq!(out, "dongminald 미실행 (낡은 pidfile 제거)\n");
+    assert_eq!(out, "otterminald 미실행 (낡은 pidfile 제거)\n");
 }
 
 // FBE-07: 살아 있는 pid 라도 소켓이 답하지 않으면 신호를 보내지 않는다.
@@ -175,14 +175,17 @@ fn stop_daemon_never_signals_unverified_pid() {
     let (ok, out) = stop(d.path(), &f);
     assert!(ok);
     assert_eq!(f.counts(), (0, 0));
-    assert_eq!(out, "dongminald 미실행 (낡은 pidfile 제거)\n");
+    assert_eq!(out, "otterminald 미실행 (낡은 pidfile 제거)\n");
 }
 
 #[test]
 fn stop_daemon_without_pidfile() {
     let f = FakeProc::new(false, false, false);
     let d = tempfile::tempdir().unwrap();
-    assert_eq!(stop(d.path(), &f), (true, "dongminald 미실행\n".to_owned()));
+    assert_eq!(
+        stop(d.path(), &f),
+        (true, "otterminald 미실행\n".to_owned())
+    );
 }
 
 // ── killPort (TEST-3) ──
@@ -253,7 +256,7 @@ fn daemon_ours_when_socket_answers() {
     let d = tempfile::tempdir().unwrap();
     let _s = live_socket(d.path());
     write_pid(d.path(), &format!("{}\n", std::process::id()));
-    let p = dm_shared_platform::current().process;
+    let p = otter_shared_platform::current().process;
     assert!(daemon_ours(d.path().to_str().unwrap(), p).1);
 }
 
@@ -261,13 +264,13 @@ fn daemon_ours_when_socket_answers() {
 fn daemon_not_ours_when_socket_silent() {
     let d = tempfile::tempdir().unwrap();
     write_pid(d.path(), &format!("{}\n", std::process::id()));
-    let p = dm_shared_platform::current().process;
+    let p = otter_shared_platform::current().process;
     assert!(!daemon_ours(d.path().to_str().unwrap(), p).1);
 }
 
 #[test]
 fn daemon_not_ours_without_pidfile() {
     let d = tempfile::tempdir().unwrap();
-    let p = dm_shared_platform::current().process;
+    let p = otter_shared_platform::current().process;
     assert!(!daemon_ours(d.path().to_str().unwrap(), p).1);
 }

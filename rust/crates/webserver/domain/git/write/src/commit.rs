@@ -2,8 +2,8 @@
 
 use std::time::Duration;
 
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_git_core::{self as core, Ctx, Hint, Output, Service, WriteSpec};
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_git_core::{self as core, Ctx, Hint, Output, Service, WriteSpec};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, WriteKind, exec, exec_write};

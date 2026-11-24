@@ -1,5 +1,5 @@
 /**
- * Dongminal — 설정창 **Claude 계정** 패널의 값 → 줄·본문 (CLAUDE_ACCOUNTS_SRS FR-CAC-94·94a·34a·88b).
+ * Otterminal — 설정창 **Claude 계정** 패널의 값 → 줄·본문 (CLAUDE_ACCOUNTS_SRS FR-CAC-94·94a·34a·88b).
  *
  * DOM 을 모르는 순수 함수와 표다. 패널의 배선과 그리기는 `ClaudeSection`(`settings-claude.js`)이 한다
  * (REFACTOR3_FE_SETTINGS_SRS 8c — 400줄이던 파일을 둘로 나눴다).

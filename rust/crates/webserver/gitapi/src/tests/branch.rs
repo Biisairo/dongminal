@@ -9,11 +9,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::SystemTime;
 
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::{Output, Service};
-use dm_webserver_domain_git_jobs::{JobRunner, LINE_STDERR};
-use dm_webserver_domain_git_store::{Store, StoreOptions};
-use dm_webserver_domain_git_write as write;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::{Output, Service};
+use otter_webserver_domain_git_jobs::{JobRunner, LINE_STDERR};
+use otter_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_domain_git_write as write;
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
@@ -312,7 +312,7 @@ async fn assert_registered_and_unavailable(eps: &[(&str, String, String)]) {
     for (method, path, body) in eps {
         let p = path.split('?').next().unwrap();
         assert!(
-            dm_webserver_httproute::dispatch(&crate::routes::ROUTES, method, p).is_some(),
+            otter_webserver_httproute::dispatch(&crate::routes::ROUTES, method, p).is_some(),
             "{method} {p} 가 gitapi.routes 에 없다"
         );
         let (code, out) = call(&s, method, path, body).await;

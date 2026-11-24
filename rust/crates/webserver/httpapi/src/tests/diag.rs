@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use dm_shared_toolhub::Placement;
+use otter_shared_toolhub::Placement;
 use tokio_util::sync::CancellationToken;
 
 use super::fakes::FakeHub;
@@ -64,14 +64,14 @@ impl Write for Buf {
 fn snapshot_repeats_when_unchanged() {
     let (_d, s) = bare();
     let buf = Buf::default();
-    dm_shared_dmlog::init(dm_shared_dmlog::Options {
+    otter_shared_otterlog::init(otter_shared_otterlog::Options {
         level: String::new(),
         out: Some(Box::new(buf.clone())),
     });
     s.log_diag_snapshot();
     s.log_diag_snapshot();
     s.log_diag_snapshot();
-    dm_shared_dmlog::reset();
+    otter_shared_otterlog::reset();
     let out = String::from_utf8_lossy(&buf.0.lock().unwrap()).into_owned();
     assert_eq!(out.matches("diag reqAge=").count(), 3, "{out}");
 }

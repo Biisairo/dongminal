@@ -5,35 +5,35 @@
 바이너리는 하나인데 **프로세스 역할은 넷**이다. `main()` 이 argv 로 갈라진다.
 
 ```
-Browser (xterm.js)                    ┌─ ② dongminald ─────────────┐
+Browser (xterm.js)                    ┌─ ② otterminald ─────────────┐
    │  Binary WebSocket                │   PTY 소유 · ToolManager    │
-   ├────────────────────▶ ③ dongminal │   브라우저 새로고침에도 유지 │──▶ Shell
+   ├────────────────────▶ ③ otterminal │   브라우저 새로고침에도 유지 │──▶ Shell
    │                       (웹 서버)  └────────────┬───────────────┘
    └─ SSE /api/commands/sse ◀── HTTP/WS/SSE        │ Unix socket
                                   │               │ (paned.sock)
                                   ↕               ↕
-                          DONGMINAL_HOME/
+                          OTTERMINAL_HOME/
                             ├ settings.json
                             ├ workspace.json   (schemaVersion 2)
                             ├ tools.json
                             ├ agents.json · agents/*.jsonl   (에이전트 세션 레코드·이벤트 로그)
-                            └ bin/ ──▶ ① dmctl / edit / download / detach
+                            └ bin/ ──▶ ① otterctl / edit / download / detach
                                        (같은 바이너리의 multi-call symlink)
 
-④ dongminal start|stop|health|migrate   — 제어 CLI. ③ 을 띄우고 접는다
+④ otterminal start|stop|health|migrate   — 제어 CLI. ③ 을 띄우고 접는다
 ```
 
 데몬이 PTY 를 들고 있어서 웹 서버를 재시작해도 터미널 세션이 살아남는다. 데몬이
 없으면 ③ 이 자기 프로세스에 ToolManager 를 만든다(direct mode) — 그래서
 `shared/toolhub` 를 ②③ 이 함께 실행한다.
 
-- 프론트엔드는 `rust-embed` 로 바이너리에 포함(`dm-web-assets`).
-- 런타임 헬퍼(`dmctl`, `edit`, `download`, `detach`)는 multi-call CLI — `$DONGMINAL_HOME/bin/` 에 바이너리를 가리키는 symlink 로 설치된다. zsh/bash cwd 훅은 바이너리에 번들되어 풀린다. 각 터미널의 shell 은 자동으로 이 경로를 `PATH` 에 얹고 `ZDOTDIR`(zsh)·`--rcfile`(bash) 로 훅 연결.
+- 프론트엔드는 `rust-embed` 로 바이너리에 포함(`otter-web-assets`).
+- 런타임 헬퍼(`otterctl`, `edit`, `download`, `detach`)는 multi-call CLI — `$OTTERMINAL_HOME/bin/` 에 바이너리를 가리키는 symlink 로 설치된다. zsh/bash cwd 훅은 바이너리에 번들되어 풀린다. 각 터미널의 shell 은 자동으로 이 경로를 `PATH` 에 얹고 `ZDOTDIR`(zsh)·`--rcfile`(bash) 로 훅 연결.
 - PTY 프로세스는 브라우저 새로고침해도 유지 (서버 메모리 버퍼).
 - 워크스페이스(창/분할 칸/탭) 는 `workspace.json` 에 비동기 영속화 (H5 latest-wins coalescing). 도구는 `tools.json` 에 기록되고(소유자 없는 백그라운드 도구·샌드박스 도구 제외), 되살릴 때 탭이 참조하는 것만 고른다(FR-EM-14). 백그라운드 도구는 기록되지 않아 데몬 재시작을 넘기지 않는다.
-- 에이전트 접합면: 액션은 `dmctl` 서브커맨드, 정책은 `--plugin-dir`/`--settings` 로 세션 스코프 주입되는 스킬·훅. 등록 절차 없음. 자세히는 [docs/external/agent-orchestration.md](../external/agent-orchestration.md).
-- 주의 알림: 서버가 도구 출력을 관찰(OSC 9/99/777·idle)하거나 `dmctl notify`(claude/codex 투명 래퍼가 자동 주입한 hook 이 호출)로 주의 상태를 잡아 SSE(`tool_attention`) 로 브라우저에 전달. 자세히는 [docs/internal/archive/PANE_ATTENTION_NOTIFY_SRS.md](./archive/PANE_ATTENTION_NOTIFY_SRS.md).
-- 에이전트 활동: attention 과 직교하는 "현재 작업 상태(activity)" 레이어. 에이전트 hook 이 `dmctl activity` 로 보고(stdin hook JSON 파싱) → `POST /api/tools/activity/set` → SSE(`tool_activity`) 발행. 도구당 최신 1개 상태만 보관(히스토리 없음). 자세히는 [docs/internal/archive/AGENT_ACTIVITY_PANEL_SRS.md](./archive/AGENT_ACTIVITY_PANEL_SRS.md).
+- 에이전트 접합면: 액션은 `otterctl` 서브커맨드, 정책은 `--plugin-dir`/`--settings` 로 세션 스코프 주입되는 스킬·훅. 등록 절차 없음. 자세히는 [docs/external/agent-orchestration.md](../external/agent-orchestration.md).
+- 주의 알림: 서버가 도구 출력을 관찰(OSC 9/99/777·idle)하거나 `otterctl notify`(claude/codex 투명 래퍼가 자동 주입한 hook 이 호출)로 주의 상태를 잡아 SSE(`tool_attention`) 로 브라우저에 전달. 자세히는 [docs/internal/archive/PANE_ATTENTION_NOTIFY_SRS.md](./archive/PANE_ATTENTION_NOTIFY_SRS.md).
+- 에이전트 활동: attention 과 직교하는 "현재 작업 상태(activity)" 레이어. 에이전트 hook 이 `otterctl activity` 로 보고(stdin hook JSON 파싱) → `POST /api/tools/activity/set` → SSE(`tool_activity`) 발행. 도구당 최신 1개 상태만 보관(히스토리 없음). 자세히는 [docs/internal/archive/AGENT_ACTIVITY_PANEL_SRS.md](./archive/AGENT_ACTIVITY_PANEL_SRS.md).
 
 자세한 패키지 구조와 핫패스 성능 설계는 이 문서의 아래 절에 있다.
 
@@ -48,14 +48,14 @@ FR-RDM-10.)*
 근거와 실측은 [PACKAGE_RESTRUCTURE_SRS.md](./PACKAGE_RESTRUCTURE_SRS.md) §2.1.
 
 ```
-rust/                    # Cargo 워크스페이스 — crate 하나가 디렉터리 하나 (이름 dm-<축>-<이름>, 목록은 rust/Cargo.toml members)
+rust/                    # Cargo 워크스페이스 — crate 하나가 디렉터리 하나 (이름 otter-<축>-<이름>, 목록은 rust/Cargo.toml members)
   crates/
     cmd/
-      dongminal/         # composition root (main) — 진입점 판별 + 의존 조립
-    helper/              # ① dmctl/edit/download/detach 프로세스
-      runtimebin/        #   multi-call CLI 구현 (dmctl notify·activity 포함)
-      toolline/          #   dmctl 공용 한 줄 렌더러 (byte-level 동일 출력 보장)
-    daemon/              # ② dongminald 프로세스 — PTY 를 소유한다
+      otterminal/         # composition root (main) — 진입점 판별 + 의존 조립
+    helper/              # ① otterctl/edit/download/detach 프로세스
+      runtimebin/        #   multi-call CLI 구현 (otterctl notify·activity 포함)
+      toolline/          #   otterctl 공용 한 줄 렌더러 (byte-level 동일 출력 보장)
+    daemon/              # ② otterminald 프로세스 — PTY 를 소유한다
       boot/              #   데몬 진입점 (Run). 웹 서버를 재시작해도 세션이 살아남는 이유
       chat/              #   채팅 핵심 — 간선 상대마다 채팅 연결, 서명한 노드 상태·글 전파, 방·참가자. 글을 들지 않는다 (PEER_CHAT_SRS §3.9)
       chatsock/          #   채팅 소켓 chat.sock — MCP 연결 하나가 참가자 하나, 훅 질의 중계, 쉬는 중 붙여넣기 알림 (PEER_CHAT_SRS §3.10)
@@ -95,9 +95,9 @@ rust/                    # Cargo 워크스페이스 — crate 하나가 디렉�
     ctl/                 # ④ 제어 CLI 프로세스
       cli/               #   start/stop/health/migrate 디스패치 + 옵션 해석
       migrate/           #   v1 → v2 엔티티 스키마 1회성 변환
-      decidx/            #   결정 색인 생성기 — `cargo run -p dm-scripts-gen-decisions` 가 부른다
-      privhelper/        #   사람 명령의 도우미 `dongminal helper` — root 로 돌며 TOTP 를 확인하고 묶음에 서명한다 (PEER_CHAT_SRS §3.12)
-      errdoc/            #   오류 카탈로그 생성기 — `cargo run -p dm-scripts-gen-errors` 가 부른다
+      decidx/            #   결정 색인 생성기 — `cargo run -p otter-scripts-gen-decisions` 가 부른다
+      privhelper/        #   사람 명령의 도우미 `otterminal helper` — root 로 돌며 TOTP 를 확인하고 묶음에 서명한다 (PEER_CHAT_SRS §3.12)
+      errdoc/            #   오류 카탈로그 생성기 — `cargo run -p otter-scripts-gen-errors` 가 부른다
                          #     (apierr 를 읽는다 — check-pkg-axis.sh 의 예외 등록부)
     shared/              # 둘 이상의 프로세스가 실행한다
       workspace/         #   ①②③ — workspace.json 인덱싱·resolve·영속화
@@ -109,7 +109,7 @@ rust/                    # Cargo 워크스페이스 — crate 하나가 디렉�
       edge/              #   ②③  — 노드 간 통신(간선) — 노드 신원(인증서)·edges.json·노드 전용 리스너 (PEER_DAEMON_SRS FR-PDM-1·70)
       edgemesh/          #   ②③  — 간선 계층의 간선 연결·망 정보(net)·직접 정보(hello)·간선 초대(invite). 채팅이 그 위층이다. 데몬만 세운다 (EDGE_MESH_SRS)
       edgenode/          #   ②③  — 노드 하나의 상태와 연산(짝맞춤 판정·로컬 API 연산). 데몬과 직접 모드 서버가 같이 쓴다 (PEER_DAEMON_SRS FR-PDM-2)
-      chatwire/          #   ①②③ — 채팅 소켓의 경로·프레임 (데몬 chatsock ↔ dmctl chat-mcp·ctx-hook, PEER_CHAT_SRS §3.10). 서버는 사람 참가자 IPC 의 글 모양으로 쓴다 (§3.11)
+      chatwire/          #   ①②③ — 채팅 소켓의 경로·프레임 (데몬 chatsock ↔ otterctl chat-mcp·ctx-hook, PEER_CHAT_SRS §3.10). 서버는 사람 참가자 IPC 의 글 모양으로 쓴다 (§3.11)
       humancmd/          #   ②④  — 사람 명령의 와이어 — 도우미 소켓 프레임, 서명한 명령 본문(Ed25519), 데몬 쪽 클라이언트 (PEER_CHAT_SRS §3.12)
       edgerelay/         #   ②③  — 노드 포트의 바이트 통로 — 서버 노드 포트 → 데몬 node.sock, 데몬 → 서버 dial.sock (PEER_DAEMON_SRS 묶음 L)
       httpreq/           #   ②③  — 요청 본문을 읽는 한 자리 (표면별 크기 상한)
@@ -124,8 +124,8 @@ rust/                    # Cargo 워크스페이스 — crate 하나가 디렉�
       agentadapter/      #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료)
       handover/          #   ③④  — 데몬 교체(세션 유지 재시작)의 와이어 — 교체 요청·사유 코드·인계 판 (DAEMON_SESSION_KEEP_SRS)
       runfile/           #   ②③  — runs.json 읽기만 (헤드리스 도구 id). 스키마의 주인은 domain/run
-      statusline/        #   ①③  — statusLine 입력의 허용 목록 한 벌 (dmctl statusline 이 채우고 서버가 같은 타입으로 받는다)
-      runwait/           #   ①③  — Run 종단이 요청을 붙잡는 상한 (서버와 dmctl 이 같은 수를 읽는다, M8 D-A-1·24)
+      statusline/        #   ①③  — statusLine 입력의 허용 목록 한 벌 (otterctl statusline 이 채우고 서버가 같은 타입으로 받는다)
+      runwait/           #   ①③  — Run 종단이 요청을 붙잡는 상한 (서버와 otterctl 이 같은 수를 읽는다, M8 D-A-1·24)
       pollwait/          #   ①③④ — "조건이 설 때까지 묻는" 대기 한 벌 (요청 경로·데몬 소켓·start/stop, M8 D-A-15)
       sandbox/           #   ②③  — Window 하나의 컨테이너 생명주기 + 그 안의 실행 명세
       sandboxplace/      #   ②③  — 샌드박스 프로파일 → 실행 명세 배선 (toolhub 와 sandbox 를 잇는다)
@@ -141,20 +141,19 @@ rust/                    # Cargo 워크스페이스 — crate 하나가 디렉�
       listorder/         #   ③   — 끌어다 놓기 한 번의 목록 반영 (gitapi·wsentry 가 공유)
       fanout/            #   ③   — 상한 있는 병렬 반복 한 벌 (핀 관측·핀 목록·git 감시 회차가 공유, FR-OPT-7-4)
       platform/          #   ①②③④ — OS 마다 갈리는 능력을 인터페이스 뒤로 (경로·프로세스·셸·소켓)
-      dmenv/             #   ①②③④ — 환경변수 이름·기본 엔드포인트·헬퍼 이름·홈 아래 이름 (의존 0)
-      apipath/           #   ①④  — 서버 로컬 API 경로 한 벌 (dmctl·헬퍼·제어 CLI 가 부르는 이름, 서버 라우트와의 일치는 시험이 대조, REFACTOR3_GO_STRUCT_SRS FR-RGS-40)
+      otterenv/             #   ①②③④ — 환경변수 이름·기본 엔드포인트·헬퍼 이름·홈 아래 이름 (의존 0)
+      apipath/           #   ①④  — 서버 로컬 API 경로 한 벌 (otterctl·헬퍼·제어 CLI 가 부르는 이름, 서버 라우트와의 일치는 시험이 대조, REFACTOR3_GO_STRUCT_SRS FR-RGS-40)
       activity/          #   ①②③ — 에이전트 활동 상태의 어휘 다섯 (JS 짝은 constants.js, FR-OPT-10-1)
-      dmlog/             #   ①②③④ — 로그가 지나는 한 자리 (수준·요청 ID)
+      otterlog/             #   ①②③④ — 로그가 지나는 한 자리 (수준·요청 ID)
       testpath/          #   테스트 전용 — OS 마다 다른 경로 전제를 분기 없이 다룬다 (+ 셸 고정 PinShell, M8 D-A-21)
       gittest/           #   테스트 전용 — git 저장소 픽스처 한 벌 (M8 D-A-20). 제품 코드는 import 하지 않는다
     gocompat/            # 축 밖 — Go 기준선의 출력 규칙 (JSON·시간·인용·OS 오류 문구). 어느 축이든 쓴다
-    web/                 # 축 밖 — web/ 자산을 바이너리에 싣는다 (dm-web-assets)
-    scripts/             # 축 밖 — 게이트·생성기 프로그램 (`cargo run -p dm-scripts-<이름>`)
+    web/                 # 축 밖 — web/ 자산을 바이너리에 싣는다 (otter-web-assets)
+    scripts/             # 축 밖 — 게이트·생성기 프로그램 (`cargo run -p otter-scripts-<이름>`)
       check-action-reasons/
       check-shared-constants/
       gen-decisions/
       gen-errors/
-  parity/                # Go 기준선과 관측 출력을 대조하는 하니스 (dm-parity)
 web/                     # 프론트엔드 자산 + embed.FS()
   style*.css             # <link> 순서 = 캐스케이드 순서. 목록: grep 'rel="stylesheet"' web/index.html
   js/core/               #   App 클래스 (app.js + 주제별 컨트롤러 *-controller.js 와 그 부품 — 수: ls web/js/core/*-controller.js | wc -l) + helpers·main
@@ -167,7 +166,7 @@ web/                     # 프론트엔드 자산 + embed.FS()
                          #     git-{poll,changes,views,write,files,selection,…}.js — GitPanel 의 부품 (GitPart 하위, 목록은 panel.js 머리 주석)
                          #     status-hub.js — GitStatusHub: root 별 status 한 벌 (탐색기·dirty-diff 공유, FR-OPT-4-1)
 e2e/                     # Playwright 스펙 + git 픽스처(git_fixture.sh)
-scripts/                 # build.sh — 빌드 · verify-isolated.sh — `dongminal verify` 껍데기 · check-*.sh — 게이트
+scripts/                 # build.sh — 빌드 · verify-isolated.sh — `otterminal verify` 껍데기 · check-*.sh — 게이트
                          #   check-*.sh 중 넷은 rust/crates/scripts/ 의 프로그램을 cargo run 으로 부른다:
                          #   gen-decisions(decisions.md) · gen-errors(errors.md) · check-action-reasons · check-shared-constants
 .github/workflows/       # verify.yml — 매 푸시 검사 (Linux·Windows)
@@ -257,7 +256,7 @@ App 원형에 위임자를 두지 않는다(`REFACTOR3_FE_DELEG_SRS`, 게이트 
 
 **통일하지 않는다** — 그것은 리팩터가 아니라 파괴적 변경이다. 대신
 `rust/crates/webserver/apierr` 가 **매핑과 어휘**를 소유하고 렌더링은 각 표면에 남는다
-(DEEPENING_REFACTOR_SRS 묶음 A). 성공 JSON 은 모양이 하나라 `dm_shared_httpresp::json` 한 자리가
+(DEEPENING_REFACTOR_SRS 묶음 A). 성공 JSON 은 모양이 하나라 `otter_shared_httpresp::json` 한 자리가
 쓴다 (OPTIMIZE_REFACTOR_SRS FR-OPT-9-4) — 이 결정은 오류 본문의 것이고, 성공 응답의
 헤더·인코딩을 모으는 것은 그 밖이다.
 
@@ -335,15 +334,15 @@ if (!res.ok)   { …사유를 보이고 이미 받은 목록은 지우지 않는
 **`d.repo` 로 비교하지 않는다** — 그것은 서버가 정규화한 루트라 보낸 값과 다를 수
 있고, 그것으로 짝을 맞추면 목록이 영원히 실패로 남는다.
 
-캡슐화는 crate 경계가 강제한다 — 한 crate 의 비공개 항목(`pub(crate)` 이하)은 다른 crate 가 쓸 수 없고, crate 사이의 의존은 축 규칙(`scripts/check-pkg-axis.sh`)이 지킨다. 웹 자산은 `rust/crates/web`(`dm-web-assets`)이 `web/` 을 싣는다.
+캡슐화는 crate 경계가 강제한다 — 한 crate 의 비공개 항목(`pub(crate)` 이하)은 다른 crate 가 쓸 수 없고, crate 사이의 의존은 축 규칙(`scripts/check-pkg-axis.sh`)이 지킨다. 웹 자산은 `rust/crates/web`(`otter-web-assets`)이 `web/` 을 싣는다.
 
 ## 런타임 헬퍼 배포 (`rust/crates/shared/runtime`)
 
-`dm_shared_runtime::install(bin_dir)` 이 서버 기동 때 `$DONGMINAL_HOME/bin/` 을 채운다.
+`otter_shared_runtime::install(bin_dir)` 이 서버 기동 때 `$OTTERMINAL_HOME/bin/` 을 채운다.
 
-**helper CLI** 는 `rust/crates/helper/runtimebin` 의 multi-call dispatch 로 dongminal 바이너리 자체가 처리하므로, `bin/<name>` 은 실행 파일을 가리키는 symlink (미지원 환경에선 복사) 다. `dmenv::helper_names()` 가 단일 소스:
+**helper CLI** 는 `rust/crates/helper/runtimebin` 의 multi-call dispatch 로 otterminal 바이너리 자체가 처리하므로, `bin/<name>` 은 실행 파일을 가리키는 symlink (미지원 환경에선 복사) 다. `otterenv::helper_names()` 가 단일 소스:
 
-- `dmctl` — `/api/commands` 로 워크스페이스 action 브로드캐스트 + `list-workspace`/`who-am-i`/`notify`/`activity` + 에이전트 접합면(`read-screen`/`send-input`/`msg`/`status`/`wait`/`run`). 아래 "에이전트 접합면과 Run" 절.
+- `otterctl` — `/api/commands` 로 워크스페이스 action 브로드캐스트 + `list-workspace`/`who-am-i`/`notify`/`activity` + 에이전트 접합면(`read-screen`/`send-input`/`msg`/`status`/`wait`/`run`). 아래 "에이전트 접합면과 Run" 절.
 - `edit` — `POST /api/commands` 로 `openEditorTab` 브로드캐스트 (내장 편집기 탭).
 - `download` — OSC 777 `Download;<abs>` 출력.
 - `detach` — 현재 도구를 백그라운드로 보내고 탭을 닫는다 (`--list` / `--restore <id>`).
@@ -353,17 +352,17 @@ if (!res.ok)   { …사유를 보이고 이미 받은 목록은 지우지 않는
 - `bash-hook.sh` — `PROMPT_COMMAND` 에 `_rt_cwd_hook` 주입, OSC 777 `Cwd;<pwd>`.
 - `zdotdir/.zshrc` — zsh 용 `precmd`/`chpwd` 훅. `~/.zshrc` 를 먼저 source.
 
-**agent-hooks** — 런타임 설치가 `bin/agent-hooks/` 에 Claude Code hooks settings 를 생성한다. hook 커맨드는 `dmctl` 을 절대경로로 참조해, PATH 앞쪽의 낡은 `dmctl` 이 `notify` 를 모르는 사고를 막는다.
+**agent-hooks** — 런타임 설치가 `bin/agent-hooks/` 에 Claude Code hooks settings 를 생성한다. hook 커맨드는 `otterctl` 을 절대경로로 참조해, PATH 앞쪽의 낡은 `otterctl` 이 `notify` 를 모르는 사고를 막는다.
 
 도구 스폰 시 도구 시작 함수가 환경을 덧붙인다 (`rust/crates/shared/toolhub/src/tool.rs`):
 
 ```
-PATH=<기존>:$DONGMINAL_HOME/bin
-zsh  → ZDOTDIR=$DONGMINAL_HOME/bin/zdotdir
-bash → --rcfile $DONGMINAL_HOME/bin/bash-hook.sh   (HOST_PARITY_SRS FR-HPR-7)
+PATH=<기존>:$OTTERMINAL_HOME/bin
+zsh  → ZDOTDIR=$OTTERMINAL_HOME/bin/zdotdir
+bash → --rcfile $OTTERMINAL_HOME/bin/bash-hook.sh   (HOST_PARITY_SRS FR-HPR-7)
 TERM=xterm-256color, COLORTERM=truecolor, LANG/LC_ALL/LC_CTYPE=en_US.UTF-8
-DONGMINAL_PORT=<서버 포트>   # main() 이 setenv, 자식 PTY 가 상속
-DONGMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근거
+OTTERMINAL_PORT=<서버 포트>   # main() 이 setenv, 자식 PTY 가 상속
+OTTERMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근거
 ```
 
 ## 편집기 — 저장소 탭의 행과 Editor 창 (`EDITOR_TAB_SRS` · `REPO_TAB_UNIFY_SRS`)
@@ -468,7 +467,7 @@ Git 도 같다. `GitObserver`(`git/panel.js`) 가 **앱에 하나**로 폴링·`
 채로 남고, 어긋남은 두 칸이 같은 창을 볼 때만 드러난다. 오버라이드가 없는 pane 은
 `pn.activeTab` 을 따르므로 **단일 슬롯 모드의 동작은 이전과 완전히 같다**.
 
-포커스 칸의 시선은 `pn.activeTab` 에도 쓴다 (FR-SVS-14). `dmctl` 의 활성 판정이
+포커스 칸의 시선은 `pn.activeTab` 에도 쓴다 (FR-SVS-14). `otterctl` 의 활성 판정이
 `activeWindow + focusedPane + activeTab` 삼중 조건이므로 (`rust/crates/shared/workspace/src/parse.rs`), 그것이
 "포커스 칸이 보는 것" 으로 유지되어야 한다 — `focusedPane` 이 로컬이면서
 워크스페이스에도 쓰이는 것과 같은 취급이다.
@@ -548,11 +547,11 @@ id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 
 
 ## 에이전트 접합면과 Run
 
-도구 안에서 도는 에이전트가 워크스페이스를 조회·조작하는 경로다. **액션은 `dmctl`
+도구 안에서 도는 에이전트가 워크스페이스를 조회·조작하는 경로다. **액션은 `otterctl`
 서브커맨드, 정책은 세션 스코프로 주입되는 스킬**이며 MCP 는 없다
 (`SKILL_INJECTION_SRS`). 셸만 있으면 되므로 에이전트 종류에 매이지 않는다.
 
-| 엔드포인트 | dmctl | 쓰임 |
+| 엔드포인트 | otterctl | 쓰임 |
 |---|---|---|
 | `GET /api/tools/output` | `read-screen` / `read-output` | 다른 도구의 화면·출력 |
 | `POST /api/tools/input` | `send-input` | 붙여넣기(bracketed paste + 120ms submit) |
@@ -563,7 +562,7 @@ id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 
 | `POST /api/runs`·`/members`·`/report`·`/close`, `GET /api/runs` | `run …` | 실행 기록 |
 | `GET /api/runs/preamble` | `run launch` | 멤버 프리앰블 조회·재조회 |
 
-**준비완료 판정은 화면이 아니라 훅이다.** `dmctl activity` 가 보고한
+**준비완료 판정은 화면이 아니라 훅이다.** `otterctl activity` 가 보고한
 `working/waiting/done/idle` 이 1차 근거이고, 훅이 없는 에이전트만 "출력이 3초 정적"
 폴백으로 판정한다. `waiting`(권한 확인 대기)은 준비완료가 아니라 `blocked` 로 즉시
 반환한다 — 시간이 지난다고 풀리지 않기 때문이다. 타임아웃은 실패가 아니라
@@ -576,7 +575,7 @@ id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 
 단 보고를 마친 멤버는 기록이 관측을 이긴다.
 
 보고(`run report`)의 권한은 **발신 도구의 정체**다 — 페이로드에 실린 id 를 아는 것은
-권한이 아니다. PID 부모 체인 해석이 우선이고 `DONGMINAL_TOOL_ID` 는 daemon 모드
+권한이 아니다. PID 부모 체인 해석이 우선이고 `OTTERMINAL_TOOL_ID` 는 daemon 모드
 폴백이다.
 
 `Tab.runId` · `Window.ownerRunId` 표식은 **best-effort** 다. `workspace.json` 의 쓰기
@@ -585,9 +584,9 @@ id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 
 
 ### 어댑터 — 에이전트를 아는 한 자리 (`rust/crates/shared/agentadapter`)
 
-에이전트 지식은 전부 여기 있다. 훅 설치(`dmctl activity` 배선)·기동줄·사용량 환산·
+에이전트 지식은 전부 여기 있다. 훅 설치(`otterctl activity` 배선)·기동줄·사용량 환산·
 컨텍스트 창·이벤트 선언(`Signals`)이 어댑터의 것이고,
-소비자(`dmctl activity`·`dmctl run`·`runtime/install`·`run/context_window`·
+소비자(`otterctl activity`·`otterctl run`·`runtime/install`·`run/context_window`·
 `handlers_attention`·`handlers_status`)는 에이전트 이름을 모른다 (FR-U-1·2).
 
 어댑터는 셋이고 한 구조체에 든다 (FR-U-2, P4 판정) — `claude.rs` · `codex.rs` ·
@@ -624,18 +623,18 @@ flowchart LR
     XT["xterm 터미널"]
     WSJ["workspace.json 쓰기 주체"]
   end
-  subgraph SRV["웹 서버 — dongminal"]
+  subgraph SRV["웹 서버 — otterminal"]
     API["HTTP · WS · SSE"]
     RS["run.Store<br/>runs.json"]
-    WM["worktree.Manager<br/>$DONGMINAL_HOME/worktrees"]
+    WM["worktree.Manager<br/>$OTTERMINAL_HOME/worktrees"]
     AD["agentadapter<br/>선언 테이블"]
     ACT["활동 상태<br/>working·waiting·idle·done"]
   end
-  subgraph DMN["dongminald — PTY 데몬"]
+  subgraph DMN["otterminald — PTY 데몬"]
     PTY["PTY 소유 · 재기동을 넘는다"]
   end
   subgraph TOOL["도구 (탭 하나)"]
-    SH["셸 + dmctl"]
+    SH["셸 + otterctl"]
     AG["claude 에이전트"]
   end
   XT -- "키 입력 (WS)" --> API
@@ -644,8 +643,8 @@ flowchart LR
   API -- "화면 (WS)" --> XT
   PTY --> SH
   SH --> AG
-  AG -- "훅: dmctl activity" --> ACT
-  SH -- "dmctl run / status / wait (HTTP)" --> API
+  AG -- "훅: otterctl activity" --> ACT
+  SH -- "otterctl run / status / wait (HTTP)" --> API
   API --> RS
   API --> WM
   API --> AD
@@ -654,35 +653,35 @@ flowchart LR
   WSJ -- "PUT" --> API
 ```
 
-에이전트가 서버에 말을 거는 통로는 **도구 셸의 `dmctl` 하나**다. 상태의 원천은 훅이고,
+에이전트가 서버에 말을 거는 통로는 **도구 셸의 `otterctl` 하나**다. 상태의 원천은 훅이고,
 화면은 진단에만 쓴다.
 
 ### 팀 한 바퀴 — 판단이 갈리는 두 분기
 
 ```mermaid
 flowchart TD
-  A["dmctl new-window -n"] --> B["dmctl split-h N"]
-  B --> C["dmctl run start"]
+  A["otterctl new-window -n"] --> B["otterctl split-h N"]
+  B --> C["otterctl run start"]
   C --> ISO{"--isolation ?"}
-  ISO -- "none (기본)" --> M["dmctl run member --brief -<br/>서버가 프리앰블 조립"]
+  ISO -- "none (기본)" --> M["otterctl run member --brief -<br/>서버가 프리앰블 조립"]
   ISO -- "per-run / per-member" --> G["조정자 cwd 로 저장소·base 확정"]
   G --> GF{"git 저장소인가"}
   GF -- "아니다" --> ERR["not_a_git_repo<br/>none 으로 낮추지 않는다"]
   GF -- "맞다" --> WT["worktree 생성<br/>--no-track · branch.base 기록"]
   WT --> M
   M --> CD["격리면: send-input 'cd worktree'"]
-  CD --> L["dmctl run launch | send-input<br/>한 Bash 호출에서 병렬"]
-  L --> WAIT["dmctl wait --for ready"]
+  CD --> L["otterctl run launch | send-input<br/>한 Bash 호출에서 병렬"]
+  L --> WAIT["otterctl wait --for ready"]
   WAIT --> RC{"rc"}
   RC -- "5 blocked" --> DIAG["read-screen 으로 진단"]
   RC -- "4 timeout" --> CKPT["체크포인트 — 죽이지 않는다"]
   DIAG --> WAIT
   CKPT --> WAIT
-  RC -- "0 ready" --> K["dmctl msg 로 Kickoff"]
+  RC -- "0 ready" --> K["otterctl msg 로 Kickoff"]
   K --> WORK["멤버 작업"]
-  WORK --> REP["dmctl run report<br/>1회 · --outcome 필수"]
-  REP --> ST["dmctl run status"]
-  ST --> CL["dmctl run close"]
+  WORK --> REP["otterctl run report<br/>1회 · --outcome 필수"]
+  REP --> ST["otterctl run status"]
+  ST --> CL["otterctl run close"]
   CL --> UN{"미보고 멤버"}
   UN -- "있다" --> REFUSE["거부 + 목록<br/>--force 로만"]
   UN -- "없다" --> CLEAN{"작업 트리"}
@@ -835,7 +834,7 @@ stateDiagram-v2
 
 ## 에이전트 어댑터 레지스트리 (`rust/crates/shared/agentadapter`)
 
-에이전트별 지식은 **선언 테이블 하나**다. 전에는 훅 파서가 Go 기준선(main)의 `dmctl_activity.go` 의
+에이전트별 지식은 **선언 테이블 하나**다. 전에는 훅 파서가 Go 기준선(main)의 `otterctl_activity.go` 의
 `switch agent` 에 박혀 있었고, 기동 커맨드·정책 주입 방식·종료 지시는 **코드에 아예
 없이 스킬 산문에만** 있었다 — 산문이 코드와 갈라져도 아무도 몰랐다.
 
@@ -845,7 +844,7 @@ stateDiagram-v2
 어떻게 띄우고 어떻게 상태를 읽는가"만 답한다.
 
 알 수 없는 에이전트 id 는 **명확한 오류**다. 기본 에이전트로 조용히 폴백하지 않는다.
-예외는 `dmctl activity <agent>` 하나 — 에이전트 훅으로 도므로 비0 종료가 사용자의
+예외는 `otterctl activity <agent>` 하나 — 에이전트 훅으로 도므로 비0 종료가 사용자의
 도구 호출을 막는다. 그 경로만 stderr 로 말하고 rc=0 을 지키며, 기록에 들어가는
 통로(`run member` · `POST /api/runs/members`)는 rc=2 / 400 으로 거부한다.
 
@@ -867,7 +866,7 @@ stateDiagram-v2
 ## 멤버 프리앰블 (`rust/crates/webserver/domain/run/src/preamble.rs`)
 
 멤버 기동 시 주입하는 역할·프로토콜 지시문이며 **평문**이다. 구조화 페이로드가
-아니라, 실제 실행할 `dmctl` 예제에 Run·Member uuid 를 박아 넣은 텍스트를
+아니라, 실제 실행할 `otterctl` 예제에 Run·Member uuid 를 박아 넣은 텍스트를
 `send-input` 으로 붙여넣는다. 행동 규칙은 **각 예제 바로 위**에 둔다 — LLM 독자는
 예제에 정박하고 뒤따르는 산문은 훑는다.
 
@@ -881,7 +880,7 @@ stateDiagram-v2
 붙여넣기가 실패했거나 조정자가 컨텍스트를 잃어도 `GET /api/runs/preamble?member=`
 가 같은 텍스트를 다시 만든다.
 
-CLI(`dmctl run launch`)가 하는 일은 그 평문을 어댑터가 선언한 기동 방식으로 감싸는
+CLI(`otterctl run launch`)가 하는 일은 그 평문을 어댑터가 선언한 기동 방식으로 감싸는
 것뿐이다. 프롬프트는 **홑따옴표**로 감싼다 — 큰따옴표 + 역슬래시 이스케이프는
 `"`·`$`·백틱·`\` 를 각각 처리해야 하고 하나만 빠져도 셸이 본문을 전개한다.
 `promptInjection` 이 `argv` 가 아니면 기동줄에 프롬프트를 싣지 않고, 호출자가
@@ -891,8 +890,8 @@ CLI(`dmctl run launch`)가 하는 일은 그 평문을 어댑터가 선언한 �
 → Kickoff(`msg`). 2를 건너뛰면 에이전트가 아직 뜨지 않아 첫 지시가 셸에 텍스트로
 찍히고 증발한다. 준비완료는 화면 모양이 아니라 훅 상태로 판정한다.
 
-기동줄은 **손으로 조립하지 않는다.** `dmctl run launch` 가 어댑터 선언을 반영해
-만든다 — 권한 사전 허용(`--allowedTools "Bash(dmctl:*)"`)이 빠지면 멤버가 첫 보고
+기동줄은 **손으로 조립하지 않는다.** `otterctl run launch` 가 어댑터 선언을 반영해
+만든다 — 권한 사전 허용(`--allowedTools "Bash(otterctl:*)"`)이 빠지면 멤버가 첫 보고
 명령에서 승인 대기에 걸리고, 인자 구분자(`--`)가 빠지면 가변 인자 플래그가 프리앰블을
 삼켜 빈 프롬프트로 뜬다. 둘 다 실제 팀을 띄워 밟은 결함이며, 스킬이 기동줄을
 직접 쓰지 못하게 `rust/crates/shared/runtime` 의 계약 테스트가 막는다.
@@ -909,7 +908,7 @@ CLI(`dmctl run launch`)가 하는 일은 그 평문을 어댑터가 선언한 �
 N" 을 오보한다. 대신 `push.autoSetupRemote` 를 걸고, 생성 base 를
 `branch.<name>.base` 에 남긴다(나중에 "이 브랜치가 무엇에서 갈라졌나"를 물을 유일한
 근거). 저장소와 base 는 **조정자의 cwd** 에서 확정한다 — 서버의 cwd 가 아니므로
-`dmctl run start` 가 실어 보낸다. git 저장소가 아니면 **명확히 실패**하며, 조용히
+`otterctl run start` 가 실어 보낸다. git 저장소가 아니면 **명확히 실패**하며, 조용히
 `none` 으로 낮추지 않는다.
 
 경로·브랜치는 uuid 에서 파생하고 **재사용하지 않는다** — 에이전트 CLI 는 대화
@@ -921,7 +920,7 @@ N" 을 오보한다. 대신 `push.autoSetupRemote` 를 걸고, 생성 base 를
 지운다.** dirty 면 지우지 않고 **잔여물로 보고**한다 — 사용자 작업의 조용한 삭제는
 금지다. `-D` 는 생성 실패의 롤백에서만 쓴다(사용자 작업이 없다는 것이 확실한 경우).
 정리 대상은 **Run 레코드에 등록된 것뿐**이며, 같은 루트 아래에 사용자가 만든 트리가
-있어도 건드리지 않는다. 제거 전에 경로가 실제로 `$DONGMINAL_HOME/worktrees/` 아래인지
+있어도 건드리지 않는다. 제거 전에 경로가 실제로 `$OTTERMINAL_HOME/worktrees/` 아래인지
 확인하고, 저장소 자신·파일시스템 루트·`..` 이탈은 거부한다. 정리 결과는 레코드에
 영속되므로 `run status` 가 나중에도 잔여물을 말한다.
 
@@ -933,19 +932,19 @@ worktree 조작은 **직렬화**한다. 공용 common-dir 을 건드려 병렬 �
 
 플러그인은 `rust/crates/shared/runtime/src/assets.rs` 가 `include_bytes!` 로 바이너리에 싣고, 에이전트 세션에
 `--plugin-dir` 로 세션 스코프 주입된다. 사용자의 `~/.claude` 를 건드리지 않는다. **정책만 담고
-액션은 전부 `dmctl`** 이다.
+액션은 전부 `otterctl`** 이다.
 
 | 명령 | 파일 | 근거 |
 |---|---|---|
-| `/dongminal:issue-tree` | `agentplugin/commands/issue-tree.md` | 이슈 트리를 따라 에이전트를 세운다 — `ISSUE_AGENT_TREE_SRS`·`ISSUE_TREE_OPS_SRS`·`ISSUE_TREE_CLOSE_SRS` |
-| `/dongminal:migration` | `agentplugin/commands/migration.md` | 맥락이 찬 세션의 일을 다음 세션으로 넘긴다 — `M10_SRS` FR-M10-6 |
+| `/otterminal:issue-tree` | `agentplugin/commands/issue-tree.md` | 이슈 트리를 따라 에이전트를 세운다 — `ISSUE_AGENT_TREE_SRS`·`ISSUE_TREE_OPS_SRS`·`ISSUE_TREE_CLOSE_SRS` |
+| `/otterminal:migration` | `agentplugin/commands/migration.md` | 맥락이 찬 세션의 일을 다음 세션으로 넘긴다 — `M10_SRS` FR-M10-6 |
 
 `commands/` 의 `.md` 는 **전부 슬래시 명령이 된다.** 그래서 그 디렉터리에는 frontmatter 의
 `description` 이 있는 명령만 둔다 — 참조 문서나 eval 은 두지 않는다(`migration` 의 eval 은
 `docs/internal/migration-eval.md`).
 
 준비완료 판정에 **화면 fingerprint 를 쓰지 않는다.** 그 판정은 에이전트 버전이나 사용자의
-스테이터스라인 하나로 깨지고, 권한 대기와 준비완료를 구분하지 못한다. 기다림은 `dmctl wait` 가
+스테이터스라인 하나로 깨지고, 권한 대기와 준비완료를 구분하지 못한다. 기다림은 `otterctl wait` 가
 서버에서 붙잡는다.
 
 명령은 산문이라 컴파일도 테스트도 되지 않는다. 그래서 되돌아가면 곧바로 걸리는 것만이라도
@@ -971,9 +970,9 @@ worktree 조작은 **직렬화**한다. 공용 common-dir 을 건드려 병렬 �
 
 엔터티 id(Window·Pane·Tab)는 브라우저가 `crypto.randomUUID()` 로 만든다. 마이그레이션된 구 id(`s1`/`r1`/`t1`)도 그대로 유효하며 id 는 전 계층에서 opaque 문자열이다 (FR-WID-1/2).
 
-`dmctl` 은 이 중 `detachTab`·`restoreTool` 을 제외한 나머지를 서브커맨드로 노출한다. 그 둘은 `toolId` 를 대상 지정자로 받아 `detach` CLI 전용 경로다.
+`otterctl` 은 이 중 `detachTab`·`restoreTool` 을 제외한 나머지를 서브커맨드로 노출한다. 그 둘은 `toolId` 를 대상 지정자로 받아 `detach` CLI 전용 경로다.
 
-이 화이트리스트는 생산자(브라우저 `_execRemote`, `dmctl`, `detach`)와 대조 검증된다 (브라우저 쪽은 `web/js/test/remote-actions.test.mjs`, 서버 쪽 종단은 `rust/crates/webserver/httpapi/src/tests/commands.rs`). 생산자가 처리하는 action 이 여기 없으면 `POST /api/commands` 가 400 으로 거부해 브라우저 코드에 도달하지 못하는데, 스텁 서버로 테스트하는 CLI 쪽은 그 결함을 볼 수 없다.
+이 화이트리스트는 생산자(브라우저 `_execRemote`, `otterctl`, `detach`)와 대조 검증된다 (브라우저 쪽은 `web/js/test/remote-actions.test.mjs`, 서버 쪽 종단은 `rust/crates/webserver/httpapi/src/tests/commands.rs`). 생산자가 처리하는 action 이 여기 없으면 `POST /api/commands` 가 400 으로 거부해 브라우저 코드에 도달하지 못하는데, 스텁 서버로 테스트하는 CLI 쪽은 그 결함을 볼 수 없다.
 
 ### 열림 복원과 칸 구독
 
@@ -1100,7 +1099,7 @@ HTTP `PUT /api/workspace` 핸들러는 `save(blob, if_match)` 호출 → 인덱�
 
 - 대기 칸 하나(`WriteQueue.pending: Option<blob>`) + `Condvar` 로 깨우는 전용 writer 스레드.
 - `enqueue` 는 latest-wins 코얼레싱: 대기 중인 blob 이 있으면 덮어쓴다. 다수의 빠른 save 가 들어와도 디스크 쓰기는 하나로 합쳐진다.
-- `Manager::close()` 는 writer 에 닫힘을 알리고 스레드가 마지막 blob 을 flush 한 뒤 join 한다(두 번째 호출은 아무것도 하지 않는다). 종료 표(`rust/crates/cmd/dongminal/src/serve/mod.rs` 의 `shutdown_steps`)의 마지막 단계다.
+- `Manager::close()` 는 writer 에 닫힘을 알리고 스레드가 마지막 blob 을 flush 한 뒤 join 한다(두 번째 호출은 아무것도 하지 않는다). 종료 표(`rust/crates/cmd/otterminal/src/serve/mod.rs` 의 `shutdown_steps`)의 마지막 단계다.
 - 측정치(Go 기준선(main)에서 잰 값): 101.7 ms/call (동기 `os.WriteFile`) → 18 µs/call (atomic swap 만). 자세한 배경은 [FOLLOWUP_HOTFIX_RFC.md](./archive/FOLLOWUP_HOTFIX_RFC.md) §4-ter.
 
 ### 로깅 스킵 (H5 Track A)
@@ -1151,7 +1150,7 @@ HTTP `PUT /api/workspace` 핸들러는 `save(blob, if_match)` 호출 → 인덱�
 재생분은 **살아 있는 출력이 아니라 기록**이므로, 클라이언트 터미널이 답장할 거리를
 남겨서는 안 된다. 델타에도 같은 필터가 걸린다 — 델타 역시 기록이다.
 
-- `stripOSC777` — dongminal 사설 시퀀스. 재생이 명령을 다시 실행하면 안 된다 (FR-A1)
+- `stripOSC777` — otterminal 사설 시퀀스. 재생이 명령을 다시 실행하면 안 된다 (FR-A1)
 - `stripSnapshotQueries` — 터미널 **질의**와 그 응답. 목록은 **벤더 실측**으로 세운다:
   `web/vendor/xterm.js` 에서 `triggerDataEvent` 를 부르는 자리를 전수로 훑어 **답하는
   갈래만** 담는다 (FR-TRS-5a)
@@ -1227,16 +1226,16 @@ WS 구독 쪽 규칙도 같은 뿌리다: 데몬 모드의 출력 릴레이(`rel
 - `hub::AttnTracker` : 도구 맵은 `mu: Mutex<Inner>`, 도구 하나의 상태(`last_output_at`·`attention` 등)는 `PaneState` 의 atomic — 스위퍼 틱과 출력 콜백이 같은 도구를 락 없이 읽는다. 방송은 락을 놓고 부른다 (hub 락 순서 의존을 끊는다).
 - `git jobs::Jobs` : 리포당 진행 중 작업 하나, 작업 표와 구독자 집합은 `st: Mutex<Table>` 아래에 있다. 구독은 `Unsubscribe` 가 drop 될 때 풀리고, 러너는 작업의 취소 신호(`ctx.cancel()`)로 끊는다.
 
-**도구 허브는 trait 하나다** (`httpapi/src/toolhub.rs` 의 `ToolHub`). 프로세스 경계를 건너는 표면(`subscribe`·`snapshot_tool_since`·`daemon_info`·`reconnects`)과 나머지(`list`·`list_ok`·`connected`·`create`·…)가 같은 trait 에 있고, 구현은 composition root(`rust/crates/cmd/dongminal/src/serve/adapters.rs`)가 감싸 넘긴다 — 그래서 `httpapi` 는 `toolclient` 를 몰라도 된다. Go 기준선(main)은 직접 모드와 데몬 모드를 `ToolHub.Daemon()` 으로 갈랐다(M8 `GO-46`). 종류(터미널·에이전트)를 묻는 메서드는 두지 않는다 — 무엇이 흐르든 바이트이고 해석은 소비자의 몫이다 (M8_UNIFIED_SRS §9.3 ④⑤).
+**도구 허브는 trait 하나다** (`httpapi/src/toolhub.rs` 의 `ToolHub`). 프로세스 경계를 건너는 표면(`subscribe`·`snapshot_tool_since`·`daemon_info`·`reconnects`)과 나머지(`list`·`list_ok`·`connected`·`create`·…)가 같은 trait 에 있고, 구현은 composition root(`rust/crates/cmd/otterminal/src/serve/adapters.rs`)가 감싸 넘긴다 — 그래서 `httpapi` 는 `toolclient` 를 몰라도 된다. Go 기준선(main)은 직접 모드와 데몬 모드를 `ToolHub.Daemon()` 으로 갈랐다(M8 `GO-46`). 종류(터미널·에이전트)를 묻는 메서드는 두지 않는다 — 무엇이 흐르든 바이트이고 해석은 소비자의 몫이다 (M8_UNIFIED_SRS §9.3 ④⑤).
 
 ## 종료 경로
 
 1. `serve/signals.rs` 가 `SIGINT`/`SIGTERM` 을 받아 취소 토큰(`CancellationToken`)을 취소한다.
 2. 서버의 `run(ctx)` 가 새 연결을 멈추고 리턴한다.
-3. 종료 표(`rust/crates/cmd/dongminal/src/serve/mod.rs` 의 `shutdown_steps`, D-A-12)를 순서대로 돈다. **표의 순서가 계약이고**
+3. 종료 표(`rust/crates/cmd/otterminal/src/serve/mod.rs` 의 `shutdown_steps`, D-A-12)를 순서대로 돈다. **표의 순서가 계약이고**
    테스트가 이름 순서를 잰다. 단계와 근거는 그 함수의 머리말에 있다 — 여기 베끼지 않는다.
    요점만: git 잡 대기가 정상 종료 마커 **앞**, 데몬 연결 닫기(`ToolClient::close`)가 도구 저장 **앞**
-   (`dongminald` 가 새 서버의 연결을 받도록), 워크스페이스 writer flush 가 **마지막**이다.
+   (`otterminald` 가 새 서버의 연결을 받도록), 워크스페이스 writer flush 가 **마지막**이다.
 
 도구 저장(`ToolManager::save_all`)은 소유자 없는 백그라운드 도구와 샌드박스 도구를 뺀 전부를 기록한다. 백그라운드 도구가
 데몬 재시작을 넘기지 않는 것이 여기서 정해진다 (FR-BG-9 · FR-SBX-33). 탭이 참조하지 않는 항목을 버리는
@@ -1248,6 +1247,6 @@ WS 구독 쪽 규칙도 같은 뿌리다: 데몬 모드의 출력 릴레이(`rel
 - `rust/crates/shared/workspace/src/tests.rs` — Save 비차단·coalescing·Close flush, parse, resolve.
 - `rust/crates/shared/outbuf/src/tests.rs` — Feed/Snapshot/compaction/통계.
 - `rust/crates/shared/runtime/src/tests.rs` — bin/ 전개, 세션 스코프 플러그인·훅 생성.
-- `rust/crates/helper/runtimebin/src/tests/` — dmctl 서브커맨드 플래그 파싱·HTTP 호출.
+- `rust/crates/helper/runtimebin/src/tests/` — otterctl 서브커맨드 플래그 파싱·HTTP 호출.
 
 단위 시험은 각 crate 의 `src/tests.rs`(또는 `src/tests/`)에 `#[cfg(test)]` 모듈로 둔다. 공개 API 만 보는 시험은 crate 의 `tests/` 에 둔다. 전부 `make test`(`cargo test --workspace`)가 돈다.

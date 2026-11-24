@@ -129,7 +129,7 @@ const cards = CANDS.filter(c => c.k !== 'cur').map(c => `<div class="card"><h4>$
 const cGallery = Object.keys(C).map(k => `<figure>${ico(useC(k))}${ico(useC(k), 'g16')}<figcaption>${esc(M.find(m => m.c === k).ko)}</figcaption></figure>`).join('');
 const unused = UNUSED.map(n => `<span class="un">${ico(useCur(n))} <code>${n}</code></span>`).join(' ');
 
-const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>dongminal 아이콘 시안 비교</title>
+const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>otterminal 아이콘 시안 비교</title>
 <style>
 :root{--bg:#1a1b26;--sb:#16161e;--bd:#292e42;--ac:#7aa2f7;--tx:#a9b1d6;--mu:#565f89;--br:#c0caf5;--dg:#f7768e;--ok:#9ece6a;--wn:#e0af68}
 body.light{--bg:#ffffff;--sb:#f6f8fa;--bd:#d0d7de;--ac:#0969da;--tx:#1f2328;--mu:#656d76;--br:#1f2328;--dg:#cf222e;--ok:#1a7f37;--wn:#9a6700}
@@ -172,7 +172,7 @@ table{border-collapse:collapse;width:100%}
 <svg id="sprite" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><defs>@@SPRITE@@</defs></svg>
 <div class="tool"><button onclick="document.body.classList.toggle('light')">페이지 밝기 바꾸기</button></div>
 <main>
-<header class="hd"><h1>dongminal 아이콘 시안 비교</h1>
+<header class="hd"><h1>otterminal 아이콘 시안 비교</h1>
 <p>원칙: <b>한 뜻 = 한 아이콘, 한 아이콘 = 한 뜻.</b> 지금 아이콘 54개(쓰는 곳 52개)를 쓰는 자리로 나누어 <b>${M.length}개 뜻</b>으로 정리했다. 고를 것은 두 가지다 — ① 스타일(A·B·C) ② 뜻마다의 아이콘 짝.</p>
 <p class="lic">라이선스 — 지금·A: Lucide (<b>ISC</b>, lucide-static ${lucVer}) · B: Phosphor Icons (<b>MIT</b>, @phosphor-icons/core ${phVer}) · C: 이 시안에서 직접 그림(빈 칸은 A 로 채움). 모든 SVG 는 이 파일 안 스프라이트에 들어 있고 밖을 부르지 않는다.</p>
 <p>색: 아이콘은 모두 <code>currentColor</code>. B 의 옅은 면은 Phosphor 원본의 <code>opacity="0.2"</code>, C 의 옅은 면은 <code>opacity=".2"</code> 다.</p></header>

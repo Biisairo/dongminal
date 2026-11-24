@@ -4,7 +4,7 @@ use super::hunk_log::log_real_repo;
 use super::support::*;
 use crate::log::{LOG_DECORATE, LOG_FORMAT};
 use crate::*;
-use dm_webserver_domain_git_core::{Output, Service};
+use otter_webserver_domain_git_core::{Output, Service};
 
 const PORCELAIN: &str = "1111111111111111111111111111111111111111 1 1 2\nauthor 김 동민\nauthor-mail <dy@example.com>\nauthor-time 1700000000\nauthor-tz +0900\nsummary 첫 커밋 · 유니코드\nfilename f.txt\n\ta\n1111111111111111111111111111111111111111 2 2\n\t\t들여쓴 줄\n2222222222222222222222222222222222222222 3 3 1\nauthor tester\nauthor-mail <t@example.com>\nauthor-time 1700000060\nauthor-tz +0900\nsummary 둘째\nprevious 1111111111111111111111111111111111111111 f.txt\nfilename f.txt\n\tc\n";
 

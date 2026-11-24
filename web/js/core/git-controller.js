@@ -78,7 +78,7 @@ class GitController extends Controller {
    * REPO_TAB_UNIFY_SRS FR-RTU-72: **그 저장소의 Repo 창으로 간다.**
    *
    * 이름과 계약(경로 하나를 받아 그 표면을 연다)은 그대로 두었다 — 부르는 자리가
-   * 셋이기 때문이다: 사이드바 행, `dmctl`, e2e. 달라진 것은 가는 곳뿐이다.
+   * 셋이기 때문이다: 사이드바 행, `otterctl`, e2e. 달라진 것은 가는 곳뿐이다.
    *
    * 목록에 없는 경로면 **먼저 더한다.** 연동이 핀까지 함께 만들고(FR-EDT-33)
    * 재조정이 창을 세운다 (FR-EDT-42) — 즉 이 한 번이 요구 ①의 "add 하면 git·
@@ -289,7 +289,7 @@ class GitController extends Controller {
    *
    * 포커스가 터미널이 아닐 때(Git 창·편집기 탭) **마지막 터미널을 유지한다.**
    * 빈 값을 보내면 서버가 자기 cwd 로 답하는데, 그것은 사용자가 가 본 적 없는
-   * 리포다 — Git 창에 들어간 순간 대상이 dongminal 자신으로 바뀌는 결함이
+   * 리포다 — Git 창에 들어간 순간 대상이 otterminal 자신으로 바뀌는 결함이
    * 그것이었다 (D-FLW-6, 옛 FR-GIT-210).
    */
   _gitTermToolId(){

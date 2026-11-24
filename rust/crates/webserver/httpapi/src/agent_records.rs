@@ -5,11 +5,11 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_agentrec::{self as agentrec, SubagentActivity};
-use dm_shared_dmlog::warnf;
-use dm_shared_toolhub::AgentState;
-use dm_shared_toolipc::{self as toolipc, RecordsResult};
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_agentrec::{self as agentrec, SubagentActivity};
+use otter_shared_otterlog::warnf;
+use otter_shared_toolhub::AgentState;
+use otter_shared_toolipc::{self as toolipc, RecordsResult};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -141,7 +141,7 @@ impl Server {
                 warnf!(
                     None,
                     "report: 모르는 보고 {}",
-                    dm_gocompat::strconv::quote(method)
+                    otter_gocompat::strconv::quote(method)
                 );
                 Ok(())
             }

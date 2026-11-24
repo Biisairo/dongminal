@@ -201,7 +201,7 @@ pub struct InviteCode {
 
 /// `dmedge1:` + base64url(JSON) 이다.
 pub fn encode_invite(c: &InviteCode) -> String {
-    let raw = dm_gocompat::json::marshal(c).unwrap_or_default();
+    let raw = otter_gocompat::json::marshal(c).unwrap_or_default();
     format!("{INVITE_PREFIX}{}", URL_SAFE_NO_PAD.encode(raw))
 }
 
@@ -214,7 +214,7 @@ pub fn decode_invite(s: &str) -> Result<InviteCode, Error> {
     let raw = URL_SAFE_NO_PAD
         .decode(body)
         .map_err(|_| Error::InvalidInvite)?;
-    let c: InviteCode = dm_gocompat::json::unmarshal(&raw).map_err(|_| Error::InvalidInvite)?;
+    let c: InviteCode = otter_gocompat::json::unmarshal(&raw).map_err(|_| Error::InvalidInvite)?;
     if !valid_addr(&c.addr)
         || !valid_port(c.port)
         || !valid_fingerprint(&c.fingerprint)

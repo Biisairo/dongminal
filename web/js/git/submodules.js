@@ -1,5 +1,5 @@
 /**
- * Dongminal — Git Submodules 탭 (UX_BATCH5_SRS 묶음 D / FR-SUB-1~11)
+ * Otterminal — Git Submodules 탭 (UX_BATCH5_SRS 묶음 D / FR-SUB-1~11)
  *
  * 목록의 진실은 `git submodule status` 다 (FR-SUB-2) — 상태 문자를 우리가 다시
  * 계산하지 않는다. 그래서 등록되었으나 초기화되지 않은 것(`-`)도, 다른 커밋에 가

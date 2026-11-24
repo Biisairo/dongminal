@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use dm_shared_dmenv as dmenv;
+use otter_shared_otterenv as otterenv;
 
 #[cfg(unix)]
 use super::proc::live_socket;
@@ -57,7 +57,7 @@ fn list_shows_generations() {
     );
     assert!(!out.contains(".bak.2"), "{out}");
     assert!(
-        out.ends_with("\n\n되돌리려면: dongminal rollback --gen <번호>\n"),
+        out.ends_with("\n\n되돌리려면: otterminal rollback --gen <번호>\n"),
         "{out}"
     );
 }
@@ -124,7 +124,7 @@ fn refuses_while_server_runs() {
     assert_eq!(code, 1, "{out}");
     assert_eq!(
         err,
-        "이 홈에서 dongminald 가 돌고 있습니다.\n되돌리기 전에 `dongminal stop --all` 로 내려 주세요 (터미널 세션을 잃습니다).\n"
+        "이 홈에서 otterminald 가 돌고 있습니다.\n되돌리기 전에 `otterminal stop --all` 로 내려 주세요 (터미널 세션을 잃습니다).\n"
     );
 }
 
@@ -195,5 +195,5 @@ fn targets_from_layout() {
             "tools.json"
         ]
     );
-    assert_eq!(DEFAULT_ROLLBACK_TARGET, dmenv::WORKSPACE_FILE);
+    assert_eq!(DEFAULT_ROLLBACK_TARGET, otterenv::WORKSPACE_FILE);
 }

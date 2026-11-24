@@ -7,18 +7,18 @@ use crate::version::VERSION;
 
 fn common_flags() -> String {
     format!(
-        "  --port <n>        포트 (기본: $DONGMINAL_HOME/server.json, 없으면 {DEFAULT_PORT})
-  --home <path>     DONGMINAL_HOME (기본: $DONGMINAL_HOME, 없으면 ~/.dongminal)"
+        "  --port <n>        포트 (기본: $OTTERMINAL_HOME/server.json, 없으면 {DEFAULT_PORT})
+  --home <path>     OTTERMINAL_HOME (기본: $OTTERMINAL_HOME, 없으면 ~/.otterminal)"
     )
 }
 
 /// 무인자·-h·--help 실행 시의 출력이다 (FR-CLI-1..3).
 pub fn help() -> String {
     let mut b = format!(
-        "dongminal {VERSION} — 브라우저에서 쓰는 터미널 워크스페이스
+        "otterminal {VERSION} — 브라우저에서 쓰는 터미널 워크스페이스
 
 사용법:
-  dongminal <action> [옵션]
+  otterminal <action> [옵션]
 
 액션:
 "
@@ -29,7 +29,7 @@ pub fn help() -> String {
     b.push_str(
         "
 액션별 옵션은 다음으로 본다:
-  dongminal <action> --help
+  otterminal <action> --help
 
 빌드는 ./scripts/build.sh 가 한다.
 ",
@@ -78,7 +78,7 @@ fn layout_list(keep: impl Fn(&HomeEntry) -> bool) -> String {
 
 pub fn usage_start() -> String {
     [
-        r#"사용법: dongminal start [옵션]
+        r#"사용법: otterminal start [옵션]
 
 서버를 띄운다. 기본은 배경 모드 — 준비를 확인한 뒤 프롬프트를 돌려준다.
 
@@ -86,12 +86,12 @@ pub fn usage_start() -> String {
   --expose          0.0.0.0 에 바인드한다 (사내망 다른 기기에서 접근 가능)
                     인증이 없으므로, 켜 두지 않으면 같은 망의 누구나 셸을 얻는다
                     Settings ▸ Access 에서 허용 목록을 켜세요
-  (기본)            dongminald 를 세션을 유지하며 새 바이너리로 교체한다
+  (기본)            otterminald 를 세션을 유지하며 새 바이너리로 교체한다
                     교체하지 못하면 서버·데몬을 그대로 두고 실패로 끝난다
-  --server-only     dongminald 는 그대로 두고 서버만 다시 띄운다
-  --refresh-daemon  dongminald 를 새로 띄운다 (터미널 세션을 잃는다)
+  --server-only     otterminald 는 그대로 두고 서버만 다시 띄운다
+  --refresh-daemon  otterminald 를 새로 띄운다 (터미널 세션을 잃는다)
                     도구 안에서 쓰면 대리 프로세스가 이어서 수행하고
-                    출력은 $DONGMINAL_HOME/restart.log 에 남는다
+                    출력은 $OTTERMINAL_HOME/restart.log 에 남는다
   --isolated        임시 홈 + 비어 있는 포트로 띄운다. 운영 인스턴스를 건드리지 않는다
                     도구 셸도 그 아래의 빈 홈(tool-home)에서 뜬다 — 사용자 rc·
                     git config·자격증명이 없다. 기동 출력이 두 경로를 찍는다
@@ -100,11 +100,11 @@ pub fn usage_start() -> String {
         common_flags().as_str(),
         r#"
 
---port·--expose 는 $DONGMINAL_HOME/server.json 에 저장되어 다음 기동에도 쓰인다.
-서버를 끄지 않고 바꾸려면 dongminal config set port|expose 나 설정 ▸ Server 를 쓴다.
-환경변수 PORT·DONGMINAL_PORT·DONGMINAL_HOST 는 바인드를 정하지 않는다.
+--port·--expose 는 $OTTERMINAL_HOME/server.json 에 저장되어 다음 기동에도 쓰인다.
+서버를 끄지 않고 바꾸려면 otterminal config set port|expose 나 설정 ▸ Server 를 쓴다.
+환경변수 PORT·OTTERMINAL_PORT·OTTERMINAL_HOST 는 바인드를 정하지 않는다.
 
-로그: $DONGMINAL_LOG (기본: $DONGMINAL_HOME/server.log) — 배경 모드에서만
+로그: $OTTERMINAL_LOG (기본: $OTTERMINAL_HOME/server.log) — 배경 모드에서만
 "#,
     ]
     .concat()
@@ -112,12 +112,12 @@ pub fn usage_start() -> String {
 
 pub fn usage_window() -> String {
     [
-        r#"사용법: dongminal window [옵션]
+        r#"사용법: otterminal window [옵션]
 
 돌고 있는 서버에 frameless window(Chrome --app)를 연다.
 
 서버를 띄우지 않는다 — 창만 연다. 서버가 떠 있지 않으면 열지 않고 알린다.
-띄우는 것은 dongminal start 다.
+띄우는 것은 otterminal start 다.
 
 옵션:
 "#,
@@ -130,10 +130,10 @@ pub fn usage_window() -> String {
 
 pub fn usage_stop() -> String {
     [
-        r#"사용법: dongminal stop [옵션]
+        r#"사용법: otterminal stop [옵션]
 
 옵션:
-  --all             dongminald 까지 정지한다 (기본은 서버만 — 세션 유지)
+  --all             otterminald 까지 정지한다 (기본은 서버만 — 세션 유지)
 "#,
         common_flags().as_str(),
         r#"
@@ -144,7 +144,7 @@ pub fn usage_stop() -> String {
 
 pub fn usage_doctor() -> String {
     [
-        r#"사용법: dongminal doctor [옵션]
+        r#"사용법: otterminal doctor [옵션]
 
 이 호스트에서 플랫폼 계층이 실제로 동작하는지 확인한다. 서버가 쓰는 것과 같은
 경로를 같은 순서로 밟는다 — 헬퍼·셸 훅 설치, 셸 선택, 의사 터미널 기동과 명령
@@ -169,7 +169,7 @@ pub fn usage_doctor() -> String {
 }
 
 pub fn usage_verify() -> String {
-    r#"사용법: dongminal verify [옵션]
+    r#"사용법: otterminal verify [옵션]
 
 격리 인스턴스를 **스스로 띄워** 종단간 표면을 훑고 치운다. 세 OS 가 같은 목록을
 돈다 — 기동 표면, 도구(PTY+IPC 왕복), 워크스페이스·설정, git 읽기 표면, 정적 자산.
@@ -190,13 +190,13 @@ doctor 와 겹치지 않는다. doctor 는 서버 **없이** 플랫폼 계층을
 
 pub fn usage_health() -> String {
     [
-        r#"사용법: dongminal health [옵션]
+        r#"사용법: otterminal health [옵션]
 
-서버 HTTP 응답과 dongminald 소켓·pid 를 확인한다.
+서버 HTTP 응답과 otterminald 소켓·pid 를 확인한다.
 종료 코드: 0 정상 / 1 이상 있음
 
 옵션:
-  --daemon          데몬의 낡음만 본다 — 지금 도는 dongminald 가 이 바이너리의
+  --daemon          데몬의 낡음만 본다 — 지금 도는 otterminald 가 이 바이너리의
                     코드인지. HTTP 검사를 지나지 않으므로 즉시 답한다
                     (scripts/build.sh 가 빌드 끝에 부르는 자리다)
 "#,
@@ -208,7 +208,7 @@ pub fn usage_health() -> String {
 }
 
 pub fn usage_rollback() -> String {
-    r#"사용법: dongminal rollback [--file <이름>] [--gen <번호>] [--home <경로>]
+    r#"사용법: otterminal rollback [--file <이름>] [--gen <번호>] [--home <경로>]
 
   상태 파일을 백업 세대로 되돌린다 (G3-2·G4-4).
 
@@ -230,7 +230,7 @@ pub fn usage_rollback() -> String {
 
 pub fn usage_backup() -> String {
     [
-        r#"사용법: dongminal backup --out <파일.zip> [--home <경로>]
+        r#"사용법: otterminal backup --out <파일.zip> [--home <경로>]
 
   홈 전체를 zip 하나로 담는다 (G4-3).
 
@@ -242,15 +242,15 @@ pub fn usage_backup() -> String {
 "#,
         layout_list(|e| !e.in_backup).as_str(),
         r#"
-  되돌리는 것은 dongminal restore 다.
-  상태 파일 하나를 세대로 되돌리는 것은 dongminal rollback 이다 — 이쪽이 더 좁다.
+  되돌리는 것은 otterminal restore 다.
+  상태 파일 하나를 세대로 되돌리는 것은 otterminal rollback 이다 — 이쪽이 더 좁다.
 "#,
     ]
     .concat()
 }
 
 pub fn usage_restore() -> String {
-    r#"사용법: dongminal restore <파일.zip> [--yes] [--home <경로>]
+    r#"사용법: otterminal restore <파일.zip> [--yes] [--home <경로>]
 
   backup 으로 담은 zip 을 홈에 되돌린다 (G4-3).
 
@@ -258,7 +258,7 @@ pub fn usage_restore() -> String {
   로그를 지우면 사고 직후의 증거가 사라진다.
 
   되돌릴 수 없으므로 --yes 가 있어야 진행한다. 먼저 지금 것을 담아 두세요:
-    dongminal backup --out <파일.zip>
+    otterminal backup --out <파일.zip>
 
   홈 밖을 가리키는 항목은 건너뛰고 그 사실을 알린다.
   돌고 있는 서버가 있으면 다시 띄워야 반영된다.
@@ -268,7 +268,7 @@ pub fn usage_restore() -> String {
 
 pub fn usage_uninstall() -> String {
     [
-        r#"사용법: dongminal uninstall [--dry-run] [--purge] [--yes] [--home <경로>]
+        r#"사용법: otterminal uninstall [--dry-run] [--purge] [--yes] [--home <경로>]
 
   무엇을 지울지 보인다 (G3-4).
 
@@ -281,14 +281,14 @@ pub fn usage_uninstall() -> String {
   --dry-run  목록만 내고 아무것도 지우지 않는다
   --yes      실제로 지운다. 없으면 목록만 내고 멈춘다
 
-  되돌릴 수 없다. 먼저: dongminal backup --out <파일.zip>
+  되돌릴 수 없다. 먼저: otterminal backup --out <파일.zip>
 "#,
     ]
     .concat()
 }
 
 pub fn usage_service() -> String {
-    r#"사용법: dongminal service install [--out <파일>] [--home <경로>]
+    r#"사용법: otterminal service install [--out <파일>] [--home <경로>]
 
   이 OS 의 감독자에 넣을 정의를 만든다 (SEC-23).
 
@@ -296,7 +296,7 @@ pub fn usage_service() -> String {
     Linux · WSL  systemd **user** unit (Restart=always)
     Windows      아직 없다. 작업 스케줄러의 안내만 낸다
 
-  지금의 실효 기동값(host·port·로그 수준)을 그대로 박는다 — dongminal config
+  지금의 실효 기동값(host·port·로그 수준)을 그대로 박는다 — otterminal config
   show 가 내는 것과 같은 값이다. 나중에 그 값을 바꿨으면 이 파일도 고쳐야 한다.
 
   **설치하지 않는다.** 파일을 쓰고 다음 걸음을 안내한다 — 사용자의 감독자
@@ -308,7 +308,7 @@ pub fn usage_service() -> String {
 }
 
 pub fn usage_update() -> String {
-    r#"사용법: dongminal update [--check]
+    r#"사용법: otterminal update [--check]
 
   최신 판이 있는지 확인한다 (G3-3).
 
@@ -324,10 +324,10 @@ pub fn usage_update() -> String {
 }
 
 pub fn usage_config() -> String {
-    r#"사용법: dongminal config <show|validate> [--json] [--home <경로>]
-       dongminal config set port <1024~65535> [--home <경로>]
-       dongminal config set expose <on|off> [--home <경로>]
-       dongminal config get [--home <경로>]
+    r#"사용법: otterminal config <show|validate> [--json] [--home <경로>]
+       otterminal config set port <1024~65535> [--home <경로>]
+       otterminal config set expose <on|off> [--home <경로>]
+       otterminal config get [--home <경로>]
 
   설정의 **실효값과 그 출처**를 보이고, 설정 파일을 서술자 표에 대조한다
   (CONFIG_MANAGEMENT_SRS 묶음 C).
@@ -349,7 +349,7 @@ pub fn usage_config() -> String {
             (열린 화면은 새 주소로 옮겨 간다), 돌고 있지 않으면 server.json 만 고친다.
             바인드는 서버가 도는 컴퓨터에서만 바꿀 수 있다.
 
-  get       지금 리슨하는 바인드($DONGMINAL_HOME/run/server.addr)와
+  get       지금 리슨하는 바인드($OTTERMINAL_HOME/run/server.addr)와
             server.json 의 값·출처를 함께 보인다.
 
   서버는 settings.json 을 **런타임에 해석하지 않는다.** 이 명령이 그것을 읽는
@@ -360,10 +360,10 @@ pub fn usage_config() -> String {
 
 pub fn usage_migrate() -> String {
     [
-        r#"사용법: dongminal migrate [옵션]
+        r#"사용법: otterminal migrate [옵션]
 
 워크스페이스 데이터를 최신 스키마로 변환한다. 멱등이다.
-서버가 포트에서 응답하면 변환을 거부한다 — 먼저 dongminal stop --all.
+서버가 포트에서 응답하면 변환을 거부한다 — 먼저 otterminal stop --all.
 
 옵션:
   --dry-run, -n     변환 내용만 출력하고 파일을 건드리지 않는다

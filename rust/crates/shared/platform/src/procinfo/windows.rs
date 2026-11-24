@@ -165,7 +165,7 @@ mod sys {
                 e.kind(),
                 format!(
                     "process snapshot: {}",
-                    dm_gocompat::oserr::go_error_string(&e)
+                    otter_gocompat::oserr::go_error_string(&e)
                 ),
             ));
         }

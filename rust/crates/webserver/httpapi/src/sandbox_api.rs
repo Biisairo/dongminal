@@ -2,14 +2,14 @@
 
 use std::collections::BTreeMap;
 
-use dm_shared_httpresp::Response;
-use dm_shared_sandbox::{
+use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_shared_sandbox::{
     self as sandbox, DevConfig, ExecFn, Mount, ProfileInfo, RUNTIME_MISSING, RUNTIME_OK,
     RuntimeStatus,
 };
-use dm_webserver_action::{self as action, Answer};
-use dm_webserver_apierr as apierr;
-use http::StatusCode;
+use otter_webserver_action::{self as action, Answer};
+use otter_webserver_apierr as apierr;
 use serde::Serialize;
 
 use crate::Server;
@@ -123,7 +123,7 @@ pub(crate) fn write_sandbox_start(st: &RuntimeStatus, run: &ExecFn<'_>) -> Respo
 
 fn probe_now() -> RuntimeStatus {
     sandbox::probe(
-        dm_shared_platform::current().os.as_str(),
+        otter_shared_platform::current().os.as_str(),
         &sandbox::look_path,
         &sandbox::cli_exec,
     )
@@ -239,13 +239,13 @@ impl Server {
         }
         // FR-LIV-3: 저장이 끝난 뒤에 알린다.
         if let Some(c) = self.commands() {
-            c.broadcast(&dm_webserver_sse::payload(
+            c.broadcast(&otter_webserver_sse::payload(
                 "sandbox_changed",
                 Some(&BTreeMap::<String, ()>::new()),
             ));
         }
         let tag = self.sandbox_tag().await;
-        let mut res = Response::new(dm_shared_httpresp::empty());
+        let mut res = Response::new(otter_shared_httpresp::empty());
         *res.status_mut() = StatusCode::NO_CONTENT;
         with_header(res, "ETag", &tag)
     }

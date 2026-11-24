@@ -2,13 +2,13 @@
 # hermetic.sh 아래에서 돈다. Go 참조 바이너리로 헬퍼 시나리오 입력의 출력을 기록한다.
 import json, os, subprocess, sys, tempfile
 go = sys.argv[1]; out = sys.argv[2]
-home = os.environ['DONGMINAL_HOME']
-assert '/dm-hermetic' in home, home
+home = os.environ['OTTERMINAL_HOME']
+assert '/otter-hermetic' in home, home
 os.makedirs(os.path.join(home, 'run'), exist_ok=True)
 # 네트워크 단계까지 가더라도 운영 포트가 아니라 닫힌 높은 포트로 간다.
 open(os.path.join(home, 'run', 'server.addr'), 'w').write('127.0.0.1:65431\n')
 cases = {
- 'dmctl': [[],['--help'],['-h'],['help'],['bogus'],['bogus','--force'],['new-tab','--help'],['new-tab','--no-such-flag'],
+ 'otterctl': [[],['--help'],['-h'],['help'],['bogus'],['bogus','--force'],['new-tab','--help'],['new-tab','--no-such-flag'],
    ['new-tab','--at'],['new-tab','--name='],['new-tab','--group','W1.P1.T1'],['new-tab','--force'],
    ['close-tab','--force','--background'],['split-h','1'],['read-screen','--bytes'],['read-screen','--no-such-flag'],
    ['send-input','--no-such-flag'],['msg','--no-such-flag'],['status','--no-such-flag'],['wait','--no-such-flag'],

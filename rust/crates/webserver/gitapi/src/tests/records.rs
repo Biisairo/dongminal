@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use dm_webserver_domain_git_core::{self as core, Ctx, Output, Service, WriteSpec};
-use dm_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_domain_git_core::{self as core, Ctx, Output, Service, WriteSpec};
+use otter_webserver_domain_git_store::{Store, StoreOptions};
 use serde_json::{Value, json};
 use tempfile::TempDir;
 

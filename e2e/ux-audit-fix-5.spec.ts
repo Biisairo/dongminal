@@ -5,7 +5,7 @@ import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture, makeCo
 import { tmpPath } from './osenv';
 
 const MOBILE = { width: 412, height: 839 };
-const FIXTURES = tmpPath('dm-git-fx-uxf5-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-uxf5-' + process.pid);
 const copyFx = makeCopyFx(FIXTURES);
 
 test.beforeAll(() => { gitFixture(FIXTURES) });

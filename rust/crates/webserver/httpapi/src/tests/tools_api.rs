@@ -6,11 +6,11 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, SystemTime};
 
-use dm_shared_toolhub::{DEFAULT_COLS, Placement};
-use dm_shared_workspace::WindowInfo;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_sysstat::Snapshot;
-use dm_webserver_hub::{CmdSub, CommandBroker, CommandHub};
+use otter_shared_toolhub::{DEFAULT_COLS, Placement};
+use otter_shared_workspace::WindowInfo;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_sysstat::Snapshot;
+use otter_webserver_hub::{CmdSub, CommandBroker, CommandHub};
 
 use super::fakes::*;
 use super::support::*;
@@ -144,7 +144,7 @@ async fn kill_rejects_missing_tool_id() {
         let r = kill(&s, body).await;
         assert_eq!(r.status, 400, "body={body:?}");
         assert_eq!(
-            r.header(dm_shared_httpresp::CODE_HEADER),
+            r.header(otter_shared_httpresp::CODE_HEADER),
             apierr::CODE_MISSING_ARG
         );
     }
@@ -158,7 +158,7 @@ async fn kill_unknown_tool_is_404() {
     assert_eq!(r.status, 404);
     assert_eq!(r.body.trim(), "toolId=nope 존재하지 않음");
     assert_eq!(
-        r.header(dm_shared_httpresp::CODE_HEADER),
+        r.header(otter_shared_httpresp::CODE_HEADER),
         apierr::CODE_TOOL_NOT_FOUND
     );
 }
@@ -194,7 +194,7 @@ async fn create_without_hub_is_500() {
     let r = post_json(&s, "/api/tools", "").await;
     assert_eq!(r.status, 500);
     assert_eq!(
-        r.header(dm_shared_httpresp::CODE_HEADER),
+        r.header(otter_shared_httpresp::CODE_HEADER),
         apierr::CODE_TOOLS_UNREADY
     );
 }
@@ -269,7 +269,7 @@ async fn create_missing_or_file_cwd_is_400() {
         assert_eq!(r.status, 400, "{p}");
         assert_eq!(r.body.trim(), format!("cwd is not a directory: {p}"));
         assert_eq!(
-            r.header(dm_shared_httpresp::CODE_HEADER),
+            r.header(otter_shared_httpresp::CODE_HEADER),
             apierr::CODE_TOOL_CWD_MISSING
         );
     }
@@ -506,7 +506,7 @@ async fn workspace_put_without_store_is_500() {
     let r = put_ws(&s, "{}", "0").await;
     assert_eq!(r.status, 500);
     assert_eq!(
-        r.header(dm_shared_httpresp::CODE_HEADER),
+        r.header(otter_shared_httpresp::CODE_HEADER),
         apierr::CODE_WORK_UNREADY
     );
 }
@@ -558,7 +558,7 @@ async fn workspace_put_stale_is_409() {
     let r = put_ws(&s, OK_WS, "9999").await;
     assert_eq!(r.status, 409);
     assert_eq!(
-        r.header(dm_shared_httpresp::CODE_HEADER),
+        r.header(otter_shared_httpresp::CODE_HEADER),
         apierr::CODE_STALE_REV
     );
 
@@ -710,7 +710,7 @@ async fn stats_without_provider_and_once_per_request() {
     let (_d, s) = srv(Deps::default());
     let v = get(&s, "/api/stats?jobs=1").await.json();
     assert_eq!(keys(&v), ["hostname", "srvUptime"]);
-    assert_eq!(v["hostname"], dm_shared_platform::hostname().unwrap());
+    assert_eq!(v["hostname"], otter_shared_platform::hostname().unwrap());
 
     let (_d, s, fs) = stats_srv(Snapshot::default());
     for _ in 0..5 {

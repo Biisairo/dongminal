@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use dm_shared_dmenv as dmenv;
+use otter_shared_otterenv as otterenv;
 
 use super::fake_http::{FakeServer, dead_port};
 use super::{Vars, with_env};
@@ -20,7 +20,7 @@ fn run(home: &Path, port: &str) -> (i32, String, String) {
     let v = Vars::new(&[(super::USER_HOME_VAR, user.path().to_str().unwrap())]);
     let mut out = Vec::new();
     let mut err = Vec::new();
-    let p = dm_shared_platform::current().process;
+    let p = otter_shared_platform::current().process;
     let code = with_env(&v, |env| run_health_in(&o, env, p, "", &mut out, &mut err));
     (
         code,
@@ -30,7 +30,7 @@ fn run(home: &Path, port: &str) -> (i32, String, String) {
 }
 
 fn suffix() -> &'static str {
-    dm_shared_platform::current().paths.exe_suffix()
+    otter_shared_platform::current().paths.exe_suffix()
 }
 
 // V-HLI-8: 새 홈은 실패가 아니다. 출력 전체를 Go 의 문구대로 확인한다.
@@ -40,14 +40,14 @@ fn fresh_home_is_not_failure() {
     let d = tempfile::tempdir().unwrap();
     let (code, out, err) = run(d.path(), &srv.port);
     assert_eq!(code, 0, "{out}{err}");
-    let bin = dm_gocompat::filepath::join(&[d.path().to_str().unwrap(), "bin"]);
+    let bin = otter_gocompat::filepath::join(&[d.path().to_str().unwrap(), "bin"]);
     assert_eq!(
         out,
         format!(
-            "✅ dongminal HTTP :{}\nℹ️  dongminald 소켓 없음 (미기동)\n{}\nℹ️  헬퍼 {} ({bin})\n",
+            "✅ otterminal HTTP :{}\nℹ️  otterminald 소켓 없음 (미기동)\n{}\nℹ️  헬퍼 {} ({bin})\n",
             srv.port,
             daemon_state_line(DaemonState::NotRunning),
-            dm_shared_runtime::HELPER_NOT_INSTALLED
+            otter_shared_runtime::HELPER_NOT_INSTALLED
         )
     );
 }
@@ -58,7 +58,7 @@ fn no_server_is_failure() {
     let port = dead_port();
     let (code, out, _) = run(d.path(), &port);
     assert_eq!(code, 1);
-    assert!(out.starts_with(&format!("❌ dongminal HTTP :{port} — 응답 없음\n")));
+    assert!(out.starts_with(&format!("❌ otterminal HTTP :{port} — 응답 없음\n")));
 }
 
 // V-HLI-7: 깨진 헬퍼는 실패이고, 고치는 법을 알린다.
@@ -69,15 +69,15 @@ fn reports_broken_helpers() {
     let d = tempfile::tempdir().unwrap();
     let bin = d.path().join("bin");
     std::fs::create_dir_all(&bin).unwrap();
-    let gone = d.path().join("go-build-사라짐").join("dongminal");
-    for n in dmenv::helper_names() {
+    let gone = d.path().join("go-build-사라짐").join("otterminal");
+    for n in otterenv::helper_names() {
         std::os::unix::fs::symlink(&gone, bin.join(format!("{n}{}", suffix()))).unwrap();
     }
     let (code, out, _) = run(d.path(), &srv.port);
     assert_eq!(code, 1, "{out}");
     assert!(out.contains("❌ 헬퍼 "), "{out}");
     assert!(
-        out.contains(&format!("   {}\n", dm_shared_runtime::HELPER_FIX_HINT)),
+        out.contains(&format!("   {}\n", otter_shared_runtime::HELPER_FIX_HINT)),
         "{out}"
     );
 }
@@ -88,12 +88,12 @@ fn silent_on_healthy_helpers() {
     let d = tempfile::tempdir().unwrap();
     let bin = d.path().join("bin");
     std::fs::create_dir_all(&bin).unwrap();
-    for n in dmenv::helper_names() {
+    for n in otterenv::helper_names() {
         write_exe(&bin.join(format!("{n}{}", suffix())));
     }
-    let shims = dmenv::agent_shims_dir_in(&bin);
+    let shims = otterenv::agent_shims_dir_in(&bin);
     std::fs::create_dir_all(&shims).unwrap();
-    for n in dm_shared_agentadapter::shim_commands() {
+    for n in otter_shared_agentadapter::shim_commands() {
         write_exe(&shims.join(format!("{n}{}", suffix())));
     }
     let (code, out, _) = run(d.path(), &srv.port);
@@ -101,8 +101,8 @@ fn silent_on_healthy_helpers() {
     assert!(
         out.ends_with(&format!(
             "✅ 헬퍼 {}개 실행 가능 ({})\n",
-            dmenv::helper_names().len(),
-            dm_gocompat::filepath::join(&[d.path().to_str().unwrap(), "bin"])
+            otterenv::helper_names().len(),
+            otter_gocompat::filepath::join(&[d.path().to_str().unwrap(), "bin"])
         )),
         "{out}"
     );
@@ -128,7 +128,7 @@ fn dead_pid_with_socket_is_failure() {
     let (code, out, _) = run(d.path(), &srv.port);
     assert_eq!(code, 1);
     assert!(
-        out.contains("⚠️  dongminald 소켓은 있으나 pid=999999 가 죽어 있습니다\n"),
+        out.contains("⚠️  otterminald 소켓은 있으나 pid=999999 가 죽어 있습니다\n"),
         "{out}"
     );
 }

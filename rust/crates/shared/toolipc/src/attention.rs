@@ -1,7 +1,7 @@
 //! 알람 판정의 와이어 (AGENT_RECORD_DAEMON_SRS §3.3a).
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_toolhub::AgentState;
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_toolhub::AgentState;
 use serde::{Deserialize, Serialize};
 
 pub const ATTN_KIND_ATTENTION: &str = "attention";

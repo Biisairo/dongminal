@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-testpath"
+name = "otter-shared-testpath"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,5 +10,5 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-dmenv = { path = "../dmenv" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-otterenv = { path = "../otterenv" }

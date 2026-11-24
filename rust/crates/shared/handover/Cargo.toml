@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-handover"
+name = "otter-shared-handover"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,9 +10,9 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-shared-agentrec = { path = "../agentrec" }
-dm-shared-platform = { path = "../platform" }
-dm-gocompat = { path = "../../gocompat" }
+otter-shared-agentrec = { path = "../agentrec" }
+otter-shared-platform = { path = "../platform" }
+otter-gocompat = { path = "../../gocompat" }
 serde = { workspace = true }
 
 [dev-dependencies]

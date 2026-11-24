@@ -2,10 +2,10 @@
 
 use std::collections::BTreeMap;
 
-use dm_shared_editorlimit as editorlimit;
-use dm_shared_textenc::{self as textenc, Encoded};
-use dm_webserver_action::{self as action, Answer};
-use dm_webserver_apierr as apierr;
+use otter_shared_editorlimit as editorlimit;
+use otter_shared_textenc::{self as textenc, Encoded};
+use otter_webserver_action::{self as action, Answer};
+use otter_webserver_apierr as apierr;
 use serde_json::{Value, json};
 
 use super::fsenv::{FileEnv, file_env, file_env_with, get, jq, post, qe, write};
@@ -821,10 +821,13 @@ fn stamp_conflict_verdict() {
 
 #[test]
 fn lsp_watch_type_verdict() {
-    assert_eq!(lsp_watch_type(true), dm_webserver_domain_lsp::WATCH_CHANGED);
+    assert_eq!(
+        lsp_watch_type(true),
+        otter_webserver_domain_lsp::WATCH_CHANGED
+    );
     assert_eq!(
         lsp_watch_type(false),
-        dm_webserver_domain_lsp::WATCH_CREATED
+        otter_webserver_domain_lsp::WATCH_CREATED
     );
 }
 
@@ -833,7 +836,7 @@ fn lsp_watch_type_verdict() {
 async fn file_write_notifies_lsp() {
     use std::sync::{Arc, Mutex};
 
-    use dm_webserver_domain_lsp::FileEvent;
+    use otter_webserver_domain_lsp::FileEvent;
 
     #[derive(Default)]
     struct Rec(Mutex<Vec<FileEvent>>);
@@ -841,16 +844,18 @@ async fn file_write_notifies_lsp() {
         fn notify_files(&self, events: Vec<FileEvent>) {
             self.0.lock().unwrap().extend(events);
         }
-        fn status(&self) -> (Vec<dm_webserver_domain_ext::Status>, Vec<String>) {
+        fn status(&self) -> (Vec<otter_webserver_domain_ext::Status>, Vec<String>) {
             Default::default()
         }
         fn open_tunnel(
             &self,
             _: &str,
             _: &str,
-        ) -> Result<Arc<dyn dm_webserver_domain_lsp::Tunnel>, dm_webserver_domain_lsp::OpenError>
-        {
-            Err(dm_webserver_domain_lsp::OpenError::Limit)
+        ) -> Result<
+            Arc<dyn otter_webserver_domain_lsp::Tunnel>,
+            otter_webserver_domain_lsp::OpenError,
+        > {
+            Err(otter_webserver_domain_lsp::OpenError::Limit)
         }
         fn paths(&self) -> std::collections::HashMap<String, String> {
             Default::default()
@@ -858,15 +863,15 @@ async fn file_write_notifies_lsp() {
         fn set_paths(
             &self,
             next: std::collections::HashMap<String, String>,
-        ) -> Result<std::collections::HashMap<String, String>, dm_webserver_domain_lsp::PathsError>
+        ) -> Result<std::collections::HashMap<String, String>, otter_webserver_domain_lsp::PathsError>
         {
             Ok(next)
         }
         fn install<'a>(
             &'a self,
-            _: &'a dm_webserver_domain_ext::Ctx,
+            _: &'a otter_webserver_domain_ext::Ctx,
             _: &'a str,
-        ) -> futures_util::future::BoxFuture<'a, dm_webserver_domain_ext::Outcome> {
+        ) -> futures_util::future::BoxFuture<'a, otter_webserver_domain_ext::Outcome> {
             Box::pin(async { Default::default() })
         }
     }
@@ -882,11 +887,11 @@ async fn file_write_notifies_lsp() {
         vec![
             FileEvent {
                 path: t.clone(),
-                typ: dm_webserver_domain_lsp::WATCH_CREATED
+                typ: otter_webserver_domain_lsp::WATCH_CREATED
             },
             FileEvent {
                 path: t,
-                typ: dm_webserver_domain_lsp::WATCH_CHANGED
+                typ: otter_webserver_domain_lsp::WATCH_CHANGED
             },
         ]
     );

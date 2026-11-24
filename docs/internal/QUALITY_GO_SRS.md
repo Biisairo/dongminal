@@ -46,9 +46,9 @@
 |---|---|---|
 | FR-QG-1 | 본문 디코드 실패의 응답 문구는 고정 문구에 **요청 자리**만 덧붙인다. 요청 자리는 `httpreq.Reason` 한 함수가 만든다: 문법 오류(`*json.SyntaxError`)는 그 문구, 형 오류(`*json.UnmarshalTypeError`)는 `<필드 경로>: <JSON 값 종류>` 꼴이다. Go 의 타입·구조체 이름(`fsDeleteReq`·`[]string`)은 싣지 않는다. 그 밖의 오류는 요청 자리가 없다 | 필수 |
 | FR-QG-2 | 본문 읽기 실패의 문구는 상한 초과면 `httpreq.ErrTooLarge` 의 문구, 그 밖은 고정 문구뿐이다 | 필수 |
-| FR-QG-3 | 디코드·읽기 실패의 원인 오류 전문은 `dmlog` 로 남긴다(경로와 함께) | 필수 |
+| FR-QG-3 | 디코드·읽기 실패의 원인 오류 전문은 `otterlog` 로 남긴다(경로와 함께) | 필수 |
 | FR-QG-4 | 적용 자리: `fsDecode` · `decodeJSONBody` · `gitDecodeBody` · `apiFileStamps` · `parseFileWrite` · `parseCommandPost`. 상태와 `X-Error-Code` 는 바뀌지 않는다 | 필수 |
-| FR-QG-5 | git 핀 추가·빼기(`apiGitPin`·`apiGitUnpin`)의 저장 실패는 고정 문구로 답하고 원인은 `dmlog` 로 보낸다. 상태(500)와 코드(`git_failed`)는 바뀌지 않는다 | 필수 |
+| FR-QG-5 | git 핀 추가·빼기(`apiGitPin`·`apiGitUnpin`)의 저장 실패는 고정 문구로 답하고 원인은 `otterlog` 로 보낸다. 상태(500)와 코드(`git_failed`)는 바뀌지 않는다 | 필수 |
 
 ### 2.2 QG-2 — 테마 값 서버 검증 (FC-F1)
 
@@ -122,10 +122,10 @@
 
 | 이슈 | 이전 | 새 | 이유 |
 |---|---|---|---|
-| QG-1 | 디코드 실패 문구에 원인 오류 그대로(`… json: cannot unmarshal number into Go struct field fsDeleteReq.path of type string`). 읽기 실패도 원인 그대로 | 고정 문구 + 요청 자리(`본문이 JSON 이 아니다: path: number 값은 맞지 않다`). 문법 오류·상한 초과는 종전 문구 그대로(골든 불변). 그 밖의 읽기 실패는 고정 문구뿐. 전문은 `dmlog` | 내부 타입 이름 노출(GH-F3). D-QG-1 |
-| QG-1 | 핀 추가·빼기의 저장 실패 문구가 원인 오류(작업 공간 파일 해석 오류·경로) | `핀 목록을 저장하지 못했다`. 원인은 `dmlog` | D-QG-2 |
+| QG-1 | 디코드 실패 문구에 원인 오류 그대로(`… json: cannot unmarshal number into Go struct field fsDeleteReq.path of type string`). 읽기 실패도 원인 그대로 | 고정 문구 + 요청 자리(`본문이 JSON 이 아니다: path: number 값은 맞지 않다`). 문법 오류·상한 초과는 종전 문구 그대로(골든 불변). 그 밖의 읽기 실패는 고정 문구뿐. 전문은 `otterlog` | 내부 타입 이름 노출(GH-F3). D-QG-1 |
+| QG-1 | 핀 추가·빼기의 저장 실패 문구가 원인 오류(작업 공간 파일 해석 오류·경로) | `핀 목록을 저장하지 못했다`. 원인은 `otterlog` | D-QG-2 |
 | QG-2 | `PUT /api/settings` 가 JSON 이면 무엇이든 저장했다 | `customTheme` 의 색·`mode` 가 규칙을 어기면 `400` · `bad_request`(문구 `customTheme.ui.bg: #rrggbb 또는 #rrggbbaa 색이어야 합니다`), 저장하지 않는다 | FC-F1 서버 쪽 — 나쁜 값이 다른 기기로 방송되지 않게. D-QG-3 |
-| QG-2 | `dongminal config` 검증이 `customTheme` 을 object 인지만 봤다 | 키별 값 검증(문제의 키가 `customTheme.ui.bg` 꼴) | 같은 규칙 한 벌(FR-QG-10) |
+| QG-2 | `otterminal config` 검증이 `customTheme` 을 object 인지만 봤다 | 키별 값 검증(문제의 키가 `customTheme.ui.bg` 꼴) | 같은 규칙 한 벌(FR-QG-10) |
 | QG-4 | 403 차단 화면(HTML)에 `X-Error-Code` 가 없었다 | `X-Error-Code: forbidden`(평문 403 과 같음). 본문·다른 헤더 그대로 | 모든 오류 응답이 코드를 싣는다는 규약(FR-ERR-4, `docs/external/errors.md` 머리) |
 | QG-6 (DM-5) | `detach --restore=ID`·`detach -r=ID` 는 모르는 인자(도움말과 종료 2). `detach --at ""` 는 통과(복귀 대상 없음과 같음) | 앞의 둘은 `--restore ID` 와 같다. `--at ""` 는 `--at=` 처럼 `--at 은 탭 uuid 가 필요합니다` 로 거절(2). `send-input`·`msg` 의 출력은 그대로(골든 불변) | `argSpec` 이 값 플래그의 `=` 형을 한 규칙으로 받고, 빈 탭 uuid 를 한 자리에서 거절한다. 골든 `argparse.golden` 의 바뀐 줄은 이 셋뿐이다 |
 
@@ -133,11 +133,11 @@
 
 | 이슈 | 커밋 | 요점 |
 |---|---|---|
-| QG-1 | `b7785b53` | `httpreq.Reason`·`Message`(문법 오류 문구 · 형 오류의 `<필드>: <JSON 종류> 값은 맞지 않다` · 상한 초과 문구, 그 밖은 없음, 전문은 `dmlog`). 적용 여섯 자리(fs·toolio·git 디코더, 파일 표식·저장, 명령 POST)와 git 핀 추가·빼기의 저장 실패. 시험 `reason_test.go`·`decode_reason_test.go`(httpapi 다섯 종단·git 둘)는 옛 코드에서 실패했다(본문에 `Go struct field …Req`). 방언 골든(`dialect_golden_test.go` 둘)은 바꾸지 않고 통과한다. 클라이언트가 이 문구를 읽는 곳은 없다(`web/js`·`runtimebin` 검색 0곳) |
+| QG-1 | `b7785b53` | `httpreq.Reason`·`Message`(문법 오류 문구 · 형 오류의 `<필드>: <JSON 종류> 값은 맞지 않다` · 상한 초과 문구, 그 밖은 없음, 전문은 `otterlog`). 적용 여섯 자리(fs·toolio·git 디코더, 파일 표식·저장, 명령 POST)와 git 핀 추가·빼기의 저장 실패. 시험 `reason_test.go`·`decode_reason_test.go`(httpapi 다섯 종단·git 둘)는 옛 코드에서 실패했다(본문에 `Go struct field …Req`). 방언 골든(`dialect_golden_test.go` 둘)은 바꾸지 않고 통과한다. 클라이언트가 이 문구를 읽는 곳은 없다(`web/js`·`runtimebin` 검색 0곳) |
 | QG-2 | `63197fa7` | `settingsschema.CheckThemeBlob`·`check` 의 `customTheme` 갈래(`theme.go`), `apiSettingsPut` 이 JSON 검사 뒤에 부른다. 시험: 갈래 열둘 · `Validate` · 내장 테마 54종(embed 된 `themes.js` 를 읽어 대조) · PUT 거절과 저장 안 함(옛 코드에서 200). 클라이언트의 키 목록은 확인만 했다 — `sanitizeCustomTheme` 은 키 이름을 묻지 않고 `ui`·`terminal` 의 값만 본다(D-QG-5). `docs/external/api.md` 의 `PUT /api/settings` 줄에 거절 규칙 |
 | QG-3 | `5c48bccf` | `clearButtons` 가 `fanout.Each`(상한 `clearButtonsParallel` = 4). 측정 `TestBridge_ClearButtonsBoundedParallel`(가짜 Telegram, 요청당 100ms, 버튼 32개): **전 3.26s · 동시 1 → 후 0.82s · 동시 4**. 시험은 동시 최대가 상한 이하, 시간이 순차의 절반 미만, 목록이 지워졌음을 본다. `-race` 통과 |
 | QG-4 | `527aa03c` | `writeDeniedPage` 가 `X-Error-Code: forbidden`. 시험은 화면과 평문 403 의 코드가 같음을 본다(옛 코드에서 빈 값). 다른 헤더·본문 그대로. `errors.md` 는 이미 "모든 오류 응답에 코드가 실린다" 고 적고 있어 고치지 않았다 |
-| QG-5 | `6c4b7551` | **측정 뒤 유지**(D-QG-7). 측정 `TestMeasureFSCopyBlocksOtherRootMkdir`(`DM_MEASURE_FS_COPY=1` 일 때만 돈다, 임시 폴더): 파일 3,000개(4 KiB)·폴더 30개 트리 복사 중 다른 루트의 `mkdir` 응답 — 3회 397 · 748 · 318 ms, 복사 시간 398 · 748 · 319 ms. 즉 다른 루트의 `mkdir` 은 복사가 끝날 때까지 기다린다(상한 1만 항목이면 약 1~2.5초, 큰 파일이면 더 길다). 잠금 자리에 불변식 두 개를 주석으로 적었다 |
+| QG-5 | `6c4b7551` | **측정 뒤 유지**(D-QG-7). 측정 `TestMeasureFSCopyBlocksOtherRootMkdir`(`OTTER_MEASURE_FS_COPY=1` 일 때만 돈다, 임시 폴더): 파일 3,000개(4 KiB)·폴더 30개 트리 복사 중 다른 루트의 `mkdir` 응답 — 3회 397 · 748 · 318 ms, 복사 시간 398 · 748 · 319 ms. 즉 다른 루트의 `mkdir` 은 복사가 끝날 때까지 기다린다(상한 1만 항목이면 약 1~2.5초, 큰 파일이면 더 길다). 잠금 자리에 불변식 두 개를 주석으로 적었다 |
 | QG-6 GD-3 | `036e184a` | `core.(*Service).UnguardedTextRunner(timeout, reason, missing, trim)` 하나. worktree·submodule 의 `runGit` 을 지우고 각자 `gitRunner(svc)` 한 줄(인자만)로. 호출처 게이트 정규식이 `UnguardedTextRunner(` 도 잡는다(`TestUnguardedCallPatternCoversText`). 새 시험 `TestUnguardedTextRunner` 는 옛 코드에서 컴파일 실패 |
 | QG-6 DM-18 | `35786196` | **달지 않음**(D-QG-8). 세 OS `go vet ./...` 통과, `go tool nm` 으로 다른 OS 어댑터가 바이너리에 없음을 확인 |
 | QG-6 GH-4·5·21 | `0296bf2d` | `editorlimit.BinarySniffBytes`(8000) 하나를 편집기 판정·파일 검색·diff 가 쓴다. `httpapi.binaryProbeLen`·`query.BinarySniffBytes` 를 지웠다. 64 KiB·1 MiB(P2)와 fs 상한 표(SH)는 이미 한 이름이었다 |

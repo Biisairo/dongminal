@@ -1,4 +1,4 @@
-//! update_test.go — `dongminal update --check` 는 사람이 직접 묻는 자리다 (FR-UPD-17).
+//! update_test.go — `otterminal update --check` 는 사람이 직접 묻는 자리다 (FR-UPD-17).
 
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
@@ -57,7 +57,7 @@ fn check_reports_newer() {
     assert_eq!(code, 0, "{err}");
     assert_eq!(
         out,
-        "지금 판: v1.0.0\n최신 판: v9.9.9\n\n새 판이 있습니다.\n  https://example/rel/v9.9.9\n  내려받은 뒤 dongminal stop --all 하고 바꿔 넣으세요.\n  바꾸기 전에: dongminal backup --out <파일.zip>\n"
+        "지금 판: v1.0.0\n최신 판: v9.9.9\n\n새 판이 있습니다.\n  https://example/rel/v9.9.9\n  내려받은 뒤 otterminal stop --all 하고 바꿔 넣으세요.\n  바꾸기 전에: otterminal backup --out <파일.zip>\n"
     );
 }
 

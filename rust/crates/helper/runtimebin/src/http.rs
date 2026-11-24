@@ -4,10 +4,10 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_gocompat::neturl_err::{self, UrlError};
-use dm_shared_dmenv as dmenv;
-use dm_shared_serverconf as serverconf;
+use otter_gocompat::json::{self, RawMessage};
+use otter_gocompat::neturl_err::{self, UrlError};
+use otter_shared_otterenv as otterenv;
+use otter_shared_serverconf as serverconf;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -48,19 +48,19 @@ impl HttpOut {
 
 /// 이 셸이 붙을 서버 주소다 (HOT_REBIND_SRS FR-HRB-12·13·14). 주소 파일 → `server.json` →
 /// 기본값 순서이고 요청마다 다시 읽는다. 샌드박스 컨테이너 안은 마운트된 주소 파일, 없으면
-/// 기동 때 심은 `DONGMINAL_PORT` 다.
+/// 기동 때 심은 `OTTERMINAL_PORT` 다.
 pub(crate) fn server_addr(env: &Env) -> (String, String) {
-    if env.get(dmenv::ENV_HOST) == dmenv::CONTAINER_HOST {
+    if env.get(otterenv::ENV_HOST) == otterenv::CONTAINER_HOST {
         if let Some((_, p)) = serverconf::read_addr_file(&container_addr_file(env)) {
-            return (dmenv::CONTAINER_HOST.to_owned(), p);
+            return (otterenv::CONTAINER_HOST.to_owned(), p);
         }
-        let port = env.get(dmenv::ENV_PORT);
+        let port = env.get(otterenv::ENV_PORT);
         let port = if port.is_empty() {
-            dmenv::DEFAULT_PORT.to_owned()
+            otterenv::DEFAULT_PORT.to_owned()
         } else {
             port
         };
-        return (dmenv::CONTAINER_HOST.to_owned(), port);
+        return (otterenv::CONTAINER_HOST.to_owned(), port);
     }
     let home = helper_home(env);
     let home = Path::new(&home);
@@ -78,16 +78,16 @@ pub(crate) fn server_addr(env: &Env) -> (String, String) {
 
 fn container_addr_file(env: &Env) -> PathBuf {
     env.container_addr_file.clone().unwrap_or_else(|| {
-        PathBuf::from(dm_gocompat::path::join(&[
-            dmenv::CONTAINER_ADDR_DIR,
+        PathBuf::from(otter_gocompat::path::join(&[
+            otterenv::CONTAINER_ADDR_DIR,
             serverconf::ADDR_FILE_NAME,
         ]))
     })
 }
 
-/// 인스턴스 홈이다. 서버가 셸에 `DONGMINAL_HOME` 을 넣는다. 없으면 기본 홈이다.
+/// 인스턴스 홈이다. 서버가 셸에 `OTTERMINAL_HOME` 을 넣는다. 없으면 기본 홈이다.
 pub(crate) fn helper_home(env: &Env) -> String {
-    let h = env.get(dmenv::ENV_HOME);
+    let h = env.get(otterenv::ENV_HOME);
     if !h.is_empty() {
         return h;
     }
@@ -98,7 +98,7 @@ pub(crate) fn helper_home(env: &Env) -> String {
     if user.is_empty() {
         return String::new();
     }
-    dm_gocompat::filepath::join(&[user.as_str(), dmenv::DEFAULT_HOME_DIR])
+    otter_gocompat::filepath::join(&[user.as_str(), otterenv::DEFAULT_HOME_DIR])
 }
 
 /// Go `os.UserHomeDir` — 비어 있으면 실패다.
@@ -112,7 +112,7 @@ fn user_home_dir(env: &Env) -> String {
 
 pub(crate) fn base_url(env: &Env) -> String {
     let (h, p) = server_addr(env);
-    dmenv::base_url(&h, &p)
+    otterenv::base_url(&h, &p)
 }
 
 pub(crate) fn current_port(env: &Env) -> String {
@@ -121,7 +121,7 @@ pub(crate) fn current_port(env: &Env) -> String {
 
 /// 이 셸이 속한 도구다. runtimebin 안에서 도구 식별자를 읽는 유일한 자리다.
 pub(crate) fn self_tool_id(env: &Env) -> String {
-    env.get(dmenv::ENV_TOOL_ID)
+    env.get(otterenv::ENV_TOOL_ID)
 }
 
 /// 요청 하나. budget 이 0 이면 공용 예산(10초)이다.
@@ -303,7 +303,7 @@ pub(crate) fn refuse_with<'r>(render: impl Fn(&mut dyn Write, u16, &[u8]) + 'r) 
 /// `{error}` 방언의 종단이다 (FR-OPT-9-2).
 pub(crate) fn api_rule(path: &str) -> ExitRule<'_> {
     ExitRule {
-        prefix: "dmctl",
+        prefix: "otterctl",
         on_err: None,
         ok: None,
         refuse: refuse_with(move |w, st, b| print_api_error(w, st, path, b)),
@@ -313,7 +313,7 @@ pub(crate) fn api_rule(path: &str) -> ExitRule<'_> {
 /// `{code,message}` 방언의 종단이다 (edge·account, FR-PNW-74).
 pub(crate) fn code_rule() -> ExitRule<'static> {
     ExitRule {
-        prefix: "dmctl",
+        prefix: "otterctl",
         on_err: None,
         ok: None,
         refuse: refuse_with(print_code_refusal),
@@ -378,10 +378,10 @@ pub(crate) fn print_api_error(w: &mut dyn Write, status: u16, path: &str, body: 
         && let Some(msg) = take_field::<String>(&r.error)
         && !msg.is_empty()
     {
-        let _ = writeln!(w, "dmctl: {msg}");
+        let _ = writeln!(w, "otterctl: {msg}");
         return;
     }
-    let _ = write!(w, "dmctl: {path} returned status {status}: ");
+    let _ = write!(w, "otterctl: {path} returned status {status}: ");
     let _ = w.write_all(body);
     let _ = w.write_all(b"\n");
 }
@@ -393,16 +393,16 @@ pub(crate) fn print_code_refusal(w: &mut dyn Write, status: u16, raw: &[u8]) {
         && let Some(msg) = take_field::<String>(&r.message)
         && !code.is_empty()
     {
-        let _ = writeln!(w, "dmctl: {}: {}", clean(&code), clean(&msg));
+        let _ = writeln!(w, "otterctl: {}: {}", clean(&code), clean(&msg));
         return;
     }
     let _ = writeln!(
         w,
-        "dmctl: status {status}: {}",
-        dm_shared_termtext::strip_bytes(raw)
+        "otterctl: status {status}: {}",
+        otter_shared_termtext::strip_bytes(raw)
     );
 }
 
 pub(crate) fn clean(s: &str) -> String {
-    dm_shared_termtext::strip(s)
+    otter_shared_termtext::strip(s)
 }

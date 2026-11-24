@@ -55,8 +55,8 @@ fn perm(_: &Path) -> u32 {
 }
 
 const BIND_ENV: [(&str, &str); 3] = [
-    ("DONGMINAL_HOST", "2.2.2.2"),
-    ("DONGMINAL_PORT", "4444"),
+    ("OTTERMINAL_HOST", "2.2.2.2"),
+    ("OTTERMINAL_PORT", "4444"),
     ("PORT", "5555"),
 ];
 
@@ -69,9 +69,9 @@ fn priority_flag_wins() {
         r#"{"host":"10.0.0.1","port":"3333","logLevel":"debug"}"#,
     );
     let env = env_of(&[
-        ("DONGMINAL_HOST", "2.2.2.2"),
+        ("OTTERMINAL_HOST", "2.2.2.2"),
         ("PORT", "2222"),
-        ("DONGMINAL_LOG_LEVEL", "warn"),
+        ("OTTERMINAL_LOG_LEVEL", "warn"),
     ]);
     let got = resolve(&Inputs {
         home: home.path(),
@@ -115,14 +115,14 @@ fn priority_falls_through_layers() {
     assert_eq!(got.port.source, Source::Default);
     assert_eq!(got.log_level.value, "info");
 
-    let got = resolve_env(home.path(), &env_of(&[("DONGMINAL_LOG_LEVEL", "warn")]));
+    let got = resolve_env(home.path(), &env_of(&[("OTTERMINAL_LOG_LEVEL", "warn")]));
     assert_eq!(
         (
             got.log_level.value.as_str(),
             got.log_level.source,
             got.log_level.env.as_str()
         ),
-        ("warn", Source::Env, "DONGMINAL_LOG_LEVEL")
+        ("warn", Source::Env, "OTTERMINAL_LOG_LEVEL")
     );
 }
 
@@ -131,7 +131,7 @@ fn priority_falls_through_layers() {
 fn empty_means_unset() {
     let home = tmp();
     write(home.path(), r#"{"host":"","port":"3333"}"#);
-    let got = resolve_env(home.path(), &env_of(&[("DONGMINAL_HOST", "")]));
+    let got = resolve_env(home.path(), &env_of(&[("OTTERMINAL_HOST", "")]));
     assert_eq!(got.host.source, Source::Default);
     assert_eq!(got.port.source, Source::File);
 }
@@ -147,7 +147,7 @@ fn missing_file_is_silent() {
 fn corrupt_file_warns_and_continues() {
     let home = tmp();
     write(home.path(), "{nope");
-    let got = resolve_env(home.path(), &env_of(&[("DONGMINAL_HOST", "2.2.2.2")]));
+    let got = resolve_env(home.path(), &env_of(&[("OTTERMINAL_HOST", "2.2.2.2")]));
     assert!(!got.warnings.is_empty());
     assert!(got.warnings[0].starts_with("server.json 가 깨졌습니다: "));
     assert!(got.warnings[0].ends_with(" (무시하고 진행합니다)"));
@@ -246,10 +246,14 @@ fn bind_env_warning() {
     let got = resolve_env(tmp().path(), &env_of(&BIND_ENV));
     assert_eq!(
         got.bind_env_warning(),
-        "DONGMINAL_HOST·DONGMINAL_PORT·PORT 는 바인드를 정하지 않습니다 — server.json 나 --port·--expose 를 쓰세요"
+        "OTTERMINAL_HOST·OTTERMINAL_PORT·PORT 는 바인드를 정하지 않습니다 — server.json 나 --port·--expose 를 쓰세요"
     );
     assert_eq!(resolve_home(tmp().path()).bind_env_warning(), "");
-    let empty = env_of(&[("DONGMINAL_HOST", ""), ("DONGMINAL_PORT", ""), ("PORT", "")]);
+    let empty = env_of(&[
+        ("OTTERMINAL_HOST", ""),
+        ("OTTERMINAL_PORT", ""),
+        ("PORT", ""),
+    ]);
     assert_eq!(resolve_env(tmp().path(), &empty).bind_env_warning(), "");
 }
 
@@ -307,7 +311,7 @@ fn set_bind_preserves_keys() {
         (&m["host"], &m["port"]),
         (&J::from("0.0.0.0"), &J::from("9100"))
     );
-    if dm_shared_testpath::perm_checked() {
+    if otter_shared_testpath::perm_checked() {
         assert_eq!(perm(&home.path().join(FILE_NAME)), 0o600);
     }
     let got = resolve_home(home.path());
@@ -337,7 +341,7 @@ fn set_bind_on_missing_or_corrupt_file() {
     let home: PathBuf = base.path().join("new");
     set_bind(&home, "", "9101").unwrap();
     assert_eq!(read_json(&home)["port"], "9101");
-    if dm_shared_testpath::perm_checked() {
+    if otter_shared_testpath::perm_checked() {
         assert_eq!(perm(&home), 0o700);
     }
     let home = tmp();
@@ -346,7 +350,7 @@ fn set_bind_on_missing_or_corrupt_file() {
     assert_eq!(read_json(home.path())["port"], "9102");
     let e = set_bind(Path::new(""), "", "9103").unwrap_err();
     assert!(matches!(e, Error::NoHome));
-    assert_eq!(e.to_string(), "DONGMINAL_HOME 이 없습니다");
+    assert_eq!(e.to_string(), "OTTERMINAL_HOME 이 없습니다");
 }
 
 #[test]
@@ -414,7 +418,7 @@ fn write_remove_addr() {
         read_addr(home.path()),
         Some(("127.0.0.1".into(), "9300".into()))
     );
-    if dm_shared_testpath::perm_checked() {
+    if otter_shared_testpath::perm_checked() {
         assert_eq!(perm(&addr_path(home.path())), 0o600);
         assert_eq!(perm(addr_path(home.path()).parent().unwrap()), 0o700);
     }
@@ -549,7 +553,7 @@ fn unreadable_file_warns_with_go_error() {
 fn resolved_json_shape() {
     let home = tmp();
     write(home.path(), r#"{"x":1}"#);
-    let env = env_of(&[("DONGMINAL_LOG", "/l"), ("PORT", "1")]);
+    let env = env_of(&[("OTTERMINAL_LOG", "/l"), ("PORT", "1")]);
     let r = resolve(&Inputs {
         home: home.path(),
         getenv: Some(&env),
@@ -559,7 +563,7 @@ fn resolved_json_shape() {
     let got = String::from_utf8(json::marshal(&r).unwrap()).unwrap();
     assert_eq!(
         got,
-        r#"{"host":{"value":"127.0.0.1","source":"default"},"port":{"value":"58146","source":"default"},"logLevel":{"value":"info","source":"default"},"logFile":{"value":"/l","source":"env","env":"DONGMINAL_LOG"},"warnings":["server.json: 알 수 없는 키 \"x\" (무시합니다)"],"updateCheck":true,"updateCheckSet":false,"bindEnv":["PORT"]}"#
+        r#"{"host":{"value":"127.0.0.1","source":"default"},"port":{"value":"58146","source":"default"},"logLevel":{"value":"info","source":"default"},"logFile":{"value":"/l","source":"env","env":"OTTERMINAL_LOG"},"warnings":["server.json: 알 수 없는 키 \"x\" (무시합니다)"],"updateCheck":true,"updateCheckSet":false,"bindEnv":["PORT"]}"#
     );
 }
 

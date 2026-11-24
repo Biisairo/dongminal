@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-httpresp"
+name = "otter-shared-httpresp"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 bytes = { workspace = true }
-dm-gocompat = { path = "../../gocompat" }
+otter-gocompat = { path = "../../gocompat" }
 http = { workspace = true }
 http-body-util = { workspace = true }
 serde = { workspace = true }

@@ -7,12 +7,12 @@
 
 use std::process::ExitCode;
 
-use dm_gocompat::flag::FlagSet;
-use dm_gocompat::oserr::{go_error_string, path_error};
+use otter_gocompat::flag::FlagSet;
+use otter_gocompat::oserr::{go_error_string, path_error};
 
 const OUT: &str = "docs/external/errors.md";
 /// 생성물이 어긋났을 때 안내하는 명령이다.
-const REGEN: &str = dm_ctl_errdoc::GENERATE;
+const REGEN: &str = otter_ctl_errdoc::GENERATE;
 /// 카탈로그의 원천이다.
 const SOURCE: &str = "apierr 의 코드 안내(code_doc)";
 
@@ -25,7 +25,7 @@ fn main() -> ExitCode {
         return ExitCode::from(u8::try_from(code).unwrap_or(2));
     }
 
-    let body = match dm_ctl_errdoc::render() {
+    let body = match otter_ctl_errdoc::render() {
         Ok(b) => b,
         Err(e) => {
             eprintln!("카탈로그를 만들지 못했습니다: {e}");

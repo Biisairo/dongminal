@@ -1,5 +1,5 @@
 [package]
-name = "dm-daemon-chat"
+name = "otter-daemon-chat"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,12 +11,12 @@ workspace = true
 
 [dependencies]
 base64 = { workspace = true }
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-dmlog = { path = "../../shared/dmlog" }
-dm-shared-edge = { path = "../../shared/edge" }
-dm-shared-edgemesh = { path = "../../shared/edgemesh" }
-dm-shared-humancmd = { path = "../../shared/humancmd" }
-dm-shared-termtext = { path = "../../shared/termtext" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-otterlog = { path = "../../shared/otterlog" }
+otter-shared-edge = { path = "../../shared/edge" }
+otter-shared-edgemesh = { path = "../../shared/edgemesh" }
+otter-shared-humancmd = { path = "../../shared/humancmd" }
+otter-shared-termtext = { path = "../../shared/termtext" }
 hex = { workspace = true }
 p256 = { workspace = true }
 rand = { workspace = true }

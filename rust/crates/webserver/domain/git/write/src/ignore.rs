@@ -2,10 +2,10 @@
 
 use std::io;
 
-use dm_gocompat::filepath;
-use dm_gocompat::oserr;
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_git_core as core;
+use otter_gocompat::filepath;
+use otter_gocompat::oserr;
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_git_core as core;
 use serde::Serialize;
 
 use crate::error::{Error, WriteKind};

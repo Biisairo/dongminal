@@ -1,5 +1,5 @@
 /**
- * Dongminal — 설정창의 **Server 구역** (HOT_REBIND_SRS FR-HRB-40·43·44).
+ * Otterminal — 설정창의 **Server 구역** (HOT_REBIND_SRS FR-HRB-40·43·44).
  *
  * 포트와 expose 를 서버를 끄지 않고 바꾼다. 바꾸기는 루프백 화면에서만 된다 (FR-HRB-21) —
  * 같은 망의 화면은 값을 볼 수만 있다. 포트가 바뀌면 이 화면은 새 주소로 이사하고(FR-HRB-26),

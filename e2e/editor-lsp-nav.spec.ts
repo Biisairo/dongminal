@@ -39,7 +39,7 @@ const MAIN_GO = 'package main\n\nimport "example.com/lspnav/pkg/deep"\n\nfunc ma
 const BAD_GO = 'package bad\n\nfunc f() {\n\tnope()\n}\n';
 
 test.beforeAll(async ({ request }) => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-lspnav-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-lspnav-')));
   ROOT = j(BASE, 'root');
   // 정의가 **다른 파일, 그리고 깊은 겹**에 있다 — 조상 펼치기까지 걸린다.
   fs.mkdirSync(j(ROOT, 'pkg', 'deep'), { recursive: true });

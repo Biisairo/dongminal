@@ -40,7 +40,7 @@ test('FR-DFP-2: 웹서버와 제어 명령은 세지 않는다', () => {
   assert.deepEqual(leaked, [], '데몬 프로세스에 없는 코드가 지문에 들어왔다');
 });
 
-test('D-2: cmd/dongminal 은 정의역 밖이다', () => {
+test('D-2: cmd/otterminal 은 정의역 밖이다', () => {
   const leaked = files().filter((f) => f.startsWith('crates/cmd/'));
   assert.deepEqual(leaked, [], 'main 은 웹서버 코드 전부를 의존한다 — 넣으면 늘 불일치가 된다');
 });

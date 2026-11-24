@@ -261,7 +261,7 @@ fn paths_set_validates_persists_and_status_uses_it() {
     let raw = std::fs::read_to_string(&file).unwrap();
     let want = format!(
         "{{\n  \"paths\": {{\n    \"gopls/gopls\": {}\n  }}\n}}",
-        dm_gocompat::strconv::quote(&abs)
+        otter_gocompat::strconv::quote(&abs)
     );
     assert_eq!(raw, want, "파일 모양이 Go MarshalIndent 와 다르다");
     let (sts, _) = svc.status();
@@ -282,7 +282,7 @@ fn load_paths_ignores_non_absolute_and_bad_json() {
     let file = filepath::join(&[dir.as_str(), "lsp-paths.json"]);
     let body = format!(
         r#"{{"paths":{{"gopls/gopls":{},"typescript/typescript-language-server":"rel/tsls"}}}}"#,
-        dm_gocompat::strconv::quote(&abs)
+        otter_gocompat::strconv::quote(&abs)
     );
     std::fs::write(&file, body).unwrap();
     let (_d, svc) = svc_with(None, &[]);
@@ -344,7 +344,7 @@ fn set_paths_concurrent_put_persists_same_as_memory() {
         let raw = std::fs::read_to_string(&file).unwrap();
         let mem = svc.paths()["gopls/gopls"].clone();
         assert!(
-            raw.contains(&dm_gocompat::strconv::quote(&mem)),
+            raw.contains(&otter_gocompat::strconv::quote(&mem)),
             "round {round}: 디스크 {raw} ≠ 메모리 {mem}"
         );
     }
@@ -387,7 +387,7 @@ fn start_process_stop_kills_process_group() {
     let mut line = String::new();
     std::io::BufRead::read_line(&mut BufReader::new(conn.reader), &mut line).unwrap();
     let child: i32 = line.trim().parse().unwrap();
-    let p = dm_shared_platform::current().process;
+    let p = otter_shared_platform::current().process;
     (conn.stop)();
     let deadline = Instant::now() + Duration::from_secs(3);
     while Instant::now() < deadline {

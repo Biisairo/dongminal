@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use dm_gocompat::filepath;
+use otter_gocompat::filepath;
 use serde::Serialize;
 
 use crate::ctx::Ctx;
@@ -53,7 +53,7 @@ pub struct LockInfo {
     pub path: String,
     #[serde(
         rename = "mtimeUnixMs",
-        skip_serializing_if = "dm_gocompat::json::is_empty"
+        skip_serializing_if = "otter_gocompat::json::is_empty"
     )]
     pub mtime_unix_ms: Option<i64>,
 }

@@ -34,7 +34,7 @@ var layoutPresets=[]; // [{name, layout}] — layout = stripped layout tree
 var defaultPreset=-1; // index into layoutPresets, -1 = none
 // CONVENIENCE_SRS FR-TAN-19: 전경 프로세스 이름을 탭 이름으로 쓸지. 기본은 켬.
 // /api/settings blob 에 실린다 — 브라우저 탭별이 아니라 서버의 값이어야
-// `dmctl list-workspace` 가 화면과 같은 이름을 낼 수 있다 (FR-TAN-18).
+// `otterctl list-workspace` 가 화면과 같은 이름을 낼 수 있다 (FR-TAN-18).
 var fgTabNames=true;
 // WORKBENCH_REVIEW_SRS FR-WBR-10·12: 편집기의 줄바꿈. 기본은 **끔**(한 줄 보기) —
 // 지금 동작이고, 코드에서 가로 스크롤은 "이 줄이 길다" 를 말한다.
@@ -66,6 +66,8 @@ var profileName='';
 // **기본값이 거짓인 것이 규칙이다** (D-1). 접수한 요구가 "묻지 않기" 이므로,
 // 켬을 기본으로 두면 요구는 이뤄지지 않은 채 설정 항목만 하나 늘어난다.
 var confirmLeave=false;
+// OTTERMINAL_RENAME_SRS FR-FAV-1·3: 파비콘이 주의 상태를 따라 색을 바꿀지. 기본은 켬이다 (D-7).
+var attnFavicon=true;
 // M8_UNIFIED_SRS FR-B-1·4: UI 언어. /api/settings blob 에 실린다 — 기기를 옮겨도
 // 같은 언어여야 한다. **활성 로케일은 `I18N.locale` 이고 이 값은 저장할 값이다** —
 // 둘이 다른 순간은 사용자가 고르고 페이지가 다시 열리기 전뿐이다 (D-B-1).

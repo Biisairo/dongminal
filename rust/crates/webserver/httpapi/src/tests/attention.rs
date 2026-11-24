@@ -6,8 +6,8 @@ use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use dm_shared_toolipc::{CODE_NOT_FOUND, RpcError};
-use dm_webserver_apierr as apierr;
+use otter_shared_toolipc::{CODE_NOT_FOUND, RpcError};
+use otter_webserver_apierr as apierr;
 
 use super::attnenv::*;
 use super::support::*;
@@ -52,7 +52,7 @@ async fn attention_clear() {
     assert_eq!(r.status, 400);
 }
 
-// FR-PAN-18: dmctl notify → set 종단이 주의를 세운다. 이미 서 있어도 다시 알린다.
+// FR-PAN-18: otterctl notify → set 종단이 주의를 세운다. 이미 서 있어도 다시 알린다.
 #[tokio::test]
 async fn attention_set() {
     let env = tracked(&["9"]);
@@ -155,7 +155,7 @@ async fn attention_family_bad_request_codes() {
         ] {
             let r = post(&env.srv, &format!("/api/tools/{name}"), body).await;
             assert_eq!(
-                (r.status, r.header(dm_shared_httpresp::CODE_HEADER)),
+                (r.status, r.header(otter_shared_httpresp::CODE_HEADER)),
                 (400, code.to_owned()),
                 "{name} {body}"
             );
@@ -170,7 +170,7 @@ async fn attention_family_bad_request_codes() {
     ] {
         let r = post(&env.srv, "/api/tools/activity/set", body).await;
         assert_eq!(
-            (r.status, r.header(dm_shared_httpresp::CODE_HEADER)),
+            (r.status, r.header(otter_shared_httpresp::CODE_HEADER)),
             (400, code.to_owned())
         );
         assert_eq!(r.body, "bad request\n");
@@ -551,7 +551,7 @@ async fn attn_daemon_forward_errors() {
     let r = post(&env.srv, "/api/tools/attention/set", r#"{"toolId":"t1"}"#).await;
     assert_eq!(r.status, 503);
     assert_eq!(
-        r.header(dm_shared_httpresp::CODE_HEADER),
+        r.header(otter_shared_httpresp::CODE_HEADER),
         apierr::CODE_TOOLS_UNREADY
     );
     assert_eq!(r.body, "daemon unavailable\n");

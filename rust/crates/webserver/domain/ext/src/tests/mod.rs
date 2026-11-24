@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 
-use dm_gocompat::filepath;
+use otter_gocompat::filepath;
 use sha2::{Digest, Sha256};
 
 use crate::ctx::Ctx;
@@ -78,7 +78,7 @@ pub(crate) fn tmp() -> (tempfile::TempDir, String) {
 }
 
 pub(crate) fn exe_suffix() -> &'static str {
-    dm_shared_platform::current().paths.exe_suffix()
+    otter_shared_platform::current().paths.exe_suffix()
 }
 
 pub(crate) fn must_exec(p: &str) {

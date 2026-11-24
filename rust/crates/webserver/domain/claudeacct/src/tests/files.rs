@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime};
 
-use dm_gocompat::json::RawMessage;
+use otter_gocompat::json::RawMessage;
 use tokio_util::sync::CancellationToken;
 
 use super::{MemSecrets, cred, cred_json, perm_is};
@@ -183,8 +183,8 @@ fn backup_keychain_round_trip_and_prev() {
     b.write("id1", &cred("a2", "r2", "")).unwrap();
     assert_eq!(b.read("id1").unwrap().unwrap().access_token(), "a2");
     assert_eq!(b.read_prev("id1").unwrap().unwrap().access_token(), "a1");
-    assert!(sec.has("dongminal-claude-accounts", "account-id1"));
-    assert!(sec.has("dongminal-claude-accounts", "account-id1.prev"));
+    assert!(sec.has("otterminal-claude-accounts", "account-id1"));
+    assert!(sec.has("otterminal-claude-accounts", "account-id1.prev"));
     assert!(!t.path().join("credentials").join("id1.json").exists());
 }
 
@@ -208,13 +208,13 @@ fn backup_keychain_failure_falls_back_to_file() {
     let sec = MemSecrets::new();
     let b = backup(t.path(), &sec);
     sec.put(
-        "dongminal-claude-accounts",
+        "otterminal-claude-accounts",
         "account-x",
         &cred_json("stale", "r", ""),
     );
     *sec.fail_set.lock().unwrap() = true;
     b.write("x", &cred("new", "r", "")).unwrap();
-    assert!(!sec.has("dongminal-claude-accounts", "account-x"));
+    assert!(!sec.has("otterminal-claude-accounts", "account-x"));
     assert_eq!(b.read("x").unwrap().unwrap().access_token(), "new");
 }
 

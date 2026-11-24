@@ -9,15 +9,15 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::time::Duration;
 
-use dm_shared_dmenv as dmenv;
-use dm_shared_dmlog::{errorf, infof, warnf};
-use dm_shared_httpresp::Response;
-use dm_shared_platform::canonical_addr;
-use dm_shared_serverconf as serverconf;
-use dm_webserver_apierr as apierr;
 use http::{Method, StatusCode};
 use hyper::body::Incoming;
 use hyper_util::rt::{TokioIo, TokioTimer};
+use otter_shared_httpresp::Response;
+use otter_shared_otterenv as otterenv;
+use otter_shared_otterlog::{errorf, infof, warnf};
+use otter_shared_platform::canonical_addr;
+use otter_shared_serverconf as serverconf;
+use otter_webserver_apierr as apierr;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
 use tokio::task::JoinHandle;
@@ -46,7 +46,7 @@ pub(crate) type ListenFn = Arc<dyn Fn(&str) -> io::Result<std::net::TcpListener>
 
 /// 기본 리슨 (Go `net.Listen`). 와일드카드는 가능하면 이중 스택이다.
 pub(crate) fn default_listen(addr: &str) -> io::Result<std::net::TcpListener> {
-    dm_shared_platform::listen_tcp(addr)
+    otter_shared_platform::listen_tcp(addr)
 }
 
 /// 실행 중 리바인드의 상태다 (Go `rebindState`).
@@ -153,7 +153,7 @@ impl Rebinder {
 
     pub(crate) fn addr(&self) -> String {
         let st = self.lock();
-        dm_shared_dmenv::join_host_port(&st.host, &st.port)
+        otter_shared_otterenv::join_host_port(&st.host, &st.port)
     }
 
     pub(crate) fn set_ln(&self, ln: LnHandle) {
@@ -167,7 +167,7 @@ impl Rebinder {
             let ports: Vec<String> = st
                 .grace
                 .iter()
-                .filter(|(_, g)| dmenv::is_exposed_host(&g.host))
+                .filter(|(_, g)| otterenv::is_exposed_host(&g.host))
                 .map(|(p, _)| p.clone())
                 .collect();
             ports
@@ -216,7 +216,7 @@ impl Rebinder {
                     errorf!(
                         None,
                         "http: Accept error: {e}; retrying in {}",
-                        dm_gocompat::time::format_std_duration(delay)
+                        otter_gocompat::time::format_std_duration(delay)
                     );
                     tokio::select! {
                         _ = cancel.cancelled() => return,
@@ -304,14 +304,17 @@ impl Rebinder {
         if req.method() != Method::GET {
             return None;
         }
-        let path = dm_gocompat::neturl::path_unescape(req.uri().path()).ok()?;
+        let path = otter_gocompat::neturl::path_unescape(req.uri().path()).ok()?;
         if path != b"/" {
             return None;
         }
         let port = self.moved_from(local)?;
         let host = crate::run::request_host(req);
         let name = split_host_port(&host).map_or(host.as_str(), |(h, _)| h);
-        let mut to = format!("http://{}/", dm_shared_dmenv::join_host_port(name, &port));
+        let mut to = format!(
+            "http://{}/",
+            otter_shared_otterenv::join_host_port(name, &port)
+        );
         if let Some(q) = req.uri().query() {
             to.push('?');
             to.push_str(q);
@@ -331,7 +334,7 @@ impl Rebinder {
             // 유예 중인 옛 포트로 되돌린다 — 그 리스너가 포트를 쥐고 있다.
             old.ln.close().await;
         }
-        let addr = dm_shared_dmenv::join_host_port(host, port);
+        let addr = otter_shared_otterenv::join_host_port(host, port);
         let ln = match (srv.rebind.listen)(&addr) {
             Ok(ln) => ln,
             Err(e) => {
@@ -358,7 +361,7 @@ impl Rebinder {
             let old_host = std::mem::replace(&mut st.host, host.to_owned());
             let old_port = std::mem::replace(&mut st.port, port.to_owned());
             // FR-HRB-32: 노출을 끄며 옮기면 노출된 옛 리스너를 유예로 남기지 않는다.
-            let keep = !dmenv::is_exposed_host(&old_host) || dmenv::is_exposed_host(host);
+            let keep = !otterenv::is_exposed_host(&old_host) || otterenv::is_exposed_host(host);
             let mut old = old;
             if keep && let Some(ln) = old.take() {
                 st.grace
@@ -369,7 +372,7 @@ impl Rebinder {
         if let Some(ln) = old {
             ln.close().await;
         }
-        let payload = dm_webserver_sse::payload(
+        let payload = otter_webserver_sse::payload(
             "server_moving",
             Some(&BTreeMap::from([("port", port.to_owned())])),
         );
@@ -416,7 +419,7 @@ impl Rebinder {
         if let Some(ln) = old {
             ln.close().await;
         }
-        let addr = dm_shared_dmenv::join_host_port(host, &port);
+        let addr = otter_shared_otterenv::join_host_port(host, &port);
         let mut res = (srv.rebind.listen)(&addr).map_err(|e| e.to_string());
         if let Ok(ln) = res {
             res = match save_bind(&self.home, host, &port) {
@@ -438,7 +441,7 @@ impl Rebinder {
             }
             Err(e) => {
                 warnf!(None, "[bind] {addr} 로 다시 리슨하지 못했습니다: {e}");
-                let back_addr = dm_shared_dmenv::join_host_port(&old_host, &port);
+                let back_addr = otter_shared_otterenv::join_host_port(&old_host, &port);
                 let back = (srv.rebind.listen)(&back_addr).and_then(|ln| self.serve(ln));
                 match back {
                     Ok(h) => {
@@ -473,7 +476,7 @@ impl Rebinder {
 /// `server.json` 과 주소 파일을 새 바인드로 쓴다 (FR-HRB-23 ④).
 fn save_bind(home: &Path, host: &str, port: &str) -> Result<(), serverconf::Error> {
     serverconf::set_bind(home, host, port)?;
-    serverconf::write_addr(home, &dm_shared_dmenv::join_host_port(host, port))
+    serverconf::write_addr(home, &otter_shared_otterenv::join_host_port(host, port))
 }
 
 /// 리바인드 응답이다 (Go `bindView`).
@@ -491,8 +494,8 @@ fn view_of(host: &str, port: &str) -> BindView {
     BindView {
         host: host.to_owned(),
         port: port.to_owned(),
-        expose: dmenv::is_exposed_host(host),
-        url: dmenv::base_url(host, port),
+        expose: otterenv::is_exposed_host(host),
+        url: otterenv::base_url(host, port),
         warning: String::new(),
     }
 }
@@ -529,7 +532,9 @@ pub(crate) fn bind_target(cur_host: &str, cur_port: &str, r: &BindReq) -> (Strin
     let mut port = cur_port.to_owned();
     match r.expose {
         Some(true) => host = EXPOSE_HOST.to_owned(),
-        Some(false) if dmenv::is_exposed_host(cur_host) => host = dmenv::DEFAULT_HOST.to_owned(),
+        Some(false) if otterenv::is_exposed_host(cur_host) => {
+            host = otterenv::DEFAULT_HOST.to_owned()
+        }
         _ => {}
     }
     if let Some(p) = r.port {
@@ -650,7 +655,7 @@ impl Server {
         if let Err((status, code)) = res {
             return code_fail(status, code, "rebind failed");
         }
-        if dmenv::is_exposed_host(cur_host) && !dmenv::is_exposed_host(new_host) {
+        if otterenv::is_exposed_host(cur_host) && !otterenv::is_exposed_host(new_host) {
             // FR-HRB-32: expose 를 껐으면 노출된 유예 리스너와 같은 망에서 맺은 연결을 거둔다.
             b.revoke_exposure().await;
         }
@@ -658,11 +663,11 @@ impl Server {
         infof!(
             None,
             "[bind] {} → {} ({})",
-            dm_shared_dmenv::join_host_port(cur_host, cur_port),
-            dm_shared_dmenv::join_host_port(new_host, new_port),
+            otter_shared_otterenv::join_host_port(cur_host, cur_port),
+            otter_shared_otterenv::join_host_port(new_host, new_port),
             bind_reason(cur_port, new_port)
         );
-        if view.expose && !dmenv::is_exposed_host(cur_host) {
+        if view.expose && !otterenv::is_exposed_host(cur_host) {
             view.warning = EXPOSE_WARNING.to_owned();
             warnf!(None, "[bind] {EXPOSE_WARNING}");
         }

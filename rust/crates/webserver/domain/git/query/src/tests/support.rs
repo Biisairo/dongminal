@@ -4,12 +4,12 @@ use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 
-use dm_webserver_domain_git_core::{Ctx, Error, Output, Runner, Service};
+use otter_webserver_domain_git_core::{Ctx, Error, Output, Runner, Service};
 use tempfile::TempDir;
 
 pub(crate) fn abs(parts: &[&str]) -> String {
     let root = if cfg!(windows) { "C:\\" } else { "/" };
-    dm_gocompat::filepath::join(&[&[root], parts].concat())
+    otter_gocompat::filepath::join(&[&[root], parts].concat())
 }
 
 pub(crate) fn abs_r() -> String {
@@ -20,7 +20,7 @@ pub(crate) fn abs_repo() -> String {
 }
 
 pub(crate) fn git_path() -> Option<String> {
-    dm_shared_platform::look_path("git")
+    otter_shared_platform::look_path("git")
 }
 
 fn null_device() -> &'static str {
@@ -53,8 +53,8 @@ pub(crate) struct Temp {
 
 pub(crate) fn temp_dir() -> Temp {
     let dir = TempDir::new().expect("tempdir");
-    let path =
-        dm_gocompat::filepath::eval_symlinks(&dir.path().to_string_lossy()).expect("eval_symlinks");
+    let path = otter_gocompat::filepath::eval_symlinks(&dir.path().to_string_lossy())
+        .expect("eval_symlinks");
     Temp { _dir: dir, path }
 }
 
@@ -128,5 +128,5 @@ pub(crate) fn bg() -> Ctx {
 }
 
 pub(crate) fn json<T: serde::Serialize>(v: &T) -> String {
-    String::from_utf8(dm_gocompat::json::marshal(v).unwrap()).unwrap()
+    String::from_utf8(otter_gocompat::json::marshal(v).unwrap()).unwrap()
 }

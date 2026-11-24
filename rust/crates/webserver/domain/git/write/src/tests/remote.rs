@@ -2,8 +2,8 @@
 
 use std::sync::{Arc, Mutex};
 
-use dm_webserver_domain_git_core::{self as core, Kind, Output, Service, WriteSpec};
-use dm_webserver_domain_git_query::QueryKind;
+use otter_webserver_domain_git_core::{self as core, Kind, Output, Service, WriteSpec};
+use otter_webserver_domain_git_query::QueryKind;
 
 use super::support::*;
 use crate::*;

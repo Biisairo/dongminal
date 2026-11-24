@@ -14,7 +14,7 @@ import { tmpPath, realPath } from './osenv';
 // 성능은 many-commits(10,000 커밋)로만 본다 — 그보다 작은 저장소에서는 가상
 // 스크롤과 전부 그리기가 구분되지 않는다.
 
-const FIXTURES = tmpPath('dm-git-fx-hist-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-hist-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

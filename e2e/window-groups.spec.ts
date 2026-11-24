@@ -47,7 +47,7 @@ test.describe('window 그룹 · 순서 명령 (ISSUE_AGENT_TREE_SRS)', () => {
       .toEqual([a.win, b.win]);
   });
 
-  // SERVER_DRIVEN_ACTIONS_SRS F-4 (FR-SDA-54): 이름의 길이 상한은 서버가 정하고 dmctl 길에서 거절한다.
+  // SERVER_DRIVEN_ACTIONS_SRS F-4 (FR-SDA-54): 이름의 길이 상한은 서버가 정하고 otterctl 길에서 거절한다.
   //   이전 동작: 서버는 받고, 받은 브라우저가 64자로 잘랐다
   test('SDF6 (FR-SDA-54): 상한을 넘는 이름의 명령은 400 name_too_long 이고 아무것도 만들지 않는다', async ({ page, request }) => {
     const meta = await (await request.get('/api/meta')).json();

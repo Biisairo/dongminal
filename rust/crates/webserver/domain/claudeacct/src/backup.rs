@@ -5,7 +5,7 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::{Arc, LazyLock};
 
-use dm_shared_platform::Secrets;
+use otter_shared_platform::Secrets;
 use regex::Regex;
 
 use crate::creds::Credential;
@@ -13,8 +13,8 @@ use crate::error::{Error, Sentinel, join};
 use crate::fsutil;
 use crate::live::write_secret_file;
 
-/// dongminal 이 계정 백업을 두는 키체인 서비스다 (FR-CAC-4).
-const BACKUP_SERVICE: &str = "dongminal-claude-accounts";
+/// otterminal 이 계정 백업을 두는 키체인 서비스다 (FR-CAC-4).
+const BACKUP_SERVICE: &str = "otterminal-claude-accounts";
 const PREV: &str = ".prev";
 
 pub(crate) static ID_RE: LazyLock<Regex> =

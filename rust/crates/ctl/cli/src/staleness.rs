@@ -1,13 +1,13 @@
 //! 데몬 낡음 판정 (DAEMON_STALENESS_SRS).
 
-use dm_gocompat::filepath;
-use dm_shared_platform::Process;
+use otter_gocompat::filepath;
+use otter_shared_platform::Process;
 
 use crate::proc::daemon_pid;
 
-/// 이 바이너리 안 데몬 코드의 지문이다 (FR-DFP-1). 빌드 때 `DONGMINAL_BUILD_DAEMON` 으로 새긴다.
+/// 이 바이너리 안 데몬 코드의 지문이다 (FR-DFP-1). 빌드 때 `OTTERMINAL_BUILD_DAEMON` 으로 새긴다.
 /// 새기지 않으면 빈 값이다 — 모른다이며 불일치가 아니다 (FR-DFP-3).
-pub const DAEMON_BUILD: &str = match option_env!("DONGMINAL_BUILD_DAEMON") {
+pub const DAEMON_BUILD: &str = match option_env!("OTTERMINAL_BUILD_DAEMON") {
     Some(v) => v,
     None => "",
 };
@@ -46,7 +46,7 @@ pub(crate) fn inspect_daemon_with(home: &str, current: &str, proc: &dyn Process)
 pub(crate) fn recorded_daemon_build(home: &str) -> String {
     std::fs::read_to_string(filepath::join(&[
         home,
-        dm_shared_toolipc::DAEMON_BUILD_FILE,
+        otter_shared_toolipc::DAEMON_BUILD_FILE,
     ]))
     .map(|s| s.trim().to_owned())
     .unwrap_or_default()
@@ -56,14 +56,14 @@ pub(crate) fn recorded_daemon_build(home: &str) -> String {
 pub(crate) fn daemon_state_line(s: DaemonState) -> &'static str {
     match s {
         DaemonState::NotRunning => {
-            "ℹ️  dongminald 미실행 — dongminal start 가 새 바이너리로 기동합니다"
+            "ℹ️  otterminald 미실행 — otterminal start 가 새 바이너리로 기동합니다"
         }
-        DaemonState::Fresh => "✅ 데몬 코드 그대로 — dongminal start 는 세션을 유지합니다",
+        DaemonState::Fresh => "✅ 데몬 코드 그대로 — otterminal start 는 세션을 유지합니다",
         DaemonState::Stale => {
-            "⚠️  데몬 코드가 바뀌었습니다 — dongminal start 가 세션을 유지하며 교체합니다"
+            "⚠️  데몬 코드가 바뀌었습니다 — otterminal start 가 세션을 유지하며 교체합니다"
         }
         DaemonState::Unknown => {
-            "ℹ️  데몬 판을 모릅니다 — dongminal start 가 세션을 유지하며 교체합니다"
+            "ℹ️  데몬 판을 모릅니다 — otterminal start 가 세션을 유지하며 교체합니다"
         }
     }
 }
@@ -76,9 +76,9 @@ pub(crate) fn running_daemon_notice(
     proc: &dyn Process,
 ) -> String {
     if !running {
-        return "dongminald 미실행 — dongminal 이 자동 기동합니다".to_owned();
+        return "otterminald 미실행 — otterminal 이 자동 기동합니다".to_owned();
     }
-    let mut line = "dongminald 실행 중 (세션 보존)".to_owned();
+    let mut line = "otterminald 실행 중 (세션 보존)".to_owned();
     if inspect_daemon_with(home, current, proc) == DaemonState::Stale {
         line.push('\n');
         line.push_str(daemon_state_line(DaemonState::Stale));

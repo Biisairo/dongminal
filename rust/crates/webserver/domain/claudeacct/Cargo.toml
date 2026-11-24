@@ -1,5 +1,5 @@
 [package]
-name = "dm-webserver-domain-claudeacct"
+name = "otter-webserver-domain-claudeacct"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,10 +10,10 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../../gocompat" }
-dm-shared-dmlog = { path = "../../../shared/dmlog" }
-dm-shared-platform = { path = "../../../shared/platform" }
-dm-webserver-domain-run = { path = "../run" }
+otter-gocompat = { path = "../../../gocompat" }
+otter-shared-otterlog = { path = "../../../shared/otterlog" }
+otter-shared-platform = { path = "../../../shared/platform" }
+otter-webserver-domain-run = { path = "../run" }
 futures-util = { workspace = true }
 hex = { workspace = true }
 percent-encoding = { workspace = true }
@@ -31,7 +31,7 @@ tokio-util = { workspace = true }
 
 [dev-dependencies]
 bytes = { workspace = true }
-dm-shared-testpath = { path = "../../../shared/testpath" }
+otter-shared-testpath = { path = "../../../shared/testpath" }
 http = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }

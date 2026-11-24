@@ -1,5 +1,5 @@
 /**
- * Dongminal — 태그 동작 (GIT_ACTIONS_SRS §3.3 / FR-GIT-260~262)
+ * Otterminal — 태그 동작 (GIT_ACTIONS_SRS §3.3 / FR-GIT-260~262)
  *
  * 목록은 **Branches 탭의 `/api/git/refs`** 다 (FR-GIT-147) — 태그는 거기 4번째
  * 그룹으로 이미 보인다. 이 파일은 그 위에 얹는 **쓰기** 셋뿐이다: 생성 · 삭제 ·

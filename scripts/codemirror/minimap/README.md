@@ -17,7 +17,7 @@ CODEMIRROR_MIGRATION_SRS FR-CMR-60~63 · §11.3. `scripts/build-codemirror.mjs` 
 
 ## 고친 자리
 
-코드에서는 `[dongminal]` 표식으로 찾는다.
+코드에서는 `[otterminal]` 표식으로 찾는다.
 
 1. 설정에 `thumb(view)`·`fromThumb(view, top)` 를 더했다. 있으면 뷰포트 표시(overlay)의 top·height 를
    `thumb` 가 주고, overlay 를 끌면 `fromThumb` 로 스크롤한다. 앱은 스크롤바 thumb 와 같은 함수를 넘긴다 —

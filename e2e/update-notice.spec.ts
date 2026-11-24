@@ -3,7 +3,7 @@ import { test, expect, waitForInit, JSON_HDR } from './fixtures';
 /**
  * 새 판 배지 (UPDATE_NOTICE_SRS 묶음 안내).
  *
- * **서버의 확인은 여기서 돌지 않는다.** 검사 환경은 `DONGMINAL_NO_UPDATE_CHECK=1`
+ * **서버의 확인은 여기서 돌지 않는다.** 검사 환경은 `OTTERMINAL_NO_UPDATE_CHECK=1`
  * 로 막혀 있고(fixtures.ts, TC-UPD-14), 그래서 이 스펙은 `/api/update` 를
  * 가로채 캐시가 무엇이든 될 수 있게 만든 뒤 **화면이 그것을 어떻게 읽는지**만
  * 잰다. 진짜 GitHub 으로 나가는 요청은 이 파일 전체에서 0건이다.

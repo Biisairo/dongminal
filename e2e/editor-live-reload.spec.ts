@@ -22,7 +22,7 @@ import { TMP, realPath } from './osenv';
 
 let BASE = '';
 
-test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'dm-elr-'))) });
+test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'otter-elr-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
 // 폴링 주기(`gitReposInterval`, 기본 3초)의 세 배 남짓. 한 회차를 놓쳐도 다음이

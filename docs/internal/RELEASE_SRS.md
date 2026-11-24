@@ -8,7 +8,7 @@
 
 ### 1.1 목적 (Purpose)
 
-지금 dongminal 을 쓰려면 **저장소를 클론하고 Go 툴체인으로 직접 빌드해야 한다.**
+지금 otterminal 을 쓰려면 **저장소를 클론하고 Go 툴체인으로 직접 빌드해야 한다.**
 `README` 와 `getting-started` 모두 `git clone` → `scripts/build.sh` 로 시작한다.
 
 그런데 이 프로그램은 **의존이 없는 단일 정적 바이너리**다. 프론트엔드(xterm.js)와
@@ -25,7 +25,7 @@
 
 - 릴리스 워크플로우 (`.github/workflows/release.yml`) — 태그 `v*` 에 반응
 - 빌드 대상 5종과 그 **cgo 정책**(§2.2 가 이 설계를 좌우한다)
-- 바이너리에 버전을 새기고 `dongminal version` 으로 확인
+- 바이너리에 버전을 새기고 `otterminal version` 으로 확인
 - `SHA256SUMS` 동봉
 - 릴리스 전 게이트 — 세 OS 에서 `doctor` + `verify`
 - 사용자 대면 문서 전량을 "받아서 실행" 기준으로 갱신
@@ -43,7 +43,7 @@
 ### 1.4 참고 (References)
 
 - `scripts/build.sh` — 빌드 규칙의 단일 출처. 특히 cgo 정책
-- `E2E_UNIFICATION_SRS.md` — `dongminal verify`. 릴리스 게이트가 이것을 쓴다
+- `E2E_UNIFICATION_SRS.md` — `otterminal verify`. 릴리스 게이트가 이것을 쓴다
 - `CROSS_PLATFORM_SRS.md` — 지원 플랫폼과 Windows 최소 버전(1809, ConPTY)
 - `README.md`, `docs/external/*` — 갱신 대상
 
@@ -95,13 +95,13 @@ git 은 모든 판을 영구히 보관하고, **바이너리는 델타 압축이
 **FR-RVN-1** 바이너리에 버전을 새긴다. 주입 지점은 하나다.
 
 ```
--ldflags "-X dongminal/internal/ctl/cli.Version=<태그>"
+-ldflags "-X otterminal/internal/ctl/cli.Version=<태그>"
 ```
 
 **FR-RVN-2** 새기지 않고 빌드하면 값은 `dev` 다. **소스에서 직접 빌드한 것과 릴리스
 산출물이 구별되어야 한다** — 결함 보고에서 그 둘을 섞으면 재현이 불가능해진다.
 
-**FR-RVN-3** `dongminal version` 과 `dongminal --version` 이 버전을 낸다. 함께 찍는
+**FR-RVN-3** `otterminal version` 과 `otterminal --version` 이 버전을 낸다. 함께 찍는
 것은 `GOOS/GOARCH` 와 go 런타임 판이다 — 어느 대상을 받았는지가 곧 질문이 된다.
 
 **FR-RVN-4** `build.sh` 는 환경변수 `VERSION` 을 받아 FR-RVN-1 로 넘긴다. 비면 주입
@@ -115,11 +115,11 @@ git 은 모든 판을 영구히 보관하고, **바이너리는 델타 압축이
 **FR-RWF-2** 애셋은 다음 5종이며 이름에 대상이 드러난다. `build.sh` 의 `distPath` 와
 같은 규칙이다 — windows 만 `.exe` 다.
 
-    dongminal-darwin-arm64
-    dongminal-darwin-amd64
-    dongminal-linux-amd64
-    dongminal-linux-arm64
-    dongminal-windows-amd64.exe
+    otterminal-darwin-arm64
+    otterminal-darwin-amd64
+    otterminal-linux-amd64
+    otterminal-linux-arm64
+    otterminal-windows-amd64.exe
 
 **FR-RWF-3** **darwin 대상은 macOS 러너에서 빌드한다** (§2.2). 나머지는 리눅스
 러너에서 `CGO_ENABLED=0` 정적 빌드다.
@@ -144,8 +144,8 @@ git 은 모든 판을 영구히 보관하고, **바이너리는 델타 압축이
 **FR-RGT-1** 애셋을 올리기 전에 **세 OS 에서** 다음이 통과해야 한다.
 
     go build ./... · go vet ./... · go test ./internal/... ./cmd/...
-    dongminal doctor      — 플랫폼 계층
-    dongminal verify      — 종단간 22항목
+    otterminal doctor      — 플랫폼 계층
+    otterminal verify      — 종단간 22항목
 
 **FR-RGT-2** 게이트에 **macOS 를 포함한다.** 상시 CI 에 macOS 를 넣지 않는다는 결정
 (E2E_UNIFICATION_SRS FR-E2I-5)은 **매 푸시**에 대한 것이다. 릴리스는 드물고, darwin
@@ -212,7 +212,7 @@ git 은 모든 판을 영구히 보관하고, **바이너리는 델타 압축이
 | 요구 | 검증 방법 |
 |---|---|
 | FR-RVN-1~3 | 단위테스트 — 기본값이 `dev` 인지, `version` 액션이 대상·런타임을 함께 내는지 |
-| FR-RVN-4 | `VERSION=v9.9.9 scripts/build.sh` → `./dongminal version` 이 그 값을 내는지 |
+| FR-RVN-4 | `VERSION=v9.9.9 scripts/build.sh` → `./otterminal version` 이 그 값을 내는지 |
 | FR-RWF-2 | 릴리스 페이지의 애셋 이름 5종 |
 | FR-RWF-3,5 | macOS 러너 로그에 cgo 경고가 없어야 한다. 있으면 잡이 실패한다 |
 | FR-RWF-4 | 워크플로우에 `go build` 직접 호출이 없는지 |
@@ -278,10 +278,10 @@ git 은 모든 판을 영구히 보관하고, **바이너리는 델타 압축이
 
 ### 8.2 확인한 것
 
-- `VERSION=v1.0.0 scripts/build.sh` → `dongminal v1.0.0 darwin/arm64 go1.25.4`
+- `VERSION=v1.0.0 scripts/build.sh` → `otterminal v1.0.0 darwin/arm64 go1.25.4`
 - `VERSION` 없이 빌드하면 `dev`
 - 릴리스 본문 생성을 로컬에서 재현 — 코드 펜스·백슬래시·태그 치환이 정확히 렌더된다
-- `go run ./cmd/dongminal verify` 가 22/22 — 게이트가 `go run` 경로에서 성립한다
+- `go run ./cmd/otterminal verify` 가 22/22 — 게이트가 `go run` 경로에서 성립한다
 
 ### 8.3 아직 답이 없는 것
 

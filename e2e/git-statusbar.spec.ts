@@ -14,7 +14,7 @@ import { tmpPath, realPath } from './osenv';
 // 2026-09-11) — 상태바에는 이제 git 표면이 하나도 없다. 작업 목록 폴링은 남으며
 // (FR-GIT-101a) git-remote.spec.ts 의 R16 이 그 자리를 지킨다.
 
-const FIXTURES = tmpPath('dm-git-fx-sb-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-sb-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

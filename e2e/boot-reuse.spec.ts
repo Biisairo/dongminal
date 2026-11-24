@@ -90,7 +90,7 @@ test.describe('Boot screen reuse', () => {
         try { sessionStorage.setItem('e2eBootShown', t || '') } catch { /* 사생활 모드 */ }
         return orig(t);
       };
-      (window as any).__dmAssetVersion('deadbeef');
+      (window as any).__otterAssetVersion('deadbeef');
     });
     await waitForInit(page);
     const shown = await page.evaluate(() => sessionStorage.getItem('e2eBootShown'));

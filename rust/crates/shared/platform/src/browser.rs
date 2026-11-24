@@ -8,7 +8,7 @@ use std::io;
 use std::sync::LazyLock;
 
 use crate::shell::{EnvFn, LookFn, StatFn, power_shell_quote};
-use dm_gocompat::filepath;
+use otter_gocompat::filepath;
 
 /// frameless window(주소창 없는 앱 창)를 여는 명령 `(name, args)`.
 pub trait Browser: Send + Sync {

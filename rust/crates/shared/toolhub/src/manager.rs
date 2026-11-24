@@ -9,13 +9,13 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLock
 use std::thread;
 use std::time::{Duration, Instant};
 
-use dm_gocompat::filepath;
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_activity as activity;
-use dm_shared_dmenv as dmenv;
-use dm_shared_dmlog::{errorf, infof, warnf};
-use dm_shared_outbuf::Stream;
-use dm_shared_platform::{ProcInfo, ProcSpec, Terminal};
+use otter_gocompat::filepath;
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_activity as activity;
+use otter_shared_otterenv as otterenv;
+use otter_shared_otterlog::{errorf, infof, warnf};
+use otter_shared_outbuf::Stream;
+use otter_shared_platform::{ProcInfo, ProcSpec, Terminal};
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
@@ -208,7 +208,7 @@ impl ToolManager {
     /// 빈 등록부다. data_dir 은 tools.json 의 자리이고 비어 있으면 저장하지 않는다.
     /// invalidator 는 도구가 죽을 때마다 불린다.
     pub fn new(data_dir: &str, invalidator: Option<InvalidatorFn>) -> Self {
-        Self::with_proc_info(data_dir, invalidator, dm_shared_platform::current().info)
+        Self::with_proc_info(data_dir, invalidator, otter_shared_platform::current().info)
     }
 
     /// 프로세스 정보 조회를 정해 만든다(검사).
@@ -269,7 +269,7 @@ impl ToolManager {
         self.inner.st.write().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// 이 등록부가 띄우는 도구 셸의 환경을 프로세스 환경 위에 덮는다. Go 는 홈(`DONGMINAL_HOME`)·
+    /// 이 등록부가 띄우는 도구 셸의 환경을 프로세스 환경 위에 덮는다. Go 는 홈(`OTTERMINAL_HOME`)·
     /// 도구 홈을 `os.Setenv` 로 넘겼다 — Rust 는 프로세스 환경을 바꾸지 않고 여기로 넘긴다. 셸
     /// 환경뿐 아니라 bin 자리·PATH·HOME·히스토리 자리도 이 값으로 정한다. 이후 띄우는 도구부터
     /// 적용되며 [`ToolManager::set_start`] 를 덮어쓴다.
@@ -401,7 +401,7 @@ impl ToolManager {
         rows: u16,
         mut place: Placement,
     ) -> Result<Arc<Tool>, ManagerError> {
-        let id = dm_shared_uuid::new_string();
+        let id = otter_shared_uuid::new_string();
         place.host_dir = cwd.to_string();
         place.tool_id.clone_from(&id);
         let spec = self.placement(&place)?;
@@ -474,7 +474,7 @@ impl ToolManager {
             if place.command.is_empty() {
                 return Ok(None);
             }
-            let argv = dm_shared_platform::current()
+            let argv = otter_shared_platform::current()
                 .shell
                 .run_command(&place.command);
             let Some(path) = argv.first().cloned() else {
@@ -628,7 +628,7 @@ impl ToolManager {
 
     /// tools.json 을 쓴다. 바뀐 것이 없으면 쓰지 않는다. 샌드박스 도구와 남의 백그라운드 도구는 빼고 id 순이다.
     pub fn save_all(&self) {
-        let path = self.data_path(dmenv::TOOLS_FILE);
+        let path = self.data_path(otterenv::TOOLS_FILE);
         if path.is_empty() || !self.inner.mutated.load(SeqCst) {
             return;
         }
@@ -662,7 +662,7 @@ impl ToolManager {
                 return;
             }
         };
-        if let Err(e) = dm_shared_platform::write_state_file(Path::new(&path), &data, 0o644) {
+        if let Err(e) = otter_shared_platform::write_state_file(Path::new(&path), &data, 0o644) {
             infof!(None, "saveTools: {e}");
         }
     }
@@ -679,7 +679,7 @@ impl ToolManager {
         referenced: &HashSet<String>,
         mut restore: impl FnMut(&str, &str, &str, u16, u16) -> Result<(), E>,
     ) {
-        let path = self.data_path(dmenv::TOOLS_FILE);
+        let path = self.data_path(otterenv::TOOLS_FILE);
         if path.is_empty() {
             return;
         }
@@ -690,7 +690,7 @@ impl ToolManager {
                     infof!(
                         None,
                         "loadTools: {}",
-                        dm_gocompat::oserr::path_error("open", &path, e)
+                        otter_gocompat::oserr::path_error("open", &path, e)
                     );
                 }
                 return;
@@ -1207,9 +1207,10 @@ impl ToolManager {
     async fn seal(&self) -> bool {
         self.wr().sealed = true;
         let never = CancellationToken::new();
-        let ok = dm_shared_pollwait::until(&never, SEAL_WAIT, SEAL_POLL, || self.rd().pending == 0)
-            .await
-            .is_ok();
+        let ok =
+            otter_shared_pollwait::until(&never, SEAL_WAIT, SEAL_POLL, || self.rd().pending == 0)
+                .await
+                .is_ok();
         if !ok {
             self.unseal();
         }
@@ -1269,7 +1270,7 @@ impl ToolManager {
             .map_err(|e| io::Error::other(format!("[tool {}] {e}", ht.id)))?;
         let pid =
             i32::try_from(ht.pid).map_err(|e| io::Error::other(format!("[tool {}] {e}", ht.id)))?;
-        let term: Box<dyn Terminal> = dm_shared_platform::adopt_terminal(fd, pid)
+        let term: Box<dyn Terminal> = otter_shared_platform::adopt_terminal(fd, pid)
             .map_err(|e| io::Error::other(format!("[tool {}] {e}", ht.id)))?;
         let hooks = {
             let st = self.rd();

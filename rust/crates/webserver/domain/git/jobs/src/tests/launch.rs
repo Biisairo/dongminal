@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use dm_webserver_domain_git_core::Ctx;
+use otter_webserver_domain_git_core::Ctx;
 
 use crate::{Emit, LINE_STDOUT, exec_stream_git};
 
@@ -10,7 +10,7 @@ use crate::{Emit, LINE_STDOUT, exec_stream_git};
 // Go 판의 호출 계수(gittest.Count, PATH 교체)는 옮기지 않았다 — 아래 보고 참고.
 #[tokio::test]
 async fn exec_stream_git_uses_shared_launch() {
-    let Some(repo) = dm_shared_gittest::repo() else {
+    let Some(repo) = otter_shared_gittest::repo() else {
         return;
     };
     let lines: Arc<Mutex<Vec<(String, String)>>> = Arc::default();

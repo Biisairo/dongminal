@@ -38,9 +38,9 @@
 
 | 말 | 뜻 |
 |---|---|
-| **데몬 지문** | `dongminald` 프로세스가 실행하는 코드의 내용 해시. 빌드 때 계산되어 바이너리에 새겨진다 |
-| **정의역** | 지문이 세는 소스의 범위 — `go list -deps dongminal/internal/daemon/boot` 의 저장소 패키지 (§3.1) |
-| **낡은 데몬** | 도는 `dongminald` 의 지문이 디스크의 바이너리와 다른 상태. 서버만 재시작하면 남는다 |
+| **데몬 지문** | `otterminald` 프로세스가 실행하는 코드의 내용 해시. 빌드 때 계산되어 바이너리에 새겨진다 |
+| **정의역** | 지문이 세는 소스의 범위 — `go list -deps otterminal/internal/daemon/boot` 의 저장소 패키지 (§3.1) |
+| **낡은 데몬** | 도는 `otterminald` 의 지문이 디스크의 바이너리와 다른 상태. 서버만 재시작하면 남는다 |
 | **모른다** | 지문이 빈 값인 상태. **불일치가 아니다** (`FR-VHL-5` 와 같은 원칙) |
 
 ### 1.4 참조 (References)
@@ -57,8 +57,8 @@
 ### 2.1 한 바이너리가 두 프로세스로 돈다
 
 ```
-dongminal start --foreground   pid 76723   웹서버 — 포트를 점유한다
-dongminal d                    pid 76726   dongminald — PTY 를 소유한다
+otterminal start --foreground   pid 76723   웹서버 — 포트를 점유한다
+otterminal d                    pid 76726   otterminald — PTY 를 소유한다
 ```
 
 `start` 는 `killPort` 로 앞의 것을 죽이고 새 바이너리로 뜬다. 뒤의 것은
@@ -75,7 +75,7 @@ dongminal d                    pid 76726   dongminald — PTY 를 소유한다
 ### 2.3 데몬이 실행하는 코드 경계는 기계적으로 뽑힌다
 
 ```
-$ go list -deps dongminal/internal/daemon/boot | grep '^dongminal/' | wc -l
+$ go list -deps otterminal/internal/daemon/boot | grep '^otterminal/' | wc -l
 16          # 저장소 전체 60 패키지 중
 ```
 
@@ -99,7 +99,7 @@ $ go list -deps dongminal/internal/daemon/boot | grep '^dongminal/' | wc -l
 바이너리에 새긴다.
 
 ```
--X dongminal/internal/ctl/cli.DaemonBuild=<지문>
+-X otterminal/internal/ctl/cli.DaemonBuild=<지문>
 ```
 
 `cli.Version` 과 같은 경로를 쓴다 (`RELEASE_SRS FR-RVN-1`). 두 벌로 적지 않는다.
@@ -108,7 +108,7 @@ $ go list -deps dongminal/internal/daemon/boot | grep '^dongminal/' | wc -l
 
 | | |
 |---|---|
-| 패키지 | `go list -deps dongminal/internal/daemon/boot` 중 `dongminal/` 접두의 것 |
+| 패키지 | `go list -deps otterminal/internal/daemon/boot` 중 `otterminal/` 접두의 것 |
 | 파일 | 그 패키지들의 `GoFiles` + `EmbedFiles` |
 | 대상 | `GOOS`/`GOARCH` 를 그 빌드 대상으로 두고 계산한다 |
 
@@ -130,7 +130,7 @@ $ go list -deps dongminal/internal/daemon/boot | grep '^dongminal/' | wc -l
 
 ### 3.2 묶음 R — 도는 데몬이 자기 판을 남긴다
 
-**FR-DFP-4** 데몬은 `Listen` 에 성공한 뒤 자기 지문을 `$DONGMINAL_HOME/paned.build`
+**FR-DFP-4** 데몬은 `Listen` 에 성공한 뒤 자기 지문을 `$OTTERMINAL_HOME/paned.build`
 에 한 줄로 쓴다. 자리·수명·권한(`0600`)은 `paned.pid` 와 같다 — 같은 사실의 두 면이다.
 
 **FR-DFP-5** 지문이 빈 값이면 그 파일을 **지운다**. 남겨 두면 앞선 데몬이 남긴
@@ -162,15 +162,15 @@ $ go list -deps dongminal/internal/daemon/boot | grep '^dongminal/' | wc -l
 **모른다**를 **일치**로 접지 않는다. 낡은 데몬 위에서 고친 줄 알았던 버그를 다시
 보는 것이 이 문서가 없애려는 바로 그 값이다.
 
-**FR-DFP-9** `dongminal start --server-only` 가 데몬을 건드리지 않고 뜰 때
-(`prepareDaemon` 의 `ServerOnly` 갈래, `session_keep.go`) 불일치면 "dongminald 실행 중
+**FR-DFP-9** `otterminal start --server-only` 가 데몬을 건드리지 않고 뜰 때
+(`prepareDaemon` 의 `ServerOnly` 갈래, `session_keep.go`) 불일치면 "otterminald 실행 중
 (세션 보존)" 줄 아래에 경고를 덧댄다. 빌드와 기동 사이에 시간이 떠도 잡힌다.
 
 > **변경 2026-11-18 (`DAEMON_SESSION_KEEP_SRS`).** 이전에는 플래그 없는 `start` 가 데몬을 살려 둔 채
 > 떴다(`socketExists && !RestartDaemon`). 지금 플래그 없는 `start` 는 데몬을 교체하므로, 데몬을 그대로
 > 두는 길은 `--server-only` 하나다. 경고는 그 자리로 옮겼다.
 
-**FR-DFP-10** `dongminal health` 는 데몬 줄 아래에 판 일치 여부를 한 줄 낸다.
+**FR-DFP-10** `otterminal health` 는 데몬 줄 아래에 판 일치 여부를 한 줄 낸다.
 불일치를 **실패로 세지 않는다**(종료 코드 0 을 유지한다) — 낡은 데몬은 어긋남이지
 고장이 아니고, `health` 의 종료 코드는 생존의 답이다.
 
@@ -208,7 +208,7 @@ $ go list -deps dongminal/internal/daemon/boot | grep '^dongminal/' | wc -l
 강제할 수는 있으나, 그 게이트가 하는 일(데몬 패키지에 diff 가 있는가)을 이미
 지문이 정확히 한다. 검사를 더할 바에 계산을 둔다.
 
-**D-2 정의역에 `cmd/dongminal` 을 넣지 않는다.** 데몬 프로세스의 동작은
+**D-2 정의역에 `cmd/otterminal` 을 넣지 않는다.** 데몬 프로세스의 동작은
 `boot.Run` 이 전부이고 `main` 의 몫은 argv 판별이다. `main` 패키지는 웹서버
 코드 전부를 의존하므로 넣으면 **거의 모든 빌드가 불일치로 읽힌다** — 그때 이
 기능은 "늘 `--restart-daemon`" 과 같아지고, 없느니만 못하다. 대가는 진입점
@@ -229,6 +229,6 @@ $ go list -deps dongminal/internal/daemon/boot | grep '^dongminal/' | wc -l
   이 문서는 결정에 필요한 사실만 놓는다.
 - **릴리스 산출물 간 비교.** `dist/` 의 바이너리는 이 기계의 데몬과 무관하다.
 - **부분 재시작 (세션을 살린 채 데몬만 교체).** 이 문서의 범위 밖이다. 2026-11-18
-  `DAEMON_SESSION_KEEP_SRS` 가 구현했다 — 플래그 없는 `dongminal start` 가 그것이다.
+  `DAEMON_SESSION_KEEP_SRS` 가 구현했다 — 플래그 없는 `otterminal start` 가 그것이다.
 - **`cli.Version` 의 대체.** 빌드 판과 데몬 지문은 다른 것을 센다 —
   `FR-VHL-1` 이 프로토콜 판과 빌드 판을 합치지 않은 것과 같은 근거다.

@@ -1,11 +1,11 @@
-//! `dmctl account` (Go dmctl_account*_test.go·httpexit_test.go 의 관측 기대값).
+//! `otterctl account` (Go otterctl_account*_test.go·httpexit_test.go 의 관측 기대값).
 
 use std::collections::HashMap;
 
 use serde_json::Value;
 
 use super::*;
-use crate::dmctl::account::span_for_test;
+use crate::otterctl::account::span_for_test;
 
 const ACCOUNTS_FAKE_JSON: &str = r#"{"activeId":"id-b","accounts":[
  {"id":"id-a","email":"a@x.com","organizationName":"Org A","alias":"work","color":"acct-1","disabled":false,"priority":0},
@@ -78,12 +78,12 @@ impl Acct {
     fn run(&self, args: &[&str]) -> (i32, String, String) {
         let mut full = vec!["account"];
         full.extend_from_slice(args);
-        dm(&self.env, &full)
+        ctl(&self.env, &full)
     }
     fn stdin(&self, input: &str, args: &[&str]) -> (i32, String, String) {
         run_with(
             &self.env,
-            crate::dmctl::account::run_dmctl_account,
+            crate::otterctl::account::run_otterctl_account,
             args,
             input.as_bytes(),
         )
@@ -118,7 +118,7 @@ fn list_text_and_json() {
 fn list_json_null_body() {
     let srv = TestServer::fixed(200, "null");
     let home = tempfile::tempdir().unwrap();
-    let (rc, out, err) = dm(&srv.env(home.path()), &["account", "list", "--json"]);
+    let (rc, out, err) = ctl(&srv.env(home.path()), &["account", "list", "--json"]);
     assert_eq!(
         (rc, out.as_str(), err.as_str()),
         (0, "{\"schemaVersion\":1}\n", "")
@@ -155,7 +155,7 @@ fn switch_resolves_ref_and_sends_by() {
         assert_eq!(last.path(), "/api/claude-accounts/switch");
         assert_eq!(
             last.json(),
-            serde_json::json!({"id": "id-a", "by": "dmctl"})
+            serde_json::json!({"id": "id-a", "by": "otterctl"})
         );
         assert_eq!(
             out,
@@ -167,7 +167,7 @@ fn switch_resolves_ref_and_sends_by() {
         assert_eq!(a.run(&["switch", "--strategy", strat]).0, 0);
         assert_eq!(
             a.last().json(),
-            serde_json::json!({"strategy": strat, "by": "dmctl"})
+            serde_json::json!({"strategy": strat, "by": "otterctl"})
         );
     }
 }
@@ -213,27 +213,27 @@ fn errors() {
     let (rc, _, err) = a.run(&["switch", "nobody"]);
     assert_eq!(
         (rc, err.as_str()),
-        (1, "dmctl account: 그런 계정이 없습니다: nobody\n")
+        (1, "otterctl account: 그런 계정이 없습니다: nobody\n")
     );
     assert_eq!(a.run(&["switch"]).0, 2);
     let (rc, _, err) = a.run(&["switch", "--strategy", "random"]);
     assert!(rc == 2 && err.contains("next-available"), "{err}");
     let (rc, _, err) = a.run(&["bogus"]);
-    assert!(rc == 2 && err.starts_with("dmctl account: 모르는 하위 명령 \"bogus\"\n"));
+    assert!(rc == 2 && err.starts_with("otterctl account: 모르는 하위 명령 \"bogus\"\n"));
     let (rc, out, _) = a.run(&["--help"]);
-    assert!(rc == 0 && out.contains("dmctl account"));
+    assert!(rc == 0 && out.contains("otterctl account"));
     let (rc, _, err) = a.run(&["list", "--bogus"]);
     assert_eq!(
         (rc, err.as_str()),
-        (2, "dmctl account list: unknown argument: --bogus\n")
+        (2, "otterctl account list: unknown argument: --bogus\n")
     );
     let (rc, _, err) = a.run(&["add", "x"]);
     assert_eq!(
         (rc, err.as_str()),
-        (2, "dmctl account add: 인자가 0 개여야 합니다\n")
+        (2, "otterctl account add: 인자가 0 개여야 합니다\n")
     );
-    let (rc, _, err) = dm(&a.env, &["account"]);
-    assert!(rc == 2 && err.starts_with("dmctl account — "));
+    let (rc, _, err) = ctl(&a.env, &["account"]);
+    assert!(rc == 2 && err.starts_with("otterctl account — "));
 }
 
 #[test]
@@ -332,12 +332,12 @@ fn usage_refresh_all_and_failure() {
         (200, br#"{"ok":true}"#.to_vec())
     });
     let home = tempfile::tempdir().unwrap();
-    let (rc, out, err) = dm(&srv.env(home.path()), &["account", "usage", "--refresh"]);
+    let (rc, out, err) = ctl(&srv.env(home.path()), &["account", "usage", "--refresh"]);
     assert_eq!(n.load(std::sync::atomic::Ordering::SeqCst), 3);
     assert_eq!(rc, 1);
     assert_eq!(
         err,
-        "dmctl: claude_too_soon: 1분 뒤에 다시 조회할 수 있습니다\n"
+        "otterctl: claude_too_soon: 1분 뒤에 다시 조회할 수 있습니다\n"
     );
     assert!(out.contains("c@x.com"));
 }
@@ -527,17 +527,17 @@ fn auto_errors() {
     );
     let home = tempfile::tempdir().unwrap();
     let env = srv.env(home.path());
-    let (rc, _, err) = dm(&env, &["account", "auto", "on"]);
+    let (rc, _, err) = ctl(&env, &["account", "auto", "on"]);
     assert!(rc == 1 && err.contains("cswap"), "{err}");
-    let (rc, _, err) = dm(&env, &["account", "auto", "maybe"]);
+    let (rc, _, err) = ctl(&env, &["account", "auto", "maybe"]);
     assert_eq!(
         (rc, err.as_str()),
         (
             2,
-            "dmctl account auto: on, off, status 중 하나여야 합니다: maybe\n"
+            "otterctl account auto: on, off, status 중 하나여야 합니다: maybe\n"
         )
     );
-    assert_eq!(dm(&env, &["account", "auto"]).0, 2);
+    assert_eq!(ctl(&env, &["account", "auto"]).0, 2);
 }
 
 #[test]
@@ -548,7 +548,7 @@ fn history() {
             "GET /api/claude-accounts/history",
             r#"{"entries":[
 		  {"at":1800000000,"from":"id-b","to":"id-a","trigger":"proactive","headroomFrom":8,"headroomTo":70,"by":"auto"},
-		  {"at":1799990000,"from":"id-gone","to":"id-b","trigger":"manual","headroomFrom":null,"headroomTo":null,"by":"dmctl"}]}"#,
+		  {"at":1799990000,"from":"id-gone","to":"id-b","trigger":"manual","headroomFrom":null,"headroomTo":null,"by":"otterctl"}]}"#,
         ),
     ]);
     let (rc, out, err) = a.run(&["history", "--limit", "5"]);
@@ -561,14 +561,14 @@ fn history() {
         "{out}"
     );
     assert!(
-        lines[1].ends_with("  삭제된 계정 → b@x.com  manual  dmctl"),
+        lines[1].ends_with("  삭제된 계정 → b@x.com  manual  otterctl"),
         "{out}"
     );
     for bad in ["0", "1001", "x"] {
         let (rc, _, err) = a.run(&["history", "--limit", bad]);
         assert_eq!(
             (rc, err.as_str()),
-            (2, "dmctl account history: --limit 은 1~1000 입니다\n")
+            (2, "otterctl account history: --limit 은 1~1000 입니다\n")
         );
     }
     let a = Acct::new(&[
@@ -585,7 +585,7 @@ fn pin() {
         ("GET /api/claude-accounts", ACCOUNTS_FAKE_JSON),
         ("PUT /api/claude-accounts/mappings", MAPPINGS_FAKE_JSON),
     ]);
-    a.env.set(dm_shared_dmenv::ENV_TOOL_ID, "tool-self");
+    a.env.set(otter_shared_otterenv::ENV_TOOL_ID, "tool-self");
     let (rc, out, err) = a.run(&["pin", "work"]);
     assert_eq!(rc, 0, "{err}");
     assert_eq!(
@@ -615,7 +615,7 @@ fn pin() {
 #[test]
 fn pin_errors() {
     let mut a = Acct::new(&[("GET /api/claude-accounts", ACCOUNTS_FAKE_JSON)]);
-    a.env.set(dm_shared_dmenv::ENV_TOOL_ID, "");
+    a.env.set(otter_shared_otterenv::ENV_TOOL_ID, "");
     for args in [
         &["pin", "work"][..],
         &["pin", "--tab", "t"],

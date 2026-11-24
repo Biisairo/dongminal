@@ -179,23 +179,23 @@ export async function pingUntilUp(url: string, limitMs: number) {
 /**
  * 워커 서버에 물려줄 환경 (FR-EPL-1).
  *
- * **이 저장소를 dongminal 안에서 개발하면 도구 셸의 환경에 그 인스턴스의 정체가
- * 들어 있다** — `DONGMINAL_HOST`·`DONGMINAL_PORT`·`DONGMINAL_TOOL_ID`·
- * `DONGMINAL_HISTFILE` 는 서버가 자기 자식에게 심어 주는 값이고, `npx playwright`
+ * **이 저장소를 otterminal 안에서 개발하면 도구 셸의 환경에 그 인스턴스의 정체가
+ * 들어 있다** — `OTTERMINAL_HOST`·`OTTERMINAL_PORT`·`OTTERMINAL_TOOL_ID`·
+ * `OTTERMINAL_HISTFILE` 는 서버가 자기 자식에게 심어 주는 값이고, `npx playwright`
  * 는 그 자식 중 하나다. 그대로 물려주면 워커의 서버가 **개발자의 인스턴스인 척**
  * 뜬다 — 워커마다 자기 인스턴스를 갖는다는 이 픽스처의 전제가 그 자리에서 깨진다.
  *
- * 실측(2026-09-10): `DONGMINAL_HOST=0.0.0.0` 이 물려지자 노출 게이트
+ * 실측(2026-09-10): `OTTERMINAL_HOST=0.0.0.0` 이 물려지자 노출 게이트
  * (REQUEST_GATE_SRS FR-RQG-20)가 기동을 거부했고, e2e 1,449건이 전부 픽스처
  * 단계에서 무너졌다. **게이트는 옳았다** — 물려준 쪽이 틀렸다.
  *
- * `DONGMINAL_HOME`·`DONGMINAL_TOOL_HOME` 은 아래에서 명시로 덮으므로 여기 없다.
+ * `OTTERMINAL_HOME`·`OTTERMINAL_TOOL_HOME` 은 아래에서 명시로 덮으므로 여기 없다.
  */
 const INHERITED_INSTANCE_ENV = [
-  'DONGMINAL_HOST',
-  'DONGMINAL_PORT',
-  'DONGMINAL_TOOL_ID',
-  'DONGMINAL_HISTFILE',
+  'OTTERMINAL_HOST',
+  'OTTERMINAL_PORT',
+  'OTTERMINAL_TOOL_ID',
+  'OTTERMINAL_HISTFILE',
 ];
 
 export function hermeticEnv(): NodeJS.ProcessEnv {
@@ -206,7 +206,7 @@ export function hermeticEnv(): NodeJS.ProcessEnv {
   // api.github.com 을 친다 — 남의 서비스에 부하를 주는 것과 별개로, 그 응답이
   // 검사의 입력이 되는 순간 결정론이 사라진다. 배지 동작 자체는 `/api/update`
   // 를 가로채는 update-notice.spec.ts 가 잰다.
-  env.DONGMINAL_NO_UPDATE_CHECK = '1';
+  env.OTTERMINAL_NO_UPDATE_CHECK = '1';
   return env;
 }
 
@@ -215,7 +215,7 @@ const pageEnvAtOpen = new WeakMap<any, any>();
 /** TERMINAL_GPU_RENDER_SRS FR-TGR-17: 터미널을 DOM 렌더러로 고정한다. */
 const gpuOff = () => { localStorage.setItem('termGpu', '0') };
 
-export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
+export const test = base.extend<{ cleanTools: void }, { otterServer: DmServer }>({
   /**
    * 편집기 접근 어댑터 `edT` 를 모든 페이지에 심는다 (CODEMIRROR_MIGRATION_SRS FR-CMR-120).
    * 엔진을 아는 e2e 코드는 `editor.ts` 하나이고, 스펙은 `edT` 만 부른다.
@@ -251,7 +251,7 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
    * 때마다 커지므로 포트가 끝없이 흘러간다. `parallelIndex` 는 0..workers-1 에
    * 머물고, 그 자리의 앞 워커는 이 픽스처의 teardown 을 이미 지났다.
    */
-  dmServer: [
+  otterServer: [
     async ({}, use, workerInfo) => {
       const i = workerInfo.parallelIndex;
       const port = E2E_PORT0 + i;
@@ -266,8 +266,8 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
       const child = spawn(E2E_BIN, ['start', '--foreground', '--port', String(port)], {
         env: {
           ...hermeticEnv(),
-          DONGMINAL_HOME: home,
-          DONGMINAL_TOOL_HOME: toolHome,
+          OTTERMINAL_HOME: home,
+          OTTERMINAL_TOOL_HOME: toolHome,
         },
         // 서버의 말은 **모아 두었다가 실패했을 때만** 낸다. 그대로 흘리면 워커
         // 수만큼의 요청 로그가 리포터의 줄을 덮어, 무엇이 몇 개 실패했는지 로그만
@@ -297,7 +297,7 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
 
       await use({ port, home, baseURL: `http://${E2E_HOST}:${port}` });
 
-      // 데몬을 먼저 세운다 — 웹서버만 죽이면 detach 된 dongminald 가 자기 도구
+      // 데몬을 먼저 세운다 — 웹서버만 죽이면 detach 된 otterminald 가 자기 도구
       // 셸들의 PTY 를 계속 붙든다 (FR-EPL-4).
       stopDaemon(home);
       try { child.kill('SIGTERM') } catch { /* 이미 종료 */ }
@@ -309,7 +309,7 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
 
   // FR-EPL-2: 스펙은 `page.goto('/')` · `request.get('/api/…')` 를 그대로 쓴다.
   // 어느 인스턴스를 보는가는 여기서만 정해진다 (NFR-EPL-2).
-  baseURL: async ({ dmServer }, use) => { await use(dmServer.baseURL) },
+  baseURL: async ({ otterServer }, use) => { await use(otterServer.baseURL) },
 
   cleanTools: [
     async ({ request }, use) => {
@@ -690,8 +690,8 @@ export async function waitForInit(page: any, opts: InitOpts = {}) {
     sessionStorage.setItem('displayMode', cfg.mode);
     // initScript 는 reload 에서도 돈다. 표식을 세션에 두어 **첫 로드에서만**
     // 지운다 — 그러지 않으면 영속을 재는 스펙이 자기 검증 대상을 지운다.
-    if (!sessionStorage.getItem('__dmCleared')) {
-      sessionStorage.setItem('__dmCleared', '1');
+    if (!sessionStorage.getItem('__otterCleared')) {
+      sessionStorage.setItem('__otterCleared', '1');
       try {
         // FR-TGR-17: 렌더러 고정은 비우는 대상이 아니다 — 앞선 init 스크립트가 둔 값을 되돌려 놓는다.
         const gpu = localStorage.getItem('termGpu');
@@ -869,15 +869,15 @@ export async function waitSettled(page: any, timeout = 15000) {
       const a = (window as any).app;
       if (!a) return false;
       const quiet = !a.testing.saveInflight && !a.testing.savePending && !a.testing.wsApplyInflight;
-      const n = quiet ? ((window as any).__dmQuiet || 0) + 1 : 0;
-      (window as any).__dmQuiet = n;
+      const n = quiet ? ((window as any).__otterQuiet || 0) + 1 : 0;
+      (window as any).__otterQuiet = n;
       return n >= 3;
     },
     undefined,
     // FR-EQS-4: 상한을 둔다. 넘으면 그 자리에서 실패로 알린다.
     { timeout, polling: 50 },
   );
-  await page.evaluate(() => { (window as any).__dmQuiet = 0 });
+  await page.evaluate(() => { (window as any).__otterQuiet = 0 });
 }
 
 /**
@@ -900,7 +900,7 @@ export async function waitShellReady(page: any, sel = '#area .pn.focused .xterm-
       if (!el) return false;
       const txt = el.innerText || '';
       const w = window as any;
-      const st = w.__dmShellQ || (w.__dmShellQ = {});
+      const st = w.__otterShellQ || (w.__otterShellQ = {});
       const prev = st[s];
       const now = Date.now();
       if (!prev || prev.txt !== txt) { st[s] = { txt, at: now }; return false; }
@@ -1143,7 +1143,7 @@ export function gitFixture(out: string) {
 }
 
 /**
- * 그 픽스처를 지운다. 스크립트가 자기 표식(`.dm-git-fixture`)을 확인한다.
+ * 그 픽스처를 지운다. 스크립트가 자기 표식(`.otter-git-fixture`)을 확인한다.
  *
  * **실패해도 던지지 않는다** (FR-CEM-15 와 같은 규약). Windows 는 열린 핸들이
  * 있는 디렉터리를 지우지 못하고(`rm: Device or resource busy`), 서버가 그
@@ -1418,7 +1418,7 @@ export function copyDir(src: string, dst: string) {
 /**
  * 픽스처 저장소를 복사해 그 실제 경로를 준다.
  *
- * **팩토리인 이유는 `FIXTURES` 가 스펙마다 다르기 때문이다** (`dm-git-fx-<태그>-<pid>`,
+ * **팩토리인 이유는 `FIXTURES` 가 스펙마다 다르기 때문이다** (`otter-git-fx-<태그>-<pid>`,
  * 격리를 위해서다). 각 스펙이 `const copyFx = makeCopyFx(FIXTURES)` 한 줄로 받으면
  * 호출부는 한 글자도 바뀌지 않는다 (FR-EHR-3).
  */

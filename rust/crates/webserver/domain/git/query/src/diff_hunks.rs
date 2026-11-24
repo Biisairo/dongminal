@@ -1,7 +1,7 @@
 //! 부분 스테이징용 hunk (FR-GIT-278).
 
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_git_core::{Ctx, Service};
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_git_core::{Ctx, Service};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
@@ -78,7 +78,7 @@ pub async fn hunks_of(
         argv.push("--cached".into());
     }
     argv.extend(["--".into(), rel.clone()]);
-    let ds = s.sized(dm_shared_editorlimit::patch_diff_max_bytes(DIFF_MAX_BYTES) as usize);
+    let ds = s.sized(otter_shared_editorlimit::patch_diff_max_bytes(DIFF_MAX_BYTES) as usize);
     let out = ds.exec(ctx, repo, &argv).await?;
     if out.stdout_truncated {
         return Err(Error::new(

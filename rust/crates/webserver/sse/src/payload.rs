@@ -11,11 +11,14 @@ struct Event<'a, T: ?Sized> {
 
 /// `{"action":…,"args":…}` 본문이다 (IPC-20). 직렬화에 실패하면 로그를 남기고 action 만 싣는다.
 pub fn payload<T: Serialize + ?Sized>(action: &str, args: Option<&T>) -> Vec<u8> {
-    match dm_gocompat::json::marshal(&Event { action, args }) {
+    match otter_gocompat::json::marshal(&Event { action, args }) {
         Ok(b) => b,
         Err(e) => {
-            dm_shared_dmlog::errorf!(None, "[sse] {action} 본문 직렬화 실패 — args 를 뺀다: {e}");
-            dm_gocompat::json::marshal(&Event::<()> { action, args: None }).unwrap_or_default()
+            otter_shared_otterlog::errorf!(
+                None,
+                "[sse] {action} 본문 직렬화 실패 — args 를 뺀다: {e}"
+            );
+            otter_gocompat::json::marshal(&Event::<()> { action, args: None }).unwrap_or_default()
         }
     }
 }

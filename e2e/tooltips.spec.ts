@@ -18,7 +18,7 @@ import { tmpPath } from './osenv';
  * 바꾸는 것은 `title` 한 속성뿐이다 (FR-TIP-3). 라벨·안내·오류의 언어는 그대로다.
  */
 
-const FIXTURES = tmpPath('dm-git-fx-tooltips-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-tooltips-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

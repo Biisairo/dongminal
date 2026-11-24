@@ -2,22 +2,23 @@
 
 use std::io::Write;
 
-use dm_gocompat::{json, strconv};
-use dm_shared_apipath as apipath;
-use dm_shared_dmenv as dmenv;
+use otter_gocompat::{json, strconv};
+use otter_shared_apipath as apipath;
+use otter_shared_otterenv as otterenv;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
 use crate::argparse::{ArgError, ArgSpec, unknown_arg};
 use crate::ctx::{Ctx, errf, outf};
-use crate::dmctl::post::dmctl_delivery;
 use crate::helptext::DETACH_HELP;
 use crate::http::{
     ExitRule, HttpOut, base_url, http_exit, http_get, http_post_json, refuse_with, self_tool_id,
 };
+use crate::otterctl::post::otterctl_delivery;
 
 const DETACH_RESTORE_NEEDS_ID: &str = "--restore 는 도구 id 가 필요합니다 (detach --list 로 확인)";
-const DETACH_AT_NEEDS_UUID: &str = "--at 은 탭 uuid 가 필요합니다 (dmctl list-workspace 로 확인)";
+const DETACH_AT_NEEDS_UUID: &str =
+    "--at 은 탭 uuid 가 필요합니다 (otterctl list-workspace 로 확인)";
 
 #[derive(Default, Debug)]
 pub(crate) struct DetachFlags {
@@ -131,8 +132,8 @@ pub(crate) fn run_detach(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
     if tool_id.is_empty() {
         errf!(
             ctx,
-            "detach: {} 미설정 (dongminal 터미널 안에서 실행해야 합니다)\n",
-            dmenv::ENV_TOOL_ID
+            "detach: {} 미설정 (otterminal 터미널 안에서 실행해야 합니다)\n",
+            otterenv::ENV_TOOL_ID
         );
         return 1;
     }
@@ -145,7 +146,7 @@ fn detach_post(ctx: &mut Ctx<'_>, action: &str, args: Value) -> i32 {
         &json!({"action": action, "args": args}),
     );
     match http_exit(ctx, r, detach_rule(true)) {
-        Ok(body) => dmctl_delivery(ctx, "detach", &body),
+        Ok(body) => otterctl_delivery(ctx, "detach", &body),
         Err(code) => code,
     }
 }

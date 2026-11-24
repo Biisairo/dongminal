@@ -12,7 +12,7 @@
 
 ### 1.1 목적 (Purpose)
 
-`dongminal update --check` 는 이미 있다. 최신 태그를 읽고, semver 로 견주고,
+`otterminal update --check` 는 이미 있다. 최신 태그를 읽고, semver 로 견주고,
 새 판이면 그렇게 말한다 (`internal/ctl/cli/update.go`). **문제는 그것을 아무도
 치지 않는다는 것이다.**
 
@@ -70,7 +70,7 @@
 
 ### 2.2 이전 동작 / 새 동작 / 이유
 
-**이전 동작** — `dongminal update --check` 를 사람이 직접 칠 때만 확인한다.
+**이전 동작** — `otterminal update --check` 를 사람이 직접 칠 때만 확인한다.
 치지 않으면 제품은 자기 판이 낡았다는 것을 영원히 모른다.
 
 **새 동작** — 서버가 최신 판을 메모리에 **캐시**한다. 그 캐시를 갱신하는 계기는
@@ -144,14 +144,14 @@
 
 | ID | 요구사항 |
 |---|---|
-| **FR-UPD-10** | 서버는 **최초 1회** 확인 사실을 고지한다. `dongminal start` 출력에 한 줄 — 무엇을 하는지, 어디로 나가는지, 어디서 끄는지. 고지했다는 사실은 `server.json` 옆에 표식으로 남겨 반복하지 않는다 |
-| **FR-UPD-11** | `DONGMINAL_NO_UPDATE_CHECK=1` 이면 확인이 돌지 않는다. **다른 모든 계층을 이긴다.** 에어갭·CI 환경과 검사의 결정론성이 이 한 줄에 달린다 |
+| **FR-UPD-10** | 서버는 **최초 1회** 확인 사실을 고지한다. `otterminal start` 출력에 한 줄 — 무엇을 하는지, 어디로 나가는지, 어디서 끄는지. 고지했다는 사실은 `server.json` 옆에 표식으로 남겨 반복하지 않는다 |
+| **FR-UPD-11** | `OTTERMINAL_NO_UPDATE_CHECK=1` 이면 확인이 돌지 않는다. **다른 모든 계층을 이긴다.** 에어갭·CI 환경과 검사의 결정론성이 이 한 줄에 달린다 |
 | **FR-UPD-12** | 진실값은 `server.json` 의 `updateCheck` (bool, 기본 `true`) 다 |
 | **FR-UPD-13** | `PUT /api/update` 는 토글을 바꾸고 `server.json` 에 기록한다. **설정 블롭에 쓰지 않는다** |
 | **FR-UPD-14** | 토글 변경은 **재기동 없이** 즉시 반영된다. 끄면 타이머가 풀리고 진행 중인 확인의 결과를 버린다. 켜면 즉시 1회 확인한다 (트리거 ④) |
 | **FR-UPD-15** | 설정 페이지에 체크박스를 둔다. 사용자에게는 설정이 한 곳이다 — 저장 경로가 둘인 것은 내부 사정이며 화면에 새지 않는다 |
 | **FR-UPD-16** | `server.json` 의 `updateCheck` 가 bool 이 아니면 **기본값으로 떨어지고 경고만 낸다**. 기동을 막지 않는다 (C-4) |
-| **FR-UPD-17** | `dongminal update --check` 는 **그대로 남는다**. 주기 확인과 무관하게 언제든 즉시 확인할 수 있다. 토글이 꺼져 있어도 이 명령은 돈다 — 사람이 직접 친 것은 언제나 사용자의 의사다 |
+| **FR-UPD-17** | `otterminal update --check` 는 **그대로 남는다**. 주기 확인과 무관하게 언제든 즉시 확인할 수 있다. 토글이 꺼져 있어도 이 명령은 돈다 — 사람이 직접 친 것은 언제나 사용자의 의사다 |
 
 ### 3.4 비기능 요구사항 (NFR)
 
@@ -266,7 +266,7 @@
 | ID | 검사 | 판정 |
 |---|---|---|
 | **TC-UPD-1** | `updateCheck=false` 로 기동 | 주기 타이머가 서지 않는다. **테스트 서버 엔드포인트에 요청이 0건** |
-| **TC-UPD-2** | `DONGMINAL_NO_UPDATE_CHECK=1` + `updateCheck=true` | 요청 0건. 환경변수가 이긴다 |
+| **TC-UPD-2** | `OTTERMINAL_NO_UPDATE_CHECK=1` + `updateCheck=true` | 요청 0건. 환경변수가 이긴다 |
 | **TC-UPD-3** | `updateCheck=true` 로 기동 | 확인 1회. 요청 1건 (트리거 ①) |
 | **TC-UPD-3a** | SSE 연결 수립 1회 | 요청 1건. **연결 수립은 확인을 기다리지 않는다**(응답 지연 없음, `NFR-UPD-2`) |
 | **TC-UPD-3b** | SSE 연결 10개 **동시** | **요청 1건**. single-flight (`FR-UPD-2b`) |
@@ -288,7 +288,7 @@
 | **TC-UPD-9a** | 확인 진행 중에 토글을 끔 | 결과를 캐시에 쓰지 않고, 배지도 서지 않는다 (§1.2) |
 | **TC-UPD-10** | `server.json` 에 `"updateCheck": "yes"` | 기본값으로 떨어지고 경고 1건. 기동은 성공 (`FR-UPD-16`, C-4) |
 | **TC-UPD-11** | 고지 표식 없는 상태로 `start` 2회 | 고지는 1회차에만 출력된다 (`FR-UPD-10`) |
-| **TC-UPD-12** | 토글이 꺼진 상태에서 `dongminal update --check` | 정상 동작한다 (`FR-UPD-17`) |
+| **TC-UPD-12** | 토글이 꺼진 상태에서 `otterminal update --check` | 정상 동작한다 (`FR-UPD-17`) |
 | **TC-UPD-13** | 확인 요청 본문·헤더 검사 | `Accept` 외에 식별 정보가 없다 (`NFR-UPD-4`) |
 | **TC-UPD-14** | e2e 전체 | 실제 `api.github.com` 으로 나가는 요청 0건 — 검사 환경은 `FR-UPD-11` 로 막힌다 |
 | **TC-UPD-15** | 꺼진 상태에서 트리거 ①~③ 을 뒤섞어 50회 | GitHub 요청 **0건**. §1.2 불변 조항 |

@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 #[cfg(unix)]
-use dm_webserver_apierr as apierr;
+use otter_webserver_apierr as apierr;
 use serde_json::{Value, json};
 
 #[cfg(unix)]

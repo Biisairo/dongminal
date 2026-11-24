@@ -128,9 +128,9 @@ fn parent_dir_of_bare_name_is_dot() {
 
 #[test]
 fn temp_sibling_shape() {
-    let t = temp_sibling(Path::new("/x/dmctl"));
+    let t = temp_sibling(Path::new("/x/otterctl"));
     let s = t.to_string_lossy();
-    let prefix = format!("/x/dmctl.tmp{}.", std::process::id());
+    let prefix = format!("/x/otterctl.tmp{}.", std::process::id());
     assert!(s.starts_with(&prefix), "{s}");
     assert!(s[prefix.len()..].parse::<u64>().is_ok(), "{s}");
 }
@@ -227,7 +227,7 @@ fn link_or_copy_never_leaves_destination_missing() {
     let (a, b, dst) = (
         d.path().join("srcA"),
         d.path().join("srcB"),
-        d.path().join("dmctl"),
+        d.path().join("otterctl"),
     );
     fs::write(&a, "srcA").unwrap();
     fs::write(&b, "srcB").unwrap();
@@ -254,7 +254,7 @@ fn copy_never_exposes_partial_content() {
     let (a, b, dst) = (
         d.path().join("srcA"),
         d.path().join("srcB"),
-        d.path().join("dmctl"),
+        d.path().join("otterctl"),
     );
     fs::write(&a, &blob_a).unwrap();
     fs::write(&b, &blob_b).unwrap();
@@ -300,7 +300,7 @@ fn link_or_copy_leaves_no_temp_files() {
     let (a, b, dst) = (
         d.path().join("srcA"),
         d.path().join("srcB"),
-        d.path().join("dmctl"),
+        d.path().join("otterctl"),
     );
     fs::write(&a, "srcA").unwrap();
     fs::write(&b, "srcB").unwrap();
@@ -308,13 +308,13 @@ fn link_or_copy_leaves_no_temp_files() {
     for s in [&a, &b, &a] {
         p.link_or_copy(s, &dst).unwrap();
     }
-    assert_only(d.path(), &["srcA", "srcB", "dmctl"]);
+    assert_only(d.path(), &["srcA", "srcB", "otterctl"]);
 }
 
 #[test]
 fn link_or_copy_same_target_is_noop() {
     let d = tempfile::tempdir().unwrap();
-    let (src, dst) = (d.path().join("src"), d.path().join("dmctl"));
+    let (src, dst) = (d.path().join("src"), d.path().join("otterctl"));
     fs::write(&src, "x").unwrap();
     let p = crate::current().paths;
     p.link_or_copy(&src, &dst).unwrap();
@@ -334,7 +334,7 @@ fn link_or_copy_resolves_to_source() {
     let (a, b, dst) = (
         d.path().join("srcA"),
         d.path().join("srcB"),
-        d.path().join("dmctl"),
+        d.path().join("otterctl"),
     );
     fs::write(&a, "payload-A").unwrap();
     fs::write(&b, "payload-B").unwrap();
@@ -351,10 +351,10 @@ fn copy_executable_over_empty_dir_leaves_no_aside() {
     let d = tempfile::tempdir().unwrap();
     let src = d.path().join("src");
     std::fs::write(&src, b"bin").unwrap();
-    let dst = d.path().join("dmctl");
+    let dst = d.path().join("otterctl");
     std::fs::create_dir(&dst).unwrap();
-    std::fs::create_dir(d.path().join("dmctl.old")).unwrap();
+    std::fs::create_dir(d.path().join("otterctl.old")).unwrap();
     crate::copy_executable(&src, &dst).unwrap();
     assert_eq!(std::fs::read(&dst).unwrap(), b"bin");
-    assert!(!d.path().join("dmctl.old").exists());
+    assert!(!d.path().join("otterctl.old").exists());
 }

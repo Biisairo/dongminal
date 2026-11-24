@@ -35,14 +35,14 @@
 
 ### 에이전트 접합면
 
-`dmctl read-screen`/`read-output`/`send-input`/`msg` 의 백엔드다. 개념과 사용법은
+`otterctl read-screen`/`read-output`/`send-input`/`msg` 의 백엔드다. 개념과 사용법은
 [agent-orchestration.md](./agent-orchestration.md).
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| GET | `/api/tools/output?id=&bytes=&strip=` | 도구의 스크롤백. `strip=1` 이면 ANSI 제거. `bytes<=0`/생략이면 전체 (기본값 판단은 `dmctl` 몫). `{ toolId, text, dropped }` |
+| GET | `/api/tools/output?id=&bytes=&strip=` | 도구의 스크롤백. `strip=1` 이면 ANSI 제거. `bytes<=0`/생략이면 전체 (기본값 판단은 `otterctl` 몫). `{ toolId, text, dropped }` |
 | POST | `/api/tools/input` | `{ id, text, execute }` — bracketed paste 로 주입, `execute` 면 자동 엔터 |
-| POST | `/api/tools/message` | `{ to, from, message }` — 신뢰 봉투로 감싸 주입 + 자동 엔터. `from` 이 비면 `unknown`. 봉투 헤더와 응답의 `from`/`to` 는 **uuid** 뿐. 본문 안의 `[DONGMINAL-AGENT-MSG` · `[/DONGMINAL-AGENT-MSG` 는 `[\DONGMINAL-AGENT-MSG` · `[\/DONGMINAL-AGENT-MSG` 로 **인용**된다 — 정확한 헤더는 서버가 만든 것 하나뿐이다 |
+| POST | `/api/tools/message` | `{ to, from, message }` — 신뢰 봉투로 감싸 주입 + 자동 엔터. `from` 이 비면 `unknown`. 봉투 헤더와 응답의 `from`/`to` 는 **uuid** 뿐. 본문 안의 `[OTTERMINAL-AGENT-MSG` · `[/OTTERMINAL-AGENT-MSG` 는 `[\OTTERMINAL-AGENT-MSG` · `[\/OTTERMINAL-AGENT-MSG` 로 **인용**된다 — 정확한 헤더는 서버가 만든 것 하나뿐이다 |
 
 `id`/`to`/`from` 은 tab uuid·`toolId` 만 받는다. `W?.P?.T?` 좌표 라벨은 400, 대상이
 없으면 404 `{ "error": … }`.
@@ -52,12 +52,12 @@
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | GET | `/api/tools/attention` | 주의 상태인 도구 목록 |
-| POST | `/api/tools/attention/set` | 주의 상태 설정 (`dmctl notify` 가 사용) |
+| POST | `/api/tools/attention/set` | 주의 상태 설정 (`otterctl notify` 가 사용) |
 | POST | `/api/tools/attention/clear` | 도구 하나의 주의 상태 해제 |
 | POST | `/api/tools/attention/clear-all` | 전체 해제 |
 | POST | `/api/tools/attention/claim` | `{seq, kinds:["banner"\|"sound"]}` → `{granted:[…]}` — 알람 하나의 배너·소리를 이 창이 맡는다. 같은 컴퓨터(출발지 주소)에서는 처음 온 청구만 승낙된다 |
 | GET | `/api/tools/activity` | 도구별 현재 활동 상태 (도구당 최신 1건). 사용량 요약(`usage`)과 서브에이전트 목록(`subagents`)이 있으면 함께 싣는다. `subagents` 는 15초 안에 받은 statusLine 목록과 훅으로 받은 서브에이전트 활동을 합친 것이며, 원소마다 `state`·`tool`·`detail`·`description` 이 있다. 훅으로 받은 활동은 `done` 이 되고 30초 뒤에 빠진다. `done` 이 아닌 활동도 2분 동안 갱신이 없고, main 이 `working`·`waiting` 이 아니고, statusLine 목록이 그것을 `running` 으로 보이지 않으면 빠진다. 최상위 `limits` 는 에이전트별 마지막 계정 한도다 — 창마다 `name`·`usedPct`·`resetsAt`(유닉스 초)·`resetsInSec`(서버가 셈한 남은 초)·`level`(`warn`·`critical`·빈 값). 관측이 없으면 빈 배열이다 |
-| POST | `/api/tools/activity/set` | 활동 상태 보고 (`dmctl activity` 가 사용). `agentId` 가 있으면 서브에이전트 활동으로 저장하고 main 상태는 바꾸지 않는다 — 이때 `state` 는 `working`·`waiting`·`done` 만 받는다. Telegram 알림이 쓰는 곁들이 필드도 받는다. `hook` 은 훅 이름, `input` 은 권한 요청과 `AskUserQuestion` 의 도구 입력 원문, `transcript` 는 대화 기록 파일의 경로다. `input` 이 16 KiB 를 넘으면 싣지 않고 `inputOver:true` 만 싣는다. 이 필드들은 상태 판정에 쓰지 않는다. 데몬 모드에서 `dmctl` 의 훅 보고(`activity`·`notify`·`statusline`·`subagent-statusline`)는 데몬 소켓 옆의 보고 소켓(`report.sock`)에 먼저 간다. 소켓이 없거나 실패하면 이 종단들로 HTTP 를 보낸다 |
+| POST | `/api/tools/activity/set` | 활동 상태 보고 (`otterctl activity` 가 사용). `agentId` 가 있으면 서브에이전트 활동으로 저장하고 main 상태는 바꾸지 않는다 — 이때 `state` 는 `working`·`waiting`·`done` 만 받는다. Telegram 알림이 쓰는 곁들이 필드도 받는다. `hook` 은 훅 이름, `input` 은 권한 요청과 `AskUserQuestion` 의 도구 입력 원문, `transcript` 는 대화 기록 파일의 경로다. `input` 이 16 KiB 를 넘으면 싣지 않고 `inputOver:true` 만 싣는다. 이 필드들은 상태 판정에 쓰지 않는다. 데몬 모드에서 `otterctl` 의 훅 보고(`activity`·`notify`·`statusline`·`subagent-statusline`)는 데몬 소켓 옆의 보고 소켓(`report.sock`)에 먼저 간다. 소켓이 없거나 실패하면 이 종단들로 HTTP 를 보낸다 |
 
 ### 백그라운드 도구
 
@@ -125,7 +125,7 @@
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| POST | `/api/commands` | 워크스페이스 action 브로드캐스트. 바디 `{action, args?, reqId?}` — `dmctl`·`edit`·`detach` 가 사용 |
+| POST | `/api/commands` | 워크스페이스 action 브로드캐스트. 바디 `{action, args?, reqId?}` — `otterctl`·`edit`·`detach` 가 사용 |
 | GET | `/api/commands/sse` | Server-Sent Events. 브라우저가 구독해 다른 도구의 명령을 수신 |
 | POST | `/api/command-result` | 브라우저가 생성 결과(`newWindows`/`newPanes`/`newTabs`)를 `reqId` 로 되돌려주는 경로 |
 
@@ -148,11 +148,11 @@
   "filePath": "/abs/path", "toolId": "12" }
 ```
 
-`location` 은 **uuid 만 허용**한다 — `dmctl list-workspace` 의 `uuid=` 컬럼 값. 좌표(`W4.P1.T1`)·라벨·`toolId` 는 400 으로 거부된다. 다른 창이 닫히면 좌표가 reflow 되어 엉뚱한 탭을 가리키기 때문이다. 서버가 broadcast 직전에 uuid → 좌표로 변환한다.
+`location` 은 **uuid 만 허용**한다 — `otterctl list-workspace` 의 `uuid=` 컬럼 값. 좌표(`W4.P1.T1`)·라벨·`toolId` 는 400 으로 거부된다. 다른 창이 닫히면 좌표가 reflow 되어 엉뚱한 탭을 가리키기 때문이다. 서버가 broadcast 직전에 uuid → 좌표로 변환한다.
 
 `detachTab` 은 `location` 이 아니라 `toolId` 를 받는다 — `toolId` 만으로 대상이 완전히 결정되므로 대상 지정 수단이 필요 없다. `restoreTool` 은 `toolId` 에 더해 `location`(선택)을 받는다: 지정하면 그 탭이 **속한 분할 칸**에 복귀하고(탭 성분은 무시), 그 분할 칸이 사라졌으면 복귀하지 않는다(도구는 백그라운드 목록에 남는다). `location` 을 생략하면 브라우저가 현재 포커스한 분할 칸에 복귀하며, 포커스가 해소되지 않으면 활성 창의 첫 분할 칸으로 폴백한다 — 생략 경로는 조용히 무효가 되지 않는다.
 
-둘 다 `dmctl` 의 레이아웃 서브커맨드로는 호출할 수 없다 — `detach` CLI 전용 경로다.
+둘 다 `otterctl` 의 레이아웃 서브커맨드로는 호출할 수 없다 — `detach` CLI 전용 경로다.
 
 ## REST — 나머지 표면 (M5 `DOC-4`)
 
@@ -199,8 +199,8 @@
 |---|---|---|
 | GET | `/api/tools/activity/get` | 도구 하나의 현재 활동 상태. statusLine 관측이 있으면 `context`(사용률·창·토큰·출처)와 `usage`(모델·판·비용·맥락 상세·한도 등)를 싣는다. 15초 안에 받은 서브에이전트 목록이 있으면 `subagents`(종류·상태·모델·effort·토큰·창 크기·시작 시각·작업 설명)를 싣는다. 계정 한도가 있으면 `limits`(형식은 `/api/tools/activity` 와 같다)를 싣는다. `live` 는 도구가 살아 있는가다. 데몬 모드에서 데몬이 잠시 답하지 못하면 생존을 모르므로 `live:false` 와 함께 `liveUnknown:true` 를 싣는다. 이때 도구가 죽었다고 보지 마세요 |
 | GET | `/api/tools/migration-advice` | 맥락 훅이 묻는 migration 제안 판정 `?id=<toolId>` → `{verdict, ctxPct, judgePct, capPct, usedPct?}`. `ctxPct` 는 기준(`migrationHookCtxPct`), `judgePct` 는 판단을 시작하는 값(기준의 80%), `capPct` 는 판단 없이 넘기는 값(85)이다. `verdict` 는 `skip`(꺼짐이거나 issue-tree 노드)·`unknown`(사용률 모름, 도구마다 한 번)·`ok`·`advise`(`judgePct` 이상)·`must`(`capPct` 이상)다 |
-| POST | `/api/tools/usage` | `dmctl statusline` 이 보내는 도구별 사용량 `{toolId, usage}`. 허용 목록 밖의 필드는 저장하지 않는다(경로·본문 없음) |
-| POST | `/api/tools/subagents` | `dmctl subagent-statusline` 이 보내는 도구별 서브에이전트 목록 `{toolId, tasks}`. 보고마다 목록을 통째로 바꾼다. 허용 목록 밖의 필드(`label`·경로)는 저장하지 않는다. 작업 설명(`description`)은 저장한다. 15초 동안 보고가 없으면 목록이 없는 것으로 본다 |
+| POST | `/api/tools/usage` | `otterctl statusline` 이 보내는 도구별 사용량 `{toolId, usage}`. 허용 목록 밖의 필드는 저장하지 않는다(경로·본문 없음) |
+| POST | `/api/tools/subagents` | `otterctl subagent-statusline` 이 보내는 도구별 서브에이전트 목록 `{toolId, tasks}`. 보고마다 목록을 통째로 바꾼다. 허용 목록 밖의 필드(`label`·경로)는 저장하지 않는다. 작업 설명(`description`)은 저장한다. 15초 동안 보고가 없으면 목록이 없는 것으로 본다 |
 | GET | `/api/tools/activity/wait` | 그 상태가 바뀔 때까지 **기다린다** (long-poll). 폴링 루프를 짜지 마세요. 도구가 사라졌다고 확인되면 `gone` 으로 끝난다. 생존을 모르는 동안(`liveUnknown`)은 `gone` 으로 끝내지 않고 계속 기다린다 |
 | POST | `/api/tools/kill` | 도구의 전경 프로세스를 정지시킨다 |
 
@@ -289,7 +289,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 
 ### Claude 다중 계정 (`CLAUDE_ACCOUNTS_SRS`)
 
-계정 데이터는 `$DONGMINAL_HOME/claude-accounts/`(권한 700)에 있습니다. 자격증명 백업은 macOS 에서는 키체인(`dongminal-claude-accounts`), 그 밖의 OS 에서는 권한 600 파일입니다. 응답에는 토큰이 없습니다. 오류 본문은 `{code, message}` 입니다. 데이터 폴더 없이 뜬 서버는 모든 종단이 503 `claude_accounts_unavailable` 입니다. 상태가 바뀌면 SSE `claude_accounts_changed`(본문 없음)가 나갑니다. 자동 전환·한도 임박·모두 소진·재로그인 필요·로그인 만료 임박·자동 전환 중지 같은 사건은 SSE `claude_account_alert` 로 나갑니다. 본문은 `{kind, name?, from?, to?, trigger?, window?, resetsAt?, expiresAt?, resetAvailable?}` 입니다. `kind` 는 `autoswitch`·`near_limit`·`all_exhausted`·`relogin`·`login_expiring`·`autoswitch_stopped` 중 하나입니다. 이름 필드에는 별칭, 별칭이 없으면 이메일 앞부분(`ab***@`)만 실립니다. 같은 사건은 한 번만 나갑니다. Telegram 브리지가 켜져 있으면 같은 내용을 글로도 보냅니다.
+계정 데이터는 `$OTTERMINAL_HOME/claude-accounts/`(권한 700)에 있습니다. 자격증명 백업은 macOS 에서는 키체인(`otterminal-claude-accounts`), 그 밖의 OS 에서는 권한 600 파일입니다. 응답에는 토큰이 없습니다. 오류 본문은 `{code, message}` 입니다. 데이터 폴더 없이 뜬 서버는 모든 종단이 503 `claude_accounts_unavailable` 입니다. 상태가 바뀌면 SSE `claude_accounts_changed`(본문 없음)가 나갑니다. 자동 전환·한도 임박·모두 소진·재로그인 필요·로그인 만료 임박·자동 전환 중지 같은 사건은 SSE `claude_account_alert` 로 나갑니다. 본문은 `{kind, name?, from?, to?, trigger?, window?, resetsAt?, expiresAt?, resetAvailable?}` 입니다. `kind` 는 `autoswitch`·`near_limit`·`all_exhausted`·`relogin`·`login_expiring`·`autoswitch_stopped` 중 하나입니다. 이름 필드에는 별칭, 별칭이 없으면 이메일 앞부분(`ab***@`)만 실립니다. 같은 사건은 한 번만 나갑니다. Telegram 브리지가 켜져 있으면 같은 내용을 글로도 보냅니다.
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
@@ -300,8 +300,8 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | POST | `/api/claude-accounts/order` | `{ids}` — 계정 순서를 바꿉니다. 모든 계정을 한 번씩 담아야 합니다 |
 | POST | `/api/claude-accounts/refresh` | `{id, resets?}` — 그 계정의 사용량을 바로 조회하고, 성공하면 제한 초기화 상태도 조회합니다. `resets:true` 면 제한 초기화 상태만 조회합니다. 3분(180초) 안에 조회했거나 물러나는 중이면 409 `claude_too_soon` |
 | POST | `/api/claude-accounts/reset` | `{id, program, grantId?}` — 제한 초기화를 씁니다. `program` 은 `juniper_tide`(주간 5시간 초기화) 또는 `cedar_ember`(초기화 티켓, `grantId` 필요)입니다. 되돌릴 수 없으므로 사용자가 확인한 뒤에만 부릅니다. 결과는 언제나 200 `{result, reason?, resetsLeft?, cleared?, nextAvailableAt?, weeklyResetsAt?, cooldownUntil?}` 이고, `result` 는 `reset`·`already_used`·`not_limited`·`cooldown`·`ineligible`·`unavailable`·`rate_limited`·`auth_error`·`error`·`unconfirmed`(응답을 받지 못함 — 자동으로 다시 보내지 않습니다) 중 하나입니다. 인자가 맞지 않으면 400 `claude_account_invalid` |
-| POST | `/api/claude-accounts/switch` | `{id, by?}` 또는 `{strategy, by?}` — `{from, to, outgoing, noop?, reason?, pinnedRunning?}`. 떠나는 계정이 프로필로 실행 중이면 `pinnedRunning:true` 입니다. 전환은 막지 않습니다 — 그 탭은 영향을 받지 않습니다. `strategy` 는 `next`(순서상 다음), `next-available`(다음이되 한도가 찼거나 사용량을 모르는 계정은 건너뜀), `best`(여유가 가장 큰 계정) 중 하나입니다. `next-available`·`best` 는 먼저 사용량이 낡은 계정을 조회합니다(물러나는 중이거나 3분(180초) 안에 조회한 계정은 빼고). `best` 가 전환하지 않으면 200 `{noop:true, reason}` 이고 `reason` 은 `none`·`current-unavailable`·`no-comparison`·`exhausted`·`stay` 중 하나입니다. `by` 는 전환 기록의 주체로 `ui`(기본) 또는 `dmctl` 입니다. 그 밖의 값(`auto` 포함)은 400 `claude_account_invalid` 입니다. 새로 시작하는 Claude Code 세션부터 새 계정을 씁니다. 실행 중인 세션은 건드리지 않습니다. Claude Code 가 자격증명을 쓰는 중이면 409 `claude_locked`, 대상 백업이 비었으면 409 `claude_backup_empty`, 다른 후보가 없으면 409 `claude_no_candidate` |
-| GET | `/api/claude-accounts/history?limit=N` | `{entries:[{at, from, to, trigger, headroomFrom, headroomTo, by}]}` — 전환 기록, 최신 먼저. `limit` 은 1~1000(기본 50), 밖이면 400 `claude_account_invalid`. `from`·`to` 는 계정 ID 이고, 헤드룸을 몰랐으면 `null` 입니다. `trigger` 는 `manual`·`next`·`next-available`·`best`·`proactive`·`at-limit`·`failover`·`consume-first`·`priority`, `by` 는 `ui`·`dmctl`·`auto` 입니다 |
+| POST | `/api/claude-accounts/switch` | `{id, by?}` 또는 `{strategy, by?}` — `{from, to, outgoing, noop?, reason?, pinnedRunning?}`. 떠나는 계정이 프로필로 실행 중이면 `pinnedRunning:true` 입니다. 전환은 막지 않습니다 — 그 탭은 영향을 받지 않습니다. `strategy` 는 `next`(순서상 다음), `next-available`(다음이되 한도가 찼거나 사용량을 모르는 계정은 건너뜀), `best`(여유가 가장 큰 계정) 중 하나입니다. `next-available`·`best` 는 먼저 사용량이 낡은 계정을 조회합니다(물러나는 중이거나 3분(180초) 안에 조회한 계정은 빼고). `best` 가 전환하지 않으면 200 `{noop:true, reason}` 이고 `reason` 은 `none`·`current-unavailable`·`no-comparison`·`exhausted`·`stay` 중 하나입니다. `by` 는 전환 기록의 주체로 `ui`(기본) 또는 `otterctl` 입니다. 그 밖의 값(`auto` 포함)은 400 `claude_account_invalid` 입니다. 새로 시작하는 Claude Code 세션부터 새 계정을 씁니다. 실행 중인 세션은 건드리지 않습니다. Claude Code 가 자격증명을 쓰는 중이면 409 `claude_locked`, 대상 백업이 비었으면 409 `claude_backup_empty`, 다른 후보가 없으면 409 `claude_no_candidate` |
+| GET | `/api/claude-accounts/history?limit=N` | `{entries:[{at, from, to, trigger, headroomFrom, headroomTo, by}]}` — 전환 기록, 최신 먼저. `limit` 은 1~1000(기본 50), 밖이면 400 `claude_account_invalid`. `from`·`to` 는 계정 ID 이고, 헤드룸을 몰랐으면 `null` 입니다. `trigger` 는 `manual`·`next`·`next-available`·`best`·`proactive`·`at-limit`·`failover`·`consume-first`·`priority`, `by` 는 `ui`·`otterctl`·`auto` 입니다 |
 | GET | `/api/claude-accounts/autoswitch` | `{settings, state, ranges}` — 자동 전환 설정과 상태, 숫자 칸의 범위. `settings` 는 `{enabled, threshold, weeklyThreshold, intervalSeconds, cooldownSeconds, hysteresisPct, strategy, unhealthyTicks, models}` 입니다. `state` 는 `{status, lastSwitch?{at, from, to, trigger, leftHeadroom, leftRecoveryAt?}, quarantined[], nextTickAt?}` 이고, `status` 는 `off`·`on`·`unmanaged`(활성 계정이 등록되지 않음)·`exhausted`(모든 후보 소진으로 쉬는 중) 중 하나입니다. `ranges` 는 숫자 칸마다 `{min, max}`(양 끝 포함)이고, 서버가 PUT 을 판정하는 범위와 같습니다 |
 | PUT | `/api/claude-accounts/autoswitch` | `settings` 의 일부 키 — GET 과 같은 모양을 돌려줍니다. 범위: `threshold`·`weeklyThreshold` 50~100, `intervalSeconds` 15~3600, `cooldownSeconds` 0~86400, `hysteresisPct` 0~50, `strategy` `best`·`consume-first`·`priority-consume-first`, `unhealthyTicks` 1~100, `models` 는 모델 이름 배열 또는 `"all"`. `weeklyThreshold`·`models` 에 `null` 을 보내면 지웁니다. 범위 밖이나 모르는 키는 400 `claude_account_invalid`. 켤 때 `cswap auto` 가 돌고 있으면 409 `claude_cswap_running` 이고 켜지 않습니다 |
 | GET | `/api/claude-accounts/mappings` | `{folders:{"<경로>":{accountId}}, tabs:{"<toolId>":{accountId}}}` — 폴더 연결과 탭 지정. 경로는 심볼릭 링크를 푼 절대 경로이고(Windows 는 소문자), 닫힌 탭의 지정은 도구 목록을 알 때 지워집니다 |
@@ -316,7 +316,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | GET | `/api/runs` | Run 목록·상세 (`?id=`). 열린 Run 에는 `liveness` 가 실린다. 값은 `open`(살아 있다)·`gone`(데몬이 답했는데 도구가 없다)·`unknown`(데몬이 답하지 못해 모른다)이다. 열림은 저장하지 않고 조회할 때마다 계산한다. 닫힌 Run 에는 싣지 않는다 |
-| POST | `/api/runs` | Run 을 연다 (`dmctl run start`) |
+| POST | `/api/runs` | Run 을 연다 (`otterctl run start`) |
 | DELETE | `/api/runs/<id>` | Run 기록을 지운다. close 와 달리 미보고 검사를 하지 않는다. 다른 쓰기 요청처럼 `Content-Type: application/json` 이 있어야 한다. 응답은 `{id, short, state, worktrees, residue}` 이고 `residue` 는 지우지 못한 worktree 수다 |
 | GET | `/api/runs/<id>/graph` | Run 하나의 팀 구조 — 누가 누구를 조정하는가 |
 | GET | `/api/runs/tree` | `?ref=<owner/repo#N>` 이슈 트리의 열린 Run 과 노드(역할 · 상태 · 부모 · 잎) |
@@ -329,7 +329,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | POST | `/api/runs/assign` | 이슈 트리 노드의 배정을 고친다 |
 | POST | `/api/runs/coordinate` | 부르는 도구가 조율하는 열린 Run 을 다른 도구로 넘긴다(조율 migration). 트리 Run 이면 루트 노드에 알린다 |
 | POST | `/api/runs/report` | 팀원이 자기 몫의 결과를 보고한다 |
-| POST | `/api/runs/recover` | 데몬이 죽은 뒤 빈 셸이 된 조정자·팀원의 에이전트를 기록된 세션 id 로 재개한다(`dmctl run recover`). 본문은 `{runId, memberId?, coordinator?, force?}` 다. 둘 다 없으면 Run 전체이고, `force` 는 대상 하나일 때만 받는다. 응답은 `{runId, results:[{target, memberId?, toolId, agent, outcome, reason?, needsForce?}]}` 다. `outcome` 은 `resumed`·`skipped`·`failed` 이다. 세션이 이미 돌거나(`running-here`·`running-elsewhere`) 셸에서 다른 프로그램이 돌면(`busy`) 강제여도 넣지 않는다. 재개줄을 넣은 도구는 15초 동안 `recovering` 으로 건너뛴다. 판정하지 못하면 `unknown` 이고, 대상 하나 복구면 `needsForce:true` 를 함께 낸다. Run 목록의 팀원에는 `recoverable`, Run 에는 `coordinatorRecoverable` 이 실린다 |
+| POST | `/api/runs/recover` | 데몬이 죽은 뒤 빈 셸이 된 조정자·팀원의 에이전트를 기록된 세션 id 로 재개한다(`otterctl run recover`). 본문은 `{runId, memberId?, coordinator?, force?}` 다. 둘 다 없으면 Run 전체이고, `force` 는 대상 하나일 때만 받는다. 응답은 `{runId, results:[{target, memberId?, toolId, agent, outcome, reason?, needsForce?}]}` 다. `outcome` 은 `resumed`·`skipped`·`failed` 이다. 세션이 이미 돌거나(`running-here`·`running-elsewhere`) 셸에서 다른 프로그램이 돌면(`busy`) 강제여도 넣지 않는다. 재개줄을 넣은 도구는 15초 동안 `recovering` 으로 건너뛴다. 판정하지 못하면 `unknown` 이고, 대상 하나 복구면 `needsForce:true` 를 함께 낸다. Run 목록의 팀원에는 `recoverable`, Run 에는 `coordinatorRecoverable` 이 실린다 |
 | POST | `/api/runs/succeed` | Run 을 성공으로 닫는다 |
 | POST | `/api/runs/close` | Run 을 닫는다. 응답의 `closedTabs[].closed` 는 **방송 결과**다 — 구독 중인 브라우저가 없으면 `false`(`delivered:0`)이고 그 탭의 Run 표식은 지워진다. 탭 닫기와 worktree 정리는 요청 연결과 무관하게 끝까지 한다. 호출자가 먼저 연결을 끊어도 정리는 계속되므로, 결과는 `GET /api/runs?id=` 로 본다. worktree 의 경로와 브랜치가 모두 없으면 정리된 것으로 본다 |
 

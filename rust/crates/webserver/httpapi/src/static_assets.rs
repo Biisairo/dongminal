@@ -10,10 +10,10 @@ use std::sync::{Arc, LazyLock, RwLock};
 
 use base64::Engine;
 use bytes::Bytes;
-use dm_gocompat::path;
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr as apierr;
 use http::{HeaderMap, StatusCode, header};
+use otter_gocompat::path;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_webserver_apierr as apierr;
 use sha2::{Digest, Sha256};
 
 use crate::Server;
@@ -44,18 +44,18 @@ pub trait StaticAssets: Send + Sync + std::fmt::Debug {
     }
 }
 
-/// 바이너리에 담긴 `web/` 자산 (Go `web.FS()`, crate `dm-web-assets`).
+/// 바이너리에 담긴 `web/` 자산 (Go `web.FS()`, crate `otter-web-assets`).
 #[derive(Debug, Clone, Copy, Default)]
 pub struct WebAssets;
 
 impl StaticAssets for WebAssets {
     fn read(&self, name: &str) -> Option<Cow<'static, [u8]>> {
-        dm_web_assets::get(name)
+        otter_web_assets::get(name)
     }
 
     fn read_dir(&self, name: &str) -> Option<Vec<AssetEntry>> {
         let dir = if name == "." { "" } else { name };
-        dm_web_assets::read_dir(dir).map(|v| {
+        otter_web_assets::read_dir(dir).map(|v| {
             v.into_iter()
                 .map(|e| AssetEntry {
                     name: e.name,
@@ -66,7 +66,7 @@ impl StaticAssets for WebAssets {
     }
 
     fn is_file(&self, name: &str) -> bool {
-        dm_web_assets::get(name).is_some()
+        otter_web_assets::get(name).is_some()
     }
 }
 

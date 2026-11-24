@@ -16,7 +16,7 @@ Window 하나를 컨테이너 하나에 대응시켜, 그 Window 안의 모든 �
 - 기본 마운트와 동적 마운트 (FR-SBX-39/40)
 - Window ↔ 컨테이너 1:1 생명주기 (지연 생성, Window 폐기 시 회수, 부팅 시 고아 회수)
 - 도구 기동 경로의 `ProcSpec` 분기 (`toolhub.StartTool`)
-- 컨테이너 안 `dmctl` 의 전달(리눅스 바이너리)과 서버 연결
+- 컨테이너 안 `otterctl` 의 전달(리눅스 바이너리)과 서버 연결
 - `workspace.json` 의 Window 스키마 확장
 - 컨테이너 런타임 부재·실패 시의 동작
 - 샌드박스 창을 열고 구분하는 최소 UI (FR-SBX-34)
@@ -31,7 +31,7 @@ Window 하나를 컨테이너 하나에 대응시켜, 그 Window 안의 모든 �
 | **프로파일** | 샌드박스 창의 정책 묶음 — 이미지·마운트·네트워크·헬퍼 노출 |
 | **대응 컨테이너** | 샌드박스 창 하나에 1:1 로 매인 컨테이너 |
 | **컨테이너 런타임** | `docker` 명령. 호스트에 설치된 Docker Engine / Docker Desktop |
-| **헬퍼** | `dmctl` 등 multi-call 바이너리 (`internal/helper/runtimebin`) |
+| **헬퍼** | `otterctl` 등 multi-call 바이너리 (`internal/helper/runtimebin`) |
 | **격리 경계** | 컨테이너 안 코드가 호스트에서 임의 코드를 실행할 수 없는 성질 |
 
 ### 1.4 참고 (References)
@@ -40,7 +40,7 @@ Window 하나를 컨테이너 하나에 대응시켜, 그 Window 안의 모든 �
 - `docs/internal/CROSS_PLATFORM_SRS.md` — `platform.PTY` / `ShellProvider` / `IPC` 추상 (FR-XPT-*, FR-XSH-*, FR-XIP-*)
 - `docs/internal/WORKSPACE_IDENTITY_SRS.md` — Window UUID 정체성, 단일 실행자 게이팅
 - `internal/shared/toolhub/tool.go:215` `StartTool` — 도구 기동의 유일한 자리
-- `internal/shared/dmenv/dmenv.go` — 서버가 자식에게 주입하는 주소 계약
+- `internal/shared/otterenv/otterenv.go` — 서버가 자식에게 주입하는 주소 계약
 
 ### 1.5 개요 (Overview)
 
@@ -89,30 +89,30 @@ Tool→Window 매핑은 `workspace.json` 에 있고 그 파일은 브라우저�
 
 ### 2.4 헬퍼는 이미 TCP 로 붙지만, 호스트 아키텍처에 묶여 있다
 
-`runtimebin/http.go` 가 `dmctl` 의 유일한 서버 접근 경로이며 순수 HTTP 다.
+`runtimebin/http.go` 가 `otterctl` 의 유일한 서버 접근 경로이며 순수 HTTP 다.
 
 ```go
 func baseURL() string {
     return fmt.Sprintf("http://%s:%s",
-        envOr(dmenv.EnvHost, dmenv.DefaultHost),
-        envOr(dmenv.EnvPort, dmenv.DefaultPort))
+        envOr(otterenv.EnvHost, otterenv.DefaultHost),
+        envOr(otterenv.EnvPort, otterenv.DefaultPort))
 }
 ```
 
-유닉스 소켓(`platform/ipc.go` 의 `paned.sock`)은 웹서버↔데몬 내부 전송이지 `dmctl` 경로가 아니다. 따라서 컨테이너에서의 연결은 `DONGMINAL_HOST` 를 바꾸는 것으로 족하며 **전송 계층 신규 구현이 필요 없다.**
+유닉스 소켓(`platform/ipc.go` 의 `paned.sock`)은 웹서버↔데몬 내부 전송이지 `otterctl` 경로가 아니다. 따라서 컨테이너에서의 연결은 `OTTERMINAL_HOST` 를 바꾸는 것으로 족하며 **전송 계층 신규 구현이 필요 없다.**
 
 남는 것은 두 가지다.
 
-1. `dmctl` 은 `dongminal` 본체에 내장된 multi-call 바이너리이고 `install.go` 가 호스트 아키텍처용으로 `~/.dongminal/bin/dmctl` 에 설치한다. macOS·Windows 호스트의 그 파일은 **리눅스 컨테이너에서 실행되지 않는다.**
-2. HTTP API 에 인증이 없다 (`httpapi` 와 `runtimebin` 어디에도 `Authorization` 헤더가 없다). 도구 신원은 `DONGMINAL_TOOL_ID` 환경변수의 자기소개이며 서버는 검증하지 않는다.
+1. `otterctl` 은 `otterminal` 본체에 내장된 multi-call 바이너리이고 `install.go` 가 호스트 아키텍처용으로 `~/.otterminal/bin/otterctl` 에 설치한다. macOS·Windows 호스트의 그 파일은 **리눅스 컨테이너에서 실행되지 않는다.**
+2. HTTP API 에 인증이 없다 (`httpapi` 와 `runtimebin` 어디에도 `Authorization` 헤더가 없다). 도구 신원은 `OTTERMINAL_TOOL_ID` 환경변수의 자기소개이며 서버는 검증하지 않는다.
 
 ### 2.5 실측 (2026-09-03, 개발기)
 
 ```
-$ echo $DONGMINAL_HOST:$DONGMINAL_PORT
+$ echo $OTTERMINAL_HOST:$OTTERMINAL_PORT
 0.0.0.0:58146
-$ lsof -nP -iTCP -sTCP:LISTEN | grep dongminal
-dongminal 53054 dykim 7u IPv6 TCP *:58146 (LISTEN)
+$ lsof -nP -iTCP -sTCP:LISTEN | grep otterminal
+otterminal 53054 dykim 7u IPv6 TCP *:58146 (LISTEN)
 ```
 
 서버는 `--expose` 로 `0.0.0.0` 에 떠 있다(`options.go:44` `ExposeHost`). 이 구성에서는 컨테이너가 `host.docker.internal` 로 호스트 API 에 도달한다. 루프백 전용(`127.0.0.1`) 구성일 때의 도달성은 §3.4 가 다룬다.
@@ -128,7 +128,7 @@ dongminal 53054 dykim 7u IPv6 TCP *:58146 (LISTEN)
 | `--rm` 없는 정지 | `docker stop` 후 컨테이너가 `Exited` 로 존속하고, 재시작하면 파일이 그대로다 |
 | 정지 상태 `exec` | `container ... is not running` 오류 — 붙기 전에 시작이 필요하다 (FR-SBX-26) |
 | 컨테이너 제거 | 붙어 있던 `exec` 가 종료코드 137 로 죽는다. 기존 `onExit` 경로로 도구 종료를 감지할 수 있다 (FR-SBX-28) |
-| 라벨 회수 범위 | `--filter label=dongminal.home=...` 로 자기 것만 걸린다. 다른 홈은 0건 (FR-SBX-9) |
+| 라벨 회수 범위 | `--filter label=otterminal.home=...` 로 자기 것만 걸린다. 다른 홈은 0건 (FR-SBX-9) |
 
 리사이즈 전파와 종료 감지가 확인된 것이 특히 중요하다. 이 둘이 깨졌다면 FR-SBX-12 의 `docker exec` 방식 자체를 재설계해야 했다.
 
@@ -162,8 +162,8 @@ UI 경로도 실제 브라우저로 확인했다 (FR-SBX-34).
 
 | 확인 | 결과 |
 |------|------|
-| 헬퍼 전달 | 컨테이너 안 `command -v dmctl` 이 `/usr/local/bin/dmctl` 을 낸다 |
-| 서버 주소 | `DONGMINAL_HOST=host.docker.internal` 이 심겨 있다 |
+| 헬퍼 전달 | 컨테이너 안 `command -v otterctl` 이 `/usr/local/bin/otterctl` 을 낸다 |
+| 서버 주소 | `OTTERMINAL_HOST=host.docker.internal` 이 심겨 있다 |
 | 작업 디렉터리 | 도구가 `/work` 에서 열린다 (마운트 지점) |
 | 개발 빌드 | 릴리스가 없는 `dev` 판에서 크로스 빌드로 헬퍼를 확보한다 |
 | 기본 마운트 | 읽기 전용으로 적은 폴더가 컨테이너 안 지정 자리에서 읽힌다 |
@@ -191,7 +191,7 @@ UI 경로도 실제 브라우저로 확인했다 (FR-SBX-34).
 | 기본 마운트 (FR-SBX-39) | **없음** | 적용 |
 | 동적 마운트 (FR-SBX-40) | **없음** | `/work` (고른 폴더. 비우면 없음) |
 | 네트워크 | `none` | `bridge` |
-| 헬퍼(`dmctl`) | **없음** | 있음 |
+| 헬퍼(`otterctl`) | **없음** | 있음 |
 | 격리 등급 (§3.3) | 경계 | 비경계 |
 
 종전의 `agent` 를 두지 않는다. `dev` 와 정책이 한 항목도 다르지 않았고, 이름만 다른 프로파일은 사용자에게 "무엇이 다른가" 라는 질문만 남긴다. AI 에이전트를 돌리는 자리는 `dev` 이며, 그 용도의 차이는 이미지 내용물이 담는다.
@@ -200,7 +200,7 @@ UI 경로도 실제 브라우저로 확인했다 (FR-SBX-34).
 
 **FR-SBX-3** `dev` 는 이미지를 명시해야 한다. 기본 이미지를 두지 않는 것은 이 프로파일의 유용성이 전적으로 이미지 내용물(툴체인·에이전트 CLI)에 달려 있어, 임의의 기본값이 언제나 틀리기 때문이다. 이미지 없이 생성 요청이 오면 오류다(FR-SBX-20).
 
-**FR-SBX-4** 프로파일 정의는 `~/.dongminal/sandbox.json` 에 둔다. 파일이 없으면 `scratch` 만 사용 가능하며, 그 부재는 오류가 아니다.
+**FR-SBX-4** 프로파일 정의는 `~/.otterminal/sandbox.json` 에 둔다. 파일이 없으면 `scratch` 만 사용 가능하며, 그 부재는 오류가 아니다.
 
 ```json
 {
@@ -221,7 +221,7 @@ UI 경로도 실제 브라우저로 확인했다 (FR-SBX-34).
 
 #### 3.1.2 Window ↔ 컨테이너 생명주기
 
-**FR-SBX-5** 샌드박스 창 하나에 대응 컨테이너 하나가 1:1 로 매인다. 컨테이너 이름은 `dongminal-sbx-<windowUUID>` 이며, 라벨로 `dongminal.home=<DONGMINAL_HOME>` 과 `dongminal.window=<windowUUID>` 를 단다. 이름은 조회의 키이고 라벨은 회수(FR-SBX-8)의 키다.
+**FR-SBX-5** 샌드박스 창 하나에 대응 컨테이너 하나가 1:1 로 매인다. 컨테이너 이름은 `otterminal-sbx-<windowUUID>` 이며, 라벨로 `otterminal.home=<OTTERMINAL_HOME>` 과 `otterminal.window=<windowUUID>` 를 단다. 이름은 조회의 키이고 라벨은 회수(FR-SBX-8)의 키다.
 
 **FR-SBX-6** 대응 컨테이너는 **지연 생성**한다 — 그 Window 의 첫 도구가 기동할 때 만든다. Window 생성 시점에 만들지 않는 것은, Window 생성이 브라우저 주도이고 서버는 명령을 중계할 뿐이라 생성 실패를 사용자에게 돌려줄 자리가 없기 때문이다. 도구 기동은 실패를 보고할 자리가 분명하다.
 
@@ -249,7 +249,7 @@ UI 경로도 실제 브라우저로 확인했다 (FR-SBX-34).
 
 Client 이탈과 데몬 재시작에서 제거하지 않는 것이 요점이다 — Window 는 서버 영속 엔티티이므로(§2.2) 뷰가 사라져도 살아 있어야 한다.
 
-**FR-SBX-9** 부팅 시 회수는 라벨 `dongminal.home` 이 자기 홈인 컨테이너 중, `workspace.json` 에 없는 Window 의 것만 대상으로 한다. 여러 인스턴스가 한 호스트에서 도는 구성에서 다른 인스턴스의 컨테이너를 지우지 않기 위해서다.
+**FR-SBX-9** 부팅 시 회수는 라벨 `otterminal.home` 이 자기 홈인 컨테이너 중, `workspace.json` 에 없는 Window 의 것만 대상으로 한다. 여러 인스턴스가 한 호스트에서 도는 구성에서 다른 인스턴스의 컨테이너를 지우지 않기 위해서다.
 
 **FR-SBX-26 (재사용과 재시작)** 도구 기동 시 대응 컨테이너가 이미 있으면 만들지 않고 재사용한다. 정지된 상태면 시작한 뒤 붙는다.
 
@@ -259,7 +259,7 @@ Client 이탈과 데몬 재시작에서 제거하지 않는 것이 요점이다 
 
 백그라운드 도구는 정의상 "어느 탭에도 매이지 않은" 도구이지만(`detach` 도움말, ENTITY_MODEL_RESTRUCTURE_SRS §1.3), 샌드박스 도구는 컨테이너에 매이고 컨테이너는 Window 에 매인다. 두 소유 관계가 공존하면 FR-SBX-8 의 단일 규칙이 모순된다 — Window 를 닫을 때 돌고 있는 백그라운드 작업을 죽이거나, 주인 없는 컨테이너를 남겨 회수 규칙과 고아 판정을 전부 복잡하게 만든다. 금지가 가장 단순하고 정직하다.
 
-**FR-SBX-28 (외부 제거 감지)** 대응 컨테이너가 dongminal 밖에서 제거되거나 종료되면, 그 컨테이너에 붙어 있던 도구들은 `docker exec` 가 끊기며 종료된다. 서버는 이를 도구 종료로 처리하고 사유를 보인다 — 살아 있다고 믿는 좀비 도구를 남기지 않는다.
+**FR-SBX-28 (외부 제거 감지)** 대응 컨테이너가 otterminal 밖에서 제거되거나 종료되면, 그 컨테이너에 붙어 있던 도구들은 `docker exec` 가 끊기며 종료된다. 서버는 이를 도구 종료로 처리하고 사유를 보인다 — 살아 있다고 믿는 좀비 도구를 남기지 않는다.
 
 #### 3.1.3 도구 기동
 
@@ -303,37 +303,37 @@ Args: ["docker","exec","-it","-w",<컨테이너 안 작업디렉터리>, <컨테
 
 #### 3.1.4 헬퍼 전달과 연결
 
-**FR-SBX-14 (버전 추종)** 컨테이너에 넣는 `dmctl` 은 **실행 시점의 서버 버전에 맞춰 그때그때 확보한다.** 캐시 경로에 버전을 포함한다.
+**FR-SBX-14 (버전 추종)** 컨테이너에 넣는 `otterctl` 은 **실행 시점의 서버 버전에 맞춰 그때그때 확보한다.** 캐시 경로에 버전을 포함한다.
 
 ```
-~/.dongminal/cache/dmctl-<version>-linux-<arch>
+~/.otterminal/cache/otterctl-<version>-linux-<arch>
 ```
 
-버전이 경로에 들어가는 것이 요점이다. 서버가 새 버전으로 올라가면 경로가 달라져 자동으로 새로 확보하게 된다. 버전 없는 고정 경로(`dmctl-linux-<arch>`)를 쓰면 업그레이드 후에도 옛 바이너리를 계속 쓰게 되고, 그 불일치는 오류가 아니라 **조용한 오동작**으로 나타난다 — `dmctl` 이 서버가 더 이상 제공하지 않는 형식으로 요청하거나, 새 서브커맨드를 모른 채 실패한다.
+버전이 경로에 들어가는 것이 요점이다. 서버가 새 버전으로 올라가면 경로가 달라져 자동으로 새로 확보하게 된다. 버전 없는 고정 경로(`otterctl-linux-<arch>`)를 쓰면 업그레이드 후에도 옛 바이너리를 계속 쓰게 되고, 그 불일치는 오류가 아니라 **조용한 오동작**으로 나타난다 — `otterctl` 이 서버가 더 이상 제공하지 않는 형식으로 요청하거나, 새 서브커맨드를 모른 채 실패한다.
 
 **FR-SBX-15 (확보 경로)** 확보 방법은 `cli.Version` 에 따라 갈린다.
 
 | `cli.Version` | 확보 방법 |
 |---------------|-----------|
-| 릴리스 태그 (`v1.2.3`) | 릴리스 자산 `dongminal-linux-<arch>` 를 그 **태그에서** 내려받는다 (`latest` 가 아니다) |
+| 릴리스 태그 (`v1.2.3`) | 릴리스 자산 `otterminal-linux-<arch>` 를 그 **태그에서** 내려받는다 (`latest` 가 아니다) |
 | `dev` (소스 빌드) | 소스 트리에서 `GOOS=linux GOARCH=<arch> go build` 로 만든다 |
 | 그 외 | 확보 불가 → 기동 실패 (FR-SBX-20) |
 
-`dev` 를 다운로드로 해결할 수 없는 것은 대응하는 릴리스가 존재하지 않기 때문이다(`version.go`: 새기지 않으면 `dev`). 소스에서 빌드한 사용자는 정의상 소스와 Go 툴체인을 갖고 있으므로 크로스 빌드가 성립한다. `latest` 를 받지 않는 것도 같은 이유다 — 서버보다 새 `dmctl` 이 들어오면 FR-SBX-14 가 막으려던 불일치가 그대로 재현된다.
+`dev` 를 다운로드로 해결할 수 없는 것은 대응하는 릴리스가 존재하지 않기 때문이다(`version.go`: 새기지 않으면 `dev`). 소스에서 빌드한 사용자는 정의상 소스와 Go 툴체인을 갖고 있으므로 크로스 빌드가 성립한다. `latest` 를 받지 않는 것도 같은 이유다 — 서버보다 새 `otterctl` 이 들어오면 FR-SBX-14 가 막으려던 불일치가 그대로 재현된다.
 
 **FR-SBX-29 (직접 배치와 정리)** 해당 버전의 캐시 경로에 사용자가 파일을 놓아두면 확보 절차를 건너뛰고 그것을 쓴다 — 오프라인 환경의 도피구다. 서버 기동 시 현재 버전이 아닌 캐시는 지운다. 버전마다 파일이 쌓이는 것을 막는다.
 
-**FR-SBX-16** 헬퍼는 `/usr/local/bin/dmctl` 에 **읽기 전용**으로 붙인다. 이미 `PATH` 에 있는 자리를 고르는 것은, 별도 디렉터리에 두면 `PATH` 를 손봐야 하고 `-e PATH=` 로 덮으면 이미지가 세운 `PATH` 가 통째로 날아가기 때문이다. 읽기 전용인 것은 컨테이너 안에서 고쳐 쓸 수 있으면 그 자체가 호스트로 나가는 통로가 되기 때문이다.
+**FR-SBX-16** 헬퍼는 `/usr/local/bin/otterctl` 에 **읽기 전용**으로 붙인다. 이미 `PATH` 에 있는 자리를 고르는 것은, 별도 디렉터리에 두면 `PATH` 를 손봐야 하고 `-e PATH=` 로 덮으면 이미지가 세운 `PATH` 가 통째로 날아가기 때문이다. 읽기 전용인 것은 컨테이너 안에서 고쳐 쓸 수 있으면 그 자체가 호스트로 나가는 통로가 되기 때문이다.
 
-컨테이너 안 `dmctl` 은 아래 환경으로 서버에 붙는다. 전송 계층 변경은 없다(§2.4). 리눅스 호스트에서도 같은 이름이 서도록 `--add-host` 로 게이트웨이를 명시한다.
+컨테이너 안 `otterctl` 은 아래 환경으로 서버에 붙는다. 전송 계층 변경은 없다(§2.4). 리눅스 호스트에서도 같은 이름이 서도록 `--add-host` 로 게이트웨이를 명시한다.
 
 ```
-DONGMINAL_HOST=host.docker.internal
-DONGMINAL_PORT=<서버 포트>
-DONGMINAL_TOOL_ID=<도구 UUID>
+OTTERMINAL_HOST=host.docker.internal
+OTTERMINAL_PORT=<서버 포트>
+OTTERMINAL_TOOL_ID=<도구 UUID>
 ```
 
-**FR-SBX-17** `scratch` 컨테이너에는 `dmctl` 을 넣지 않으며 네트워크도 `none` 이다. 이 프로파일만이 격리 경계이기 때문이다(§3.3).
+**FR-SBX-17** `scratch` 컨테이너에는 `otterctl` 을 넣지 않으며 네트워크도 `none` 이다. 이 프로파일만이 격리 경계이기 때문이다(§3.3).
 
 #### 3.1.5 마운트
 
@@ -353,7 +353,7 @@ DONGMINAL_TOOL_ID=<도구 UUID>
 > **가설이 아니다.** 이 컨테이너 안에서 도는 것은 AI 에이전트이고, 그것이 부르는
 > 빌드·테스트는 자기 자원을 스스로 재지 않는다. 제한이 없으면 컨테이너 하나의
 > fork 폭탄이나 메모리 폭주가 **호스트를 끌어내린다** — 그 호스트에는 사용자의
-> 다른 창과 dongminal 서버 자신이 함께 산다.
+> 다른 창과 otterminal 서버 자신이 함께 산다.
 >
 > 값은 "보통의 빌드는 통과하고 폭주는 막는" 자리다. 1cpu·1g 는 컴파일이 자주
 > OOM 되고, 4cpu·4g 는 컨테이너 둘로 노트북이 잠긴다.
@@ -439,7 +439,7 @@ DONGMINAL_TOOL_ID=<도구 UUID>
 
 실패 사유를 보이는 것도 마찬가지다 — 런타임 미설치·데몬 미실행이 흔한 실패이고, 사유 없이 실패하면 "눌러도 아무 일이 없다" 만 남는다 (FR-SBX-20).
 
-**FR-SBX-35 (CLI)** `dmctl new-window --sandbox <프로파일>` 로도 연다. 에이전트와 워크플로우의 진입점이다.
+**FR-SBX-35 (CLI)** `otterctl new-window --sandbox <프로파일>` 로도 연다. 에이전트와 워크플로우의 진입점이다.
 
 **FR-SBX-32 (포트 변경)** 프로파일의 포트를 바꾸면 다음 컨테이너 생성부터 적용된다. 이미 있는 대응 컨테이너에는 적용되지 않으며, 적용하려면 그 컨테이너를 재생성해야 하므로 **파일시스템이 초기화된다**(FR-SBX-22). 이 대가를 사용자에게 알린 뒤 확인을 받는다.
 
@@ -474,7 +474,7 @@ type wsWindow struct {
 | 데몬 응답 없음 | 런타임 미실행 |
 | 이미지 없음 / pull 실패 | 이미지 해결 실패 |
 | `dev` 에 이미지 미지정 | 설정 오류 (FR-SBX-3) |
-| 리눅스 `dmctl` 확보 실패 | 헬퍼 전달 실패 (FR-SBX-14) |
+| 리눅스 `otterctl` 확보 실패 | 헬퍼 전달 실패 (FR-SBX-14) |
 
 **FR-SBX-21 (안전 필수)** 샌드박스 기동에 실패했을 때 **호스트 셸로 대체 기동하지 않는다.** 사용자가 격리된 줄 알고 신뢰하지 않는 코드를 호스트에서 실행하게 되는 것이 이 기능이 막으려던 바로 그 사고다. 조용한 강등은 기능 부재보다 나쁘다.
 
@@ -486,7 +486,7 @@ type wsWindow struct {
 
 **NFR-SBX-2** 샌드박스가 아닌 Window 의 동작은 바뀌지 않는다. 샌드박스 컨텍스트가 빈 경로는 종전 코드와 같아야 한다.
 
-**NFR-SBX-3** 컨테이너 런타임이 없는 호스트에서 `dongminal` 의 나머지 기능은 영향받지 않는다. 런타임 탐지는 샌드박스 창 기동 시점에만 한다.
+**NFR-SBX-3** 컨테이너 런타임이 없는 호스트에서 `otterminal` 의 나머지 기능은 영향받지 않는다. 런타임 탐지는 샌드박스 창 기동 시점에만 한다.
 
 **NFR-SBX-4** 도구 하나가 기동하는 데 드는 추가 지연은 컨테이너가 이미 떠 있는 경우 `docker exec` 1회다. 컨테이너 생성은 Window 당 1회로 한정한다(FR-SBX-6·7).
 
@@ -494,10 +494,10 @@ type wsWindow struct {
 
 **이 절은 요구사항인 동시에 이 기능의 한계 선언이다.**
 
-HTTP API 에는 인증이 없고 `dmctl` 은 워크스페이스 전체를 조작할 수 있다(§2.4). 따라서 `dmctl` 이 있는 컨테이너 안의 코드는 아래가 가능하다.
+HTTP API 에는 인증이 없고 `otterctl` 은 워크스페이스 전체를 조작할 수 있다(§2.4). 따라서 `otterctl` 이 있는 컨테이너 안의 코드는 아래가 가능하다.
 
 ```
-dmctl 로 비샌드박스 창을 찾는다 → 그 창의 셸에 입력을 주입한다 → 호스트에서 임의 실행
+otterctl 로 비샌드박스 창을 찾는다 → 그 창의 셸에 입력을 주입한다 → 호스트에서 임의 실행
 ```
 
 즉 **헬퍼 노출과 격리 경계는 양립하지 않는다.**
@@ -539,10 +539,10 @@ dmctl 로 비샌드박스 창을 찾는다 → 그 창의 셸에 입력을 주�
 |----|------|------|
 | V-7 | FR-SBX-7 공유 | 한 탭에서 파일 생성 → 같은 Window 의 다른 탭에서 보이는지 |
 | V-8 | PTY 리사이즈 | 창 크기 변경이 `docker exec -it` 를 지나 컨테이너 안 TUI 에 전달되는지 |
-| V-9 | FR-SBX-16 헬퍼 | 컨테이너 안 `dmctl who-am-i` 가 자기 도구 UUID 를 돌려주는지 |
+| V-9 | FR-SBX-16 헬퍼 | 컨테이너 안 `otterctl who-am-i` 가 자기 도구 UUID 를 돌려주는지 |
 | V-10 | FR-SBX-8 생명주기 | 브라우저 닫음 → 컨테이너 생존 / `closeWindow` → 제거 / 서버 재기동 → 고아 회수 |
 | V-11 | NFR-SBX-1 이식성 | macOS · Linux · Windows 각각에서 V-7~V-10 재현 |
-| V-12 | FR-SBX-17 격리 | `scratch` 안에서 네트워크·`dmctl` 이 모두 없음을 확인 |
+| V-12 | FR-SBX-17 격리 | `scratch` 안에서 네트워크·`otterctl` 이 모두 없음을 확인 |
 | V-13 | FR-SBX-26 재사용 | 데몬 재시작 후 같은 Window 에 탭을 열면 이전 컨테이너에 붙는지 (설치해 둔 파일이 보이는지) |
 | V-14 | FR-SBX-26 재시작 | 컨테이너를 정지시킨 뒤 탭을 열면 시작 후 붙는지 |
 | V-15 | FR-SBX-28 좀비 | 컨테이너를 밖에서 제거하면 붙어 있던 도구들이 종료로 처리되는지 |

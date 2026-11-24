@@ -4,11 +4,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_daemon_ipc::PanedServer;
-use dm_gocompat::oserr::go_error_string;
-use dm_shared_dmlog::{errorf, infof};
-use dm_shared_handover::{self as handover, ReloadRequest};
-use dm_shared_toolhub::ToolManager;
+use otter_daemon_ipc::PanedServer;
+use otter_gocompat::oserr::go_error_string;
+use otter_shared_handover::{self as handover, ReloadRequest};
+use otter_shared_otterlog::{errorf, infof};
+use otter_shared_toolhub::ToolManager;
 use tokio::runtime::Handle;
 
 use crate::state::{State, write_state};
@@ -79,7 +79,7 @@ impl Reloader {
     }
 
     /// 보고 소켓([`PanedServer::set_reloader`])에 거는 모양이다.
-    pub fn into_ipc(self: Arc<Self>) -> dm_daemon_ipc::Reloader {
+    pub fn into_ipc(self: Arc<Self>) -> otter_daemon_ipc::Reloader {
         Arc::new(move |req| self.reload(&req))
     }
 
@@ -151,7 +151,7 @@ impl Prepared {
         ];
         infof!(
             None,
-            "dongminald 교체 exec {} (도구 {}개)",
+            "otterminald 교체 exec {} (도구 {}개)",
             self.exe,
             self.fds.len() - 3
         );
@@ -163,7 +163,7 @@ impl Prepared {
     }
 
     fn rollback(self, cause: &str) {
-        errorf!(None, "dongminald 교체 실패 — 되돌린다: {cause}");
+        errorf!(None, "otterminald 교체 실패 — 되돌린다: {cause}");
         for &fd in &self.fds {
             let _ = set_cloexec(fd, true);
         }
@@ -177,7 +177,7 @@ impl Prepared {
 
 fn set_cloexec(fd: u64, on: bool) -> io::Result<()> {
     let fd = usize::try_from(fd).map_err(io::Error::other)?;
-    dm_shared_platform::set_close_on_exec(fd, on)
+    otter_shared_platform::set_close_on_exec(fd, on)
 }
 
 #[cfg(unix)]

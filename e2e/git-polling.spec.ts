@@ -31,7 +31,7 @@ import { tmpPath, realPath } from './osenv';
 const FAST_SAFETY_MS = 300;
 const fastSafetyNet = (page: Page) => setSafetyNet(page, FAST_SAFETY_MS);
 
-const FIXTURES = tmpPath('dm-git-fx-polling-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-polling-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

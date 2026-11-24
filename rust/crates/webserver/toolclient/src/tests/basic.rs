@@ -5,15 +5,15 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use dm_gocompat::json;
-use dm_shared_toolhub::{OutChunk, TermSize, ToolInfo};
-use dm_shared_toolipc::{CODE_INTERNAL, IdParams, METHOD_HELLO, METHOD_LIST, ResizeParams};
+use otter_gocompat::json;
+use otter_shared_toolhub::{OutChunk, TermSize, ToolInfo};
+use otter_shared_toolipc::{CODE_INTERNAL, IdParams, METHOD_HELLO, METHOD_LIST, ResizeParams};
 use serde_json::{Value, json};
 
 use super::{Peer, chan, dial, err_resp, fake, listen, resp, version, wait_until};
 use crate::ToolClient;
 use crate::wire::{Empty, WireMsg};
-use dm_shared_toolhub::Placement;
+use otter_shared_toolhub::Placement;
 
 #[test]
 fn request_response() {
@@ -69,7 +69,7 @@ fn write_delete_resize_params() {
     pc.delete("42").unwrap();
     pc.resize("3", 200, 60).unwrap();
     let seen = seen.lock().unwrap();
-    let w: dm_shared_toolipc::WriteParams = json::unmarshal(&seen[0].1).unwrap();
+    let w: otter_shared_toolipc::WriteParams = json::unmarshal(&seen[0].1).unwrap();
     assert_eq!(w.data, b"hello world");
     let d: IdParams = json::unmarshal(&seen[1].1).unwrap();
     assert_eq!(d.id, "42");

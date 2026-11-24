@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::sync::LazyLock;
 
-use dm_gocompat::json::{self, RawMessage, is_empty};
+use otter_gocompat::json::{self, RawMessage, is_empty};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 

@@ -10,7 +10,7 @@ allowed-tools: Bash
 
 **인자**: `$ARGUMENTS` — 비어 있으면 기본값이다. 되묻지 마라.
 
-이슈 트리를 따라 여러 에이전트를 세우는 일은 `/dongminal:issue-tree` 다. 이 명령은
+이슈 트리를 따라 여러 에이전트를 세우는 일은 `/otterminal:issue-tree` 다. 이 명령은
 **한 세션을 다음 한 세션으로** 넘기는 일만 한다. 넘기는 것은 **같은 일**이다 — 맥락이
 모자라 같은 일을 새 세션이 이어 갈 때 쓴다. **다른 이슈로 넘어가는 수단이 아니다.**
 
@@ -26,7 +26,7 @@ allowed-tools: Bash
 3. **새 탭은 `--at <자기 탭 uuid>` 로 연다.** `--at` 을 빼면 **포커스 칸**에 선다 — 부르는 쪽의 칸이 아니다. 넘기는 세션의 탭이 포커스가 아니면 엉뚱한 자리에 탭이 생긴다.
 4. **각 걸음은 스스로를 증명한다.** 명령을 보냈다는 것과 그것이 먹혔다는 것은 다르다. 단계마다 **기대 출력**을 눈으로 확인하고, 확인되기 전에는 다음으로 가지 않는다.
 5. **닫기에는 전제가 있다.** 새 세션이 **일하고 있음을 확인한 뒤에만** 자기 탭을 닫는다. 확인하지 못하면 **닫지 말고 사용자에게 말한다** — 인계는 되돌릴 수 없다. 닫힌 뒤에는 고칠 사람이 없다.
-   **확인이 섰으면 되묻지 않는다.** 판정의 근거는 화면이 아니라 훅 상태(`dmctl wait --for ready` · `dmctl status`)이고, 그것이 `working` 을 냈으면 물을 것이 남아 있지 않다. 갈리는 것은 *확인됐는가* 하나다.
+   **확인이 섰으면 되묻지 않는다.** 판정의 근거는 화면이 아니라 훅 상태(`otterctl wait --for ready` · `otterctl status`)이고, 그것이 `working` 을 냈으면 물을 것이 남아 있지 않다. 갈리는 것은 *확인됐는가* 하나다.
 
 ---
 
@@ -43,12 +43,12 @@ allowed-tools: Bash
 
 ## 식별자 — 어느 자리에 무엇을 넣는가
 
-**이것을 틀리면 엉뚱한 탭이 닫힌다.** `dmctl who-am-i` 는 값을 **셋** 낸다.
+**이것을 틀리면 엉뚱한 탭이 닫힌다.** `otterctl who-am-i` 는 값을 **셋** 낸다.
 
 | 값 | 어디서 | 어디에 쓰나 |
 |---|---|---|
 | `uuid` | `who-am-i` 의 `uuid=` · `new-tab` 응답의 `newTabs[0].uuid` | **탭 uuid.** `--at` 이 받는 값이다 — `new-tab` · `rename-tab` · `send-input` · `wait` · `status` · `close-tab` |
-| `toolId` | `who-am-i` 의 `toolId=` · `newTabs[0].toolId` | **도구 id.** `dmctl msg --to` 가 받는 값이고, 엔벨로프 헤더의 `from=`·`to=` 에 실리는 값이다 |
+| `toolId` | `who-am-i` 의 `toolId=` · `newTabs[0].toolId` | **도구 id.** `otterctl msg --to` 가 받는 값이고, 엔벨로프 헤더의 `from=`·`to=` 에 실리는 값이다 |
 | `paneUuid` | `who-am-i --json` 의 `paneUuid` | **쓰지 않는다.** `--at` 은 칸 uuid 를 받지 않는다 — 넣으면 "대상 없음" 이다 |
 
 `--to` 는 탭 uuid 도 받아 준다(서버가 둘 다 해석한다). 그래도 **`toolId` 를 쓴다** — 답장할 때 상대가 헤더에서 읽을 값과 같아야 한다.
@@ -73,7 +73,7 @@ allowed-tools: Bash
 ### 1. 자기 좌표를 먼저 적는다
 
 ```
-dmctl who-am-i
+otterctl who-am-i
 ```
 
 기대 출력 — `uuid=` 와 `toolId=` 가 있다. 끝에 **`member=`** 가 있으면 이 세션은 Run
@@ -97,7 +97,7 @@ dmctl who-am-i
 ### 3. 새 탭 — 자기 칸에, 이름과 함께
 
 ```
-dmctl new-tab -n --at <자기 탭 uuid> --name "<이어갈 일의 이름>"
+otterctl new-tab -n --at <자기 탭 uuid> --name "<이어갈 일의 이름>"
 ```
 
 `-n` 은 포커스를 그대로 둔다 — 사용자가 보고 있는 자리를 빼앗지 않는다.
@@ -114,22 +114,22 @@ dmctl new-tab -n --at <자기 탭 uuid> --name "<이어갈 일의 이름>"
 실패 갈래:
 
 - `delivered:0` → 구독 중인 브라우저가 없다. 사용자에게 페이지를 새로고침해 달라고 말하고 **멈춘다**
-- `timedOut:true` → 만들어지지 않았을 수 있다. `dmctl list-workspace` 로 확인하고, 없으면 다시 한 번
+- `timedOut:true` → 만들어지지 않았을 수 있다. `otterctl list-workspace` 로 확인하고, 없으면 다시 한 번
 - `대상 없음` → `--at` 에 칸 uuid 를 넣었다. **탭 uuid** 여야 한다
 
 ### 4. 탭 이름
 
 3의 `--name` 이 탭 이름이다. 이름은 **이어갈 일**을 말한다 (`M9-P4`, `리팩터-2단계`). 사용자가 화면에서 어느 탭이 무엇인지 알아야 한다.
 
-이름을 나중에 바꿔야 하면 `dmctl rename-tab --at <새 탭 uuid> "<이름>"` 을 쓴다. 이 명령은 이름이 남았는지 확인하고 exit 1 이면 이름이 붙지 않은 것이다. 한 번 더 부르고, 그래도 exit 1 이면 사용자에게 보고하고 다음 단계로 간다.
+이름을 나중에 바꿔야 하면 `otterctl rename-tab --at <새 탭 uuid> "<이름>"` 을 쓴다. 이 명령은 이름이 남았는지 확인하고 exit 1 이면 이름이 붙지 않은 것이다. 한 번 더 부르고, 그래도 exit 1 이면 사용자에게 보고하고 다음 단계로 간다.
 
 ### 5. 에이전트를 띄운다
 
 ```
-dmctl send-input --at <새 탭 uuid> --execute "cd '<작업 디렉터리>' && <에이전트 명령>"
+otterctl send-input --at <새 탭 uuid> --execute "cd '<작업 디렉터리>' && <에이전트 명령>"
 ```
 
-- `<에이전트 명령>` 은 기본이 `claude` 다. dongminal 셸이 훅·플러그인을 얹어 래핑하므로 **인자를 직접 붙이지 않는다**
+- `<에이전트 명령>` 은 기본이 `claude` 다. otterminal 셸이 훅·플러그인을 얹어 래핑하므로 **인자를 직접 붙이지 않는다**
 - 다른 에이전트면 그 이름이다 (`codex` · `omp`)
 - `<작업 디렉터리>` 는 지금 세션의 작업 디렉터리다. 따옴표를 빼지 마라 — 공백이 든 경로가 끊긴다
 
@@ -144,7 +144,7 @@ dmctl send-input --at <새 탭 uuid> --execute "cd '<작업 디렉터리>' && <�
 **첫째 관문** — 서버가 아는 상태:
 
 ```
-dmctl wait --at <새 탭 uuid> --for ready --timeout-ms 180000
+otterctl wait --at <새 탭 uuid> --for ready --timeout-ms 180000
 ```
 
 기대 출력은 `status=ready` 다.
@@ -154,7 +154,7 @@ dmctl wait --at <새 탭 uuid> --for ready --timeout-ms 180000
 **둘째 관문** — 실제로 받을 준비가 됐는가.
 
 ```
-dmctl read-screen --at <새 탭 uuid>
+otterctl read-screen --at <새 탭 uuid>
 ```
 
 에이전트의 **입력 프롬프트가 보여야** 한다. 아직이면 몇 초 두고 다시 읽는다. 셋째 읽기에도 프롬프트가 없으면 아래 갈래로 간다.
@@ -163,7 +163,7 @@ dmctl read-screen --at <새 탭 uuid>
 
 `read-screen` 이 **무엇을 묻는지** 보고 처리한다. 흔한 갈래 넷:
 
-- 신뢰·권한 확인을 묻는다 → `dmctl send-input --at <새 탭 uuid> --execute "<답>"` 뒤 6을 다시
+- 신뢰·권한 확인을 묻는다 → `otterctl send-input --at <새 탭 uuid> --execute "<답>"` 뒤 6을 다시
 - 셸이 아직 프롬프트를 내지 않았다 → 몇 초 두고 다시 읽는다
 - `command not found` → 에이전트 명령이 틀렸다. 사용자에게 확인한다
 - 화면이 비어 있다 → 5의 `send-input` 이 닿지 않았다. 5를 다시 한다
@@ -173,7 +173,7 @@ dmctl read-screen --at <새 탭 uuid>
 ### 7. 엔벨로프
 
 ```
-dmctl msg --to <새 탭 toolId> -
+otterctl msg --to <새 탭 toolId> -
 ```
 
 본문은 짧다. 문서를 가리키고, 어디서부터인지 말하고, 근거 해시를 준다.
@@ -195,7 +195,7 @@ dmctl msg --to <새 탭 toolId> -
 ### 8. 닿았는지 확인한다 — 안 닿았으면 다시 보낸다
 
 ```
-dmctl status --at <새 탭 uuid>
+otterctl status --at <새 탭 uuid>
 ```
 
 기대 출력은 `state=working` 이다.
@@ -204,11 +204,11 @@ dmctl status --at <새 탭 uuid>
 toolId=…  live=true  state=working  tool=Read  detail=…  quietMs=…
 ```
 
-**`state=idle` 이 계속되면** `dmctl read-screen --at <새 탭 uuid>` 로 본다:
+**`state=idle` 이 계속되면** `otterctl read-screen --at <새 탭 uuid>` 로 본다:
 
 - 엔벨로프가 **입력줄에 문자열로 남아 있다** → 에이전트가 아직 안 떴던 것이다. 6부터 다시 한다
 - 엔벨로프가 **아예 없다** → 7을 다시 한다
-- 엔벨로프는 들어갔는데 제출되지 않았다 → `dmctl send-input --at <새 탭 uuid> --execute ""` 로 한 번 깨운다
+- 엔벨로프는 들어갔는데 제출되지 않았다 → `otterctl send-input --at <새 탭 uuid> --execute ""` 로 한 번 깨운다
 
 **세 번 시도해도 `working` 이 아니면 멈춘다.** 자기 탭을 닫지 말고 사용자에게 무엇이 막혔는지 말한다.
 
@@ -217,7 +217,7 @@ toolId=…  live=true  state=working  tool=Read  detail=…  quietMs=…
 이 세션이 열린 Run 의 조율이면(예: 이슈 트리의 조율 에이전트) 그 자리를 새 세션에 넘긴다. 조율하는 Run 이 없으면 `(조율하는 열린 Run 없음)` 이 나오고 아무 일도 일어나지 않는다. 그래서 늘 부른다.
 
 ```
-dmctl run coordinate --to <새 탭 toolId>
+otterctl run coordinate --to <새 탭 toolId>
 ```
 
 옮긴 Run 이 이슈 트리면 서버가 루트 노드에 새 주소를 알린다. 새 세션은 0에서 적은 문서로 자기가 조율임을 안다.
@@ -229,8 +229,8 @@ dmctl run coordinate --to <새 탭 toolId>
 **확인이 섰으면 사용자에게 되묻지 않는다.** 판정의 근거는 화면이 아니라 훅 상태이고, 8이 `working` 을 냈으면 물을 것이 남아 있지 않다 — 되묻는 것은 같은 답을 두 번 구하는 일이다. **확인하지 못했을 때만** 멈추고 말한다(8의 마지막 줄).
 
 ```
-dmctl who-am-i                        # uuid= 를 다시 읽어 1에서 적은 값과 같은지 본다
-dmctl close-tab --at <자기 탭 uuid> --force
+otterctl who-am-i                        # uuid= 를 다시 읽어 1에서 적은 값과 같은지 본다
+otterctl close-tab --at <자기 탭 uuid> --force
 ```
 
 - **`--at` 에 넣는 것은 `who-am-i` 의 `uuid` 다.** `toolId` 도, 방금 만든 새 탭의 uuid 도 아니다
@@ -245,14 +245,14 @@ dmctl close-tab --at <자기 탭 uuid> --force
 ## 멤버 갈래 — Run 멤버(이슈 트리 노드 포함)일 때
 
 일반 절차의 0~2(넘길 것 · 자기 좌표 · 문서 한 장)는 같다. 1에서 `uuid=` · `toolId=` · `member=` 를
-적고, `dmctl who-am-i --json` 의 `tab`(지금 탭 이름)도 적는다. 그 뒤가 다르다.
+적고, `otterctl who-am-i --json` 의 `tab`(지금 탭 이름)도 적는다. 그 뒤가 다르다.
 **새 세션은 승계로 같은 member 자리를 이어받는다** — 역할 · 배정 · worktree 가 그대로 가고,
 이슈 트리 노드이면 서버가 부모와 하위에게 새 toolId 를 알린다.
 
 ### M3. 새 탭 — 자기 바로 뒤에
 
 ```
-dmctl new-tab -n --at <자기 탭 uuid> --after <자기 탭 uuid> --name "<지금 탭 이름>"
+otterctl new-tab -n --at <자기 탭 uuid> --after <자기 탭 uuid> --name "<지금 탭 이름>"
 ```
 
 탭 이름은 지금과 **같게** 한다(이슈 트리의 사슬 이름이 이어진다). 이름은 `--name` 으로 만들 때 준다 — 따로 `rename-tab` 을 부르지 않는다(일반 절차 3).
@@ -260,7 +260,7 @@ dmctl new-tab -n --at <자기 탭 uuid> --after <자기 탭 uuid> --name "<지�
 ### M4. 자기 승계
 
 ```
-dmctl run succeed --self --at <새 탭 uuid> --summary - <<'SUM'
+otterctl run succeed --self --at <새 탭 uuid> --summary - <<'SUM'
 <무엇을 했는가 / 지금 어디까지 왔는가 / 다음에 무엇을 / 함정>
 인계 문서: <2의 문서 경로>
 SUM
@@ -272,8 +272,8 @@ SUM
 ### M5. 새 세션을 띄운다
 
 ```
-dmctl send-input --at <새 탭 uuid> --execute "cd '<작업 디렉터리>'"
-dmctl run launch --member <새 member> | dmctl send-input --at <새 탭 uuid> --execute -
+otterctl send-input --at <새 탭 uuid> --execute "cd '<작업 디렉터리>'"
+otterctl run launch --member <새 member> | otterctl send-input --at <새 탭 uuid> --execute -
 ```
 
 기동줄은 손으로 짜지 않는다 — `run launch` 가 프리앰블(배정 · 인수인계 포함)을 싣는다.
@@ -281,9 +281,9 @@ dmctl run launch --member <새 member> | dmctl send-input --at <새 탭 uuid> --
 ### M6. 준비와 일함을 확인한다
 
 ```
-dmctl wait --at <새 탭 uuid> --for ready --timeout-ms 180000
-dmctl read-screen --at <새 탭 uuid>
-dmctl status --at <새 탭 uuid>
+otterctl wait --at <새 탭 uuid> --for ready --timeout-ms 180000
+otterctl read-screen --at <새 탭 uuid>
+otterctl status --at <새 탭 uuid>
 ```
 
 `state=working` 이어야 한다. 신뢰 · 권한 확인을 묻고 있으면 답한다. 세 번 확인해도 아니면
@@ -294,7 +294,7 @@ dmctl status --at <새 탭 uuid>
 M6 이 `working` 을 준 뒤에만 한다. 먼저 일반 절차의 8a 처럼 조율 자리를 넘긴다 — 이슈 트리의 중간 노드는 자기가 연 가지 Run 의 조율이다.
 
 ```
-dmctl run coordinate --to <새 탭 toolId>
+otterctl run coordinate --to <새 탭 toolId>
 ```
 
 그다음은 일반 절차의 9와 같다(`who-am-i` 로 `uuid` 를 다시 확인하고

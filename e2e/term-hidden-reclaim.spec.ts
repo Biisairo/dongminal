@@ -17,7 +17,7 @@ import { test, expect, waitForInit, waitSettled, JSON_HDR } from './fixtures';
  * 잰다 — 일어나지 않는 일에는 기다릴 신호가 없다.
  */
 
-const FILL = 'yes dm-hrc-fill-0123456789-abcdefghij | head -n 20000';
+const FILL = 'yes otter-hrc-fill-0123456789-abcdefghij | head -n 20000';
 const TABS = 4;
 
 async function newClient(browser: any, width: number): Promise<Page> {
@@ -62,7 +62,7 @@ test('TC-OTR-10: 다른 기기가 쥔 창의 탭을 오가도 탭마다 전량 �
   for (const id of all) {
     await expect.poll(async () => {
       const o = await request.get('/api/tools/output?id=' + id + '&strip=1');
-      return o.ok() ? ((await o.json()).text || '').split('dm-hrc-fill').length : 0;
+      return o.ok() ? ((await o.json()).text || '').split('otter-hrc-fill').length : 0;
     }, { timeout: 30000 }).toBeGreaterThan(19000);
   }
 

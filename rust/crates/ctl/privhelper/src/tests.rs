@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use dm_shared_humancmd::{
+use otter_shared_humancmd::{
     self as humancmd, CODE_BAD_CODE, CODE_BAD_REQUEST, CODE_LOCKED, CODE_NO_HELPER,
     CODE_UNAVAILABLE, Kick, OP_KILL, Request,
 };
@@ -197,7 +197,7 @@ fn start_with(sec: Secret, peer: i64) -> Running {
     let key = srv.public_key();
     let dir = short_dir();
     let path = dir.path().join("h.sock");
-    let ln = dm_shared_platform::current().ipc.listen(&path).unwrap();
+    let ln = otter_shared_platform::current().ipc.listen(&path).unwrap();
     std::thread::spawn(move || srv.serve(&ln));
     Running {
         _dir: dir,
@@ -246,7 +246,7 @@ fn server_sign() {
         serde_json::from_slice(&signed.b.0).unwrap();
     m.insert("rooms".into(), serde_json::json!(["r1", "r2", "zz"]));
     let mut tampered = signed.clone();
-    tampered.b.0 = dm_gocompat::json::marshal(&m).unwrap();
+    tampered.b.0 = otter_gocompat::json::marshal(&m).unwrap();
     assert!(humancmd::open(&tampered).is_err());
 }
 
@@ -270,7 +270,7 @@ fn server_rejects_bad_requests_without_spending_code() {
 #[test]
 fn server_answers_garbage_with_bad_request() {
     let r = start_server(my_uid());
-    let conn = dm_shared_platform::current()
+    let conn = otter_shared_platform::current()
         .ipc
         .dial(&r.client.path, Duration::from_secs(2))
         .unwrap();
@@ -325,7 +325,7 @@ fn server_concurrent_recovery() {
 #[test]
 fn server_caps_concurrent_connections() {
     let r = start_server(my_uid());
-    let ipc = dm_shared_platform::current().ipc;
+    let ipc = otter_shared_platform::current().ipc;
     let idle: Vec<_> = (0..MAX_CONNS)
         .map(|_| ipc.dial(&r.client.path, Duration::from_secs(2)).unwrap())
         .collect();
@@ -391,7 +391,7 @@ fn secret_file_bytes() {
         used: vec![],
     };
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal_indent(&s, "", "  ").unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal_indent(&s, "", "  ").unwrap()).unwrap(),
         "{\n  \"uid\": 501,\n  \"totp\": \"T\",\n  \"key\": \"K\",\n  \"recovery\": [\n    \"h1\"\n  ]\n}"
     );
     let s = Secret {
@@ -400,7 +400,7 @@ fn secret_file_bytes() {
         ..s
     };
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal(&s).unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal(&s).unwrap()).unwrap(),
         r#"{"uid":501,"totp":"T","key":"K","recovery":null,"used":["u"]}"#
     );
 }
@@ -478,7 +478,7 @@ fn install_shows_secret_before_launch() {
     let sec = load_secret(&e.secret).unwrap();
     let out = String::from_utf8(out).unwrap();
     assert!(out.contains(&group_by4(&sec.totp)), "{out}");
-    assert!(out.contains("  계정 이름  dongminal (u)\n"));
+    assert!(out.contains("  계정 이름  otterminal (u)\n"));
     assert_eq!(fs::read(&e.bin).unwrap(), b"new-binary");
     assert!(
         fs::read_to_string(&e.plist)
@@ -526,13 +526,13 @@ fn install_other_user_keeps_binary() {
 fn plist_and_format() {
     let p = plist(BIN_PATH);
     for want in [
-        "<string>com.dongminal.helper</string>",
-        "<string>/Library/PrivilegedHelperTools/com.dongminal.helper</string>",
+        "<string>com.otterminal.helper</string>",
+        "<string>/Library/PrivilegedHelperTools/com.otterminal.helper</string>",
         "<string>otp</string>",
         "<string>run</string>",
         "<key>KeepAlive</key>",
         "<key>RunAtLoad</key>",
-        "<string>/var/log/com.dongminal.helper.log</string>",
+        "<string>/var/log/com.otterminal.helper.log</string>",
     ] {
         assert!(p.contains(want), "{want}");
     }
@@ -541,7 +541,7 @@ fn plist_and_format() {
     );
     assert_eq!(group_by4("ABCDEFGHIJ"), "ABCD EFGH IJ");
     for want in [
-        "dongminal otp",
+        "otterminal otp",
         "6자리",
         "강제 삭제",
         "강퇴",
@@ -592,7 +592,11 @@ fn main_requires_root() {
     for cmd in ["install", "uninstall", "run"] {
         assert_eq!(
             run_main(&[cmd]),
-            (1, String::new(), "dongminal otp: sudo 로 실행한다\n".into())
+            (
+                1,
+                String::new(),
+                "otterminal otp: sudo 로 실행한다\n".into()
+            )
         );
     }
 }

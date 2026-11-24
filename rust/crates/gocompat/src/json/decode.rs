@@ -20,7 +20,7 @@ const DEFAULT_SLICE_TYPE: &str = "[]interface {}";
 const DEFAULT_MAP_TYPE: &str = "map[string]interface {}";
 
 /// [`GoTypeName::TOKEN`] 의 앞부분. 뒤에 Go 타입 이름이 붙는다.
-pub const GO_TYPE_TOKEN: &str = "$dm_gocompat::json::go_type::";
+pub const GO_TYPE_TOKEN: &str = "$otter_gocompat::json::go_type::";
 
 /// 타입 오류 문구에 쓸 Go 타입 이름을 지닌 표식. [`go_type!`](crate::go_type) 으로 만든다.
 pub trait GoTypeName {
@@ -29,7 +29,7 @@ pub trait GoTypeName {
 }
 
 /// 필드의 Go 타입 이름을 정한다:
-/// `#[serde(deserialize_with = "dm_gocompat::json::with_go_type::<표식, _, _>")]`.
+/// `#[serde(deserialize_with = "otter_gocompat::json::with_go_type::<표식, _, _>")]`.
 /// 이 crate 밖의 serde 디코더에서는 아무 일도 하지 않는다.
 pub fn with_go_type<'de, N: GoTypeName, T: de::Deserialize<'de>, D: de::Deserializer<'de>>(
     d: D,
@@ -63,14 +63,14 @@ impl<'de, N: GoTypeName, T: de::Deserialize<'de>> de::Deserialize<'de> for GoTyp
     }
 }
 
-/// Go 타입 이름 표식을 만든다. 예: `dm_gocompat::go_type!(pub WsWindows = "[]workspace.WsWindow");`
+/// Go 타입 이름 표식을 만든다. 예: `otter_gocompat::go_type!(pub WsWindows = "[]workspace.WsWindow");`
 #[macro_export]
 macro_rules! go_type {
     ($vis:vis $name:ident = $go:literal) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         $vis struct $name;
         impl $crate::json::GoTypeName for $name {
-            const TOKEN: &'static str = concat!("$dm_gocompat::json::go_type::", $go);
+            const TOKEN: &'static str = concat!("$otter_gocompat::json::go_type::", $go);
         }
     };
 }

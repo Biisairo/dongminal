@@ -23,7 +23,7 @@ const body = (edit: Record<number, string> = {}) =>
 
 const repos: string[] = [];
 function mkRepo(edit: Record<number, string>): string {
-  const d = realPath(fs.mkdtempSync(j(TMP, 'dm-dnc-')));
+  const d = realPath(fs.mkdtempSync(j(TMP, 'otter-dnc-')));
   repos.push(d);
   git(d, 'init', '-q', '-b', 'main', '.');
   git(d, 'config', 'user.name', 'Fixture');

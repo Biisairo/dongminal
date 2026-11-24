@@ -6,7 +6,7 @@ use std::process::{Command, ExitStatus, Stdio};
 use std::sync::Mutex;
 use std::time::Duration;
 
-use dm_gocompat::oserr::go_error_string;
+use otter_gocompat::oserr::go_error_string;
 use tokio::sync::{Notify, mpsc};
 
 use crate::ctx::Ctx;
@@ -137,7 +137,7 @@ pub(crate) async fn spawn_with(
     } else {
         Stdio::null()
     });
-    let group = dm_shared_platform::current().process.new_group(&mut cmd);
+    let group = otter_shared_platform::current().process.new_group(&mut cmd);
     let mut child = match cmd.spawn() {
         Ok(c) => c,
         Err(err) => {
@@ -232,5 +232,5 @@ async fn wait_reads(reads: &mut mpsc::Receiver<()>, left: &mut usize, d: Duratio
 
 /// Go `(*ProcessState).String()`. 신호로 끝난 상태의 문구에 쓴다.
 pub fn exit_status_string(st: &ExitStatus) -> String {
-    dm_shared_platform::exit_status_text(st)
+    otter_shared_platform::exit_status_text(st)
 }

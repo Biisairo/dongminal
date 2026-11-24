@@ -1,14 +1,14 @@
 # SRS: 데몬이 죽은 뒤 Run 복구 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 실제 운영에서의 확인(사용자 몫 — 셸 판정을 쓰려면 데몬 교체 `dongminal start` 가 한 번 필요하다, NFR-RRC-3). 묶음 F·A·J·E·W 와 문서는 마쳤다
+> **남은 것**: 실제 운영에서의 확인(사용자 몫 — 셸 판정을 쓰려면 데몬 교체 `otterminal start` 가 한 번 필요하다, NFR-RRC-3). 묶음 F·A·J·E·W 와 문서는 마쳤다
 > **입력**: 2026-11-18 사용자 요청("run 복구 명령을 만들자", "run 에도 수정할게 좀 있어")과 인터뷰. 결정은 §5 에 있다.
 
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)
 
-데몬(`dongminald`)이 실제로 죽었다가 다시 뜨면, 탭의 도구는 같은 uuid 의 빈 셸로 돌아온다. 그 셸에서 돌던 Run 의 조정자와 멤버 에이전트는 사라진다. 이 문서는 그 에이전트를 **기록된 세션 id 로 재개**하는 명령과 화면 버튼을 정한다.
+데몬(`otterminald`)이 실제로 죽었다가 다시 뜨면, 탭의 도구는 같은 uuid 의 빈 셸로 돌아온다. 그 셸에서 돌던 Run 의 조정자와 멤버 에이전트는 사라진다. 이 문서는 그 에이전트를 **기록된 세션 id 로 재개**하는 명령과 화면 버튼을 정한다.
 
 함께 Run 화면의 결함 두 가지를 고친다. 조정자가 트리 Run 에서 보이지 않는 것과, 승계로 물러난 멤버가 목록에 `lost` 로 남는 것이다.
 
@@ -18,7 +18,7 @@
 |---|---|---|
 | **묶음 A** | 재개 선언 (Adapter) — 에이전트별 재개 인자 | `FR-RRC-1..4` |
 | **묶음 J** | 판정 (Judge) — 재개 대상 고르기, 세션 생존과 셸 점유 판정 | `FR-RRC-10..17` |
-| **묶음 E** | 실행 (Execute) — API·`dmctl run recover`·조정자 에이전트 기록 | `FR-RRC-20..28` |
+| **묶음 E** | 실행 (Execute) — API·`otterctl run recover`·조정자 에이전트 기록 | `FR-RRC-20..28` |
 | **묶음 W** | 화면 (Web) — Run 단위 버튼, 노드별 버튼 | `FR-RRC-30..35` |
 | **묶음 F** | 결함 수정 (Fix) — 조정자 표시, 승계 멤버 상태 | `FR-RRC-40..46` |
 
@@ -30,7 +30,7 @@
 |---|---|
 | **복구** | 빈 셸이 된 도구에 에이전트 재개 명령줄을 넣고 실행하는 일 |
 | **대상** | 복구할 수 있는 자리. Run 의 조정자 하나와 멤버 각각이다 |
-| **재개줄** | 셸에 넣는 한 줄. 예: `claude --resume <id> --allowedTools 'Bash(dmctl:*)'` |
+| **재개줄** | 셸에 넣는 한 줄. 예: `claude --resume <id> --allowedTools 'Bash(otterctl:*)'` |
 | **세션 등록부** | 실행 중인 에이전트가 남기는 `pid → 세션 id` 기록. claude 는 `<설정 폴더>/sessions/<pid>.json` 이다(§2.4) |
 | **셸 판정** | 도구 셸을 보고 내는 값. `here`(세션이 이 셸의 자손으로 돈다)·`elsewhere`(세션이 다른 곳에서 돈다)·`busy`(세션은 꺼졌고 셸에 다른 자식이 있다)·`idle`(셸이 비었다)·`unknown`(읽지 못함) 다섯이다 |
 | **끝난 멤버** | 저장 상태가 `done`·`failed`·`released`·`succeeded` 인 멤버 |
@@ -110,7 +110,7 @@
 
 1. `Launch`
 2. 재개 인자
-3. 대상이 멤버면 `MemberArgs`(자리 `{{dmHooks}}` 채우기 포함). 조정자면 넣지 않는다.
+3. 대상이 멤버면 `MemberArgs`(자리 `{{otterHooks}}` 채우기 포함). 조정자면 넣지 않는다.
 
 모델 인자와 프롬프트는 넣지 않는다. 재개한 세션이 이미 그것을 갖고 있다.
 
@@ -182,7 +182,7 @@
 
 **FR-RRC-23** 복구가 끝나면 `run_changed` 를 방송한다(`broadcastRunChanged`). 재개한 대상이 하나도 없으면 방송하지 않는다.
 
-**FR-RRC-24** `dmctl run recover --run <uuid> [--member <uuid> | --coordinator] [--force] [--json]` 을 더한다.
+**FR-RRC-24** `otterctl run recover --run <uuid> [--member <uuid> | --coordinator] [--force] [--json]` 을 더한다.
 
 - 대상마다 한 줄을 낸다. 예: `member 01a1c99e  resumed` / `coordinator  skipped  busy`
 - `--force` 는 `--member`·`--coordinator` 와 함께일 때만 받는다. 아니면 종료 코드 2 다.
@@ -238,16 +238,16 @@
 
 ### 4.1 비기능
 
-- **NFR-RRC-1** 시험은 임시 홈(`os.MkdirTemp`)과 빈 포트에서만 돈다. 시험 시작 때 그 홈이 `~/.dongminal` 아래가 아닌지 확인한다. 사용 중인 서버·데몬을 재시작·종료하지 않는다.
+- **NFR-RRC-1** 시험은 임시 홈(`os.MkdirTemp`)과 빈 포트에서만 돈다. 시험 시작 때 그 홈이 `~/.otterminal` 아래가 아닌지 확인한다. 사용 중인 서버·데몬을 재시작·종료하지 않는다.
 - **NFR-RRC-2** 이음매 게이트를 지킨다. 프로세스 목록 읽기와 부모 거슬러 오르기의 OS 차이는 `internal/shared/platform` 뒤에 둔다.
-- **NFR-RRC-3** FR-RRC-10 은 데몬 코드를 바꾼다. 적용하려면 데몬 교체(`dongminal start`, 세션 유지)가 한 번 필요하다. 옛 데몬은 셸 판정 요청을 모르므로, 서버는 그때 판정을 `unknown` 으로 본다.
-- **NFR-RRC-4** 새 API 경로는 `docs/external/api.md` 에, 새 dmctl 명령은 사용법(`dmctl run --help`)과 사용자 문서에 적는다.
+- **NFR-RRC-3** FR-RRC-10 은 데몬 코드를 바꾼다. 적용하려면 데몬 교체(`otterminal start`, 세션 유지)가 한 번 필요하다. 옛 데몬은 셸 판정 요청을 모르므로, 서버는 그때 판정을 `unknown` 으로 본다.
+- **NFR-RRC-4** 새 API 경로는 `docs/external/api.md` 에, 새 otterctl 명령은 사용법(`otterctl run --help`)과 사용자 문서에 적는다.
 
 ### 4.2 시험
 
 | 번호 | 대상 | 방법 | 기대 |
 |---|---|---|---|
-| TC-RRC-1 | FR-RRC-1·2·3 | 유닛(agentadapter) — 재개줄: claude 멤버·claude 조정자·omp 멤버(`{{dmHooks}}` 채움)·codex | 인자 순서와 인용이 맞다. codex 는 미확인 오류다. 조정자 줄에 `MemberArgs` 가 없다 |
+| TC-RRC-1 | FR-RRC-1·2·3 | 유닛(agentadapter) — 재개줄: claude 멤버·claude 조정자·omp 멤버(`{{otterHooks}}` 채움)·codex | 인자 순서와 인용이 맞다. codex 는 미확인 오류다. 조정자 줄에 `MemberArgs` 가 없다 |
 | TC-RRC-2 | FR-RRC-4 | 유닛 — 세션 id: 정상·빈 값·`;`·`$( )`·공백·129자·`-` 로 시작 | 정상만 통과한다 |
 | TC-RRC-3 | FR-RRC-10 | 유닛(platform·toolhub) — 프로세스 목록 읽기(OS 별 파싱)와 셸 판정: 목록 읽기 실패 / 세션 pid 가 손자 / 세션 pid 가 셸 자신 / 세션 pid 가 다른 가지 / 후보 pid 가 목록에 없음 + 셸 자식 있음 / 자식 없음 / 부모 고리 | `unknown`·`here`·`here`·`elsewhere`·`busy`·`idle`·끝남 |
 | TC-RRC-15 | FR-RRC-5 | 유닛(agentadapter) — claude 등록부: 폴더 둘에서 같은 세션 pid 모으기, 폴더 없음, 깨진 파일, 읽기 실패 | pid 목록·빈 목록·건너뜀·모름 |
@@ -269,7 +269,7 @@
 
 **D-RRC-1 Run 복구만 한다. Run 밖 에이전트 탭의 상태 복원은 뒤에 한다.** Run 쪽 재개 재료(세션 id)는 이미 `runs.json` 에 있다. 재개줄 만들기(묶음 A)는 나중에 상태 복원이 그대로 쓴다. (사용자 결정, 2026-11-18)
 
-**D-RRC-2 dmctl 명령과 웹 버튼 둘 다 둔다. 자동 복구는 하지 않는다.** 데몬 기동 때 자동으로 띄우면 사용자가 모르는 사이에 에이전트가 여럿 뜨고, 일부러 끝낸 경우와 가를 수 없다. (사용자 결정)
+**D-RRC-2 otterctl 명령과 웹 버튼 둘 다 둔다. 자동 복구는 하지 않는다.** 데몬 기동 때 자동으로 띄우면 사용자가 모르는 사이에 에이전트가 여럿 뜨고, 일부러 끝낸 경우와 가를 수 없다. (사용자 결정)
 
 **D-RRC-3 Run 단위 복구는 필요한 것만 재개한다.** 조정자와 끝나지 않은 멤버 가운데 셸이 비고 세션 id 가 있는 것만 재개하고, 나머지는 사유와 함께 건너뛴다. 다시 불러도 안전하다. (사용자 결정)
 
@@ -322,7 +322,7 @@
   - 프로세스 목록에 셸 자신이 없어도 `idle` 이었다 → `unknown` 이다(FR-RRC-10).
   - Run 단위 복구도 `needsForce` 를 실어 받지 않는 `--force` 를 안내했다 → 대상 하나에만 싣는다(FR-RRC-22).
   - 조정자 도구가 없는 Run 도 조정자를 `no-tool` 로 건너뛰었다 → 대상에 넣지 않는다(FR-RRC-12).
-  - 서버가 거절해도 dmctl 이 1 로 끝났다 → 2 다(FR-RRC-24).
+  - 서버가 거절해도 otterctl 이 1 로 끝났다 → 2 다(FR-RRC-24).
   - 트리 단추와 「계속」 은 응답 전에 다시 누를 수 있었다 → 대상마다 한 번만 나간다(FR-RRC-34).
   - 넣기 실패가 사유 없이 건너뜀으로 셌다 → 실패로 따로 센다(FR-RRC-33).
   - 가지 Run 화면에서 다른 Run 의 루트까지 조정자 밑에 붙었다 → 이 Run 의 루트만 붙인다(FR-RRC-40).

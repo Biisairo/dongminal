@@ -9,11 +9,11 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use dm_shared_agentadapter::{self as agentadapter, Adapter};
-use dm_shared_dmlog::infof;
-use dm_shared_httpresp::Response;
-use dm_shared_toolhub::ShellState;
-use dm_webserver_domain_run::{self as run, Member, Record};
+use otter_shared_agentadapter::{self as agentadapter, Adapter};
+use otter_shared_httpresp::Response;
+use otter_shared_otterlog::infof;
+use otter_shared_toolhub::ShellState;
+use otter_webserver_domain_run::{self as run, Member, Record};
 use serde::{Deserialize, Serialize};
 
 use crate::Server;
@@ -247,7 +247,7 @@ impl Server {
         }
         match std::env::home_dir().filter(|h| !h.as_os_str().is_empty()) {
             Some(home) => {
-                vec![dm_webserver_domain_claudeacct::ClaudePaths::default_for(&home).config_home]
+                vec![otter_webserver_domain_claudeacct::ClaudePaths::default_for(&home).config_home]
             }
             None => Vec::new(),
         }
@@ -303,9 +303,11 @@ impl Server {
         let hooks = if self.cfg.data_dir.as_os_str().is_empty() {
             String::new()
         } else {
-            dm_shared_dmenv::agent_hooks_dir_in(&self.cfg.data_dir.join(dm_shared_dmenv::BIN_DIR))
-                .to_string_lossy()
-                .into_owned()
+            otter_shared_otterenv::agent_hooks_dir_in(
+                &self.cfg.data_dir.join(otter_shared_otterenv::BIN_DIR),
+            )
+            .to_string_lossy()
+            .into_owned()
         };
         let res = ad
             .resume_line(&hooks, &t.session_id, !t.coord)

@@ -74,7 +74,7 @@ FR-M10-6). 설치본은 서버가 뜰 때 임베드 트리를 전개하며 갱�
 다시 띄워야 `commands/migration.md` 가 실물에 서고 낡은 `skills/migration/` 이 지워진다.
 
 **직접 죽이지 마라.** 사용자가 `start --foreground` 로 띄운다 — 재시작을 요청하고,
-그 뒤 `ls ~/.dongminal/bin/agent-plugin/` 로 `commands/` 가 섰는지 확인하라.
+그 뒤 `ls ~/.otterminal/bin/agent-plugin/` 로 `commands/` 가 섰는지 확인하라.
 
 ## 3. 이름이 붙은 다음 일 — `openGit` 첫 관측 (FR-M10-8)
 
@@ -178,7 +178,7 @@ P6 전량에서 둘이 났다. 둘 다 샤드 3.
 - 새 문구는 `t('ns.key')` — ko·en 둘 다 (`check-i18n.mjs`)
 - 설정 키는 `SETTINGS_SCHEMA`·`SETTINGS_ACCESS` + `helpers.js` + `index.html` + ko·en
 - 오류 코드는 `apierr/codes_core.go`·`codes_doc.go` → `go run ./scripts/gen-errors`
-- 스펙에 D-… 를 더하면 `go run ./scripts/gen-decisions` · dmctl 을 바꾸면 `commands.md`
+- 스펙에 D-… 를 더하면 `go run ./scripts/gen-decisions` · otterctl 을 바꾸면 `commands.md`
 - e2e 의 고정 대기에는 **`TEST-16` 표식과 사유**가 필요하다
 - **e2e 는 `app.testing.<이름>` 만 쓴다** (`check-e2e-private`)
 - **`commands/` 에는 명령만 둔다** — 그 디렉터리의 `.md` 는 **전부** 슬래시 명령이
@@ -186,7 +186,7 @@ P6 전량에서 둘이 났다. 둘 다 샤드 3.
 - SRS 머리의 문서 상태는 **enum 안**이어야 한다
 - z-index 는 층 토큰에서 온다 — 숫자 리터럴 금지
 - 커밋 메시지에 AI 서명 금지
-- dmctl 주의: **`new-tab` 은 `--at` 없이 포커스 칸에 연다** — 부르는 쪽의 칸이 아니다
+- otterctl 주의: **`new-tab` 은 `--at` 없이 포커스 칸에 연다** — 부르는 쪽의 칸이 아니다
 - **운영 인스턴스는 사용자가 `start --foreground` 로 띄운다.** 재시작이 필요하면 직접
   죽이지 말고 사용자에게 요청하라
 
@@ -195,7 +195,7 @@ P6 전량에서 둘이 났다. 둘 다 샤드 3.
 - 자격증명이 없으면 무모델까지만 실측 — 사용자에게 자격증명을 묻지 않는다
 - 출력에 이모티콘을 쓰지 않는다
 - (D-M9-6) 인계는 **문서 + 엔벨로프 두 벌**
-- (D-M10-8) **인수인계는 `/dongminal:migration` 명령**이다. `team` 은 오케스트레이션 전용
+- (D-M10-8) **인수인계는 `/otterminal:migration` 명령**이다. `team` 은 오케스트레이션 전용
 - (D-M9-11 · D-M10-7) flaky 는 **사유로** 가른다. 판정은 `unexpected 0`
 - (D-M9-1 · 결정 9) **인증은 하지 않는다.** 그것이 제품의 확정된 경계다
 - (`GIT_ACTIONS` D11) `FR-GIT-283`·`284`·`285` 는 **폐기**다
@@ -207,7 +207,7 @@ P6 전량에서 둘이 났다. 둘 다 샤드 3.
 
   1. 문서 갱신 — 진행 문서 · 스펙 §10 · **이 파일을 다음 단계의 착수 프롬프트로 다시 쓴다**
   2. `make gates` 초록 확인 뒤 **커밋**
-  3. 인수인계 — **`/dongminal:migration` 명령을 쓴다**
-  4. **자기 탭을 닫는다** — `dmctl close-tab --at <자기 탭 uuid> --force`.
+  3. 인수인계 — **`/otterminal:migration` 명령을 쓴다**
+  4. **자기 탭을 닫는다** — `otterctl close-tab --at <자기 탭 uuid> --force`.
      **단, 새 세션이 `working` 임을 확인한 뒤에만**이다
 ```

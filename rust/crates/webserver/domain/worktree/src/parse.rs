@@ -1,6 +1,6 @@
 //! `git worktree list --porcelain` 해석 (FR-GIT-240).
 
-use dm_gocompat::filepath;
+use otter_gocompat::filepath;
 use serde::Serialize;
 
 /// `git worktree list` 한 레코드다. 소유 판정은 호출자의 일이다.

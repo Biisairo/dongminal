@@ -3,7 +3,7 @@
 use std::fmt;
 use std::io;
 
-use dm_webserver_domain_git_core as core;
+use otter_webserver_domain_git_core as core;
 
 /// query 의 sentinel 오류들.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -87,8 +87,8 @@ impl Error {
 
     /// Go 의 `*os.PathError`.
     pub(crate) fn io(op: &str, path: &str, e: io::Error) -> Self {
-        let pe = dm_gocompat::oserr::path_error(op, path, e);
-        Error::other(dm_gocompat::oserr::go_error_string(&pe))
+        let pe = otter_gocompat::oserr::path_error(op, path, e);
+        Error::other(otter_gocompat::oserr::go_error_string(&pe))
     }
 
     pub fn is(&self, k: QueryKind) -> bool {
@@ -133,7 +133,10 @@ pub(crate) fn ref_name_error(detail: impl fmt::Display) -> Error {
 
 /// Go `%q` 로 찍은 `[]string`.
 pub(crate) fn quote_list(v: &[String]) -> String {
-    let parts: Vec<String> = v.iter().map(|s| dm_gocompat::strconv::quote(s)).collect();
+    let parts: Vec<String> = v
+        .iter()
+        .map(|s| otter_gocompat::strconv::quote(s))
+        .collect();
     format!("[{}]", parts.join(" "))
 }
 

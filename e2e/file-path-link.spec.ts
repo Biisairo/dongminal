@@ -14,7 +14,7 @@ import { TMP, realPath, echoCmd } from './osenv';
 let DIR = '';
 
 test.beforeAll(() => {
-  DIR = realPath(fs.mkdtempSync(path.join(TMP, 'dm-fpl-')));
+  DIR = realPath(fs.mkdtempSync(path.join(TMP, 'otter-fpl-')));
   fs.mkdirSync(path.join(DIR, 'src'));
   fs.writeFileSync(path.join(DIR, 'src', 'a.go'), 'package a\n\nfunc A() {}\n');
   fs.writeFileSync(path.join(DIR, 'main.go'), 'package main\n');

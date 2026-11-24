@@ -1,6 +1,6 @@
 //! 도구별 서브에이전트 목록과 훅 활동 (Go `handlers_subagents.go`·`handlers_subagent_activity.go`).
 //!
-//! `dmctl subagent-statusline` 이 틱(약 5초)마다 목록을 보낸다. 보일 행이 없으면 틱이 멈추므로,
+//! `otterctl subagent-statusline` 이 틱(약 5초)마다 목록을 보낸다. 보일 행이 없으면 틱이 멈추므로,
 //! 받은 지 [`SUBAGENT_STALE`] 이 지난 목록은 없는 것으로 본다 (FR-SAU-12).
 
 use std::cmp::Ordering;
@@ -8,14 +8,14 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Mutex;
 use std::time::Duration;
 
-use dm_shared_activity as activity;
-use dm_shared_agentrec::{self as agentrec, SubagentActivity};
-use dm_shared_httpresp::Response;
-use dm_shared_statusline::Subagent;
-use dm_shared_toolipc as toolipc;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_run::ContextPolicy;
 use http::StatusCode;
+use otter_shared_activity as activity;
+use otter_shared_agentrec::{self as agentrec, SubagentActivity};
+use otter_shared_httpresp::Response;
+use otter_shared_statusline::Subagent;
+use otter_shared_toolipc as toolipc;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_run::ContextPolicy;
 use serde::Serialize;
 use time::OffsetDateTime;
 
@@ -232,7 +232,7 @@ pub(crate) fn card_subagents_of(
             }
         }
         if let (true, Some(b)) = (c.effort.is_empty(), t.effort_budget) {
-            c.effort = dm_gocompat::strconv::format_float(b, b'f', -1, 64);
+            c.effort = otter_gocompat::strconv::format_float(b, b'f', -1, 64);
         }
         if let (Some(tok), Some(win)) = (t.tokens, t.window_tokens)
             && win > 0.0
@@ -342,7 +342,7 @@ impl Server {
                 tool: &a.tool,
                 tool_id,
             };
-            cmds.broadcast(&dm_webserver_sse::payload(
+            cmds.broadcast(&otter_webserver_sse::payload(
                 "tool_subagent_activity",
                 Some(&ev),
             ));

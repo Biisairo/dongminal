@@ -69,8 +69,8 @@ test.describe('제목 — <타입 라벨> · <창 이름>', () => {
 
   // TC-STB-2
   test('Repo 창은 저장소 라벨에 그 저장소의 이름을 단다', async ({ page, request }) => {
-    const a = await pin(request, makeRepo('dm-stb-a-'));
-    const b = await pin(request, makeRepo('dm-stb-b-'));
+    const a = await pin(request, makeRepo('otter-stb-a-'));
+    const b = await pin(request, makeRepo('otter-stb-b-'));
     await waitForInit(page);
 
     await page.evaluate((p) => (window as any).app.git.openGitWindow(p), a);
@@ -95,7 +95,7 @@ test.describe('제목 — <타입 라벨> · <창 이름>', () => {
 
   // TC-STB-5 — 결함 A 회귀. 머리글과 토프바가 같은 이름을 써야 한다.
   test('Repo 창의 머리글은 토프바와 같은 이름을 쓴다', async ({ page, request }) => {
-    const a = await pin(request, makeRepo('dm-stb-c-'));
+    const a = await pin(request, makeRepo('otter-stb-c-'));
     await waitForInit(page);
     await page.evaluate((p) => (window as any).app.git.openGitWindow(p), a);
     const want = (await listName(page, a).textContent())!.trim();

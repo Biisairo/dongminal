@@ -4,9 +4,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
-use dm_gocompat::oserr::{go_error_string, path_error};
-use dm_gocompat::{filepath, strconv};
-use dm_shared_handover::{self as handover, ReloadRequest};
+use otter_gocompat::oserr::{go_error_string, path_error};
+use otter_gocompat::{filepath, strconv};
+use otter_shared_handover::{self as handover, ReloadRequest};
 
 /// 사전 확인이 끝난 자식을 살피는 간격이다.
 const WAIT_POLL: Duration = Duration::from_millis(10);
@@ -87,7 +87,7 @@ pub fn validate(req: &ReloadRequest, env: &Env) -> Result<(), String> {
         return Err(refuse(
             handover::REASON_EXE,
             format!(
-                "데몬 자신의 실행 파일이 아닙니다: {exe} (데몬 {}) — dongminal start --refresh-daemon 을 쓰세요",
+                "데몬 자신의 실행 파일이 아닙니다: {exe} (데몬 {}) — otterminal start --refresh-daemon 을 쓰세요",
                 env.self_exe
             ),
         ));
@@ -174,7 +174,7 @@ fn run(exe: &str, within: Duration) -> Result<Vec<u8>, String> {
             handover::REASON_PREFLIGHT,
             format!(
                 "새 바이너리가 {} 안에 답하지 않았습니다",
-                dm_gocompat::time::format_std_duration(within)
+                otter_gocompat::time::format_std_duration(within)
             ),
         )
     };
@@ -202,7 +202,7 @@ fn run(exe: &str, within: Duration) -> Result<Vec<u8>, String> {
 
 /// Go `*exec.ExitError` 의 문구(`exit status N`·`signal: …`).
 fn exit_string(st: &ExitStatus) -> String {
-    dm_shared_platform::exit_status_text(st)
+    otter_shared_platform::exit_status_text(st)
 }
 
 /// 교체가 한 번에 하나만 진행되게 한다 (FR-DSK-11 reload_busy).

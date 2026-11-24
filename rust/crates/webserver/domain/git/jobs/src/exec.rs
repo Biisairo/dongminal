@@ -4,7 +4,7 @@ use std::io::{BufReader, Read};
 use std::process::Command;
 use std::sync::Arc;
 
-use dm_webserver_domain_git_core::{self as core, Ctx, CtxError, Kind, SpawnError};
+use otter_webserver_domain_git_core::{self as core, Ctx, CtxError, Kind, SpawnError};
 
 use crate::job::{JOB_LINE_MAX, LINE_STDERR, LINE_STDOUT};
 
@@ -75,7 +75,7 @@ pub(crate) async fn exec_stream(
             e.to_string()
         }
     };
-    let base = dm_gocompat::filepath::base(bin);
+    let base = otter_gocompat::filepath::base(bin);
     (
         exit,
         Some(core::Error::other(format!("{base} {joined}: {wait_err}"))),

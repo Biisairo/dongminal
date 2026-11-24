@@ -87,7 +87,7 @@ pub(crate) async fn get(srv: &Arc<Server>, target: &str) -> Resp {
     call(srv, "GET", target, &[], "", LOCAL).await
 }
 
-/// JSON POST (dmctl 처럼 Origin 없이).
+/// JSON POST (otterctl 처럼 Origin 없이).
 pub(crate) async fn post_json(srv: &Arc<Server>, target: &str, body: &str) -> Resp {
     call(
         srv,

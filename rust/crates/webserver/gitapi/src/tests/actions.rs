@@ -21,14 +21,14 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
-use dm_webserver_action as action;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::{self as core, Ctx, Output, Service};
-use dm_webserver_domain_git_jobs::StartOptions;
-use dm_webserver_domain_git_query::{Operation, Status};
-use dm_webserver_domain_git_store::{Store, StoreOptions};
-use dm_webserver_domain_git_write as write;
-use dm_webserver_domain_worktree::{self as worktree, Manager};
+use otter_webserver_action as action;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::{self as core, Ctx, Output, Service};
+use otter_webserver_domain_git_jobs::StartOptions;
+use otter_webserver_domain_git_query::{Operation, Status};
+use otter_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_domain_git_write as write;
+use otter_webserver_domain_worktree::{self as worktree, Manager};
 use serde_json::{Value, json};
 
 use super::answers::repo as work_repo;
@@ -61,18 +61,18 @@ pub(super) struct BranchRepo {
     pub(super) s: Arc<GitServer>,
     pub(super) repo: String,
     pub(super) bare: std::path::PathBuf,
-    pub(super) _tmp: dm_shared_gittest::TempDir,
+    pub(super) _tmp: otter_shared_gittest::TempDir,
 }
 
 pub(super) fn gt_git(dir: &Path, args: &[&str]) -> String {
     let mut all = vec!["-c", "user.name=t", "-c", "user.email=t@t"];
     all.extend_from_slice(args);
-    dm_shared_gittest::run(dir, &all)
+    otter_shared_gittest::run(dir, &all)
 }
 
 pub(super) fn gt_branch_repo() -> Option<BranchRepo> {
-    dm_shared_gittest::path()?;
-    let tmp = dm_shared_gittest::TempDir::new("dm-gitapi-actions-");
+    otter_shared_gittest::path()?;
+    let tmp = otter_shared_gittest::TempDir::new("otter-gitapi-actions-");
     let root = std::fs::canonicalize(tmp.path()).unwrap();
     let bare = root.join("remote.git");
     let repo = root.join("repo");
@@ -221,8 +221,8 @@ async fn tag_create_input_answer() {
     let Some(g) = gt_branch_repo() else { return };
     // annotated 태그는 서버가 직접 만든다 — 신원이 없는 곳에서 실패하지 않게 저장소에 둔다.
     let rp = Path::new(&g.repo);
-    dm_shared_gittest::run(rp, &["config", "user.name", "t"]);
-    dm_shared_gittest::run(rp, &["config", "user.email", "t@t"]);
+    otter_shared_gittest::run(rp, &["config", "user.name", "t"]);
+    otter_shared_gittest::run(rp, &["config", "user.email", "t@t"]);
     let b = |name: &str, kind: &str, msg: &str| json!({"name": name, "kind": kind, "message": msg});
     let id = action::GIT_TAG_CREATE;
     let p = "/api/git/tag";
@@ -352,11 +352,11 @@ async fn stash_branch_input_answer() {
 // GV-c (G-B3): worktree 의 이름·대상 ref·새 브랜치·이미 있는 자리.
 #[tokio::test]
 async fn worktree_create_input_answer() {
-    let Some(r) = dm_shared_gittest::repo() else {
+    let Some(r) = otter_shared_gittest::repo() else {
         return;
     };
     let repo = r.path().to_string_lossy().into_owned();
-    let home = dm_shared_gittest::TempDir::new("dm-gitapi-wt-home-");
+    let home = otter_shared_gittest::TempDir::new("otter-gitapi-wt-home-");
     let home_path = std::fs::canonicalize(home.path()).unwrap();
     let mgr = Arc::new(Manager::new(
         home_path.join("git-worktrees").to_str().unwrap(),
@@ -365,8 +365,8 @@ async fn worktree_create_input_answer() {
     s.user_worktrees = Some(mgr.clone());
     s.run_worktree_root = home_path.join("worktrees").to_string_lossy().into_owned();
     let s = Arc::new(s);
-    dm_shared_gittest::run(r.path(), &["branch", "other"]);
-    dm_shared_gittest::run(r.path(), &["branch", "taken"]);
+    otter_shared_gittest::run(r.path(), &["branch", "other"]);
+    otter_shared_gittest::run(r.path(), &["branch", "taken"]);
     let bucket = worktree::repo_bucket(&repo);
     std::fs::create_dir_all(mgr.path(&bucket, "dup")).unwrap();
     let c = |name, n: &str, rf: &str, nb: bool, why| {
@@ -501,7 +501,7 @@ async fn compare_input_answer() {
 #[tokio::test]
 async fn repo_add_input_answer() {
     let Some(g) = gt_branch_repo() else { return };
-    let plain = dm_shared_gittest::TempDir::new("dm-gitapi-plain-");
+    let plain = otter_shared_gittest::TempDir::new("otter-gitapi-plain-");
     let plain = std::fs::canonicalize(plain.path())
         .unwrap()
         .to_string_lossy()
@@ -763,7 +763,7 @@ async fn branch_delete_both() {
 /// 실제 git 으로 쓰는 실행기다. 실패는 exit 1 의 출력으로 돌려준다 (Go 의 `ExecGit` 감싸기).
 fn real_write(dir: &str, args: &[String]) -> Output {
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
-    match dm_shared_gittest::try_run(std::path::Path::new(dir), &args) {
+    match otter_shared_gittest::try_run(std::path::Path::new(dir), &args) {
         Ok(text) => Output {
             stdout: text.into_bytes(),
             ..Output::default()

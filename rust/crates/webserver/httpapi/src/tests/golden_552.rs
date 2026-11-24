@@ -3,12 +3,12 @@
 use super::fakes::*;
 use super::support::*;
 use crate::{Deps, Server};
-use dm_shared_sandbox::{
+use http_body_util::BodyExt;
+use otter_shared_sandbox::{
     self as sandbox, DevConfig, Mount, RUNTIME_MISSING, RUNTIME_STOPPED, RuntimeStatus,
 };
-use dm_webserver_domain_sysstat::Snapshot;
-use dm_webserver_hub::{CommandBroker, CommandHub};
-use http_body_util::BodyExt;
+use otter_webserver_domain_sysstat::Snapshot;
+use otter_webserver_hub::{CommandBroker, CommandHub};
 use std::sync::Arc;
 
 /// (서버, 메서드, 경로, 본문, 머리).
@@ -33,7 +33,7 @@ fn canon(k: &str) -> String {
         .join("-")
 }
 fn q(s: &str) -> String {
-    dm_gocompat::strconv::quote(s)
+    otter_gocompat::strconv::quote(s)
 }
 fn dump(m: &str, p: &str, r: &Resp) -> String {
     let mut hs: Vec<String> = r
@@ -315,7 +315,7 @@ async fn golden_552() {
             .collect();
         out.push_str(&format!("env {} [{}]\n", q(b), e.join(" ")));
     }
-    let host = dm_shared_platform::hostname().unwrap();
+    let host = otter_shared_platform::hostname().unwrap();
     let out = out.replace(&host, "HOST");
     let want = include_str!("go_golden_552.txt");
     for (i, (g, w)) in out.lines().zip(want.lines()).enumerate() {

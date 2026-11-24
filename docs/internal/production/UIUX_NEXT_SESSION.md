@@ -43,7 +43,7 @@
 
 **코드를 더 건드리기 전에 이것부터.** 자산은 `embed` 라 재빌드·재시작이 필요하다.
 
-    scripts/build.sh && dongminal start
+    scripts/build.sh && otterminal start
 
 그 뒤 두 화면으로 창을 주고받으며 **복귀 시 화면이 그 자리에서 갱신되는지**
 본다. 사용자에게 확인을 청하고 답을 받은 뒤에 2로 간다.

@@ -118,7 +118,7 @@ web/js/app.js:501-502  Pane·Tab 카운터 seeding
 `save`(`app.js:1591`)는 `If-Match` 로 낙관적 잠금을 걸지만, 409 를 받으면 ETag 만 새로
 받아 **자기 상태를 그대로 재PUT** 한다. 머지가 없으므로 동시 편집은 뒤에 쓴 쪽이
 전부 이긴다. (i)(ii)를 고쳐도 사람 둘이 각자 브라우저에서 동시에 탭을 만들면 한쪽이
-유실된다. 오케스트레이터 경로(`dmctl` → `/api/commands` → 브로드캐스트)는 묶음 X 가
+유실된다. 오케스트레이터 경로(`otterctl` → `/api/commands` → 브로드캐스트)는 묶음 X 가
 덮으므로 본 SRS 의 목표에서 제외한다 (§5).
 
 ### 2.5 부수 검증 사실
@@ -141,9 +141,9 @@ web/js/app.js:501-502  Pane·Tab 카운터 seeding
 
 | 문서 서술 | 실측 |
 |---|---|
-| 사용자 인스턴스는 v1 이고 마이그레이션 미실행 | **이미 v2.** `~/.dongminal/{workspace,panes,settings}.json.v1.bak` 3개가 존재하고 `panes.json`→`tools.json` 전환이 끝나 있다 |
-| 루트 `./dongminal` 은 17일째 도는 낡은 바이너리 | HEAD 시점으로 재빌드돼 있다 |
-| — | `~/.dongminal/runs.json` 에 UUID v7 기반 Run 레코드(`projection`·`isolation`·`state`)가 있으나 **커밋된 코드에 소비자가 없다.** 실행 중 바이너리에 `runs.json` 문자열조차 없다 — 어떤 바이너리도 만들지 않은 산출물이다 |
+| 사용자 인스턴스는 v1 이고 마이그레이션 미실행 | **이미 v2.** `~/.otterminal/{workspace,panes,settings}.json.v1.bak` 3개가 존재하고 `panes.json`→`tools.json` 전환이 끝나 있다 |
+| 루트 `./otterminal` 은 17일째 도는 낡은 바이너리 | HEAD 시점으로 재빌드돼 있다 |
+| — | `~/.otterminal/runs.json` 에 UUID v7 기반 Run 레코드(`projection`·`isolation`·`state`)가 있으나 **커밋된 코드에 소비자가 없다.** 실행 중 바이너리에 `runs.json` 문자열조차 없다 — 어떤 바이너리도 만들지 않은 산출물이다 |
 
 ### 2.7 묶음 U 의 현황 — 남은 카운터와 형태 판별 (실측)
 
@@ -164,7 +164,7 @@ web/js/app.js:501-502  Pane·Tab 카운터 seeding
 
 #### (1) `crypto.randomUUID()` 는 보안 컨텍스트 전용이다
 
-`./dongminal start --expose`(README) 와 `DONGMINAL_HOST=0.0.0.0`
+`./otterminal start --expose`(README) 와 `OTTERMINAL_HOST=0.0.0.0`
 (`docs/external/getting-started.md`)는 평문 HTTP 로 LAN 에 노출한다. 그 주소로 접속한
 브라우저는 보안 컨텍스트가 아니므로 `crypto.randomUUID` 가 **undefined** 이고, 폴백이
 없는 `newEntityId()` 는 탭·분할·창 생성 전부를 TypeError 로 죽인다. 모바일 모드가
@@ -179,7 +179,7 @@ web/js/app.js:501-502  Pane·Tab 카운터 seeding
 `tools.json` 은 `{id,name,cwd}` 만 저장하고, `nextID` 는 기동 시 `Restore` 가 **복원된
 도구의 최대 정수값**으로만 재시딩한다(`tool.go:829`). 따라서 **모든 도구가 닫힌 상태로
 재기동하면 `nextID` 가 0 으로 돌아가 `toolId` 가 `"1"` 부터 재사용된다.** 백그라운드
-도구는 재기동을 넘지 못하므로(FR-BG-9) 이 조건은 드물지 않다. `~/.dongminal/panels.json`
+도구는 재기동을 넘지 못하므로(FR-BG-9) 이 조건은 드물지 않다. `~/.otterminal/panels.json`
 에 `"1"`~`"15"` 대의 구 도구 기록이 남아 있는 것이 그 흔적이다.
 
 지금은 무해하다 — 도구가 죽으면 그것을 참조하던 탭도 함께 사라진다. 그러나
@@ -202,7 +202,7 @@ I·X 를 정당화한 논리가 그대로 적용된다.
 - `Resolve` 는 **실동작이 깨진다.** `/api/tools/output`·`/api/tools/input`·
   `/api/tools/message`(FR-API-4)와 `/api/whoami` 가 "uuid·`toolId`·라벨을 모두 받는다"는
   계약으로 이 함수를 쓴다. uuid 가 된 `toolId` 를 넘기면 살아있는 도구가 "stale uuid" 로
-  거절되므로, `dmctl read-screen --at <toolId>` 류가 전부 실패한다
+  거절되므로, `otterctl read-screen --at <toolId>` 류가 전부 실패한다
 - `CoordinateOf` 는 **계약만 깨진다.** 실호출처는 `commands.go:239` 하나이고, 그 앞의
   `IsKnownTabID` 게이트(FR-DMC-9)가 **탭 uuid 만** 통과시키므로 `toolId` 는 애초에 이
   함수에 도달하지 않는다. 그러나 함수 자신이 문서화한 pass-through 계약이 `toolId` 에
@@ -277,7 +277,7 @@ Client** 다. 주장 이력이 있는 live Client 가 없으면 가장 오래된
 
 #### U-1. 형식 계약
 
-**FR-UNI-1** dongminal 이 새로 발급하는 **모든 식별자**는 canonical UUID 문자열이다 —
+**FR-UNI-1** otterminal 이 새로 발급하는 **모든 식별자**는 canonical UUID 문자열이다 —
 소문자 hex `8-4-4-4-12`, RFC 4122 버전·변형 비트 포함. 대상은 다음 6종이다.
 
 | 식별자 | 발급 주체 |
@@ -379,8 +379,8 @@ FR-WID-2 와 같은 규약이다.
 
 #### M-1. 대상
 
-**FR-MGU-1** `dongminal migrate`(진입점 — 2026-08-26 `CLI_CONSOLIDATION_SRS` 로
-`scripts/migrate.sh` 폐지, 바이너리 액션 `./dongminal migrate` 가 진입점)는 v1→v2 스키마 변환에
+**FR-MGU-1** `otterminal migrate`(진입점 — 2026-08-26 `CLI_CONSOLIDATION_SRS` 로
+`scripts/migrate.sh` 폐지, 바이너리 액션 `./otterminal migrate` 가 진입점)는 v1→v2 스키마 변환에
 이어 **구 식별자 재작성**을 수행한다. 대상은 아래 두 파일이 담은 엔터티 id 전부다.
 
 | 파일 | 재작성 대상 | 갱신할 참조 |
@@ -396,7 +396,7 @@ FR-WID-2 와 같은 규약이다.
 | `panels.json` | v1 시절 도구 기록. 소비자 0 (§5) |
 | `settings.json` | 엔터티 id 를 담지 않는다 (단축키·테마·상태바) |
 | 브라우저 `localStorage` | 저장하는 것은 UI 치수·토글뿐이다 (`sidebarWidth`·`agentsWidth`·`agentsPanelOpen`·`attn*`·`agentsPollMs`) |
-| `bin/agent-hooks/*.json` | `dmctl` 커맨드 문자열만 담고 정체는 런타임에 조회한다 |
+| `bin/agent-hooks/*.json` | `otterctl` 커맨드 문자열만 담고 정체는 런타임에 조회한다 |
 
 #### M-2. 판별과 멱등성
 
@@ -483,7 +483,7 @@ pid 확인)과 migrate 액션의 `/api/ping` 확인(FR-MIG-6 → 현행 FR-ACT-1
 | TC-UNI-13 | FR-UNI-13 | `CoordinateOf` 에 탭 uuid · 좌표 · 구 정수 `toolId` · 빈 값 | 전환 전과 동일한 결과 |
 | TC-UNI-14 | FR-DMC-9 회귀 | `location=<uuid toolId>` · `location=<탭 uuid>` 로 `POST /api/commands` | 전자는 400(정책 불변), 후자는 200. 식별자 형식 변경이 `location` 정책을 흔들지 않았다 |
 | TC-UNI-15 | FR-UNI-14 | 생성 명령 1회 | `reqId` 가 uuid 형식이고 echo 상관이 성립한다 |
-| TC-UNI-16 | FR-UNI-1 | `dmctl who-am-i` (신규 생성 엔터티) | `uuid=`·`short=` 가 uuid 파생값 |
+| TC-UNI-16 | FR-UNI-1 | `otterctl who-am-i` (신규 생성 엔터티) | `uuid=`·`short=` 가 uuid 파생값 |
 | TC-MGU-1 | FR-MGU-1/5/7 | 구 id 만 든 `workspace.json`+`tools.json` 으로 `Apply` | 모든 id 가 uuid. `activeWindow`·`activeTab`·`focusedPane`·`agentsOrder`·`tabs[].toolId` 가 새 id 를 정확히 가리킨다 |
 | TC-MGU-2 | FR-MGU-3 | `Apply` 를 두 번 연속 실행 | 2회차는 어떤 id 도 바꾸지 않는다 (멱등) |
 | TC-MGU-3 | FR-MGU-3 | uuid 와 구 id 가 혼재한 입력 | uuid 는 값 그대로, 구 id 만 재작성 |
@@ -496,7 +496,7 @@ pid 확인)과 migrate 액션의 `/api/ping` 확인(FR-MIG-6 → 현행 FR-ACT-1
 
 전체 회귀: `go test ./...`, `npx playwright test` 전량 통과.
 
-묶음 U 는 접합면(`/api/commands`·`dmctl`)과 프론트엔드를 함께 만지므로 Go 테스트만으로
+묶음 U 는 접합면(`/api/commands`·`otterctl`)과 프론트엔드를 함께 만지므로 Go 테스트만으로
 끝내지 않는다 — `e2e/skill-contract.spec.ts` 를 포함한 Playwright 전량이 검증에 든다.
 
 ---
@@ -509,7 +509,7 @@ pid 확인)과 migrate 액션의 `/api/ping` 확인(FR-MIG-6 → 현행 FR-ACT-1
 | 서버가 id 를 발급 | §2.5 대로 프론트 uuid 로 충돌이 닫히고 마이그레이션이 불필요하다. 서버 발급은 엔터티 생성마다 왕복이 생기고 낙관적 생성 흐름을 재작성해야 한다 |
 | ~~`internal/uuid`(Go v7) 사용~~ | **개정됨.** 묶음 I 시점에는 브라우저에서만 생성하므로 되살릴 이유가 없었다. 묶음 U 가 `toolId`·`reqId` 를 서버에서 발급하므로 FR-UNI-6 이 이 패키지를 단일 생성기로 삼는다 |
 | ~~구 식별자 마이그레이션~~ | **개정됨 (2026-08-25).** 혼재가 무해하다는 판단은 유효하지만, 사용자가 1회성 정리를 선택했다. 묶음 M(§3.5)이 이를 덮는다. **런타임 보존 규약(FR-UNI-9·FR-WID-2)은 불변** — 재작성은 사용자가 명시적으로 실행하는 마이그레이션 경로에서만 일어난다 |
-| `~/.dongminal/panels.json` 잔재 정리 | v1 시절 도구 기록이다. §2.7 (3) 의 **증거**로만 쓰고 삭제는 별건 |
+| `~/.otterminal/panels.json` 잔재 정리 | v1 시절 도구 기록이다. §2.7 (3) 의 **증거**로만 쓰고 삭제는 별건 |
 | 도구 표시명의 사용자 지정 기본값 | FR-UNI-8 은 기본값을 `Shell` 로 고정한다. 사용자가 기본 이름 규칙을 설정하는 기능은 범위 밖 |
 | 고아 도구 회수 | 묶음 X 가 **생성 자체를 막으므로** 회수기가 필요 없다. 기존 고아는 `fixtures.ts`·수동 정리 대상 |
 | `delivered` 의미 변경 | FR-SXE-6 |
@@ -576,5 +576,5 @@ pid 확인)과 migrate 액션의 `/api/ping` 확인(FR-MIG-6 → 현행 FR-ACT-1
 
 | 이전 동작 | 새 동작 | 이유 |
 |---|---|---|
-| `dongminal migrate` 는 v1→v2 스키마만 변환 | 스키마 변환에 이어 구 식별자를 uuid 로 재작성 | 묶음 U 이후에도 기존 엔터티는 `s{n}`/`r{n}`/`t{n}`·정수 `toolId` 로 남아 혼재했다. `dmctl who-am-i` 가 `uuid=t201` 을 보이는 것이 그 표면이었다 |
+| `otterminal migrate` 는 v1→v2 스키마만 변환 | 스키마 변환에 이어 구 식별자를 uuid 로 재작성 | 묶음 U 이후에도 기존 엔터티는 `s{n}`/`r{n}`/`t{n}`·정수 `toolId` 로 남아 혼재했다. `otterctl who-am-i` 가 `uuid=t201` 을 보이는 것이 그 표면이었다 |
 | 마이그레이션 백업은 `*.v1.bak` 하나 | id 재작성 직전 상태를 `*.preuuid.bak` 으로 추가 백업 | `backupOnce` 는 백업이 이미 있으면 무동작이라, 이미 v2 인 홈에서는 직전 상태가 남지 않았다 |

@@ -1,5 +1,5 @@
 /**
- * Dongminal — git **Changes 탭**의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
+ * Otterminal — git **Changes 탭**의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
  *
  * 변경 목록이 쓰는 어휘 전부 — 그룹·상태 글자·스테이징·discard·서브모듈 행의
  * 알림, 그리고 그 표면들의 툴팁. `constants-git.js` 뒤에 로드된다.

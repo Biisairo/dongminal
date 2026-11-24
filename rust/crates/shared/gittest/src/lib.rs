@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/gittest` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/gittest` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 테스트의 git 저장소 픽스처 한 벌이다 (M8 D-A-20, TEST-23). 전역·시스템 gitconfig 를
 //! 차단해 호스트의 `commit.gpgsign`·`init.templateDir` 이 새어 들어오지 않게 한다. 제품 코드는
@@ -14,10 +14,10 @@ use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use dm_shared_platform::OsKind;
+use otter_shared_platform::OsKind;
 
 /// 계수 스크립트가 줄을 적을 파일의 환경 변수다 — 시험마다 다르다.
-const COUNT_LOG_ENV: &str = "DM_GITTEST_LOG";
+const COUNT_LOG_ENV: &str = "OTTER_GITTEST_LOG";
 
 #[cfg(windows)]
 const NULL_DEVICE: &str = "NUL";
@@ -136,7 +136,7 @@ impl Repo {
 /// `main` 브랜치의 빈 저장소다. git 이 없으면 `None` 이다.
 pub fn init() -> Option<Repo> {
     path()?;
-    let tmp = TempDir::new("dm-gittest-repo-");
+    let tmp = TempDir::new("otter-gittest-repo-");
     let dir = physical(tmp.path());
     run(&dir, &["init", "-b", "main"]);
     run(&dir, &["config", "user.email", "t@example.com"]);
@@ -181,11 +181,11 @@ pub struct Counter {
 impl Counter {
     /// 계수기를 만든다. git 이 없거나 셸 스크립트를 못 쓰는 OS(Windows)면 `None` 이다.
     pub fn install() -> Option<Self> {
-        if dm_shared_platform::current().os == OsKind::Windows {
+        if otter_shared_platform::current().os == OsKind::Windows {
             return None;
         }
         let shim = count_shim(&path()?)?;
-        let tmp = TempDir::new("dm-gittest-log-");
+        let tmp = TempDir::new("otter-gittest-log-");
         let log = tmp.path().join("calls.log");
         let mut dirs = vec![shim.to_path_buf()];
         if let Some(p) = std::env::var_os("PATH") {
@@ -243,7 +243,7 @@ fn write_shim(real: &Path) -> Option<PathBuf> {
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
 
-    let tmp = TempDir::new("dm-gittest-");
+    let tmp = TempDir::new("otter-gittest-");
     // 프로세스가 끝날 때까지 쓰므로 지우지 않는다.
     let dir = tmp.path().to_path_buf();
     std::mem::forget(tmp);

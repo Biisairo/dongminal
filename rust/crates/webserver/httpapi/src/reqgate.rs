@@ -4,10 +4,10 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use dm_shared_dmlog::infof;
-use dm_shared_httpresp::Response;
-use dm_webserver_apierr as apierr;
 use http::{Method, StatusCode};
+use otter_shared_httpresp::Response;
+use otter_shared_otterlog::infof;
+use otter_webserver_apierr as apierr;
 
 use crate::access::{AccessStore, go_trim_space};
 use crate::httperr::http_err;
@@ -27,7 +27,7 @@ pub(crate) struct HostAllow {
 
 impl HostAllow {
     pub(crate) fn new(store: Option<Arc<AccessStore>>, extra: Vec<String>) -> HostAllow {
-        let hostname = dm_shared_platform::hostname()
+        let hostname = otter_shared_platform::hostname()
             .map(|n| n.strip_suffix('.').unwrap_or(&n).to_lowercase())
             .unwrap_or_default();
         HostAllow {
@@ -197,8 +197,8 @@ fn gate_deny(r: &Req, code: StatusCode, why: &str, msg: &str) -> Response {
         r.rid(),
         "request denied why={why} addr={} host={} origin={} {} {}",
         r.remote_addr,
-        dm_gocompat::strconv::quote(&r.host),
-        dm_gocompat::strconv::quote(&r.header("Origin")),
+        otter_gocompat::strconv::quote(&r.host),
+        otter_gocompat::strconv::quote(&r.header("Origin")),
         r.method,
         r.path
     );

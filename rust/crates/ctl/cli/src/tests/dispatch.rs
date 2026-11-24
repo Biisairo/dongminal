@@ -1,4 +1,4 @@
-use dm_shared_platform::build_target;
+use otter_shared_platform::build_target;
 
 use super::dispatch;
 use crate::{GO_RUNTIME, VERSION, action_names, help, run_version, usage};
@@ -19,7 +19,7 @@ fn help_forms() {
 fn window_is_an_action() {
     let (code, out, err) = dispatch(&["window", "--help"]);
     assert_eq!(code, 0, "{err}");
-    assert!(out.contains("dongminal window"), "{out}");
+    assert!(out.contains("otterminal window"), "{out}");
 }
 
 // FR-CLI-5: 알 수 없는 액션은 rc=2.
@@ -37,7 +37,7 @@ fn action_help() {
     for a in action_names() {
         let (code, out, _) = dispatch(&[a, "--help"]);
         assert_eq!(code, 0, "{a}");
-        assert!(out.contains(&format!("dongminal {a}")), "{a} → {out}");
+        assert!(out.contains(&format!("otterminal {a}")), "{a} → {out}");
     }
 }
 
@@ -55,7 +55,7 @@ fn unknown_flag() {
 // FR-RVN-2: 새기지 않은 빌드는 dev 다.
 #[test]
 fn version_defaults_to_dev() {
-    if option_env!("DONGMINAL_BUILD_VERSION").is_none() {
+    if option_env!("OTTERMINAL_BUILD_VERSION").is_none() {
         assert_eq!(VERSION, "dev");
     }
 }
@@ -68,7 +68,7 @@ fn run_version_reports_target_and_runtime() {
     let out = String::from_utf8(out).unwrap();
     assert_eq!(
         out,
-        format!("dongminal {VERSION} {} {GO_RUNTIME}\n", build_target())
+        format!("otterminal {VERSION} {} {GO_RUNTIME}\n", build_target())
     );
 }
 
@@ -77,13 +77,13 @@ fn version_actions() {
     for a in [&["version"][..], &["--version"]] {
         let (code, out, err) = dispatch(a);
         assert_eq!(code, 0, "{a:?} {err}");
-        assert!(out.starts_with(&format!("dongminal {VERSION} ")), "{out}");
+        assert!(out.starts_with(&format!("otterminal {VERSION} ")), "{out}");
     }
 }
 
 #[test]
 fn help_carries_version() {
-    assert!(help().contains(&format!("dongminal {VERSION}")));
+    assert!(help().contains(&format!("otterminal {VERSION}")));
 }
 
 // FR-CLI-3: help 는 액션을 모두 담고, 내부 진입점 `d` 는 광고하지 않는다 (FR-CLI-8).
@@ -101,7 +101,7 @@ fn help_lists_every_action() {
 #[test]
 fn usage_mentions_own_action() {
     for a in action_names() {
-        assert!(usage(a).contains(&format!("dongminal {a}")), "{a}");
+        assert!(usage(a).contains(&format!("otterminal {a}")), "{a}");
     }
 }
 

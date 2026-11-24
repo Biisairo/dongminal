@@ -6,11 +6,11 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use bytes::Bytes;
-use dm_shared_toolhub::{
+use http_body_util::{BodyExt, Full};
+use otter_shared_toolhub::{
     BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolInfo, ToolSnapshot,
 };
-use dm_webserver_domain_wsentry::{self as wsentry, WorkspaceStore, normalize_path};
-use http_body_util::{BodyExt, Full};
+use otter_webserver_domain_wsentry::{self as wsentry, WorkspaceStore, normalize_path};
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 
@@ -44,7 +44,7 @@ impl WorkspaceStore for FakeWork {
         let s = self.0.lock().unwrap();
         (Arc::new(s.raw.clone()), s.rev)
     }
-    fn save(&self, blob: &[u8], _: &str) -> Result<u64, dm_shared_workspace::Error> {
+    fn save(&self, blob: &[u8], _: &str) -> Result<u64, otter_shared_workspace::Error> {
         let mut s = self.0.lock().unwrap();
         s.raw = blob.to_vec();
         s.rev += 1;
@@ -64,23 +64,23 @@ impl crate::WorkspaceStore for FakeWork {
     fn persist_err(&self) -> String {
         String::new()
     }
-    fn coordinate_of(&self, id: &str) -> Result<String, dm_shared_workspace::Error> {
+    fn coordinate_of(&self, id: &str) -> Result<String, otter_shared_workspace::Error> {
         Ok(id.to_owned())
     }
     fn is_known_tab_id(&self, _: &str) -> bool {
         false
     }
-    fn entries(&self) -> Vec<dm_shared_workspace::TabEntry> {
+    fn entries(&self) -> Vec<otter_shared_workspace::TabEntry> {
         Vec::new()
     }
-    fn windows(&self) -> Option<Vec<dm_shared_workspace::WindowInfo>> {
+    fn windows(&self) -> Option<Vec<otter_shared_workspace::WindowInfo>> {
         None
     }
 }
 
 /// Go `seedRoot`.
 pub(crate) fn seed_root(ws: &FakeWork, root: &str) {
-    let q = String::from_utf8(dm_gocompat::json::marshal(&root).unwrap()).unwrap();
+    let q = String::from_utf8(otter_gocompat::json::marshal(&root).unwrap()).unwrap();
     ws.set(&format!(
         r#"{{"schemaVersion":2,"editors":{{"list":[{q}]}}}}"#
     ));
@@ -255,7 +255,7 @@ pub(crate) fn qe(s: &str) -> String {
 
 /// JSON 문자열 하나.
 pub(crate) fn jq(s: &str) -> String {
-    String::from_utf8(dm_gocompat::json::marshal(&s).unwrap()).unwrap()
+    String::from_utf8(otter_gocompat::json::marshal(&s).unwrap()).unwrap()
 }
 
 /// Go `multipart.Writer` 의 본문 하나(`file` 하나와 값들).

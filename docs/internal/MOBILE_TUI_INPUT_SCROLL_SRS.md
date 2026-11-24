@@ -11,7 +11,7 @@
 
 ### 1.1 목적
 
-모바일 브라우저에서 dongminal 의 터미널로 TUI(Claude Code 등)를 조작할 때 발생하는
+모바일 브라우저에서 otterminal 의 터미널로 TUI(Claude Code 등)를 조작할 때 발생하는
 두 결함을 제거한다.
 
 - 터치 스크롤이 사실상 동작하지 않는다.
@@ -224,7 +224,7 @@ FR-MTI-12 의 병합은 그 경로에 걸리지 않았다.
 ### 6.2 증상의 단일 사슬
 
 Android Chrome 은 focus 된 입력 요소가 있는 동안 사용자가 페이지를 탭하면
-키보드를 **재표시**한다. dongminal 은 최초 render 에서 `p.focus()` 로
+키보드를 **재표시**한다. otterminal 은 최초 render 에서 `p.focus()` 로
 helper textarea 에 포커스를 주고 그 포커스는 계속 유지되므로:
 
 ```

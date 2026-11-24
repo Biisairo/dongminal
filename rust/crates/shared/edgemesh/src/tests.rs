@@ -6,8 +6,8 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use dm_gocompat::json::RawMessage;
-use dm_shared_edge::{
+use otter_gocompat::json::RawMessage;
+use otter_shared_edge::{
     CODE_NOT_EDGE, CallError, Edge, INVITE_TTL, Identity, InviteCode, RemoteError, encode_invite,
     load_or_create_identity,
 };
@@ -318,7 +318,7 @@ impl FakePeer {
                 .expect("읽기 시간 초과")
                 .unwrap();
             assert!(n > 0, "읽기: EOF");
-            let fr: Frame = dm_gocompat::json::unmarshal(line.trim_end().as_bytes()).unwrap();
+            let fr: Frame = otter_gocompat::json::unmarshal(line.trim_end().as_bytes()).unwrap();
             if fr.t == FRAME_PING {
                 continue;
             }
@@ -437,7 +437,10 @@ fn encode_matches_go() {
         addr: String::new(),
         port: 0,
     };
-    assert_eq!(dm_gocompat::json::marshal(&h).unwrap(), br#"{"name":"n"}"#);
+    assert_eq!(
+        otter_gocompat::json::marshal(&h).unwrap(),
+        br#"{"name":"n"}"#
+    );
 }
 
 #[test]

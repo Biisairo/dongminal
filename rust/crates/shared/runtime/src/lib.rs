@@ -1,6 +1,6 @@
-//! Go 기준선 `dongminal/internal/shared/runtime` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/runtime` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
-//! dongminal 이 런타임에 배포하는 헬퍼들을 설치한다. helper CLI 는 multi-call 이므로
+//! otterminal 이 런타임에 배포하는 헬퍼들을 설치한다. helper CLI 는 multi-call 이므로
 //! `bin/<name>` 은 실행 파일을 가리키는 symlink(안 되면 복사)다. 셸 훅·에이전트
 //! 플러그인·주입 메모리는 임베드된 파일을 그대로 푼다.
 
@@ -11,17 +11,17 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use dm_gocompat::filepath;
-use dm_gocompat::oserr::{go_error_string, path_error};
-use dm_shared_agentadapter::{self as agentadapter, InstallSpec};
-use dm_shared_platform::{copy_executable, write_file_if_changed};
+use otter_gocompat::filepath;
+use otter_gocompat::oserr::{go_error_string, path_error};
+use otter_shared_agentadapter::{self as agentadapter, InstallSpec};
+use otter_shared_platform::{copy_executable, write_file_if_changed};
 
 const SHELL_HOOK_ROOT: &str = "shellhooks";
 const AGENT_PLUGIN_ROOT: &str = "agentplugin";
 const AGENT_MEMORY_ROOT: &str = "agentmemory";
 
 /// 덧없는 자기 자신을 붙들어 두는 자리. 헬퍼 이름이 아니어야 한다 (FR-HLI-4).
-const SELF_COPY_NAME: &str = "dongminal-self";
+const SELF_COPY_NAME: &str = "otterminal-self";
 
 /// 우리가 놓은 헬퍼 이름의 기록 (FR-LFT-6).
 const HELPER_MANIFEST: &str = ".helpers";
@@ -29,7 +29,11 @@ const HELPER_MANIFEST: &str = ".helpers";
 const DIR_PERM: u32 = 0o755;
 
 /// 기록이 생기기 전에 놓았던 이름들 (D-3).
-const RETIRED_HELPER_NAMES: &[&str] = &["mdview"];
+/// `LEGACY_CONTROL_HELPER` 는 이름 변경 전의 제어 명령이다 (OTTERMINAL_RENAME_SRS FR-MIG-9).
+const RETIRED_HELPER_NAMES: &[&str] = &[
+    "mdview",
+    otter_shared_otterenv::legacy::LEGACY_CONTROL_HELPER,
+];
 
 /// 임베드가 아니라 설치가 만드는 것들. 거울 비교에서 뺀다.
 const GENERATED_PLUGIN_PATHS: &[&str] = &["hooks", "hooks/hooks.json"];
@@ -39,10 +43,10 @@ pub const HELPER_NOT_INSTALLED: &str =
     "아직 설치되지 않았습니다 — 서버를 한 번도 띄우지 않은 홈입니다";
 
 /// 깨진 헬퍼를 되돌리는 방법. `health` 와 `doctor` 가 같은 문장을 쓴다 (FR-HLI-10).
-pub const HELPER_FIX_HINT: &str = "서버를 다시 띄우면 다시 설치됩니다: dongminal start";
+pub const HELPER_FIX_HINT: &str = "서버를 다시 띄우면 다시 설치됩니다: otterminal start";
 
 fn exe_suffix() -> &'static str {
-    dm_shared_platform::current().paths.exe_suffix()
+    otter_shared_platform::current().paths.exe_suffix()
 }
 
 /// Go `filepath.Join(base, name)` (경로를 정리한다).
@@ -65,10 +69,10 @@ pub fn agent_memory_dir(bin_dir: &Path) -> PathBuf {
 }
 
 /// 훅이 부를 헬퍼의 실제 파일 경로 (FR-WTP-6).
-fn dmctl_path(bin_dir: &Path) -> String {
+fn otterctl_path(bin_dir: &Path) -> String {
     filepath::join(&[
         &*bin_dir.to_string_lossy(),
-        &format!("dmctl{}", exe_suffix()),
+        &format!("otterctl{}", exe_suffix()),
     ])
 }
 
@@ -93,7 +97,7 @@ pub fn install(bin_dir: &Path) -> io::Result<()> {
 pub fn install_with(bin_dir: &Path, self_exe: &Path) -> io::Result<()> {
     mkdir_all(bin_dir).map_err(|e| wrap(e, &format!("mkdir {}", bin_dir.display())))?;
     install_shell_hooks(bin_dir)?;
-    let names = dm_shared_dmenv::helper_names();
+    let names = otter_shared_otterenv::helper_names();
     // 자기 복사본도 기록에 넣는다 — 덧없지 않은 다음 설치가 거둔다 (FR-ATF-60).
     let mut placed: Vec<&str> = names.to_vec();
     let mut self_exe = self_exe.to_path_buf();
@@ -103,9 +107,9 @@ pub fn install_with(bin_dir: &Path, self_exe: &Path) -> io::Result<()> {
         self_exe = dst;
         placed.push(SELF_COPY_NAME);
     }
-    let shims = dm_shared_dmenv::agent_shims_dir_in(bin_dir);
+    let shims = otter_shared_otterenv::agent_shims_dir_in(bin_dir);
     mkdir_all(&shims).map_err(|e| wrap(e, "mkdir agent-shims"))?;
-    let paths = dm_shared_platform::current().paths;
+    let paths = otter_shared_platform::current().paths;
     for (name, path) in helper_files(bin_dir) {
         paths
             .link_or_copy(&self_exe, &path)
@@ -240,8 +244,8 @@ pub fn inspect_helpers(bin_dir: &Path) -> HelperStatus {
 /// 설치가 까는 multi-call 헬퍼의 자리 전부 — bin 의 헬퍼와 `agent-shims/` 의 shim.
 fn helper_files(bin_dir: &Path) -> Vec<(&'static str, PathBuf)> {
     let suffix = exe_suffix();
-    let shims = dm_shared_dmenv::agent_shims_dir_in(bin_dir);
-    let mut out: Vec<_> = dm_shared_dmenv::helper_names()
+    let shims = otter_shared_otterenv::agent_shims_dir_in(bin_dir);
+    let mut out: Vec<_> = otter_shared_otterenv::helper_names()
         .iter()
         .map(|n| (*n, go_join(bin_dir, &format!("{n}{suffix}"))))
         .collect();
@@ -255,12 +259,12 @@ fn helper_files(bin_dir: &Path) -> Vec<(&'static str, PathBuf)> {
 
 /// 등록된 어댑터 전부의 설치물을 놓는다 (FR-AAC-4).
 fn install_agent_assets(bin_dir: &Path) -> io::Result<()> {
-    let dir = dm_shared_dmenv::agent_hooks_dir_in(bin_dir);
+    let dir = otter_shared_otterenv::agent_hooks_dir_in(bin_dir);
     mkdir_all(&dir)?;
     let spec = InstallSpec {
         dir,
         plugin_dir: agent_plugin_dir(bin_dir),
-        dmctl: dmctl_path(bin_dir),
+        otterctl: otterctl_path(bin_dir),
     };
     for id in agentadapter::ids() {
         let Ok(a) = agentadapter::get(id) else {
@@ -279,7 +283,7 @@ fn install_agent_assets(bin_dir: &Path) -> io::Result<()> {
 fn install_shell_hooks(bin_dir: &Path) -> io::Result<()> {
     let root = format!(
         "{SHELL_HOOK_ROOT}/{}",
-        dm_shared_platform::current().shell.hook_root()
+        otter_shared_platform::current().shell.hook_root()
     );
     unpack_embedded(&root, bin_dir)
 }
@@ -369,7 +373,7 @@ fn collect_extra(
 
 /// Go `os.MkdirAll(p, 0o755)`.
 fn mkdir_all(p: &Path) -> io::Result<()> {
-    dm_gocompat::oserr::mkdir_all(&p.to_string_lossy(), DIR_PERM)
+    otter_gocompat::oserr::mkdir_all(&p.to_string_lossy(), DIR_PERM)
 }
 
 #[cfg(test)]

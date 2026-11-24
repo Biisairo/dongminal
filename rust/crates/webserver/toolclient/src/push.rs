@@ -4,9 +4,9 @@ use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard, Weak};
 
-use dm_shared_dmlog::warnf;
-use dm_shared_toolhub::{ExitInfo, OutChunk, TermSize};
-use dm_shared_toolipc::{
+use otter_shared_otterlog::warnf;
+use otter_shared_toolhub::{ExitInfo, OutChunk, TermSize};
+use otter_shared_toolipc::{
     AttnEvent, ChatEvent, EVENT_ATTN, EVENT_CHAT, EVENT_EDGES, EVENT_EXIT, EVENT_FOREGROUND,
     EVENT_OUTPUT, EVENT_REPORT, EVENT_SIZE, EdgesEvent, ReportEvent,
 };

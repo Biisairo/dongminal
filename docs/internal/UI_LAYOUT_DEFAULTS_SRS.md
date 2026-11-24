@@ -418,7 +418,7 @@ blame 은 편집기를 쓰지 않으므로 **편집기와 같아질 수는 없�
 **FR-LAY-34** CI 의 게이트 잡(`.github/workflows/verify.yml`)에도 넣는다 —
 기존 여섯이 거기 있다.
 
-  → **`dongminal verify` 명령이 아니다.** 처음에 M2 DoD 의 "`dongminal verify` 에
+  → **`otterminal verify` 명령이 아니다.** 처음에 M2 DoD 의 "`otterminal verify` 에
     게이트 항목 추가" 를 그 명령으로 읽었는데 **틀렸다.** 그 명령은 서버를 띄워
     HTTP 표면을 두드리는 **런타임 종단간** 검사이며(`verify.go` 의 머리 주석:
     *"doctor 는 서버 없이 플랫폼 계층을 in-process 로 보고, verify 는 프로세스
@@ -932,7 +932,7 @@ git 목록 뷰의 안내 띠 다섯이 `ui-notice ui-notice-attn` 을, 리사이
     확인하고 지웠다** (`FR-LAY-40`)
   · **검증** — `ui-layout-defaults.spec.ts` 7건 · 회귀 넷 378건 · 실패 0 ·
     `make gates` · `go test ./...` · `typecheck` · `lint` · `unit` 64건
-  · **`FR-LAY-34` 를 정정했다** — "`dongminal verify` 에 넣는다" 로 썼는데 그
+  · **`FR-LAY-34` 를 정정했다** — "`otterminal verify` 에 넣는다" 로 썼는데 그
     명령은 런타임 종단간 검사이며 정적 CSS 검사의 자리가 아니다. 기존 여섯도
     `make gates`·`verify.yml` 에 있다
   · **기준선을 C1 단계에서 한 번 다시 떴다** — 그것이 무엇을 증명하지 **않는지**를

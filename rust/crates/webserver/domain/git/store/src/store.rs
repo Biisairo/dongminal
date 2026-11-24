@@ -4,9 +4,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use dm_gocompat::filepath;
-use dm_webserver_domain_git_core::{Ctx, DEFAULT_TIMEOUT, Service, ctx_err};
-use dm_webserver_domain_git_query::{self as query, Error, Signature, Status};
+use otter_gocompat::filepath;
+use otter_webserver_domain_git_core::{Ctx, DEFAULT_TIMEOUT, Service, ctx_err};
+use otter_webserver_domain_git_query::{self as query, Error, Signature, Status};
 use serde::Serialize;
 use tokio::sync::Notify;
 

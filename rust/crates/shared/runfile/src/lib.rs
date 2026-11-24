@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/runfile` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/runfile` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! `runs.json` 을 **읽기만** 한다. Run 의 어휘·상태 전이·펜싱은 `webserver/domain/run` 의 것이다.
 
@@ -51,7 +51,7 @@ pub fn headless_tool_ids(dir: &Path) -> HashSet<String> {
     let Ok(blob) = std::fs::read(dir.join(FILE_NAME)) else {
         return out;
     };
-    let Ok(body) = dm_gocompat::json::unmarshal::<FileBody>(&blob) else {
+    let Ok(body) = otter_gocompat::json::unmarshal::<FileBody>(&blob) else {
         return out;
     };
     for rec in body.runs.unwrap_or_default() {

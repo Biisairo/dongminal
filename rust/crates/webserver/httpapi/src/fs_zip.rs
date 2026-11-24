@@ -16,13 +16,13 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::SystemTime;
 
 use bytes::Bytes;
-use dm_gocompat::filepath;
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr as apierr;
 use flate2::Compression;
 use flate2::write::DeflateEncoder;
 use http::{HeaderValue, header};
 use http_body_util::{BodyExt, StreamBody};
+use otter_gocompat::filepath;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_webserver_apierr as apierr;
 
 use crate::Server;
 use crate::files_transfer::attachment_disposition;
@@ -290,7 +290,8 @@ fn detect_utf8(s: &[u8]) -> (bool, bool) {
 
 /// Go `timeToMsDosTime`: 지역 시각으로 접는다.
 fn ms_dos_time(t: SystemTime) -> (u16, u16) {
-    let lt = dm_gocompat::time::to_zone(time::OffsetDateTime::from(t), dm_gocompat::time::local());
+    let lt =
+        otter_gocompat::time::to_zone(time::OffsetDateTime::from(t), otter_gocompat::time::local());
     let date = (i64::from(lt.day())
         + (i64::from(u8::from(lt.month())) << 5)
         + ((i64::from(lt.year()) - 1980) << 9)) as u16;

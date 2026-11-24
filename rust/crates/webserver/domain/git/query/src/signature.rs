@@ -2,8 +2,8 @@
 
 use std::time::UNIX_EPOCH;
 
-use dm_gocompat::filepath;
-use dm_webserver_domain_git_core::{Ctx, Service};
+use otter_gocompat::filepath;
+use otter_webserver_domain_git_core::{Ctx, Service};
 use serde::Serialize;
 
 use crate::error::Error;

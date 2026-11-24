@@ -14,7 +14,7 @@ mod view;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use dm_shared_platform::{Secrets, SecretsError};
+use otter_shared_platform::{Secrets, SecretsError};
 
 use crate::Credential;
 
@@ -100,7 +100,7 @@ pub(crate) fn cred(access: &str, refresh: &str, extra: &str) -> Credential {
 
 /// 유닉스 권한을 본다. 권한을 보지 않는 환경(Windows)에서는 늘 참이다.
 pub(crate) fn perm_is(p: &std::path::Path, want: u32) -> bool {
-    if !dm_shared_testpath::perm_checked() {
+    if !otter_shared_testpath::perm_checked() {
         return true;
     }
     #[cfg(unix)]

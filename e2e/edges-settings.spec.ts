@@ -74,12 +74,12 @@ async function poke(baseURL: string) {
 }
 
 test.describe.serial('설정 ▸ Edges', () => {
-  test.beforeAll(async ({ dmServer }) => {
-    const aPort = dmServer.port + A_UI_OFFSET;
-    aHome = E2E_HOME + '/peer-a-' + dmServer.port;
+  test.beforeAll(async ({ otterServer }) => {
+    const aPort = otterServer.port + A_UI_OFFSET;
+    aHome = E2E_HOME + '/peer-a-' + otterServer.port;
     mkdirSync(aHome + '/tool-home', { recursive: true });
     aProc = spawn(E2E_BIN, ['start', '--foreground', '--port', String(aPort)], {
-      env: { ...hermeticEnv(), DONGMINAL_HOME: aHome, DONGMINAL_TOOL_HOME: aHome + '/tool-home' },
+      env: { ...hermeticEnv(), OTTERMINAL_HOME: aHome, OTTERMINAL_TOOL_HOME: aHome + '/tool-home' },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
     await pingUntilUp(`http://${E2E_HOST}:${aPort}/api/ping`, 90_000);
@@ -87,18 +87,18 @@ test.describe.serial('설정 ▸ Edges', () => {
     const node = (port: number, name: string) => ({
       enabled: true, port, bind: '127.0.0.1', name, advertise: '127.0.0.1',
     });
-    let r = await a.put('/api/edges/node', { data: node(dmServer.port + A_NODE_OFFSET, 'node-a') });
+    let r = await a.put('/api/edges/node', { data: node(otterServer.port + A_NODE_OFFSET, 'node-a') });
     expect(r.status(), await r.text()).toBe(200);
     aFp = (await r.json()).node.fingerprint;
-    const b = await pwRequest.newContext({ baseURL: dmServer.baseURL });
-    r = await b.put('/api/edges/node', { data: node(dmServer.port + B_NODE_OFFSET, 'node-b') });
+    const b = await pwRequest.newContext({ baseURL: otterServer.baseURL });
+    r = await b.put('/api/edges/node', { data: node(otterServer.port + B_NODE_OFFSET, 'node-b') });
     expect(r.status(), await r.text()).toBe(200);
     await b.dispose();
   });
 
-  test.afterAll(async ({ dmServer }) => {
+  test.afterAll(async ({ otterServer }) => {
     // 워커 서버의 노드 포트를 다시 닫는다 — 뒤 스펙은 꺼진 노드를 전제로 한다 (NFR-PNW-1).
-    const b = await pwRequest.newContext({ baseURL: dmServer.baseURL });
+    const b = await pwRequest.newContext({ baseURL: otterServer.baseURL });
     // 맺은 간선을 남기지 않는다 — 워커 데몬의 간선은 뒤 스펙의 화면(V-LAY-1 의 Edges 탭)에 그대로 보인다.
     if (aFp) await b.post('/api/edges/remove', { data: { fp: aFp } });
     await b.put('/api/edges/node', {
@@ -148,8 +148,8 @@ test.describe.serial('설정 ▸ Edges', () => {
   });
 
   // FR-EPR-20·23: 상대가 끊으면 이쪽에서도 사라지고 알림이 뜬다.
-  test('상대가 끊으면 간선이 사라지고 "끊겼습니다" 알림이 뜬다', async ({ page, dmServer }) => {
-    await pairViaApi(dmServer.baseURL);
+  test('상대가 끊으면 간선이 사라지고 "끊겼습니다" 알림이 뜬다', async ({ page, otterServer }) => {
+    await pairViaApi(otterServer.baseURL);
     await waitForInit(page);
     await openEdgesTab(page);
     const peer = page.locator(`#eg-edges .eg-item[data-fp="${aFp}"]`);
@@ -163,8 +163,8 @@ test.describe.serial('설정 ▸ Edges', () => {
   });
 
   // FR-EPR-52·71: 주소 수정과 끊기. 듣지 않는 포트로 고쳤으므로 상대에게 알리지 못한다.
-  test('간선의 주소를 고치고 끊는다', async ({ page, dmServer }) => {
-    await pairViaApi(dmServer.baseURL);
+  test('간선의 주소를 고치고 끊는다', async ({ page, otterServer }) => {
+    await pairViaApi(otterServer.baseURL);
     await waitForInit(page);
     await openEdgesTab(page);
     const peer = page.locator(`#eg-edges .eg-item[data-fp="${aFp}"]`);
@@ -172,14 +172,14 @@ test.describe.serial('설정 ▸ Edges', () => {
     // M-7: 고치던 줄은 방송에 덮이지 않고, 취소하면 원래 값으로 돌아온다.
     await peer.locator('.eg-edit').click();
     await peer.locator('.eg-addr').fill('10.9.9.9');
-    await poke(dmServer.baseURL);
+    await poke(otterServer.baseURL);
     await expect(page.locator('#eg-inv-remain')).toHaveText(/^\d+:\d\d$/);
     await expect(peer.locator('.eg-addr')).toHaveValue('10.9.9.9');
     await peer.locator('.eg-edit-cancel').click();
     await expect(peer.locator('.eg-addr')).toBeHidden();
     await expect(peer.locator('.eg-edit-cancel')).toBeHidden();
     await expect(peer.locator('.eg-who')).toContainText('127.0.0.1');
-    const closed = dmServer.port + CLOSED_OFFSET;
+    const closed = otterServer.port + CLOSED_OFFSET;
     expect(await refused(closed), `닫혀 있어야 할 포트 ${closed} 가 받는다`).toBe(true);
     await peer.locator('.eg-edit').click();
     await peer.locator('.eg-addr').fill('127.0.0.1');
@@ -202,8 +202,8 @@ test.describe.serial('설정 ▸ Edges', () => {
 
   // EDGE_MESH_SRS FR-EGM-3·50~54: 맺으면 간선 연결이 서고, 망 그림에 나와 상대가 이어져 보인다.
   // 상대를 누르면 알리기가 나오고, 알리면 알렸다는 알림이 뜬다.
-  test('망 그림에 간선 상대가 보이고 알리기가 된다', async ({ page, dmServer }) => {
-    await pairViaApi(dmServer.baseURL);
+  test('망 그림에 간선 상대가 보이고 알리기가 된다', async ({ page, otterServer }) => {
+    await pairViaApi(otterServer.baseURL);
     await waitForInit(page);
     await openEdgesTab(page);
     const node = page.locator(`#eg-mesh .eg-mesh-node[data-fp="${aFp}"]`);

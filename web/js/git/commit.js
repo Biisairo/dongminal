@@ -1,5 +1,5 @@
 /**
- * Dongminal — Changes 탭의 커밋 영역 (GIT_SRS §3A.2 / FR-GIT-74~85)
+ * Otterminal — Changes 탭의 커밋 영역 (GIT_SRS §3A.2 / FR-GIT-74~85)
  *
  * 5단계가 세운 `.git-commit` 자리를 살린다. **파일 목록 스크롤과 독립된 고정
  * 영역**이라는 성질(FR-GIT-39)은 5단계의 flex 구조가 보장하므로 여기서는 그

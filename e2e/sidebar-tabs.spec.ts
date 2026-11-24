@@ -21,7 +21,7 @@ import { tmpPath, realPath, cssPath } from './osenv';
 // 기존 Git 스펙의 가시성 전제 수정은 `fixtures.ts` 의 `openGitTab` 이 맡는다 (§4.1).
 // 여기는 **탭 자체의 계약**만 본다.
 
-const FIXTURES = tmpPath('dm-git-fx-sbt-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-sbt-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
@@ -519,7 +519,7 @@ declare const SHORTCUT_DEFAULTS: Record<string, string>;
  * 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
  */
 
-const UXRFX = tmpPath('dm-uxr-sidebar-tabs-' + process.pid);
+const UXRFX = tmpPath('otter-uxr-sidebar-tabs-' + process.pid);
 test.beforeAll(() => { gitFixture(UXRFX) });
 test.afterAll(() => { cleanGitFixture(UXRFX) });
 const uxrFx = (n: string) => realPath(join(UXRFX, n));

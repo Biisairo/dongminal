@@ -1,5 +1,5 @@
 [package]
-name = "dm-ctl-migrate"
+name = "otter-ctl-migrate"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,10 +10,10 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-dmenv = { path = "../../shared/dmenv" }
-dm-shared-platform = { path = "../../shared/platform" }
-dm-shared-uuid = { path = "../../shared/uuid" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-otterenv = { path = "../../shared/otterenv" }
+otter-shared-platform = { path = "../../shared/platform" }
+otter-shared-uuid = { path = "../../shared/uuid" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

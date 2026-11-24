@@ -92,7 +92,7 @@
 | V-BTR-2 | FR-BTR-2 | e2e: 서 있는 동안 `show` 를 다시 불러도 `#boot` 는 하나다. |
 | V-BTR-3 | FR-BTR-4·5 | e2e: `done()` 직후 `BOOT_FADE_MS` 안에 `show()` 를 부르면 페이드가 끝난 뒤에도 `#boot` 가 살아 있다. |
 | V-BTR-4 | FR-BTR-3 | e2e: `show()` 뒤 `BOOT_MAX_MS + 여유` 안에 걷힌다. |
-| V-BTR-5 | FR-BTR-10 | e2e: 자동 새로고침 경로(`__dmAssetVersion('다른판')`)를 부르면 문서가 다시 열리기 전에 `#boot` 가 선다. |
+| V-BTR-5 | FR-BTR-10 | e2e: 자동 새로고침 경로(`__otterAssetVersion('다른판')`)를 부르면 문서가 다시 열리기 전에 `#boot` 가 선다. |
 | V-BTR-6 | NFR-BTR-2 | `npx playwright test e2e/boot-screen.spec.ts` 통과. |
 
 ## 5. 리스크

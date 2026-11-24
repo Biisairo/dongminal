@@ -7,11 +7,11 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard, Once, RwLock};
 use std::time::Duration;
 use std::{io, thread};
 
-use dm_gocompat::json::RawMessage;
-use dm_shared_activity as activity;
-use dm_shared_dmlog::{errorf, infof};
-use dm_shared_outbuf::Stream;
-use dm_shared_platform::{ProcSpec, Terminal};
+use otter_gocompat::json::RawMessage;
+use otter_shared_activity as activity;
+use otter_shared_otterlog::{errorf, infof};
+use otter_shared_outbuf::Stream;
+use otter_shared_platform::{ProcSpec, Terminal};
 use tokio_util::sync::CancellationToken;
 
 use crate::env::{Getenv, tool_bin_dir, tool_env, tool_start_dir};
@@ -116,8 +116,8 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-fn proc_info() -> &'static dyn dm_shared_platform::ProcInfo {
-    dm_shared_platform::current().info
+fn proc_info() -> &'static dyn otter_shared_platform::ProcInfo {
+    otter_shared_platform::current().info
 }
 
 /// PTY 하나와 그 위의 셸을 소유하는 도구다. `Arc` 로 나눠 쓴다.
@@ -271,7 +271,7 @@ impl Tool {
         place: Option<&ProcSpec>,
         extra_env: &[String],
     ) -> io::Result<Arc<Self>> {
-        let plat = dm_shared_platform::current();
+        let plat = otter_shared_platform::current();
         let bin_dir = tool_bin_dir(g);
         let sh = plat.shell.shell(std::path::Path::new(&bin_dir));
         let env = tool_env(g, id, &sh.path, &bin_dir, &sh.env, extra_env, overlay);
@@ -342,7 +342,7 @@ impl Tool {
         let mut raw = vec![0u8; READ_BUF];
         loop {
             match term.read(&mut raw) {
-                Err(e) if dm_shared_platform::is_frozen(&e) => self.park_while_frozen(),
+                Err(e) if otter_shared_platform::is_frozen(&e) => self.park_while_frozen(),
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
                 Ok(0) => {
                     infof!(None, "[tool {}] readPTY: shell exited normally", self.id);
@@ -467,7 +467,7 @@ impl Tool {
     pub async fn terminate_wait(&self, grace: Duration) {
         let pid = self.cmd_process_pid();
         if pid <= 0
-            || dm_shared_platform::current()
+            || otter_shared_platform::current()
                 .process
                 .terminate(pid)
                 .is_err()
@@ -532,7 +532,7 @@ impl Tool {
                     None,
                     "[tool {}] wait: {}",
                     self.id,
-                    dm_shared_platform::exit_status_text(&st)
+                    otter_shared_platform::exit_status_text(&st)
                 );
                 self.exit_code
                     .store(st.code().map_or(-1, i64::from), SeqCst);
@@ -720,7 +720,7 @@ impl Tool {
         false
     }
 
-    /// 명시 신호(`dmctl notify`)다. 판정(묶음 N)을 통과하면 이미 서 있어도 다시 알린다.
+    /// 명시 신호(`otterctl notify`)다. 판정(묶음 N)을 통과하면 이미 서 있어도 다시 알린다.
     pub fn signal_attention(&self, reason: &str) {
         if !self.turn.allow_signal(reason) {
             return;
@@ -942,7 +942,7 @@ impl std::fmt::Debug for Tool {
 }
 
 /// 여러 도구의 바쁨을 한 번에 묻는다. 순서는 ps 와 같다. pid 가 없으면 거짓이다.
-pub fn busy_of(info: &dyn dm_shared_platform::ProcInfo, ps: &[Arc<Tool>]) -> Vec<bool> {
+pub fn busy_of(info: &dyn otter_shared_platform::ProcInfo, ps: &[Arc<Tool>]) -> Vec<bool> {
     let pids: Vec<i32> = ps
         .iter()
         .map(|p| p.cmd_process_pid())
@@ -959,7 +959,7 @@ pub fn busy_of(info: &dyn dm_shared_platform::ProcInfo, ps: &[Arc<Tool>]) -> Vec
 
 /// 유휴 알람의 일괄 바쁨 판정이다. 검사가 갈아 끼운 것이 있으면 그것이다.
 pub(crate) fn attn_busy_many(
-    info: &dyn dm_shared_platform::ProcInfo,
+    info: &dyn otter_shared_platform::ProcInfo,
     ps: &[Arc<Tool>],
 ) -> Vec<bool> {
     if let Some(f) = read_lock(&ATTN_BUSY).as_ref() {

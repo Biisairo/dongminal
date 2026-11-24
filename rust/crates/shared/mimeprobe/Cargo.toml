@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-mimeprobe"
+name = "otter-shared-mimeprobe"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

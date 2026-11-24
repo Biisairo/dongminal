@@ -2,9 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr as apierr;
 use http::{Method, StatusCode};
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_webserver_apierr as apierr;
 use serde::{Deserialize, Serialize};
 
 use crate::Server;
@@ -17,7 +17,7 @@ pub(crate) const WHERE_LOCAL: &str = "local";
 /// 다른 컴퓨터의 뷰어다 — 브라우저에 보낸다.
 pub(crate) const WHERE_REMOTE: &str = "remote";
 /// `local`·`viewer` 로 판정을 강제한다.
-const ENV_URL_OPEN: &str = "DONGMINAL_URL_OPEN";
+const ENV_URL_OPEN: &str = "OTTERMINAL_URL_OPEN";
 
 #[derive(Deserialize, Default)]
 #[serde(default)]
@@ -31,7 +31,7 @@ pub(crate) fn open_url_target(raw: Option<&[u8]>) -> Result<String, String> {
         .filter(|r| !r.is_empty())
         .ok_or("openUrl: args.url 필수")?;
     let args: UrlArg =
-        dm_gocompat::json::unmarshal(raw).map_err(|_| "openUrl: args 파싱 실패".to_owned())?;
+        otter_gocompat::json::unmarshal(raw).map_err(|_| "openUrl: args 파싱 실패".to_owned())?;
     if args.url.is_empty() {
         return Err("openUrl: args.url 필수".to_owned());
     }
@@ -123,7 +123,7 @@ impl Server {
                     .into_iter()
                     .collect::<BTreeMap<_, _>>(),
             );
-            c.broadcast(&dm_webserver_sse::payload("window_focus", Some(&m)));
+            c.broadcast(&otter_webserver_sse::payload("window_focus", Some(&m)));
         }
     }
 

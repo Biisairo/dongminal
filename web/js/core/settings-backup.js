@@ -26,7 +26,7 @@ const BACKUP_KEYS=[
   {store:'session', key:'displayMode'},      // Display ▸ Display Mode
   {store:'session', key:'mobileBreakpoint'}, // Display ▸ Mobile Breakpoint
 ];
-const BACKUP_KIND='dongminal-settings';
+const BACKUP_KIND='otterminal-settings';
 const BACKUP_VERSION=1;
 
 class BackupSection extends SettingsSection {
@@ -50,7 +50,7 @@ class BackupSection extends SettingsSection {
   // FR-SPT-6: 지역 시각을 이름에 박는다 — 여러 번 내보내도 서로 덮지 않는다.
   _bkFileName(d){
     const p=n=>String(n).padStart(2,'0');
-    return `dongminal-settings-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}`
+    return `otterminal-settings-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}`
       +`-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.json`;
   }
 
@@ -166,7 +166,7 @@ class BackupSection extends SettingsSection {
     }
     this._bkPending=null;
     // §2.5 / FR-RLC-5a: 앱이 스스로 여는 새로고침은 이탈 가드를 지난다.
-    window.__dmReloading=true;
+    window.__otterReloading=true;
     // BOOT_SCREEN_REUSE_SRS FR-BTR-11: 되돌린 설정은 다시 열린 문서에서야
     // 화면에 닿는다. 그 사이의 옛 화면을 덮는다.
     BootScreen.show(BOOT_STEP_BACKUP);
@@ -197,7 +197,7 @@ class BackupSection extends SettingsSection {
     for(const {store,key} of BACKUP_KEYS){
       this._bkStore(store).remove(key);
     }
-    window.__dmReloading=true;
+    window.__otterReloading=true;
     BootScreen.show(BOOT_STEP_BACKUP);
     location.reload();
     return true;
@@ -261,7 +261,7 @@ class BackupSection extends SettingsSection {
       this._bkMsg(t('backup.revert_fail',{status:r.status}),'err');
       return;
     }
-    window.__dmReloading=true;
+    window.__otterReloading=true;
     BootScreen.show(BOOT_STEP_BACKUP);
     location.reload();
   }

@@ -6,7 +6,7 @@
 
 ### 1.1 목적 (Purpose)
 
-dongminal 은 사실상 darwin 전용이다. 그것이 설계상의 결정이어서가 아니라, OS 에
+otterminal 은 사실상 darwin 전용이다. 그것이 설계상의 결정이어서가 아니라, OS 에
 의존하는 호출이 **호출하는 자리에 그대로 박혀 있기 때문**이다. `syscall.Kill`,
 `Setsid`, `/proc/<pid>/cwd`, `lsof`, `pgrep`, `/bin/bash`, `net.Listen("unix")` 가
 각각의 사용처에 흩어져 있고, 그것을 감싸는 경계가 없다.
@@ -31,7 +31,7 @@ OS 이름이 나타나면 그것은 이 SRS 의 위반이다.
 | C | `ProcInfo` — busy 판정·cwd·프로세스명·포트 점유자. 외부 CLI(`lsof`/`pgrep`/`ps`) 의존 제거 |
 | D | `PTY`/`Terminal` — PTY 마스터와 그에 붙은 프로세스의 소유권 이관. `toolhub` 개조 |
 | E | `ShellProvider` — 셸 선택과 셸 훅 자산의 OS 별 분기. PowerShell 훅 신설 |
-| F | `IPC` — dongminal ↔ dongminald 로컬 전송 종단 추상화 (유닉스 소켓 / named pipe) |
+| F | `IPC` — otterminal ↔ otterminald 로컬 전송 종단 추상화 (유닉스 소켓 / named pipe) |
 | G | Windows 어댑터 실구현 — ConPTY · Job Object · Named Pipe · WinAPI 프로세스 조회 |
 | H | `sysstat` 확장 — Linux(`/proc`) · Windows(WinAPI) Reader 신설 |
 | I | 빌드·검증 — 크로스 빌드 게이트, 플랫폼별 테스트 분리 |
@@ -53,7 +53,7 @@ OS 이름이 나타나면 그것은 이 SRS 의 위반이다.
 
 ### 1.4 참고 (References)
 
-- `docs/internal/architecture.md` — 4개 프로세스 역할 (`dongminal` / `dongminald` / 웹서버 / helper)
+- `docs/internal/architecture.md` — 4개 프로세스 역할 (`otterminal` / `otterminald` / 웹서버 / helper)
 - `docs/internal/SYSTEM_STATS_SRS.md` §5 — 현재의 darwin 전용 선언. 본 SRS 가 이를 대체한다
 - `docs/internal/CONVENIENCE_SRS.md` FR-TAN-23/24 — `fg_posix.go`/`fg_other.go` 분리. 본 SRS 가 흡수한다
 - `internal/webserver/domain/sysstat/sysstat.go:56` — `Reader` 인터페이스. **본 SRS 가 따르는 선례**
@@ -107,7 +107,7 @@ internal/webserver/domain/git/jobs/job.go:573:17  undefined: syscall.Kill
 | 7 | 프로세스 종료 | `syscall.Kill(SIGTERM/SIGKILL)` | `cli/proc.go:57,89,104,106`, `handlers_tools_kill.go:69`, `tool.go:650` | ✅ | ✅ | ❌ |
 | 8 | 생존 확인 | `syscall.Kill(pid, 0)` | `cli/proc.go:89` | ✅ | ✅ | ❌ |
 | 9 | 프로세스 그룹 | `Setpgid` + `Kill(-pgid)` | `git/jobs/job.go:520,573` | ✅ | ✅ | ❌ Job Object |
-| 10 | 데몬 분리 | `SysProcAttr{Setsid:true}` | `cli/start.go:138`, `cli/handoff.go:53`, `cmd/dongminal/main.go:122` | ✅ | ✅ | ❌ `DETACHED_PROCESS` |
+| 10 | 데몬 분리 | `SysProcAttr{Setsid:true}` | `cli/start.go:138`, `cli/handoff.go:53`, `cmd/otterminal/main.go:122` | ✅ | ✅ | ❌ `DETACHED_PROCESS` |
 | 11 | 포트 점유자 | `lsof -ti :P -sTCP:LISTEN` | `cli/proc.go:42` | ⚠️ lsof 미설치 가능 | ⚠️ | ❌ |
 | 12 | busy 판정 | `pgrep -P <pid>` | `tool.go:167` | ⚠️ 동일 | ⚠️ | ❌ |
 | 13 | 전경 프로세스 | `TIOCGPGRP` + `/proc/comm` → `ps` | `fg_posix.go` | ✅ | ✅ | ❌ 스텁(무동작) |
@@ -116,7 +116,7 @@ internal/webserver/domain/git/jobs/job.go:573:17  undefined: syscall.Kill
 | 16 | 브라우저 열기 | darwin/linux 만, 그 외 오류 | `cli/open.go:17-29` | ✅ | ⚠️ 호스트 브라우저를 띄워야 함 | ❌ |
 
 부수 항목: 헬퍼 설치가 symlink 우선(`runtime/install.go:208`, Windows 는 권한 필요 +
-`.exe` 미고려), 기본 로그 경로가 `/tmp/dongminal.log` 하드코딩(`cli/options.go:37`).
+`.exe` 미고려), 기본 로그 경로가 `/tmp/otterminal.log` 하드코딩(`cli/options.go:37`).
 
 ### 2.3 현행 구조의 진단
 
@@ -265,7 +265,7 @@ type Group interface {
 | `cli/proc.go:104-106` `stopDaemon` | `Kill(TERM)`→`Kill(KILL)` | `Terminate`→`Kill` |
 | `cli/start.go:138` | `SysProcAttr{Setsid}` | `Process.Detach(cmd)` |
 | `cli/handoff.go:53` | `SysProcAttr{Setsid}` | `Process.Detach(cmd)` |
-| `cmd/dongminal/main.go:122` | `SysProcAttr{Setsid}` (dongminald 기동) | `Process.Detach(cmd)` |
+| `cmd/otterminal/main.go:122` | `SysProcAttr{Setsid}` (otterminald 기동) | `Process.Detach(cmd)` |
 | `git/jobs/job.go:520,547,573` | `Setpgid`/`Kill(-pgid)` | `Process.NewGroup` + `Group` |
 | `httpapi/handlers_tools_kill.go:69` | `syscall.Kill(pid, SIGTERM)` | `Process.Terminate` |
 | `toolhub/tool.go:650-652` | `Signal(SIGTERM)`→`Kill()` | `Terminal.Terminate`→`Terminal.Kill` (FR-XPT-3) |
@@ -449,7 +449,7 @@ type ShellProvider interface {
 zsh 이면 `ZDOTDIR=<binDir>/zdotdir`, bash 이면 `BASH_ENV=<binDir>/bash-hook.sh`.
 `HookRoot()` 는 `"shellhooks/posix"`.
 
-**FR-XSH-3** Windows 어댑터의 셸 선택 순서: `%DONGMINAL_SHELL%` → `pwsh.exe`(PATH) →
+**FR-XSH-3** Windows 어댑터의 셸 선택 순서: `%OTTERMINAL_SHELL%` → `pwsh.exe`(PATH) →
 `powershell.exe` → `cmd.exe`. PowerShell 계열의 인자는
 `-NoLogo -NoExit -ExecutionPolicy Bypass -File <binDir>\powershell-hook.ps1`.
 `cmd.exe` 로 떨어지면 훅이 없으므로 인자는 비고, 훅 의존 기능(cwd 추적·에이전트 래퍼)은
@@ -464,9 +464,9 @@ zsh 이면 `ZDOTDIR=<binDir>/zdotdir`, bash 이면 `BASH_ENV=<binDir>/bash-hook.
 **FR-XSH-5** `powershell-hook.ps1` 은 POSIX 훅과 동등한 세 가지를 한다.
 1. cwd 통지 — `prompt` 함수를 감싸 매 프롬프트마다
    `` `e]777;Cwd;$PWD`a `` 를 내보낸다 (POSIX 의 `_rt_cwd_hook` 와 **동일한 시퀀스**)
-2. `claude` 래퍼 — `$env:DONGMINAL_HOME\bin\agent-hooks\claude.json` 이 있으면
+2. `claude` 래퍼 — `$env:OTTERMINAL_HOME\bin\agent-hooks\claude.json` 이 있으면
    `--settings`, `...\bin\agent-plugin` 이 있으면 `--plugin-dir` 을 붙여 위임
-3. `codex` 래퍼 — `-c notify=[...dmctl.exe,notify,codex]` 를 붙여 위임
+3. `codex` 래퍼 — `-c notify=[...otterctl.exe,notify,codex]` 를 붙여 위임
 
 **FR-XSH-6** `toolhub.StartTool` 은 셸을 스스로 고르지 않는다. `ShellProvider.Shell()`
 이 낸 `ShellSpec` 을 `platform.ProcSpec` 으로 조립해 `PTY.Start` 에 넘긴다.
@@ -481,7 +481,7 @@ POSIX 전용 값(`SHELL_SESSIONS_DISABLE`, `LANG`/`LC_*`)은 `ShellSpec.Env` 로
 **FR-XIP-1** 다음 인터페이스를 정의한다.
 
 ```go
-// IPC 는 dongminal(웹서버) ↔ dongminald(데몬) 사이의 로컬 전송이다.
+// IPC 는 otterminal(웹서버) ↔ otterminald(데몬) 사이의 로컬 전송이다.
 // 로컬 전용이며 네트워크에 노출되지 않는다.
 type IPC interface {
 	// Endpoint 는 home 에 대응하는 종단 주소다. POSIX 는 유닉스 소켓 경로,
@@ -508,7 +508,7 @@ type IPC interface {
 **FR-XIP-3** Windows 어댑터: named pipe 를 쓴다. AF_UNIX 를 쓰지 않는 이유는 두 가지다 —
 Windows 의 AF_UNIX 는 파일 시스템에 재분석 지점으로 나타나 `ModeSocket` 판정이
 성립하지 않고, 낡은 소켓 파일의 회수 규약이 POSIX 와 다르다.
-`Endpoint` 는 home 경로의 해시를 섞은 `\\.\pipe\dongminal-<hash>` 다 —
+`Endpoint` 는 home 경로의 해시를 섞은 `\\.\pipe\otterminal-<hash>` 다 —
 격리 인스턴스(`--isolated`)가 같은 이름을 다투지 않아야 한다.
 
 **FR-XIP-4** 호출부 이관: `daemon/ipc/paned.go` 의 `Listen`(395-410),
@@ -536,8 +536,8 @@ type Paths interface {
 }
 ```
 
-**FR-XPA-2** `DefaultLogFile` — POSIX 는 `/tmp/dongminal.log`(현행 유지),
-Windows 는 `%LOCALAPPDATA%\dongminal\dongminal.log`. `cli/options.go:37` 의
+**FR-XPA-2** `DefaultLogFile` — POSIX 는 `/tmp/otterminal.log`(현행 유지),
+Windows 는 `%LOCALAPPDATA%\otterminal\otterminal.log`. `cli/options.go:37` 의
 `DefaultLog` 상수는 제거하고 이 메서드로 대체한다.
 
 **FR-XPA-3** `runtime.Install` 의 헬퍼 설치는 이름에 `ExeSuffix()` 를 붙이고
@@ -652,7 +652,7 @@ job). 신설만으로는 강제가 되지 않는다 — 두 스크립트가 있�
 |---|---|
 | **C-1** | Windows 최소 지원 버전은 **Windows 10 1809 (10.0.17763)** — ConPTY 의 도입 버전이다. 그 미만은 지원하지 않으며, `CreatePseudoConsole` 조회 실패 시 명확한 오류를 낸다 |
 | **C-2** | 개발 호스트가 darwin 이므로 Windows 실기 검증을 이 트랙 안에서 수행할 수 없다 (§8 R-1) |
-| **C-3** | `dongminal` 은 단일 바이너리로 유지한다. 플랫폼별 보조 실행 파일을 만들지 않는다 |
+| **C-3** | `otterminal` 은 단일 바이너리로 유지한다. 플랫폼별 보조 실행 파일을 만들지 않는다 |
 | **C-4** | e2e(Playwright)는 서버를 `go run` 으로 띄운다. Windows 에서의 e2e 는 이 트랙의 범위가 아니다 |
 
 ---
@@ -698,7 +698,7 @@ go test ./...                 # darwin
 GOOS=linux go build ./... && GOOS=linux go vet ./...
 GOOS=windows go build ./... && GOOS=windows go vet ./...
 scripts/check-seams.sh
-scripts/verify-isolated.sh    # 격리 인스턴스 종단간 (dongminal verify)
+scripts/verify-isolated.sh    # 격리 인스턴스 종단간 (otterminal verify)
 ```
 
 ---
@@ -756,7 +756,7 @@ scripts/verify-isolated.sh    # 격리 인스턴스 종단간 (dongminal verify)
 | # | 이전 | 이후 | 이유 |
 |---|---|---|---|
 | 1 | `toolhub.Tool.PTMX() *os.File` 공개 | 제거. `Tool.Size()` 로 대체 | Windows ConPTY 는 `*os.File` 하나로 표현되지 않는다 (§2.4). 외부 사용처는 `seam/adapters/tool.go:122` 하나 |
-| 2 | `cli.DefaultLog = "/tmp/dongminal.log"` 상수 | `Paths.DefaultLogFile()` | Windows 에 `/tmp` 가 없다. POSIX 값은 동일 |
+| 2 | `cli.DefaultLog = "/tmp/otterminal.log"` 상수 | `Paths.DefaultLogFile()` | Windows 에 `/tmp` 가 없다. POSIX 값은 동일 |
 | 3 | `cli.BrowserCommand(goos, url, look)` | `Browser.FramelessCommand(url)` | FR-XPL-5. darwin/linux 결과는 동일 |
 | 4 | 헬퍼 설치가 symlink 시도 후 복사 폴백 | Windows 는 복사만 | 권한 없는 Windows 에서 매 기동 오류. POSIX 는 무변경 |
 | 5 | `shellhooks/{bash-hook.sh,zdotdir}` | `shellhooks/posix/{...}` | 훅 자산의 OS 분리. 설치 결과 경로(`<binDir>/bash-hook.sh`)는 **무변경** — 기존 세션의 `BASH_ENV` 가 깨지지 않는다 |
@@ -842,13 +842,13 @@ pipe 리스너를 직접 구현하는 것은 실기 검증 없이 인도하기�
 ### 10.3 스펙에 없었던 발견
 
 - **이음매는 16종이 아니라 18종이었다.** `seam/clientpid` 의 `Parent`(`ps -o ppid=`)
-  와 `FromRemoteAddr`(`lsof -i tcp@…`)가 §2.2 에 빠져 있었다. `dmctl who-am-i` 의
+  와 `FromRemoteAddr`(`lsof -i tcp@…`)가 §2.2 에 빠져 있었다. `otterctl who-am-i` 의
   클라이언트 역추적 경로다. `ProcInfo.ParentPID`·`ConnectionOwnerPID` 로 흡수하고
   `clientpid` 패키지는 제거했다 (FR-XPI-7).
 - **종료 신호 집합도 이음매다.** `signal.NotifyContext(…, SIGTERM, SIGHUP)` 두 곳.
   Windows 에서 그 상수들은 존재하지만 **전달되지 않으므로**, 나열하는 것 자체가
   지키지 못할 약속이다. `Process.ShutdownSignals()` 로 옮겼다.
-- **`cmd/dongminal/main.go:122` 의 `Setsid`** 가 §2.2 표에서 빠져 있었다. 첫
+- **`cmd/otterminal/main.go:122` 의 `Setsid`** 가 §2.2 표에서 빠져 있었다. 첫
   크로스 컴파일이 의존 패키지에서 먼저 멈춰 그 파일까지 닿지 않았기 때문이다.
 
 ### 10.4 남은 위험
@@ -868,7 +868,7 @@ Job Object 배정과 스레드 재개, toolhelp 스냅샷, `GetExtendedTcpTable`
 D-1 이 정해지기 전까지 이 목록은 그대로 열려 있다.
 
 > **갱신 (§11.8 이후).** R-1 은 해소됐다. e8d6636 이 CI 에 Windows 러너를 들였고,
-> §11.8 이후 `windows-runtime` 잡이 통과한다. 그 잡은 `dongminal doctor` 로
+> §11.8 이후 `windows-runtime` 잡이 통과한다. 그 잡은 `otterminal doctor` 로
 > ConPTY 생성/크기변경/종료·Job Object·toolhelp·로컬 IPC·`powershell-hook.ps1`
 > 을 실제로 실행하고, 종단간(서버 → 데몬 → PTY → 셸)까지 왕복시킨다. 위 목록
 > 에서 CI 가 덮지 않는 것은 `GetExtendedTcpTable`·`GetSystemTimes`·
@@ -915,7 +915,7 @@ R-1 이 현실화됐다. Windows 에서 **UI 는 뜨는데 터미널 탭이 빈�
 `Start()` 안에서 `dedupEnv` 로 **뒤엣것이 이기게** 정리해 준다. POSIX 어댑터는
 `exec.Cmd` 를 쓰니 그대로 적용되는데, **ConPTY 경로는 `os/exec` 를 우회하므로
 그 정리가 사라졌다.** 결과적으로 Windows 터미널의 `PATH` 는 `binDir` 이 빠진
-원본이 이겨 `dmctl`·`edit`·`download`·`detach` 가 잡히지 않는다.
+원본이 이겨 `otterctl`·`edit`·`download`·`detach` 가 잡히지 않는다.
 → `platform.dedupEnv` 를 두 어댑터가 공유한다. Windows 는 이름을 접어 비교한다.
 
 **② 크기 0 의 하한이 없다.**
@@ -941,7 +941,7 @@ PowerShell 5.1 은 BOM 없는 `.ps1` 을 **현재 ANSI 코드페이지**로 읽�
 닷소싱이라 훅이 정의한 함수가 세션에 그대로 남는다. 경로의 작은따옴표는 겹쳐
 escape 한다(사용자 이름의 아포스트로피).
 
-### 11.4 `dongminal doctor` (신설)
+### 11.4 `otterminal doctor` (신설)
 
 계층이 겹겹이라 "터미널이 안 뜬다" 는 증상만으로는 셸 탐색·헬퍼 설치·의사 터미널
 기동·IPC 중 어디가 깨졌는지 가를 수 없다. 서버가 쓰는 **바로 그 platform 코드**를
@@ -1107,8 +1107,8 @@ CI 6사이클에도 수렴하지 않았고, 사용자 결정으로 **직접 구�
 
 종단간(서버 → 데몬 → PTY)도 같은 잡에서 왕복했다.
 
-    PS C:\Users\runneradmin> echo dongminal-e2e-ok
-    dongminal-e2e-ok
+    PS C:\Users\runneradmin> echo otterminal-e2e-ok
+    otterminal-e2e-ok
 
 §11.7 의 배관 증명 기준인 **[단순 명령]** 이 먼저 통과했다는 것이 요점이다.
 셸도 프롬프트도 없이 16바이트만 오던 그 검사다.

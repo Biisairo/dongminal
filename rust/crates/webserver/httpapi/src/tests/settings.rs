@@ -10,10 +10,10 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use bytes::Bytes;
-use dm_webserver_domain_git_core::Service;
-use dm_webserver_domain_git_store::{Store, StoreOptions};
-use dm_webserver_hub::{CommandBroker, GitWatcher};
 use http_body_util::{BodyExt, Full};
+use otter_webserver_domain_git_core::Service;
+use otter_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_hub::{CommandBroker, GitWatcher};
 
 use super::fakes::{FakeBroker, FakeSettings};
 use super::support::{LOCAL, TEST_HOST, call, get, server};
@@ -315,7 +315,7 @@ fn lease_server(dir: &std::path::Path) -> Arc<Server> {
     )
 }
 
-async fn open_sse(s: &Arc<Server>, cid: &str) -> dm_shared_httpresp::Body {
+async fn open_sse(s: &Arc<Server>, cid: &str) -> otter_shared_httpresp::Body {
     let target = if cid.is_empty() {
         "/api/commands/sse".to_owned()
     } else {

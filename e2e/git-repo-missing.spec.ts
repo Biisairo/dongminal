@@ -17,7 +17,7 @@ import { tmpPath, realPath, cssPath } from './osenv';
 // GIT_REPO_MISSING_SRS — 소실의 확정과 알림, 그리고 실패 백오프.
 // 검증 V-RMS-4~20.
 
-const FIXTURES = tmpPath('dm-git-fx-missing-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-missing-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

@@ -37,7 +37,7 @@ fn refuses_while_server_answers() {
     assert_eq!(
         err,
         format!(
-            "❌ dongminal 이 포트 {p} 에서 실행 중입니다 — 변환하지 않았습니다.\n   서버와 데몬을 완전히 정지한 뒤 다시 실행하세요:\n     dongminal stop --all --port {p} --home {h}\n",
+            "❌ otterminal 이 포트 {p} 에서 실행 중입니다 — 변환하지 않았습니다.\n   서버와 데몬을 완전히 정지한 뒤 다시 실행하세요:\n     otterminal stop --all --port {p} --home {h}\n",
             p = srv.port,
             h = home.display()
         )

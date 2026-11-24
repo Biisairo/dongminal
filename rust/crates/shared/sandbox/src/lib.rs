@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/sandbox` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/sandbox` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 창 단위 샌드박스 컨테이너의 수명(SANDBOX_SRS)이다. 컨테이너 런타임은 `docker` CLI 로만 다루며,
 //! 실행 함수([`RunFn`])를 주입받으므로 검사는 가짜 런타임으로 돈다.
@@ -15,8 +15,8 @@ use std::collections::HashSet;
 use std::fmt;
 use std::sync::Arc;
 
-use dm_shared_dmenv as dmenv;
-use dm_shared_platform::ProcSpec;
+use otter_shared_otterenv as otterenv;
+use otter_shared_platform::ProcSpec;
 
 pub use config::{Config, DevConfig, parse_config};
 pub use copy::{COPY_MAX_BYTES, COPY_MAX_FILES, WorkKind, human_bytes, verify_copy_source};
@@ -42,15 +42,15 @@ pub type ExecFn<'a> = dyn Fn(&str, &[String]) -> RunOutput + 'a;
 /// 사용자 홈이다. 모르면 `None` (Go `os.UserHomeDir` 의 오류).
 pub type HomeFn<'a> = dyn Fn() -> Option<String> + 'a;
 
-const NAME_PREFIX: &str = "dongminal-sbx-";
+const NAME_PREFIX: &str = "otterminal-sbx-";
 /// 컨테이너가 어느 인스턴스·창의 것인지 다는 라벨이다.
-pub const LABEL_HOME: &str = "dongminal.home";
-pub const LABEL_WINDOW: &str = "dongminal.window";
+pub const LABEL_HOME: &str = "otterminal.home";
+pub const LABEL_WINDOW: &str = "otterminal.window";
 pub const PROFILE_SCRATCH: &str = "scratch";
 pub const PROFILE_DEV: &str = "dev";
 pub const SCRATCH_IMAGE: &str = "debian:stable-slim";
 /// 컨테이너 안에서 호스트를 부르는 이름이다.
-pub const HOST_GATEWAY: &str = dmenv::CONTAINER_HOST;
+pub const HOST_GATEWAY: &str = otterenv::CONTAINER_HOST;
 /// 컨테이너 자원 상한이다 (FR-SBX-7).
 pub const LIMIT_CPUS: &str = "2";
 pub const LIMIT_MEMORY: &str = "2g";
@@ -92,7 +92,7 @@ pub struct Profile {
     pub ports: Vec<String>,
     pub work: WorkKind,
     pub base_mounts: Vec<Mount>,
-    /// 컨테이너 안에 dmctl 을 넣고 호스트 서버에 닿게 한다.
+    /// 컨테이너 안에 otterctl 을 넣고 호스트 서버에 닿게 한다.
     pub helper: bool,
 }
 
@@ -188,7 +188,7 @@ impl Manager {
         if p.image.is_empty() {
             return Err(Error::msg(format!(
                 "샌드박스 프로파일 {} 에 이미지가 지정되지 않았습니다",
-                dm_gocompat::strconv::quote(&p.name)
+                otter_gocompat::strconv::quote(&p.name)
             )));
         }
         let mut args = vec![
@@ -225,7 +225,7 @@ impl Manager {
             if !rs.addr_dir.is_empty() {
                 args.extend([
                     s("-v"),
-                    format!("{}:{}:ro", rs.addr_dir, dmenv::CONTAINER_ADDR_DIR),
+                    format!("{}:{}:ro", rs.addr_dir, otterenv::CONTAINER_ADDR_DIR),
                 ]);
             }
             args.extend([s("--add-host"), format!("{HOST_GATEWAY}:host-gateway")]);
@@ -273,11 +273,11 @@ impl Manager {
         if p.helper {
             args.extend([
                 s("-e"),
-                format!("{}={HOST_GATEWAY}", dmenv::ENV_HOST),
+                format!("{}={HOST_GATEWAY}", otterenv::ENV_HOST),
                 s("-e"),
-                format!("{}={}", dmenv::ENV_PORT, env.port),
+                format!("{}={}", otterenv::ENV_PORT, env.port),
                 s("-e"),
-                format!("{}={}", dmenv::ENV_TOOL_ID, env.tool_id),
+                format!("{}={}", otterenv::ENV_TOOL_ID, env.tool_id),
             ]);
         }
         if p.work != WorkKind::None && !rs.host_dir.is_empty() {
@@ -379,8 +379,8 @@ pub fn look_path(name: &str) -> Result<String, String> {
 }
 
 fn look_path_in(name: &str, path_env: &str) -> Result<String, String> {
-    dm_shared_platform::try_look_path_in(name, path_env)
-        .map_err(|e| dm_shared_platform::exec_error(name, e))
+    otter_shared_platform::try_look_path_in(name, path_env)
+        .map_err(|e| otter_shared_platform::exec_error(name, e))
 }
 
 /// docker CLI 를 실행하는 [`RunFn`] 이다.

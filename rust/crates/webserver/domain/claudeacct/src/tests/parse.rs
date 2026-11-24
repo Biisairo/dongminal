@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use dm_gocompat::json;
+use otter_gocompat::json;
 
 use crate::error::{Error, HttpStatusError, Sentinel};
 use crate::pace::WEEK_SECONDS;

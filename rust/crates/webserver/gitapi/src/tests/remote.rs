@@ -9,12 +9,12 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::{self as core, Output, Service};
-use dm_webserver_domain_git_jobs::JobRunner;
-use dm_webserver_domain_git_store::{Store, StoreOptions};
 use http::Method;
 use http_body_util::{BodyExt, Full};
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::{self as core, Output, Service};
+use otter_webserver_domain_git_jobs::JobRunner;
+use otter_webserver_domain_git_store::{Store, StoreOptions};
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
@@ -122,8 +122,8 @@ impl RemoteFake {
                 "c".repeat(40),
                 "cccccc".to_owned(),
                 "d".repeat(40),
-                "dm".to_owned(),
-                "dm@example.test".to_owned(),
+                "otter".to_owned(),
+                "otter@example.test".to_owned(),
                 "1700000000".to_owned(),
                 "1700000000".to_owned(),
                 String::new(),
@@ -257,7 +257,7 @@ fn assert_routes(eps: Vec<(&'static str, String, String)>) {
     for (method, path, _) in eps {
         let path = path.split('?').next().unwrap();
         assert!(
-            dm_webserver_httproute::dispatch(&crate::routes::ROUTES, method, path).is_some(),
+            otter_webserver_httproute::dispatch(&crate::routes::ROUTES, method, path).is_some(),
             "{method} {path} 가 gitapi.routes 에 없다"
         );
     }
@@ -794,7 +794,7 @@ async fn git_remote_remove_leaves_recovery_hint() {
     assert_eq!(hints.len(), 1, "hints = {}", rec["hints"]);
     assert_eq!(
         hints[0]["action"],
-        dm_webserver_domain_git_write::REMOTE_REMOVE_ACTION
+        otter_webserver_domain_git_write::REMOTE_REMOVE_ACTION
     );
     let cmd = hints[0]["command"].as_str().unwrap_or_default();
     assert!(
@@ -876,18 +876,18 @@ struct BranchRepo {
     s: Arc<GitServer>,
     repo: String,
     bare: std::path::PathBuf,
-    _tmp: dm_shared_gittest::TempDir,
+    _tmp: otter_shared_gittest::TempDir,
 }
 
 fn gv_git(dir: &std::path::Path, args: &[&str]) -> String {
     let mut all = vec!["-c", "user.name=t", "-c", "user.email=t@t"];
     all.extend_from_slice(args);
-    dm_shared_gittest::run(dir, &all)
+    otter_shared_gittest::run(dir, &all)
 }
 
 fn branch_repo() -> Option<BranchRepo> {
-    dm_shared_gittest::path()?;
-    let tmp = dm_shared_gittest::TempDir::new("dm-gitapi-remote-");
+    otter_shared_gittest::path()?;
+    let tmp = otter_shared_gittest::TempDir::new("otter-gitapi-remote-");
     let root = std::fs::canonicalize(tmp.path()).unwrap();
     let bare = root.join("remote.git");
     let repo = root.join("repo");
@@ -1091,7 +1091,7 @@ async fn refs_carry_remote_name() {
 async fn job_events_close_releases_subscription_without_waiting() {
     let e = rserver(&RemoteFake::new(false), remote_emit(&[]));
     let hub = e.s.jobs_hub(e.s.git.as_ref().unwrap());
-    let (res, st) = dm_webserver_sse::start(Duration::ZERO);
+    let (res, st) = otter_webserver_sse::start(Duration::ZERO);
     let (tx, rx) = tokio::sync::mpsc::channel(1);
     let h = tokio::spawn(crate::remote::job_event_loop(
         st,

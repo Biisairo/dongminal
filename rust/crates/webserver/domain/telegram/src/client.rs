@@ -4,7 +4,7 @@ use std::fmt;
 use std::sync::OnceLock;
 use std::time::Duration;
 
-use dm_gocompat::json::{self, RawMessage};
+use otter_gocompat::json::{self, RawMessage};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;

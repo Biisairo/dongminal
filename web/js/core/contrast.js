@@ -1,5 +1,5 @@
 /**
- * Dongminal — 색 대비와 파생 (DESIGN_TOKENS_SRS FR-TOK-8~17).
+ * Otterminal — 색 대비와 파생 (DESIGN_TOKENS_SRS FR-TOK-8~17).
  *
  * 테마 팔레트는 **정본이다** (D-TOK-1 / FR-TOK-16). Nord 의 `#4c566a` 는 Nord
  * 그 자체이므로 54벌을 손으로 올리지 않는다. 대신 여기서 **파생한다** — 원시

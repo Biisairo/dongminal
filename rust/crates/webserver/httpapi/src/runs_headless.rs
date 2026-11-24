@@ -6,12 +6,12 @@
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-use dm_shared_dmlog::{errorf, infof};
-use dm_shared_httpresp::Response;
-use dm_shared_pollwait as pollwait;
-use dm_shared_toolhub::{DEFAULT_COLS, DEFAULT_ROWS, Placement};
-use dm_webserver_domain_run::{self as run, Record};
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_shared_otterlog::{errorf, infof};
+use otter_shared_pollwait as pollwait;
+use otter_shared_toolhub::{DEFAULT_COLS, DEFAULT_ROWS, Placement};
+use otter_webserver_domain_run::{self as run, Record};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};

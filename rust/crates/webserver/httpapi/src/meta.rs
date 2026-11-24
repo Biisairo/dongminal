@@ -1,7 +1,7 @@
 //! `GET /api/meta` (Go `entity_name.go` 의 `apiMeta`) — 서버가 쓰는 상한을 클라이언트에 알린다.
 //! 클라이언트가 같은 상수를 따로 들지 않게 한다.
 
-use dm_shared_httpresp::Response;
+use otter_shared_httpresp::Response;
 use serde::Serialize;
 
 use crate::Server;
@@ -28,7 +28,7 @@ struct Meta {
 impl Server {
     pub(crate) async fn api_meta(&self, _r: &mut Req) -> Response {
         write_json(&Meta {
-            encodings: dm_shared_textenc::REOPEN_CHOICES,
+            encodings: otter_shared_textenc::REOPEN_CHOICES,
             entity_name_max: ENTITY_NAME_MAX,
             file_stamps_max: FILE_STAMPS_MAX,
             fs_stamp_max: FS_STAMP_MAX,

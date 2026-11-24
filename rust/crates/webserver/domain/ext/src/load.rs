@@ -2,8 +2,8 @@
 
 use std::io;
 
-use dm_gocompat::filepath;
-use dm_gocompat::strconv::quote;
+use otter_gocompat::filepath;
+use otter_gocompat::strconv::quote;
 
 use crate::error::{Error, errorf};
 use crate::goos;

@@ -7,10 +7,10 @@ use std::io::{self, Read, Write};
 use std::pin::Pin;
 use std::sync::OnceLock;
 
-use dm_gocompat::filepath;
-use dm_gocompat::oserr::link_error;
-use dm_gocompat::path;
-use dm_gocompat::strconv::quote;
+use otter_gocompat::filepath;
+use otter_gocompat::oserr::link_error;
+use otter_gocompat::path;
+use otter_gocompat::strconv::quote;
 use sha2::{Digest, Sha256};
 
 use crate::ctx::Ctx;
@@ -32,7 +32,7 @@ const ASIDE_PATTERN: &str = ".old-*";
 const ASIDE_NAME: &str = "old";
 
 /// 받은 것을 잠깐 두는 임시 파일의 이름 꼴.
-const TEMP_PATTERN: &str = "dm-ext-*";
+const TEMP_PATTERN: &str = "otter-ext-*";
 
 const DIR_PERM: u32 = 0o755;
 const FILE_PERM: u32 = 0o644;

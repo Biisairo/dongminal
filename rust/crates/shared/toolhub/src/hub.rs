@@ -1,4 +1,4 @@
-use dm_gocompat::json;
+use otter_gocompat::json;
 use serde::{Deserialize, Serialize};
 
 use crate::TermModes;

@@ -1,10 +1,10 @@
 //! frameless window 열기. 명령 조립은 platform 이 한다 (FR-XBR-3).
 
-use dm_gocompat::oserr::go_error_string;
+use otter_gocompat::oserr::go_error_string;
 
 /// frameless window 를 연다. 문구는 Go `exec.Cmd.Start` 의 오류와 같다.
 pub(crate) fn open_frameless(url: &str) -> Result<(), String> {
-    let (name, args) = dm_shared_platform::current()
+    let (name, args) = otter_shared_platform::current()
         .browser
         .frameless_command(url)
         .map_err(|e| go_error_string(&e))?;
@@ -17,8 +17,8 @@ fn start(name: &str, args: &[String]) -> Result<(), String> {
     let prog = if has_sep {
         name.to_owned()
     } else {
-        dm_shared_platform::try_look_path(name)
-            .map_err(|e| dm_shared_platform::exec_error(name, e))?
+        otter_shared_platform::try_look_path(name)
+            .map_err(|e| otter_shared_platform::exec_error(name, e))?
     };
     std::process::Command::new(&prog)
         .args(args)

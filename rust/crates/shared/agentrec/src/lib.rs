@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/agentrec` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/agentrec` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 에이전트 보고의 해석과 기록 값의 모양이다. 데몬과 서버가 같은 한 벌을 쓴다
 //! (AGENT_RECORD_DAEMON_SRS §3.2a).
@@ -7,10 +7,10 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use dm_gocompat::json::{RawMessage, is_empty};
-use dm_gocompat::time::{json_time, zero_time};
-use dm_shared_activity as activity;
-use dm_shared_statusline as statusline;
+use otter_gocompat::json::{RawMessage, is_empty};
+use otter_gocompat::time::{json_time, zero_time};
+use otter_shared_activity as activity;
+use otter_shared_statusline as statusline;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use time::OffsetDateTime;
 
@@ -34,9 +34,9 @@ pub const SUBAGENT_DONE_KEEP: Duration = Duration::from_secs(30);
 /// 갱신이 끊긴 done 아닌 서브에이전트 활동을 남겨 두는 기한 (FR-ASV-12 안전망).
 pub const SUBAGENT_STALE_KEEP: Duration = Duration::from_secs(120);
 
-/// home 인스턴스의 보고 소켓 경로. 데몬과 dmctl 이 이 함수 하나로 찾는다.
+/// home 인스턴스의 보고 소켓 경로. 데몬과 otterctl 이 이 함수 하나로 찾는다.
 pub fn socket_path(home: &Path) -> PathBuf {
-    dm_shared_platform::sibling_socket(home, SOCKET_FILE)
+    otter_shared_platform::sibling_socket(home, SOCKET_FILE)
 }
 
 /// 보고 소켓이 받는 메서드인가.
@@ -375,7 +375,7 @@ pub fn agent_reports_turn_start(id: &str) -> bool {
     if id.is_empty() {
         return true;
     }
-    dm_shared_agentadapter::get(id).map_or(true, |a| a.signals.working)
+    otter_shared_agentadapter::get(id).map_or(true, |a| a.signals.working)
 }
 
 #[cfg(test)]

@@ -11,7 +11,7 @@ import { TMP, realPath } from './osenv';
 
 let BASE = '';
 
-test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(path.join(TMP, 'dm-gnr-'))) });
+test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(path.join(TMP, 'otter-gnr-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
 async function enter(page: Page, request: APIRequestContext, root: string) {

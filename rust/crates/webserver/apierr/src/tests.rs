@@ -3,11 +3,11 @@
 use std::collections::HashSet;
 use std::io;
 
-use dm_webserver_domain_git_core as core;
-use dm_webserver_domain_git_jobs::JobsKind;
-use dm_webserver_domain_git_query::{self as query, QueryKind};
-use dm_webserver_domain_git_write::{self as write, WriteKind};
-use dm_webserver_domain_worktree as worktree;
+use otter_webserver_domain_git_core as core;
+use otter_webserver_domain_git_jobs::JobsKind;
+use otter_webserver_domain_git_query::{self as query, QueryKind};
+use otter_webserver_domain_git_write::{self as write, WriteKind};
+use otter_webserver_domain_worktree as worktree;
 
 use super::*;
 
@@ -289,7 +289,7 @@ fn git_table_is_surface_independent() {
 
 #[test]
 fn runs_table_matches_pre_refactor_behavior() {
-    use dm_webserver_domain_run::Error as R;
+    use otter_webserver_domain_run::Error as R;
     let runs: Vec<(R, u16)> = vec![
         (R::UnknownRun, 404),
         (R::SenderNotMember, 403),
@@ -338,7 +338,7 @@ fn worktree_status_differs_per_surface() {
 
 #[test]
 fn fs_table_matches_pre_refactor_behavior() {
-    use dm_webserver_domain_wsentry::Error as W;
+    use otter_webserver_domain_wsentry::Error as W;
     for (e, code) in [
         (W::NotAbsolute, CODE_BAD_REQUEST),
         (W::NotDir, CODE_BAD_REQUEST),
@@ -461,7 +461,7 @@ fn codes_documented_and_unique() {
 #[test]
 fn body_read_code_and_code_for_status() {
     assert_eq!(
-        body_read_code(&dm_shared_httpreq::ReadError::TooLarge),
+        body_read_code(&otter_shared_httpreq::ReadError::TooLarge),
         CODE_BODY_TOO_BIG
     );
     for (s, c) in [

@@ -96,7 +96,7 @@ FR-RQG-7 의 문장 *"포트 유무가 판정을 바꾸면 안 된다"* 는 **`H
 
 ### 2.3 정상 브라우저 요청의 모양
 
-dongminal 화면이 부르는 요청은 전부 **자기 출처**다. 브라우저는 그때 `Origin` 을 요청
+otterminal 화면이 부르는 요청은 전부 **자기 출처**다. 브라우저는 그때 `Origin` 을 요청
 URL 의 출처로, `Host` 를 같은 URL 의 authority 로 싣는다. 기본 포트는 둘 다 생략한다.
 그러므로 정상 경로에서 **Origin authority 와 Host authority 는 언제나 같다.** 배치별 확인:
 
@@ -108,7 +108,7 @@ URL 의 출처로, `Host` 를 같은 URL 의 authority 로 싣는다. 기본 포
 | `ssh -L 8080:127.0.0.1:58146` | `http://localhost:8080` | `localhost:8080` | `http://localhost:8080` |
 | `tailscale serve` | `https://x.tail.ts.net` | `x.tail.ts.net` (원본 보존) | `https://x.tail.ts.net` |
 
-`Origin` 이 없는 요청(`dmctl` 17곳·`curl`·CI)은 이 판정과 무관하다 (FR-RQG-3).
+`Origin` 이 없는 요청(`otterctl` 17곳·`curl`·CI)은 이 판정과 무관하다 (FR-RQG-3).
 
 ---
 
@@ -178,7 +178,7 @@ URL 의 출처로, `Host` 를 같은 URL 의 authority 로 싣는다. 기본 포
 ### 3.4 잔여 위험 (이 문서가 닫지 않는 것)
 
 **R-ROP-1** `Host` 에 포트가 없는 배치(`tailscale serve`)에서, **같은 이름의 기본 포트**에서
-서빙되는 다른 페이지는 구별되지 않는다. 예: dongminal 이 `https://x.ts.net`(serve)이고 같은
+서빙되는 다른 페이지는 구별되지 않는다. 예: otterminal 이 `https://x.ts.net`(serve)이고 같은
 기계가 `http://x.ts.net`(80)에서 다른 페이지를 낼 때, 두 요청 모두 포트가 없다. 막으려면
 브라우저의 스킴을 알아야 하고 그 값은 `X-Forwarded-Proto` 뿐이다(FR-RQG-10 이 읽지 않는다).
 `SECURITY.md` §4 에 한 줄로 적는다.

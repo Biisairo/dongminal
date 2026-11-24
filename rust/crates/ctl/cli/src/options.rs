@@ -4,26 +4,26 @@ use std::fmt;
 use std::io::Write;
 use std::path::Path;
 
-use dm_gocompat::filepath;
-use dm_shared_dmenv as dmenv;
-use dm_shared_serverconf as serverconf;
+use otter_gocompat::filepath;
+use otter_shared_otterenv as otterenv;
+use otter_shared_serverconf as serverconf;
 
 use crate::env::Env;
 use crate::help::usage;
 
 pub const ENV_PORT: &str = serverconf::ENV_PORT_LEGACY;
-pub const ENV_HOME: &str = dmenv::ENV_HOME;
-pub const ENV_HOST: &str = dmenv::ENV_HOST;
-pub const ENV_LOG: &str = dmenv::ENV_LOG_FILE;
+pub const ENV_HOME: &str = otterenv::ENV_HOME;
+pub const ENV_HOST: &str = otterenv::ENV_HOST;
+pub const ENV_LOG: &str = otterenv::ENV_LOG_FILE;
 /// 이 실행이 위임된 재시작 대리임을 알린다 (FR-ACT-3b).
-pub const ENV_RESTART_RUNNER: &str = dmenv::ENV_RESTART_RUNNER;
-/// 도구의 셸에 심기는 도구 식별자다. 있으면 dongminal 도구 안에서 돌고 있다 (FR-ACT-3a).
-pub const ENV_TOOL_ID: &str = dmenv::ENV_TOOL_ID;
-pub const DEFAULT_PORT: &str = dmenv::DEFAULT_PORT;
-pub const DEFAULT_HOST: &str = dmenv::DEFAULT_HOST;
+pub const ENV_RESTART_RUNNER: &str = otterenv::ENV_RESTART_RUNNER;
+/// 도구의 셸에 심기는 도구 식별자다. 있으면 otterminal 도구 안에서 돌고 있다 (FR-ACT-3a).
+pub const ENV_TOOL_ID: &str = otterenv::ENV_TOOL_ID;
+pub const DEFAULT_PORT: &str = otterenv::DEFAULT_PORT;
+pub const DEFAULT_HOST: &str = otterenv::DEFAULT_HOST;
 pub const EXPOSE_HOST: &str = "0.0.0.0";
 
-const LOG_FILE_NAME: &str = dmenv::SERVER_LOG_FILE;
+const LOG_FILE_NAME: &str = otterenv::SERVER_LOG_FILE;
 
 /// 파서의 실패다. `Help` 는 -h/--help 이고 액션의 부수효과는 일어나지 않는다 (FR-CLI-6).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -53,7 +53,7 @@ pub fn default_log_file(home: &str) -> String {
     if !home.is_empty() {
         return filepath::join(&[home, LOG_FILE_NAME]);
     }
-    dm_shared_platform::current()
+    otter_shared_platform::current()
         .paths
         .default_log_file()
         .to_string_lossy()
@@ -148,7 +148,12 @@ impl Common {
         let user = env
             .user_home_dir()
             .map_err(|e| format!("홈 디렉터리 확인 실패: {e}"))?;
-        Ok(filepath::join(&[user.as_str(), dmenv::DEFAULT_HOME_DIR]))
+        // OTTERMINAL_RENAME_SRS FR-MIG-1: 기본 홈을 쓸 때만 옛 기본 홈을 옮긴다.
+        let moved = otter_ctl_migrate::migrate_legacy_home(Path::new(&user))?;
+        if let Some(line) = moved.notice(Path::new(&user)) {
+            let _ = writeln!(std::io::stderr(), "{line}");
+        }
+        Ok(filepath::join(&[user.as_str(), otterenv::DEFAULT_HOME_DIR]))
     }
 
     /// 겨누는 명령이 쓰는 단일 해석이다 (FR-STR-22). 계층은 플래그 > 주소 파일 > `server.json` >
@@ -176,8 +181,8 @@ impl Common {
             (host, port) = (h, p);
         }
         Ok(Target {
-            url: dmenv::base_url(&host, &port),
-            host: dmenv::dial_host(&host),
+            url: otterenv::base_url(&host, &port),
+            host: otterenv::dial_host(&host),
             home,
             port,
             warnings: conf.warnings,
@@ -192,7 +197,7 @@ pub struct Target {
     /// 미지정 주소(`0.0.0.0`·`::`)를 접속 주소로 바꾼 값이다.
     pub host: String,
     pub port: String,
-    /// `dmenv::base_url(host, port)` 다.
+    /// `otterenv::base_url(host, port)` 다.
     pub url: String,
     /// `serverconf` 가 낸 경고다. 버리지 않는다 (FR-CFG-15).
     pub warnings: Vec<String>,
@@ -223,7 +228,7 @@ pub(crate) fn unknown_flag(action: &str, a: &str) -> ParseError {
     invalid(format!("알 수 없는 옵션: {a}\n\n{}", usage(action)))
 }
 
-/// `dongminal start` 의 옵션이다.
+/// `otterminal start` 의 옵션이다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct StartOpts {
     pub common: Common,
@@ -237,8 +242,8 @@ pub struct StartOpts {
 }
 
 const ERR_RESTART_DAEMON_REMOVED: &str = "--restart-daemon 은 없어졌습니다.
-  세션을 유지하며 데몬을 바꾸려면: dongminal start
-  세션을 버리고 새로 띄우려면:    dongminal start --refresh-daemon";
+  세션을 유지하며 데몬을 바꾸려면: otterminal start
+  세션을 버리고 새로 띄우려면:    otterminal start --refresh-daemon";
 
 const ERR_START_DAEMON_FLAGS: &str = "--server-only 와 --refresh-daemon 은 함께 쓸 수 없습니다";
 
@@ -264,7 +269,7 @@ pub fn parse_start(args: &[String]) -> Result<StartOpts, ParseError> {
     Ok(o)
 }
 
-/// `dongminal stop` 의 옵션이다.
+/// `otterminal stop` 의 옵션이다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct StopOpts {
     pub common: Common,
@@ -285,7 +290,7 @@ pub fn parse_stop(args: &[String]) -> Result<StopOpts, ParseError> {
     Ok(o)
 }
 
-/// `dongminal doctor` 의 옵션이다.
+/// `otterminal doctor` 의 옵션이다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DoctorOpts {
     pub common: Common,
@@ -322,7 +327,7 @@ pub fn parse_doctor(args: &[String]) -> Result<DoctorOpts, ParseError> {
     Ok(o)
 }
 
-/// `dongminal verify` 의 옵션이다. 홈·포트를 겨눌 수단을 두지 않는다 (FR-E2C-2/3).
+/// `otterminal verify` 의 옵션이다. 홈·포트를 겨눌 수단을 두지 않는다 (FR-E2C-2/3).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct VerifyOpts {
     /// git 표면 검사의 대상이다. 비면 현재 작업 디렉터리다.
@@ -363,7 +368,7 @@ pub fn parse_verify(args: &[String]) -> Result<VerifyOpts, ParseError> {
     Ok(o)
 }
 
-/// `dongminal health` 의 옵션이다.
+/// `otterminal health` 의 옵션이다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct HealthOpts {
     pub common: Common,
@@ -385,7 +390,7 @@ pub fn parse_health(args: &[String]) -> Result<HealthOpts, ParseError> {
     Ok(o)
 }
 
-/// `dongminal window` 의 옵션이다. 겨눌 서버를 정하는 규칙은 `start` 와 같다 (FR-WIN-2).
+/// `otterminal window` 의 옵션이다. 겨눌 서버를 정하는 규칙은 `start` 와 같다 (FR-WIN-2).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct WindowOpts {
     pub common: Common,
@@ -404,7 +409,7 @@ pub fn parse_window(args: &[String]) -> Result<WindowOpts, ParseError> {
     Ok(o)
 }
 
-/// `dongminal migrate` 의 옵션이다.
+/// `otterminal migrate` 의 옵션이다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct MigrateOpts {
     pub common: Common,

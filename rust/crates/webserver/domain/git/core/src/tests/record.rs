@@ -174,7 +174,7 @@ fn record_json_wire() {
         exit_code: -1,
         ..Record::default()
     };
-    let got = String::from_utf8(dm_gocompat::json::marshal(&r).unwrap()).unwrap();
+    let got = String::from_utf8(otter_gocompat::json::marshal(&r).unwrap()).unwrap();
     assert_eq!(
         got,
         r#"{"seq":1,"atUnixMs":2,"argv":null,"cwd":"/r","exitCode":-1,"durationMs":0,"stderr":"","stdoutBytes":0,"stdoutTruncated":false,"stderrTruncated":false,"destructive":false,"write":false,"stdinBytes":0}"#
@@ -186,14 +186,14 @@ fn record_json_wire() {
         reason: "why".into(),
         ..r.clone()
     };
-    let got = String::from_utf8(dm_gocompat::json::marshal(&full).unwrap()).unwrap();
+    let got = String::from_utf8(otter_gocompat::json::marshal(&full).unwrap()).unwrap();
     assert!(
         got.contains(r#""argv":["status"]"#)
             && got.ends_with(r#""stdinBytes":0,"err":"e","unguarded":true,"reason":"why"}"#),
         "{got}"
     );
     // redacted 는 항상 non-nil argv 다.
-    let red = String::from_utf8(dm_gocompat::json::marshal(&r.redacted()).unwrap()).unwrap();
+    let red = String::from_utf8(otter_gocompat::json::marshal(&r.redacted()).unwrap()).unwrap();
     assert!(red.contains(r#""argv":[]"#), "{red}");
 }
 

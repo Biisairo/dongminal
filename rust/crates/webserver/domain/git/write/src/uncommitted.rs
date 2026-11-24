@@ -1,8 +1,8 @@
 //! 커밋하지 않은 변경 전체를 되돌린다 (UNCOMMITTED_RESET_SRS).
 
-use dm_gocompat::filepath;
-use dm_webserver_domain_git_core::{self as core, Ctx, Hint, Output, Service};
-use dm_webserver_domain_git_query as query;
+use otter_gocompat::filepath;
+use otter_webserver_domain_git_core::{self as core, Ctx, Hint, Output, Service};
+use otter_webserver_domain_git_query as query;
 
 use crate::commit::{argv, spec};
 use crate::error::{Error, WriteKind, exec_write};

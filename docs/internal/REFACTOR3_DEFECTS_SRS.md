@@ -21,7 +21,7 @@
 | **D** 상한 초과 코드 | GH-F1 · GH-F2 | `httpapi` toolio·lsp·fs 디코더 · `gitapi` 디코더 셋 | 서버 |
 | **E** 텔레그램 잠금 | GD-F2 | `internal/webserver/domain/telegram/bridge*.go` | 서버 |
 | **F** 새로고침 간격 | GD-F3 | `internal/webserver/domain/claudeacct/engine.go` `FetchNow` | 서버 |
-| **G** `dmctl edit` 종료 코드 | DM-F1 | `internal/helper/runtimebin/edit.go` | CLI |
+| **G** `otterctl edit` 종료 코드 | DM-F1 | `internal/helper/runtimebin/edit.go` | CLI |
 | **H** 채팅 이름 정화 | DM-F2 | `internal/daemon/chatsock/chatsock.go` `clean` | 데몬 |
 | **I** 서랍 아이콘 | FC-F2 · FC-01 | `web/js/core/app-mobile.js` `_toggleDrawer` 와 호출처 | 프론트 |
 
@@ -52,7 +52,7 @@
 | D | 1 MiB 를 넘는 본문에 toolio·lsp 방언은 `413 too_large`, fs 방언은 `400 bad_request`, git 방언은 `413 bad_request` 를 낸다 | 공개 계약(`features.md` 용량 표 「JSON 본문 → `413` · `body_too_large`」)대로 `413` + `body_too_large` |
 | E | 작업자가 `b.mu` 를 쥔 채 Telegram HTTP 를 부른다(호출당 상한 15초). polling 의 `handleUpdate` 도 같은 잠금을 기다리므로, 알림 한 건이나 버튼 N개를 걷는 동안 업데이트 수신이 멈춘다. 탭마다 `[읽음]` 버튼 목록이 상한 없이 늘어난다 | 잠금은 상태(`tabs`·`buttons`)만 지킨다. HTTP 는 잠금 밖에서 부른다. 버튼 목록에 상한이 있다 |
 | F | `FetchNow` 가 최소 간격 검사를 `e.busy` 잠금 밖에서 하고, 잠금을 얻은 뒤 다시 보지 않는다. 새로고침이 겹치면 둘 다 통과해서 같은 계정을 두 번 조회한다 | 잠금을 얻은 뒤에 저장소를 읽고 간격을 검사한다 |
-| G | `dmctl edit` 이 응답 상태를 버린다. 서버가 400·500 을 줘도 본문을 찍고 exit 0 이다 | 같은 패키지의 `dmctlHTTPResult` 규칙대로 4xx·5xx 는 exit 1 |
+| G | `otterctl edit` 이 응답 상태를 버린다. 서버가 400·500 을 줘도 본문을 찍고 exit 0 이다 | 같은 패키지의 `otterctlHTTPResult` 규칙대로 4xx·5xx 는 exit 1 |
 | H | 채팅 소켓의 `clean` 이 제어 문자만 지우고 Cf 는 남긴다. 같은 규칙의 다른 일곱 자리는 Cf 도 지운다. 결과는 이름과 붙여넣기로 터미널에 찍힌다 | Cf 도 지운다 |
 | I | 모바일 서랍을 닫는 경로 가운데 둘(같은 창을 다시 고른 경우 · 채팅방을 연 경우)이 상단바를 다시 그리지 않아 ☰/✕ 아이콘이 낡는다. 나머지 다섯 경로는 `_toggleDrawer(false); renderer._rTopbar()` 를 복사해 쓴다 | 서랍 상태를 바꾸는 함수가 상단바도 다시 그린다 |
 
@@ -107,11 +107,11 @@
 | FR-RD3-50 | `FetchNow` 는 `e.busy` 를 얻은 **뒤에** 저장소를 읽고 최소 간격(`fetchNowMinGapS`)과 `BackoffUntil` 을 검사한다 | 필수 |
 | FR-RD3-51 | 같은 계정에 `FetchNow` 둘이 겹치면 조회는 한 번이고, 뒤의 호출은 `ErrTooSoon` 이다 | 필수 |
 
-### 3.7 G — `dmctl edit`
+### 3.7 G — `otterctl edit`
 
 | ID | 요구 | 우선 |
 |---|---|---|
-| FR-RD3-60 | `dmctl edit` 은 응답 상태가 4xx·5xx 면 오류를 stderr 에 쓰고 exit 1 이다. 2xx 의 출력은 종전과 같다 | 필수 |
+| FR-RD3-60 | `otterctl edit` 은 응답 상태가 4xx·5xx 면 오류를 stderr 에 쓰고 exit 1 이다. 2xx 의 출력은 종전과 같다 | 필수 |
 
 ### 3.8 H — 채팅 이름 정화
 
@@ -130,7 +130,7 @@
 
 | ID | 결정 | 이유 |
 |---|---|---|
-| D-RD3-1 | **A 는 클라이언트에서만 막는다.** 서버의 `PUT /api/settings` 는 지금 설정 블롭의 JSON 여부만 보고, 키별 스키마 검증을 하지 않는다(스키마 검증은 `dongminal config` 만 한다). 서버에 키별 검증을 새로 세우면 새 오류 코드와 문서가 필요하고, 옛 판이 저장한 값 때문에 **설정 저장 전체가 거절**될 수 있다 | 실행 경로(화면에 닿는 자리)를 막으면 주입은 일어나지 않는다. 서버 검증은 P2 의 설정 스키마 정리에서 다시 본다 |
+| D-RD3-1 | **A 는 클라이언트에서만 막는다.** 서버의 `PUT /api/settings` 는 지금 설정 블롭의 JSON 여부만 보고, 키별 스키마 검증을 하지 않는다(스키마 검증은 `otterminal config` 만 한다). 서버에 키별 검증을 새로 세우면 새 오류 코드와 문서가 필요하고, 옛 판이 저장한 값 때문에 **설정 저장 전체가 거절**될 수 있다 | 실행 경로(화면에 닿는 자리)를 막으면 주입은 일어나지 않는다. 서버 검증은 P2 의 설정 스키마 정리에서 다시 본다 |
 | D-RD3-2 | A 의 미리보기 코드(`innerHTML` 템플릿)는 이 묶음에서 바꾸지 않는다 | 들어오는 값을 FR-RD3-1 이 이미 막는다. 미리보기를 DOM API 로 바꾸는 일은 FC-12(P4)다 |
 | D-RD3-3 | C 의 잠금은 경로별 참조 계수 잠금이다. 서버 전역 `fsOps` 를 쓰지 않는다 | `fsOps` 는 큰 복사·삭제 전 구간을 잡는다(PROD3 GH-17). 저장이 그 뒤에 줄 서면 편집기 저장이 멎는다 |
 | D-RD3-4 | E 의 버튼 상한은 32 다 | 탭 하나에 읽지 않은 알림이 32개를 넘는 것은 사용자가 그 탭을 보지 않는다는 뜻이다. 오래된 것의 버튼을 걷지 못해도 눌렀을 때의 답은 같다 |
@@ -143,7 +143,7 @@
 | D | toolio·lsp `413 too_large` · fs `400 bad_request` · git `413 bad_request` | 모두 `413 body_too_large` | 공개 계약 |
 | E | 탭의 버튼 목록이 끝없이 늘었다 | 32개까지 | 메모리·걷기 시간 상한 |
 | F | 겹친 새로고침이 두 번 조회했다 | 한 번 조회하고 뒤의 것은 `ErrTooSoon` | 최소 간격 규칙 |
-| G | 4xx·5xx 에도 exit 0 | exit 1 | CLI 규약(`dmctlHTTPResult`) |
+| G | 4xx·5xx 에도 exit 0 | exit 1 | CLI 규약(`otterctlHTTPResult`) |
 | H | bidi·zero-width 문자가 남았다 | 지운다 | 다른 일곱 자리와 같은 규칙 |
 
 ## 6. 검증
@@ -159,7 +159,7 @@
 | TC-RD3-40 | 단위(Go): 작업자의 HTTP 가 막혀 있는 동안 `handleUpdate` 가 돌아온다 | E |
 | TC-RD3-41 | 단위(Go): 같은 탭에 알림 40개를 보내면 버튼 목록은 32개다 | E |
 | TC-RD3-50 | 단위(Go): `FetchNow` 둘을 동시에 부르면 조회 함수가 한 번 불리고, 하나는 `ErrTooSoon` 이다 | F |
-| TC-RD3-60 | 단위(Go): 서버가 400 을 주면 `dmctl edit` 이 1 을 돌려준다 | G |
+| TC-RD3-60 | 단위(Go): 서버가 400 을 주면 `otterctl edit` 이 1 을 돌려준다 | G |
 | TC-RD3-70 | 단위(Go): `clean("a‮b​c")` 가 `"abc"` 다 | H |
 | TC-RD3-80 | 단위(JS): `_toggleDrawer(false)` 가 `renderer._rTopbar` 를 부른다 | I |
 

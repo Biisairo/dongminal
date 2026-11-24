@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/pollwait` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/shared/pollwait` 의 Rust 포팅.
 //!
 //! "조건이 설 때까지 묻는" 대기 한 벌이다 (M8 D-A-15, GO-27). 기다리는 것은 시간이
 //! 아니라 **사실**이고, 사실이 서면 곧 돌아온다.

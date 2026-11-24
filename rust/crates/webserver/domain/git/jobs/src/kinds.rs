@@ -1,6 +1,6 @@
 //! 잡 경로가 받는 종류와 그 argv 모양 (REPO_FIX 01 §6.1).
 
-use dm_gocompat::strconv::quote;
+use otter_gocompat::strconv::quote;
 
 use crate::error::{Error, JobsKind};
 

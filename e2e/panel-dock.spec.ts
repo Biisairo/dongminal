@@ -8,7 +8,7 @@ import { tmpPath, realPath } from './osenv';
 
 // PANEL_DOCK_SRS §5 — 패널 좌우 도킹 (드래그 앤 드롭).
 
-const ROOT = tmpPath('dm-pdk-' + process.pid);
+const ROOT = tmpPath('otter-pdk-' + process.pid);
 const fx = () => realPath(ROOT);
 
 test.beforeAll(() => {

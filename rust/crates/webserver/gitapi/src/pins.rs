@@ -1,6 +1,6 @@
 //! 핀 목록 (Go `git_pins.go`). 목록의 소유자는 wsentry 다 — 이 파일은 그 위의 얇은 접근이다.
 
-use dm_webserver_domain_wsentry::{self as wsentry, Store};
+use otter_webserver_domain_wsentry::{self as wsentry, Store};
 
 use crate::GitServer;
 

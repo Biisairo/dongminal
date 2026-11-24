@@ -3,13 +3,13 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use dm_shared_fanout::{CancellationToken, each};
-use dm_shared_httpresp::Response;
-use dm_webserver_action::Answer;
-use dm_webserver_domain_git_query as query;
-use dm_webserver_domain_git_store::{self as store, Observation, Store};
-use dm_webserver_domain_wsentry as wsentry;
 use http::StatusCode;
+use otter_shared_fanout::{CancellationToken, each};
+use otter_shared_httpresp::Response;
+use otter_webserver_action::Answer;
+use otter_webserver_domain_git_query as query;
+use otter_webserver_domain_git_store::{self as store, Observation, Store};
+use otter_webserver_domain_wsentry as wsentry;
 use serde::{Deserialize, Serialize};
 
 use crate::GitServer;
@@ -98,7 +98,7 @@ impl GitServer {
             let p = &pins[i];
             async move {
                 let mut e = obj! {
-                    "path" => p, "name" => dm_gocompat::filepath::base(p),
+                    "path" => p, "name" => otter_gocompat::filepath::base(p),
                     "isRepo" => false, "reason" => "", "badge" => None::<()>,
                 };
                 match git.repo_root(ctx, p).await {
@@ -263,7 +263,7 @@ impl GitServer {
         // REPO_FIX 03 §3A-3: 문서의 인코딩을 실으면 쪽마다 디코드한다.
         let enc = r.q("encoding");
         if !enc.is_empty() {
-            if !dm_shared_textenc::valid(&enc) {
+            if !otter_shared_textenc::valid(&enc) {
                 return git_fail(
                     StatusCode::BAD_REQUEST,
                     ERR_BAD_REQUEST,
@@ -328,7 +328,7 @@ async fn decode_path(r: &mut Req) -> Result<String, Response> {
 /// 본문의 path 를 읽고 절대경로임까지 확인한다 (FR-DRC-11).
 pub(crate) async fn decode_abs_path(r: &mut Req) -> Result<String, Response> {
     let path = decode_path(r).await?;
-    if !dm_gocompat::filepath::is_abs(&path) {
+    if !otter_gocompat::filepath::is_abs(&path) {
         return Err(git_fail(
             StatusCode::BAD_REQUEST,
             ERR_BAD_REQUEST,
@@ -341,7 +341,7 @@ pub(crate) async fn decode_abs_path(r: &mut Req) -> Result<String, Response> {
 /// 핀 목록 저장의 실패다. 원인은 로그로만 보낸다 (FR-QG-5 · D-QG-2).
 fn git_pin_save_fail(r: &Req, err: &wsentry::Error) -> Response {
     let path = &r.path;
-    dm_shared_dmlog::infof!(r.rid(), "git pin save {path}: {err}");
+    otter_shared_otterlog::infof!(r.rid(), "git pin save {path}: {err}");
     git_fail(
         StatusCode::INTERNAL_SERVER_ERROR,
         ERR_FAILED,

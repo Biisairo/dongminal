@@ -37,12 +37,12 @@ pub struct Record {
     /// 내용은 남기지 않는다 (I6).
     #[serde(rename = "stdinBytes")]
     pub stdin_bytes: usize,
-    #[serde(skip_serializing_if = "dm_gocompat::json::is_empty")]
+    #[serde(skip_serializing_if = "otter_gocompat::json::is_empty")]
     pub err: String,
     /// 명령 화이트리스트를 지나지 않았다는 표식 (FR-GXU-5).
-    #[serde(skip_serializing_if = "dm_gocompat::json::is_empty")]
+    #[serde(skip_serializing_if = "otter_gocompat::json::is_empty")]
     pub unguarded: bool,
-    #[serde(skip_serializing_if = "dm_gocompat::json::is_empty")]
+    #[serde(skip_serializing_if = "otter_gocompat::json::is_empty")]
     pub reason: String,
 }
 

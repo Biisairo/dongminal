@@ -3,8 +3,8 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-use dm_gocompat::json;
-use dm_shared_platform::write_file_if_changed;
+use otter_gocompat::json;
+use otter_shared_platform::write_file_if_changed;
 
 /// 설치 디렉터리의 권한 (Go `os.MkdirAll(..., 0o755)`).
 const DIR_PERM: u32 = 0o755;
@@ -17,13 +17,13 @@ pub struct InstallSpec {
     /// 세션 스코프 플러그인의 뿌리 (`bin/agent-plugin`). 비면 그 규약을 쓰지 않는다.
     pub plugin_dir: PathBuf,
     /// 이 인스턴스의 헬퍼 절대경로.
-    pub dmctl: String,
+    pub otterctl: String,
 }
 
 impl InstallSpec {
     /// 에이전트 훅에 적을 명령 한 줄 (FR-AAC-3). 실행 파일만 인용한다 (FR-HPR-4·5).
     pub fn hook_command(&self, args: &[&str]) -> String {
-        let mut cmd = format!("\"{}\"", self.dmctl);
+        let mut cmd = format!("\"{}\"", self.otterctl);
         if !args.is_empty() {
             cmd.push(' ');
             cmd.push_str(&args.join(" "));
@@ -40,5 +40,5 @@ pub(crate) fn write_json(path: &Path, v: &serde_json::Value) -> io::Result<()> {
 
 /// Go `os.MkdirAll(p, 0o755)`.
 pub(crate) fn mkdir_all(p: &Path) -> io::Result<()> {
-    dm_gocompat::oserr::mkdir_all(&p.to_string_lossy(), DIR_PERM)
+    otter_gocompat::oserr::mkdir_all(&p.to_string_lossy(), DIR_PERM)
 }

@@ -11,9 +11,9 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_gocompat::time::format_std_duration;
-use dm_shared_dmlog::{ReqCtx, Value};
-use dm_shared_toolhub::{
+use otter_gocompat::time::format_std_duration;
+use otter_shared_otterlog::{ReqCtx, Value};
+use otter_shared_toolhub::{
     BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolInfo, ToolSnapshot,
 };
 use tokio::sync::mpsc::Sender;
@@ -98,7 +98,7 @@ struct ReqHub {
 impl ReqHub {
     fn rpc(&self, method: &str, mut attrs: Vec<(&str, Value)>) {
         attrs.insert(0, ("method", Value::Str(method.to_owned())));
-        dm_shared_dmlog::debug(Some(&self.req_id), "daemon rpc", &attrs);
+        otter_shared_otterlog::debug(Some(&self.req_id), "daemon rpc", &attrs);
     }
 }
 

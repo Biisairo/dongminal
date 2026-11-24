@@ -1,5 +1,5 @@
 /**
- * Dongminal — Diff 탭이 **편집기와 같은 것을 하는** 자리 (UX_BATCH10_SRS 묶음 D)
+ * Otterminal — Diff 탭이 **편집기와 같은 것을 하는** 자리 (UX_BATCH10_SRS 묶음 D)
  *
  * `GitDiffView` 에서 갈라 나온 주제 하나다 — 이 저장소가 `FileEditor` 에 이미
  * 쓰는 방식과 같다 (`file-editor-find.js`·`file-editor-diff.js`): 뼈대 클래스는

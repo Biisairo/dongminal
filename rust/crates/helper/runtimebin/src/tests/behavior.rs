@@ -8,14 +8,14 @@ use serde_json::{Value, json};
 
 use super::*;
 use crate::detach::run_detach;
-use crate::dmctl::notify::sanitize_notify_label;
-use crate::dmctl::rows::{match_fold, window_positions};
-use crate::dmctl::status::limit_reset_text;
 use crate::download::run_download;
 use crate::edit::run_edit;
-use crate::helptext::DMCTL_HELP;
+use crate::helptext::OTTERCTL_HELP;
 use crate::http::server_addr;
 use crate::openurl::run_open_url;
+use crate::otterctl::notify::sanitize_notify_label;
+use crate::otterctl::rows::{match_fold, window_positions};
+use crate::otterctl::status::limit_reset_text;
 use crate::{helper, helper_name};
 
 fn tmp() -> tempfile::TempDir {
@@ -43,9 +43,9 @@ const DELIVERED: &str = r#"{"ok":true,"delivered":1}"#;
 #[test]
 fn helper_name_strips_executable_extension_only() {
     for (arg0, want) in [
-        ("/usr/bin/dmctl", "dmctl"),
-        ("dmctl.exe", "dmctl"),
-        ("DMCTL.EXE", "DMCTL"),
+        ("/usr/bin/otterctl", "otterctl"),
+        ("otterctl.exe", "otterctl"),
+        ("OTTERCTL.EXE", "OTTERCTL"),
         ("edit.Cmd", "edit"),
         ("x.bat", "x"),
         ("y.com", "y"),
@@ -54,31 +54,37 @@ fn helper_name_strips_executable_extension_only() {
     ] {
         assert_eq!(helper_name(arg0), want, "{arg0}");
     }
-    for name in ["dmctl", "edit", "download", "detach", "open-url"] {
+    for name in ["otterctl", "edit", "download", "detach", "open-url"] {
         assert!(helper(name).is_some(), "{name}");
     }
-    for name in dm_shared_agentadapter::shim_commands() {
+    for name in otter_shared_agentadapter::shim_commands() {
         assert!(helper(name).is_some(), "shim {name}");
     }
-    assert!(helper("dongminal").is_none());
+    assert!(helper("otterminal").is_none());
     assert!(crate::dispatch(Vec::new()).is_none());
-    assert!(crate::dispatch(vec!["/x/dongminal".into(), "version".into()]).is_none());
+    assert!(crate::dispatch(vec!["/x/otterminal".into(), "version".into()]).is_none());
 }
 
 #[test]
 fn server_addr_prefers_addr_file_and_rereads() {
     let home = tmp();
-    let mut env = Env::with_vars([(dm_shared_dmenv::ENV_HOME, home.path().to_str().unwrap())]);
+    let mut env = Env::with_vars([(
+        otter_shared_otterenv::ENV_HOME,
+        home.path().to_str().unwrap(),
+    )]);
     env.fallback_home = None;
-    dm_shared_serverconf::write_addr(home.path(), "127.0.0.1:60200").unwrap();
+    otter_shared_serverconf::write_addr(home.path(), "127.0.0.1:60200").unwrap();
     assert_eq!(server_addr(&env), ("127.0.0.1".into(), "60200".into()));
-    dm_shared_serverconf::write_addr(home.path(), "127.0.0.1:60201").unwrap();
+    otter_shared_serverconf::write_addr(home.path(), "127.0.0.1:60201").unwrap();
     assert_eq!(server_addr(&env).1, "60201");
-    // 주소 파일이 없으면 server.json → 기본값이다. 셸의 DONGMINAL_PORT 는 읽지 않는다.
+    // 주소 파일이 없으면 server.json → 기본값이다. 셸의 OTTERMINAL_PORT 는 읽지 않는다.
     let empty = tmp();
     let env = Env::with_vars([
-        (dm_shared_dmenv::ENV_HOME, empty.path().to_str().unwrap()),
-        (dm_shared_dmenv::ENV_PORT, "60999"),
+        (
+            otter_shared_otterenv::ENV_HOME,
+            empty.path().to_str().unwrap(),
+        ),
+        (otter_shared_otterenv::ENV_PORT, "60999"),
     ]);
     let (h, p) = server_addr(&env);
     assert_eq!((h.as_str(), p.as_str()), ("127.0.0.1", "58146"));
@@ -89,8 +95,11 @@ fn server_addr_in_container() {
     let dir = tmp();
     let file = dir.path().join("server.addr");
     let mut env = Env::with_vars([
-        (dm_shared_dmenv::ENV_HOST, dm_shared_dmenv::CONTAINER_HOST),
-        (dm_shared_dmenv::ENV_PORT, "60301"),
+        (
+            otter_shared_otterenv::ENV_HOST,
+            otter_shared_otterenv::CONTAINER_HOST,
+        ),
+        (otter_shared_otterenv::ENV_PORT, "60301"),
     ]);
     env.container_addr_file = Some(file.clone());
     assert_eq!(
@@ -102,12 +111,15 @@ fn server_addr_in_container() {
         server_addr(&env),
         ("host.docker.internal".into(), "60302".into())
     );
-    let mut env = Env::with_vars([(dm_shared_dmenv::ENV_HOST, dm_shared_dmenv::CONTAINER_HOST)]);
+    let mut env = Env::with_vars([(
+        otter_shared_otterenv::ENV_HOST,
+        otter_shared_otterenv::CONTAINER_HOST,
+    )]);
     env.container_addr_file = Some(dir.path().join("none"));
     assert_eq!(server_addr(&env).1, "58146");
 }
 
-// ── 차분 시나리오 (helper-dmctl·helper-dmctl-sub·helper-misc) ─────────
+// ── 차분 시나리오 (helper-otterctl·helper-otterctl-sub·helper-misc) ─────────
 
 /// testdata/helper_scenarios.jsonl 은 Go 참조 바이너리(go1.27.2)를 hermetic.sh 아래에서 돌려
 /// 기록한 것이다. 현재 폴더는 `CWD` 로 지웠다.
@@ -116,7 +128,10 @@ fn helper_scenarios_match_go() {
     let home = tmp();
     let port = closed_port();
     let mut env = env_at(home.path(), port);
-    env.set(dm_shared_dmenv::ENV_HOME, home.path().to_str().unwrap());
+    env.set(
+        otter_shared_otterenv::ENV_HOME,
+        home.path().to_str().unwrap(),
+    );
     let cwd = std::env::current_dir().unwrap();
     let cwd = cwd.to_string_lossy();
     let mut checked = 0;
@@ -205,7 +220,7 @@ fn layout_commands_send_expected_payloads() {
     ];
     for (args, want) in cases {
         let before = commands_only(&srv).len();
-        let (code, out, err) = dm(&env, args);
+        let (code, out, err) = ctl(&env, args);
         assert_eq!(code, 0, "{args:?} {err}");
         assert_eq!(out, format!("{DELIVERED}\n"), "{args:?}");
         let sent = commands_only(&srv);
@@ -229,7 +244,7 @@ fn layout_usage_errors_never_post() {
         (
             &["focus"],
             2,
-            "usage: dmctl focus <uuid>  (list-workspace 의 uuid 컬럼 값)\n",
+            "usage: otterctl focus <uuid>  (list-workspace 의 uuid 컬럼 값)\n",
         ),
         (
             &["close-tab", "--force", "--background"],
@@ -244,7 +259,7 @@ fn layout_usage_errors_never_post() {
         (
             &["rename-tab", "--at", "u"],
             2,
-            "usage: dmctl rename-tab --at <uuid> <name>  (또는 --name <name>)\n",
+            "usage: otterctl rename-tab --at <uuid> <name>  (또는 --name <name>)\n",
         ),
         (
             &["rename-window", "--at", "u", "--auto"],
@@ -256,21 +271,21 @@ fn layout_usage_errors_never_post() {
             2,
             "--auto 와 이름은 함께 쓸 수 없다\n",
         ),
-        (&["send"], 2, "usage: dmctl send <action> [json-args]\n"),
+        (&["send"], 2, "usage: otterctl send <action> [json-args]\n"),
         (
             &["open-editor", "--at", "u"],
             2,
-            "usage: dmctl open-editor --at <uuid> [--name <이름>] <파일 절대경로>\n",
+            "usage: otterctl open-editor --at <uuid> [--name <이름>] <파일 절대경로>\n",
         ),
     ];
     for (args, code, err) in cases {
-        let got = dm(&env, args);
+        let got = ctl(&env, args);
         assert_eq!((got.0, got.2.as_str()), (*code, *err), "{args:?}");
     }
-    let (code, _, err) = dm(&env, &["send", "x", "{bad"]);
+    let (code, _, err) = ctl(&env, &["send", "x", "{bad"]);
     assert_eq!(code, 2);
     assert!(
-        err.starts_with("dmctl: invalid json args: invalid character 'b'"),
+        err.starts_with("otterctl: invalid json args: invalid character 'b'"),
         "{err}"
     );
     // NFR-ORD-1: 도움말을 청한 레이아웃 명령은 서버에 아무것도 보내지 않는다.
@@ -279,12 +294,12 @@ fn layout_usage_errors_never_post() {
         &["new-tab", "-h"],
         &["split-v", "--at", "u", "--help"],
     ] {
-        let (code, out, _) = dm(&env, args);
-        assert_eq!((code, out.as_str()), (0, DMCTL_HELP));
+        let (code, out, _) = ctl(&env, args);
+        assert_eq!((code, out.as_str()), (0, OTTERCTL_HELP));
     }
-    let (code, out, _) = dm(&env, &["open-editor", "--help"]);
+    let (code, out, _) = ctl(&env, &["open-editor", "--help"]);
     assert_eq!(code, 0);
-    assert!(out.starts_with("dmctl open-editor — 편집기 탭 열기"));
+    assert!(out.starts_with("otterctl open-editor — 편집기 탭 열기"));
     assert!(commands_only(&srv).is_empty());
 }
 
@@ -294,19 +309,19 @@ fn delivery_fields_decide_exit_code() {
         (
             r#"{"delivered":0}"#,
             1,
-            "dmctl: 구독 중인 브라우저가 없습니다 — 페이지를 새로고침하세요\n",
+            "otterctl: 구독 중인 브라우저가 없습니다 — 페이지를 새로고침하세요\n",
         ),
         (
             r#"{"delivered":2,"timedOut":true}"#,
             1,
-            "dmctl: 브라우저가 결과를 답하지 않았습니다 — 만들어지지 않았을 수 있습니다. list-workspace 로 확인하세요\n",
+            "otterctl: 브라우저가 결과를 답하지 않았습니다 — 만들어지지 않았을 수 있습니다. list-workspace 로 확인하세요\n",
         ),
         (r#"{"delivered":1}"#, 0, ""),
         (r#"{"ok":true}"#, 0, ""),
     ] {
         let srv = TestServer::fixed(200, body);
         let home = tmp();
-        let got = dm(&srv.env(home.path()), &["new-tab"]);
+        let got = ctl(&srv.env(home.path()), &["new-tab"]);
         assert_eq!(
             (got.0, got.1.as_str(), got.2.as_str()),
             (code, format!("{body}\n").as_str(), err),
@@ -352,7 +367,7 @@ fn rename_env(srv: &TestServer, home: &Path) -> Env {
 fn rename_confirms_and_resends() {
     let home = tmp();
     let srv = rename_server(0, false, true);
-    let (code, out, err) = dm(
+    let (code, out, err) = ctl(
         &rename_env(&srv, home.path()),
         &["rename-tab", "--at", "t1", "새이름"],
     );
@@ -367,7 +382,7 @@ fn rename_confirms_and_resends() {
     );
 
     let srv = rename_server(1, false, true);
-    let (code, out, _) = dm(
+    let (code, out, _) = ctl(
         &rename_env(&srv, home.path()),
         &["rename-tab", "--at", "t1", "--name", "새이름"],
     );
@@ -376,19 +391,19 @@ fn rename_confirms_and_resends() {
     assert_eq!(commands_only(&srv).len(), 2);
 
     let srv = rename_server(9, false, true);
-    let (code, _, err) = dm(
+    let (code, _, err) = ctl(
         &rename_env(&srv, home.path()),
         &["rename-tab", "--at", "t1", "새이름"],
     );
     assert_eq!(code, 1);
     assert_eq!(
         err,
-        "dmctl: 이름 \"새이름\" 이 반영되지 않았습니다 (탭 t1, 3번 보냄) — 다른 화면의 저장과 겹쳤을 수 있습니다\n"
+        "otterctl: 이름 \"새이름\" 이 반영되지 않았습니다 (탭 t1, 3번 보냄) — 다른 화면의 저장과 겹쳤을 수 있습니다\n"
     );
     assert_eq!(commands_only(&srv).len(), 3);
 
     let srv = rename_server(0, true, true);
-    let (code, _, _) = dm(
+    let (code, _, _) = ctl(
         &rename_env(&srv, home.path()),
         &["rename-tab", "--at", "t1", "--auto"],
     );
@@ -399,7 +414,7 @@ fn rename_confirms_and_resends() {
     );
 
     let srv = rename_server(0, false, true);
-    let (code, _, _) = dm(
+    let (code, _, _) = ctl(
         &rename_env(&srv, home.path()),
         &["rename-window", "--at", "t1", "새창"],
     );
@@ -408,7 +423,7 @@ fn rename_confirms_and_resends() {
 
     // 워크스페이스를 모르는 서버는 판정하지 않는다 (FR-TND-14).
     let srv = rename_server(9, false, false);
-    let (code, _, _) = dm(
+    let (code, _, _) = ctl(
         &rename_env(&srv, home.path()),
         &["rename-tab", "--at", "t1", "x"],
     );
@@ -485,7 +500,7 @@ fn detach_payloads() {
         (got.0, got.2.as_str()),
         (
             1,
-            "detach: DONGMINAL_TOOL_ID 미설정 (dongminal 터미널 안에서 실행해야 합니다)\n"
+            "detach: OTTERMINAL_TOOL_ID 미설정 (otterminal 터미널 안에서 실행해야 합니다)\n"
         )
     );
 
@@ -535,7 +550,7 @@ fn download_and_edit() {
     let got = run_with(&env, run_edit, &[file.to_str().unwrap()], b"");
     assert_eq!((got.0, got.1.as_str()), (0, "{\"ok\":true}\n"));
     let sent = commands_only(&srv);
-    let abs = dm_gocompat::filepath::abs(file.to_str().unwrap()).unwrap();
+    let abs = otter_gocompat::filepath::abs(file.to_str().unwrap()).unwrap();
     assert_eq!(
         sent[0],
         json!({"action":"openEditorTab","args":{"name":"a.txt","filePath":abs}})
@@ -591,7 +606,7 @@ fn order_commands() {
         ),
     ] {
         let before = commands_only(&srv).len();
-        let (code, _, err) = dm(&env, args);
+        let (code, _, err) = ctl(&env, args);
         assert_eq!(code, 0, "{args:?} {err}");
         assert_eq!(commands_only(&srv)[before], want);
     }
@@ -634,20 +649,20 @@ fn order_commands() {
         ),
         (
             &["new-group"],
-            "usage: dmctl new-group --name <이름> [--tree <owner/repo#N>]\n",
+            "usage: otterctl new-group --name <이름> [--tree <owner/repo#N>]\n",
         ),
     ] {
-        let got = dm(&env, args);
+        let got = ctl(&env, args);
         assert_eq!((got.0, got.2.as_str()), (2, err), "{args:?}");
     }
     let srv = TestServer::fixed(200, r#"{"delivered":1,"error":"범위 밖"}"#);
-    let got = dm(
+    let got = ctl(
         &srv.env(home.path()),
         &["move-tab", "--at", "t", "--index", "9"],
     );
     assert_eq!(
         (got.0, got.2.as_str()),
-        (1, "dmctl: moveTab 실패: 범위 밖\n")
+        (1, "otterctl: moveTab 실패: 범위 밖\n")
     );
 }
 
@@ -657,8 +672,8 @@ fn window_order_shared_vectors() {
     let cases = vec["cases"].as_array().unwrap();
     assert!(!cases.is_empty());
     for c in cases {
-        let windows: Vec<dm_shared_workspace::WsWindow> =
-            dm_gocompat::json::unmarshal(serde_json::to_vec(&c["windows"]).unwrap().as_slice())
+        let windows: Vec<otter_shared_workspace::WsWindow> =
+            otter_gocompat::json::unmarshal(serde_json::to_vec(&c["windows"]).unwrap().as_slice())
                 .unwrap();
         let got = window_positions(&windows);
         let want = c["want"].as_object().unwrap();
@@ -708,7 +723,7 @@ fn list_workspace_fg_names_one_trip_or_settings() {
                 (200, body.clone())
             }
         });
-        let (code, out, _) = dm(&srv.env(home.path()), &["list-workspace"]);
+        let (code, out, _) = ctl(&srv.env(home.path()), &["list-workspace"]);
         assert_eq!(code, 0);
         assert!(
             out.contains(&format!("tab=\"{want_tab}\"")),
@@ -731,30 +746,30 @@ fn list_workspace_empty_and_filters() {
     let srv = TestServer::fixed(200, r#"{"tools":[],"workspace":{"windows":[]}}"#);
     let env = srv.env(home.path());
     assert_eq!(
-        dm(&env, &["list-workspace"]),
+        ctl(&env, &["list-workspace"]),
         (0, "(no tools)\n".into(), String::new())
     );
     assert_eq!(
-        dm(&env, &["list-workspace", "--json"]),
+        ctl(&env, &["list-workspace", "--json"]),
         (0, "[]\n".into(), String::new())
     );
     assert_eq!(
-        dm(&env, &["list-workspace", "--tab", "x"]),
+        ctl(&env, &["list-workspace", "--tab", "x"]),
         (1, String::new(), "(no match)\n".into())
     );
     assert_eq!(
-        dm(&env, &["list-groups"]),
+        ctl(&env, &["list-groups"]),
         (0, "(no groups)\n".into(), String::new())
     );
     assert_eq!(
-        dm(&env, &["list-groups", "--json"]),
+        ctl(&env, &["list-groups", "--json"]),
         (0, "[]\n".into(), String::new())
     );
     let srv = TestServer::fixed(500, "boom");
-    let got = dm(&srv.env(home.path()), &["list-workspace"]);
+    let got = ctl(&srv.env(home.path()), &["list-workspace"]);
     assert_eq!(
         (got.0, got.2.as_str()),
-        (1, "dmctl: /api/state returned status 500: boom\n")
+        (1, "otterctl: /api/state returned status 500: boom\n")
     );
 }
 
@@ -773,7 +788,7 @@ fn status_text_lines() {
 "limits":[{"agent":"claude","windows":[{"name":"five_hour","usedPct":34,"resetsInSec":7200},
 {"name":"seven_day","usedPct":21.4,"resetsInSec":368000},{"name":"opus_week","usedPct":5},{"name":"none"}]}]}"#,
     );
-    let (code, out, err) = dm(&srv.env(home.path()), &["status", "--at", "t1"]);
+    let (code, out, err) = ctl(&srv.env(home.path()), &["status", "--at", "t1"]);
     assert_eq!((code, err.as_str()), (0, ""));
     let mut want = String::new();
     want += "toolId=t1  live=true  state=idle  run_state=waiting-children  tool=Bash  detail=go test  quietMs=5\n";
@@ -788,12 +803,12 @@ fn status_text_lines() {
         200,
         r#"{"toolId":"t","live":false,"liveUnknown":true,"state":"unknown","quietMs":-1}"#,
     );
-    let (_, out, _) = dm(&srv.env(home.path()), &["status"]);
+    let (_, out, _) = ctl(&srv.env(home.path()), &["status"]);
     assert_eq!(out, "toolId=t  live=unknown  state=unknown  quietMs=-1\n");
     assert_eq!(srv.requests()[0].query("id").as_deref(), Some("self-tool"));
     let srv = TestServer::fixed(200, "{\"a\":1}\n\n");
     assert_eq!(
-        dm(&srv.env(home.path()), &["status", "--json"]).1,
+        ctl(&srv.env(home.path()), &["status", "--json"]).1,
         "{\"a\":1}\n"
     );
 
@@ -825,13 +840,13 @@ fn wait_exit_codes_and_one_request() {
             "wait: blocked — 에이전트가 입력을 기다린다(state=working). 시간이 지나도 풀리지 않으니 개입이 필요하다.\n",
         ),
         ("gone", 1, "wait: 대상 도구가 사라졌다 (toolId=t)\n"),
-        ("odd", 1, "dmctl: unknown wait status: \"odd\"\n"),
+        ("odd", 1, "otterctl: unknown wait status: \"odd\"\n"),
     ] {
         let body = format!(
             r#"{{"toolId":"t","status":"{status}","state":"working","quietMs":7,"waitedMs":3}}"#
         );
         let srv = TestServer::fixed(200, &body);
-        let got = dm(
+        let got = ctl(
             &srv.env(home.path()),
             &["wait", "--at", "t", "--for", "done", "--timeout-ms", "50"],
         );
@@ -857,7 +872,7 @@ fn wait_exit_codes_and_one_request() {
                 .to_vec(),
         ),
     });
-    let got = dm(
+    let got = ctl(
         &srv.env(home.path()),
         &["wait", "--member", "m1", "--for", "ready"],
     );
@@ -868,10 +883,10 @@ fn wait_exit_codes_and_one_request() {
     assert_eq!(srv.requests()[0].query("member").as_deref(), Some("m1"));
     assert_eq!(srv.requests()[1].query("id").as_deref(), Some("tm"));
     let srv = TestServer::fixed(200, r#"{"role":"dev"}"#);
-    let got = dm(&srv.env(home.path()), &["status", "--member", "m1"]);
+    let got = ctl(&srv.env(home.path()), &["status", "--member", "m1"]);
     assert_eq!(
         (got.0, got.2.as_str()),
-        (1, "dmctl: 멤버 m1 (role=dev) 에 도구가 없다\n")
+        (1, "otterctl: 멤버 m1 (role=dev) 에 도구가 없다\n")
     );
 }
 
@@ -883,14 +898,14 @@ fn who_am_i_text_and_json() {
     let body = r#"{"toolId":"p1","shellPid":12,"label":"W1.P1.T1","uuid":"u-1","short":"u-1","sizeCols":80,"sizeRows":24,"window":"w","tab":"t","windowUuid":"wu","paneUuid":"pu","focused":true,"member":{"id":"m9","runId":"r"}}"#;
     let srv = TestServer::fixed(200, &format!("{body}\n"));
     let env = srv.env(home.path());
-    let (code, out, _) = dm(&env, &["who-am-i"]);
+    let (code, out, _) = ctl(&env, &["who-am-i"]);
     assert_eq!(code, 0);
     assert_eq!(
         out,
         "▶ label=W1.P1.T1  uuid=u-1  short=u-1  toolId=p1  shellPid=12  size=80x24  window=\"w\"  tab=\"t\"  window_uuid=wu  pane_uuid=pu  member=m9\n"
     );
     assert_eq!(srv.requests()[0].target, "/api/whoami?toolId=self-tool");
-    assert_eq!(dm(&env, &["who-am-i", "--json"]).1, format!("{body}\n"));
+    assert_eq!(ctl(&env, &["who-am-i", "--json"]).1, format!("{body}\n"));
 }
 
 #[test]
@@ -898,8 +913,8 @@ fn toolio_requests_and_output() {
     let home = tmp();
     let srv = TestServer::fixed(200, r#"{"text":"","dropped":0}"#);
     let env = srv.env(home.path());
-    assert_eq!(dm(&env, &["read-screen"]).1, "(출력 없음)\n");
-    assert_eq!(dm(&env, &["read-output", "-l", "x", "--bytes=0"]).1, "");
+    assert_eq!(ctl(&env, &["read-screen"]).1, "(출력 없음)\n");
+    assert_eq!(ctl(&env, &["read-output", "-l", "x", "--bytes=0"]).1, "");
     let reqs = srv.requests();
     assert_eq!(
         reqs[0].target,
@@ -908,10 +923,10 @@ fn toolio_requests_and_output() {
     assert_eq!(reqs[1].target, "/api/tools/output?bytes=0&id=x");
     let srv = TestServer::fixed(200, r#"{"text":"a\nb","dropped":5}"#);
     assert_eq!(
-        dm(&srv.env(home.path()), &["read-screen"]).1,
+        ctl(&srv.env(home.path()), &["read-screen"]).1,
         "dropped_bytes: 5\na\nb\n"
     );
-    let got = dm(&env, &["read-screen", "--bytes", "-1"]);
+    let got = ctl(&env, &["read-screen", "--bytes", "-1"]);
     assert_eq!(
         (got.0, got.2.as_str()),
         (2, "read-screen: --bytes 는 0 이상의 정수여야 한다: -1\n")
@@ -921,7 +936,7 @@ fn toolio_requests_and_output() {
     let env = srv.env(home.path());
     let got = run_with(
         &env,
-        crate::dmctl::run_dmctl,
+        crate::otterctl::run_otterctl,
         &["send-input", "--at", "t", "-x", "-"],
         "ls -la\n".as_bytes(),
     );
@@ -933,12 +948,12 @@ fn toolio_requests_and_output() {
         srv.requests()[0].json(),
         json!({"id":"t","text":"ls -la\n","execute":true})
     );
-    let got = dm(&env, &["send-input", "a", "b"]);
+    let got = ctl(&env, &["send-input", "a", "b"]);
     assert_eq!(
         got.1,
         "입력 주입 완료: target=self-tool textLen=3 모드=타이핑만 (엔터 대기)\n"
     );
-    let got = run_with(&env, crate::dmctl::run_dmctl, &["send-input"], b"");
+    let got = run_with(&env, crate::otterctl::run_otterctl, &["send-input"], b"");
     assert_eq!(
         (got.0, got.2.as_str()),
         (
@@ -952,7 +967,7 @@ fn toolio_requests_and_output() {
         r#"{"toolId":"x","from":"self-tool","to":"u2","len":5}"#,
     );
     let env = srv.env(home.path());
-    let got = dm(&env, &["msg", "--to", "u2", "안녕"]);
+    let got = ctl(&env, &["msg", "--to", "u2", "안녕"]);
     assert_eq!(
         got.1,
         "에이전트 메시지 전송 완료: from=self-tool → to=u2, 본문 5 자\n"
@@ -961,14 +976,17 @@ fn toolio_requests_and_output() {
         srv.requests()[0].json(),
         json!({"to":"u2","from":"self-tool","message":"안녕"})
     );
-    let got = dm(&env, &["msg", "hi"]);
+    let got = ctl(&env, &["msg", "hi"]);
     assert_eq!(
         (got.0, got.2.as_str()),
-        (2, "usage: dmctl msg --to <uuid> [--from <uuid>] <메시지>\n")
+        (
+            2,
+            "usage: otterctl msg --to <uuid> [--from <uuid>] <메시지>\n"
+        )
     );
     let srv = TestServer::fixed(404, r#"{"error":"tool not found"}"#);
-    let got = dm(&srv.env(home.path()), &["msg", "--to", "u2", "x"]);
-    assert_eq!((got.0, got.2.as_str()), (1, "dmctl: tool not found\n"));
+    let got = ctl(&srv.env(home.path()), &["msg", "--to", "u2", "x"]);
+    assert_eq!((got.0, got.2.as_str()), (1, "otterctl: tool not found\n"));
 }
 
 #[test]
@@ -977,10 +995,10 @@ fn notify_posts_and_sanitizes() {
     let srv = TestServer::fixed(200, r#"{"ok":true}"#);
     let env = srv.env(home.path());
     assert_eq!(
-        dm(&env, &["notify", "done"]),
+        ctl(&env, &["notify", "done"]),
         (0, String::new(), String::new())
     );
-    assert_eq!(dm(&env, &["notify"]).0, 0);
+    assert_eq!(ctl(&env, &["notify"]).0, 0);
     let reqs = srv.requests();
     assert_eq!(
         (reqs[0].path(), reqs[0].json()),
@@ -992,12 +1010,12 @@ fn notify_posts_and_sanitizes() {
     assert_eq!(reqs[1].json()["reason"], "attention");
     let mut no_tool = Env::with_vars([("X", "y")]);
     no_tool.fallback_home = env.fallback_home.clone();
-    let got = dm(&no_tool, &["notify"]);
+    let got = ctl(&no_tool, &["notify"]);
     assert_eq!(
         (got.0, got.2.as_str()),
         (
             1,
-            "dmctl notify: DONGMINAL_TOOL_ID 미설정 (dongminal tool 안에서 실행해야 함)\n"
+            "otterctl notify: OTTERMINAL_TOOL_ID 미설정 (otterminal tool 안에서 실행해야 함)\n"
         )
     );
     assert_eq!(sanitize_notify_label("a\x01b\x7fc"), "abc");
@@ -1012,9 +1030,9 @@ fn notify_posts_and_sanitizes() {
 #[test]
 fn notify_goes_to_report_socket_first() {
     let home = tempfile::Builder::new().tempdir_in("/tmp").unwrap();
-    let sock = dm_shared_agentrec::socket_path(home.path());
+    let sock = otter_shared_agentrec::socket_path(home.path());
     std::fs::create_dir_all(sock.parent().unwrap()).unwrap();
-    let ln = dm_shared_platform::current().ipc.listen(&sock).unwrap();
+    let ln = otter_shared_platform::current().ipc.listen(&sock).unwrap();
     let got = std::thread::spawn(move || {
         let mut c = ln.accept().unwrap();
         let mut line = String::new();
@@ -1024,8 +1042,11 @@ fn notify_goes_to_report_socket_first() {
     });
     let srv = TestServer::fixed(200, r#"{"ok":true}"#);
     let mut env = srv.env(home.path());
-    env.set(dm_shared_dmenv::ENV_HOME, home.path().to_str().unwrap());
-    assert_eq!(dm(&env, &["notify", "waiting"]).0, 0);
+    env.set(
+        otter_shared_otterenv::ENV_HOME,
+        home.path().to_str().unwrap(),
+    );
+    assert_eq!(ctl(&env, &["notify", "waiting"]).0, 0);
     assert_eq!(
         got.join().unwrap(),
         "{\"method\":\"report.notify\",\"body\":{\"reason\":\"waiting\",\"toolId\":\"self-tool\"}}\n"

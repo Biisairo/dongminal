@@ -4,9 +4,9 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::time::Duration;
 
-use dm_gocompat::filepath;
-use dm_gocompat::oserr::go_error_string;
-use dm_shared_platform::Process;
+use otter_gocompat::filepath;
+use otter_gocompat::oserr::go_error_string;
+use otter_shared_platform::Process;
 
 use crate::homelayout::{DAEMON_PID_FILE, DAEMON_SOCK_FILE};
 use crate::http::ALIVE_PROBE_TIMEOUT;
@@ -25,13 +25,13 @@ pub(crate) struct Procs<'a> {
 }
 
 fn listener_pids(port: &str) -> Vec<i32> {
-    dm_shared_platform::current().info.listener_pids(port)
+    otter_shared_platform::current().info.listener_pids(port)
 }
 
 impl Procs<'static> {
     pub(crate) fn platform() -> Self {
         Self {
-            proc: dm_shared_platform::current().process,
+            proc: otter_shared_platform::current().process,
             pids_on_port: &listener_pids,
         }
     }
@@ -85,20 +85,20 @@ pub(crate) fn daemon_ours(home: &str, proc: &dyn Process) -> (i32, bool) {
     if !alive {
         return (pid, false);
     }
-    let ipc = dm_shared_platform::current().ipc;
+    let ipc = otter_shared_platform::current().ipc;
     let ok = ipc
         .dial(&ipc.endpoint(Path::new(home)), ALIVE_PROBE_TIMEOUT)
         .is_ok();
     (pid, ok)
 }
 
-/// dongminald 를 TERM → 1초 → KILL 로 종료하고 pidfile·소켓을 지운다. "정지 상태로 끝났는가" 를
+/// otterminald 를 TERM → 1초 → KILL 로 종료하고 pidfile·소켓을 지운다. "정지 상태로 끝났는가" 를
 /// 돌려준다. 아직 살아 있으면 잔여물을 남긴 채 false 다 — 다음 호출이 다시 찾을 수 있게.
 pub(crate) fn stop_daemon(home: &str, w: &mut dyn Write, ps: &Procs<'_>) -> bool {
     let proc = ps.proc;
     let (pid, ours) = daemon_ours(home, proc);
     if ours {
-        let _ = writeln!(w, "dongminald 정지 중 pid={pid}...");
+        let _ = writeln!(w, "otterminald 정지 중 pid={pid}...");
         let gone = || poll_until(STOP_GRACE, STOP_POLL, || !proc.alive(pid));
         let _ = proc.terminate(pid);
         if !gone() {
@@ -107,14 +107,14 @@ pub(crate) fn stop_daemon(home: &str, w: &mut dyn Write, ps: &Procs<'_>) -> bool
             gone();
         }
         if proc.alive(pid) {
-            let _ = writeln!(w, "dongminald pid={pid} 가 아직 살아 있습니다");
+            let _ = writeln!(w, "otterminald pid={pid} 가 아직 살아 있습니다");
             return false;
         }
     } else if pid > 0 {
         // 우리 것이 아니거나 멎은 것이며 가릴 수 없다 — 신호를 보내지 않는다 (FBE-07).
-        let _ = writeln!(w, "dongminald 미실행 (낡은 pidfile 제거)");
+        let _ = writeln!(w, "otterminald 미실행 (낡은 pidfile 제거)");
     } else {
-        let _ = writeln!(w, "dongminald 미실행");
+        let _ = writeln!(w, "otterminald 미실행");
     }
     let _ = std::fs::remove_file(filepath::join(&[home, DAEMON_PID_FILE]));
     let _ = std::fs::remove_file(filepath::join(&[home, DAEMON_SOCK_FILE]));
@@ -123,7 +123,7 @@ pub(crate) fn stop_daemon(home: &str, w: &mut dyn Write, ps: &Procs<'_>) -> bool
 
 /// 종단 파일이 놓여 있는지다. 살아 있는지는 묻지 않는다 (FR-XIP-2/3).
 pub(crate) fn socket_exists(home: &str) -> bool {
-    let ipc = dm_shared_platform::current().ipc;
+    let ipc = otter_shared_platform::current().ipc;
     ipc.exists(&ipc.endpoint(Path::new(home)))
 }
 

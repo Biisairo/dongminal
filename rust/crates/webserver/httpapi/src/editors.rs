@@ -3,12 +3,12 @@
 
 use std::collections::BTreeMap;
 
-use dm_gocompat::filepath;
-use dm_shared_httpresp::Response;
-use dm_webserver_action::{self as action, Answer};
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::Ctx;
-use dm_webserver_domain_wsentry::{self as wsentry, Error as WsError};
+use otter_gocompat::filepath;
+use otter_shared_httpresp::Response;
+use otter_webserver_action::{self as action, Answer};
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::Ctx;
+use otter_webserver_domain_wsentry::{self as wsentry, Error as WsError};
 use serde::{Deserialize, Serialize};
 
 use crate::Server;

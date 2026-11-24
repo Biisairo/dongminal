@@ -557,7 +557,7 @@ async fn no_static_fs_is_404() {
     assert_eq!(s.asset_version(), "");
 }
 
-/// 실물 자산(`dm-web-assets`)으로 선다 — 문서의 자리표시자가 모두 판으로 바뀐다.
+/// 실물 자산(`otter-web-assets`)으로 선다 — 문서의 자리표시자가 모두 판으로 바뀐다.
 #[tokio::test]
 async fn web_assets_serve_index() {
     let (_d, s) = static_server(Arc::new(WebAssets));

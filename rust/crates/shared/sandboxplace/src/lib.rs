@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/sandboxplace` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/sandboxplace` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 샌드박스 창의 도구를 컨테이너 안에 배치한다 (SANDBOX_SRS FR-SBX-10). toolhub 의
 //! 배치 함수([`Placer::placer_fn`])로 걸린다.
@@ -8,12 +8,12 @@ use std::io;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
-use dm_shared_dmlog::{errorf, infof};
-use dm_shared_platform::ProcSpec;
-use dm_shared_sandbox::{
+use otter_shared_otterlog::{errorf, infof};
+use otter_shared_platform::ProcSpec;
+use otter_shared_sandbox::{
     self as sandbox, Config, Error, HelperDeps, Manager, Profile, ProfileInfo, RunSpec, WorkKind,
 };
-use dm_shared_toolhub::{Placement, PlacerFn};
+use otter_shared_toolhub::{Placement, PlacerFn};
 
 pub type StatFn = Arc<dyn Fn(&str) -> bool + Send + Sync>;
 
@@ -69,7 +69,7 @@ impl Placer {
     }
 
     fn config_path(&self) -> String {
-        dm_gocompat::filepath::join(&[self.home.as_str(), sandbox::PROFILES_FILE_NAME])
+        otter_gocompat::filepath::join(&[self.home.as_str(), sandbox::PROFILES_FILE_NAME])
     }
 
     /// 지금의 sandbox.json 이다. 없으면 빈 설정이다.
@@ -78,8 +78,8 @@ impl Placer {
         match std::fs::read(&path) {
             Ok(blob) => sandbox::parse_config(&blob, &user_home),
             Err(e) if e.kind() == io::ErrorKind::NotFound => sandbox::parse_config(b"", &user_home),
-            Err(e) => Err(Error::Msg(dm_gocompat::oserr::go_error_string(
-                &dm_gocompat::oserr::path_error("open", &path, e),
+            Err(e) => Err(Error::Msg(otter_gocompat::oserr::go_error_string(
+                &otter_gocompat::oserr::path_error("open", &path, e),
             ))),
         }
     }
@@ -89,7 +89,7 @@ impl Placer {
         let cfg = sandbox::parse_config(blob, &user_home)?;
         let out = cfg.encode().map_err(|e| Error::Msg(e.to_string()))?;
         if let Err(e) =
-            dm_shared_platform::write_state_file(Path::new(&self.config_path()), &out, 0o644)
+            otter_shared_platform::write_state_file(Path::new(&self.config_path()), &out, 0o644)
         {
             infof!(None, "sandbox SaveConfig: {e}");
             return Err(Error::SaveFailed);
@@ -103,7 +103,7 @@ impl Placer {
         let Some(mut prof) = self.profile_by_name(&pl.profile) else {
             return Err(Error::Msg(format!(
                 "샌드박스 프로파일 {} 가 정의되지 않았습니다 — {} 에 이미지를 적어 주세요",
-                dm_gocompat::strconv::quote(&pl.profile),
+                otter_gocompat::strconv::quote(&pl.profile),
                 sandbox::PROFILES_FILE_NAME
             )));
         };
@@ -127,7 +127,7 @@ impl Placer {
         };
         if prof.helper {
             rs.helper_path = sandbox::ensure_helper(&self.helper)?;
-            let addr = dm_shared_serverconf::addr_path(Path::new(&self.home));
+            let addr = otter_shared_serverconf::addr_path(Path::new(&self.home));
             if let Some(dir) = addr.parent()
                 && mkdir_0700(dir).is_ok()
             {
@@ -188,7 +188,7 @@ fn mkdir_0700(dir: &Path) -> io::Result<()> {
 /// 기동 배선이다. 런타임이 없으면 `None`(샌드박스 기능 꺼짐)이다.
 pub fn wire(home: &str, version: &str, port: &str) -> Option<Arc<Placer>> {
     let docker = sandbox::find_runtime(&sandbox::look_path).ok()?;
-    let path = dm_gocompat::filepath::join(&[home, sandbox::PROFILES_FILE_NAME]);
+    let path = otter_gocompat::filepath::join(&[home, sandbox::PROFILES_FILE_NAME]);
     let profiles =
         sandbox::load_profiles(&path, &|p| std::fs::read(p), &user_home).unwrap_or_else(|e| {
             infof!(None, "[sandbox] {}: {e}", sandbox::PROFILES_FILE_NAME);
@@ -207,15 +207,15 @@ pub fn wire(home: &str, version: &str, port: &str) -> Option<Arc<Placer>> {
     )))
 }
 
-/// 컨테이너 안 dmctl 이 닿을 포트다: 준 값 → 주소 파일 → 설정 해석.
+/// 컨테이너 안 otterctl 이 닿을 포트다: 준 값 → 주소 파일 → 설정 해석.
 fn startup_port(home: &str, port: &str) -> String {
     if !port.is_empty() {
         return port.into();
     }
-    if let Some((_, p)) = dm_shared_serverconf::read_addr(Path::new(home)) {
+    if let Some((_, p)) = otter_shared_serverconf::read_addr(Path::new(home)) {
         return p;
     }
-    dm_shared_serverconf::resolve(&dm_shared_serverconf::Inputs {
+    otter_shared_serverconf::resolve(&otter_shared_serverconf::Inputs {
         home: Path::new(home),
         ..Default::default()
     })

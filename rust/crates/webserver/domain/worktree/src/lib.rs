@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/domain/worktree` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/domain/worktree` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! Run 격리의 파일시스템 절반이다 (RUN_ORCHESTRATION_SRS 묶음 W). 저장소에서 파일시스템을 파괴할
 //! 수 있는 유일한 경로다 — dirty 트리를 지우지 않고 (FR-WKT-8), 등록 범위 밖을 건드리지 않으며

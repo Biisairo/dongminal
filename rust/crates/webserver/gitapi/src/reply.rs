@@ -3,11 +3,11 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use dm_gocompat::json::{RawMessage, marshal};
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr::{self as apierr, Classify, Sentinel};
-use dm_webserver_domain_git_core as core;
 use http::StatusCode;
+use otter_gocompat::json::{RawMessage, marshal};
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_webserver_apierr::{self as apierr, Classify, Sentinel};
+use otter_webserver_domain_git_core as core;
 use serde::Serialize;
 
 pub(crate) const ERR_BAD_REQUEST: &str = apierr::CODE_BAD_REQUEST;
@@ -100,7 +100,7 @@ pub(crate) fn git_error<E: Classify + fmt::Display + ?Sized>(err: &E) -> Respons
 
 /// 뒤쪽을 남긴다 — git 의 실패 이유는 stderr 끝에 있다 (FR-DRC-9).
 pub(crate) fn git_tail(msg: &str) -> String {
-    dm_shared_diagtail::cut_str(msg, MESSAGE_MAX)
+    otter_shared_diagtail::cut_str(msg, MESSAGE_MAX)
 }
 
 /// 이 표면이 다루는 도메인 오류다. 쓰기 실패 응답이 오류의 모양(부분 적용·이름 충돌)을 읽는다.
@@ -124,17 +124,17 @@ impl<E: GitErr> From<E> for WErr {
 }
 
 impl GitErr for core::Error {}
-impl GitErr for dm_webserver_domain_git_query::Error {}
-impl GitErr for dm_webserver_domain_git_jobs::Error {}
-impl GitErr for dm_webserver_domain_wsentry::Error {}
-impl GitErr for dm_webserver_domain_worktree::Error {}
+impl GitErr for otter_webserver_domain_git_query::Error {}
+impl GitErr for otter_webserver_domain_git_jobs::Error {}
+impl GitErr for otter_webserver_domain_wsentry::Error {}
+impl GitErr for otter_webserver_domain_worktree::Error {}
 impl GitErr for std::io::Error {}
-impl GitErr for dm_webserver_domain_git_write::Error {
+impl GitErr for otter_webserver_domain_git_write::Error {
     fn batch_partial(&self) -> bool {
         self.batch().is_some_and(|b| b.partial())
     }
     fn branch_exists(&self) -> Option<&str> {
-        dm_webserver_domain_git_write::Error::branch_exists(self)
+        otter_webserver_domain_git_write::Error::branch_exists(self)
     }
 }
 

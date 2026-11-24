@@ -37,7 +37,7 @@
 | I | 간선 초대: `invite` 프레임, 암호화, 지문에 묶인 토큰, 받기·맺기·거절 |
 | C | 채팅 계층 정리: `state` 에서 `links`·`name` 빼기, 간선 계층의 망 정보 쓰기 |
 | U | 화면: Edges 의 망 그림, 간선 줄 표시, 받은 초대, 채팅의 초대 버튼 |
-| A | 로컬 API·dmctl |
+| A | 로컬 API·otterctl |
 
 **미포함:** §6 비목표.
 
@@ -186,7 +186,7 @@
 - **FR-EGM-56** 채팅의 개인채팅 방에서 상대 노드가 간선이 아니고 온라인이면 **간선 초대 보내기** 버튼을 보인다.
   누르면 그 노드에 FR-EGM-30 의 초대를 보낸다.
 
-### 3.7 묶음 A — 로컬 API·dmctl
+### 3.7 묶음 A — 로컬 API·otterctl
 
 | 연산(IPC `edge` op) | 경로 | 본문 | 답 |
 |---|---|---|---|
@@ -200,9 +200,9 @@
   `edge_already_edge`(409, 이미 간선). 없는 초대·모르는 노드·온라인이 아닌 노드는 `edge_not_found`(404)다.
   자기에게 보내기는 `bad_request`(400)다.
 - **FR-EGM-61** `mesh.links` 는 서로 이어진 두 노드의 쌍이다(FR-EGM-12). 연결 끊김 노드의 마지막 `net` 도 쓴다.
-- **FR-EGM-62** `dmctl edge notify <이름#번호|지문 앞자리>` 를 더한다. 성공하면 `알렸습니다: 이름#번호` 를 찍고
+- **FR-EGM-62** `otterctl edge notify <이름#번호|지문 앞자리>` 를 더한다. 성공하면 `알렸습니다: 이름#번호` 를 찍고
   0, 실패하면 사유 코드를 찍고 1 로 끝난다.
-- **FR-EGM-63** `dmctl edges` 의 간선 줄 끝에 `알림 대기`·`옛 판` 을 적는다. `--json` 은 API 답 그대로다.
+- **FR-EGM-63** `otterctl edges` 의 간선 줄 끝에 `알림 대기`·`옛 판` 을 적는다. `--json` 은 API 답 그대로다.
 - **FR-EGM-64** IPC push `edges`·SSE `edges_changed` 에 `invited {fp, name, tag}` 를 더한다.
 
 ### 3.8 비기능
@@ -254,7 +254,7 @@
 1. 직접 모드 지원과 직접 모드 코드 지우기(작업 뒤 정리 후보로 보고한다).
 2. 옛 판과의 과도기 호환.
 3. 채팅 프레임의 종단 간 암호화.
-4. 초대 거절을 보낸 쪽에 알리기, 초대 보내기의 dmctl 명령.
+4. 초대 거절을 보낸 쪽에 알리기, 초대 보내기의 otterctl 명령.
 5. Activity 패널의 망 그림.
 6. 주소·포트를 망 전체에 알리기.
 7. 망 그림의 노드 끌어 옮기기·확대.
@@ -275,6 +275,6 @@
 | TC-EGM-10 | FR-EGM-32~36 | Go(edgemesh): A-B-C 에서 A 가 C 에 초대. B 는 상자를 열지 못한다. 위조·만료·중복 | C 만 받는다. 나머지는 버린다 |
 | TC-EGM-11 | FR-EGM-35 | Go(edgenode): 받은 초대 맺기 → A·C 간선. 거절 → 목록에서 빠짐 | 표대로 |
 | TC-EGM-12 | FR-EGM-40~44 | Go(chat): 지금 채팅 시험이 간선 계층 위에서 그대로 통과. 도우미 키 신뢰가 `net` 의 links 로 판정됨 | 통과 |
-| TC-EGM-13 | FR-EGM-60~64 | Go(httpapi·dmctl): 새 경로·코드·출력 | 표대로 |
+| TC-EGM-13 | FR-EGM-60~64 | Go(httpapi·otterctl): 새 경로·코드·출력 | 표대로 |
 | TC-EGM-14 | FR-EGM-50~56 | JS 단위: 배치가 결정적이고 나는 가운데, 노드 표시·할 일, 간선 줄 표시, 받은 초대 줄 | 표대로 |
 | TC-EGM-15 | 전체 | `make test`, `make gates`, `make lint`, `npm run -s typecheck` | 통과 |

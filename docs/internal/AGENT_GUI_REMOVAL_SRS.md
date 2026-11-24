@@ -53,7 +53,7 @@ IEEE 29148 준수. 작성 2026-09-16.
 | 도구 종류 | `KindTerminal` · `KindAgent` 둘 | `KindTerminal` 하나 |
 | 에이전트 구동 | GUI 대화 뷰 **또는** 터미널 셸 | 터미널 셸만 |
 | 터미널의 올리기 버튼 | 세션이 잡히면 선다 | 서지 않는다 |
-| `dmctl new-tab --agent <id>` | 에이전트 GUI 탭을 연다 | **플래그가 없다** |
+| `otterctl new-tab --agent <id>` | 에이전트 GUI 탭을 연다 | **플래그가 없다** |
 | 설정 ▸ 에이전트 승인 정책 | 드롭다운이 있다 | 없다 |
 | 활동 패널·주의 알림 | 훅으로 온다 | **그대로** |
 
@@ -77,7 +77,7 @@ IEEE 29148 준수. 작성 2026-09-16.
 `renderer.js`(배치·복원·메뉴), `app-tool.js`(생성·정리), `app-slots.js`(슬롯 정리),
 `app-layout.js`(`addTab`), `app-cmd.js`(SSE 구독·WS 제외·`--agent` 인자)에서
 `type==='agent'` · `kind==='agent'` 분기를 제거한다. 모르는 `--agent` 플래그는
-`dmctl new-tab` 에서 사라진다.
+`otterctl new-tab` 에서 사라진다.
 
 ### FR-AGR-3 — 올리기 경로가 없다
 
@@ -151,15 +151,15 @@ IEEE 29148 준수. 작성 2026-09-16.
 > **개정(2026-11-13, D-4)**: FR-AGR-17~20 이 이 요구를 대체한다. 아래 본문은 1차 제거 때의 기록이다.
 
 `internal/shared/agentadapter/` 는 **한 줄도 고치지 않는다** — 하위
-`fakeagent` 포함. 이미 `dmctl_activity` · `dmctl_run_subs` ·
+`fakeagent` 포함. 이미 `otterctl_activity` · `otterctl_run_subs` ·
 `runtime/install` · `run/context_window` · `run/store_write` ·
 `handlers_attention` · `handlers_status` 가 쓰고 있고, 쓰이지 않게 되는 심볼도
 남긴다(사용자 지시 — 이벤트를 나중에 쓸 수 있다).
 
-### FR-AGR-13 — `dmctl new-tab --agent` 가 없다
+### FR-AGR-13 — `otterctl new-tab --agent` 가 없다
 
-플래그와 그 해석(`dmctlParsed.agent`·`buildArgs`), `docs/external/commands.md` 의
-줄과 예시를 제거한다. `dmctl run member --agent` 는 **남는다** — 그것은 실행
+플래그와 그 해석(`otterctlParsed.agent`·`buildArgs`), `docs/external/commands.md` 의
+줄과 예시를 제거한다. `otterctl run member --agent` 는 **남는다** — 그것은 실행
 오케스트레이션의 역할 표시이며 GUI 와 무관하다.
 
 ### FR-AGR-14 — 인계 명령서의 `gui` 갈래가 없다

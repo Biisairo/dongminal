@@ -1,7 +1,7 @@
 use super::diff::DiffFake;
 use super::support::*;
 use crate::*;
-use dm_webserver_domain_git_core::{Service, WriteSpec};
+use otter_webserver_domain_git_core::{Service, WriteSpec};
 
 #[cfg(unix)]
 #[tokio::test]

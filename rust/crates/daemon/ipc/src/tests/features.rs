@@ -3,11 +3,11 @@
 
 use std::sync::{Arc, Mutex};
 
-use dm_gocompat::json::RawMessage;
-use dm_shared_activity as activity;
-use dm_shared_chatwire as chatwire;
-use dm_shared_edgenode::{Change, Node, Options, Ref};
-use dm_shared_toolipc as ipc;
+use otter_gocompat::json::RawMessage;
+use otter_shared_activity as activity;
+use otter_shared_chatwire as chatwire;
+use otter_shared_edgenode::{Change, Node, Options, Ref};
+use otter_shared_toolipc as ipc;
 use serde_json::Value;
 
 use super::{Daemon, Raw, daemon, raw};
@@ -225,12 +225,12 @@ async fn edge_op_stops_at_call_timeout() {
     .unwrap();
     let fp = "ab".repeat(32);
     n.store()
-        .add_edge(dm_shared_edge::Edge {
+        .add_edge(otter_shared_edge::Edge {
             name: "x".into(),
             addr: "127.0.0.1".into(),
             port: i64::from(port),
             fingerprint: fp.clone(),
-            ..dm_shared_edge::Edge::default()
+            ..otter_shared_edge::Edge::default()
         })
         .unwrap();
     d.srv.set_edge(Some(n));

@@ -9,7 +9,7 @@ import { test, expect, waitForInit } from './fixtures';
  */
 
 const DEFAULT_BG = '#1a1b26'; // style.css :root 의 기본값 (FR-BTS-4, D-2)
-const THEME_CACHE_KEY = 'dm.themeVars';
+const THEME_CACHE_KEY = 'otter.themeVars';
 
 // `/api/settings` 를 지정한 시간만큼 늦춘다. 0 이면 응답하지 않는다(상한 검증용).
 async function delaySettings(page: any, ms: number) {
@@ -34,9 +34,12 @@ test.describe('Boot screen', () => {
     const boot = page.locator('#boot');
     await expect(boot).toBeVisible();
     // 로고·스피너·단계 문구가 함께 있다 (FR-BTS-6·9).
-    await expect(page.locator('#boot svg')).toBeVisible();
+    const logo = page.locator('#boot img.boot-logo');
+    await expect(logo).toBeVisible();
+    // 로고는 수달 그림이다 — 받아져 그려졌어야 한다 (OTTERMINAL_RENAME_SRS FR-AST-2).
+    await expect.poll(() => logo.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
     await expect(page.locator('#boot .boot-bar i')).toBeVisible();
-    await expect(page.locator('#boot .boot-name')).toHaveText('Dongminal');
+    await expect(page.locator('#boot .boot-name')).toHaveText('Otterminal');
     await expect(page.locator('#boot-step')).not.toBeEmpty();
     // 배경은 테마의 `--bg` 다 (FR-BTS-7).
     const painted = await page.evaluate(

@@ -1,11 +1,11 @@
 //! /api/git/uncommitted/{reset,clean} — History 의 미커밋 행 메뉴 (GIT_ACTIONS_SRS §3.6
 //! FR-GIT-277). Go `handlers_git_uncommitted.go`. 판정 함수는 `answers` 에 있다.
 
-use dm_shared_httpresp::Response;
-use dm_webserver_action::Answer;
-use dm_webserver_domain_git_query::Status;
-use dm_webserver_domain_git_write as write;
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_action::Answer;
+use otter_webserver_domain_git_query::Status;
+use otter_webserver_domain_git_write as write;
 use serde::Deserialize;
 
 use crate::GitServer;

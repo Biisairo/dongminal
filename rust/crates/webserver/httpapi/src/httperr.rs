@@ -9,11 +9,11 @@
 use std::collections::BTreeMap;
 use std::fmt::Display;
 
-use dm_shared_dmlog::infof;
-use dm_shared_httpreq::{self as httpreq, DecodeError, Empty, ReadError};
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr as apierr;
 use http::StatusCode;
+use otter_shared_httpreq::{self as httpreq, DecodeError, Empty, ReadError};
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::infof;
+use otter_webserver_apierr as apierr;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 

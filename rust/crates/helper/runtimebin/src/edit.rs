@@ -1,12 +1,12 @@
 //! `edit <경로>` — 편집기 탭으로 파일을 연다.
 
-use dm_shared_apipath as apipath;
+use otter_shared_apipath as apipath;
 use serde_json::json;
 
 use crate::ctx::{Ctx, errf, outf};
-use crate::dmctl::post::{command_rule, dmctl_http_result};
 use crate::helptext::EDIT_HELP;
 use crate::http::{base_url, current_port, http_post_json};
+use crate::otterctl::post::{command_rule, otterctl_http_result};
 
 pub(crate) fn run_edit(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
     let Some(target) = args.first() else {
@@ -21,18 +21,18 @@ pub(crate) fn run_edit(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
         errf!(ctx, "edit: 파일 없음: {target}\n");
         return 1;
     }
-    let abs = match dm_gocompat::filepath::abs(target) {
+    let abs = match otter_gocompat::filepath::abs(target) {
         Ok(a) => a,
         Err(e) => {
             errf!(
                 ctx,
                 "edit: 경로 변환 실패: {}\n",
-                dm_gocompat::oserr::go_error_string(&e)
+                otter_gocompat::oserr::go_error_string(&e)
             );
             return 1;
         }
     };
-    let name = dm_gocompat::filepath::base(&abs);
+    let name = otter_gocompat::filepath::base(&abs);
     let body = json!({
         "action": "openEditorTab",
         "args": {"name": name, "filePath": abs},
@@ -48,5 +48,5 @@ pub(crate) fn run_edit(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
         1
     }));
     // REFACTOR3_DEFECTS_SRS FR-RD3-60: 4xx·5xx 는 실패다.
-    dmctl_http_result(ctx, rule, r, true)
+    otterctl_http_result(ctx, rule, r, true)
 }

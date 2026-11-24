@@ -40,7 +40,7 @@
 - 방을 누르면 현재 창의 포커스 칸에 채팅 탭이 생긴다(`app-chat.js` `_chatOpenTab` → `addTab(this.focused, TAB_TYPE_CHAT)`).
 - 방 나가기는 방 화면 머리의 `⋯` 메뉴에만 있다(`web/js/ui/chat-view.js:72`). 목록에는 없다.
 
-진행 방법: **새 SRS**를 쓴다. 인터뷰부터 시작한다. 함께 다룰 것은 창 저장·복원, 모바일에서 채팅으로 가는 길(세그먼트), `dmctl` 표시, `PEER_CHAT_SRS` 개정이다.
+진행 방법: **새 SRS**를 쓴다. 인터뷰부터 시작한다. 함께 다룰 것은 창 저장·복원, 모바일에서 채팅으로 가는 길(세그먼트), `otterctl` 표시, `PEER_CHAT_SRS` 개정이다.
 
 ---
 

@@ -354,8 +354,8 @@ fn agent_state_round_trip() {
     let mut want = st.clone();
     want.last_output_at = 7;
     assert_eq!(
-        dm_gocompat::json::marshal(&dst.agent_state()).unwrap(),
-        dm_gocompat::json::marshal(&want).unwrap()
+        otter_gocompat::json::marshal(&dst.agent_state()).unwrap(),
+        otter_gocompat::json::marshal(&want).unwrap()
     );
     assert!(dst.turn.allow_signal(activity::DONE) && !dst.turn.allow_signal(activity::DONE));
 }
@@ -464,8 +464,8 @@ mod pty {
             let inst = self.inst.path().to_str().unwrap().to_string();
             let iso = self.iso.path().to_str().unwrap().to_string();
             let g = move |k: &str| match k {
-                dmenv_home if dmenv_home == dm_shared_dmenv::ENV_HOME => inst.clone(),
-                k if k == dm_shared_dmenv::ENV_TOOL_HOME || k == "HOME" => iso.clone(),
+                otterenv_home if otterenv_home == otter_shared_otterenv::ENV_HOME => inst.clone(),
+                k if k == otter_shared_otterenv::ENV_TOOL_HOME || k == "HOME" => iso.clone(),
                 k => std::env::var(k).unwrap_or_default(),
             };
             let place = ProcSpec {

@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><meta charset="utf-8"><title>dongminal 아이콘 정리</title>
+<!doctype html><html lang="ko"><meta charset="utf-8"><title>otterminal 아이콘 정리</title>
 <style>
 :root{--bg:#14161c;--fg:#d8dbe2;--mut:#8b90a0;--line:#2a2e38;--acc:#7aa2f7;--warn:#e0af68}
 body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,system-ui,sans-serif}
@@ -79,7 +79,7 @@ table.info td{font-size:13px}
   <symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
   <symbol id="i-corner-down-right" viewBox="0 0 24 24"><path d="m15 10 5 5-5 5"/><path d="M4 4v7a4 4 0 0 0 4 4h12"/></symbol>
 </svg>
-<main><h1>dongminal 아이콘 정리</h1>
+<main><h1>otterminal 아이콘 정리</h1>
 <p class="lead">기준: main <code>8f4024a5</code>. UI 아이콘은 <code>web/index.html</code> 의 스프라이트(<code>&lt;svg id="ui-sprite"&gt;</code>) 한 벌이고 모양은 Lucide(MIT)다. 화면에서는 <code>UIKit.icon(name)</code>·<code>UIKit.iconHTML(name)</code>·<code>&lt;use href="#i-name"&gt;</code> 로 부른다. 색은 글자색을, 크기는 버튼 높이를 따른다(UI_KIT_SRS FR-GLY-1~5).</p>
 <ul><li>UI 아이콘 <b>54개</b> — 쓰는 곳이 있는 것 52개, 쓰는 곳 없는 것 2개(<code>file</code>, <code>panel-left</code>, 흐리게 표시)</li>
 <li>「쓰는 자리」 는 코드 스캔으로 모았다: <code>icon('이름')</code>·<code>iconHTML('이름')</code>·<code>#i-이름</code>·<code>icon:'이름'</code>, 그리고 이름을 담은 상수(노란 글씨)를 거쳐 쓰는 자리. 조건식으로 고르는 자리(<code>open?'chevron-down':'chevron-right'</code>)도 포함. 이름을 실행 중에 조립하는 자리가 있으면 빠졌을 수 있다.</li>

@@ -82,7 +82,7 @@ class GitViewReload extends GitPart {
         if(withConsole||this._viewShown(key)) jobs.push(...this._reloadView(key,!!withConsole));
         else this._staleMark(key);
       }
-      // Console 은 **기본으로 받지 않는다.** 그 목록은 dongminal 자신의 쓰기로만
+      // Console 은 **기본으로 받지 않는다.** 그 목록은 otterminal 자신의 쓰기로만
       // 늘어나고(`post()` 와 잡의 `RecordWrite`), 터미널에서 친 git 은 기록에
       // 남지 않는다 — 폴링이 받아 봐야 늘 같은 값이다. 받는 자리는 쓰기가 끝난
       // 곳(FR-GVR-3)과 사용자가 명시적으로 누른 새로고침(FR-GVR-6)뿐이다.

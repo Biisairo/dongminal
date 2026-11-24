@@ -51,9 +51,9 @@
 ### 3.1 기능 요구사항 (Functional)
 | ID | 요구사항 | 우선 |
 |----|---------|------|
-| FR-BTS-1 | `applyThemeObj(t)` 는 자신이 세운 테마 변수 전부를 `{변수명: 값}` 맵으로 `localStorage['dm.themeVars']` 에 JSON 으로 기록한다. | 필수 |
+| FR-BTS-1 | `applyThemeObj(t)` 는 자신이 세운 테마 변수 전부를 `{변수명: 값}` 맵으로 `localStorage['otter.themeVars']` 에 JSON 으로 기록한다. | 필수 |
 | FR-BTS-2 | 기록 실패(사생활 모드·용량 초과)는 무시한다. 테마 적용 자체는 영향받지 않는다. | 필수 |
-| FR-BTS-3 | `index.html` head 의 인라인 스크립트는 `dm.themeVars` 를 읽어 `documentElement.style` 에 그대로 세운다. 파생값을 다시 계산하지 않는다. | 필수 |
+| FR-BTS-3 | `index.html` head 의 인라인 스크립트는 `otter.themeVars` 를 읽어 `documentElement.style` 에 그대로 세운다. 파생값을 다시 계산하지 않는다. | 필수 |
 | FR-BTS-4 | 캐시가 없거나 JSON 이 깨졌거나 값이 객체가 아니면 아무것도 세우지 않는다 — 첫 페인트는 `:root` 기본값이다 (D-2). | 필수 |
 | FR-BTS-5 | 선주입은 CSS 커스텀 프로퍼티(`--` 로 시작하는 키)만 세운다. 그 밖의 키는 무시한다. | 필수 |
 | FR-BTS-6 | `index.html` 은 `#boot` 오버레이를 **정적 마크업**으로 가진다. 로고(인라인 SVG) · 워드마크 · 진행 바 · 단계 텍스트(`#boot-step`)를 포함한다. | 필수 |
@@ -79,7 +79,7 @@
 |------|------|-----|------|
 | 첫 페인트의 색 | 항상 Tokyo Night | 이 기기가 마지막에 쓴 테마(캐시 없으면 Tokyo Night) | 저장한 테마가 아닌 색이 보이지 않아야 한다 |
 | 부팅 중 화면 | 빈 골격이 채워지는 과정이 보인다 | `#boot` 가 덮는다 | 준비되지 않은 화면은 조작 대상이 아니다 |
-| 테마 저장 부수효과 | 없음 | `localStorage['dm.themeVars']` 기록 | 선주입의 유일한 입력 |
+| 테마 저장 부수효과 | 없음 | `localStorage['otter.themeVars']` 기록 | 선주입의 유일한 입력 |
 
 ## 4. 검증 (Verification)
 | ID | 대상 | 검증 방법 |

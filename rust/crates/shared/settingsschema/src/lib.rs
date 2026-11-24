@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/settingsschema` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/settingsschema` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 브라우저 설정 블롭의 서술자 표를 읽는다 (CONFIG_MANAGEMENT_SRS 묶음 S·C). **표는 여기 없다.**
 //! 원천은 `web/js/core/settings-schema.js` 이고, 이 crate 는 임베드된 그 **같은 바이트**를 읽는다
@@ -65,7 +65,7 @@ impl fmt::Display for Problem {
             "{}: {} (값 {})",
             self.key,
             self.reason,
-            dm_gocompat::fmt::v_value(&self.got)
+            otter_gocompat::fmt::v_value(&self.got)
         )
     }
 }
@@ -84,7 +84,7 @@ impl std::error::Error for Error {}
 
 /// 원천 파일의 바이트다.
 pub fn raw() -> Result<std::borrow::Cow<'static, [u8]>, Error> {
-    dm_web_assets::get(SCHEMA_PATH).ok_or_else(|| {
+    otter_web_assets::get(SCHEMA_PATH).ok_or_else(|| {
         Error(format!(
             "서술자 표를 열지 못했습니다 ({SCHEMA_PATH}): open {SCHEMA_PATH}: file does not exist"
         ))
@@ -109,7 +109,7 @@ fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
 pub fn load() -> Result<Vec<Spec>, Error> {
     let src = raw()?;
     let body = extract(&src)?;
-    dm_gocompat::json::Decoder::new()
+    otter_gocompat::json::Decoder::new()
         .disallow_unknown_fields()
         .decode::<Option<Vec<Spec>>>(body)
         .map(Option::unwrap_or_default)
@@ -124,7 +124,7 @@ pub fn check_shape() -> Result<(), Error> {
 /// 블롭을 서술자에 대조한다 (FR-CFG-8·9). 첫 오류에서 멈추지 않는다. 알 수 없는 키는
 /// 둘째 반환값(경고)이다. 블롭이 JSON 객체(또는 null)가 아니면 오류다.
 pub fn validate(specs: &[Spec], blob: &[u8]) -> Result<(Vec<Problem>, Vec<String>), Error> {
-    let m = dm_gocompat::json::unmarshal::<Option<serde_json::Map<String, Value>>>(blob)
+    let m = otter_gocompat::json::unmarshal::<Option<serde_json::Map<String, Value>>>(blob)
         .map_err(|e| Error(format!("JSON 이 아닙니다: {e}")))?;
     Ok(validate_object(specs, &m.unwrap_or_default()))
 }
@@ -132,7 +132,7 @@ pub fn validate(specs: &[Spec], blob: &[u8]) -> Result<(Vec<Problem>, Vec<String
 /// 설정 블롭의 `customTheme` 만 본다 — `PUT /api/settings` 가 부른다 (FR-QG-11). 블롭이
 /// 객체가 아니거나 키가 없으면 통과다. 블롭이 JSON 인지는 부르는 쪽이 본다.
 pub fn check_theme_blob(blob: &[u8]) -> Option<Problem> {
-    use dm_gocompat::json::{RawMessage, unmarshal};
+    use otter_gocompat::json::{RawMessage, unmarshal};
     let m = unmarshal::<Option<BTreeMap<String, RawMessage>>>(blob).ok()??;
     let raw = m.get(CUSTOM_THEME_KEY)?;
     let v = unmarshal::<Value>(&raw.0).ok()?;
@@ -158,7 +158,7 @@ pub fn check_specs(specs: &[Spec]) -> Result<(), Error> {
                 return Err(Error(format!(
                     "{}: 알 수 없는 type {}",
                     s.key,
-                    dm_gocompat::strconv::quote(&s.kind)
+                    otter_gocompat::strconv::quote(&s.kind)
                 )));
             }
         }

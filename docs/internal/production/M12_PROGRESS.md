@@ -75,7 +75,7 @@ omp 는 **맞은 것이지 안 것이 아니다.** `ompArgsDetail` 의 둘째 �
 
 ### 2-4. "조용한 성공" 은 없는 기능보다 나쁘다 — 인계가 두 번 사라졌다
 
-이 단계를 낳은 인계 자체가 증거다. `dmctl msg --to <gui toolId>` 를 두 번 보냈고 둘 다
+이 단계를 낳은 인계 자체가 증거다. `otterctl msg --to <gui toolId>` 를 두 번 보냈고 둘 다
 *"전송 완료"* 를 냈는데 `/api/agent/events` 에는 아무것도 없었다.
 
 ```
@@ -195,8 +195,8 @@ fake 에 300ms 를 넣자 검사가 떨어졌다 — 그때서야 고칠 것이 
 **omp 를 재려면** — 프레임은 `{"id":…,"type":"<command>",…}` 다 (`command` 라는 필드가
 아니다. 그것으로 두 번 헛돌았다):
 
-    { print -r -- '{"id":"dm-1","type":"get_state"}'; sleep 3
-      print -r -- '{"id":"dm-2","type":"prompt","message":"…"}'; sleep 60
+    { print -r -- '{"id":"otter-1","type":"get_state"}'; sleep 3
+      print -r -- '{"id":"otter-2","type":"prompt","message":"…"}'; sleep 60
     } | omp --mode rpc-ui --approval-mode always-ask > raw.jsonl
 
 **codex 는 이 기계에 없다** — 어댑터 소스와 JSON 스키마가 근거이고 **실측이 아니다**

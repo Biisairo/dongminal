@@ -6,12 +6,12 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
-use dm_gocompat::oserr::{go_error_string, syscall_error};
-use dm_shared_dmlog as dmlog;
 use http::{Request, StatusCode, header};
 use hyper::body::Incoming;
 use hyper::service::service_fn;
 use hyper_util::rt::{TokioIo, TokioTimer};
+use otter_gocompat::oserr::{go_error_string, syscall_error};
+use otter_shared_otterlog as otterlog;
 use serde::Serialize;
 use tokio::net::TcpListener;
 use tokio::sync::watch;
@@ -38,7 +38,7 @@ const NOT_EDGE_BODY: &str = r#"{"code":"edge_not_edge","message":"간선이 아�
 pub type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 /// 노드 포트의 요청 처리기다. 보낸 노드의 지문은 [`client_fingerprint`] 로 꺼낸다.
 pub type Handler =
-    Arc<dyn Fn(Request<Incoming>) -> BoxFuture<dm_shared_httpresp::Response> + Send + Sync>;
+    Arc<dyn Fn(Request<Incoming>) -> BoxFuture<otter_shared_httpresp::Response> + Send + Sync>;
 /// 요청마다 지문과 경로를 보고 들일지 가른다.
 pub type RequestAdmit = Arc<dyn Fn(&str, &str) -> bool + Send + Sync>;
 
@@ -192,7 +192,7 @@ impl Listener {
             Ok(a) => a,
             Err(e) => {
                 let msg = e.to_string();
-                dmlog::info(None, &format!("edge listener: {msg}"), &[]);
+                otterlog::info(None, &format!("edge listener: {msg}"), &[]);
                 st.status = Status {
                     err: msg,
                     ..Status::default()
@@ -217,7 +217,7 @@ impl Listener {
             hs_log: self.hs_log.clone(),
         };
         tokio::spawn(srv.run(acc, rx));
-        dmlog::info(None, &format!("edge listener on {addr}"), &[]);
+        otterlog::info(None, &format!("edge listener on {addr}"), &[]);
     }
 
     /// 지금 상태의 사본이다.
@@ -259,7 +259,7 @@ fn listen_tcp(bind: &str, port: i64) -> io::Result<Box<dyn Acceptor>> {
             ),
         )
     };
-    let std = dm_shared_platform::listen_tcp(&hp).map_err(go)?;
+    let std = otter_shared_platform::listen_tcp(&hp).map_err(go)?;
     std.set_nonblocking(true).map_err(go)?;
     Ok(Box::new(Arc::new(TcpListener::from_std(std).map_err(go)?)))
 }
@@ -284,7 +284,7 @@ impl Serve {
                     tokio::spawn(self.clone().conn(s, peer, stop.clone()));
                 }
                 Err(e) => {
-                    dmlog::info(
+                    otterlog::info(
                         None,
                         &format!("edge listener: http: Accept error: {e}; retrying in 5ms"),
                         &[],
@@ -343,11 +343,11 @@ async fn serve_one(
     req: Request<Incoming>,
     admit: &RequestAdmit,
     handler: &Handler,
-) -> Result<dm_shared_httpresp::Response, io::Error> {
+) -> Result<otter_shared_httpresp::Response, io::Error> {
     let fp = client_fingerprint(&req);
     if fp.is_empty() || !admit(fp, req.uri().path()) {
         let mut resp =
-            dm_shared_httpresp::fail_raw(StatusCode::FORBIDDEN, CODE_NOT_EDGE, NOT_EDGE_BODY);
+            otter_shared_httpresp::fail_raw(StatusCode::FORBIDDEN, CODE_NOT_EDGE, NOT_EDGE_BODY);
         resp.headers_mut().insert(
             header::CONNECTION,
             header::HeaderValue::from_static("close"),
@@ -393,7 +393,7 @@ impl HandshakeLog {
     pub(crate) fn write(&self, line: &str) {
         let line = line.trim_matches(char::is_whitespace);
         if !line.contains("TLS handshake error") {
-            dmlog::info(None, &format!("edge listener: {line}"), &[]);
+            otterlog::info(None, &format!("edge listener: {line}"), &[]);
             return;
         }
         {
@@ -405,7 +405,7 @@ impl HandshakeLog {
             }
             st.open = true;
         }
-        dmlog::info(
+        otterlog::info(
             None,
             &format!("edge listener: TLS handshake failure count=1 ({line})"),
             &[],
@@ -424,8 +424,8 @@ fn flush(state: &Mutex<HsState>) {
         out
     };
     if n > 0 {
-        let window = dm_gocompat::time::format_std_duration(HANDSHAKE_AGGREGATE);
-        dmlog::info(
+        let window = otter_gocompat::time::format_std_duration(HANDSHAKE_AGGREGATE);
+        otterlog::info(
             None,
             &format!(
                 "edge listener: TLS handshake failure count={n} within {window} (최근: {last})"

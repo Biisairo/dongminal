@@ -1,5 +1,5 @@
 /**
- * Dongminal — History 의 **질의** (FE_MODULE_BOUNDARY_SRS FR-FMB-32).
+ * Otterminal — History 의 **질의** (FE_MODULE_BOUNDARY_SRS FR-FMB-32).
  *
  * 서버에 무엇을 묻고 그 답을 어떻게 이어 붙이는가 — 적재 · 무한 스크롤의 다음
  * 쪽 · 검색 (FR-GIT-129, 검증 V49) · jump (FR-GIT-131) · 경로 필터.

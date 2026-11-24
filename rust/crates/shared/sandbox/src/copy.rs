@@ -91,7 +91,7 @@ impl Walk {
 }
 
 fn go_err(op: &str, path: &Path, e: io::Error) -> io::Error {
-    dm_gocompat::oserr::path_error(op, &path.to_string_lossy(), e)
+    otter_gocompat::oserr::path_error(op, &path.to_string_lossy(), e)
 }
 
 /// 복사 방식이면 작업 폴더가 상한 안인지 본다. 넘으면 띄우지 않는다.
@@ -113,7 +113,7 @@ pub fn verify_copy_source(
     if let Err(Stop::Err(e)) = w.visit(Path::new(host_dir), None) {
         return Err(Error::msg(format!(
             "작업 폴더를 읽을 수 없습니다: {}",
-            dm_gocompat::oserr::go_error_string(&e)
+            otter_gocompat::oserr::go_error_string(&e)
         )));
     }
     if w.bytes > max_bytes {

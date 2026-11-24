@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/recordsync` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/recordsync` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 서버가 에이전트 기록을 데몬에 쓰는 큐다 (AGENT_RECORD_DAEMON_SRS FR-ARD-11, §3.1a).
 //! 쓰기는 부르는 쪽을 막지 않는다.
@@ -6,8 +6,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_toolipc::{CODE_NOT_FOUND, RpcError};
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_toolipc::{CODE_NOT_FOUND, RpcError};
 use serde::Serialize;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
@@ -69,7 +69,7 @@ impl Writer {
         let raw = match json::marshal(v) {
             Ok(b) => b,
             Err(e) => {
-                dm_shared_dmlog::errorf!(None, "recordsync: {kind}/{tool} 부호화 실패: {e}");
+                otter_shared_otterlog::errorf!(None, "recordsync: {kind}/{tool} 부호화 실패: {e}");
                 return;
             }
         };
@@ -88,7 +88,7 @@ impl Writer {
             if let Some(rpc) = err.downcast_ref::<RpcError>() {
                 // 끝난 도구의 쓰기(종료 때의 ended 활동)는 데몬이 이미 지운 뒤라 없다고 답한다.
                 if rpc.code != CODE_NOT_FOUND {
-                    dm_shared_dmlog::warnf!(
+                    otter_shared_otterlog::warnf!(
                         None,
                         "recordsync: 데몬이 {}/{} 를 거절했다 — 거울에만 남는다: {err}",
                         k.0,

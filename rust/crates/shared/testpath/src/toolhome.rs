@@ -2,7 +2,7 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use dm_shared_dmenv::ENV_TOOL_HOME;
+use otter_shared_otterenv::ENV_TOOL_HOME;
 
 /// 도구 셸의 홈으로 쓸 임시 디렉터리다. 놓으면 지운다.
 ///
@@ -20,8 +20,10 @@ impl ToolHome {
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or_default();
-        let dir =
-            std::env::temp_dir().join(format!("dongminal-toolhome-{}-{nanos}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!(
+            "otterminal-toolhome-{}-{nanos}",
+            std::process::id()
+        ));
         if let Err(e) = std::fs::create_dir(&dir) {
             panic!("도구 홈 격리용 임시 디렉터리를 만들지 못했습니다: {e}");
         }
@@ -32,7 +34,7 @@ impl ToolHome {
         &self.dir
     }
 
-    /// 자식 프로세스에 심을 `(DONGMINAL_TOOL_HOME, 경로)` 다.
+    /// 자식 프로세스에 심을 `(OTTERMINAL_TOOL_HOME, 경로)` 다.
     pub fn env(&self) -> (&'static OsStr, &OsStr) {
         (OsStr::new(ENV_TOOL_HOME), self.dir.as_os_str())
     }

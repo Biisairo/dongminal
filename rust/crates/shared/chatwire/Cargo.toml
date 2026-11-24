@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-chatwire"
+name = "otter-shared-chatwire"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,7 +10,7 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-shared-humancmd = { path = "../humancmd" }
-dm-shared-platform = { path = "../platform" }
-dm-gocompat = { path = "../../gocompat" }
+otter-shared-humancmd = { path = "../humancmd" }
+otter-shared-platform = { path = "../platform" }
+otter-gocompat = { path = "../../gocompat" }
 serde = { workspace = true }

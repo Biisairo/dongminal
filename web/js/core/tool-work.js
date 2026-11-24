@@ -1,5 +1,5 @@
 /**
- * Dongminal — 작업 중 표식 (UX_AUDIT_FIX_SRS FR-UXF-60~64, 진단 X6·O2, 사용자 결정 D-18).
+ * Otterminal — 작업 중 표식 (UX_AUDIT_FIX_SRS FR-UXF-60~64, 진단 X6·O2, 사용자 결정 D-18).
  *
  * 도구의 활동 보고가 `working` 이면 칸의 탭·사이드바 창 행·작업 패널의 에이전트 탭이 표식을 가진다.
  * 사이드바 창 행은 점 대신 선택 점을 두르는 링이다 (FR-UXF-129, D-44).

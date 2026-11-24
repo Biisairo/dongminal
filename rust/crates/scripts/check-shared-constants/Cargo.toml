@@ -1,5 +1,5 @@
 [package]
-name = "dm-scripts-check-shared-constants"
+name = "otter-scripts-check-shared-constants"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,6 +14,6 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../gocompat" }
-dm-webserver-domain-git-jobs = { path = "../../webserver/domain/git/jobs" }
+otter-gocompat = { path = "../../gocompat" }
+otter-webserver-domain-git-jobs = { path = "../../webserver/domain/git/jobs" }
 regex = { workspace = true }

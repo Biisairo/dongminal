@@ -9,7 +9,7 @@ import { join } from 'path';
 import { test, expect, waitForInit } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
-const ROOT = tmpPath('dm-edreg-' + process.pid);
+const ROOT = tmpPath('otter-edreg-' + process.pid);
 const fx = () => realPath(ROOT);
 const P = (n: string) => join(fx(), n);
 

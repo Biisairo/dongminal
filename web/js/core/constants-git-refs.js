@@ -1,5 +1,5 @@
 /**
- * Dongminal — **Branches · Stash 탭**의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
+ * Otterminal — **Branches · Stash 탭**의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
  *
  * 이름 붙은 자리를 다루는 두 탭 — 브랜치와 stash. 둘 다 목록을 그리고, 고르고,
  * 되돌릴 수 없는 동작을 확인받는다.

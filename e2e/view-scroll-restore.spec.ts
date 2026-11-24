@@ -28,7 +28,7 @@ const LONG_MD = '# 문서\n\n' +
   Array.from({ length: 200 }, (_, i) => `단락 ${i + 1} 의 본문.`).join('\n\n') + '\n';
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-vsr-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-vsr-')));
   ROOT = j(BASE, 'root');
   fs.mkdirSync(ROOT, { recursive: true });
   fs.writeFileSync(j(ROOT, 'long.txt'), LONG);
@@ -253,7 +253,7 @@ test.describe('시선 보존', () => {
  * 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
  */
 
-const B6FX = tmpPath('dm-b6-view-scroll-restore-' + process.pid);
+const B6FX = tmpPath('otter-b6-view-scroll-restore-' + process.pid);
 test.beforeAll(() => { gitFixture(B6FX) });
 test.afterAll(() => { cleanGitFixture(B6FX) });
 const copyFx = makeCopyFx(B6FX);

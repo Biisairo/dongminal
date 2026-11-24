@@ -4,9 +4,9 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use dm_gocompat::json;
-use dm_shared_dmenv as dmenv;
-use dm_shared_dmlog as dmlog;
+use otter_gocompat::json;
+use otter_shared_otterenv as otterenv;
+use otter_shared_otterlog as otterlog;
 use serde::{Deserialize, Serialize};
 
 use crate::addr::{FINGERPRINT_LEN, parse_addr, valid_addr, valid_fingerprint, valid_port};
@@ -79,7 +79,7 @@ fn name_rune(r: char) -> bool {
 
 /// 표시 이름 규칙이다: 비지 않고, 64바이트 안이며, 제어 문자가 없다.
 pub fn valid_display_name(name: &str) -> bool {
-    !name.is_empty() && dm_shared_termtext::line(name, DISPLAY_NAME_MAX)
+    !name.is_empty() && otter_shared_termtext::line(name, DISPLAY_NAME_MAX)
 }
 
 /// 상대가 알린 이름이다. 규칙에 맞지 않으면 거절하지 않고 [`default_name`] 으로 고친다 (FR-EPR-8).
@@ -255,10 +255,10 @@ impl Store {
         let c = fill_defaults(c, &Config::default());
         validate(&c)?;
         let data = json::marshal_indent(&c, "", JSON_INDENT).map_err(|_| Error::SaveFailed)?;
-        if let Err(e) = dm_shared_platform::write_file_atomic(&self.path, &data, FILE_MODE) {
-            dmlog::info(
+        if let Err(e) = otter_shared_platform::write_file_atomic(&self.path, &data, FILE_MODE) {
+            otterlog::info(
                 None,
-                &format!("saveEdges: {}", dm_gocompat::oserr::go_error_string(&e)),
+                &format!("saveEdges: {}", otter_gocompat::oserr::go_error_string(&e)),
                 &[],
             );
             return Err(Error::SaveFailed);
@@ -486,12 +486,12 @@ fn load(path: &Path, def: &Config) -> Option<Config> {
         Ok(d) => d,
         Err(e) => {
             if e.kind() != io::ErrorKind::NotFound {
-                let e = dm_gocompat::oserr::path_error("open", &path.to_string_lossy(), e);
-                dmlog::info(
+                let e = otter_gocompat::oserr::path_error("open", &path.to_string_lossy(), e);
+                otterlog::info(
                     None,
                     &format!(
                         "loadEdges: {} — 노드 기능을 끈 채로 시작한다",
-                        dm_gocompat::oserr::go_error_string(&e)
+                        otter_gocompat::oserr::go_error_string(&e)
                     ),
                     &[],
                 );
@@ -544,7 +544,7 @@ fn move_broken(path: &Path, cause: &str) {
     bad.push(bad_stamp(time::OffsetDateTime::now_utc()));
     let bad = PathBuf::from(bad);
     match std::fs::rename(path, &bad) {
-        Ok(()) => dmlog::warn(
+        Ok(()) => otterlog::warn(
             None,
             &format!(
                 "loadEdges: {cause} — 깨진 파일을 {} 로 옮기고 노드 기능을 끈 채로 시작한다",
@@ -553,17 +553,17 @@ fn move_broken(path: &Path, cause: &str) {
             &[],
         ),
         Err(e) => {
-            let e = dm_gocompat::oserr::link_error(
+            let e = otter_gocompat::oserr::link_error(
                 "rename",
                 &path.to_string_lossy(),
                 &bad.to_string_lossy(),
                 e,
             );
-            dmlog::warn(
+            otterlog::warn(
                 None,
                 &format!(
                     "loadEdges: {cause} — 깨진 파일을 비켜 두지 못했다({}). 노드 기능을 끈 채로 시작한다",
-                    dm_gocompat::oserr::go_error_string(&e)
+                    otter_gocompat::oserr::go_error_string(&e)
                 ),
                 &[],
             );
@@ -588,23 +588,26 @@ fn bad_stamp(t: time::OffsetDateTime) -> String {
 /// 옛 이름의 홈 파일을 정리한다 (FR-PDM-71). edges.json 이 없고 peers.json 이 있으면 이름을
 /// 바꾼다. 둘 다 있으면 그대로 둔다. 옛 신원 파일 node-*.pem 은 옮기지 않고 지운다 (D-PDM-18).
 pub fn migrate_legacy_files(dir: &Path) -> io::Result<()> {
-    for n in [dmenv::LEGACY_NODE_CERT_FILE, dmenv::LEGACY_NODE_KEY_FILE] {
+    for n in [
+        otterenv::LEGACY_NODE_CERT_FILE,
+        otterenv::LEGACY_NODE_KEY_FILE,
+    ] {
         let p = dir.join(n);
         if let Err(e) = std::fs::remove_file(&p)
             && e.kind() != io::ErrorKind::NotFound
         {
-            return Err(dm_gocompat::oserr::path_error(
+            return Err(otter_gocompat::oserr::path_error(
                 "remove",
                 &p.to_string_lossy(),
                 e,
             ));
         }
     }
-    let cur = dir.join(dmenv::EDGES_FILE);
+    let cur = dir.join(otterenv::EDGES_FILE);
     match std::fs::metadata(&cur) {
         Ok(_) => return Ok(()),
         Err(e) if e.kind() != io::ErrorKind::NotFound => {
-            return Err(dm_gocompat::oserr::path_error(
+            return Err(otter_gocompat::oserr::path_error(
                 "stat",
                 &cur.to_string_lossy(),
                 e,
@@ -612,10 +615,10 @@ pub fn migrate_legacy_files(dir: &Path) -> io::Result<()> {
         }
         Err(_) => {}
     }
-    let legacy = dir.join(dmenv::LEGACY_PEERS_FILE);
+    let legacy = dir.join(otterenv::LEGACY_PEERS_FILE);
     match std::fs::rename(&legacy, &cur) {
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(dm_gocompat::oserr::link_error(
+        Err(e) => Err(otter_gocompat::oserr::link_error(
             "rename",
             &legacy.to_string_lossy(),
             &cur.to_string_lossy(),

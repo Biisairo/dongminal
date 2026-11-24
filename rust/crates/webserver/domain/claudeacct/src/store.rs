@@ -7,10 +7,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex, PoisonError};
 use std::time::Duration;
 
-use dm_gocompat::json::{self, is_empty};
-use dm_gocompat::strconv::quote;
-use dm_gocompat::time::GoTime;
-use dm_shared_platform::FileLock;
+use otter_gocompat::json::{self, is_empty};
+use otter_gocompat::strconv::quote;
+use otter_gocompat::time::GoTime;
+use otter_shared_platform::FileLock;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Sentinel};
@@ -271,7 +271,7 @@ impl Store {
         let mut st = self.load_unlocked()?;
         f(&mut st)?;
         let b = json::marshal_indent(&st, "", "  ")?;
-        Ok(dm_shared_platform::write_file_atomic(
+        Ok(otter_shared_platform::write_file_atomic(
             &self.dir.join(ACCOUNTS_FILE),
             &b,
             FILE_MODE,

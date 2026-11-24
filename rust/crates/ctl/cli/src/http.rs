@@ -3,7 +3,7 @@
 use std::future::Future;
 use std::time::Duration;
 
-use dm_gocompat::neturl_err::{self, UrlError};
+use otter_gocompat::neturl_err::{self, UrlError};
 
 /// 살아 있는지 한 번 묻는 상한이다.
 pub(crate) const ALIVE_PROBE_TIMEOUT: Duration = Duration::from_secs(2);

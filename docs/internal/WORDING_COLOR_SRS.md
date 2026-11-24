@@ -101,7 +101,7 @@ B2·B3 이 끝난 화면은 **모양이 한 벌**이다. 그 안에 든 말은 �
 | 표시 설정 | 2 | `Horizontal` · `Vertical` |
 | **소계 (대상)** | **18** | |
 | 설정 탭 (`lang="en"`) | 12 | `Theme` … `Backup` |
-| 모달 제목·부팅 이름·언어 선택지 (`lang`) | 3 | `Settings` · `Dongminal` · `English` |
+| 모달 제목·부팅 이름·언어 선택지 (`lang`) | 3 | `Settings` · `Otterminal` · `English` |
 | **소계 (선언된 영어 — 대상 아님)** | **15** | |
 
 `index.html:251` 이 그 선언의 근거를 이미 적고 있다: *"FR-B-5: 탭 이름은 ko 카탈로그에서도

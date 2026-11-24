@@ -1,6 +1,6 @@
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_chatwire as chatwire;
-use dm_shared_humancmd::{self as humancmd, Kick, Request, Signed};
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_chatwire as chatwire;
+use otter_shared_humancmd::{self as humancmd, Kick, Request, Signed};
 use time::OffsetDateTime;
 
 use crate::{Server, decode};
@@ -32,7 +32,10 @@ fn helper_error(e: &humancmd::Error) -> chatwire::Error {
             let at =
                 OffsetDateTime::from_unix_timestamp_nanos(i128::from(e.until) * NANOS_PER_MILLI)
                     .unwrap_or(OffsetDateTime::UNIX_EPOCH);
-            wire(chatwire::CODE_LOCKED, dm_gocompat::time::format_rfc3339(at))
+            wire(
+                chatwire::CODE_LOCKED,
+                otter_gocompat::time::format_rfc3339(at),
+            )
         }
         humancmd::CODE_BAD_CODE => wire(chatwire::CODE_BAD_CODE, "wrong code"),
         humancmd::CODE_BAD_REQUEST => {

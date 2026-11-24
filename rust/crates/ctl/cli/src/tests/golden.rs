@@ -1,6 +1,6 @@
 //! Go 기준선 바이너리의 실제 출력과 바이트 단위로 대조한다 (FR-RSP-3).
 //!
-//! `testdata/*.json` 은 `127ff7d9` 를 go1.27.2 로 빌드한 바이너리를 격리 실행(DONGMINAL_* 없음)으로
+//! `testdata/*.json` 은 `127ff7d9` 를 go1.27.2 로 빌드한 바이너리를 격리 실행(OTTERMINAL_* 없음)으로
 //! 돌려 뽑았다. 입력은 도움말, 파서가 실행 전에 거절하는 인자, 그리고 없는 홈을 겨눈 읽기 전용
 //! `config show|validate|get` 이다.
 
@@ -25,13 +25,15 @@ const CONFIG: &str = include_str!("../../testdata/go_cli_golden_home.json");
 
 /// 정답 자료는 새기지 않은 Go 빌드(`dev`)에서 뽑았다.
 fn stamp(s: &str) -> String {
-    s.replace("dongminal dev ", &format!("dongminal {VERSION} "))
+    s.replace("otterminal dev ", &format!("otterminal {VERSION} "))
 }
 
 fn check(golden: &str) {
-    let cases: Vec<Case> = dm_gocompat::json::unmarshal(golden.as_bytes()).unwrap();
+    // OTTERMINAL_RENAME_SRS FR-REN-10: 정답 자료는 옛 이름으로 기록되어 있다.
+    let golden = &otter_shared_otterenv::legacy::current_names(golden);
+    let cases: Vec<Case> = otter_gocompat::json::unmarshal(golden.as_bytes()).unwrap();
     assert!(!cases.is_empty(), "정답 자료가 비었다");
-    // 격리 실행과 같은 전제: DONGMINAL_* 가 없고, 사용자 홈은 없는 자리다.
+    // 격리 실행과 같은 전제: OTTERMINAL_* 가 없고, 사용자 홈은 없는 자리다.
     let vars = Vars::new(&[(super::USER_HOME_VAR, "/tmp/dm611-nouser")]);
     let mut bad = Vec::new();
     for c in &cases {
@@ -41,7 +43,7 @@ fn check(golden: &str) {
             dispatch_in(&args_of(c), env, &no_serve, &mut out, &mut err)
         });
         let (out, err) = (
-            String::from_utf8(out).unwrap(),
+            without_post_go_settings(&String::from_utf8(out).unwrap()),
             String::from_utf8(err).unwrap(),
         );
         if code != c.exit || out != stamp(&c.stdout) || err != stamp(&c.stderr) {
@@ -57,6 +59,26 @@ fn check(golden: &str) {
         bad.len(),
         bad.join("\n")
     );
+}
+
+/// Go 기준선 뒤에 더한 설정. 정답 자료에 없으므로 견주기 전에 뺀다 (OTTERMINAL_RENAME_SRS FR-FAV-4).
+const POST_GO_SETTINGS: &[&str] = &["attnFavicon"];
+
+fn without_post_go_settings(out: &str) -> String {
+    POST_GO_SETTINGS.iter().fold(out.to_owned(), |acc, key| {
+        let head = format!(",\n    {{\n      \"key\": \"{key}\",");
+        let Some(start) = acc.find(&head) else {
+            return acc;
+        };
+        let Some(len) = acc[start + 1..].find("\n    }") else {
+            return acc;
+        };
+        format!(
+            "{}{}",
+            &acc[..start],
+            &acc[start + 1 + len + "\n    }".len()..]
+        )
+    })
 }
 
 fn args_of(c: &Case) -> Vec<String> {

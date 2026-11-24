@@ -20,7 +20,7 @@ import { tmpPath, realPath } from './osenv';
  * (증상의 확률이 아니라 그 상위 성질을 잰다).
  */
 
-const FIXTURES = tmpPath('dm-git-fx-optlayout-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-optlayout-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

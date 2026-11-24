@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/ctl/decidx` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/ctl/decidx` 의 Rust 포팅.
 //!
 //! SRS 에 흩어진 **결정**을 색인한다 (M5 `G8-1`, ADR-lite). 원문은 SRS 에 그대로 두고
 //! 색인(`docs/internal/decisions.md`)만 만든다.
@@ -9,7 +9,7 @@ use std::io::{self, Read};
 use std::path::Path;
 use std::sync::LazyLock;
 
-use dm_gocompat::oserr::path_error;
+use otter_gocompat::oserr::path_error;
 use regex::Regex;
 
 /// 결정 하나다.
@@ -197,11 +197,11 @@ fn split_id(s: &str) -> (&str, i64) {
 
 /// 저장소 뿌리에서 색인을 다시 만드는 명령이다.
 pub const GENERATE: &str =
-    "cargo run -q --manifest-path rust/Cargo.toml -p dm-scripts-gen-decisions";
+    "cargo run -q --manifest-path rust/Cargo.toml -p otter-scripts-gen-decisions";
 
 const HEADER: &str = "<!-- 이 파일은 생성물입니다. 직접 고치지 마세요.
      원천: docs/internal/*_SRS.md 의 결정 항목
-     생성: dongminal 저장소에서 `cargo run -q --manifest-path rust/Cargo.toml -p dm-scripts-gen-decisions`
+     생성: otterminal 저장소에서 `cargo run -q --manifest-path rust/Cargo.toml -p otter-scripts-gen-decisions`
      검사: scripts/check-decisions.sh (CI) -->
 
 # 결정 색인 (ADR-lite)

@@ -28,7 +28,7 @@ import { TMP, tmpPath, realPath, cssPath } from './osenv';
  * 갈라 딛는다 (Go 기준선 `core/dirs.go:17`).
  */
 
-const FIXTURES = tmpPath('dm-git-fx-wtrepo-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-wtrepo-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
@@ -47,7 +47,7 @@ const copyFx = makeCopyFx(FIXTURES);
  * 준 값을 쓰므로 비교 대상도 같은 형태여야 한다.
  */
 function addWorktree(repo: string, name: string, opts: { detached?: boolean } = {}) {
-  const dir = mkdtempSync(join(TMP, 'dm-wtrepo-'));
+  const dir = mkdtempSync(join(TMP, 'otter-wtrepo-'));
   rmTree(dir); // git 이 직접 만들게 둔다
   const args = opts.detached
     ? ['-C', repo, 'worktree', 'add', '--detach', dir, 'HEAD']

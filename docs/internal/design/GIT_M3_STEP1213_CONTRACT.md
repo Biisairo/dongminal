@@ -158,7 +158,7 @@ upstream 이 없는 브랜치에 `POST /api/git/push {"repo":…}` 를 보내면
 ```
 
 실행하려면 `{"repo":…,"publish":true}` 로 다시 보낸다. 클라이언트만 알리게 두면
-`dmctl git push` 가 upstream 을 조용히 만든다. `confirm` 은 `--force` 전용이며
+`otterctl git push` 가 upstream 을 조용히 만든다. `confirm` 은 `--force` 전용이며
 별개 필드다.
 
 **② 실패 정보는 즉시 응답이 아니라 `done` 이벤트의 job 에 있다.**

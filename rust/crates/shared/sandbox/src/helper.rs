@@ -1,18 +1,18 @@
-//! 컨테이너에 넣는 리눅스용 dmctl(헬퍼)의 캐시 (SANDBOX_SRS FR-SBX-14).
+//! 컨테이너에 넣는 리눅스용 otterctl(헬퍼)의 캐시 (SANDBOX_SRS FR-SBX-14).
 
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_gocompat::filepath;
+use otter_gocompat::filepath;
 
 /// 헬퍼 이름과 컨테이너 안 자리다.
-pub const HELPER_NAME: &str = "dmctl";
-pub const HELPER_MOUNT_PATH: &str = "/usr/local/bin/dmctl";
+pub const HELPER_NAME: &str = "otterctl";
+pub const HELPER_MOUNT_PATH: &str = "/usr/local/bin/otterctl";
 const HELPER_CACHE_DIR: &str = "cache";
 const DEV_VERSION: &str = "dev";
-const RELEASE_REPO: &str = "Biisairo/dongminal";
+const RELEASE_REPO: &str = "Biisairo/otterminal";
 const HELPER_FETCH_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
 pub type StatFn = Arc<dyn Fn(&str) -> bool + Send + Sync>;
@@ -52,7 +52,7 @@ pub fn ensure_helper(d: &HelperDeps) -> Result<String, crate::Error> {
     if d.version == DEV_VERSION {
         if let Err(e) = (d.cross_build)(&d.arch, &dest) {
             return Err(crate::Error::msg(format!(
-                "리눅스용 {HELPER_NAME} 를 만들지 못했습니다(개발 빌드): {e}\n  직접 놓아두려면: cargo build --release -p dongminal --target {triple} && cp target/{triple}/release/dongminal {dest}",
+                "리눅스용 {HELPER_NAME} 를 만들지 못했습니다(개발 빌드): {e}\n  직접 놓아두려면: cargo build --release -p otterminal --target {triple} && cp target/{triple}/release/otterminal {dest}",
                 triple = linux_triple(&d.arch)
             )));
         }
@@ -77,7 +77,7 @@ fn linux_triple(arch: &str) -> String {
 }
 
 fn release_asset_url(version: &str, arch: &str) -> String {
-    format!("https://github.com/{RELEASE_REPO}/releases/download/{version}/dongminal-linux-{arch}")
+    format!("https://github.com/{RELEASE_REPO}/releases/download/{version}/otterminal-linux-{arch}")
 }
 
 /// 지금 판이 아닌 헬퍼 캐시를 지운다.
@@ -126,7 +126,7 @@ pub fn default_helper_deps(home: &str, version: &str) -> HelperDeps {
 }
 
 fn os_err(e: io::Error) -> String {
-    dm_gocompat::oserr::go_error_string(&e)
+    otter_gocompat::oserr::go_error_string(&e)
 }
 
 /// 헬퍼 폴더의 권한 (Go `os.MkdirAll(filepath.Dir(dest), 0o755)`).
@@ -134,7 +134,7 @@ const HELPER_DIR_PERM: u32 = 0o755;
 
 fn mkdir_parent(dest: &str) -> Result<(), String> {
     let dir = filepath::dir(dest);
-    dm_gocompat::oserr::mkdir_all(&dir, HELPER_DIR_PERM).map_err(os_err)
+    otter_gocompat::oserr::mkdir_all(&dir, HELPER_DIR_PERM).map_err(os_err)
 }
 
 /// 릴리스 자산을 받아 임시 파일을 거쳐 dest 로 옮긴다(0755).
@@ -155,7 +155,7 @@ fn fetch_helper(url: &str, dest: &str) -> Result<(), String> {
 async fn fetch_async(url: &str, dest: &str) -> Result<(), String> {
     let _ = rustls::crypto::ring::default_provider().install_default();
     let transport = |e: reqwest::Error| {
-        dm_gocompat::neturl_err::UrlError::from_reqwest("GET", url, &e).to_string()
+        otter_gocompat::neturl_err::UrlError::from_reqwest("GET", url, &e).to_string()
     };
     let client = reqwest::Client::builder()
         .timeout(HELPER_FETCH_TIMEOUT)
@@ -172,19 +172,19 @@ async fn fetch_async(url: &str, dest: &str) -> Result<(), String> {
     }
     let body = res.bytes().await.map_err(transport)?;
     let dir = filepath::dir(dest);
-    let tmp = Path::new(&dir).join(format!(".dmctl-{}", std::process::id()));
+    let tmp = Path::new(&dir).join(format!(".otterctl-{}", std::process::id()));
     let tmp_s = tmp.to_string_lossy().into_owned();
     let write = || -> Result<(), String> {
         std::fs::write(&tmp, &body)
-            .map_err(|e| os_err(dm_gocompat::oserr::path_error("write", &tmp_s, e)))?;
+            .map_err(|e| os_err(otter_gocompat::oserr::path_error("write", &tmp_s, e)))?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o755))
-                .map_err(|e| os_err(dm_gocompat::oserr::path_error("chmod", &tmp_s, e)))?;
+                .map_err(|e| os_err(otter_gocompat::oserr::path_error("chmod", &tmp_s, e)))?;
         }
         std::fs::rename(&tmp, dest)
-            .map_err(|e| os_err(dm_gocompat::oserr::link_error("rename", &tmp_s, dest, e)))
+            .map_err(|e| os_err(otter_gocompat::oserr::link_error("rename", &tmp_s, dest, e)))
     };
     let r = write();
     let _ = std::fs::remove_file(&tmp);
@@ -203,7 +203,7 @@ fn cross_build_helper(arch: &str, dest: &str) -> Result<(), String> {
         "build",
         "--release",
         "-p",
-        "dongminal",
+        "otterminal",
         "--target",
         triple.as_str(),
     ]
@@ -211,7 +211,7 @@ fn cross_build_helper(arch: &str, dest: &str) -> Result<(), String> {
     .map(|s| s.to_string())
     .collect();
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
-    let cargo = dm_shared_platform::command_path(&cargo)?;
+    let cargo = otter_shared_platform::command_path(&cargo)?;
     let r = std::process::Command::new(&cargo)
         .args(&args)
         .current_dir(&root)
@@ -233,16 +233,16 @@ fn cross_build_helper(arch: &str, dest: &str) -> Result<(), String> {
         .join("target")
         .join(triple)
         .join("release")
-        .join("dongminal");
+        .join("otterminal");
     std::fs::copy(&built, dest).map(|_| ()).map_err(os_err)
 }
 
-/// 이 crate 가 컴파일된 자리다. 릴리스 빌드(`scripts/build.sh`)는 `--cfg dongminal_trimpath` 로
+/// 이 crate 가 컴파일된 자리다. 릴리스 빌드(`scripts/build.sh`)는 `--cfg otterminal_trimpath` 로
 /// 빌드한 사람의 절대 경로 대신 워크스페이스 상대 경로를 새긴다 — Go `-trimpath` 의
 /// `runtime.Caller` 와 같아서, 다른 경로에서 빌드해도 산출물이 바이트로 같다 (SEC-30).
-#[cfg(dongminal_trimpath)]
+#[cfg(otterminal_trimpath)]
 pub(crate) const CRATE_DIR: &str = "crates/shared/sandbox";
-#[cfg(not(dongminal_trimpath))]
+#[cfg(not(otterminal_trimpath))]
 pub(crate) const CRATE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
 /// 이 crate 의 위치에서 위로 Cargo 워크스페이스 루트(`Cargo.lock` 이 있는 곳)를 찾는다.
@@ -250,7 +250,7 @@ pub(crate) const CRATE_DIR: &str = env!("CARGO_MANIFEST_DIR");
 /// 릴리스(trimpath) 빌드는 찾지 않는다. 상대 경로로 찾으면 작업 디렉터리의 남의 트리에서
 /// `cargo build` 가 돌 수 있다(Go -trimpath 판은 작업 디렉터리의 go.mod 를 받아들인다).
 fn source_root() -> Result<String, String> {
-    if cfg!(dongminal_trimpath) {
+    if cfg!(otterminal_trimpath) {
         return Err(source_root_missing(Path::new(CRATE_DIR)));
     }
     source_root_from(Path::new(CRATE_DIR))

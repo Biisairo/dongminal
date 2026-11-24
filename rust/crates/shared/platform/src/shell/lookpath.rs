@@ -3,8 +3,8 @@
 //! [`try_look_path`] 는 "없음"과 Go `ErrDot`(상대경로로만 찾음)을 가른다 (FR-RDF-11). "찾았는가" 만
 //! 보는 호출부는 `Option` 을 내는 [`look_path`] 를 쓴다. ErrDot 은 Go 에서 오류이므로 `None` 이다.
 
-use dm_gocompat::filepath::{unix, windows};
-use dm_gocompat::strconv::quote;
+use otter_gocompat::filepath::{unix, windows};
+use otter_gocompat::strconv::quote;
 
 const DEFAULT_PATHEXT: &[&str] = &[".com", ".exe", ".bat", ".cmd"];
 
@@ -206,7 +206,7 @@ pub fn command_path(name: &str) -> Result<String, String> {
 
 /// [`command_path`] 와 같되, 검색 경로를 인자로 받는다.
 pub fn command_path_in(name: &str, path_env: &str) -> Result<String, String> {
-    if dm_gocompat::filepath::base(name) != name {
+    if otter_gocompat::filepath::base(name) != name {
         return Ok(name.to_owned());
     }
     try_look_path_in(name, path_env).map_err(|e| exec_error(name, e))
@@ -255,7 +255,7 @@ const ERR_PERMISSION: &str = "permission denied";
 /// `GetFileAttributesEx`, 그 밖의 실패에 `CreateFile` 을 op 로 싣는다.
 #[cfg(windows)]
 fn chk_stat_windows(file: &str) -> Result<(), String> {
-    use dm_gocompat::oserr::{go_error_string, path_error};
+    use otter_gocompat::oserr::{go_error_string, path_error};
     match std::fs::metadata(file) {
         Ok(m) if m.is_dir() => Err(ERR_PERMISSION.to_owned()),
         Ok(_) => Ok(()),
@@ -274,7 +274,7 @@ fn chk_stat_windows(file: &str) -> Result<(), String> {
 /// ENOSYS·EPERM 이면 권한 비트로 내려간다. 실패는 Go 의 원인 문구다.
 #[cfg(unix)]
 fn find_executable_unix(file: &str) -> Result<(), String> {
-    use dm_gocompat::oserr::{errno_string, go_error_string, path_error};
+    use otter_gocompat::oserr::{errno_string, go_error_string, path_error};
     use std::os::unix::fs::PermissionsExt;
     let m = std::fs::metadata(file).map_err(|e| go_error_string(&path_error("stat", file, e)))?;
     if m.is_dir() {
@@ -312,16 +312,16 @@ mod tests {
     fn look_path_in_uses_given_search_path() {
         use std::os::unix::fs::PermissionsExt;
         let d = tempfile::tempdir().unwrap();
-        let exe = d.path().join("dm-fake-tool");
+        let exe = d.path().join("otter-fake-tool");
         std::fs::write(&exe, b"#!/bin/sh\n").unwrap();
         std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
         let dir = d.path().to_str().unwrap();
         assert_eq!(
-            crate::look_path_in("dm-fake-tool", dir).as_deref(),
+            crate::look_path_in("otter-fake-tool", dir).as_deref(),
             exe.to_str()
         );
         assert_eq!(
-            crate::look_path_in("dm-fake-tool", "/nonexistent-dm-dir"),
+            crate::look_path_in("otter-fake-tool", "/nonexistent-otter-dir"),
             None
         );
         assert_eq!(crate::look_path_in("", dir), None);
@@ -333,26 +333,26 @@ mod tests {
     fn try_look_path_in_tells_dot_from_not_found() {
         use std::os::unix::fs::PermissionsExt;
         let d = tempfile::tempdir().unwrap();
-        let exe = d.path().join("dm-fake-dot");
+        let exe = d.path().join("otter-fake-dot");
         std::fs::write(&exe, b"#!/bin/sh\n").unwrap();
         std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
-        let rel = dm_gocompat::filepath::rel(
+        let rel = otter_gocompat::filepath::rel(
             &std::env::current_dir().unwrap().to_string_lossy(),
             &d.path().to_string_lossy(),
         )
         .unwrap();
-        let e = crate::try_look_path_in("dm-fake-dot", &rel).unwrap_err();
+        let e = crate::try_look_path_in("otter-fake-dot", &rel).unwrap_err();
         assert_eq!(e, crate::LookPathError::Dot);
         assert_eq!(
-            crate::exec_error("dm-fake-dot", e),
-            r#"exec: "dm-fake-dot": cannot run executable found relative to current directory"#
+            crate::exec_error("otter-fake-dot", e),
+            r#"exec: "otter-fake-dot": cannot run executable found relative to current directory"#
         );
-        let e = crate::try_look_path_in("dm-no-such-dot", &rel).unwrap_err();
+        let e = crate::try_look_path_in("otter-no-such-dot", &rel).unwrap_err();
         assert_eq!(
-            crate::exec_error("dm-no-such-dot", e),
-            r#"exec: "dm-no-such-dot": executable file not found in $PATH"#
+            crate::exec_error("otter-no-such-dot", e),
+            r#"exec: "otter-no-such-dot": executable file not found in $PATH"#
         );
-        assert_eq!(crate::look_path_in("dm-fake-dot", &rel), None);
+        assert_eq!(crate::look_path_in("otter-fake-dot", &rel), None);
     }
 
     // 10.5b: Go exec.Command 처럼 맨 이름만 LookPath 를 거친다. ErrDot 이면 실행할 경로를 주지 않는다.
@@ -361,26 +361,26 @@ mod tests {
     fn command_path_in_follows_exec_command() {
         use std::os::unix::fs::PermissionsExt;
         let d = tempfile::tempdir().unwrap();
-        let exe = d.path().join("dm-dot-cmd");
+        let exe = d.path().join("otter-dot-cmd");
         std::fs::write(&exe, b"#!/bin/sh\n").unwrap();
         std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
-        let rel = dm_gocompat::filepath::rel(
+        let rel = otter_gocompat::filepath::rel(
             &std::env::current_dir().unwrap().to_string_lossy(),
             &d.path().to_string_lossy(),
         )
         .unwrap();
         assert_eq!(
-            crate::command_path_in("dm-dot-cmd", &rel).unwrap_err(),
-            r#"exec: "dm-dot-cmd": cannot run executable found relative to current directory"#
+            crate::command_path_in("otter-dot-cmd", &rel).unwrap_err(),
+            r#"exec: "otter-dot-cmd": cannot run executable found relative to current directory"#
         );
         let dir = d.path().to_string_lossy().into_owned();
         assert_eq!(
-            crate::command_path_in("dm-dot-cmd", &dir).unwrap(),
+            crate::command_path_in("otter-dot-cmd", &dir).unwrap(),
             exe.to_string_lossy()
         );
         assert_eq!(
-            crate::command_path_in("./dm-dot-cmd", &rel).unwrap(),
-            "./dm-dot-cmd"
+            crate::command_path_in("./otter-dot-cmd", &rel).unwrap(),
+            "./otter-dot-cmd"
         );
     }
 

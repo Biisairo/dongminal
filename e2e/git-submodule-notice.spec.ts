@@ -75,7 +75,7 @@ function makeParent(base: string, kind: 'commit' | 'inner' | 'both') {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-sdn-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-sdn-')));
   for (const k of ['commit', 'inner', 'both'] as const) REPO[k] = makeParent(BASE, k);
 });
 test.afterAll(() => {

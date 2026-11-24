@@ -6,11 +6,11 @@
 
 ### 1.1 목적 (Purpose)
 
-dongminal 을 **다중 에이전트 오케스트레이터**로 만든다. 접합면(`dmctl` 액션 + 세션
+otterminal 을 **다중 에이전트 오케스트레이터**로 만든다. 접합면(`otterctl` 액션 + 세션
 스코프 스킬)은 `SKILL_INJECTION_SRS` 가 이미 놓았고, 식별자 계약은
 `WORKSPACE_IDENTITY_SRS` 가 닫았다. 남은 것은 **실행 축(Run)의 실체**다.
 
-지금 dongminal 에는 실행 상태를 담을 곳이 없다. 팀원 uuid 매핑표는 팀장 CC 의 **대화
+지금 otterminal 에는 실행 상태를 담을 곳이 없다. 팀원 uuid 매핑표는 팀장 CC 의 **대화
 기록에만** 있고(팀 스킬 §4 "매핑표는 부팅 직후 작성해 보관한다"), 준비완료 판정은
 **화면 스크래핑**이며(`╭─` + `Thinking...` 부재 + `[대기]`), 격리는 **없다**(같은
 워킹트리 공유). 그 결과:
@@ -31,7 +31,7 @@ dongminal 을 **다중 에이전트 오케스트레이터**로 만든다. 접합
 
 | 묶음 | 내용 | 상태 |
 |---|---|---|
-| S | 상태·대기 계약 — `dmctl status` / `dmctl wait`, 준비완료 판정 사다리, `waiting ≠ ready` | **완료** (`228c464`). 사다리 2단계만 A 대기 |
+| S | 상태·대기 계약 — `otterctl status` / `otterctl wait`, 준비완료 판정 사다리, `waiting ≠ ready` | **완료** (`228c464`). 사다리 2단계만 A 대기 |
 | R | Run 레코드 — 스키마·영속(`runs.json`)·상태기계·epoch 펜싱·접합 필드 소비 | **완료** (`a958797`) |
 | P | 멤버 프리앰블과 보고 계약 — 평문 프리앰블, 1회 보고, 발신자 정체 기반 권한 | **완료** — 보고 권한(FR-PRE-5/6/7)은 R 과 함께, 프리앰블 본문(FR-PRE-1~4/8)은 A 와 함께 |
 | A | 에이전트 어댑터 레지스트리 — 기동·탐지·프롬프트 주입·정책 주입·훅 파서의 선언화 | **완료** (`internal/agentadapter`). FR-STA-4 2단계 소비자만 미구현 |
@@ -62,13 +62,13 @@ dongminal 을 **다중 에이전트 오케스트레이터**로 만든다. 접합
 ### 1.4 참고 (References)
 
 - `ENTITY_MODEL_RESTRUCTURE_SRS.md` — 엔티티 모델, FR-EM-17/18(Run 접합 필드), FR-BG-9
-- `SKILL_INJECTION_SRS.md` — 에이전트 접합면(`dmctl` + 세션 스코프 스킬), §5 비목표
+- `SKILL_INJECTION_SRS.md` — 에이전트 접합면(`otterctl` + 세션 스코프 스킬), §5 비목표
 - `WORKSPACE_IDENTITY_SRS.md` — FR-UNI-1(uuid 형식), FR-UNI-15(Run·Member id),
   FR-SXE-8(오케스트레이터는 `location` 을 명시한다)
 - `ORCHESTRATOR_RESEARCH_NOTES.md` — **orca / paseo 실제 구현 조사**. 본 SRS 의 §2 는
   이 노트를 근거로 한다
 - `USER_CHECKLIST_FIXES_HANDOFF.md` §4 — 반복 금지 함정 15개
-- `internal/run/run.go`, `internal/runtimebin/dmctl_activity.go`, `internal/server/activity.go`
+- `internal/run/run.go`, `internal/runtimebin/otterctl_activity.go`, `internal/server/activity.go`
 
 ### 1.5 개요 (Overview)
 
@@ -87,7 +87,7 @@ dongminal 을 **다중 에이전트 오케스트레이터**로 만든다. 접합
 "이 탭은 어느 Run 소유"라는 표식이 없다 — `Tool.runId` · `Window.ownerRunId` 필드는
 있지만 **아무도 쓰지 않는다** (FR-EM-18: "이 필드를 읽는 동작을 추가하지 않는다").
 
-`~/.dongminal/runs.json` 에 Run 레코드 프로토타입이 실재하나 **커밋된 코드에 소비자가
+`~/.otterminal/runs.json` 에 Run 레코드 프로토타입이 실재하나 **커밋된 코드에 소비자가
 0건**이다 (`WORKSPACE_IDENTITY_SRS` §2.6). 형태는 다음과 같다:
 
 ```json
@@ -104,15 +104,15 @@ dongminal 을 **다중 에이전트 오케스트레이터**로 만든다. 접합
 부재, 초기 프롬프트의 `[대기]` 텍스트. 그리고 `sleep 8` → 최대 10회 재확인을 **모델이
 손으로** 돌린다.
 
-그런데 dongminal 은 이미 **훅 기반 에이전트 상태**를 갖고 있다:
+그런데 otterminal 은 이미 **훅 기반 에이전트 상태**를 갖고 있다:
 
 | 계층 | 현황 |
 |---|---|
-| 수집 | `dmctl activity claude` 가 훅 stdin JSON 을 파싱 (`dmctl_activity.go`) |
+| 수집 | `otterctl activity claude` 가 훅 stdin JSON 을 파싱 (`otterctl_activity.go`) |
 | 상태 | `working` · `waiting` · `done` · `idle` · `ended` (`internal/server/activity.go`) |
 | 저장 | `AttnTracker` / `ToolManager` 의 도구별 `activitySnap{toolId,state,tool,detail,updatedAt}` |
 | 조회 | `GET /api/tools/activity` — **브라우저 전용.** SSE `tool_activity` 로도 나간다 |
-| 에이전트의 조회 경로 | **없다.** `dmctl` 에 대응 서브커맨드가 없다 |
+| 에이전트의 조회 경로 | **없다.** `otterctl` 에 대응 서브커맨드가 없다 |
 
 **결손은 하나뿐이다** — 에이전트가 그 상태를 읽을 CLI 가 없어서 스킬이 화면으로 내몰린다.
 게다가 Claude Code 훅의 `Notification` → `waiting` 은 **권한 확인 대기**를 뜻하므로,
@@ -122,12 +122,12 @@ dongminal 을 **다중 에이전트 오케스트레이터**로 만든다. 접합
 
 저장소에 worktree 개념이 0건이다. `team` 스킬은 팀원을 **팀장의 Pane 을 쪼개** 만들고,
 전원이 같은 워킹트리를 공유한다. 그래서 스킬 문서의 상당 부분이 **사용자 공간 침범
-방어**(`--no-focus` 강제, `dmctl focus` 전면 금지)에 쓰인다. `workflow` 스킬의
+방어**(`--no-focus` 강제, `otterctl focus` 전면 금지)에 쓰인다. `workflow` 스킬의
 `dedicated` 창 모드가 그 방어를 구조로 푸는 선행 사례다.
 
 ### 2.4 에이전트 어댑터가 하드코딩이다
 
-`parseClaudeHook` / `parseCodexHook` 가 `dmctl_activity.go` 의 `switch agent` 안에 있다.
+`parseClaudeHook` / `parseCodexHook` 가 `otterctl_activity.go` 의 `switch agent` 안에 있다.
 에이전트를 하나 더 붙이려면 이 파일을 고쳐야 하고, **기동 커맨드·정책 주입 방식·준비완료
 판정**은 아예 코드에 없고 스킬 본문의 산문으로만 존재한다. 두 에이전트의 활동 해상도도
 근본적으로 다르다 — Claude 는 전 생명주기 훅을 주지만, codex 의 표준 notify 는
@@ -142,7 +142,7 @@ dongminal 을 **다중 에이전트 오케스트레이터**로 만든다. 접합
 | "Orca 의 장점 = fan-out → **비교** → 병합" | **자동 비교·병합은 없다.** `merge_ready` 는 코디네이터가 `break` 로 넘기는 무동작 알림 타입이고, 병합 판단은 사람이 한다 |
 | orca 의 조정 = 런타임 스케줄러 | **은퇴했다.** `coordinator-start`·`run` 은 무동작이고, 조정은 CLI 를 호출하는 **에이전트**가 한다 |
 | "MIT 공개 소스" (orca·paseo 양쪽 뉘앙스) | orca 는 MIT, **paseo 는 AGPL-3.0-or-later**. paseo 코드는 차용 금지 — 계약 관찰만 |
-| 리뷰 주석의 왕복 형태가 미상 | **결정적 평문**(`File:` / `Line:` / `User comment: "…"`) + bracketed paste. dongminal 의 `SendPaste` 와 같은 경로 |
+| 리뷰 주석의 왕복 형태가 미상 | **결정적 평문**(`File:` / `Line:` / `User comment: "…"`) + bracketed paste. otterminal 의 `SendPaste` 와 같은 경로 |
 | 에이전트 레지스트리 = 순수 선언 | 기동·탐지·프롬프트 주입은 선언, **훅(정책) 설치는 벤더별 코드** + 균일 인터페이스 |
 
 그리고 **채택할 계약**:
@@ -200,7 +200,7 @@ dongminal 을 **다중 에이전트 오케스트레이터**로 만든다. 접합
 | `outcome` / `summary` / `filesModified[]` | 보고 결과 (묶음 P) |
 | `reportedAt` / `lastSeenAt` | 명시 보고 시각 / 마지막 상태 관측 시각 |
 
-**FR-RUN-3** Run 레코드는 `$DONGMINAL_HOME/runs.json` 에 영속한다. `schemaVersion` 은
+**FR-RUN-3** Run 레코드는 `$OTTERMINAL_HOME/runs.json` 에 영속한다. `schemaVersion` 은
 **1을 유지**한다 — 프로토타입이 이미 1로 쓰여 있고 구조는 확장뿐이라 판별에 버전이
 필요 없다 (FR-MGU-9 와 같은 논리).
 
@@ -221,16 +221,16 @@ dongminal 을 **다중 에이전트 오케스트레이터**로 만든다. 접합
 를 채운다. FR-EM-18 은 유지된다 — **비어 있어도 모든 동작이 정상**이어야 하며, 이 필드를
 읽지 못해 실패하는 경로를 만들지 않는다.
 
-**FR-RUN-8** `dmctl` 서브커맨드를 추가한다. 액션 계층은 셸 명령이라는 규약을 따른다
+**FR-RUN-8** `otterctl` 서브커맨드를 추가한다. 액션 계층은 셸 명령이라는 규약을 따른다
 (SKILL_INJECTION_SRS §1.1).
 
 ```
-dmctl run start   --objective <텍스트> [--projection <p>] [--isolation <i>] [--base <ref>] [--json]
-dmctl run member  --run <uuid> --role <이름> --agent <id> [--json]
-dmctl run report  --outcome succeeded|failed --summary <텍스트> [--files a,b] [--run <uuid>] [--member <uuid>]
-dmctl run status  [--run <uuid>] [--json]
-dmctl run close   --run <uuid> [--keep-worktrees] [--force]
-dmctl run list    [--json]
+otterctl run start   --objective <텍스트> [--projection <p>] [--isolation <i>] [--base <ref>] [--json]
+otterctl run member  --run <uuid> --role <이름> --agent <id> [--json]
+otterctl run report  --outcome succeeded|failed --summary <텍스트> [--files a,b] [--run <uuid>] [--member <uuid>]
+otterctl run status  [--run <uuid>] [--json]
+otterctl run close   --run <uuid> [--keep-worktrees] [--force]
+otterctl run list    [--json]
 ```
 
 `run member` 는 **멤버 등록·공간 확보·(격리 시) worktree 생성·에이전트 기동·프리앰블
@@ -254,7 +254,7 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 
 **FR-RUN-11a** `run close` 는 **도구를 종료하지 않는다.** 기록을 닫고 표식을 해제한 뒤
 **정리 대상(멤버별 `toolId`·`tabId`·생존 여부)을 반환**하며, 실제 종료는 조정자가
-에이전트의 종료 명령(묶음 A) → `dmctl close-tab --at <탭 uuid>` 순으로 수행한다.
+에이전트의 종료 명령(묶음 A) → `otterctl close-tab --at <탭 uuid>` 순으로 수행한다.
 
 > **개정 근거 (2026-08-25, 구현 중 발견).** 초판은 "`run close` 는 멤버 도구를
 > 종료하되"로 적었으나, 실행 중인 도구의 탭을 닫으면 브라우저가 **확인창을 띄운다**
@@ -266,11 +266,11 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 
 ### 3.2 묶음 S — 상태·대기 계약 (FR-STA-\*)
 
-**FR-STA-1** `dmctl status [--at <uuid>] [--json]` 을 추가한다. 대상 도구의 활동 상태
+**FR-STA-1** `otterctl status [--at <uuid>] [--json]` 을 추가한다. 대상 도구의 활동 상태
 (`state`·`tool`·`detail`·`updatedAt`)와 live 여부를 낸다. `--at` 생략 시
-`$DONGMINAL_TOOL_ID`. 보고된 활동이 없으면 `state=unknown` 이며 오류가 아니다.
+`$OTTERMINAL_TOOL_ID`. 보고된 활동이 없으면 `state=unknown` 이며 오류가 아니다.
 
-**FR-STA-2** `dmctl wait --at <uuid> --for ready|done [--timeout-ms N]` 을 추가한다.
+**FR-STA-2** `otterctl wait --at <uuid> --for ready|done [--timeout-ms N]` 을 추가한다.
 조건 충족까지 블로킹한다. 기본 타임아웃 **300000ms(5분)**, 상한 **1800000ms(30분)**.
 
 **FR-STA-3** 대기는 **서버 long-poll** 로 구현한다(`GET /api/tools/activity/wait`).
@@ -321,7 +321,7 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 > **근거 — 실제로 밟았다.** Claude Code 를 멤버로 띄우자 **폴더 신뢰 확인 모달**이
 > 떴는데, 그 상태에서 화면은 조용하고(`quietMs=21023`) 훅은 아무것도 보고하지
 > 않아(`state=unknown`) 정적 폴백이 그것을 준비완료로 판정했다 —
-> `dmctl wait --for ready` 가 `reason=quiescence`, `waitedMs=0` 으로 rc=0 을 냈다.
+> `otterctl wait --for ready` 가 `reason=quiescence`, `waitedMs=0` 으로 rc=0 을 냈다.
 > 거기서 Kickoff 를 보내면 모달이 삼킨다. 이는 FR-PRE-8 이 막으려던 데드락과
 > 같은 결말이다.
 >
@@ -343,7 +343,7 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 **FR-STA-7** 종료 코드: 조건 충족 0, 사용법 오류 2, 서버·전송 오류 1, **타임아웃 4**,
 **blocked 5**. FR-DMA-10 의 확장이며 기존 코드값의 의미는 바뀌지 않는다.
 
-**FR-STA-8** `dmctl status` · `dmctl wait` 는 direct 모드와 daemon 모드에서 동일하게
+**FR-STA-8** `otterctl status` · `otterctl wait` 는 direct 모드와 daemon 모드에서 동일하게
 동작해야 한다. 기존 접합면과 같이 `internal/adapters` 를 경유해 보장한다 (FR-API-6).
 
 ### 3.3 묶음 A — 에이전트 어댑터 레지스트리 (FR-ADP-\*)
@@ -361,15 +361,15 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 | `readiness` | 훅 기반인지, 화면 패턴 폴백이 필요한지 (FR-STA-4 의 2단계, FR-STA-4b) |
 | `exitCommand` | 정중한 종료 지시 (Claude `/exit`) |
 | `argvSeparator` | 위치 인자 프롬프트 **바로 앞**의 구분자 (Claude `--`) |
-| `memberArgs` | Run 멤버로 띄울 때 덧붙는 인자 (Claude `--allowedTools "Bash(dmctl:*)"`, omp `--config {{dmHooks}}/omp-member.yml`) |
+| `memberArgs` | Run 멤버로 띄울 때 덧붙는 인자 (Claude `--allowedTools "Bash(otterctl:*)"`, omp `--config {{otterHooks}}/omp-member.yml`) |
 
 > **뒤 두 필드는 2026-08-25 실측으로 추가됐다.**
 >
-> - `memberArgs` — 멤버가 보고·질문을 하려면 `dmctl` 을 실행해야 하는데, 기본
+> - `memberArgs` — 멤버가 보고·질문을 하려면 `otterctl` 을 실행해야 하는데, 기본
 >   기동에서는 그 **첫 명령이 승인 프롬프트에 걸린다.** 실제로 haiku 멤버가
 >   프리앰블대로 `run report` 를 만들었으나 승인 대기에서 멈췄고, 서버 로그에
 >   `/api/runs/report` 가 0건이었다. 조정자가 팀원 수만큼 승인해 줘야 하므로
->   무인 팀이 성립하지 않는다. 사전 허용은 **`dmctl` 로만 한정**한다 — 전면
+>   무인 팀이 성립하지 않는다. 사전 허용은 **`otterctl` 로만 한정**한다 — 전면
 >   우회는 멤버에게 사용자가 주지 않은 권한을 주는 것이라 선택지가 아니다.
 > - `argvSeparator` — `--allowedTools` 는 가변 인자(`<tools...>`)라 뒤따르는 위치
 >   인자 프롬프트까지 삼킨다. 실제로 프리앰블이 도구 이름으로 먹혀 **빈 프롬프트로
@@ -384,7 +384,7 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 >
 > 어떤 멤버 인자는 값이 **경로**다. omp 는 승인 규칙을 **설정 오버레이 파일**로
 > 받으므로(`--config <path>`) 선언이 그 절대 경로를 알 수 없다. 그래서 항목에
-> 토큰 `{{dmHooks}}`(= `agentadapter.HooksDirToken`)를 허용하고, 기동줄을 만드는
+> 토큰 `{{otterHooks}}`(= `agentadapter.HooksDirToken`)를 허용하고, 기동줄을 만드는
 > **한 자리**(`Adapter.LaunchLine`)가 `agent-hooks` 디렉터리로 치환한다.
 >
 > **채우지 못하면 오류다.** 조용히 그대로 타이핑되면 에이전트가 없는 파일을 읽고
@@ -395,17 +395,17 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 > **래퍼는 이 파일을 모른다.** 알면 사전 허용이 멤버 밖의 모든 세션으로 새어
 > 나간다 — 멤버 한정은 위 주석이 이미 확정한 결정이다.
 
-**FR-ADP-2** `dmctl_activity.go` 의 `switch agent { case "claude": … case "codex": … }`
+**FR-ADP-2** `otterctl_activity.go` 의 `switch agent { case "claude": … case "codex": … }`
 를 제거하고 레지스트리 조회로 대체한다. 훅 파서 자체(`parseClaudeHook` 등)는 각
 어댑터의 필드로 이동하며, **동작은 바뀌지 않는다**.
 
 **FR-ADP-3** 알 수 없는 에이전트 id 는 **명확한 오류**로 실패해야 한다. 조용히 성공하거나
 기본 에이전트로 폴백해서는 안 된다 (NFR-EM-1 의 정신).
 
-> **구현 시 확정**: 종료 코드에는 예외가 하나 있다. `dmctl activity <agent>` 는
+> **구현 시 확정**: 종료 코드에는 예외가 하나 있다. `otterctl activity <agent>` 는
 > 에이전트 훅으로 실행되므로 비0 종료가 사용자의 도구 호출을 막는다(NFR-AAP-5).
 > 이 경로만 **stderr 로 명확히 말하되 rc=0** 을 지킨다. 오케스트레이션 경로
-> (`dmctl run member`·`run launch`·`POST /api/runs/members`)는 rc=2 / 400 으로
+> (`otterctl run member`·`run launch`·`POST /api/runs/members`)는 rc=2 / 400 으로
 > 거부하므로, 잘못된 id 가 기록에 들어가는 통로는 없다.
 
 **FR-ADP-4** **검증 대상은 Claude Code 다** (D-D). codex 는 선언을 유지하되 best-effort
@@ -415,8 +415,8 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 **FR-ADP-4a (2026-09-11)** `omp`(oh my pi)는 **활동 해상도가 claude 급**이다 —
 생명주기 이벤트가 전부 오고 준비완료를 훅으로 안다. **다만 두 가지가 다르다.**
 
-- 훅이 **in-process 모듈**이다(`--hook <file>`). 그래서 dongminal 이 shim 을
-  배포하고 그 안에서 `dmctl activity omp` 를 부른다 — 훅 형식의 임자가 우리다.
+- 훅이 **in-process 모듈**이다(`--hook <file>`). 그래서 otterminal 이 shim 을
+  배포하고 그 안에서 `otterctl activity omp` 를 부른다 — 훅 형식의 임자가 우리다.
 - **승인 대기가 `waiting` 으로 오지 않는다.** omp 의 훅에는 승인 게이트 통지가
   없다. 관측되지 않는 것을 지어내지 않는다 (`FR-CBG-5`).
 
@@ -442,7 +442,7 @@ Run 해체가 건드려서는 안 된다. 판정 근거는 Run 레코드의 `mem
 | `per-member` | 멤버마다 worktree 하나. 팬아웃용 |
 
 근거: 참조 구현 둘 다 격리를 **명시적 선택**으로 두고 기본은 현재 작업 공간이다.
-"독립 태스크·병렬 실행·편의"는 격리 사유가 아니며, dongminal 의 차별점인 신뢰 채널
+"독립 태스크·병렬 실행·편의"는 격리 사유가 아니며, otterminal 의 차별점인 신뢰 채널
 협업 토폴로지 중 일부는 **파일 공유를 전제**한다.
 
 **FR-WKT-2** worktree 생성은 다음 형태다.
@@ -458,8 +458,8 @@ git worktree add --no-track -b <branch> <path> [<base>]
 **FR-WKT-3** 경로와 브랜치 이름은 **Run·Member 의 uuid 에서 파생**한다.
 
 ```
-경로:    $DONGMINAL_HOME/worktrees/<run.slug>/<member.slug>
-브랜치:  dmn/<run.slug>/<role>
+경로:    $OTTERMINAL_HOME/worktrees/<run.slug>/<member.slug>
+브랜치:  otter/<run.slug>/<role>
 ```
 
 `slug` 는 `<uuid 앞 8자>-<uuid 뒤 8자>` 다 (`run.PathSlug`). **착수 시 이 자리는
@@ -513,7 +513,7 @@ git worktree add --no-track -b <branch> <path> [<base>]
 레코드의 `members[].worktree` 다. 등록되지 않은 worktree 는 발견되더라도 건드리지 않는다.
 
 **FR-WKT-10** 위험 경로를 거부한다 — 저장소 자신, 파일시스템 루트, 경로 이탈(`..`),
-빈 경로. 제거 전에 경로가 실제로 `$DONGMINAL_HOME/worktrees/` 아래인지 확인한다.
+빈 경로. 제거 전에 경로가 실제로 `$OTTERMINAL_HOME/worktrees/` 아래인지 확인한다.
 
 **FR-WKT-11** 조정자의 cwd 가 git 저장소가 아니거나 `git` 이 없으면, 격리를 요청한 Run
 시작은 **명확한 오류로 실패**한다. 조용히 `none` 으로 낮추지 않는다.
@@ -526,7 +526,7 @@ git worktree add --no-track -b <branch> <path> [<base>]
 ### 3.5 묶음 P — 프리앰블과 보고 계약 (FR-PRE-\*)
 
 **FR-PRE-1** 멤버 프리앰블은 **평문**이다. 구조화 페이로드가 아니라, 실제 실행할
-`dmctl` 예제에 Run·Member uuid 를 박아 넣은 텍스트를 도구에 붙여넣는다. 전달은 기존
+`otterctl` 예제에 Run·Member uuid 를 박아 넣은 텍스트를 도구에 붙여넣는다. 전달은 기존
 `send-input`(bracketed paste + 120ms submit 지연) 경로를 쓴다.
 
 > **조립 주체 = 서버** (착수 전 열려 있던 설계 질문, 구현 시 확정). 근거 셋:
@@ -538,7 +538,7 @@ git worktree add --no-track -b <branch> <path> [<base>]
 > 합성한다 — 계층 경계는 SKILL_INJECTION_SRS §2.3 그대로다.
 >
 > CLI 가 하는 일은 그 평문을 **어댑터가 선언한 기동 방식으로 감싸는 것**뿐이다
-> (`dmctl run launch`). 프롬프트는 홑따옴표로 감싼다 — 기존 빌더의 큰따옴표 +
+> (`otterctl run launch`). 프롬프트는 홑따옴표로 감싼다 — 기존 빌더의 큰따옴표 +
 > 역슬래시 이스케이프는 `"`·`$`·백틱·`\` 를 각각 처리해야 하고 하나만 빠져도 셸이
 > 본문을 전개한다.
 >
@@ -553,13 +553,13 @@ git worktree add --no-track -b <branch> <path> [<base>]
 
 - 보고는 **정확히 한 번**, `--outcome succeeded|failed` 를 **명시**한다. 실패를 산문에만
   담지 않는다. `--summary` 는 3문장 (무엇을 했는가 / 무엇을 발견했는가 / 무엇이 남았는가)
-- 질문은 `dmctl msg --to <조정자 uuid>` 로 한다. **`AskUserQuestion` 류의 로컬 TUI
+- 질문은 `otterctl msg --to <조정자 uuid>` 로 한다. **`AskUserQuestion` 류의 로컬 TUI
   프롬프트를 열지 않는다** — 조정자가 볼 수 없어 세션이 영구히 멈춘다
 - 보고 후에는 **유휴 프롬프트로 돌아가 대기**한다. 폴링 루프를 돌리지 않고, 스스로
   탭·셸을 닫지 않는다
 - **사용자의 직접 지시는 언제나 우선**한다. 그때는 사용자 작업으로 처리하며, 정착된
   Run·Member id 로 다시 보고하지 않는다
-- 엔벨로프 신뢰 규약은 기존대로 `dmctl agent-context` 가 상시 주입한다 (FR-CTX-\*).
+- 엔벨로프 신뢰 규약은 기존대로 `otterctl agent-context` 가 상시 주입한다 (FR-CTX-\*).
   프리앰블이 이를 중복 서술하지 않는다
 
 **FR-PRE-4** 격리된 Run 의 프리앰블에는 **worktree 경로와 base 브랜치**를 적는다.
@@ -570,7 +570,7 @@ git worktree add --no-track -b <branch> <path> [<base>]
 > 것을 확인한다.
 
 **FR-PRE-5** **보고의 권한은 발신자의 정체로 판정한다.** 서버는 보고를 받은 도구
-(`DONGMINAL_TOOL_ID`, 없으면 `/api/whoami` 와 같은 remoteAddr→PID 폴백)로 멤버를
+(`OTTERMINAL_TOOL_ID`, 없으면 `/api/whoami` 와 같은 remoteAddr→PID 폴백)로 멤버를
 결정한다. 본문에 실린 `runId`/`memberId` 는 **대조용**이며, 불일치하면 거부한다.
 페이로드를 아는 것은 권한이 아니다.
 
@@ -587,21 +587,21 @@ git worktree add --no-track -b <branch> <path> [<base>]
 한 번 규약의 서버측 강제다.
 
 **FR-PRE-8** Kickoff(첫 작업 지시)는 **준비완료 확인 이후**에만 보낸다. 확인은
-`dmctl wait --for ready` 이며(FR-STA-2), 화면 fingerprint 로 대체하지 않는다.
+`otterctl wait --for ready` 이며(FR-STA-2), 화면 fingerprint 로 대체하지 않는다.
 
 ### 3.6 묶음 K — 스킬 재작성 (FR-SKL-\*)
 
 **FR-SKL-1** `team` 스킬의 **기본 토폴로지를 `dedicated-window` 로 바꾼다.** 팀은 Run
 전용 창에서 만들어지며 사용자의 작업 창을 쪼개지 않는다. 그 결과 현재 스킬의 방어
-규칙 — `--no-focus` 강제, `dmctl focus` 전면 금지, 셀 비율 기반 레이아웃 계산 — 이
+규칙 — `--no-focus` 강제, `otterctl focus` 전면 금지, 셀 비율 기반 레이아웃 계산 — 이
 **불필요해지거나 축소된다**. `inline` 은 관찰 목적의 선택지로 남는다.
 
-**FR-SKL-2** Barrier 를 `dmctl wait --for ready` 로 대체한다. 화면 fingerprint
+**FR-SKL-2** Barrier 를 `otterctl wait --for ready` 로 대체한다. 화면 fingerprint
 (`╭─` · `Thinking...` · `[대기]`)를 스킬 본문에서 **제거**한다. 그 지식이 필요하다면
 어댑터 선언으로 간다 (FR-ADP-1 `readiness`).
 
 **FR-SKL-3** 팀원 uuid 매핑표를 **Run 레코드로 옮긴다.** 스킬은 매핑을 대화 기록에
-보관하지 않고 `dmctl run status` 로 조회한다. 해체는 `dmctl run close` 다.
+보관하지 않고 `otterctl run status` 로 조회한다. 해체는 `otterctl run close` 다.
 
 **FR-SKL-4** `workflow` 스킬의 정의서 필드를 Run 파라미터로 사상한다 — `session:
 dedicated` → `projection`, 팀 배열 → 멤버 등록, `teardown` → `run close` 정책. 정의서
@@ -612,11 +612,11 @@ dedicated` → `projection`, 팀 배열 → 멤버 등록, `teardown` → `run c
 > 테스트가 이미 있다. 대신 `create` 가 새 정의서에 `session: dedicated` 를
 > **명시하도록** 스킬 정책을 바꿨다 — 형식은 그대로 두고 관행만 옮긴다.
 
-**FR-SKL-5** 스킬은 **정책만** 담고 액션은 전부 `dmctl` 이다 (SKILL_INJECTION_SRS
+**FR-SKL-5** 스킬은 **정책만** 담고 액션은 전부 `otterctl` 이다 (SKILL_INJECTION_SRS
 FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 
 **FR-SKL-6** "4단계~6단계를 한 턴 안에서" 규칙은 **유지**하되 범위가 줄어든다 —
-`sleep` + 재확인 루프가 `dmctl wait` 한 번으로 접히므로, 턴 안에 남는 것은 부팅 → wait
+`sleep` + 재확인 루프가 `otterctl wait` 한 번으로 접히므로, 턴 안에 남는 것은 부팅 → wait
 → kickoff 세 호출이다.
 
 ### 3.7 비기능 요구사항 (Non-functional)
@@ -673,7 +673,7 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 | TC-RUN-8 | FR-RUN-10 | 사용자 창·탭이 있는 상태에서 `run close` | 사용자 자원 무변경 |
 | TC-RUN-9 | FR-RUN-9 | Run 경로의 생성 명령 전수 | `location` 없는 호출 0건 |
 | TC-RUN-10 | FR-RUN-11 | 미보고 멤버가 있는 Run 을 `close` | 거부 + 목록. `--force` 로만 진행 |
-| TC-STA-1 | FR-STA-1 | 훅 보고 후 `dmctl status --at <uuid>` | 그 상태·tool·detail |
+| TC-STA-1 | FR-STA-1 | 훅 보고 후 `otterctl status --at <uuid>` | 그 상태·tool·detail |
 | TC-STA-2 | FR-STA-1 | 활동 보고 없는 도구 | `state=unknown`, rc=0 |
 | TC-STA-3 | FR-STA-2/4 | `working` → `idle` 전이 중 `wait --for ready` | 전이 시점에 rc=0 |
 | TC-STA-4 | FR-STA-5 | 훅 상태 `waiting` 에서 `wait --for ready` | 즉시 rc=5(blocked), 대기하지 않음 |
@@ -685,7 +685,7 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 | TC-ADP-2 | FR-ADP-3 | 알 수 없는 에이전트 id | 명확한 오류, rc≠0 (훅 경로만 rc=0 + stderr — FR-ADP-3 주석) |
 | TC-ADP-3 | FR-ADP-5 | Claude 멤버 기동 후 `~/.claude` 비교 | 사용자 영구 설정 무변경 |
 | TC-ADP-4 | FR-ADP-1 | 레지스트리의 `policyInjection` ↔ 설치된 셸 래퍼 대조 | 선언과 실제 주입기가 일치. 어긋나면 실패 |
-| TC-ADP-5 | FR-ADP-1 | 멤버 기동줄 생성 | `dmctl` 만 사전 허용. 전면 우회 플래그 0건 |
+| TC-ADP-5 | FR-ADP-1 | 멤버 기동줄 생성 | `otterctl` 만 사전 허용. 전면 우회 플래그 0건 |
 | TC-ADP-6 | FR-ADP-1 | 가변 인자 플래그 + 위치 인자 프롬프트 | 프롬프트 바로 앞에 구분자. 프롬프트가 먹히지 않음 |
 | TC-STA-9 | FR-STA-4b | 훅 기반 멤버가 `state=unknown` + 3초 정적 | ready 로 판정하지 **않는다**. 훅 없는 에이전트는 종전대로 ready |
 | TC-WKT-1 | FR-WKT-2 | `isolation=per-member` 로 Run 시작 | worktree N개. `git config branch.<b>.base` 기록. upstream 없음 |
@@ -708,7 +708,7 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 | TC-PRE-3 | FR-PRE-3 | 보고 시 `--outcome` 누락 | 사용법 오류(rc=2) |
 | TC-PRE-4 | FR-PRE-1/4 | 격리 Run 의 프리앰블 | worktree 경로·base 포함 |
 | TC-PRE-5 | FR-PRE-1 | 같은 멤버의 프리앰블 재조회 | 생성 시점과 **같은 텍스트**. brief 영속이 근거 |
-| TC-PRE-6 | FR-PRE-2 | 프리앰블의 모든 `dmctl` 예제 | 각 예제 **바로 윗줄**이 규칙 주석 |
+| TC-PRE-6 | FR-PRE-2 | 프리앰블의 모든 `otterctl` 예제 | 각 예제 **바로 윗줄**이 규칙 주석 |
 | TC-PRE-7 | FR-PRE-1 | 셸 메타문자를 담은 brief 로 기동줄 생성 | 셸이 프롬프트를 인자 1개로 파싱. 전개·실행 0건 |
 | TC-SKL-1 | FR-SKL-1 | `team` 실행 중 사용자 창 관찰 | 포커스·레이아웃 무변경. **브라우저에서** 활성 창을 읽어 단정한다 — 포커스는 클라이언트 상태라 워크스페이스 JSON 으로는 관측되지 않는다 |
 | TC-SKL-2 | FR-SKL-2 | 스킬 본문 검색 | `╭─`·`Thinking...`·`[대기]` fingerprint 0건. 수동 grep 이 아니라 `internal/runtime` 의 테스트가 임베드 트리를 검사한다 |
@@ -761,7 +761,7 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 | 문서 | 개정 | 반영 |
 |---|---|---|
 | `SKILL_INJECTION_SRS.md` §5 | 비목표 3건(에이전트 어댑터 레지스트리 · worktree 격리 · 태스크/Run 레코드)이 본 SRS 로 이관된다 | ✅ 셋 다 **해소** (worktree 는 묶음 W) |
-| `SKILL_INJECTION_SRS.md` FR-SK-3 · §2.7 | `build_prompt.py` 가 묶음 K 에서 삭제됐다 (`dmctl run launch` 가 대체) | ✅ |
+| `SKILL_INJECTION_SRS.md` FR-SK-3 · §2.7 | `build_prompt.py` 가 묶음 K 에서 삭제됐다 (`otterctl run launch` 가 대체) | ✅ |
 | `ENTITY_MODEL_RESTRUCTURE_SRS.md` FR-EM-18 | "이 필드를 읽는 동작을 추가하지 않는다"는 **해제**된다. 단 "없거나 비어 있어도 정상"은 NFR-RUN-3 으로 **유지** | ✅ |
 | `ENTITY_MODEL_RESTRUCTURE_SRS.md` §7 | Orca 대비표의 "fan-out → **비교** → 병합"과 "MIT 공개 소스"는 부정확하다. §2.5 가 정정한다 | ✅ |
 | `ENTITY_MODEL_HANDOFF.md` §4.3 | 같은 정정 (paseo 는 AGPL) | ✅ |
@@ -791,10 +791,10 @@ FR-SK-\*). 본 SRS 가 추가하는 명령들도 같은 규약을 따른다.
 | 일자 | 내용 |
 |---|---|
 | 2026-08-25 | 최초 작성. 1단계 심화 조사(orca MIT / paseo AGPL 실소스) 결과를 §2.5 에 반영, 착수 전 결정 D-A·D-C·D-D 확정 및 D-E 신설. 구현 미착수 |
-| 2026-08-25 | **묶음 R 구현 완료** — `internal/run` 저장소(`runs.json` 원자적 쓰기·epoch 펜싱·1:1 도구 결속·보고 권한·close 가드) + `/api/runs*` 5개 + `dmctl run start\|member\|report\|status\|close\|list`. FR-PRE-5/6/7(발신자 정체 기반 보고 권한·열거된 거부 사유·1회 보고)은 저장소와 분리할 수 없어 **묶음 P 보다 먼저** 여기서 닫혔다. FR-RUN-11a 로 close 의 도구 종료 책임을 조정자에게 옮겼다(위 개정 근거). FR-RUN-7 의 워크스페이스 표식은 **best-effort** 다 — 그 파일의 쓰기 주체는 브라우저이고 409 처리가 머지 없이 재PUT 이라(§2.4) 동시 편집에 지워질 수 있다. 소유권의 진실은 `runs.json` 이다(FR-RUN-10). Go 전량 통과, Playwright 182 통과 |
-| 2026-08-25 | **묶음 K 구현 완료** (`b3dc910`) — `team`·`workflow` 스킬을 Run 기반 전용 창 토폴로지로 재작성. `scripts/build_prompt.py` 와 `references/prompt.md` 삭제(`dmctl run launch` 가 대체), 화면 fingerprint·`sleep` 재확인 루프 전량 제거, 매핑표를 `dmctl run status` 로 이관. 절대 원칙이 4개에서 3개로 줄었다 — 전용 창이 기본이 되면서 포커스 방어 규칙 대부분이 **구조로 풀렸기** 때문이다. 정의서 형식과 렌더러 기본값은 건드리지 않았다(FR-SKL-4 주석). 검증은 세 층이다: `internal/runtime` 의 스킬 계약 테스트(fingerprint·삭제 자산 참조·손조립 기동줄·필수 절차 존재)와 e2e(TC-SKL-1/3), 그리고 실제 팀 1회. **검출기가 실제로 무는지 반증으로 확인했다** — fingerprint 주입 시 실패, `keepFocus` 제거 시 실패. e2e 를 쓰다 밟은 것: `/api/commands` 는 `{action, args:{…}}` 를 받는데 평평하게 보내면 `keepFocus` 가 조용히 유실돼 전용 창이 사용자 화면을 차지한다. Go 전량 통과, Playwright 184 통과 2회 |
-| 2026-08-25 | **§6 개정 전량 반영.** 지시만 있고 적용되지 않은 개정이 남지 않도록 대상 문서에 실제로 문장을 넣고, §6 표에 `반영` 열을 두어 상태를 명시했다 — `SKILL_INJECTION_SRS`(비목표 3건의 현재 상태 + `build_prompt.py` 삭제), `ENTITY_MODEL_RESTRUCTURE_SRS` FR-EM-18(읽기 금지 해제, NFR-RUN-3 유지), `WORKSPACE_IDENTITY_SRS` §5(`runs.json` 소비자 0 해소), archive 4건(`DONGMINAL_WORKFLOW_SKILL_SRS`·`UUID_IDENTITY_SRS`·`AGENT_ACTIVITY_PANEL_SRS`·`PANE_ATTENTION_NOTIFY_SRS`). 삭제된 자산(`build_prompt.py`·`references/prompt.md`)을 가리키는 문서는 전부 바로 옆에 후속 표식을 갖는다 |
-| 2026-08-25 | **묶음 P+A 구현 완료** — `internal/agentadapter` 신설(claude·codex 선언 + 훅 파서 + `LaunchLine`), `internal/run/preamble.go`(서버 조립), `GET /api/runs/preamble`, `dmctl run launch` / `run member --brief`. 착수 전 열려 있던 **프리앰블 조립 주체는 서버로 확정**했다(FR-PRE-1 주석에 근거 3개). 훅 파서 이동은 무동작 리팩터이며, 회귀 검출기인 `dmctl_activity_test.go` 를 **한 줄도 고치지 않고** 통과시키기 위해 옛 이름을 `_test.go` 스코프에서만 별칭으로 유지했다 — 프로덕션에 죽은 코드가 남지 않는다. `--brief` 를 Member 에 영속시켜 프리앰블을 **재조회 가능**하게 만들었다. 프롬프트 이스케이프를 큰따옴표+역슬래시에서 **홑따옴표 감싸기**로 바꿨고, 악성 brief(`$(...)`·백틱·`;`)로 실측해 셸이 인자 1개로 파싱하고 전개가 0건임을 확인했다. **FR-STA-4 2단계는 스펙에 남기고 구현만 보류**했다(사용자 확정) — 화면 패턴은 스테이터스라인 하나로 깨지며 FR-SKL-2 가 삭제하려는 fingerprint 와 같은 취약성이고, codex 패턴을 실측할 수 없어 추측을 코드에 넣지 않았다. Go 전량 통과, Playwright 183 통과 |
-| 2026-08-25 | **묶음 W 구현 완료** — `internal/worktree`(생성·제거·안전 가드·직렬화) + 서버 접합(`provisionRun`/`provisionMember`/`cleanupWorktrees`) + `dmctl run start --isolation\|--base` · `run close --keep-worktrees` + 스킬 §3.5. TC-WKT-1~9 를 RED 로 세운 뒤 구현했고, 파괴적 동작의 검출기 셋(dirty 보존·직렬화·격리 규칙)은 **반증으로 물리는지 확인했다** — `--force` 로 바꾸면 실패, 잠금을 빼면 실패, 스킬의 "격리 사유가 아니다"를 뒤집으면 실패. 구현 중 드러난 것: (1) **`short` 는 유일하지 않다** — uuid v7 의 앞 8자는 타임스탬프 상위 비트라 같은 기간의 Run 이 전부 겹친다. FR-WKT-3 을 `PathSlug`(앞 8 + 뒤 8)로 개정했고 회귀 테스트를 붙였다. (2) 격리 준비는 **레코드보다 먼저**여야 한다 — 경로가 uuid 파생이므로 id 를 먼저 정하고(`StartOptions.ID`/`MemberSpec.ID`), 생성이 실패하면 레코드가 아예 없어야 고아가 남지 않는다. (3) 정리 결과를 레코드에 영속해 `run status` 가 잔여물을 계속 말하게 했다. Go 전량 통과, Playwright 187 통과 2회 |
-| 2026-08-25 | **묶음 S 구현 완료** — `GET /api/tools/activity/{get,wait}` + `dmctl status` / `dmctl wait`. TC-STA-1~8 을 RED 로 세운 뒤 구현했고, e2e `skill-contract.spec.ts` 에 라이브 왕복 3건을 추가했다 (Go 전량 통과, Playwright 180 통과 2회 연속). FR-STA-4 2단계는 묶음 A 대기. 구현 중 발견해 고친 것: daemon 모드에서 liveness 확인이 데몬 RPC 라 매 tick 확인하면 30분 대기가 RPC 수만 건이 된다 → 상태 재평가 100ms / liveness 1초로 분리 (NFR-RUN-4) |
+| 2026-08-25 | **묶음 R 구현 완료** — `internal/run` 저장소(`runs.json` 원자적 쓰기·epoch 펜싱·1:1 도구 결속·보고 권한·close 가드) + `/api/runs*` 5개 + `otterctl run start\|member\|report\|status\|close\|list`. FR-PRE-5/6/7(발신자 정체 기반 보고 권한·열거된 거부 사유·1회 보고)은 저장소와 분리할 수 없어 **묶음 P 보다 먼저** 여기서 닫혔다. FR-RUN-11a 로 close 의 도구 종료 책임을 조정자에게 옮겼다(위 개정 근거). FR-RUN-7 의 워크스페이스 표식은 **best-effort** 다 — 그 파일의 쓰기 주체는 브라우저이고 409 처리가 머지 없이 재PUT 이라(§2.4) 동시 편집에 지워질 수 있다. 소유권의 진실은 `runs.json` 이다(FR-RUN-10). Go 전량 통과, Playwright 182 통과 |
+| 2026-08-25 | **묶음 K 구현 완료** (`b3dc910`) — `team`·`workflow` 스킬을 Run 기반 전용 창 토폴로지로 재작성. `scripts/build_prompt.py` 와 `references/prompt.md` 삭제(`otterctl run launch` 가 대체), 화면 fingerprint·`sleep` 재확인 루프 전량 제거, 매핑표를 `otterctl run status` 로 이관. 절대 원칙이 4개에서 3개로 줄었다 — 전용 창이 기본이 되면서 포커스 방어 규칙 대부분이 **구조로 풀렸기** 때문이다. 정의서 형식과 렌더러 기본값은 건드리지 않았다(FR-SKL-4 주석). 검증은 세 층이다: `internal/runtime` 의 스킬 계약 테스트(fingerprint·삭제 자산 참조·손조립 기동줄·필수 절차 존재)와 e2e(TC-SKL-1/3), 그리고 실제 팀 1회. **검출기가 실제로 무는지 반증으로 확인했다** — fingerprint 주입 시 실패, `keepFocus` 제거 시 실패. e2e 를 쓰다 밟은 것: `/api/commands` 는 `{action, args:{…}}` 를 받는데 평평하게 보내면 `keepFocus` 가 조용히 유실돼 전용 창이 사용자 화면을 차지한다. Go 전량 통과, Playwright 184 통과 2회 |
+| 2026-08-25 | **§6 개정 전량 반영.** 지시만 있고 적용되지 않은 개정이 남지 않도록 대상 문서에 실제로 문장을 넣고, §6 표에 `반영` 열을 두어 상태를 명시했다 — `SKILL_INJECTION_SRS`(비목표 3건의 현재 상태 + `build_prompt.py` 삭제), `ENTITY_MODEL_RESTRUCTURE_SRS` FR-EM-18(읽기 금지 해제, NFR-RUN-3 유지), `WORKSPACE_IDENTITY_SRS` §5(`runs.json` 소비자 0 해소), archive 4건(`OTTERMINAL_WORKFLOW_SKILL_SRS`·`UUID_IDENTITY_SRS`·`AGENT_ACTIVITY_PANEL_SRS`·`PANE_ATTENTION_NOTIFY_SRS`). 삭제된 자산(`build_prompt.py`·`references/prompt.md`)을 가리키는 문서는 전부 바로 옆에 후속 표식을 갖는다 |
+| 2026-08-25 | **묶음 P+A 구현 완료** — `internal/agentadapter` 신설(claude·codex 선언 + 훅 파서 + `LaunchLine`), `internal/run/preamble.go`(서버 조립), `GET /api/runs/preamble`, `otterctl run launch` / `run member --brief`. 착수 전 열려 있던 **프리앰블 조립 주체는 서버로 확정**했다(FR-PRE-1 주석에 근거 3개). 훅 파서 이동은 무동작 리팩터이며, 회귀 검출기인 `otterctl_activity_test.go` 를 **한 줄도 고치지 않고** 통과시키기 위해 옛 이름을 `_test.go` 스코프에서만 별칭으로 유지했다 — 프로덕션에 죽은 코드가 남지 않는다. `--brief` 를 Member 에 영속시켜 프리앰블을 **재조회 가능**하게 만들었다. 프롬프트 이스케이프를 큰따옴표+역슬래시에서 **홑따옴표 감싸기**로 바꿨고, 악성 brief(`$(...)`·백틱·`;`)로 실측해 셸이 인자 1개로 파싱하고 전개가 0건임을 확인했다. **FR-STA-4 2단계는 스펙에 남기고 구현만 보류**했다(사용자 확정) — 화면 패턴은 스테이터스라인 하나로 깨지며 FR-SKL-2 가 삭제하려는 fingerprint 와 같은 취약성이고, codex 패턴을 실측할 수 없어 추측을 코드에 넣지 않았다. Go 전량 통과, Playwright 183 통과 |
+| 2026-08-25 | **묶음 W 구현 완료** — `internal/worktree`(생성·제거·안전 가드·직렬화) + 서버 접합(`provisionRun`/`provisionMember`/`cleanupWorktrees`) + `otterctl run start --isolation\|--base` · `run close --keep-worktrees` + 스킬 §3.5. TC-WKT-1~9 를 RED 로 세운 뒤 구현했고, 파괴적 동작의 검출기 셋(dirty 보존·직렬화·격리 규칙)은 **반증으로 물리는지 확인했다** — `--force` 로 바꾸면 실패, 잠금을 빼면 실패, 스킬의 "격리 사유가 아니다"를 뒤집으면 실패. 구현 중 드러난 것: (1) **`short` 는 유일하지 않다** — uuid v7 의 앞 8자는 타임스탬프 상위 비트라 같은 기간의 Run 이 전부 겹친다. FR-WKT-3 을 `PathSlug`(앞 8 + 뒤 8)로 개정했고 회귀 테스트를 붙였다. (2) 격리 준비는 **레코드보다 먼저**여야 한다 — 경로가 uuid 파생이므로 id 를 먼저 정하고(`StartOptions.ID`/`MemberSpec.ID`), 생성이 실패하면 레코드가 아예 없어야 고아가 남지 않는다. (3) 정리 결과를 레코드에 영속해 `run status` 가 잔여물을 계속 말하게 했다. Go 전량 통과, Playwright 187 통과 2회 |
+| 2026-08-25 | **묶음 S 구현 완료** — `GET /api/tools/activity/{get,wait}` + `otterctl status` / `otterctl wait`. TC-STA-1~8 을 RED 로 세운 뒤 구현했고, e2e `skill-contract.spec.ts` 에 라이브 왕복 3건을 추가했다 (Go 전량 통과, Playwright 180 통과 2회 연속). FR-STA-4 2단계는 묶음 A 대기. 구현 중 발견해 고친 것: daemon 모드에서 liveness 확인이 데몬 RPC 라 매 tick 확인하면 30분 대기가 RPC 수만 건이 된다 → 상태 재평가 100ms / liveness 1초로 분리 (NFR-RUN-4) |
 | 2026-08-25 | **별건 정리 — FR-WKT-8a 신설.** epoch 펜싱으로 `aborted` 된 Run 의 worktree 에 정리 경로가 없던 구멍(묶음 W 인계)을 닫았다. `run close --force` 가 종료된 Run 에 대해 **정리 전용 진입**(sweep)으로 동작한다 — `state`·`closedAt`·`abortReason` 은 건드리지 않는다. `aborted` 가 `closed` 로 둔갑하면 왜 끝났는지 아는 유일한 근거가 사라지기 때문이다. 정리 규칙·안전 가드·잔여물 보고는 FR-WKT-8/9/10/12 를 그대로 쓴다. 멱등성은 `Record.WorktreeTargets` 가 이미 `removed` 인 트리를 제외하도록 해서 얻었다 — 사라진 경로를 다시 지우려 들면 **없던 잔여물**이 생긴다. `--force` 없는 종료 Run 의 close 는 종전대로 `run_closed` 거부이며, 열린 Run 에서의 `--force`(FR-RUN-11) 의미는 불변이다. TC-WKT-5a/5b/5c + dirty 보존 1건을 RED 로 세운 뒤 구현했다 (5b 는 처음부터 GREEN — 거부는 보존되어야 하는 동작이다) |

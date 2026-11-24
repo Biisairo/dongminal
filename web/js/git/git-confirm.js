@@ -1,5 +1,5 @@
 /**
- * Dongminal — 파괴적 동작의 확인 (GIT_SRS §3A.3 / FR-GIT-90~97·174~178,
+ * Otterminal — 파괴적 동작의 확인 (GIT_SRS §3A.3 / FR-GIT-90~97·174~178,
  * CONFIRM_ONE_STAGE_SRS 묶음 N)
  *
  * **한 화면이 두 가지를 함께 보인다** (FR-COS-2): 영향 범위 — 무엇이 몇 개

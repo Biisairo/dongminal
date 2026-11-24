@@ -1,5 +1,5 @@
 /**
- * Dongminal — 서버의 답을 컨트롤 상태로 (SERVER_DRIVEN_ACTIONS_SRS M-8).
+ * Otterminal — 서버의 답을 컨트롤 상태로 (SERVER_DRIVEN_ACTIONS_SRS M-8).
  *
  * 컨트롤을 켤지 끌지는 **서버의 답**과 **진행 중** 둘만으로 정한다 (FR-SDA-6·7).
  * 화면이 자기 규칙으로 판정하면 서버와 두 벌이 되고, 두 벌은 이미 어긋났다(SRS §2.1).

@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
-use dm_gocompat::json;
 use futures_util::future::BoxFuture;
+use otter_gocompat::json;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::{CancellationToken, WaitForCancellationFuture};
@@ -196,8 +196,8 @@ const DEFAULT_COMMAND_RESULT_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// long-poll 시한이다. 환경 변수로 바꿀 수 있다 (NFR-RCR-1).
 pub fn command_result_timeout() -> Duration {
-    dm_shared_dmenv::millis_env(
-        dm_shared_dmenv::ENV_CMD_RESULT_TIMEOUT_MS,
+    otter_shared_otterenv::millis_env(
+        otter_shared_otterenv::ENV_CMD_RESULT_TIMEOUT_MS,
         DEFAULT_COMMAND_RESULT_TIMEOUT,
         1,
     )
@@ -205,11 +205,11 @@ pub fn command_result_timeout() -> Duration {
 
 /// 1회성 상관 키다 (FR-UNI-14: 정규 uuid).
 pub fn new_req_id() -> String {
-    dm_shared_uuid::new_string()
+    otter_shared_uuid::new_string()
 }
 
 /// 구독당 미수신 본문 버퍼 크기다. 넘치면 그 구독을 닫는다 (FR-OPT-8-1, IPC-12).
-pub const CMD_SUB_QUEUE: usize = dm_shared_toolhub::TOOL_CAP;
+pub const CMD_SUB_QUEUE: usize = otter_shared_toolhub::TOOL_CAP;
 
 /// 동시에 붙는 SSE 구독 수의 상한이다 (04-secops P1-4).
 pub const SUB_CAP: usize = 64;
@@ -285,7 +285,7 @@ impl CommandBroker for CommandHub {
     fn add(&self) -> Option<Arc<CmdSub>> {
         let mut g = lock(&self.subs);
         if g.len() >= SUB_CAP {
-            dm_shared_dmlog::infof!(None, "[cmd] 구독 상한 초과로 거절한다 (cap={SUB_CAP})");
+            otter_shared_otterlog::infof!(None, "[cmd] 구독 상한 초과로 거절한다 (cap={SUB_CAP})");
             return None;
         }
         let s = CmdSub::new();
@@ -307,7 +307,7 @@ impl CommandBroker for CommandHub {
             if s.tx.try_send(payload.to_vec()).is_ok() {
                 n += 1;
             } else {
-                dm_shared_dmlog::infof!(
+                otter_shared_otterlog::infof!(
                     None,
                     "[cmd] 구독 큐({CMD_SUB_QUEUE})가 가득 차 구독을 닫는다 — 클라이언트가 재연결해 다시 받는다"
                 );

@@ -66,7 +66,7 @@ function makeConflict(base: string) {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-rtu-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-rtu-')));
   REPO = makeRepo(BASE);
   CONFLICT = makeConflict(BASE);
 });
@@ -800,7 +800,7 @@ test.describe('묶음 N — 좁은 폭에서도 누를 자리가 남는다', () 
  * 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
  */
 
-const B6FX = tmpPath('dm-b6-repo-tab-' + process.pid);
+const B6FX = tmpPath('otter-b6-repo-tab-' + process.pid);
 test.beforeAll(() => { gitFixture(B6FX) });
 test.afterAll(() => { cleanGitFixture(B6FX) });
 const copyFx = makeCopyFx(B6FX);

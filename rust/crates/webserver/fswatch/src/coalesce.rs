@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use dm_gocompat::filepath;
+use otter_gocompat::filepath;
 
 /// 병합한 뒤의 변화 종류.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

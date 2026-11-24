@@ -6,7 +6,7 @@ const DIR_PERM: u32 = 0o755;
 
 /// Go `os.MkdirAll(p, 0o755)`.
 pub(crate) fn mkdir_all(p: &str) -> io::Result<()> {
-    dm_gocompat::oserr::mkdir_all(p, DIR_PERM)
+    otter_gocompat::oserr::mkdir_all(p, DIR_PERM)
 }
 
 /// Go `os.UserHomeDir`.

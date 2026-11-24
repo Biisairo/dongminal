@@ -3,14 +3,14 @@
 use std::cell::Cell;
 use std::sync::Arc;
 
-use dm_shared_sandbox::{
+use http_body_util::BodyExt;
+use otter_shared_sandbox::{
     self as sandbox, DevConfig, Mount, PROFILE_DEV, ProfileInfo, RUNTIME_MISSING, RUNTIME_OK,
     RUNTIME_STOPPED, RunOutput, RuntimeStatus,
 };
-use dm_webserver_action::{self as action};
-use dm_webserver_apierr as apierr;
-use dm_webserver_hub::{CommandBroker, CommandHub};
-use http_body_util::BodyExt;
+use otter_webserver_action::{self as action};
+use otter_webserver_apierr as apierr;
+use otter_webserver_hub::{CommandBroker, CommandHub};
 
 use super::fakes::*;
 use super::support::*;
@@ -35,7 +35,7 @@ fn sbx_status(state: &str, goos: &str) -> RuntimeStatus {
     }
 }
 
-async fn read(res: dm_shared_httpresp::Response) -> (u16, http::HeaderMap, String) {
+async fn read(res: otter_shared_httpresp::Response) -> (u16, http::HeaderMap, String) {
     let status = res.status().as_u16();
     let headers = res.headers().clone();
     let b = res.into_body().collect().await.unwrap().to_bytes();
@@ -142,7 +142,7 @@ async fn start_rejects_with_answer() {
         let (status, headers, body) = read(write_sandbox_start(&st, &run)).await;
         assert_eq!(status, want.status);
         assert_eq!(
-            headers.get(dm_shared_httpresp::CODE_HEADER).unwrap(),
+            headers.get(otter_shared_httpresp::CODE_HEADER).unwrap(),
             want.why.as_str()
         );
         assert_eq!(body.trim(), want.why);
@@ -250,7 +250,7 @@ async fn config_unready_is_503() {
         let r = call(&s, m, "/api/sandbox/config", JSON, "{}", LOCAL).await;
         assert_eq!(r.status, 503, "{m}");
         assert_eq!(
-            r.header(dm_shared_httpresp::CODE_HEADER),
+            r.header(otter_shared_httpresp::CODE_HEADER),
             apierr::CODE_SANDBOX_UNREADY
         );
         assert_eq!(

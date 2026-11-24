@@ -5,8 +5,8 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use dm_webserver_domain_git_core::{self as core, Ctx, Kind};
-use dm_webserver_domain_git_store::{Observation, mark};
+use otter_webserver_domain_git_core::{self as core, Ctx, Kind};
+use otter_webserver_domain_git_store::{Observation, mark};
 use serde_json::{Value, json};
 
 use super::harness::*;

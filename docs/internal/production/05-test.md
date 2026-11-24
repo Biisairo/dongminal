@@ -3,7 +3,7 @@
 대상: `/Users/dykim/personal/dongminal` (HEAD `a312eee`, 작업 트리에 미커밋 변경 16파일)
 방식: read-only. 모든 수치는 이 감사에서 직접 실행한 명령의 출력이다.
 
-감사 시점에 **다른 세션의 e2e 전량 실행이 진행 중**이었다 (`pgrep`: pid 28900 `playwright/lib/common/process.js`, 28980 `/tmp/dongminal-e2e-1788952040926-78080/dongminal-e2e start --foreground`, 29003 데몬). 그 실행이 `test-results/` 를 20:07 에 새로 만들었으므로 지시에 언급된 3건의 실패 트레이스(git-stash 19단계 · git-view-refresh · history-branch-button)는 **이미 덮여 남아 있지 않았다.** 대신 14:10 에 저장된 `playwright-report/index.html`(임베디드 report.json)을 파싱해 직전 전량 실행의 결과를 썼다 (§4).
+감사 시점에 **다른 세션의 e2e 전량 실행이 진행 중**이었다 (`pgrep`: pid 28900 `playwright/lib/common/process.js`, 28980 `/tmp/otterminal-e2e-1788952040926-78080/otterminal-e2e start --foreground`, 29003 데몬). 그 실행이 `test-results/` 를 20:07 에 새로 만들었으므로 지시에 언급된 3건의 실패 트레이스(git-stash 19단계 · git-view-refresh · history-branch-button)는 **이미 덮여 남아 있지 않았다.** 대신 14:10 에 저장된 `playwright-report/index.html`(임베디드 report.json)을 파싱해 직전 전량 실행의 결과를 썼다 (§4).
 
 ---
 
@@ -37,7 +37,7 @@
 | | `internal/webserver/seam/adapters` | 46.2% |
 | | `internal/ctl/cli` (소스 2,950 LOC) | **31.5%** |
 | | `internal/shared/testpath` | 18.5% (테스트 보조 패키지) |
-| 테스트 0 | `cmd/dongminal` (600 LOC) · `internal/daemon/boot` (125) · `internal/webserver/httproute` (100) · `internal/webserver/seam/toolaccess` (92) · `internal/shared/listorder` (67) · `internal/shared/dmenv` (58) · `internal/shared/diagtail` (36) · `internal/shared/toolipc` (28) | 0% / no test files |
+| 테스트 0 | `cmd/otterminal` (600 LOC) · `internal/daemon/boot` (125) · `internal/webserver/httproute` (100) · `internal/webserver/seam/toolaccess` (92) · `internal/shared/listorder` (67) · `internal/shared/otterenv` (58) · `internal/shared/diagtail` (36) · `internal/shared/toolipc` (28) | 0% / no test files |
 
 측정 주의: 패키지 단위 `-cover` 는 교차 패키지 실행을 세지 않는다. `platform/pty_posix.go` 의 `Start/Read/Write/Kill/Terminate` 가 0% 로 나오지만(`cov-func.txt`) 실제로는 `toolhub` 의 PTY 테스트가 그 코드를 지난다. 진짜 미실행을 가르려면 `-coverpkg=./...` 로 재측정해야 한다.
 
@@ -66,7 +66,7 @@
 
 ### [P0] 데몬 재기동 복원 경로(세션 생존)가 어느 층에서도 검증되지 않는다
 - 위치: `internal/daemon/boot/boot.go:29-51` (`referencedTools`, `Run`, 테스트 0), `internal/shared/toolhub/persist.go:94` `LoadAll` 0%, `manager.go:436` `Restore` 0%, `daemon/ipc/paned.go:222` (Restore 호출), `httpapi/handlers_ws.go:149` `handleWSDaemon` 0%, `httpapi/server.go:219` `Run` 0%, `server.go:408` `StartGitWatch` 0%, `manager.go:187-202` `sweepIdle`/`StartAttentionSweeper` 0%
-- 현상: 데몬이 다시 뜰 때 `panes.json` → `LoadAll` → `Restore` 로 도구를 되살리는 사슬 전체가 단위·통합 테스트에 없다. CI 의 `dongminal verify`(`internal/ctl/cli/verify.go:197-246`, 22항목)는 **새 데몬을 띄워 왕복**만 본다 — 재기동·복원 항목이 없다. `daemon_integration_test.go` 는 `ipc.NewPanedServer` 를 직접 세워 `Create` 경로만 지난다.
+- 현상: 데몬이 다시 뜰 때 `panes.json` → `LoadAll` → `Restore` 로 도구를 되살리는 사슬 전체가 단위·통합 테스트에 없다. CI 의 `otterminal verify`(`internal/ctl/cli/verify.go:197-246`, 22항목)는 **새 데몬을 띄워 왕복**만 본다 — 재기동·복원 항목이 없다. `daemon_integration_test.go` 는 `ipc.NewPanedServer` 를 직접 세워 `Create` 경로만 지난다.
 - 왜 문제인가: 데몬 분리의 존재 이유가 "서버가 죽어도 셸 세션이 산다" 인데, 그 보장이 회귀해도 초록이다. `CROSS_PLATFORM_SRS §11.6` 이 실제로 데몬 모드에서만 나온 결함을 기록하고 있다.
 - 조치: (1) `persist_test.go` — `LoadAll` 이 참조되지 않은 도구를 거르고 `Restore` 를 부르는지(가짜 PTY 로), (2) `verify.go` 에 "서버 재기동 뒤 `/api/state` 에 같은 도구 id 가 남고 입출력이 왕복한다" 항목 추가(CI 3 OS 가 그대로 돈다). 규모 **M**.
 
@@ -82,7 +82,7 @@
 
 ### [P1] CI 단위 테스트가 `./web/...` 을 건너뛴다
 - 위치: `.github/workflows/verify.yml:53`, `release.yml:51` — `go test -race ./internal/... ./cmd/...`
-- 현상: `web/embed_test.go`(아이콘 임베드 누락 검사, FR-ICON-6) · `web/version_test.go` 는 로컬 `./...` 에서만 돈다(이번 측정에서 `dongminal/web 100.0%`).
+- 현상: `web/embed_test.go`(아이콘 임베드 누락 검사, FR-ICON-6) · `web/version_test.go` 는 로컬 `./...` 에서만 돈다(이번 측정에서 `otterminal/web 100.0%`).
 - 왜 문제인가: `go:embed` 패턴에서 자산이 빠지면 릴리스 바이너리가 아이콘 없이 나간다 — 정확히 그 검사가 CI 에 없다.
 - 조치: 두 워크플로우의 경로를 `./...` 로. 규모 **S**.
 
@@ -142,7 +142,7 @@
 1. **표 기반 테스트 비율 낮음** — `[]struct{` 24/314 파일, `t.Run` 161회. 대부분이 시나리오 하나짜리 함수. 규모 정보성.
 2. **저장소 픽스처 7벌** — `init -b main` + `config user.*` + 첫 커밋 블록이 `httpapi/handlers_fs_ignored_test.go:50`, `httpapi/handlers_runs_worktree_test.go:48`, `gitapi/handlers_git_worktree_test.go:53`, `domain/worktree/worktree_test.go:50`, `git/query/fixture_test.go:41`, `git/core/exec_test.go:46`, `git/write/fixture_test.go:44` 에 복제. 격리 자체는 좋다(`t.TempDir` 529회 vs `os.MkdirTemp` 1회 — `runtime/install_ephemeral_test.go:38` 은 `go-build*` 흉내라 의도적). `internal/shared/testpath` 가 이미 있으니 `gittest` 헬퍼 패키지로. 규모 S.
 3. **git 쓰기 도메인의 0% 함수** — `git/write/branch.go:444` `Merge`, `replay.go:27` `Replay`, `operation.go:64` `OperationActions`, `stage.go:42` `Unwrap`. `Merge` 는 `gitapi/handlers_git_branch_test.go:616` 이 가짜 실행기로 핸들러만 덮는다 — 실제 `git merge` 인자·충돌 종료 코드 분기는 미실행. `Replay` 는 기록 재실행(쓰기 재실행 포함) 인데 `rec.Cwd != repo` 거부 조건이 테스트에 없다. 규모 S.
-4. **호스트 셸 의존** — `toolhub` 의 셸 테스트가 `$SHELL` 을 그대로 쓴다(`platform/shell.go:142-145`), 조건부 `t.Skip` 110곳. zsh 호스트와 bash 러너가 다른 코드 경로를 지나고 결과가 "돈 항목 수" 로만 보인다(e2e 의 `parity-reporter` 같은 집계가 Go 쪽엔 없다). `DONGMINAL_SHELL` 이 이미 있으니(`shell.go:237`) 테스트에서 `t.Setenv` 로 고정. 규모 S.
+4. **호스트 셸 의존** — `toolhub` 의 셸 테스트가 `$SHELL` 을 그대로 쓴다(`platform/shell.go:142-145`), 조건부 `t.Skip` 110곳. zsh 호스트와 bash 러너가 다른 코드 경로를 지나고 결과가 "돈 항목 수" 로만 보인다(e2e 의 `parity-reporter` 같은 집계가 Go 쪽엔 없다). `OTTERMINAL_SHELL` 이 이미 있으니(`shell.go:237`) 테스트에서 `t.Setenv` 로 고정. 규모 S.
 5. **전역 훅 교체** — `attnNow = func()…` 를 6곳에서 교체·복원(`attention_*_test.go`). `t.Parallel()` 이 0이라 지금은 안전하지만 `-shuffle`/병렬 도입 시 첫 번째로 깨질 자리. `SetAttnBusyProbe` 처럼 restore 반환형으로 통일. 규모 S.
 
 ### 3.4 프론트엔드 단위 테스트 부재 (1건, 우선순위 포함)

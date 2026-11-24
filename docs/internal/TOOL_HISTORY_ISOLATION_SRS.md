@@ -17,9 +17,9 @@
 ### 1.2 범위 (Scope)
 
 - `internal/shared/toolhub/tool.go` — `StartTool` 의 환경 구성.
-- `internal/shared/dmenv/dmenv.go` — 새 환경변수 이름 상수.
+- `internal/shared/otterenv/otterenv.go` — 새 환경변수 이름 상수.
 - `internal/shared/runtime/shellhooks/posix/zdotdir/.zshrc` — HISTFILE 되살리기.
-- 신규 단위 테스트, `dongminal verify` 항목.
+- 신규 단위 테스트, `otterminal verify` 항목.
 
 비포함:
 - Windows(PowerShell·PSReadLine) 히스토리.
@@ -35,13 +35,13 @@
 - **시드(seed)**: 도구가 처음 생길 때 사용자 히스토리를 그 도구의 파일로 한 번
   복사하는 것. 이후 두 파일은 갈라진다.
 - **도구 홈**: 도구 셸이 `HOME` 으로 여기는 자리. 보통 사용자 홈이고, 격리
-  기동에서는 인스턴스 홈 아래의 `tool-home` 이다 (`dmenv.EnvToolHome`).
+  기동에서는 인스턴스 홈 아래의 `tool-home` 이다 (`otterenv.EnvToolHome`).
 
 ### 1.4 참조 (References)
 
 - `docs/internal/architecture.md` — 훅 설치와 `ZDOTDIR`/`BASH_ENV` 배선.
 - `docs/internal/CROSS_PLATFORM_SRS.md` §FR-XSH-6 — 셸 분기의 자리.
-- `internal/shared/dmenv/dmenv.go` — `EnvToolID`·`EnvHome`·`EnvToolHome` 의 계약과
+- `internal/shared/otterenv/otterenv.go` — `EnvToolID`·`EnvHome`·`EnvToolHome` 의 계약과
   `EnvToolHome` 이 이미 "검사 명령이 사용자 히스토리에 남는다"를 고친 전례.
 
 ## 2. 현재 상태 (조사로 확정한 사실)
@@ -98,7 +98,7 @@ cmd_from_B
 
 ### 2.6 도구 ID 는 이미 셸 환경에 있다
 
-`toolhub/tool.go:271` — `dmenv.EnvToolID + "=" + id` (`DONGMINAL_TOOL_ID`).
+`toolhub/tool.go:271` — `otterenv.EnvToolID + "=" + id` (`OTTERMINAL_TOOL_ID`).
 
 ### 2.7 bash 훅은 도구 셸에서 로드되지 않는다 (실측 — **해소됨**)
 
@@ -134,10 +134,10 @@ $ BASH_ENV=/tmp/bh_test.sh /bin/bash  -c 'echo MARK=$MARK'   → MARK=hooked
 | ID | 요구사항 | 우선순위 |
 |----|---------|---------|
 | FR-THI-1 | 도구 셸의 `HISTFILE` 은 도구마다 달라야 한다. 두 도구가 같은 파일을 쓰지 않는다 | 필수 |
-| FR-THI-2 | 경로는 `$DONGMINAL_HOME/tool-history/<toolID>.<shell>` 이다. `<shell>` 은 `zsh`·`bash` 등 셸 이름이며, 히스토리 형식이 셸마다 다르므로 이름에 담는다 | 필수 |
+| FR-THI-2 | 경로는 `$OTTERMINAL_HOME/tool-history/<toolID>.<shell>` 이다. `<shell>` 은 `zsh`·`bash` 등 셸 이름이며, 히스토리 형식이 셸마다 다르므로 이름에 담는다 | 필수 |
 | FR-THI-3 | 같은 ID 로 복원된 도구는 같은 파일을 다시 쓴다. 재기동 후 그 터미널은 **자기** 히스토리만 본다 | 필수 |
 | FR-THI-4 | 디렉터리는 `0700`, 파일은 `0600` 으로 만든다 | 필수 |
-| FR-THI-5 | 도구 ID 가 비어 있거나 `$DONGMINAL_HOME` 을 알 수 없으면 아무것도 주입하지 않는다(종전 동작으로 열화) | 필수 |
+| FR-THI-5 | 도구 ID 가 비어 있거나 `$OTTERMINAL_HOME` 을 알 수 없으면 아무것도 주입하지 않는다(종전 동작으로 열화) | 필수 |
 
 ### 3.2 묶음 B — 시드
 
@@ -153,9 +153,9 @@ $ BASH_ENV=/tmp/bh_test.sh /bin/bash  -c 'echo MARK=$MARK'   → MARK=hooked
 | ID | 요구사항 | 우선순위 |
 |----|---------|---------|
 | FR-THI-20 | 경로 결정과 시드는 **Go 한 곳**(`StartTool`)에서 한다. 셸 스크립트는 값을 만들지 않는다 | 필수 |
-| FR-THI-21 | `StartTool` 은 `HISTFILE=<경로>` 와 `DONGMINAL_HISTFILE=<경로>` 를 함께 심는다. 앞의 것은 셸이 직접 쓰는 값이고, 뒤의 것은 rc 가 덮인 뒤 되살릴 때 쓰는 원본이다 | 필수 |
-| FR-THI-22 | 새 환경변수 이름은 `dmenv` 상수로 둔다 (`EnvHistFile`). 이름을 두 벌로 적지 않는다 | 필수 |
-| FR-THI-23 | `zdotdir/.zshrc` 는 사용자 `.zshrc` 를 source 한 **뒤에** `export HISTFILE="${DONGMINAL_HISTFILE:-$HISTFILE}"` 로 되살린다. `/etc/zshrc` 와 사용자 rc 가 모두 지나간 자리여야 한다 | 필수 |
+| FR-THI-21 | `StartTool` 은 `HISTFILE=<경로>` 와 `OTTERMINAL_HISTFILE=<경로>` 를 함께 심는다. 앞의 것은 셸이 직접 쓰는 값이고, 뒤의 것은 rc 가 덮인 뒤 되살릴 때 쓰는 원본이다 | 필수 |
+| FR-THI-22 | 새 환경변수 이름은 `otterenv` 상수로 둔다 (`EnvHistFile`). 이름을 두 벌로 적지 않는다 | 필수 |
+| FR-THI-23 | `zdotdir/.zshrc` 는 사용자 `.zshrc` 를 source 한 **뒤에** `export HISTFILE="${OTTERMINAL_HISTFILE:-$HISTFILE}"` 로 되살린다. `/etc/zshrc` 와 사용자 rc 가 모두 지나간 자리여야 한다 | 필수 |
 | FR-THI-24 | bash 는 프로세스 환경 상속에만 의존한다. `bash-hook.sh` 는 이 목적으로 수정하지 않는다 — §2.7 에 따라 로드되지 않기 때문이다 | 필수 |
 | FR-THI-25 | `HISTSIZE`·`SAVEHIST`·`APPEND_HISTORY` 등 다른 히스토리 설정은 건드리지 않는다. 사용자의 설정이 그대로 적용된다 | 필수 |
 
@@ -178,8 +178,8 @@ $ BASH_ENV=/tmp/bh_test.sh /bin/bash  -c 'echo MARK=$MARK'   → MARK=hooked
 - **D-3. 되살리는 자리는 사용자 rc 이후다.** 지금처럼 앞에 두면 사용자 rc 가
   이길 수 있다. 뒤에 두면 도구 히스토리 격리가 사용자 설정보다 우선하는데, 이는
   의도한 것이다 — 격리가 깨지면 이 작업 전체가 무의미해진다.
-- **D-4. 파일 자리는 `$DONGMINAL_HOME/tool-history/` 다.** `tools.json` 과 같은
-  인스턴스 자산이고, 격리 기동은 `$DONGMINAL_HOME` 자체가 격리 홈이라 별도 분기
+- **D-4. 파일 자리는 `$OTTERMINAL_HOME/tool-history/` 다.** `tools.json` 과 같은
+  인스턴스 자산이고, 격리 기동은 `$OTTERMINAL_HOME` 자체가 격리 홈이라 별도 분기
   없이 함께 격리된다. 사용자 홈에 새 디렉터리를 만들지 않는다.
 - **D-5. 시드 원본을 도구 홈 기준으로 잡는다.** `EnvToolHome` 이 설정된 격리
   기동에서는 그 자리에 히스토리가 없으므로 복사가 자연히 일어나지 않는다. "격리면
@@ -245,5 +245,5 @@ $ BASH_ENV=/tmp/bh_test.sh /bin/bash  -c 'echo MARK=$MARK'   → MARK=hooked
 | R-THI-1 | 사용자 rc 가 `HISTFILE` 을 설정하는 bash 환경에서는 격리가 무효다 (bash 는 rc 이후에 되살릴 자리가 없다) | MEDIUM | 알려진 한계로 문서화. 근본 해결은 D-8 의 별도 작업 |
 | R-THI-2 | 시드 복사가 큰 히스토리(수 MB)를 도구마다 복제해 디스크를 먹는다 | LOW | `SAVEHIST` 가 파일을 제한한다. 필요하면 복사 상한(예: 뒤에서 N줄)을 두는 것을 후속으로 |
 | R-THI-3 | 기존 사용자에게는 **첫 실행에서 모든 도구가 같은 시드를 받는다** — 그 시점의 통합 히스토리가 각 도구의 출발점이 된다 | LOW | 의도된 동작이다. 그 이후로는 갈라진다. 릴리스 노트에 적는다 |
-| R-THI-4 | `$DONGMINAL_HOME` 이 네트워크 볼륨이면 히스토리 쓰기가 느려질 수 있다 | LOW | 종전에도 `tools.json` 이 같은 자리에 있었다 |
+| R-THI-4 | `$OTTERMINAL_HOME` 이 네트워크 볼륨이면 히스토리 쓰기가 느려질 수 있다 | LOW | 종전에도 `tools.json` 이 같은 자리에 있었다 |
 | R-THI-5 | zdotdir 의 되살리기 줄이 사용자 rc 의 `setopt` 뒤에 놓이면서 순서 의존이 생긴다 | LOW | 되살리기는 변수 대입뿐이며 옵션을 건드리지 않는다(FR-THI-25) |

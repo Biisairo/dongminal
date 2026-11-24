@@ -63,12 +63,12 @@
 
 | 에이전트 | 활동(상태) | 알람 |
 |---|---|---|
-| claude | `hooks.json` 의 9개 훅 → `dmctl activity claude` | **같은 파일**의 `Stop`·`Notification` 에 **따로** `dmctl notify done`/`waiting` (`install.go:435-436`) |
-| codex | `dmctl notify codex` **안에서** `reportCodexActivity` 가 역방향으로 파생 (`dmctl_activity.go:221`) | `dmctl notify codex` |
-| omp | shim → `dmctl activity omp` (`install_omp.go`) | **없다** |
+| claude | `hooks.json` 의 9개 훅 → `otterctl activity claude` | **같은 파일**의 `Stop`·`Notification` 에 **따로** `otterctl notify done`/`waiting` (`install.go:435-436`) |
+| codex | `otterctl notify codex` **안에서** `reportCodexActivity` 가 역방향으로 파생 (`otterctl_activity.go:221`) | `otterctl notify codex` |
+| omp | shim → `otterctl activity omp` (`install_omp.go`) | **없다** |
 
-**omp 의 알람이 울리지 않는 이유가 이것이다.** shim 은 `dmctl activity omp` 만
-부르고 `dmctl notify` 를 한 번도 보내지 않는다.
+**omp 의 알람이 울리지 않는 이유가 이것이다.** shim 은 `otterctl activity omp` 만
+부르고 `otterctl notify` 를 한 번도 보내지 않는다.
 
 ### 2.2 판정부는 이미 에이전트 중립이다
 
@@ -86,7 +86,7 @@ claude 의 `HookParse` 는 이미 알람에 필요한 것을 전부 낸다 (`cla
 - `Notification` → `waiting`
 - `Stop` → `done`
 
-그러므로 `Stop`·`Notification` 에 걸린 `dmctl notify` 는 활동 보고가 이미 말한
+그러므로 `Stop`·`Notification` 에 걸린 `otterctl notify` 는 활동 보고가 이미 말한
 것을 **한 번 더** 말한다.
 
 ### 2.4 알람 규칙은 **턴 출처 이벤트가 없는 에이전트를 침묵시킨다**
@@ -150,7 +150,7 @@ codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-
 ### 3.2 묶음 A — 알람을 활동 이벤트에서 파생한다
 
 **FR-AEV-10** 활동 보고가 `done` 또는 `waiting` 이면 **그 자리에서** 알람 판정을
-지난다. 별도의 `dmctl notify` 배선을 요구하지 않는다. 활동을 보고할 수 있는
+지난다. 별도의 `otterctl notify` 배선을 요구하지 않는다. 활동을 보고할 수 있는
 에이전트는 **누구나** 알람을 얻는다.
 
 **FR-AEV-11** 판정은 `AgentTurn.AllowSignal` 그대로다. `FR-ATN-4`·`6`·`15` 의
@@ -199,14 +199,14 @@ codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-
 **FR-AEV-20** claude 의 `hooks.json` 에서 `notify` 배선을 **뺀다.** `Stop`·
 `Notification` 은 활동 훅만 남는다 (§2.3 — 중복이었다).
 
-  - 이전 동작: `Stop` → `dmctl notify done` + `dmctl activity claude`
-  - 새  동작: `Stop` → `dmctl activity claude`
+  - 이전 동작: `Stop` → `otterctl notify done` + `otterctl activity claude`
+  - 새  동작: `Stop` → `otterctl activity claude`
   - 이유: 같은 사실을 두 번 말한다. 두 명령의 도착 순서가 보장되지 않는 것이
     `FR-ATN-8` 이 경합을 피해 규칙을 비튼 이유였는데, 명령이 하나가 되면 그
     경합 자체가 사라진다
 
 **FR-AEV-21** codex 의 기동줄(`-c notify=[...]`)은 **이번에 바꾸지 않는다**
-(§6 비목표 2). codex 의 알람은 종전대로 `dmctl notify codex` 가 낸다.
+(§6 비목표 2). codex 의 알람은 종전대로 `otterctl notify codex` 가 낸다.
 
 **그리고 `reportCodexActivity` 의 활동 보고는 `agent` id 를 싣지 않는다.**
 
@@ -236,7 +236,7 @@ codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-
     참으로 만든다. 근거가 경합에서 **순환 방지**로 바뀐다
 
 **FR-AEV-31** `FR-ATN-12`("`done`·`waiting` 이 **아닌** 라벨은 무조건 알람")는
-**그대로다.** 사람이 직접 부르는 `dmctl notify`·OSC 감지의 규약이며 이 문서가
+**그대로다.** 사람이 직접 부르는 `otterctl notify`·OSC 감지의 규약이며 이 문서가
 건드리지 않는다.
 
 ### 3.5 비기능
@@ -251,7 +251,7 @@ codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-
 
 ## 4. 설계 결정 (Design Decisions)
 
-- **D-1. 파생의 자리는 서버다.** `dmctl` 이 알람을 한 번 더 POST 하게 하면 왕복이
+- **D-1. 파생의 자리는 서버다.** `otterctl` 이 알람을 한 번 더 POST 하게 하면 왕복이
   늘고, 두 요청의 순서가 다시 문제가 된다. 서버의 활동 수신부에서 파생하면 한
   요청 안에서 순서가 확정되고, 직접·데몬 두 모드가 같은 자리를 지난다
   (`FR-AEV-14`).
@@ -259,7 +259,7 @@ codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-
   이름은 에이전트마다 다르고 그것을 아는 것은 `HookParse` 의 일이다. 선언이
   말하는 것은 **"이 에이전트가 그 신호를 낼 수 있는가"** 하나다.
 - **D-3. codex 를 이번에 옮기지 않는다.** codex 의 훅은 페이로드를 **argv** 로
-  준다 — `dmctl activity` 는 stdin 을 읽는다. 옮기려면 `dmctl activity` 의 입력
+  준다 — `otterctl activity` 는 stdin 을 읽는다. 옮기려면 `otterctl activity` 의 입력
   계약을 넓혀야 하고, 그것은 이 문서가 고치려는 문제와 다른 일이다. `FR-AEV-12`
   가 codex 를 **규칙 안으로** 들이는 것으로 충분하다.
 - **D-4. `waiting` 이 없는 에이전트를 위해 무엇도 지어내지 않는다.** omp 의 승인
@@ -299,7 +299,7 @@ codex 에는 그 이벤트가 **없다** — codex 의 표준 notify 는 `agent-
 2. **codex 기동줄의 이관** (D-3). `-c notify=[...]` 는 그대로 둔다.
 3. **omp 의 승인 대기 관측.** omp 의 훅 표면에 그 이벤트가 없다 (D-4). omp 에
    승인 게이트 이벤트가 생기면 `Signals.Waiting` 을 참으로 바꾸는 한 줄이다.
-4. **L2 idle 알람·OSC 감지·`dmctl notify` 의 사람용 규약** (`FR-AEV-31`).
+4. **L2 idle 알람·OSC 감지·`otterctl notify` 의 사람용 규약** (`FR-AEV-31`).
 5. **`Adapter` 를 Go `interface` 로 바꾸는 것.** `Adapter` 는 이미 에이전트별
    구현을 한 타입 뒤에 두는 추상화이고, `HookParse` 가 그 구현부다. 타입 종류를
    바꾸는 것은 동작을 하나도 바꾸지 않으면서 호출부 전부를 건드린다.

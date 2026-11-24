@@ -5,7 +5,7 @@
 
 use std::sync::LazyLock;
 
-use dm_shared_settingsschema::{self as settingsschema, Spec};
+use otter_shared_settingsschema::{self as settingsschema, Spec};
 use serde_json::{Map, Value};
 
 /// 이 스위치의 설정 키다 (Settings ▸ Terminal).
@@ -71,7 +71,7 @@ pub(crate) fn agent_render_env(blob: &[u8]) -> Vec<String> {
     let mut on = *FULLSCREEN_DEFAULT;
     let mut m: Option<Map<String, Value>> = None;
     if !blob.is_empty() {
-        match dm_gocompat::json::unmarshal::<Value>(blob) {
+        match otter_gocompat::json::unmarshal::<Value>(blob) {
             Ok(Value::Object(obj)) => {
                 if let Some(v) = obj.get(AGENT_RENDER_ENV_KEY).and_then(Value::as_bool) {
                     on = v;

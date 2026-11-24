@@ -7,13 +7,13 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use dm_shared_httpresp::Response;
-use dm_webserver_apierr::{self as apierr, Classify, Sentinel};
-use dm_webserver_domain_git_core::{Ctx, Kind, Service};
-use dm_webserver_domain_git_jobs::Job;
-use dm_webserver_domain_git_query as query;
-use dm_webserver_domain_git_write::{self as write, CommitOpts, ResolveResult};
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_apierr::{self as apierr, Classify, Sentinel};
+use otter_webserver_domain_git_core::{Ctx, Kind, Service};
+use otter_webserver_domain_git_jobs::Job;
+use otter_webserver_domain_git_query as query;
+use otter_webserver_domain_git_write::{self as write, CommitOpts, ResolveResult};
 use serde::Deserialize;
 
 use crate::GitServer;
@@ -265,7 +265,7 @@ impl GitServer {
         });
         let undo = Arc::clone(&self.undo);
         let svc = Arc::clone(git.service());
-        let finish: dm_webserver_domain_git_jobs::Finisher =
+        let finish: otter_webserver_domain_git_jobs::Finisher =
             Box::new(move |ctx: Ctx, jb: Job| Box::pin(issue_undo(svc, undo, root, ctx, jb)));
         t.start_write_job(spec, before, Some(finish), None).await;
         t.finish()
@@ -421,7 +421,7 @@ impl UndoStore {
         let mut u = self.lock();
         let now = u.clock();
         u.tickets.retain(|_, t| now < t.expires);
-        let token = dm_shared_uuid::new_string();
+        let token = otter_shared_uuid::new_string();
         u.tickets.insert(
             repo.to_owned(),
             UndoTicket {

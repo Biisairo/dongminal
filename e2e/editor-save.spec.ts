@@ -15,7 +15,7 @@ import { Page } from '@playwright/test';
 import { test, expect, waitForInit } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
-const ROOT = tmpPath('dm-esv-' + process.pid);
+const ROOT = tmpPath('otter-esv-' + process.pid);
 // OPTIMIZE_REFACTOR_SRS FR-OPT-15-2: 1 MiB(종전 저장 본문 상한)를 넘는 파일. 줄 하나가
 // 64 바이트이므로 5 MiB 에 딱 맞는다.
 const BIG_LINE = 'x'.repeat(63) + '\n';

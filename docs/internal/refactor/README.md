@@ -62,7 +62,7 @@
 | `failRead` (본문 읽기 실패 코드) | 1곳 | **6곳**이 언제나 `body_too_large` 를 낸다 |
 | `t()` (i18n) | 958키 | 영문 리터럴 **113개**가 카탈로그 밖 |
 | `timer-hub` | 다수 | 직접 `setTimeout` 하는 자리 |
-| `dmenv.DialHost` | `start` | `dmctl`·`health`·`doctor` 가 각자 |
+| `otterenv.DialHost` | `start` | `otterctl`·`health`·`doctor` 가 각자 |
 | `reconcileList` | 11곳 | `innerHTML=''` 전량 재생성 **6곳** |
 | `homeLayout()` ("전수 목록") | — | `git-worktrees/`·`ext/`·`worktrees/` 누락 |
 
@@ -198,7 +198,7 @@ Go 쪽의 진짜 결함이 모인 곳이다.
 | **B2-K** | **키보드 도달** — git 뷰 8개 · 스크롤 표면 47개. `tabindex` 는 여기로 옮겼다 (사용자 결정 2026-09-20, D-KIT-8): 결손이 git 에만 있지 않고, `FR-A11Y-16` 이 도달 대상을 **손으로 열거**하는 것이 근본 원인이다 | `AUDIT-fe-ui.md` H-5 | MED | **별도 작업** |
 | **B3** | **킷에 없는 컴포넌트 8종을 세우고 옮긴다** — `.ui-key`·`.ui-switch`·`.ui-section-head`·`.ui-segment`·`.ui-notice`·`.ui-empty`·`.ui-split`·`.ui-badge` + 넘침 페이드 · 모달 chrome | uiux §1·§4 | MED | **끝났다** (`KIT_COMPONENTS_SRS`) |
 | **B4** | **말을 고친다** — 낱말 통일, 영문 리터럴, 조사 헬퍼, 존댓말 등급, 색 위반 25건. **B3 이 넘긴 둘**: 머리글의 낱말 통일(`STAGED`→`스테이지됨` 류 — B3 은 대소문자만 고쳤다) · `300개 로드`→상태로 읽히는 말 (FR-CMP-85) | uiux §2 · design | LOW | **끝났다** (`WORDING_COLOR_SRS`) |
-| **B5** | **구조 정리** — 클립보드 한 자리 · 겨냥 4계층 · 홈 전수 목록 · 기본 로그 경로 · 모듈 크기 게이트와 `renderer.js` 분할 | 각 보고서 | MED | **끝났다** (`STRUCTURE_CLEANUP_SRS`). **§2 의 표에서 셋을 정정했다** — ① 클립보드 헬퍼는 **없지 않았다**(`term-clipboard.js` 의 3단이 2026-09-15 에 섰고 사본은 둘이 아니라 넷) ② `dmenv.DialHost` 행의 실체는 **4계층을 안 지키는 겨누는 명령 다섯**이고, `server.json` 한 줄이 `stop` 으로 하여금 남의 프로세스를 죽이게 했다 ③ `homeLayout()` 누락은 셋이 아니라 **열하나**다. `reconcileList` 행은 **B6 으로 넘겼다** (D-STR-6 — §4.1 항목 6 이 측정 방법까지 못박은 성능 항목이라 이주와 측정이 같은 변경이어야 한다) |
+| **B5** | **구조 정리** — 클립보드 한 자리 · 겨냥 4계층 · 홈 전수 목록 · 기본 로그 경로 · 모듈 크기 게이트와 `renderer.js` 분할 | 각 보고서 | MED | **끝났다** (`STRUCTURE_CLEANUP_SRS`). **§2 의 표에서 셋을 정정했다** — ① 클립보드 헬퍼는 **없지 않았다**(`term-clipboard.js` 의 3단이 2026-09-15 에 섰고 사본은 둘이 아니라 넷) ② `otterenv.DialHost` 행의 실체는 **4계층을 안 지키는 겨누는 명령 다섯**이고, `server.json` 한 줄이 `stop` 으로 하여금 남의 프로세스를 죽이게 했다 ③ `homeLayout()` 누락은 셋이 아니라 **열하나**다. `reconcileList` 행은 **B6 으로 넘겼다** (D-STR-6 — §4.1 항목 6 이 측정 방법까지 못박은 성능 항목이라 이주와 측정이 같은 변경이어야 한다) |
 | **B6** | **성능 한 묶음** — §4.1 의 15건, 전후 측정과 함께 | §4 | MED | **끝났다** (`PERFORMANCE_HARDENING_SRS`). 열다섯 중 **열셋을 고치고 둘은 재고 고치지 않았다** — 항목 3(`render()` 합치기)은 합칠 중복이 없었고(동작당 1회 · 유휴 0회 · 부팅 1회), 항목 12(`refsTree` mtime 게이트)는 그 게이트가 `shape` 가 존재하는 이유를 되돌린다. **§4.1 의 측정 열을 다섯 자리에서 바꿨다** — 힙 스냅샷·Layout 이벤트 수·벽시계는 같은 커밋을 두 번 재면 다른 답을 내므로 셀 수 있는 모양으로 다시 물었다 (D-PRF-1). 게이트 3종 신설 (`check-repaint`·`check-observer`·`check-css-animation`) |
 | **B7** | **문서 동기화** — 상태 라벨 5건, 낡은 문서 6건(실측 **7**), 결정 색인 누락, 레이아웃 기준선 드리프트, 홈 표 대조, `homeEntry.Backup` 가르기 | §5 | LOW | **끝났다** (`DOC_SYNC_SRS`). 여섯 항목 전부. **인계서의 수 하나가 또 표본이었다** — 결정 색인이 놓치던 것은 *"B2·B3·B4 의 결정"*(≈26)이 아니라 **49개 문서의 358건**이다(609 → 967). 대부분은 문서가 아니라 **검사를 고치는 일**이었다: 게이트 2종 신설(`check-srs-progress`·`check-settings-docs`), `check-home-layout` 에 세 번째 집합, `V-LAY-1` 에 드리프트 계수 |
 
@@ -292,7 +292,7 @@ CI 가 그것을 돈다. 로컬에서 그 한 칸은 **재지 않은 것**이지
 - **`AUDIT-docs-gap` M6·M7** (CHANGELOG·커밋 메시지의 FR 추적) — 규약을 바꾸는
   일이고 `commit-msg` 훅은 사람의 작업 흐름을 바꾼다. **사용자 결정이 필요하다**
 - **빈 상태의 주동작**이 하나도 없다 (FR-CMP-62 대로 선택이므로 미달은 아니다)
-- **`dmctl`(헬퍼)은 여전히 3계층이다** (D-STR-3). 계층을 주려면 `serverconf` 가
+- **`otterctl`(헬퍼)은 여전히 3계층이다** (D-STR-3). 계층을 주려면 `serverconf` 가
   `shared` 로 가야 한다
 - **`stop --all` 의 "정지 실패" 오보** — 1회 관찰, 3회 재현 실패.
   `AUDIT-go-infra.md` 부록에 조건·가설만 있다. **확인 전에는 고치지 마라**

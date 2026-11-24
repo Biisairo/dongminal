@@ -63,7 +63,7 @@ test.describe('CodeMirror 벤더 묶음 (M1)', () => {
 
 // NFR-CMR-3 — 10,000줄 TypeScript 를 열어 첫 화면이 그려지기까지 300ms 이하 (언어 청크가 캐시된 상태, 로컬 Chromium).
 // 재는 구간: `edOpenFile` 부터 그 칸이 첫 줄을 그리고 언어가 붙은 뒤의 다음 프레임까지. 파일 읽기 요청도 든다.
-const NFR3_ROOT = tmpPath('dm-cm-nfr3-' + process.pid);
+const NFR3_ROOT = tmpPath('otter-cm-nfr3-' + process.pid);
 const NFR3_LINES = 10_000;
 const NFR3_MAX_MS = 300;
 

@@ -269,8 +269,8 @@ fn invalid_value_messages_match_go() {
 #[tokio::test]
 async fn api_round_trip_and_broadcast() {
     let d = tempfile::tempdir().unwrap();
-    let hub = dm_webserver_hub::CommandHub::new();
-    let sub = dm_webserver_hub::CommandBroker::add(&*hub).unwrap();
+    let hub = otter_webserver_hub::CommandHub::new();
+    let sub = otter_webserver_hub::CommandBroker::add(&*hub).unwrap();
     let srv = server(
         d.path(),
         Deps {
@@ -627,7 +627,7 @@ fn check_save_table() {
         let a = st.check_save(&c, &parse_addr(you).unwrap()).unwrap();
         assert_eq!(a.ok, ok, "{you} {c:?}");
         if !ok {
-            let j = dm_gocompat::json::marshal(&a).unwrap();
+            let j = otter_gocompat::json::marshal(&a).unwrap();
             let want = format!(
                 r#"{{"ok":false,"why":"locks_you_out","args":{{"you":"{}"}}}}"#,
                 parse_addr(you).unwrap().unmap()
@@ -734,7 +734,7 @@ fn denied(remote: &str, h: &[(&str, &str)]) -> (u16, http::HeaderMap, String) {
     (status, headers, body)
 }
 
-fn futures_body(res: dm_shared_httpresp::Response) -> String {
+fn futures_body(res: otter_shared_httpresp::Response) -> String {
     use http_body_util::BodyExt;
     let rt = tokio::runtime::Builder::new_current_thread()
         .build()
@@ -771,7 +771,7 @@ fn denied_page_matches_go_bytes() {
     let html = crate::access_denied::denied_page_html("1.2.3.4<&>");
     assert!(html.starts_with("<!DOCTYPE html>\n<meta charset=\"utf-8\">\n"));
     assert!(html.contains("<div class=\"ip\">1.2.3.4&lt;&amp;&gt;</div>"));
-    assert!(html.ends_with("    DONGMINAL\n  </div>\n</div>\n"));
+    assert!(html.ends_with("    OTTERMINAL\n  </div>\n</div>\n"));
     assert!(crate::access_denied::denied_page_html("  ").contains("(알 수 없음)"));
 }
 

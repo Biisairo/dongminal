@@ -3,9 +3,9 @@ use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use dm_gocompat::filepath;
-use dm_shared_gittest as gittest;
-use dm_webserver_domain_git_core::{self as core, Ctx, Output, Service as GitService};
+use otter_gocompat::filepath;
+use otter_shared_gittest as gittest;
+use otter_webserver_domain_git_core::{self as core, Ctx, Output, Service as GitService};
 
 use crate::manager::check_abs_path;
 use crate::naming::valid_ref;
@@ -306,7 +306,7 @@ fn valid_ref_superset_of_check_ref_arg() {
         valid_ref("a b").unwrap_err().to_string(),
         "unsafe_argument: ref 에 쓸 수 없는 문자: \"a b\""
     );
-    for v in ["main", "feat/x", "v1.2", "dmn/run1234/a"] {
+    for v in ["main", "feat/x", "v1.2", "otter/run1234/a"] {
         valid_ref(v).unwrap();
         core::check_ref_arg("ref", v).unwrap();
     }
@@ -398,7 +398,7 @@ async fn create_lock_key_is_common_dir() {
                 }
                 Ok(String::new())
             }));
-    let mut sp = spec(&m, &abs_repo(), "a", "dmn/r/a", "main");
+    let mut sp = spec(&m, &abs_repo(), "a", "otter/r/a", "main");
     sp.lock_key = key;
     assert!(m.create(&ctx(), &sp).await.unwrap_err().is(Kind::RepoBusy));
     assert_eq!(adds.load(Ordering::SeqCst), 0);
@@ -510,7 +510,7 @@ async fn create_no_track_and_records_base() {
     let Some(r) = temp_repo() else { return };
     let repo = s(r.path());
     let e = temp_manager();
-    let sp = create_tree(&e.m, &repo, "mem5678", "dmn/run1234/writer", "main").await;
+    let sp = create_tree(&e.m, &repo, "mem5678", "otter/run1234/writer", "main").await;
     assert_eq!(
         git(&sp.path, &["rev-parse", "--abbrev-ref", "HEAD"]),
         sp.branch
@@ -518,7 +518,7 @@ async fn create_no_track_and_records_base() {
     assert_eq!(
         git(
             &repo,
-            &["config", "--get", "branch.dmn/run1234/writer.base"]
+            &["config", "--get", "branch.otter/run1234/writer.base"]
         ),
         "main"
     );
@@ -543,19 +543,25 @@ fn path_and_branch_derive_from_identifiers() {
     let a = e.m.path("run1111", "mem1111");
     assert_ne!(a, e.m.path("run2222", "mem1111"));
     assert!(a.starts_with(e.m.root()));
-    assert_eq!(branch("run1111", "작가", "mem1111"), "dmn/run1111/mem1111");
+    assert_eq!(
+        branch("run1111", "작가", "mem1111"),
+        "otter/run1111/mem1111"
+    );
     assert_eq!(
         branch("run1111", "Writer 2", "mem1111"),
-        "dmn/run1111/Writer-2"
+        "otter/run1111/Writer-2"
     );
     assert!(!branch("run1111", "--force", "mem1111").contains("/-"));
-    assert_eq!(branch("", "", ""), "dmn/run/member");
+    assert_eq!(branch("", "", ""), "otter/run/member");
     assert_eq!(
         e.m.path("", "-"),
         filepath::join(&[e.m.root(), "run", "member"])
     );
     let long = "a".repeat(39) + "-b";
-    assert_eq!(branch("r", &long, ""), format!("dmn/r/{}", "a".repeat(39)));
+    assert_eq!(
+        branch("r", &long, ""),
+        format!("otter/r/{}", "a".repeat(39))
+    );
 }
 
 #[tokio::test]
@@ -565,7 +571,7 @@ async fn create_rejects_dash_leading_arguments() {
     let e = temp_manager();
     let m = &e.m;
     let good = m.path("run1234", "mem5678");
-    for (b, base) in [("-x", "main"), ("dmn/a/b", "-x"), ("", "")] {
+    for (b, base) in [("-x", "main"), ("otter/a/b", "-x"), ("", "")] {
         let sp = spec(m, &repo, "mem5678", b, base);
         assert!(
             m.create(&ctx(), &sp)
@@ -574,7 +580,7 @@ async fn create_rejects_dash_leading_arguments() {
                 .is(Kind::UnsafeArgument)
         );
     }
-    let mut esc = spec(m, &repo, "x", "dmn/a/b", "main");
+    let mut esc = spec(m, &repo, "x", "otter/a/b", "main");
     esc.path = filepath::join(&[m.root(), "..", "elsewhere"]);
     assert!(
         m.create(&ctx(), &esc)
@@ -590,7 +596,7 @@ async fn remove_clean_removes_worktree_and_merged_branch() {
     let Some(r) = temp_repo() else { return };
     let repo = s(r.path());
     let e = temp_manager();
-    let sp = create_tree(&e.m, &repo, "mem5678", "dmn/run1234/writer", "main").await;
+    let sp = create_tree(&e.m, &repo, "mem5678", "otter/run1234/writer", "main").await;
     let mut rs = rm(&repo, &sp.path);
     rs.branch = sp.branch.clone();
     let res = e.m.remove(&ctx(), &rs).await;
@@ -604,7 +610,7 @@ async fn remove_dirty_is_preserved_and_reported() {
     let Some(r) = temp_repo() else { return };
     let repo = s(r.path());
     let e = temp_manager();
-    let sp = create_tree(&e.m, &repo, "mem5678", "dmn/run1234/writer", "main").await;
+    let sp = create_tree(&e.m, &repo, "mem5678", "otter/run1234/writer", "main").await;
     let work = filepath::join(&[sp.path.clone(), "작업물.txt".to_owned()]);
     std::fs::write(&work, "지우면 안 된다\n").unwrap();
     let mut rs = rm(&repo, &sp.path);
@@ -624,7 +630,7 @@ async fn remove_unmerged_branch_is_residue() {
     let Some(r) = temp_repo() else { return };
     let repo = s(r.path());
     let e = temp_manager();
-    let sp = create_tree(&e.m, &repo, "mem5678", "dmn/run1234/writer", "main").await;
+    let sp = create_tree(&e.m, &repo, "mem5678", "otter/run1234/writer", "main").await;
     commit_in(&sp.path, "새파일.txt");
     let mut rs = rm(&repo, &sp.path);
     rs.branch = sp.branch.clone();
@@ -660,7 +666,7 @@ async fn remove_rejects_risky_paths() {
         &user_area,
     ] {
         let mut rs = rm(&repo, p);
-        rs.branch = "dmn/a/b".into();
+        rs.branch = "otter/a/b".into();
         let res = m.remove(&ctx(), &rs).await;
         assert!(
             !res.removed && res.residue == RESIDUE_UNSAFE_PATH,
@@ -683,7 +689,7 @@ async fn new_resolves_symlinked_root() {
     std::os::unix::fs::symlink(&real, &link).unwrap();
     let m = Manager::new(&filepath::join(&[link, "worktrees".into()]));
     assert_eq!(m.root(), filepath::join(&[real, "worktrees".into()]));
-    let sp = create_tree(&m, &repo, "mem5678", "dmn/run1234/writer", "main").await;
+    let sp = create_tree(&m, &repo, "mem5678", "otter/run1234/writer", "main").await;
     let entries = m.list(&ctx(), &repo).await.unwrap();
     let reported: Vec<_> = entries.iter().filter(|e| e.path != repo).collect();
     assert_eq!(reported[0].path, sp.path);
@@ -725,7 +731,7 @@ async fn operations_are_serialized() {
         let m = m.clone();
         hs.push(tokio::spawn(async move {
             let leaf = format!("mem{}", (b'a' + i) as char);
-            let sp = spec(&m, &abs_repo(), &leaf, "dmn/run1234/r", "main");
+            let sp = spec(&m, &abs_repo(), &leaf, "otter/run1234/r", "main");
             let _ = m.create(&ctx(), &sp).await;
         }));
     }
@@ -745,9 +751,9 @@ async fn operations_serialize_across_managers_and_spellings() {
     let m2 = Manager::new(&rb).with_runner(r);
     let sep = filepath::SEPARATOR;
     let repo2 = format!("{}{sep}", abs_repo());
-    let s1 = spec(&m1, &abs_repo(), "a", "dmn/run1234/a", "main");
-    let s2 = spec(&m2, &abs_repo(), "b", "dmn/run1234/b", "main");
-    let mut s3 = spec(&m1, &abs_repo(), "c", "dmn/run1234/c", "main");
+    let s1 = spec(&m1, &abs_repo(), "a", "otter/run1234/a", "main");
+    let s2 = spec(&m2, &abs_repo(), "b", "otter/run1234/b", "main");
+    let mut s3 = spec(&m1, &abs_repo(), "c", "otter/run1234/c", "main");
     s3.repo = repo2;
     let c = ctx();
     let (x, y, z) = tokio::join!(m1.create(&c, &s1), m2.create(&c, &s2), m1.create(&c, &s3));
@@ -773,7 +779,7 @@ async fn list_includes_main_and_parses_entries() {
     let repo = s(r.path());
     let e = temp_manager();
     let m = &e.m;
-    let sp = create_tree(m, &repo, "mem5678", "dmn/run1234/writer", "main").await;
+    let sp = create_tree(m, &repo, "mem5678", "otter/run1234/writer", "main").await;
     let (_d, dp) = real_tmp();
     let detached = filepath::join(&[dp, "detached".into()]);
     m.git(
@@ -814,7 +820,7 @@ async fn create_checks_out_existing_ref_without_new_branch() {
     };
     e.m.create(&ctx(), &sp).await.unwrap();
     assert_eq!(git(&path, &["rev-parse", "--abbrev-ref", "HEAD"]), "other");
-    assert_eq!(git(&repo, &["branch", "--list", "dmn/*"]), "");
+    assert_eq!(git(&repo, &["branch", "--list", "otter/*"]), "");
 }
 
 #[test]
@@ -1047,8 +1053,15 @@ async fn remove_require_merged_cases() {
     let e = temp_manager();
     let m = &e.m;
 
-    let parent = create_tree(m, &repo, "parent", "dmn/run1234/parent", "main").await;
-    let child = create_tree(m, &repo, "child", "dmn/run1234/child", "dmn/run1234/parent").await;
+    let parent = create_tree(m, &repo, "parent", "otter/run1234/parent", "main").await;
+    let child = create_tree(
+        m,
+        &repo,
+        "child",
+        "otter/run1234/child",
+        "otter/run1234/parent",
+    )
+    .await;
     commit_in(&child.path, "가지.txt");
     git(&parent.path, &["merge", "--ff-only", &child.branch]);
     let res = m
@@ -1057,7 +1070,7 @@ async fn remove_require_merged_cases() {
     assert!(res.removed && res.residue.is_empty(), "{res:?}");
     assert_eq!(git(&repo, &["branch", "--list", &child.branch]), "");
 
-    let sp = create_tree(m, &repo, "mem5678", "dmn/run1234/writer", "main").await;
+    let sp = create_tree(m, &repo, "mem5678", "otter/run1234/writer", "main").await;
     let res = m.remove(&ctx(), &merged(&repo, &sp, "")).await;
     assert_eq!(
         (res.residue.as_str(), res.detail.as_str()),
@@ -1071,7 +1084,7 @@ async fn remove_require_merged_cases() {
         (res.residue.as_str(), res.detail.as_str()),
         (
             RESIDUE_UNMERGED,
-            "dmn/run1234/writer 가 main 에 병합되지 않았다"
+            "otter/run1234/writer 가 main 에 병합되지 않았다"
         )
     );
     assert!(exists(&sp.path));
@@ -1079,10 +1092,10 @@ async fn remove_require_merged_cases() {
     let res = m.remove(&ctx(), &merged(&repo, &sp, "-x")).await;
     assert_eq!(
         res.detail,
-        "병합을 판정할 수 없는 이름: \"dmn/run1234/writer\" → \"-x\""
+        "병합을 판정할 수 없는 이름: \"otter/run1234/writer\" → \"-x\""
     );
 
-    let d = create_tree(m, &repo, "dirty", "dmn/run1234/dirty", "main").await;
+    let d = create_tree(m, &repo, "dirty", "otter/run1234/dirty", "main").await;
     std::fs::write(
         filepath::join(&[d.path.clone(), "작업물.txt".into()]),
         "a\n",
@@ -1091,13 +1104,13 @@ async fn remove_require_merged_cases() {
     let res = m.remove(&ctx(), &merged(&repo, &d, "main")).await;
     assert!(!res.removed && res.residue == RESIDUE_DIRTY, "{res:?}");
 
-    let g = create_tree(m, &repo, "gone", "dmn/run1234/gone", "main").await;
+    let g = create_tree(m, &repo, "gone", "otter/run1234/gone", "main").await;
     git(&repo, &["worktree", "remove", "--force", &g.path]);
     git(&repo, &["branch", "-D", &g.branch]);
     let res = m.remove(&ctx(), &merged(&repo, &g, "main")).await;
     assert!(res.removed && res.residue.is_empty(), "{res:?}");
 
-    let h = create_tree(m, &repo, "half", "dmn/run1234/half", "main").await;
+    let h = create_tree(m, &repo, "half", "otter/run1234/half", "main").await;
     commit_in(&h.path, "남은커밋.txt");
     git(&repo, &["worktree", "remove", "--force", &h.path]);
     let res = m.remove(&ctx(), &merged(&repo, &h, "main")).await;
@@ -1113,7 +1126,7 @@ async fn current_branch_and_main_root() {
     let m = &e.m;
     assert_eq!(m.current_branch(&ctx(), &repo).await, "main");
     let want = m.resolve(&ctx(), &repo, "").await.unwrap();
-    let sp = create_tree(m, &repo, "mem5678", "dmn/run1234/writer", "main").await;
+    let sp = create_tree(m, &repo, "mem5678", "otter/run1234/writer", "main").await;
     for dir in [&repo, &sp.path] {
         assert_eq!(m.main_root(&ctx(), dir).await.unwrap(), want.root);
     }
@@ -1177,7 +1190,7 @@ fn result_json_shape() {
         ..RemoveResult::default()
     };
     assert_eq!(
-        dm_gocompat::json::marshal(&r).unwrap(),
+        otter_gocompat::json::marshal(&r).unwrap(),
         br#"{"path":"/p","removed":true}"#
     );
     let r = RemoveResult {
@@ -1189,7 +1202,7 @@ fn result_json_shape() {
         ..RemoveResult::default()
     };
     assert_eq!(
-        dm_gocompat::json::marshal(&r).unwrap(),
+        otter_gocompat::json::marshal(&r).unwrap(),
         br#"{"path":"/p","branch":"b","removed":false,"residue":"dirty","detail":"d"}"#
     );
     let sp = Spec {
@@ -1198,7 +1211,7 @@ fn result_json_shape() {
         ..Spec::default()
     };
     assert_eq!(
-        dm_gocompat::json::marshal(&sp).unwrap(),
+        otter_gocompat::json::marshal(&sp).unwrap(),
         br#"{"repo":"r","path":"","branch":"","base":""}"#
     );
 }
@@ -1211,7 +1224,7 @@ async fn create_mkdir_error_matches_go() {
     std::fs::write(&file, "x").unwrap();
     let (_k, key) = lock_key();
     let m = Manager::new(&file).with_runner(ok_runner());
-    let mut sp = spec(&m, &abs_repo(), "a", "dmn/r/a", "main");
+    let mut sp = spec(&m, &abs_repo(), "a", "otter/r/a", "main");
     sp.lock_key = key;
     let e = m.create(&ctx(), &sp).await.unwrap_err();
     assert_eq!(e.to_string(), format!("mkdir {file}: not a directory"));

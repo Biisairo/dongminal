@@ -150,7 +150,7 @@ fn service_hints_and_wire() {
     });
     assert_eq!(h.seq, 1);
     assert_eq!(s.hints(0)[0].command, h.command);
-    let j = String::from_utf8(dm_gocompat::json::marshal(&h).unwrap()).unwrap();
+    let j = String::from_utf8(otter_gocompat::json::marshal(&h).unwrap()).unwrap();
     assert_eq!(
         j,
         r#"{"seq":1,"atUnixMs":5,"repo":"/r","action":"branch_delete","targets":["feature"],"values":null,"command":"git branch feature x","note":""}"#
@@ -160,15 +160,15 @@ fn service_hints_and_wire() {
         mtime_unix_ms: None,
     };
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal(&li).unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal(&li).unwrap()).unwrap(),
         r#"{"path":"/p"}"#
     );
 }
 
 #[tokio::test]
 async fn git_dirs_cases() {
-    let git_dir = dm_gocompat::filepath::join(&[abs_r().as_str(), ".git"]);
-    let wt = dm_gocompat::filepath::join(&[git_dir.as_str(), "worktrees", "w"]);
+    let git_dir = otter_gocompat::filepath::join(&[abs_r().as_str(), ".git"]);
+    let wt = otter_gocompat::filepath::join(&[git_dir.as_str(), "worktrees", "w"]);
     let cases: Vec<(Output, Result<(String, String), Kind>)> = vec![
         (
             out(&format!("{git_dir}\n.git\n"), "", 0),
@@ -222,7 +222,7 @@ async fn repo_root_cases() {
         (out("repo\n", "", 0), Err(Kind::NotRepo)),
         (out(&format!("{u}/sub/..\n"), "", 0), Ok(u.clone())),
     ];
-    let cwd = dm_gocompat::filepath::join(&[u.as_str(), "sub"]);
+    let cwd = otter_gocompat::filepath::join(&[u.as_str(), "sub"]);
     for (o, want) in cases {
         let s = Service::builder()
             .runner(runner(move |_, _, a| {
@@ -324,28 +324,29 @@ async fn index_lock_path_and_common_dir_key() {
     let s = Service::new();
     let got = s.index_lock_path(&bg(), &repo.path).await.unwrap();
     assert!(
-        dm_gocompat::filepath::is_abs(&got) && dm_gocompat::filepath::base(&got) == "index.lock"
+        otter_gocompat::filepath::is_abs(&got)
+            && otter_gocompat::filepath::base(&got) == "index.lock"
     );
-    let dotgit = dm_gocompat::filepath::join(&[repo.path.as_str(), ".git"]);
+    let dotgit = otter_gocompat::filepath::join(&[repo.path.as_str(), ".git"]);
     assert_eq!(
-        exclusion_key(&dm_gocompat::filepath::dir(&got)),
+        exclusion_key(&otter_gocompat::filepath::dir(&got)),
         exclusion_key(&dotgit)
     );
     let info = s.index_lock_info(&bg(), &repo.path).await.unwrap();
     assert!(info.path == got && info.mtime_unix_ms.is_none());
 
     let base = temp_dir();
-    let wt = dm_gocompat::filepath::join(&[base.path.as_str(), "wt"]);
+    let wt = otter_gocompat::filepath::join(&[base.path.as_str(), "wt"]);
     git_run(&repo.path, &["worktree", "add", "-q", "-b", "side", &wt]);
     let got = s.index_lock_path(&bg(), &wt).await.unwrap();
     assert!(
-        dm_gocompat::filepath::to_slash(&got).contains("/worktrees/"),
+        otter_gocompat::filepath::to_slash(&got).contains("/worktrees/"),
         "{got}"
     );
 
     let main = common_dir_key(None, &bg(), &repo.path).await.unwrap();
     assert_eq!(main, exclusion_key(&dotgit));
-    let linked = dm_gocompat::filepath::join(&[base.path.as_str(), "linked"]);
+    let linked = otter_gocompat::filepath::join(&[base.path.as_str(), "linked"]);
     git_run(&repo.path, &["worktree", "add", "--detach", "-q", &linked]);
     assert_eq!(
         Service::new().common_dir_key(&bg(), &linked).await.unwrap(),

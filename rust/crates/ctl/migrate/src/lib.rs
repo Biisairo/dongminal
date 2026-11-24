@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/ctl/migrate` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/ctl/migrate` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 엔티티 모델 재정비(ENTITY_MODEL_RESTRUCTURE_SRS)의 1회성 데이터 변환이다. workspace.json 을
 //! v2 스키마로 옮기고 panes.json 을 tools.json 으로 바꾸며, 고아 도구와 유령 참조를 제거한다.
@@ -6,17 +6,19 @@
 
 mod apply;
 mod identity;
+mod legacy_home;
 mod settings;
 mod tree;
 
 pub use apply::apply;
 pub use identity::{IdentityReport, Rewritten, rewrite_identifiers};
+pub use legacy_home::{LEGACY_HOME_DIR, LegacyHome, migrate_legacy_home};
 pub use settings::settings;
 
 use std::collections::HashSet;
 use std::fmt;
 
-use dm_gocompat::json;
+use otter_gocompat::json;
 use serde_json::Value;
 
 use tree::{Obj, as_str, convert_layout, decode_obj, decode_vec, rename_key};
@@ -25,12 +27,12 @@ use tree::{Obj, as_str, convert_layout, decode_obj, decode_vec, rename_key};
 pub const SCHEMA_VERSION: i64 = 2;
 
 const ERR_DAEMON_RUNNING: &str =
-    "dongminald 가 실행 중입니다 — `dongminal stop --all` 로 정지한 뒤 다시 실행하세요";
+    "otterminald 가 실행 중입니다 — `otterminal stop --all` 로 정지한 뒤 다시 실행하세요";
 
 /// 변환 오류. `Display` 는 Go 의 `err.Error()` 와 같다.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
-    /// dongminald 가 살아 있다. 값은 pid 다.
+    /// otterminald 가 살아 있다. 값은 pid 다.
     DaemonRunning(i64),
     Msg(String),
 }

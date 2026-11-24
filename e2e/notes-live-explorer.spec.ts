@@ -27,7 +27,7 @@ let PLAIN = '';
 const j = (...p: string[]) => path.join(...p);
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-nle-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-nle-')));
   PLAIN = j(BASE, 'plain');
   fs.mkdirSync(PLAIN);
   fs.mkdirSync(j(PLAIN, 'sub'));

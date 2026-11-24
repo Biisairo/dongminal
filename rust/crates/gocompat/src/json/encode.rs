@@ -6,7 +6,7 @@ use super::Error;
 use super::scanner::{append_compact, append_indent};
 use crate::strconv::format_float;
 
-pub(crate) const RAW_TOKEN: &str = "$dm_gocompat::json::RawMessage";
+pub(crate) const RAW_TOKEN: &str = "$otter_gocompat::json::RawMessage";
 
 const HEX: &[u8; 16] = b"0123456789abcdef";
 

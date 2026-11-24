@@ -2,10 +2,10 @@
 
 use std::sync::{Arc, Weak};
 
-use dm_shared_dmlog as dmlog;
-use dm_shared_edge::{self as edge, Config, Error as EdgeError, Identity, Target};
-use dm_shared_edgemesh::{self as edgemesh, Conn, ErrorKind, Hello, Invite, Mesh};
 use http::StatusCode;
+use otter_shared_edge::{self as edge, Config, Error as EdgeError, Identity, Target};
+use otter_shared_edgemesh::{self as edgemesh, Conn, ErrorKind, Hello, Invite, Mesh};
+use otter_shared_otterlog as otterlog;
 use serde::Serialize;
 use time::OffsetDateTime;
 use tokio_util::sync::CancellationToken;
@@ -111,7 +111,7 @@ pub(crate) struct InvitedRow {
     from: String,
     name: String,
     tag: String,
-    #[serde(with = "dm_gocompat::time::json_time")]
+    #[serde(with = "otter_gocompat::time::json_time")]
     expires: OffsetDateTime,
 }
 
@@ -159,7 +159,7 @@ impl Node {
         {
             Ok(true) => self.changed(Change::default()),
             Ok(false) | Err(EdgeError::EdgeNotFound) => {}
-            Err(e) => dmlog::info(None, &format!("edge hello: {e}"), &[]),
+            Err(e) => otterlog::info(None, &format!("edge hello: {e}"), &[]),
         }
     }
 
@@ -177,7 +177,7 @@ impl Node {
             return;
         }
         if let Err(e) = self.store.set_pending_all() {
-            dmlog::info(None, &format!("edge pending: {e}"), &[]);
+            otterlog::info(None, &format!("edge pending: {e}"), &[]);
         }
         if renamed {
             m.announce();
@@ -411,7 +411,7 @@ impl Node {
         audit("out", &target.name, "invite", StatusCode::OK);
         #[derive(Serialize)]
         struct Out {
-            #[serde(with = "dm_gocompat::time::json_time")]
+            #[serde(with = "otter_gocompat::time::json_time")]
             expires: OffsetDateTime,
             name: String,
             tag: String,

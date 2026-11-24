@@ -4,9 +4,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use dm_webserver_domain_ext as ext;
-use dm_webserver_domain_lsp::{FileEvent, OpenError, PathsError, Tunnel};
 use futures_util::future::BoxFuture;
+use otter_webserver_domain_ext as ext;
+use otter_webserver_domain_lsp::{FileEvent, OpenError, PathsError, Tunnel};
 
 pub trait LspService: Send + Sync {
     /// 열린 통로에 열리지 않은 파일의 변경을 끼워 넣는다 (CODEMIRROR_MIGRATION_SRS FR-CMR-110).

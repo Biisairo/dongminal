@@ -79,6 +79,6 @@ window.addEventListener('unhandledrejection',(e)=>{
     {stack:r&&r.stack?String(r.stack).slice(0,800):''});
 });
 
-// 지원 창구가 집어 갈 손잡이. `__dongminalDebug` 와 같은 규약이다 —
+// 지원 창구가 집어 갈 손잡이. `__otterminalDebug` 와 같은 규약이다 —
 // 콘솔에 한 줄을 쳐서 받아 갈 수 있어야 신고에 실린다.
-window.__dongminalErrors=ErrorLog;
+window.__otterminalErrors=ErrorLog;

@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use super::*;
 
 fn json(a: &Answer) -> String {
-    String::from_utf8(dm_gocompat::json::marshal(a).unwrap()).unwrap()
+    String::from_utf8(otter_gocompat::json::marshal(a).unwrap()).unwrap()
 }
 
 #[test]

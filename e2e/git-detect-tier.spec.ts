@@ -21,7 +21,7 @@ import { tmpPath, realPath } from './osenv';
  * 증상이다 ("화면이 낡았다").
  */
 
-const FIXTURES = tmpPath('dm-git-fx-gdt-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-gdt-' + process.pid);
 
 test.beforeAll(() => { gitFixture(FIXTURES) });
 test.afterAll(() => { cleanGitFixture(FIXTURES) });
@@ -83,13 +83,13 @@ test('V-GDT-9 (FR-GDT-17): cherry-pick --quit 뒤 진행 바가 사라진다',
     // 충돌하는 체리픽을 만든다 — 없으면 표식이 남지 않는다.
     writeFileSync(join(repo, 'gdt-quit.txt'), 'a\n');
     git(repo, 'add', '-A');
-    git(repo, '-c', 'user.name=dm', '-c', 'user.email=dm@example.com',
+    git(repo, '-c', 'user.name=otter', '-c', 'user.email=otter@example.com',
       '-c', 'commit.gpgsign=false', 'commit', '-qm', 'gdt base');
     const pick = git(repo, 'rev-parse', 'HEAD');
     git(repo, 'reset', '-q', '--hard', head);
     writeFileSync(join(repo, 'gdt-quit.txt'), 'b\n');
     git(repo, 'add', '-A');
-    git(repo, '-c', 'user.name=dm', '-c', 'user.email=dm@example.com',
+    git(repo, '-c', 'user.name=otter', '-c', 'user.email=otter@example.com',
       '-c', 'commit.gpgsign=false', 'commit', '-qm', 'gdt other');
     try { git(repo, 'cherry-pick', pick) } catch { /* 충돌이 이 검사의 전제다 */ }
 
@@ -134,7 +134,7 @@ test('V-GDT-11 (FR-GDT-19): git am 진행 중이 am 으로 표시된다', async 
   const mbox = join(repo, 'gdt.mbox');
   writeFileSync(mbox, [
     'From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001',
-    'From: dm <dm@example.com>',
+    'From: otter <otter@example.com>',
     'Date: Thu, 1 Jan 2026 00:00:00 +0000',
     'Subject: [PATCH] gdt am',
     '',

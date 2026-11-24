@@ -34,7 +34,7 @@ impl Service {
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
             Err(e) => {
                 return Err(
-                    dm_gocompat::oserr::path_error("open", &dir.to_string_lossy(), e).into(),
+                    otter_gocompat::oserr::path_error("open", &dir.to_string_lossy(), e).into(),
                 );
             }
         };

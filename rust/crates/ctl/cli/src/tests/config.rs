@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use dm_shared_serverconf as serverconf;
+use otter_shared_serverconf as serverconf;
 use serde_json::Value;
 
 use super::fake_http::FakeServer;
@@ -24,7 +24,7 @@ fn run(home: &Path, v: Option<&Vars>, a: &[&str]) -> (i32, String, String) {
 
 fn read_server_json(home: &Path) -> serde_json::Map<String, Value> {
     match std::fs::read(home.join(serverconf::FILE_NAME)) {
-        Ok(b) if !b.is_empty() => dm_gocompat::json::unmarshal(&b).unwrap(),
+        Ok(b) if !b.is_empty() => otter_gocompat::json::unmarshal(&b).unwrap(),
         _ => serde_json::Map::new(),
     }
 }
@@ -35,7 +35,7 @@ fn show_carries_source() {
     let (_d, home) = temp_home();
     write_server_json(&home, r#"{"host":"10.0.0.1"}"#);
     let mut v = Vars::home(&home);
-    v.set("DONGMINAL_LOG_LEVEL", "warn");
+    v.set("OTTERMINAL_LOG_LEVEL", "warn");
     let (code, out, err) = run(&home, Some(&v), &["show"]);
     assert_eq!(code, 0, "{err}");
     for want in [
@@ -59,7 +59,8 @@ fn show_json() {
     let (_d, home) = temp_home();
     let (code, out, err) = run(&home, None, &["show", "--json"]);
     assert_eq!(code, 0, "{err}");
-    let m: serde_json::Map<String, Value> = dm_gocompat::json::unmarshal(out.as_bytes()).unwrap();
+    let m: serde_json::Map<String, Value> =
+        otter_gocompat::json::unmarshal(out.as_bytes()).unwrap();
     assert!(m.contains_key("server"));
     assert!(!m.contains_key("schema"), "show 는 표를 싣지 않는다");
     // Go 구조체의 필드 순서와 두 칸 들여쓰기, 끝의 줄바꿈.
@@ -67,7 +68,7 @@ fn show_json() {
     assert!(
         out.starts_with(&format!(
             "{{\n  \"home\": {},\n  \"server\": {{\n    \"host\": {{\n      \"value\": \"127.0.0.1\",\n      \"source\": \"default\"\n    }},",
-            String::from_utf8(dm_gocompat::json::marshal(&hs).unwrap()).unwrap()
+            String::from_utf8(otter_gocompat::json::marshal(&hs).unwrap()).unwrap()
         )),
         "{out}"
     );
@@ -79,7 +80,8 @@ fn show_json() {
 fn validate_json_carries_schema() {
     let (_d, home) = temp_home();
     let (_, out, _) = run(&home, None, &["validate", "--json"]);
-    let m: serde_json::Map<String, Value> = dm_gocompat::json::unmarshal(out.as_bytes()).unwrap();
+    let m: serde_json::Map<String, Value> =
+        otter_gocompat::json::unmarshal(out.as_bytes()).unwrap();
     assert!(
         m.get("schema")
             .and_then(Value::as_array)

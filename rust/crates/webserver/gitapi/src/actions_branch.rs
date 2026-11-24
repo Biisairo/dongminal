@@ -3,15 +3,15 @@
 
 use std::collections::BTreeMap;
 
-use dm_shared_httpresp::Response;
-use dm_webserver_action::{self as action, Answer};
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_jobs::{SLOT_COMMON, SLOT_INDEX};
-use dm_webserver_domain_git_query::{self as query, Ref};
-use dm_webserver_domain_git_write::{
+use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_action::{self as action, Answer};
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_jobs::{SLOT_COMMON, SLOT_INDEX};
+use otter_webserver_domain_git_query::{self as query, Ref};
+use otter_webserver_domain_git_write::{
     self as write, BranchDeleteOpts, BranchDeletePlan, RemoteBranchOpts,
 };
-use http::StatusCode;
 use serde::Deserialize;
 
 use crate::GitServer;

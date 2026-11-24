@@ -17,7 +17,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const skip = process.platform === 'win32' ? 'bash 스크립트다' : false;
 
 function shardPort(i, env) {
-  const bin = mkdtempSync(join(tmpdir(), 'dm-shard-run-'));
+  const bin = mkdtempSync(join(tmpdir(), 'otter-shard-run-'));
   try {
     const npx = join(bin, 'npx');
     writeFileSync(npx, '#!/bin/sh\necho "PORT=$E2E_PORT_BASE"\n');

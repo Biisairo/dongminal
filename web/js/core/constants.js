@@ -33,22 +33,22 @@ const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,TOOLID:3,SEQ:4,SIZE:5,REPLY_S
 const SEQ_FLAG_FULL=1, SEQ_FLAG_ALT=2;
 const enc=new TextEncoder(), dec=new TextDecoder();
 // PAGE_TITLE_SRS FR-PGT-7: 설정이 비었을 때 쓰는 페이지 제목.
-const DEFAULT_PAGE_TITLE='Dongminal';
+const DEFAULT_PAGE_TITLE='Otterminal';
 
 // ── 부팅 화면 (BOOT_SCREEN_SRS) ──
 // 마지막에 적용한 테마의 **최종 CSS 변수 맵**이 사는 자리. `index.html` 의 head
 // 인라인 스크립트가 첫 페인트 전에 이것을 읽는다 — 그 스크립트는 constants.js
 // 보다 먼저 돌므로 **키 문자열이 그쪽에도 리터럴로 적혀 있다**. 바꿀 때는 둘을
 // 함께 바꾼다 (FR-BTS-3).
-const THEME_VARS_KEY='dm.themeVars';
+const THEME_VARS_KEY='otter.themeVars';
 // M8 FR-B-6 (UX-11): 종전에 CSS `content` 로만 있던 문구 셋. DOM 텍스트가 됐다.
 const SLOT_EMPTY_HINT=t('core.slot_empty_hint');
 const DROP_FILES_HINT=t('core.drop_files_hint');
 const CLICK_TO_FOCUS_HINT=t('core.click_to_focus_hint');
 // SYSTEM_THEME_FOLLOW_SRS FR-STF-5: 선주입이 두 맵 중 하나를 고를지의 스위치.
-const THEME_FOLLOW_KEY='dm.themeFollow';
+const THEME_FOLLOW_KEY='otter.themeFollow';
 // THEME_SEED_COLOR_SRS FR-SEED-12: 메인색을 껐다 다시 켤 때 돌아올 색 (이 브라우저에서만).
-const SEED_LAST_KEY='dm.seedLast';
+const SEED_LAST_KEY='otter.seedLast';
 // REFACTOR3_FE_REST2_SRS FR-FR2-13 (FC-19): 초 ↔ 밀리초. 서버 시각(Unix 초)과 `Date.now()` 를 잇는 자리가 쓴다.
 const MS_PER_SEC=1000;
 // 걷힘 애니메이션. 화면이 이미 준비된 뒤의 시간이므로 짧다. `#boot` 의 페이드

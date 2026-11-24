@@ -8,14 +8,14 @@
 
 접수한 요구는 사용자가 겪은 증상이다.
 
-> **"Stop hook error: `/Users/dykim/.dongminal/bin/dmctl: No such file or directory`
+> **"Stop hook error: `/Users/dykim/.otterminal/bin/otterctl: No such file or directory`
 > — 이런 버그 여전히 나는데 확인해줘."**
 
-조사로 원인을 확정했다. `~/.dongminal/bin/` 의 헬퍼 넷(`dmctl`·`detach`·
+조사로 원인을 확정했다. `~/.otterminal/bin/` 의 헬퍼 넷(`otterctl`·`detach`·
 `download`·`edit`)이 **존재하지 않는 파일을 가리키는 심볼릭 링크**였다.
 
 ```
-dmctl -> /private/var/folders/.../T/go-build3179988942/b001/exe/dongminal
+otterctl -> /private/var/folders/.../T/go-build3179988942/b001/exe/otterminal
 ```
 
 `go-build3179988942` 은 **`go run` 이 만들고 끝나면서 지우는 임시 빌드 디렉터리**다.
@@ -34,15 +34,15 @@ dmctl -> /private/var/folders/.../T/go-build3179988942/b001/exe/dongminal
 
 | 용어 | 정의 |
 |------|------|
-| **헬퍼** | `bin/` 에 multi-call 로 설치되는 이름들 — `dmctl`·`detach`·`download`·`edit`·`mdview` |
+| **헬퍼** | `bin/` 에 multi-call 로 설치되는 이름들 — `otterctl`·`detach`·`download`·`edit`·`mdview` |
 | **덧없는 자기 자신** | `go run` 이 만든 임시 빌드 산출물. 프로세스가 끝나면 지워진다 |
-| **운영 홈** | `$DONGMINAL_HOME`. 격리 홈(`--isolated`·`verify`)이 아닌, 사용자가 실제로 쓰는 홈 |
+| **운영 홈** | `$OTTERMINAL_HOME`. 격리 홈(`--isolated`·`verify`)이 아닌, 사용자가 실제로 쓰는 홈 |
 
 ### 1.4 참조 (References)
 
 - [`./CROSS_PLATFORM_SRS.md`](./CROSS_PLATFORM_SRS.md) — FR-XPA-3 (`LinkOrCopy`.
   Windows 는 심볼릭 링크를 시도하지 않는다)
-- [`./SKILL_INJECTION_SRS.md`](./SKILL_INJECTION_SRS.md) — 에이전트 훅이 `bin/dmctl`
+- [`./SKILL_INJECTION_SRS.md`](./SKILL_INJECTION_SRS.md) — 에이전트 훅이 `bin/otterctl`
   을 부르는 자리
 
 ---
@@ -61,10 +61,10 @@ dmctl -> /private/var/folders/.../T/go-build3179988942/b001/exe/dongminal
 
 ### 2.2 그 명령은 문서가 권하는 명령이다
 
-- `.github/workflows/release.yml` 의 게이트: `go run ./cmd/dongminal doctor`
+- `.github/workflows/release.yml` 의 게이트: `go run ./cmd/otterminal doctor`
 - `docs/external/getting-started.md` 의 "안 될 때 — `doctor`"
 
-CI 러너는 홈이 매번 새것이라 아무 일도 없다. **개발 기계에서 `DONGMINAL_HOME` 이
+CI 러너는 홈이 매번 새것이라 아무 일도 없다. **개발 기계에서 `OTTERMINAL_HOME` 이
 운영 홈을 가리키면 `go run` 한 번이 살아 있는 설치본을 조용히 망가뜨린다.**
 
 ### 2.3 증상은 나중에 나타난다
@@ -75,7 +75,7 @@ CI 러너는 홈이 매번 새것이라 아무 일도 없다. **개발 기계에
 
 ### 2.4 부팅은 이미 다시 설치한다
 
-`boot.go:49` 와 `cmd/dongminal/main.go:354` 가 기동마다 `Install` 을 부른다.
+`boot.go:49` 와 `cmd/otterminal/main.go:354` 가 기동마다 `Install` 을 부른다.
 **서버를 다시 띄우면 저절로 낫는다** — 다만 그때까지 터미널 세션을 잃지 않고는
 알 길도, 고칠 길도 없었다.
 
@@ -167,7 +167,7 @@ CI 러너는 홈이 매번 새것이라 아무 일도 없다. **개발 기계에
 **FR-HLI-11 은 CI 가 요구했다.** 최초 구현은 이 구분이 없어 헬퍼가 없는 홈을
 전부 고장으로 셌고, 새 러너(Linux·Windows)의 `doctor` 가 언제나 실패했다.
 개발 기계의 홈에는 늘 헬퍼가 있어 그 갈래가 로컬에서 한 번도 돌지 않았다 —
-`DONGMINAL_HOME` 을 빈 자리로 두고 부르는 검사가 없었던 것이 원인이다. V-HLI-8 이
+`OTTERMINAL_HOME` 을 빈 자리로 두고 부르는 검사가 없었던 것이 원인이다. V-HLI-8 이
 그 자리를 메운다.
 
 ---

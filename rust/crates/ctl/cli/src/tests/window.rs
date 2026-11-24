@@ -35,7 +35,7 @@ fn opens_running_server() {
         Ok(())
     });
     assert_eq!(code, 0, "{err}");
-    let want = dm_shared_dmenv::base_url(DEFAULT_HOST, &srv.port);
+    let want = otter_shared_otterenv::base_url(DEFAULT_HOST, &srv.port);
     assert_eq!(*got.borrow(), vec![want.clone()]);
     assert_eq!(out, format!("✅ 창을 열었습니다 — {want}\n"));
 }
@@ -55,7 +55,7 @@ fn no_server() {
     assert_eq!(
         err,
         format!(
-            "❌ http://127.0.0.1:{port} 에서 응답이 없습니다 — 서버가 떠 있지 않습니다\n   먼저 띄웁니다: dongminal start\n"
+            "❌ http://127.0.0.1:{port} 에서 응답이 없습니다 — 서버가 떠 있지 않습니다\n   먼저 띄웁니다: otterminal start\n"
         )
     );
 }
@@ -92,6 +92,6 @@ fn parse() {
 // V-WIN-7
 #[test]
 fn help_surfaces() {
-    assert!(usage("window").contains("dongminal window"));
+    assert!(usage("window").contains("otterminal window"));
     assert!(help().contains("window"));
 }

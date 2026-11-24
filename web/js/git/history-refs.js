@@ -1,5 +1,5 @@
 /**
- * Dongminal — History 의 **refs 사이드바** (FE_MODULE_BOUNDARY_SRS FR-FMB-32).
+ * Otterminal — History 의 **refs 사이드바** (FE_MODULE_BOUNDARY_SRS FR-FMB-32).
  *
  * 로컬 · 원격 · 태그 3그룹과 ref 필터 (FR-GIT-122·123). 고른 ref 는 저장소마다
  * 기억된다 — 탭을 떠났다 돌아와도 보던 갈래가 그대로다.

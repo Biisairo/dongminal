@@ -13,7 +13,7 @@ import { tmpPath, realPath } from './osenv';
 // GIT_M2_STEP1011_CONTRACT §3 — 커밋 클라이언트. 검증 V33·V35·V36
 // (E3·E4·E5·E6·E7·E9 + FR-GIT-74).
 
-const FIXTURES = tmpPath('dm-git-fx-commit-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-commit-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
@@ -404,7 +404,7 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
  * `TEST-7` 로 `git-ui-revision` 에서 옮겨 왔다 — 납품 묶음(“UI 개정”)이 아니라
  * **이 기능**이 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
  */
-const GURFX = tmpPath('dm-gur-git-commit-' + process.pid);
+const GURFX = tmpPath('otter-gur-git-commit-' + process.pid);
 test.beforeAll(() => { gitFixture(GURFX) });
 test.afterAll(() => { cleanGitFixture(GURFX) });
 const gurFx = (n: string) => realPath(join(GURFX, n));

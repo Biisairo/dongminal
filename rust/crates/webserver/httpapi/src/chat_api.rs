@@ -5,12 +5,12 @@
 
 use std::collections::BTreeMap;
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_chatwire as chatwire;
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_shared_toolipc::{CHAT_KIND_CHANGED, CHAT_KIND_MSG, ChatEvent, ChatParams, ChatResult};
-use dm_webserver_apierr as apierr;
 use http::{HeaderValue, StatusCode, header};
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_chatwire as chatwire;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_toolipc::{CHAT_KIND_CHANGED, CHAT_KIND_MSG, ChatEvent, ChatParams, ChatResult};
+use otter_webserver_apierr as apierr;
 use serde::Serialize;
 
 use crate::Server;
@@ -125,7 +125,7 @@ impl Server {
                     return mark(
                         &e,
                         code_fail(
-                            dm_shared_httpreq::status(&e),
+                            otter_shared_httpreq::status(&e),
                             apierr::body_read_code(&e),
                             "read body",
                         ),
@@ -173,7 +173,7 @@ impl Server {
         };
         if ev.chat_kind == CHAT_KIND_MSG {
             if let Some(m) = &ev.chat {
-                c.broadcast(&dm_webserver_sse::payload(
+                c.broadcast(&otter_webserver_sse::payload(
                     "chat_message",
                     Some(&ChatMsgArgs { msg: m }),
                 ));
@@ -200,5 +200,5 @@ fn chat_restart() -> Response {
 }
 
 fn chat_changed() -> Vec<u8> {
-    dm_webserver_sse::payload("chat_changed", Some(&BTreeMap::<String, String>::new()))
+    otter_webserver_sse::payload("chat_changed", Some(&BTreeMap::<String, String>::new()))
 }

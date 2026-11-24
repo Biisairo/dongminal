@@ -130,7 +130,7 @@ class LayoutController extends Controller {
    *             것은 새 탭·분할이다 — 그쪽의 승계는 그대로다 (FR-WBR-21)
    *
    * 명시적 지정은 그대로 이긴다 (FR-CWD-3) — `opts.cwd` 와 `opts.cwdTool` 이다.
-   * `dmctl new-window --cwd` 가 그 길로 온다 (FR-WBR-23).
+   * `otterctl new-window --cwd` 가 그 길로 온다 (FR-WBR-23).
    */
   async _mkWindow(opts={}){
     const sandbox=(typeof opts.sandbox==='string'&&opts.sandbox)?opts.sandbox:'';
@@ -192,7 +192,7 @@ class LayoutController extends Controller {
 
   /**
    * M9_SRS FR-M9-4: `opts.force` 는 **이미 물었다**는 뜻이다 (탭 쪽 FR-RUN-6 과
-   * 같은 규약). `dmctl close-window --force|--background` 가 그 길로 오며, 답을
+   * 같은 규약). `otterctl close-window --force|--background` 가 그 길로 오며, 답을
    * 이미 준 요청이 확인창을 만나면 그 자리에서 멎는다.
    *
    * `opts.keepTool` 은 그 답이 "백그라운드로 보내기" 일 때다 — 도는 도구를 죽이지

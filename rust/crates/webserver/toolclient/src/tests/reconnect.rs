@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use dm_shared_toolipc::{METHOD_HELLO, METHOD_LIST};
+use otter_shared_toolipc::{METHOD_HELLO, METHOD_LIST};
 use serde_json::json;
 
 use super::{Peer, chan, err_resp, listen, resp, version, wait_until};
@@ -183,7 +183,7 @@ fn auto_reconnect_to_replacement() {
     });
     assert!(pc.list_ok().is_none(), "끊긴 동안 목록을 안다고 했다");
 
-    let ln2 = dm_shared_platform::current()
+    let ln2 = otter_shared_platform::current()
         .ipc
         .listen(&sock.path)
         .unwrap();

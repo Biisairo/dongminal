@@ -78,7 +78,7 @@ fn errno_string_has_no_rust_tail() {
 #[test]
 fn mkdir_all_matches_go_messages() {
     use std::os::unix::fs::PermissionsExt;
-    let root = std::env::temp_dir().join(format!("dm-gocompat-mk-{}", std::process::id()));
+    let root = std::env::temp_dir().join(format!("otter-gocompat-mk-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).unwrap();
     let r = root.to_string_lossy().into_owned();

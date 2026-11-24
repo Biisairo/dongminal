@@ -9,7 +9,7 @@ use crate::{Common, HealthOpts};
 
 fn write_daemon_build(home: &Path, fp: &str) {
     std::fs::write(
-        home.join(dm_shared_toolipc::DAEMON_BUILD_FILE),
+        home.join(otter_shared_toolipc::DAEMON_BUILD_FILE),
         format!("{fp}\n"),
     )
     .unwrap();
@@ -19,8 +19,8 @@ fn me() -> String {
     std::process::id().to_string()
 }
 
-fn proc() -> &'static dyn dm_shared_platform::Process {
-    dm_shared_platform::current().process
+fn proc() -> &'static dyn otter_shared_platform::Process {
+    otter_shared_platform::current().process
 }
 
 // FR-DFP-8: 판정의 네 상태. 모른다를 일치로 접지 않는다 (FR-DFP-3).

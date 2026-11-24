@@ -5,7 +5,7 @@ use std::collections::{BinaryHeap, HashMap};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-use dm_gocompat::filepath;
+use otter_gocompat::filepath;
 
 use crate::coalesce::{Change, Kind, coalesce};
 

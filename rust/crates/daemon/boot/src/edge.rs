@@ -3,19 +3,19 @@ use std::path::Path;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
-use dm_daemon_chat as chat;
-use dm_daemon_chatsock as chatsock;
-use dm_daemon_ipc::{ChatUser, PanedServer};
-use dm_gocompat::json::RawMessage;
-use dm_gocompat::oserr::go_error_string;
-use dm_shared_activity as activity;
-use dm_shared_chatwire as chatwire;
-use dm_shared_dmlog::errorf;
-use dm_shared_edge::{Acceptor, Config, Listener};
-use dm_shared_edgenode::{self as edgenode, Change, Node};
-use dm_shared_edgerelay as edgerelay;
-use dm_shared_humancmd as humancmd;
-use dm_shared_toolhub::{ActivityState, ToolManager};
+use otter_daemon_chat as chat;
+use otter_daemon_chatsock as chatsock;
+use otter_daemon_ipc::{ChatUser, PanedServer};
+use otter_gocompat::json::RawMessage;
+use otter_gocompat::oserr::go_error_string;
+use otter_shared_activity as activity;
+use otter_shared_chatwire as chatwire;
+use otter_shared_edge::{Acceptor, Config, Listener};
+use otter_shared_edgenode::{self as edgenode, Change, Node};
+use otter_shared_edgerelay as edgerelay;
+use otter_shared_humancmd as humancmd;
+use otter_shared_otterlog::errorf;
+use otter_shared_toolhub::{ActivityState, ToolManager};
 use tokio::runtime::Handle;
 use tokio::time::{Instant, MissedTickBehavior};
 use tokio_util::sync::CancellationToken;
@@ -31,7 +31,7 @@ type Closer = Box<dyn FnOnce() + Send>;
 /// (EDGE_MESH_SRS FR-EGM-1) 그 위에 채팅을 세운다. 돌려준 함수가 채팅·간선 연결·노드 소켓을
 /// 닫는다. tokio 런타임 안에서 부른다.
 pub fn start_edge(home: &Path, ps: &PanedServer, pm: &Arc<ToolManager>) -> Closer {
-    let hostname = dm_shared_platform::hostname().unwrap_or_default();
+    let hostname = otter_shared_platform::hostname().unwrap_or_default();
     let ln: Arc<OnceLock<Listener>> = Arc::new(OnceLock::new());
     let on_config = {
         let ln = Arc::clone(&ln);

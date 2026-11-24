@@ -69,7 +69,10 @@ fn kill_missing_pid_is_raw_errno() {
     child.wait().unwrap();
     let e = PosixProcess.kill(pid).unwrap_err();
     assert_eq!(e.raw_os_error(), Some(libc::ESRCH));
-    assert_eq!(dm_gocompat::oserr::go_error_string(&e), "no such process");
+    assert_eq!(
+        otter_gocompat::oserr::go_error_string(&e),
+        "no such process"
+    );
 }
 
 #[test]

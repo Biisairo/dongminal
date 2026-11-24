@@ -80,7 +80,7 @@ if _, err := pc.call("hello", map[string]interface{}{"server_pid": 0}); err != n
 
 ### 2.3 `/api/health` 는 **없다**
 
-`dongminal health`(`ctl/cli/health.go`)는 CLI 이고, HTTP 로는 `/` 를 핑한다.
+`otterminal health`(`ctl/cli/health.go`)는 CLI 이고, HTTP 로는 `/` 를 핑한다.
 `/api/ping` 이 있으나 생존만 답한다. 그러므로 지금 **"서버는 떴는데 데몬이 끊겼다"
 를 한 번에 말해 주는 자리가 없다.**
 

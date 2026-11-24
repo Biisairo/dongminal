@@ -13,7 +13,7 @@ import { tmpPath } from './osenv';
 // `stashes` 픽스처는 stash 2개 + 현재 변경 1개다 (design/README.md). 쓰기를 하는
 // 스펙은 **복사본**에서 돈다.
 
-const FIXTURES = tmpPath('dm-git-fx-stash-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-stash-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

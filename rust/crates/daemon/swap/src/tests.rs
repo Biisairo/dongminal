@@ -8,12 +8,12 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use dm_daemon_ipc::PanedServer;
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_handover::{self as handover, ReloadRequest};
-use dm_shared_platform::{ProcSpec, Terminal};
-use dm_shared_toolhub::{HandoverTool, Placement, Tool, ToolManager, ToolState};
 use nix::fcntl::{FcntlArg, FdFlag, fcntl};
+use otter_daemon_ipc::PanedServer;
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_handover::{self as handover, ReloadRequest};
+use otter_shared_platform::{ProcSpec, Terminal};
+use otter_shared_toolhub::{HandoverTool, Placement, Tool, ToolManager, ToolState};
 use tempfile::TempDir;
 
 use crate::*;
@@ -68,7 +68,7 @@ fn validate_refusals() {
     std::os::unix::fs::symlink(&good, &link).unwrap();
     let link = link.to_str().unwrap().to_owned();
     let me = euid();
-    let slf = dm_gocompat::filepath::eval_symlinks(&good).unwrap();
+    let slf = otter_gocompat::filepath::eval_symlinks(&good).unwrap();
     let none = dir.join("none").to_str().unwrap().to_owned();
     let dirs = dir.to_str().unwrap().to_owned();
     let v = handover::VERSION;
@@ -80,7 +80,7 @@ fn validate_refusals() {
         ("정상", rq(&good, v), env(me, "darwin", &slf), ""),
         (
             "상대경로",
-            rq("bin/dongminal", v),
+            rq("bin/otterminal", v),
             env(me, "darwin", &slf),
             handover::REASON_EXE,
         ),
@@ -151,7 +151,7 @@ fn validate_messages() {
     let dir = d.path();
     let good = write_exe(dir, "good", "exit 0", 0o755);
     let noexec = write_exe(dir, "noexec", "exit 0", 0o644);
-    let slf = dm_gocompat::filepath::eval_symlinks(&good).unwrap();
+    let slf = otter_gocompat::filepath::eval_symlinks(&good).unwrap();
     let none = dir.join("none").to_str().unwrap().to_owned();
     let dirs = dir.to_str().unwrap().to_owned();
     let me = euid();
@@ -197,7 +197,7 @@ fn validate_messages() {
     assert_eq!(
         msg(&good, 1, env(me, "darwin", "/x/self")),
         format!(
-            "reload_exe: 데몬 자신의 실행 파일이 아닙니다: {good} (데몬 /x/self) — dongminal start --refresh-daemon 을 쓰세요"
+            "reload_exe: 데몬 자신의 실행 파일이 아닙니다: {good} (데몬 /x/self) — otterminal start --refresh-daemon 을 쓰세요"
         )
     );
 }
@@ -363,7 +363,7 @@ impl Drop for Rig {
 
 fn self_exe() -> String {
     let exe = std::env::current_exe().unwrap();
-    dm_gocompat::filepath::eval_symlinks(exe.to_str().unwrap()).unwrap()
+    otter_gocompat::filepath::eval_symlinks(exe.to_str().unwrap()).unwrap()
 }
 
 fn rig() -> Rig {
@@ -372,7 +372,7 @@ fn rig() -> Rig {
     let pm = Arc::new(ToolManager::new(h.to_str().unwrap(), None));
     let ps = PanedServer::new(Arc::clone(&pm), &h.join("s"), None);
     ps.listen().unwrap();
-    ps.listen_reports(&h.join(dm_shared_agentrec::SOCKET_FILE))
+    ps.listen_reports(&h.join(otter_shared_agentrec::SOCKET_FILE))
         .unwrap();
     let tool = pm
         .create(
@@ -602,7 +602,7 @@ fn dup_raw(fd: u64) -> u64 {
 /// 이 시험 프로세스의 자식으로 PTY 셸(cat)을 띄우고, 원래 핸들은 닫은 채 복제한 마스터 fd 만
 /// 남긴다 — exec 뒤에 누구 것인지 모르는 fd 만 쥔 상태와 같다.
 fn orphan_shell() -> (OwnedFd, i32) {
-    let term: Box<dyn Terminal> = dm_shared_platform::current()
+    let term: Box<dyn Terminal> = otter_shared_platform::current()
         .pty
         .start(
             ProcSpec {
@@ -623,7 +623,7 @@ fn orphan_shell() -> (OwnedFd, i32) {
 }
 
 fn kill(pid: i32) {
-    let _ = dm_shared_platform::current().process.kill(pid);
+    let _ = otter_shared_platform::current().process.kill(pid);
 }
 
 // TC-DSK-14 (FR-DSK-27): 인계 상태 없이 열린 PTY fd 와 자식 셸을 짝짓는다.
@@ -660,7 +660,7 @@ async fn recover_recovers_and_adopts() {
         pid: i64::from(pa),
     }];
     std::fs::write(
-        home.path().join(dm_shared_dmenv::TOOLS_FILE),
+        home.path().join(otter_shared_otterenv::TOOLS_FILE),
         json::marshal(&states).unwrap(),
     )
     .unwrap();
@@ -702,7 +702,7 @@ async fn recover_recovers_and_adopts() {
 #[test]
 fn close_inherited_sockets_closes_only_ours() {
     let d = tempfile::Builder::new().prefix("dsk").tempdir().unwrap();
-    let ipc = &dm_shared_platform::current().ipc;
+    let ipc = &otter_shared_platform::current().ipc;
     let ours = d.path().join("s");
     let other = d.path().join("other");
     let l1 = ipc.listen(&ours).unwrap();

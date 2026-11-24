@@ -63,7 +63,7 @@ function mkRepo(tag: string) {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-edop-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-edop-')));
   REPO = mkRepo('repo');
 });
 test.afterAll(() => {

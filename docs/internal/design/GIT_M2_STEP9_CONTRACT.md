@@ -12,7 +12,7 @@ recovery hint 기록만 세운다. 실제 쓰기 명령은 10·11단계가 이 �
 
 | # | 결정 | 값 | 근거 |
 |---|---|---|---|
-| O6 | 커밋 draft 저장 위치 | `workspace.json` 최상위 `git.drafts{<repo>:<msg>}` | O1 과 같은 곳. dongminal 은 여러 기기에서 같은 워크스페이스를 보므로 draft 도 따라가야 한다 |
+| O6 | 커밋 draft 저장 위치 | `workspace.json` 최상위 `git.drafts{<repo>:<msg>}` | O1 과 같은 곳. otterminal 은 여러 기기에서 같은 워크스페이스를 보므로 draft 도 따라가야 한다 |
 | O7 | undo 토스트 지속 시간 | **5초 고정** | 설정 항목을 늘릴 값어치가 없다 (최소 구현) |
 | O8 | discard recovery hint | **안내만.** stash 를 자동 생성하지 않는다 | 자동 생성은 사용자의 stash 목록을 오염시키고, 그 오염을 되돌릴 방법이 없다 |
 

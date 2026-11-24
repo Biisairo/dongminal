@@ -1,5 +1,5 @@
 [package]
-name = "dm-webserver-seam-toolaccess"
+name = "otter-webserver-seam-toolaccess"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,4 +10,4 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-shared-pollwait = { path = "../../../shared/pollwait" }
+otter-shared-pollwait = { path = "../../../shared/pollwait" }

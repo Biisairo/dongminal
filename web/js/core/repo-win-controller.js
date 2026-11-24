@@ -1,5 +1,5 @@
 /**
- * Dongminal — Repo 창의 **Diff 탭** (UX_BATCH12_SRS §3.5f FR-RTB-7~9·13).
+ * Otterminal — Repo 창의 **Diff 탭** (UX_BATCH12_SRS §3.5f FR-RTB-7~9·13).
  *
  * Diff 탭은 창에 여럿이고 탭마다 대상(저장소 루트, 경로, 축)을 든다. 대상은 탭
  * 레코드(`tab.diffTarget`)에 실어 워크스페이스에 남긴다.

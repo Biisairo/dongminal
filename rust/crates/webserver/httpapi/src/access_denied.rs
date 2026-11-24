@@ -1,9 +1,9 @@
 //! 차단 페이지 (Go `access_denied.go`, ACCESS_ALLOWLIST_SRS FR-ACL-11). 브라우저가 문서를 열다
 //! 막혔을 때만 HTML 로 답한다 — 그 밖의 요청은 평문 403 이다.
 
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr as apierr;
 use http::{HeaderValue, StatusCode, header};
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_webserver_apierr as apierr;
 
 use crate::req::Req;
 

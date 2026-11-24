@@ -4,7 +4,7 @@ use std::io;
 use std::path::Path;
 use std::sync::{Mutex, PoisonError};
 
-use dm_gocompat::json;
+use otter_gocompat::json;
 use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
@@ -27,7 +27,7 @@ pub const TRIGGER_PRIORITY: &str = "priority";
 
 /// 전환 기록의 by (FR-CAC-110a).
 pub const BY_UI: &str = "ui";
-pub const BY_DMCTL: &str = "dmctl";
+pub const BY_OTTERCTL: &str = "otterctl";
 pub const BY_AUTO: &str = "auto";
 
 /// history.jsonl 의 한 줄이다. 헤드룸을 모르면 `None`(null) 이다.

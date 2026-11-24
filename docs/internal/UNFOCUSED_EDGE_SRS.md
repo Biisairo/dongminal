@@ -13,7 +13,7 @@
   `web/js/core/app-focus.js`(클래스 토글), `web/js/core/app.js`(초기 반영),
   `web/js/core/helpers.js`(전역 기본값), `web/js/core/app-settings.js`(설정 배선·복원),
   `web/js/core/constants.js`(상수), `web/js/core/main.js`(복원 시 반영), `e2e/unfocused-edge.spec.ts`(신규).
-- 비포함: 창별(dongminal window) 포커스 소유권 표시(`applyFocusOverlay`, 기존 `.pn` dim), 알람 링(`.pn.attn`),
+- 비포함: 창별(otterminal window) 포커스 소유권 표시(`applyFocusOverlay`, 기존 `.pn` dim), 알람 링(`.pn.attn`),
   펄스·애니메이션, 서버측 변경(`/api/settings` 는 해석하지 않는 blob 이다).
 
 ### 1.3 정의 (Definitions)

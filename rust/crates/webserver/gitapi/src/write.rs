@@ -8,14 +8,14 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_shared_httpresp::Response;
-use dm_webserver_action::Answer;
-use dm_webserver_apierr::{Classify, Sentinel};
-use dm_webserver_domain_git_core::{self as core, Ctx, Kind};
-use dm_webserver_domain_git_jobs::{Exclusion, Keys, SLOT_INDEX};
-use dm_webserver_domain_git_query::{FileEntry, Status};
-use dm_webserver_domain_git_store::Store;
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_action::Answer;
+use otter_webserver_apierr::{Classify, Sentinel};
+use otter_webserver_domain_git_core::{self as core, Ctx, Kind};
+use otter_webserver_domain_git_jobs::{Exclusion, Keys, SLOT_INDEX};
+use otter_webserver_domain_git_query::{FileEntry, Status};
+use otter_webserver_domain_git_store::Store;
 use serde::de::DeserializeOwned;
 
 use crate::GitServer;
@@ -112,7 +112,7 @@ impl<'a> GitWrite<'a> {
     /// 쓴 응답이다. 아무 응답도 쓰지 않았으면 Go 처럼 빈 200 이다.
     pub(crate) fn finish(self) -> Response {
         self.res.unwrap_or_else(|| {
-            let mut res = http::Response::new(dm_shared_httpresp::empty());
+            let mut res = http::Response::new(otter_shared_httpresp::empty());
             *res.status_mut() = StatusCode::OK;
             res
         })
@@ -508,7 +508,7 @@ impl GitServer {
                 "repo 인자가 없다",
             ));
         }
-        if !dm_gocompat::filepath::is_abs(requested) {
+        if !otter_gocompat::filepath::is_abs(requested) {
             return Err(git_fail(
                 StatusCode::BAD_REQUEST,
                 ERR_BAD_REQUEST,

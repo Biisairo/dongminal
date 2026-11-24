@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-use dm_gocompat::filepath;
+use otter_gocompat::filepath;
 use serde_json::Value;
 
 use super::*;
@@ -12,7 +12,7 @@ fn abs(seg: &[&str]) -> String {
 }
 
 fn jq(s: &str) -> String {
-    String::from_utf8(dm_gocompat::json::marshal(s).unwrap()).unwrap()
+    String::from_utf8(otter_gocompat::json::marshal(s).unwrap()).unwrap()
 }
 
 fn sv(v: &[&str]) -> Vec<String> {
@@ -54,11 +54,11 @@ impl WorkspaceStore for FakeWork {
         let s = self.0.lock().unwrap();
         (Arc::new(s.raw.clone()), s.rev)
     }
-    fn save(&self, blob: &[u8], _: &str) -> Result<u64, dm_shared_workspace::Error> {
+    fn save(&self, blob: &[u8], _: &str) -> Result<u64, otter_shared_workspace::Error> {
         let mut s = self.0.lock().unwrap();
         if s.stale_once {
             s.stale_once = false;
-            return Err(dm_shared_workspace::Error::Stale);
+            return Err(otter_shared_workspace::Error::Stale);
         }
         s.raw = blob.to_vec();
         s.rev += 1;
@@ -575,7 +575,7 @@ fn mutate_retries_once_on_stale() {
     assert_eq!(b.count(), 1);
     assert_eq!(
         b.0.lock().unwrap()[0],
-        dm_webserver_sse::workspace_changed(1)
+        otter_webserver_sse::workspace_changed(1)
     );
 }
 
@@ -585,9 +585,9 @@ impl WorkspaceStore for AlwaysStale {
     fn snapshot(&self) -> (Arc<Vec<u8>>, u64) {
         (Arc::new(br#"{"schemaVersion":2}"#.to_vec()), 0)
     }
-    fn save(&self, _: &[u8], _: &str) -> Result<u64, dm_shared_workspace::Error> {
+    fn save(&self, _: &[u8], _: &str) -> Result<u64, otter_shared_workspace::Error> {
         *self.0.lock().unwrap() += 1;
-        Err(dm_shared_workspace::Error::Stale)
+        Err(otter_shared_workspace::Error::Stale)
     }
 }
 

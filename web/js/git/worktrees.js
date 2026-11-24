@@ -1,9 +1,9 @@
 /**
- * Dongminal — Git Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5 / FR-GIT-240~244)
+ * Otterminal — Git Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5 / FR-GIT-240~244)
  *
  * 목록의 진실은 `git worktree list` 다 (FR-GIT-240) — 이 목록이 그것과 다르면
  * 사용자가 "내가 만든 게 어디 갔지" 를 헛갈린다. 그래서 **main worktree 도, Run
- * 격리가 만든 것도, dongminal 밖에서 만든 것도 함께 보인다.**
+ * 격리가 만든 것도, otterminal 밖에서 만든 것도 함께 보인다.**
  *
  * main 이 아닌 worktree 는 소유와 무관하게 전부 지울 수 있다 (FR-GIT-241 개정,
  * WORKTREE_REMOVE_ALL_SRS FR-WRA-7). 소유는 표식일 뿐이다. 서버는 등록·main 여부를

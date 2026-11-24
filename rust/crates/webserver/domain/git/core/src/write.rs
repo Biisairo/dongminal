@@ -1,6 +1,6 @@
 //! 쓰기 경로의 단일 지점 (FR-GIT-95~96).
 
-use dm_gocompat::strconv::quote;
+use otter_gocompat::strconv::quote;
 
 use crate::ctx::Ctx;
 use crate::error::{Error, Kind, quote_list};

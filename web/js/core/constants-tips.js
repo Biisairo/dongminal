@@ -1,5 +1,5 @@
 /**
- * Dongminal — 툴팁 문구 (REFACTOR3_FE_REST5_SRS FR-FR5-20).
+ * Otterminal — 툴팁 문구 (REFACTOR3_FE_REST5_SRS FR-FR5-20).
  *
  * `constants.js` 의 툴팁 절(UX_BATCH5_SRS 묶음 C)을 그대로 옮겼다 — 값과 이름은 그대로다.
  * `constants-sandbox.js` 뒤에 로드된다.

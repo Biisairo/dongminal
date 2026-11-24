@@ -2,12 +2,12 @@
 
 use std::io::{self, BufRead, Write};
 
-use dm_gocompat::strconv::quote;
+use otter_gocompat::strconv::quote;
 
 use crate::service::MAX_TEXT_BYTES;
 
 /// 프레임 본문의 상한. 편집기 본문 상한과 같다.
-pub(crate) const MAX_FRAME: i64 = dm_shared_editorlimit::body_max_bytes(MAX_TEXT_BYTES);
+pub(crate) const MAX_FRAME: i64 = otter_shared_editorlimit::body_max_bytes(MAX_TEXT_BYTES);
 
 /// 머리 한 줄과 머리 전체의 바이트 상한.
 const MAX_HEADER_LINE: usize = 1024;

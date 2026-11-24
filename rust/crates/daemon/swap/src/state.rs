@@ -3,9 +3,9 @@ use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_gocompat::oserr::go_error_string;
-use dm_shared_toolhub::HandoverTool;
+use otter_gocompat::json::{self, RawMessage};
+use otter_gocompat::oserr::go_error_string;
+use otter_shared_toolhub::HandoverTool;
 use serde::{Deserialize, Serialize};
 
 /// exec 를 넘는 데몬의 기억이다 (DAEMON_SESSION_KEEP_SRS FR-DSK-14). JSON 은 Go 와 같다.
@@ -26,7 +26,7 @@ pub struct State {
 /// dir 은 이름 있는 임시 파일이 잠시 놓일 자리다(memfd 가 없는 OS).
 pub fn write_state(dir: &Path, st: &State) -> io::Result<File> {
     let blob = json::marshal(st).map_err(|e| io::Error::other(e.to_string()))?;
-    let mut f = dm_shared_platform::anon_file(dir)
+    let mut f = otter_shared_platform::anon_file(dir)
         .map_err(|e| io::Error::other(format!("인계 파일: {}", go_error_string(&e))))?;
     f.write_all(&blob)
         .map_err(|e| io::Error::other(format!("인계 파일 쓰기: {}", go_error_string(&e))))?;

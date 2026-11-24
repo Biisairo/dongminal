@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 use std::fs::Metadata;
 
-use dm_shared_httpresp::Response;
+use otter_shared_httpresp::Response;
 use serde::{Deserialize, Serialize};
 
 use crate::Server;

@@ -12,9 +12,9 @@ use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use dm_shared_serverconf as serverconf;
-use dm_webserver_apierr as apierr;
 use http::Method;
+use otter_shared_serverconf as serverconf;
+use otter_webserver_apierr as apierr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
@@ -415,7 +415,7 @@ async fn rebind_local_only() {
     let res = srv.api_server_bind(&mut r).await;
     assert_eq!(res.status(), 403);
     assert_eq!(
-        res.headers()[dm_shared_httpresp::CODE_HEADER],
+        res.headers()[otter_shared_httpresp::CODE_HEADER],
         apierr::CODE_BIND_LOCAL_ONLY
     );
     let mut r = Req::for_test(Method::POST, "/api/server/bind", r#"{"port":9999}"#);
@@ -423,12 +423,12 @@ async fn rebind_local_only() {
     let res = srv.api_server_bind(&mut r).await;
     assert_eq!(res.status(), 503);
     assert_eq!(
-        res.headers()[dm_shared_httpresp::CODE_HEADER],
+        res.headers()[otter_shared_httpresp::CODE_HEADER],
         apierr::CODE_BIND_UNAVAILABLE
     );
 }
 
-async fn body_of(res: dm_shared_httpresp::Response) -> String {
+async fn body_of(res: otter_shared_httpresp::Response) -> String {
     use http_body_util::BodyExt;
     let b = res.into_body().collect().await.unwrap().to_bytes();
     String::from_utf8_lossy(&b).into_owned()
@@ -453,7 +453,7 @@ async fn carry_post(srv: &Server, body: &[u8]) -> (u16, String, String) {
     let res = srv.api_server_carry_post(&mut r).await;
     let code = res
         .headers()
-        .get(dm_shared_httpresp::CODE_HEADER)
+        .get(otter_shared_httpresp::CODE_HEADER)
         .map(|v| v.to_str().unwrap().to_owned())
         .unwrap_or_default();
     (res.status().as_u16(), code, body_of(res).await)
@@ -464,7 +464,7 @@ async fn carry_get(srv: &Server, token: &str) -> (u16, String, String) {
     let res = srv.api_server_carry_get(&mut r).await;
     let code = res
         .headers()
-        .get(dm_shared_httpresp::CODE_HEADER)
+        .get(otter_shared_httpresp::CODE_HEADER)
         .map(|v| v.to_str().unwrap().to_owned())
         .unwrap_or_default();
     (res.status().as_u16(), code, body_of(res).await)
@@ -595,8 +595,8 @@ async fn server_bind_get_wire() {
         res.body,
         format!(
             "{{\"host\":\"127.0.0.1\",\"port\":\"{}\",\"expose\":false,\"url\":\"http://127.0.0.1:{}\",\"local\":true,\"source\":{{\"host\":\"default\",\"port\":\"default\"}}}}\n",
-            dm_shared_dmenv::DEFAULT_PORT,
-            dm_shared_dmenv::DEFAULT_PORT
+            otter_shared_otterenv::DEFAULT_PORT,
+            otter_shared_otterenv::DEFAULT_PORT
         )
     );
 }
@@ -648,7 +648,7 @@ fn bind_port_valid_table() {
 
 #[test]
 fn bind_target_table() {
-    let d = dm_shared_dmenv::DEFAULT_HOST;
+    let d = otter_shared_otterenv::DEFAULT_HOST;
     let cases: [(&str, &str, BindReq, &str, &str); 6] = [
         (d, "1", BindReq::default(), d, "1"),
         (

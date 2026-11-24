@@ -16,14 +16,14 @@ paste = append(paste, 0x1b, '[', '2', '0', '1', '~')
 
 그 모드를 지원하지 않는 셸은 마커를 **글자 그대로** 명령줄에 받는다.
 
-    $ 200~echo dongminal-e2e-ok201~
+    $ 200~echo otterminal-e2e-ok201~
     bash: 200~echo: command not found
 
 이 문서는 그 결함을 없앤다. 감싸는 것은 **셸이 그 모드를 켰을 때만** 이다.
 
 ### 1.2 어떻게 드러났나
 
-v1.0.0 릴리스 게이트의 macOS 잡이 실패했다. `dongminal verify` 의 입력→출력 왕복이
+v1.0.0 릴리스 게이트의 macOS 잡이 실패했다. `otterminal verify` 의 입력→출력 왕복이
 표시를 한 번(에코)만 보고 실행 결과를 보지 못했다.
 
 **게이트가 없었으면 이 결함이 그대로 1.0.0 에 실렸다.** 종전 CI 의 왕복 검사는
@@ -39,7 +39,7 @@ zsh 는 지원하므로 그 둘에서는 드러나지 않았다.
 
 | 경로 | 무엇 |
 |---|---|
-| `POST /api/tools/input` | API·`dmctl` 입력 주입 |
+| `POST /api/tools/input` | API·`otterctl` 입력 주입 |
 | `POST /api/tools/msg` | **에이전트 간 메시지** |
 | `handlers_runs_context.go` | 오케스트레이션 컨텍스트 전달 |
 
@@ -127,7 +127,7 @@ error` 를 더한다.
 | FR-BPW-1,2 | 단위테스트 — 모드별로 실제로 쓰인 바이트를 대조 |
 | FR-BPW-3 | 단위테스트 — submit 이면 `\r` 이 뒤따르는지 |
 | FR-BPW-4,5 | daemon 왕복 테스트 (기존 ipc 테스트 형식) |
-| **종단간** | `SHELL=/bin/bash ./dongminal verify` 가 darwin 에서 22/22 — **이 결함을 드러낸 바로 그 조건** |
+| **종단간** | `SHELL=/bin/bash ./otterminal verify` 가 darwin 에서 22/22 — **이 결함을 드러낸 바로 그 조건** |
 | 회귀 | 릴리스 게이트의 macOS 잡 |
 
 ---

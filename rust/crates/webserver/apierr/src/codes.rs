@@ -143,24 +143,24 @@ pub const CODE_CLAUDE_NO_CANDIDATE: &str = "claude_no_candidate";
 pub const CODE_CLAUDE_KEYCHAIN: &str = "claude_keychain_unavailable";
 pub const CODE_CLAUDE_TOO_SOON: &str = "claude_too_soon";
 pub const CODE_CLAUDE_CSWAP_RUNNING: &str = "claude_cswap_running";
-pub const CODE_EDGE_UNAVAILABLE: &str = dm_shared_edge::CODE_UNAVAILABLE;
-pub const CODE_EDGE_CONFIG_INVALID: &str = dm_shared_edge::CODE_CONFIG_INVALID;
-pub const CODE_EDGE_PORT_CLOSED: &str = dm_shared_edge::CODE_PORT_CLOSED;
-pub const CODE_EDGE_ADDR_REQUIRED: &str = dm_shared_edge::CODE_ADDR_REQUIRED;
-pub const CODE_EDGE_INVITE_INVALID: &str = dm_shared_edge::CODE_INVITE_INVALID;
-pub const CODE_EDGE_NO_INVITE: &str = dm_shared_edge::CODE_NO_INVITE;
-pub const CODE_EDGE_TOKEN_INVALID: &str = dm_shared_edge::CODE_TOKEN_INVALID;
-pub const CODE_EDGE_FP_MISMATCH: &str = dm_shared_edge::CODE_FP_MISMATCH;
-pub const CODE_EDGE_UNREACHABLE: &str = dm_shared_edge::CODE_UNREACHABLE;
-pub const CODE_EDGE_REJECTED: &str = dm_shared_edge::CODE_REJECTED;
-pub const CODE_EDGE_NOT_FOUND: &str = dm_shared_edge::CODE_NOT_FOUND;
-pub const CODE_EDGE_NOT_EDGE: &str = dm_shared_edge::CODE_NOT_EDGE;
-pub const CODE_EDGE_AMBIGUOUS: &str = dm_shared_edge::CODE_AMBIGUOUS;
-pub const CODE_EDGE_RATE_LIMITED: &str = dm_shared_edge::CODE_RATE_LIMITED;
-pub const CODE_EDGE_DAEMON_RESTART: &str = dm_shared_edge::CODE_DAEMON_RESTART;
-pub const CODE_EDGE_ADDR_UNKNOWN: &str = dm_shared_edge::CODE_ADDR_UNKNOWN;
-pub const CODE_EDGE_PEER_OUTDATED: &str = dm_shared_edge::CODE_PEER_OUTDATED;
-pub const CODE_EDGE_ALREADY_EDGE: &str = dm_shared_edge::CODE_ALREADY_EDGE;
+pub const CODE_EDGE_UNAVAILABLE: &str = otter_shared_edge::CODE_UNAVAILABLE;
+pub const CODE_EDGE_CONFIG_INVALID: &str = otter_shared_edge::CODE_CONFIG_INVALID;
+pub const CODE_EDGE_PORT_CLOSED: &str = otter_shared_edge::CODE_PORT_CLOSED;
+pub const CODE_EDGE_ADDR_REQUIRED: &str = otter_shared_edge::CODE_ADDR_REQUIRED;
+pub const CODE_EDGE_INVITE_INVALID: &str = otter_shared_edge::CODE_INVITE_INVALID;
+pub const CODE_EDGE_NO_INVITE: &str = otter_shared_edge::CODE_NO_INVITE;
+pub const CODE_EDGE_TOKEN_INVALID: &str = otter_shared_edge::CODE_TOKEN_INVALID;
+pub const CODE_EDGE_FP_MISMATCH: &str = otter_shared_edge::CODE_FP_MISMATCH;
+pub const CODE_EDGE_UNREACHABLE: &str = otter_shared_edge::CODE_UNREACHABLE;
+pub const CODE_EDGE_REJECTED: &str = otter_shared_edge::CODE_REJECTED;
+pub const CODE_EDGE_NOT_FOUND: &str = otter_shared_edge::CODE_NOT_FOUND;
+pub const CODE_EDGE_NOT_EDGE: &str = otter_shared_edge::CODE_NOT_EDGE;
+pub const CODE_EDGE_AMBIGUOUS: &str = otter_shared_edge::CODE_AMBIGUOUS;
+pub const CODE_EDGE_RATE_LIMITED: &str = otter_shared_edge::CODE_RATE_LIMITED;
+pub const CODE_EDGE_DAEMON_RESTART: &str = otter_shared_edge::CODE_DAEMON_RESTART;
+pub const CODE_EDGE_ADDR_UNKNOWN: &str = otter_shared_edge::CODE_ADDR_UNKNOWN;
+pub const CODE_EDGE_PEER_OUTDATED: &str = otter_shared_edge::CODE_PEER_OUTDATED;
+pub const CODE_EDGE_ALREADY_EDGE: &str = otter_shared_edge::CODE_ALREADY_EDGE;
 pub const CODE_TELEGRAM_UNAVAILABLE: &str = "telegram_unavailable";
 pub const CODE_TELEGRAM_TOKEN_INVALID: &str = "telegram_token_invalid";
 pub const CODE_TELEGRAM_UNREACHABLE: &str = "telegram_unreachable";
@@ -455,7 +455,7 @@ pub const CODE_DOC: &[(&str, Doc)] = &[
         "chat_daemon_restart",
         Doc {
             meaning: "붙은 데몬이 채팅을 모르는 옛 판입니다.",
-            recover: "dongminal start 로 데몬을 세션을 유지하며 교체하세요. 데몬이 교체를 모르는 옛 판이면 dongminal start --refresh-daemon 이 한 번 필요하고, 이때 모든 터미널 세션이 끊깁니다.",
+            recover: "otterminal start 로 데몬을 세션을 유지하며 교체하세요. 데몬이 교체를 모르는 옛 판이면 otterminal start --refresh-daemon 이 한 번 필요하고, 이때 모든 터미널 세션이 끊깁니다.",
         },
     ),
     (
@@ -469,7 +469,7 @@ pub const CODE_DOC: &[(&str, Doc)] = &[
         "chat_no_helper",
         Doc {
             meaning: "이 노드에 사람 명령의 도우미가 없거나 닿지 않습니다.",
-            recover: "OS 기본 터미널에서 sudo dongminal otp install 로 설치하세요. dongminal otp status 로 확인합니다.",
+            recover: "OS 기본 터미널에서 sudo otterminal otp install 로 설치하세요. otterminal otp status 로 확인합니다.",
         },
     ),
     (
@@ -518,7 +518,7 @@ pub const CODE_DOC: &[(&str, Doc)] = &[
         "chat_unreachable",
         Doc {
             meaning: "데몬에 닿지 못했습니다.",
-            recover: "dongminal health 로 데몬 연결을 보세요.",
+            recover: "otterminal health 로 데몬 연결을 보세요.",
         },
     ),
     (
@@ -532,14 +532,14 @@ pub const CODE_DOC: &[(&str, Doc)] = &[
         "claude_account_not_found",
         Doc {
             meaning: "그런 Claude 계정이 등록되어 있지 않습니다.",
-            recover: "`dmctl account list` 로 계정 ID 를 확인하세요.",
+            recover: "`otterctl account list` 로 계정 ID 를 확인하세요.",
         },
     ),
     (
         "claude_accounts_unavailable",
         Doc {
             meaning: "이 서버에는 Claude 계정 기능이 서지 않았습니다 — 데이터 폴더 없이 떴습니다.",
-            recover: "dongminal 을 데이터 폴더($DONGMINAL_HOME)와 함께 다시 띄우세요.",
+            recover: "otterminal 을 데이터 폴더($OTTERMINAL_HOME)와 함께 다시 띄우세요.",
         },
     ),
     (
@@ -644,7 +644,7 @@ pub const CODE_DOC: &[(&str, Doc)] = &[
         "edge_ambiguous",
         Doc {
             meaning: "지문 앞자리가 간선 둘 이상에 맞습니다.",
-            recover: "dmctl edges 로 지문을 보고 더 긴 앞자리를 주세요.",
+            recover: "otterctl edges 로 지문을 보고 더 긴 앞자리를 주세요.",
         },
     ),
     (
@@ -658,7 +658,7 @@ pub const CODE_DOC: &[(&str, Doc)] = &[
         "edge_daemon_restart",
         Doc {
             meaning: "붙은 데몬이 노드 기능을 모르는 옛 판입니다. 노드 기능을 쓰려면 데몬을 다시 시작해야 합니다.",
-            recover: "dongminal start 로 데몬을 세션을 유지하며 교체하세요. 데몬이 교체를 모르는 옛 판이면 dongminal start --refresh-daemon 이 한 번 필요하고, 이때 모든 터미널 세션이 끊깁니다.",
+            recover: "otterminal start 로 데몬을 세션을 유지하며 교체하세요. 데몬이 교체를 모르는 옛 판이면 otterminal start --refresh-daemon 이 한 번 필요하고, 이때 모든 터미널 세션이 끊깁니다.",
         },
     ),
     (
@@ -693,14 +693,14 @@ pub const CODE_DOC: &[(&str, Doc)] = &[
         "edge_not_found",
         Doc {
             meaning: "그 지문의 간선이 없습니다.",
-            recover: "dmctl edges 로 간선의 지문을 확인하세요. 지문 앞자리는 8자리 이상이어야 합니다.",
+            recover: "otterctl edges 로 간선의 지문을 확인하세요. 지문 앞자리는 8자리 이상이어야 합니다.",
         },
     ),
     (
         "edge_peer_outdated",
         Doc {
             meaning: "상대 노드가 간선 연결을 모르는 옛 판입니다.",
-            recover: "상대 노드의 dongminal 을 업데이트하세요.",
+            recover: "상대 노드의 otterminal 을 업데이트하세요.",
         },
     ),
     (
@@ -721,7 +721,7 @@ pub const CODE_DOC: &[(&str, Doc)] = &[
         "edge_rejected",
         Doc {
             meaning: "상대 노드가 이 노드를 받지 않았습니다.",
-            recover: "상대가 옛 판일 수 있습니다. 상대의 dongminal 을 새 판으로 올리세요.",
+            recover: "상대가 옛 판일 수 있습니다. 상대의 otterminal 을 새 판으로 올리세요.",
         },
     ),
     (
@@ -1260,7 +1260,7 @@ pub const CODE_DOC: &[(&str, Doc)] = &[
         "runtime_missing",
         Doc {
             meaning: "컨테이너 런타임(docker)이 설치되어 있지 않습니다.",
-            recover: "GET /api/sandbox/runtime 의 installCommand 로 설치한 뒤 dongminal 을 다시 시작하세요.",
+            recover: "GET /api/sandbox/runtime 의 installCommand 로 설치한 뒤 otterminal 을 다시 시작하세요.",
         },
     ),
     (
@@ -1393,7 +1393,7 @@ pub const CODE_DOC: &[(&str, Doc)] = &[
         "telegram_unavailable",
         Doc {
             meaning: "이 서버에는 Telegram 브리지가 서지 않았습니다 — 데이터 폴더 없이 떴습니다.",
-            recover: "dongminal 을 데이터 폴더($DONGMINAL_HOME)와 함께 다시 띄우세요.",
+            recover: "otterminal 을 데이터 폴더($OTTERMINAL_HOME)와 함께 다시 띄우세요.",
         },
     ),
     (
@@ -1435,7 +1435,7 @@ pub const CODE_DOC: &[(&str, Doc)] = &[
         "tools_unavailable",
         Doc {
             meaning: "도구 계층이 아직 서지 않았습니다.",
-            recover: "잠시 뒤 다시 시도하세요. 계속되면 dongminal health 로 데몬 연결을 보세요.",
+            recover: "잠시 뒤 다시 시도하세요. 계속되면 otterminal health 로 데몬 연결을 보세요.",
         },
     ),
     (
@@ -1470,7 +1470,7 @@ pub const CODE_DOC: &[(&str, Doc)] = &[
         "update_unavailable",
         Doc {
             meaning: "판 확인 계층을 쓸 수 없는 서버입니다.",
-            recover: "이 서버는 자동 판 확인 없이 돕니다. 직접 확인하려면 dongminal update --check 를 쓰세요.",
+            recover: "이 서버는 자동 판 확인 없이 돕니다. 직접 확인하려면 otterminal update --check 를 쓰세요.",
         },
     ),
     (

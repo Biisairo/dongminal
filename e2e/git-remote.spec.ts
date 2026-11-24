@@ -13,7 +13,7 @@ import { TMP, tmpPath, realPath } from './osenv';
 // 쓰지 않으므로 테스트가 외부에 의존하지 않는다. 쓰기를 하므로 저장소와 원격을
 // 매 테스트마다 **복사본**으로 만든다 — 원본을 밀면 다음 테스트가 무너진다.
 
-const FIXTURES = tmpPath('dm-git-fx-remote-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-remote-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
@@ -41,11 +41,11 @@ function copyPair(tag: string) {
 
 // 원격을 한 커밋 앞세운다 — 별도 클론에서 밀어야 bare 를 정직하게 움직인다.
 function advanceRemote(remote: string, text: string) {
-  const work = realPath(mkdtempSync(join(TMP, 'dm-git-adv-')));
+  const work = realPath(mkdtempSync(join(TMP, 'otter-git-adv-')));
   const clone = join(work, 'c');
   execFileSync('git', ['clone', '-q', remote, clone]);
-  git(clone, 'config', 'user.name', 'dm');
-  git(clone, 'config', 'user.email', 'dm@example.com');
+  git(clone, 'config', 'user.name', 'otter');
+  git(clone, 'config', 'user.email', 'otter@example.com');
   git(clone, 'config', 'commit.gpgsign', 'false');
   writeFileSync(join(clone, 'remote-side.txt'), text + '\n');
   git(clone, 'add', '-A');
@@ -56,11 +56,11 @@ function advanceRemote(remote: string, text: string) {
 
 // 원격이 같은 줄을 다르게 고치게 한다 — pull 이 충돌로 끝나는 유일한 정직한 방법이다.
 function conflictRemote(remote: string) {
-  const work = realPath(mkdtempSync(join(TMP, 'dm-git-cf-')));
+  const work = realPath(mkdtempSync(join(TMP, 'otter-git-cf-')));
   const clone = join(work, 'c');
   execFileSync('git', ['clone', '-q', remote, clone]);
-  git(clone, 'config', 'user.name', 'dm');
-  git(clone, 'config', 'user.email', 'dm@example.com');
+  git(clone, 'config', 'user.name', 'otter');
+  git(clone, 'config', 'user.email', 'otter@example.com');
   git(clone, 'config', 'commit.gpgsign', 'false');
   writeFileSync(join(clone, 'f.txt'), 'a\nfrom-remote\n');
   git(clone, 'commit', '-qam', 'remote edit');

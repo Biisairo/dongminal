@@ -4,10 +4,10 @@
 use std::collections::BTreeMap;
 use std::path::MAIN_SEPARATOR;
 
-use dm_gocompat::filepath;
-use dm_shared_httpresp::Response;
-use dm_webserver_action::{self as action, Answer};
-use dm_webserver_apierr as apierr;
+use otter_gocompat::filepath;
+use otter_shared_httpresp::Response;
+use otter_webserver_action::{self as action, Answer};
+use otter_webserver_apierr as apierr;
 use serde::{Deserialize, Serialize};
 
 use crate::Server;

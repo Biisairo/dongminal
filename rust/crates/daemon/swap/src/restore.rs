@@ -1,10 +1,10 @@
 use std::io;
 
-use dm_daemon_ipc::PanedServer;
-use dm_gocompat::oserr::go_error_string;
-use dm_shared_dmlog::{errorf, infof};
-use dm_shared_platform::IpcListener;
-use dm_shared_toolhub::{HandoverTool, ToolManager};
+use otter_daemon_ipc::PanedServer;
+use otter_gocompat::oserr::go_error_string;
+use otter_shared_otterlog::{errorf, infof};
+use otter_shared_platform::IpcListener;
+use otter_shared_toolhub::{HandoverTool, ToolManager};
 
 use crate::state::State;
 

@@ -1,5 +1,5 @@
 /**
- * Dongminal — 터미널의 OSC 52 어댑터 (EXPLORER_TRANSFER_IGNORE_SRS 묶음 F ·
+ * Otterminal — 터미널의 OSC 52 어댑터 (EXPLORER_TRANSFER_IGNORE_SRS 묶음 F ·
  * FR-ETR-37~43 · STRUCTURE_CLEANUP_SRS FR-STR-11)
  *
  * **xterm.js 는 OSC 52 를 스스로 처리하지 않는다.** 그래서 셸이 보낸 클립보드

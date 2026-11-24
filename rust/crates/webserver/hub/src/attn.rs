@@ -7,12 +7,12 @@ use std::sync::atomic::{AtomicBool, AtomicI64, Ordering::SeqCst};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use dm_shared_activity as activity;
-use dm_shared_toolhub::{
+use otter_shared_activity as activity;
+use otter_shared_toolhub::{
     ATTN_MAX_CARRY, ActivitySnap, ActivityState, AgentState, AgentTurn, activity_still_working,
     attention_allow_bell, attention_idle_threshold, detect_attention_signal,
 };
-use dm_shared_toolipc::{ATTN_KIND_ACTIVITY, ATTN_KIND_ATTENTION, ATTN_KIND_CLEAR, AttnEvent};
+use otter_shared_toolipc::{ATTN_KIND_ACTIVITY, ATTN_KIND_ATTENTION, ATTN_KIND_CLEAR, AttnEvent};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -34,7 +34,7 @@ type MirrorFn = Arc<dyn Fn() -> bool + Send + Sync>;
 /// 스위퍼에 주는 틱의 주기다.
 pub const SWEEPER_INTERVAL: Duration = Duration::from_secs(1);
 
-/// L2 유휴 임계(ms)다. `DONGMINAL_ATTENTION_IDLE_MS` 를 따른다 (FR-15).
+/// L2 유휴 임계(ms)다. `OTTERMINAL_ATTENTION_IDLE_MS` 를 따른다 (FR-15).
 pub fn default_idle_ms() -> i64 {
     attention_idle_threshold().as_millis() as i64
 }
@@ -121,7 +121,7 @@ struct Inner {
 }
 
 /// 도구마다의 주의·활동 상태를 서버 메모리에 든다. 데몬 모드에서 ToolManager 는
-/// dongminald 에 있으므로 서버가 자기 판정을 한다.
+/// otterminald 에 있으므로 서버가 자기 판정을 한다.
 pub struct AttnTracker {
     mu: Mutex<Inner>,
     hub: Arc<dyn CommandBroker>,
@@ -303,7 +303,7 @@ impl AttnTracker {
         }
     }
 
-    /// 명시 알람이다 (dmctl notify). 입력 유휴 알림은 되풀이라 걸러 낸다 (FR-ATN-6·15).
+    /// 명시 알람이다 (otterctl notify). 입력 유휴 알림은 되풀이라 걸러 낸다 (FR-ATN-6·15).
     pub fn signal_attention(&self, tool_id: &str, reason: &str) {
         let ps = self.state(tool_id);
         if !ps.turn.allow_signal(reason) {

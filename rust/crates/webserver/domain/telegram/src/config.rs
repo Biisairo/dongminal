@@ -5,9 +5,9 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use dm_gocompat::json;
-use dm_gocompat::oserr::{go_error_string, path_error};
-use dm_shared_dmlog::infof;
+use otter_gocompat::json;
+use otter_gocompat::oserr::{go_error_string, path_error};
+use otter_shared_otterlog::infof;
 use serde::{Deserialize, Serialize};
 
 /// PC 입력 뒤 알림을 소리 없이 보내는 시간(분)의 기본값 (D-TGB-9).
@@ -137,7 +137,7 @@ impl Store {
         let mut c = g.cfg.clone();
         f(&mut c);
         let data = json::marshal_indent(&c, "", "  ").map_err(|_| StoreError::SaveFailed)?;
-        if let Err(e) = dm_shared_platform::write_file_atomic(&g.path, &data, FILE_MODE) {
+        if let Err(e) = otter_shared_platform::write_file_atomic(&g.path, &data, FILE_MODE) {
             infof!(
                 None,
                 "telegram: 설정을 쓰지 못했다: {}",

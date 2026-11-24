@@ -1,5 +1,5 @@
 /**
- * Dongminal — 설정 행 저장 단추의 활성 (UX_AUDIT_FIX_SRS FR-UXF-70~72, 사용자 결정 D-24).
+ * Otterminal — 설정 행 저장 단추의 활성 (UX_AUDIT_FIX_SRS FR-UXF-70~72, 사용자 결정 D-24).
  *
  * 저장 단추는 저장할 변경이 있을 때만 활성이고, 활성이면 주동작 모양이다. 자리는 행 그대로다.
  *

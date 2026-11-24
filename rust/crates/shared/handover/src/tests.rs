@@ -11,7 +11,7 @@ fn short_home() -> tempfile::TempDir {
 /// home 의 보고 소켓에서 연결 하나를 받는다. reply 가 있으면 요청 한 줄을 읽어 돌려주고 답한다.
 /// 없으면 답 없이 끊는다.
 fn fake_daemon(home: &Path, reply: Option<Reply>) -> mpsc::Receiver<Vec<u8>> {
-    let ln = dm_shared_platform::current()
+    let ln = otter_shared_platform::current()
         .ipc
         .listen(&socket_path(home))
         .unwrap();
@@ -44,12 +44,12 @@ fn reply(ok: bool, error: &str) -> Reply {
 fn reload_sends_request_and_reads_swapped() {
     let home = short_home();
     let got = fake_daemon(home.path(), Some(reply(true, "")));
-    let out = reload(home.path(), "/opt/dm/dongminal", Duration::from_secs(1));
+    let out = reload(home.path(), "/opt/otter/otterminal", Duration::from_secs(1));
     assert_eq!(out.kind, Kind::Swapped, "{out:?}");
     let line = got.recv().unwrap();
     assert_eq!(
         String::from_utf8(line).unwrap(),
-        "{\"method\":\"daemon.reload\",\"body\":{\"exe\":\"/opt/dm/dongminal\",\"handover\":1}}\n"
+        "{\"method\":\"daemon.reload\",\"body\":{\"exe\":\"/opt/otter/otterminal\",\"handover\":1}}\n"
     );
 }
 

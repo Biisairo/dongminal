@@ -60,11 +60,11 @@ impl Vars {
         )
     }
 
-    /// `DONGMINAL_HOME` 만 home 으로 둔 환경. 사용자 홈은 home 의 부모다.
+    /// `OTTERMINAL_HOME` 만 home 으로 둔 환경. 사용자 홈은 home 의 부모다.
     pub(crate) fn home(home: &Path) -> Self {
         let user = home.parent().unwrap().to_str().unwrap();
         Self::new(&[
-            (dm_shared_dmenv::ENV_HOME, home.to_str().unwrap()),
+            (otter_shared_otterenv::ENV_HOME, home.to_str().unwrap()),
             (USER_HOME_VAR, user),
         ])
     }
@@ -99,7 +99,7 @@ pub(crate) fn write_settings_json(home: &Path, body: &str) {
 /// 임시 홈. 사용자 홈과 분리하려고 한 단계 아래에 둔다.
 pub(crate) fn temp_home() -> (tempfile::TempDir, std::path::PathBuf) {
     let dir = tempfile::tempdir().unwrap();
-    let home = dir.path().join("dmhome");
+    let home = dir.path().join("otterhome");
     std::fs::create_dir(&home).unwrap();
     (dir, home)
 }

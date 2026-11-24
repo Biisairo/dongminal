@@ -1,7 +1,7 @@
 //! 파일 하나의 양쪽 내용 (FR-GIT-40~48). 편집기 diff 뷰가 쓴다.
 
-use dm_gocompat::{filepath, strconv::quote};
-use dm_webserver_domain_git_core::{self as core, Ctx, Service, plain_exit};
+use otter_gocompat::{filepath, strconv::quote};
+use otter_webserver_domain_git_core::{self as core, Ctx, Service, plain_exit};
 use serde::Serialize;
 
 use crate::error::{Error, QueryKind};
@@ -21,7 +21,7 @@ pub const DIFF_KIND_SUBMODULE: &str = "submodule";
 
 const GITLINK_MODE: &str = "160000";
 
-pub const DIFF_MAX_BYTES: i64 = dm_shared_editorlimit::FILE_MAX_BYTES;
+pub const DIFF_MAX_BYTES: i64 = otter_shared_editorlimit::FILE_MAX_BYTES;
 pub const LFS_MAX_POINTER_BYTES: i64 = 1024;
 
 pub(crate) const INDEX_REV_PREFIX: &str = ":";
@@ -61,12 +61,12 @@ impl DiffSide {
 
     fn decode_as(&mut self, enc: &str) {
         let ok = self.kind == DIFF_KIND_TEXT
-            || (self.kind == DIFF_KIND_BINARY && dm_shared_textenc::has_utf16_bom(&self.body));
+            || (self.kind == DIFF_KIND_BINARY && otter_shared_textenc::has_utf16_bom(&self.body));
         if !ok {
             return;
         }
-        let d = dm_shared_textenc::decode_as(&self.body, enc)
-            .unwrap_or_else(|| dm_shared_textenc::detect(&self.body));
+        let d = otter_shared_textenc::decode_as(&self.body, enc)
+            .unwrap_or_else(|| otter_shared_textenc::detect(&self.body));
         self.kind = DIFF_KIND_TEXT.to_owned();
         self.content = d.text;
         self.encoding = d.enc.to_owned();
@@ -364,7 +364,7 @@ fn diff_side_from_body(body: Vec<u8>, size: i64) -> DiffSide {
 }
 
 fn has_nul(body: &[u8]) -> bool {
-    let n = body.len().min(dm_shared_editorlimit::BINARY_SNIFF_BYTES);
+    let n = body.len().min(otter_shared_editorlimit::BINARY_SNIFF_BYTES);
     body[..n].contains(&0)
 }
 

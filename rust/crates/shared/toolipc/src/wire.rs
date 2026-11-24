@@ -1,6 +1,6 @@
 use std::fmt;
 
-use dm_gocompat::json::RawMessage;
+use otter_gocompat::json::RawMessage;
 use serde::{Deserialize, Serialize};
 
 /// 데몬 IPC 의 문법 판이다 (VERSION_HEALTH_SRS FR-VHL-1). 빌드 판과 다르다.

@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/handover` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/handover` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 데몬 교체(세션 유지 재시작)의 와이어다 (DAEMON_SESSION_KEEP_SRS).
 
@@ -6,11 +6,11 @@ use std::io::{self, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use dm_gocompat::json::{self, Encoder, ErrorKind, RawMessage};
-use dm_gocompat::oserr::go_error_string;
-use dm_gocompat::strconv;
-use dm_shared_agentrec::{Reply, Request, socket_path};
-use dm_shared_platform::IpcStream;
+use otter_gocompat::json::{self, Encoder, ErrorKind, RawMessage};
+use otter_gocompat::oserr::go_error_string;
+use otter_gocompat::strconv;
+use otter_shared_agentrec::{Reply, Request, socket_path};
+use otter_shared_platform::IpcStream;
 use serde::{Deserialize, Serialize};
 
 /// 인계 상태의 모양을 세는 판 (FR-DSK-18·D-DSK-11).
@@ -119,7 +119,7 @@ pub fn hello(home: &Path, within: Duration) -> bool {
 }
 
 fn dial(home: &Path, within: Duration) -> io::Result<IpcStream> {
-    dm_shared_platform::current()
+    otter_shared_platform::current()
         .ipc
         .dial(&socket_path(home), within)
 }
@@ -173,11 +173,11 @@ fn decode_one(c: &mut IpcStream, deadline: Instant) -> Result<Reply, String> {
     }
 }
 
-/// 데몬 진입 인자 (`dongminal d …`, FR-DSK-12·20).
+/// 데몬 진입 인자 (`otterminal d …`, FR-DSK-12·20).
 pub const ARG_VERSION: &str = "--handover-version";
 pub const ARG_FD: &str = "--handover-fd";
 
-/// `dongminal d` 뒤의 인자.
+/// `otterminal d` 뒤의 인자.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct DaemonArgs {
     /// 인계 판만 말하고 끝내라는 뜻이다 (사전 확인).
@@ -186,7 +186,7 @@ pub struct DaemonArgs {
     pub handover_fd: i64,
 }
 
-/// `dongminal d` 뒤의 인자를 해석한다. fd 는 표준 입출력(0~2)일 수 없다.
+/// `otterminal d` 뒤의 인자를 해석한다. fd 는 표준 입출력(0~2)일 수 없다.
 pub fn parse_daemon_args(args: &[String]) -> Result<DaemonArgs, String> {
     let mut a = DaemonArgs::default();
     let mut it = args.iter();

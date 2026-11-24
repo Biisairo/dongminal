@@ -1,8 +1,8 @@
 use std::{fmt, io};
 
-use dm_gocompat::{json, strconv};
-use dm_shared_toolhub::ManagerError;
-use dm_shared_toolipc::{PROTOCOL_VERSION, RpcError};
+use otter_gocompat::{json, strconv};
+use otter_shared_toolhub::ManagerError;
+use otter_shared_toolipc::{PROTOCOL_VERSION, RpcError};
 
 /// 데몬 클라이언트의 오류다. `Display` 는 Go 의 `err.Error()` 와 같다. 오류 문구의 `paned` 는
 /// toolio·chat·WS 오류 본문에 그대로 실려 나가는 와이어라 바꾸지 않는다 (FR-RGS-6).
@@ -64,7 +64,7 @@ impl fmt::Display for Error {
                 f,
                 "hello: protocol mismatch: daemon={daemon} server={PROTOCOL_VERSION}"
             ),
-            Self::Dial(e) => write!(f, "dial dongminald: {e}"),
+            Self::Dial(e) => write!(f, "dial otterminald: {e}"),
         }
     }
 }

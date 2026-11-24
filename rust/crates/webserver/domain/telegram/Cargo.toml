@@ -1,5 +1,5 @@
 [package]
-name = "dm-webserver-domain-telegram"
+name = "otter-webserver-domain-telegram"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,10 +10,10 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../../gocompat" }
-dm-shared-dmlog = { path = "../../../shared/dmlog" }
-dm-shared-fanout = { path = "../../../shared/fanout" }
-dm-shared-platform = { path = "../../../shared/platform" }
+otter-gocompat = { path = "../../../gocompat" }
+otter-shared-otterlog = { path = "../../../shared/otterlog" }
+otter-shared-fanout = { path = "../../../shared/fanout" }
+otter-shared-platform = { path = "../../../shared/platform" }
 rand = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }

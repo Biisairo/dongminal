@@ -2,10 +2,10 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, Weak};
 use std::time::Duration;
 
-use dm_gocompat::json;
-use dm_shared_edge::{Edge, Identity};
-use dm_shared_edgemesh::{Frame, Mesh, public_key, sign_frame};
-use dm_shared_termtext as termtext;
+use otter_gocompat::json;
+use otter_shared_edge::{Edge, Identity};
+use otter_shared_edgemesh::{Frame, Mesh, public_key, sign_frame};
+use otter_shared_termtext as termtext;
 use time::OffsetDateTime;
 
 use crate::error::{
@@ -335,7 +335,7 @@ impl Service {
         let now: NowFn = o
             .now
             .clone()
-            .unwrap_or_else(|| Arc::new(dm_gocompat::time::now_local));
+            .unwrap_or_else(|| Arc::new(otter_gocompat::time::now_local));
         let start = now();
         let svc = Arc::new_cyclic(|me| Service {
             id: o.identity.clone(),

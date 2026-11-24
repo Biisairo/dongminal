@@ -116,7 +116,7 @@ const (
 
   | 변수 | 값 | 이유 |
   |---|---|---|
-  | `GIT_TERMINAL_PROMPT` | `0` | 대화형 프롬프트로 프로세스가 매달리지 않게 한다. 자격증명은 dongminal 을 통과하지 않는다 (FR-GIT-104) |
+  | `GIT_TERMINAL_PROMPT` | `0` | 대화형 프롬프트로 프로세스가 매달리지 않게 한다. 자격증명은 otterminal 을 통과하지 않는다 (FR-GIT-104) |
   | `GIT_OPTIONAL_LOCKS` | `0` | status 폴링(FR-GIT-18~24)이 index.lock 을 잡아 사용자의 터미널 git 과 경합하지 않게 한다 |
   | `GIT_PAGER` / `PAGER` | `cat` | 페이저 실행 방지 |
   | `LC_ALL` | `C` | stderr 분류(§1)가 로케일에 흔들리지 않게 한다 |

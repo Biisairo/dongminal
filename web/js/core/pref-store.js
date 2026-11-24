@@ -47,7 +47,7 @@ const STORE_KEYS=Object.freeze({
   activityUsageOpen:'activityUsageOpen', // UX_AUDIT_FIX_SRS FR-UXF-74: 사용량 바닥의 펼침
   claudeAcctFold:'claudeAcctFold', // CLAUDE_ACCOUNTS_SRS FR-CAC-91: 계정 묶음별 넓은/좁은 모양
   windowGroupFold:'windowGroupFold',
-  sandboxRecent:'dm.sbx.recent',
+  sandboxRecent:'otter.sbx.recent',
   // local — 이사가 끝나면 지우기만 하는 옛 키
   legacyAgentsPollMs:'agentsPollMs',
   legacyLspServerPaths:'lspServerPaths',

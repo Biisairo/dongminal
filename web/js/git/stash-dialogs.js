@@ -1,5 +1,5 @@
 /**
- * Dongminal — Git Stash 다이얼로그 (FR-GIT-166·272)
+ * Otterminal — Git Stash 다이얼로그 (FR-GIT-166·272)
  *
  * stash 생성과 Branch from stash. `stash.js`(목록·미리보기)에서 떼어 냈다 — 모듈
  * 크기 기준선(FR-STR-40)을 지키기 위한 이동이며 동작은 같다.

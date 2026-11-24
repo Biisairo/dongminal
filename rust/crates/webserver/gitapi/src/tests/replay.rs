@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use dm_webserver_domain_git_core::{Ctx, WriteSpec};
+use otter_webserver_domain_git_core::{Ctx, WriteSpec};
 use serde_json::json;
 
 use super::harness::*;
@@ -117,8 +117,12 @@ async fn runs_recorded_argv() {
 #[tokio::test]
 async fn route_registered_and_unavailable() {
     assert!(
-        dm_webserver_httproute::dispatch(&crate::routes::ROUTES, "POST", "/api/git/records/replay")
-            .is_some()
+        otter_webserver_httproute::dispatch(
+            &crate::routes::ROUTES,
+            "POST",
+            "/api/git/records/replay"
+        )
+        .is_some()
     );
     let s = Arc::new(GitServer::default());
     let r = req(

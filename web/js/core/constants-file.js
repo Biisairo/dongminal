@@ -1,5 +1,5 @@
 /**
- * Dongminal — Editor 창·파일 상수 (REFACTOR3_FE_REST5_SRS FR-FR5-20).
+ * Otterminal — Editor 창·파일 상수 (REFACTOR3_FE_REST5_SRS FR-FR5-20).
  *
  * Editor 창 타입 · 파일 API·형식·저장 실패·경합·크기 상한 · 도구 생성. `constants.js` 의 절(EDITOR_TAB_SRS 묶음 T·W)을
  * 그대로 옮겼다 — 값과 이름은 그대로다. `constants-tips.js` 뒤에 로드된다.

@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/listorder` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/shared/listorder` 의 Rust 포팅.
 //!
 //! "끌어다 놓기" 한 번을 목록에 반영한다 (FR-DRC-11).
 

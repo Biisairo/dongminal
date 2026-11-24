@@ -21,7 +21,7 @@
 # ## 두 자리를 본다
 #
 #   ① 주소 조립 — `format!("{host}:{port}")`·`format!("http://{}:{}", …)` 꼴이 없다.
-#      `dmenv::listen_addr`·`base_url`(Go `net.JoinHostPort`)을 지나야 IPv6 가 산다
+#      `otterenv::listen_addr`·`base_url`(Go `net.JoinHostPort`)을 지나야 IPv6 가 산다
 #      (`::1` 은 대괄호가 필요하다). Go 판 때 저장소 전체에 `JoinHostPort` 사용이 **0곳**이었다.
 #   ② 겨냥 해석 — 겨누는 명령의 파일(ctl/cli/src/{health,window,stop,migrate}.rs)이
 #      `resolve_target` 을 지난다.
@@ -34,13 +34,13 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<'USAGE'
 서버 겨냥의 단일 규칙 검사
 
-  ① 주소 조립이 dmenv::listen_addr / dmenv::base_url 을 지나는가
-       format!("{host}:{port}")         →  dmenv::listen_addr(host, port)
-       format!("http://{}:{}", h, p)    →  dmenv::base_url(host, port)
+  ① 주소 조립이 otterenv::listen_addr / otterenv::base_url 을 지나는가
+       format!("{host}:{port}")         →  otterenv::listen_addr(host, port)
+       format!("http://{}:{}", h, p)    →  otterenv::base_url(host, port)
 
   ② 겨누는 명령(health·window·stop·migrate)이 resolve_target 을 지나는가
 
-  지나가는 것: dmenv/src/host.rs (조립을 정의하는 쪽 — join_host_port 가 여기 있다) · 시험 파일 · 주석
+  지나가는 것: otterenv/src/host.rs (조립을 정의하는 쪽 — join_host_port 가 여기 있다) · 시험 파일 · 주석
 USAGE
   exit 0
 fi
@@ -59,7 +59,7 @@ PORT='[A-Za-z_.]*[Pp]ort[A-Za-z_.]*'
 asm=$(
   grep -rnE "\"https?://\\{[^}]*\\}:\\{|\"\\{$HOST\\}:\\{$PORT\\}\"|\"\\{\\}:\\{\\}\",[[:space:]]*$HOST,[[:space:]]*$PORT|$HOST[[:space:]]*\\+[[:space:]]*\":\"" \
     --include='*.rs' rust/crates 2>/dev/null \
-    | grep -v '^rust/crates/shared/dmenv/src/host\.rs:' \
+    | grep -v '^rust/crates/shared/otterenv/src/host\.rs:' \
     | rs_drop_tests \
     | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)'
 )
@@ -67,7 +67,7 @@ if [[ -n "$asm" ]]; then
   echo "host:port 를 문자열로 잇는 자리가 있습니다 (FR-STR-20·21):"
   echo "$asm"
   echo
-  echo "  dmenv::listen_addr(host, port) / dmenv::base_url(host, port) 를 쓰세요."
+  echo "  otterenv::listen_addr(host, port) / otterenv::base_url(host, port) 를 쓰세요."
   echo "  IPv6 는 대괄호가 필요합니다 — TcpListener::bind(\"::1:9911\") 은 뜨지 않습니다."
   fail=1
 fi

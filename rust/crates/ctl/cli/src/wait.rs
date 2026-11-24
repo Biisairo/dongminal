@@ -1,4 +1,4 @@
-//! 동기 폴링. `dm_shared_pollwait::until` 과 같은 의미다(먼저 묻고, `every` 마다, 남은 시간이
+//! 동기 폴링. `otter_shared_pollwait::until` 과 같은 의미다(먼저 묻고, `every` 마다, 남은 시간이
 //! 짧으면 그만큼만 잔다) — CLI 는 비동기 런타임 없이 돈다.
 
 use std::time::{Duration, Instant};

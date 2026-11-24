@@ -3,7 +3,7 @@
 use std::fmt;
 use std::io;
 
-use dm_gocompat::oserr::go_error_string;
+use otter_gocompat::oserr::go_error_string;
 
 /// Go 의 이름 붙은 오류 값 (`ErrArchiveTooLarge`·`ErrExtractTooLarge`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

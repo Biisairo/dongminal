@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use dm_shared_platform::{Secrets, SecretsError};
+use otter_shared_platform::{Secrets, SecretsError};
 
 use crate::dirlock::lock_claude;
 use crate::*;

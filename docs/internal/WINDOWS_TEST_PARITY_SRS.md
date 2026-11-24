@@ -193,13 +193,13 @@ D3 보다 넓다 — 저장소 상태 캐시의 키(`store.go:208`), 핀 경로�
 `internal/shared/runtime/install.go`
 
 설치는 헬퍼를 `name + paths.ExeSuffix()` 로 깐다(`install.go:59`) — Windows 에서
-`dmctl.exe` 다. 그런데 훅 파일에 적는 명령은 `filepath.Join(binDir, "dmctl")`
+`otterctl.exe` 다. 그런데 훅 파일에 적는 명령은 `filepath.Join(binDir, "otterctl")`
 이었다(`:170`, `:192`). 실재하지 않는 경로를 가리킨다.
 
 `cmd` 의 PATHEXT 해석이 이것을 가려 줄 수는 있다 — 확장자 없는 절대경로에
 `.exe` 를 붙여 찾아 준다. 그러나 그것은 **훅을 무엇이 실행하느냐에 달린 우연**
 이고, 같은 이름을 두 곳에서 다르게 만드는 것 자체가 결함이다. 한 규칙
-(`dmctlPath`)으로 모은다.
+(`otterctlPath`)으로 모은다.
 
 #### D7 · 파일 전송이 Windows 에서 통째로 막혀 있다
 
@@ -380,7 +380,7 @@ CROSS_PLATFORM_SRS §4.2 가 내세운 "리눅스 `/proc` 파싱까지 다른 OS
 **FR-WTP-6.** 설치가 만드는 헬퍼의 이름과, 훅 파일이 그 헬퍼를 가리키는 이름은
 **한 함수에서 나온다** (D6).
 *검증:* `TestInstallAgentPlugin_Hooks`·`TestInstallAgentHooks_Activity` 가 훅
-원문에서 `dmctlPath(binDir)` 를 찾는다.
+원문에서 `otterctlPath(binDir)` 를 찾는다.
 
 **NFR-WTP-5.** 회귀 테스트의 변별력은 정직하게 적는다. D1·D2·D6 의 테스트는
 **Windows 에서만 변별한다** — 그 결함들이 Windows 에만 나타나기 때문이다.

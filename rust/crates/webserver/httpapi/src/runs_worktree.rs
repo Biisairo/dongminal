@@ -4,10 +4,10 @@
 //! 준비는 레코드보다 먼저다 — 실패한 Run·멤버는 기록에 남지 않는다 (FR-WKT-3/11). 정리는 잔여를
 //! 숨기지 않고 결과로 낸다.
 
-use dm_shared_dmlog::{errorf, infof};
-use dm_webserver_domain_git_core as core;
-use dm_webserver_domain_run::{self as run, Record};
-use dm_webserver_domain_worktree::{self as worktree, RemoveResult, RemoveSpec, Spec};
+use otter_shared_otterlog::{errorf, infof};
+use otter_webserver_domain_git_core as core;
+use otter_webserver_domain_run::{self as run, Record};
+use otter_webserver_domain_worktree::{self as worktree, RemoveResult, RemoveSpec, Spec};
 
 use crate::Server;
 use crate::runs::{Rt, RunFail, block};
@@ -75,7 +75,7 @@ impl Server {
             root = main;
         }
         let mut out = RunIsolation {
-            id: dm_shared_uuid::new_string(),
+            id: otter_shared_uuid::new_string(),
             repo: root,
             base: repo.base.clone(),
             merge_into: rt.wait(wt.current_branch(&ctx, cwd)),
@@ -149,7 +149,7 @@ impl Server {
         else {
             return Err(RunFail::isolation("이 Run 의 저장소를 알 수 없다"));
         };
-        let id = dm_shared_uuid::new_string();
+        let id = otter_shared_uuid::new_string();
         let slug = run::path_slug(&id);
         let key = self.common_key(rt, &rec.repo)?;
         let run_slug = run::path_slug(&rec.id);

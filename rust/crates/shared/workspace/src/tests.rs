@@ -1055,7 +1055,7 @@ fn resolve_strict_rejects_coordinate_label() {
         assert_eq!(
             e.to_string(),
             format!(
-                "좌표 라벨({input})은 이 명령에서 쓸 수 없다 — uuid 를 쓴다.\n라벨은 창·분할 칸이 닫히면 다시 계산돼 다른 탭을 가리킨다.\nuuid 는 `dmctl list-workspace` 의 uuid= 컬럼, 또는 생성 명령(new-tab/split-*)의 응답에 있다."
+                "좌표 라벨({input})은 이 명령에서 쓸 수 없다 — uuid 를 쓴다.\n라벨은 창·분할 칸이 닫히면 다시 계산돼 다른 탭을 가리킨다.\nuuid 는 `otterctl list-workspace` 의 uuid= 컬럼, 또는 생성 명령(new-tab/split-*)의 응답에 있다."
             )
         );
     }

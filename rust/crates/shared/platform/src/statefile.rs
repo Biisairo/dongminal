@@ -4,7 +4,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use dm_shared_dmlog::infof;
+use otter_shared_otterlog::infof;
 
 use crate::atomic::write_file_atomic;
 use crate::goerr::link_err;

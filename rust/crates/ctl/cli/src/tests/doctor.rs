@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use dm_shared_dmenv as dmenv;
+use otter_shared_otterenv as otterenv;
 
 use super::{Vars, with_env};
 use crate::doctor::{
@@ -18,7 +18,7 @@ fn table_order_is_the_contract() {
     let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let home = a.path().to_str().unwrap();
     let bin = b.path().to_str().unwrap();
-    let checks = doctor_checks(dm_shared_platform::current(), home, bin);
+    let checks = doctor_checks(otter_shared_platform::current(), home, bin);
     let names: Vec<&str> = checks.iter().map(|c| c.name).collect();
     assert_eq!(
         names,
@@ -64,12 +64,12 @@ fn probe_bin_failure_does_not_touch_home() {
     #[cfg(unix)]
     assert!(
         out.contains(&format!(
-            "검사용 임시 bin 을 만들지 못했습니다: mkdirtemp {missing}/dongminal-doctor-*: no such file or directory\n"
+            "검사용 임시 bin 을 만들지 못했습니다: mkdirtemp {missing}/otterminal-doctor-*: no such file or directory\n"
         )),
         "{out}"
     );
     assert!(
-        !home.join(dmenv::BIN_DIR).exists(),
+        !home.join(otterenv::BIN_DIR).exists(),
         "운영 홈의 bin 을 건드렸다"
     );
 }
@@ -88,7 +88,7 @@ fn probe_bin_is_temporary() {
 
 #[cfg(unix)]
 fn suffix() -> &'static str {
-    dm_shared_platform::current().paths.exe_suffix()
+    otter_shared_platform::current().paths.exe_suffix()
 }
 
 // V-HLI-6: 진단은 자국을 남기지 않는다 (D-4).
@@ -98,8 +98,8 @@ fn helpers_does_not_touch_target() {
     let d = tempfile::tempdir().unwrap();
     let bin = d.path().join("bin");
     std::fs::create_dir_all(&bin).unwrap();
-    let gone = d.path().join("go-build-사라짐").join("dongminal");
-    for n in dmenv::helper_names() {
+    let gone = d.path().join("go-build-사라짐").join("otterminal");
+    for n in otterenv::helper_names() {
         std::os::unix::fs::symlink(&gone, bin.join(format!("{n}{}", suffix()))).unwrap();
     }
     let before = std::fs::read_dir(&bin).unwrap().count();
@@ -112,7 +112,7 @@ fn helpers_does_not_touch_target() {
     let out = String::from_utf8(out).unwrap();
     assert!(fail > 0, "깨진 헬퍼를 통과시켰다:\n{out}");
     assert!(
-        out.contains(&format!("  ·  {}\n", dm_shared_runtime::HELPER_FIX_HINT)),
+        out.contains(&format!("  ·  {}\n", otter_shared_runtime::HELPER_FIX_HINT)),
         "{out}"
     );
 
@@ -147,7 +147,7 @@ fn helpers_fresh_home_is_not_failure() {
         format!(
             "\n▶ 설치된 헬퍼 ({})\n  ·  {}\n",
             bin.display(),
-            dm_shared_runtime::HELPER_NOT_INSTALLED
+            otter_shared_runtime::HELPER_NOT_INSTALLED
         )
     );
 }

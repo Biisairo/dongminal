@@ -17,7 +17,7 @@ import {
 } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
-const GURFX = tmpPath('dm-gur-git-ui-metrics-' + process.pid);
+const GURFX = tmpPath('otter-gur-git-ui-metrics-' + process.pid);
 test.beforeAll(() => { gitFixture(GURFX) });
 test.afterAll(() => { cleanGitFixture(GURFX) });
 const gurFx = (n: string) => realPath(join(GURFX, n));

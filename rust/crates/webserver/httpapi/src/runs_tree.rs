@@ -3,11 +3,11 @@
 
 use std::collections::{HashMap, HashSet};
 
-use dm_shared_dmlog::{errorf, infof};
-use dm_shared_httpresp::Response;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_run::{self as run, Member, Record};
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_shared_otterlog::{errorf, infof};
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_run::{self as run, Member, Record};
 use serde::{Deserialize, Serialize, Serializer};
 
 use crate::Server;
@@ -54,7 +54,7 @@ struct TreeOuter<'a> {
     issue: &'a str,
     #[serde(skip_serializing_if = "str::is_empty")]
     title: &'a str,
-    #[serde(skip_serializing_if = "dm_gocompat::json::is_empty")]
+    #[serde(skip_serializing_if = "otter_gocompat::json::is_empty")]
     ended_at: i64,
     #[serde(skip_serializing_if = "is_false")]
     recoverable: bool,
@@ -248,7 +248,7 @@ impl Server {
                 out.insert(
                     "hint",
                     raw(&format!(
-                        "dmctl run succeed --member {member_id} --at <새 탭 uuid> 로 이어받는다"
+                        "otterctl run succeed --member {member_id} --at <새 탭 uuid> 로 이어받는다"
                     )),
                 );
             }

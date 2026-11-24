@@ -16,7 +16,7 @@ import { tmpPath, realPath } from './osenv';
 //
 // Git 픽스처는 git-changes.spec.ts 와 같은 규약이다 (design/README.md).
 
-const FIXTURES = tmpPath('dm-git-fx-ux-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-ux-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

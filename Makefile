@@ -10,7 +10,7 @@
 .PHONY: help gates test lint unit typecheck hooks all e2e e2e-all e2e-rebalance e2e-plan
 
 help:  ## 이 도움말
-	@echo "dongminal 로컬 게이트"
+	@echo "otterminal 로컬 게이트"
 	@echo
 	@# 문자 클래스에 숫자가 없어 `e2e*` 넷이 통째로 안 보이고 있었다.
 	@grep -E '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -61,6 +61,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-skeleton.sh
 	@echo "── 에이전트 이름 (등록부 밖에 리터럴이 없는가)"
 	@scripts/check-agent-names.sh
+	@echo "── 옛 이름 (이름 변경 전 이름이 허용 자리 밖에 없는가)"
+	@scripts/check-legacy-names.sh
 	@echo "── 활동 상태 어휘 (Rust 와 JS 의 두 벌이 같은 집합인가)"
 	@scripts/check-activity-vocab.sh
 	@echo "── 환경변수 문서 (코드와 표가 양방향으로 같은가)"
@@ -87,7 +89,7 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-srs-progress.sh
 	@echo "── 결정 색인 (생성물이 SRS 와 맞는가)"
 	@scripts/check-decisions.sh
-	@echo "── 명령 문서 (commands.md 와 dmctl 이 양방향으로 같은가)"
+	@echo "── 명령 문서 (commands.md 와 otterctl 이 양방향으로 같은가)"
 	@scripts/check-commands-docs.sh
 	@echo "── API 문서 (api.md 와 라우트가 양방향으로 같은가)"
 	@scripts/check-api-docs.sh
@@ -211,9 +213,9 @@ e2e:  ## e2e 전량 — **CI 와 같은 분할**(8샤드)을 **병렬**로 돈�
 	@#   포트    같은 기계에서 동시에 돌면 서로의 서버를 잡는다
 	@#   산출물  `test-results/.playwright-artifacts-*` 를 함께 쓰며 **서로의
 	@#           trace 를 지운다** (실측: ENOENT 662건)
-	@#   청소    setup/teardown 이 `dongminal-e2e-*` 를 통째로 훑어 **아직 도는
+	@#   청소    setup/teardown 이 `otterminal-e2e-*` 를 통째로 훑어 **아직 도는
 	@#           샤드의 바이너리를 지운다** (실측: spawn ENOENT 950건)
-	@#           → `DM_E2E_KEEP_PEERS=1` 이 자기 뿌리만 다루게 한다
+	@#           → `OTTER_E2E_KEEP_PEERS=1` 이 자기 뿌리만 다루게 한다
 	@# `pipefail` 이 없으면 샤드의 실패가 `sed` 에 먹혀 초록으로 보인다.
 	@#
 	@# **개수가 아니라 시간으로 가른다** (M6 잔여). Playwright 의 `--shard` 는

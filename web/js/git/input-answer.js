@@ -1,5 +1,5 @@
 /**
- * Dongminal — 대화상자 입력의 서버 답 (SERVER_DRIVEN_ACTIONS_SRS GV-d).
+ * Otterminal — 대화상자 입력의 서버 답 (SERVER_DRIVEN_ACTIONS_SRS GV-d).
  *
  * 입력이 옳은지는 **서버가 답한다** (D-SDA-1). 대화상자는 입력이 바뀌면 멈춘 뒤
  * `GET /api/git/actions?action=<id>&<입력>` 으로 묻고, 그 답을 `actionState` 로 그린다.

@@ -24,7 +24,7 @@ declare const AGENTS_POLL_DEFAULT: number;
 declare const BACKUP_KEYS: { store: string; key: string }[];
 declare const TIMERS: { _jobs: Map<string, { nextAt: number }>; refreshChanged(): void };
 
-const FIXTURES = tmpPath('dm-git-fx-pollint-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-pollint-' + process.pid);
 test.beforeAll(() => { gitFixture(FIXTURES) });
 test.afterAll(() => { cleanGitFixture(FIXTURES) });
 const fx = (name: string) => realPath(join(FIXTURES, name));

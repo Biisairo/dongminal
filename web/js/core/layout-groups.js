@@ -3,7 +3,7 @@
  *
  * 순서 계산은 `window-order.js` 의 순수 함수가 한다. 여기는 그 결과를 `ws` 에 얹고
  * 저장·다시 그리기를 부르는 자리다. 실패는 `{error}` 로 돌려준다 — 원격 명령은 그
- * 값을 dmctl 에 회신한다 (FR-ORD-6).
+ * 값을 otterctl 에 회신한다 (FR-ORD-6).
  *
  * `LayoutController` 의 부품 `.groups` 다(REFACTOR3_FE_APPCTL_SRS 9i-2, 옛 `app-groups.js`). 접기 `_wgFold` 와 마지막으로 본
  * 활성 창 `_wgSeenActive` 는 이 부품의 것이다(§2.2 SH-4).

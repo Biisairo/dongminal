@@ -1,5 +1,5 @@
 [package]
-name = "dm-webserver-sse"
+name = "otter-webserver-sse"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,9 +11,9 @@ workspace = true
 
 [dependencies]
 bytes = { workspace = true }
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-dmlog = { path = "../../shared/dmlog" }
-dm-shared-httpresp = { path = "../../shared/httpresp" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-otterlog = { path = "../../shared/otterlog" }
+otter-shared-httpresp = { path = "../../shared/httpresp" }
 http = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }

@@ -13,12 +13,12 @@ import { cssPath, realPath, tmpPath, TMP } from './osenv';
 declare const Toast: { show: (text: string, kind?: string, ms?: number) => unknown };
 
 const MOBILE = { width: 412, height: 839 };
-const FIXTURES = tmpPath('dm-git-fx-uxf-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-uxf-' + process.pid);
 let DOC = '';
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
-  DOC = realPath(fs.mkdtempSync(path.join(TMP, 'dm-uxf-')));
+  DOC = realPath(fs.mkdtempSync(path.join(TMP, 'otter-uxf-')));
   // 미니맵이 서도록 긴 문서다 (doc-render V-DRB-1 과 같은 이유).
   fs.writeFileSync(path.join(DOC, 'long.md'), Array.from({ length: 400 }, (_, i) => `line ${i}`).join('\n') + '\n');
 });

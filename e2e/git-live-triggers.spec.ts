@@ -13,7 +13,7 @@ import { tmpPath, realPath } from './osenv';
 //   ① 가시성·포커스 복귀 계기가 관측기 하나에만 결선돼 있었다 (§2.1)
 //   ② 워치독이 렌더에만 얹혀 있어 주기가 없었다 (§2.2)
 
-const GITFX = tmpPath('dm-glw-' + process.pid);
+const GITFX = tmpPath('otter-glw-' + process.pid);
 const gfx = (name: string) => realPath(join(GITFX, name));
 
 test.beforeAll(() => { gitFixture(GITFX) });

@@ -34,7 +34,7 @@
 |------|------|
 | **전경 프로세스 (foreground process)** | PTY 의 **전경 프로세스 그룹**(`tcgetpgrp`)의 리더. 사용자가 지금 상호작용하고 있는 그 프로그램이다 |
 | **직접 자식 (direct child)** | 셸 프로세스의 자식. 현행 busy 판정(`pgrep -P`)이 보는 것이며 **전경 프로세스와 다르다** |
-| **수동 이름 (manual name)** | 사용자나 에이전트가 명시적으로 준 탭 이름. UI 더블클릭 또는 `dmctl rename-tab` |
+| **수동 이름 (manual name)** | 사용자나 에이전트가 명시적으로 준 탭 이름. UI 더블클릭 또는 `otterctl rename-tab` |
 | **파생 이름 (derived name)** | 전경 프로세스에서 자동으로 만들어진 탭 이름 |
 | **백그라운드 도구** | `detach` 로 탭에서 떼어낸, 살아 있는 도구. `tool.go:690` `background` 맵이 관리 |
 
@@ -110,7 +110,7 @@ row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
 
 근거가 둘이다.
 
-1. **팀 역할명이 사라지면 안 된다.** `dmctl rename-tab --at <탭> "비평가"` 는
+1. **팀 역할명이 사라지면 안 된다.** `otterctl rename-tab --at <탭> "비평가"` 는
    오케스트레이션의 관전성을 지탱한다. 그 탭에서 `claude` 가 돌고 있다고 해서
    `claude` 로 덮이면 팀 전체가 `claude` 다섯 개가 된다.
 2. **명시가 추론을 이긴다.** 사람이 이름을 준 것은 의도이고, 프로세스 이름은 추정이다.
@@ -147,8 +147,8 @@ row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
 **FR-TAN-2** 다음 경로는 `nameSource` 를 `manual` 로 만든다.
 
 - 사이드바/탭 바에서 더블클릭 후 이름 입력
-- `dmctl rename-tab --at <uuid> <이름>`
-- `dmctl new-tab --name <이름>` / `dmctl new-window --name <이름>`
+- `otterctl rename-tab --at <uuid> <이름>`
+- `otterctl new-tab --name <이름>` / `otterctl new-window --name <이름>`
 - 워크플로우·team 스킬이 부여하는 역할명 (위 경로를 지나므로 자동으로 만족)
 
 **FR-TAN-3** 편집기 탭(`type==='editor'`)과 Run 대시보드 탭(`type==='run'`)은 이름이
@@ -204,7 +204,7 @@ row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
 > **개정 (2026-09-25, OPTIMIZE_REFACTOR_SRS FR-OPT-2-1).** 데몬 모드에서 티커를 도는
 > 주체는 **데몬**이다. 종전에는 서버의 2초 티커가 `list` RPC 를 보내 데몬의 dispatch
 > 안에서 조회(ps)를 일으켰고, 그 응답은 버렸다 — 조회를 시키려는 부수효과뿐이었다.
-> 이제 dongminald 가 자기 2초 티커로 조회하고 바뀐 이름을 `fg` push 로 **드롭 없이**
+> 이제 otterminald 가 자기 2초 티커로 조회하고 바뀐 이름을 `fg` push 로 **드롭 없이**
 > 민다. `list` 응답은 그 캐시를 실을 뿐 조회하지 않는다. 서버의 티커는 direct 모드와,
 > `hello.features` 에 `fgtick` 을 말하지 않는 옛 데몬에게만 조회를 시킨다. 주기(2초)와
 > C-3·V-TAN-18(브라우저 새 요청 0)은 그대로다. 서버와 데몬 사이가 끊긴 동안 바뀐 이름은
@@ -231,7 +231,7 @@ row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
 
 **FR-TAN-13** 파생 이름은 **16자**로 자른다. 사이드바 최소 폭에서 읽혀야 한다.
 
-**FR-TAN-14** 래퍼를 벗기지 않는다. `dmctl`·`claude` 투명 래퍼가 전경에 있으면 그
+**FR-TAN-14** 래퍼를 벗기지 않는다. `otterctl`·`claude` 투명 래퍼가 전경에 있으면 그
 이름이 나온다. 래퍼 인식은 매핑 표를 낳고, 매핑 표는 낡는다.
 
 > **실측 완료 (2026-08-28, WS-7 · V-TAN-20). 예외는 필요 없다.** 전경 프로세스 이름은
@@ -266,9 +266,9 @@ row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
 >
 > 사이드바에 활성 탭 이름을 **새로** 붙이는 것은 요구되지 않은 UI 추가이므로 하지
 > 않는다. 이 요구의 실질은 "표시 자리가 여럿이면 일관돼야 한다" 이고, 실재하는 짝은
-> **탭 바 ↔ `dmctl list-workspace`**(FR-TAN-18)다. **V-TAN-15 는 그 짝으로 읽는다.**
+> **탭 바 ↔ `otterctl list-workspace`**(FR-TAN-18)다. **V-TAN-15 는 그 짝으로 읽는다.**
 
-**FR-TAN-18** `dmctl list-workspace` 의 `tab="..."` 컬럼은 **표시되는 이름**을 낸다.
+**FR-TAN-18** `otterctl list-workspace` 의 `tab="..."` 컬럼은 **표시되는 이름**을 낸다.
 에이전트가 화면과 다른 것을 보면 안 된다.
 
 #### 3.1.5 사용자 제어
@@ -285,7 +285,7 @@ row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
 문자열을 넣으면** `nameSource` 가 `auto` 로 돌아간다. 현재 빈 이름은 거부되므로
 동작이 비어 있고, 여기에 의미를 준다.
 
-**FR-TAN-22** `dmctl rename-tab --at <uuid> --auto` — 같은 일을 에이전트가 한다.
+**FR-TAN-22** `otterctl rename-tab --at <uuid> --auto` — 같은 일을 에이전트가 한다.
 
 #### 3.1.7 이식 경계
 
@@ -311,7 +311,7 @@ cross-platform 후속 트랙이 이 자리 하나만 채우면 된다 (C-4).
 | V-TAN-1 | 탭에서 `vim` 실행 | 탭 이름 `vim` (2초 내) |
 | V-TAN-2 | `vim` 종료 | 탭 이름 `Shell` 복귀 (FR-TAN-12) |
 | V-TAN-3 | 프롬프트 대기 상태 | `Shell` (FR-TAN-6) |
-| V-TAN-4 | `dmctl rename-tab "비평가"` 후 `vim` 실행 | 이름 `비평가` 유지 (FR-TAN-15) |
+| V-TAN-4 | `otterctl rename-tab "비평가"` 후 `vim` 실행 | 이름 `비평가` 유지 (FR-TAN-15) |
 | V-TAN-5 | UI 더블클릭 이름변경 후 프로세스 실행 | 이름 유지 |
 | V-TAN-6 | 이름변경에 빈 문자열 입력 | `auto` 복귀 + 다음 조회에 파생 (FR-TAN-21) |
 | V-TAN-7 | `nameSource` 없는 구 workspace.json (`name:'Shell'`) | `auto` 로 읽힘 (FR-TAN-4) |
@@ -323,7 +323,7 @@ cross-platform 후속 트랙이 이 자리 하나만 채우면 된다 (C-4).
 | V-TAN-13 | 이름이 안 바뀌는 동안 SSE 트래픽 | 반복 전송 없음 (FR-TAN-9) |
 | V-TAN-14 | `workspace.json` 검사 | 파생 이름이 저장돼 있지 않다 (FR-TAN-16) |
 | V-TAN-15 | 탭 바 · 사이드바 | 같은 이름 (FR-TAN-17) |
-| V-TAN-16 | `dmctl list-workspace` | 화면과 같은 이름 (FR-TAN-18) |
+| V-TAN-16 | `otterctl list-workspace` | 화면과 같은 이름 (FR-TAN-18) |
 | V-TAN-17 | 프로세스 조회 실패를 강제 | 이름 없음 처리, 예외 없음 (FR-TAN-5) |
 | V-TAN-18 | 도구 100개에서 조회 부하 | 폴링 주기 내 완료, 새 요청 0 (FR-TAN-8, C-3) |
 | V-TAN-19 | 스텁 플랫폼 | 기능 비활성, 오류 없음 (FR-TAN-24) |
@@ -435,7 +435,7 @@ Run 을 표시**한다 (`ORCHESTRATION_V2_SRS` 묶음 H 연계). 종료는 여�
 | `POST /api/tools/kill` | 신설 — 도구 종료 (묶음 X) |
 | `GET /api/state` (`tools[]`) / 도구 목록 IPC | 개정 — `fgName` 필드 (묶음 N) |
 | SSE | 개정 — 전경 이름 변화 알림 (기존 이벤트에 편승) |
-| `dmctl rename-tab --auto` | 신설 (FR-TAN-22) |
+| `otterctl rename-tab --auto` | 신설 (FR-TAN-22) |
 
 ### 4.3 설정
 

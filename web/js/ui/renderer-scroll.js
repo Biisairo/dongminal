@@ -1,5 +1,5 @@
 /**
- * Dongminal — 렌더러의 스크롤 갈무리·복원 (`Renderer.prototype` 증강)
+ * Otterminal — 렌더러의 스크롤 갈무리·복원 (`Renderer.prototype` 증강)
  *
  * `renderer.js` 에서 **구간 이동**했다 (STRUCTURE_CLEANUP_SRS FR-STR-44).
  * 한 줄도 바뀌지 않았고, 바뀐 것은 클래스 본문이 객체 리터럴이 되며 멤버 끝의

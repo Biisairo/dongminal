@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/agentadapter` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/agentadapter` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 에이전트별 지식을 선언 테이블 하나로 모은다 (RUN_ORCHESTRATION_SRS FR-ADP-1~6).
 //! 이 crate 는 정책을 담지 않는다 (FR-ADP-6). 확인하지 못한 값은 비워 둔다.
@@ -12,9 +12,9 @@ mod resume;
 use std::fmt;
 use std::path::PathBuf;
 
-use dm_gocompat::json::RawMessage;
-use dm_gocompat::{filepath, strconv};
-use dm_shared_platform::ShellProvider;
+use otter_gocompat::json::RawMessage;
+use otter_gocompat::{filepath, strconv};
+use otter_shared_platform::ShellProvider;
 
 pub use install::InstallSpec;
 pub use omp::{OMP_MEMBER_CONFIG_FILE, OMP_SHIM_FILE};
@@ -185,7 +185,7 @@ pub struct Adapter {
 }
 
 /// `member_args` 안에서 런타임이 채우는 자리다 (FR-OMP-22).
-pub const HOOKS_DIR_TOKEN: &str = "{{dmHooks}}";
+pub const HOOKS_DIR_TOKEN: &str = "{{otterHooks}}";
 
 /// 선언 전부다. id 순으로 둔다.
 static REGISTRY: [&Adapter; 3] = [&claude::ADAPTER, &codex::ADAPTER, &omp::ADAPTER];
@@ -232,23 +232,23 @@ pub fn by_command(name: &str) -> Option<&'static Adapter> {
 }
 
 impl Adapter {
-    /// 이 어댑터의 실행 파일이 이 기계에 있는가. DONGMINAL_AGENT_BIN_DIR 을 먼저, 그다음 PATH 를 본다.
+    /// 이 어댑터의 실행 파일이 이 기계에 있는가. OTTERMINAL_AGENT_BIN_DIR 을 먼저, 그다음 PATH 를 본다.
     pub fn installed(&self) -> bool {
-        let dir = std::env::var(dm_shared_dmenv::ENV_AGENT_BIN_DIR).unwrap_or_default();
+        let dir = std::env::var(otter_shared_otterenv::ENV_AGENT_BIN_DIR).unwrap_or_default();
         if !dir.is_empty()
-            && dm_shared_platform::look_path(&filepath::join(&[dir.as_str(), self.detect_cmd]))
+            && otter_shared_platform::look_path(&filepath::join(&[dir.as_str(), self.detect_cmd]))
                 .is_some()
         {
             return true;
         }
-        dm_shared_platform::look_path(self.detect_cmd).is_some()
+        otter_shared_platform::look_path(self.detect_cmd).is_some()
     }
 
     /// 도구의 셸에 그대로 타이핑할 기동 명령줄이다. 인용은 호스트 셸이 정한다 (FR-XBD-3).
     /// prompt_injection 이 argv 가 아니면 프롬프트를 싣지 않는다 (FR-PRE-8).
     pub fn launch_line(&self, hooks_dir: &str, model: &str, prompt: &str) -> Result<String, Error> {
         self.launch_line_in(
-            dm_shared_platform::current().shell,
+            otter_shared_platform::current().shell,
             hooks_dir,
             model,
             prompt,

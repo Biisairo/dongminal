@@ -47,10 +47,10 @@
 | `make gates` (게이트 33종) | **exit 0** — 전량 통과 |
 | `go run ./scripts/gen-errors` | `docs/external/errors.md` diff **0줄** |
 | `go run ./scripts/gen-decisions` | `docs/internal/decisions.md` diff **0줄** (589건) |
-| `check-commands-docs.sh` | ok (32개) — `commands.md` ↔ `dmctl` 양방향 일치 |
+| `check-commands-docs.sh` | ok (32개) — `commands.md` ↔ `otterctl` 양방향 일치 |
 | `check-api-docs.sh` | ok (155개) — `api.md` ↔ 라우트 표 |
 | `check-shortcuts-docs.sh` | ok (34개) — `shortcuts.md` ↔ `helpers.js` |
-| `check-env-docs.sh` | ok (18개) — `getting-started.md` 환경변수 표 ↔ `DONGMINAL_*` |
+| `check-env-docs.sh` | ok (18개) — `getting-started.md` 환경변수 표 ↔ `OTTERMINAL_*` |
 | TODO/FIXME/HACK/XXX | 1급 코드(`internal/` · `cmd/` · `web/js/` · `scripts/` · `e2e/`)에 **0건**. 히트는 `web/vendor/`(제3자) · `.golangci.yml` 주석 · `outbuf/stream_test.go:166` 의 `"XXXXX"` 픽스처 리터럴뿐 |
 | 색인 누락 | `docs/internal/README.md` 가 SRS **167/167** 을 링크. archive 40건도 `./archive/*.md` 로 별도 표. 끊긴 링크 0 |
 
@@ -123,7 +123,7 @@
 
 - **문서**: `docs/internal/AGENT_GUI_REMOVAL_SRS.md` (상태: **승인·구현중**)
 - **요구**: `FR-AGR-1`~`16` — 프론트 뷰·탭 종류·올리기 경로·승인 정책·문구·스타일·HTTP 표면·
-  해석층·세션 신원 저장소·`KindAgent`·오류 코드·`dmctl new-tab --agent`·인계 `gui` 갈래·
+  해석층·세션 신원 저장소·`KindAgent`·오류 코드·`otterctl new-tab --agent`·인계 `gui` 갈래·
   e2e 가짜 배선·테스트를 **전부 제거**한다. `FR-AGR-12`(어댑터는 남는다)만 존치 요구.
 - **실제**: 전부 이행됐고, **제거의 영속성을 가드 테스트가 지키고 있다**.
   - `internal/shared/runtime/skills_contract_test.go:310` — `--agent`·`/api/agent/` 부재 검사
@@ -293,15 +293,15 @@
 | 문서가 적은 것 | 실제 | 차이 |
 |---|---|---|
 | §주입 방식 전개도: `agent-plugin/` 아래 `.claude-plugin/plugin.json`·`skills/team, skills/workflow`·`hooks/hooks.json` | 임베드 트리에 **`commands/migration.md`** 가 더 있다 (`internal/shared/runtime/agentplugin/commands/migration.md`) — `install.go:35` 의 `//go:embed all:agentplugin` 이 통째로 담고 `unpackAgentPlugin` 이 그대로 전개한다 | `commands/` **누락** |
-| §스킬 표: `team`·`workflow` 둘 | 세션에는 `/dongminal:migration` 도 선다. `M10_SRS` `FR-M10-6` 이 "명령이지 스킬이 아니다" 로 자리를 갈랐고 `skills_contract_test.go:224` 가 `commands/` 에 명령만 있는지 검사한다 | `/dongminal:migration` **누락** |
-| §dmctl 명령 표 8행 | `docs/external/commands.md:69-75` 에 **`dmctl run` 계열 7개**(`start`·`member`·`launch`·`report`·`status`/`list`/`close`·`delete`·`graph`)가 있다. `RUN_ORCHESTRATION_SRS`·`ORCHESTRATION_V2_SRS` 가 근거 | 오케스트레이션 문서인데 **Run 오케스트레이션이 전무** |
+| §스킬 표: `team`·`workflow` 둘 | 세션에는 `/otterminal:migration` 도 선다. `M10_SRS` `FR-M10-6` 이 "명령이지 스킬이 아니다" 로 자리를 갈랐고 `skills_contract_test.go:224` 가 `commands/` 에 명령만 있는지 검사한다 | `/otterminal:migration` **누락** |
+| §otterctl 명령 표 8행 | `docs/external/commands.md:69-75` 에 **`otterctl run` 계열 7개**(`start`·`member`·`launch`·`report`·`status`/`list`/`close`·`delete`·`graph`)가 있다. `RUN_ORCHESTRATION_SRS`·`ORCHESTRATION_V2_SRS` 가 근거 | 오케스트레이션 문서인데 **Run 오케스트레이션이 전무** |
 
   전개도의 `hooks/hooks.json` 은 **맞다** — 임베드가 아니라 `install.go:283`·`334`
   (`generatedPluginPaths`)가 설치 시 생성하는 것임을 확인했다. 그 줄은 고치지 않는다.
 - **차이**: 문서 낡음.
 - **제안**: **문서를 고친다** — 코드가 맞다. ① 전개도에 `commands/migration.md` 한 줄,
-  ② 스킬 표 아래에 "명령" 한 줄(`/dongminal:migration`)과 `FR-M10-6` 의 구분 근거,
-  ③ `dmctl run` 계열은 `commands.md` 를 가리키는 한 행으로 충분하다(전량 복제하면 또 낡는다).
+  ② 스킬 표 아래에 "명령" 한 줄(`/otterminal:migration`)과 `FR-M10-6` 의 구분 근거,
+  ③ `otterctl run` 계열은 `commands.md` 를 가리키는 한 행으로 충분하다(전량 복제하면 또 낡는다).
   `commands.md` 는 게이트가 지키므로 **그쪽을 진실로 삼고 이쪽은 링크**하는 것이 이 저장소의
   3-4 규약과 맞는다.
 - **공수**: S
@@ -443,7 +443,7 @@
   즉 요구 17개 중 넷 묶음이 죽고 하나가 산다. 상태는 `승인·구현완료` 다.
 - **차이**: 라벨 자체는 틀리지 않았다(살아 있는 조항은 구현돼 있다). 머리의 경고 블록이
   `check-srs-status.sh` 보다 훨씬 많은 것을 말하고 있고, 그 블록이 **폐기가 빠뜨린 자리까지
-  자백한다**(`dongminal verify` 의 경계 검사가 커밋 `b38bda77` 로 걷혔다) — 문서 품질은 높다.
+  자백한다**(`otterminal verify` 의 경계 검사가 커밋 `b38bda77` 로 걷혔다) — 문서 품질은 높다.
 - **제안**: **지금은 고치지 않는다.** enum 에 값을 늘리면(`부분폐기` 등) `check-srs-status.sh`
   와 모든 문서가 따라 움직여야 하고, 얻는 것이 경고 블록 하나보다 크지 않다.
   다만 `M11`/`M12`(H1)를 `대체` 로 내릴 때 **같은 판단 기준**을 `CONTRIBUTING` 3-1 에 한 줄로

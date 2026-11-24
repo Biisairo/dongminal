@@ -1,5 +1,5 @@
 /**
- * Dongminal — Git History 탭 (GIT_SRS §3C / FR-GIT-113~139)
+ * Otterminal — Git History 탭 (GIT_SRS §3C / FR-GIT-113~139)
  *
  * 목록은 **가상 스크롤**이다 (FR-GIT-116). 고정 행 높이로 계산하고 보이는 구간만
  * DOM 에 둔다 — DOM 노드 수는 로드된 커밋 수가 아니라 화면 행 수에 비례한다.

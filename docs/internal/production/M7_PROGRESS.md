@@ -779,7 +779,7 @@ auto}` → `.fe-dd-peek-bar>.ui-btn-icon`. 옮기고 나면 옛 이름의 규칙
 
 `themeName` 을 없애지 않는다 (D-STF-1) — 세 이름이 공존하고 스위치가 고른다.
 `applyThemeObj` 를 `themeVarsOf`(순수)와 적용으로 갈라 반대 모드의 맵을 화면에
-닿지 않고 계산했고, 선주입은 `dm.themeFollow` 가 켜져 있으면 `matchMedia` 로
+닿지 않고 계산했고, 선주입은 `otter.themeFollow` 가 켜져 있으면 `matchMedia` 로
 `.dark`/`.light` 중 하나를 **고르기만** 한다 (D-STF-2). 첫 페인트 측정은 요소가
 아니라 `CSSStyleDeclaration.prototype.setProperty` 를 가로챈다 — init 스크립트가
 도는 시점에는 문서가 없다. 설정 서술자 20 → 23 (TC-CFG-4 의 기대값을 고쳤다).

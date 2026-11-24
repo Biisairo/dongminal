@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-sandboxplace"
+name = "otter-shared-sandboxplace"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,13 +10,13 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-shared-dmlog = { path = "../dmlog" }
-dm-shared-platform = { path = "../platform" }
-dm-shared-sandbox = { path = "../sandbox" }
-dm-shared-serverconf = { path = "../serverconf" }
-dm-shared-toolhub = { path = "../toolhub" }
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-dmenv = { path = "../dmenv" }
+otter-shared-otterlog = { path = "../otterlog" }
+otter-shared-platform = { path = "../platform" }
+otter-shared-sandbox = { path = "../sandbox" }
+otter-shared-serverconf = { path = "../serverconf" }
+otter-shared-toolhub = { path = "../toolhub" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-otterenv = { path = "../otterenv" }
 
 [dev-dependencies]
 tempfile = { workspace = true }

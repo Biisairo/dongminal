@@ -1,15 +1,15 @@
 //! 원격 명령 허브의 HTTP 표면 (Go `commands.go`): `/api/commands`(POST)·`/api/commands/sse`·
-//! `/api/command-result`. dmctl 이 POST 하고, 브라우저가 SSE 로 받아 실행한다.
+//! `/api/command-result`. otterctl 이 POST 하고, 브라우저가 SSE 로 받아 실행한다.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_shared_dmlog::{debugf, infof};
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr as apierr;
-use dm_webserver_hub::{self as hub, CmdPosition, CmdResult, TabRef};
 use http::{Method, StatusCode};
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::{debugf, infof};
+use otter_webserver_apierr as apierr;
+use otter_webserver_hub::{self as hub, CmdPosition, CmdResult, TabRef};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -31,7 +31,7 @@ const UUID_LOCATION_ACTIONS: &[&str] = &["renameTab", "renameWindow"];
 pub(crate) struct CommandPostReq {
     pub(crate) action: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) args: Option<dm_gocompat::json::RawMessage>,
+    pub(crate) args: Option<otter_gocompat::json::RawMessage>,
     #[serde(rename = "reqId", skip_serializing_if = "String::is_empty")]
     pub(crate) req_id: String,
     #[serde(rename = "execClientId", skip_serializing_if = "String::is_empty")]
@@ -41,7 +41,7 @@ pub(crate) struct CommandPostReq {
 /// Go `translateLocationUUID`: `args.location` 의 탭 uuid 를 좌표로 바꾼다. 바꾼 뒤 args 는
 /// Go `map[string]any` 를 다시 쓴 것처럼 키 순서가 정렬된다.
 pub(crate) fn translate_location_uuid(
-    args: &mut Option<dm_gocompat::json::RawMessage>,
+    args: &mut Option<otter_gocompat::json::RawMessage>,
     ws: Option<&dyn crate::WorkspaceStore>,
     keep_uuid: bool,
 ) -> Result<(String, String), String> {
@@ -51,7 +51,7 @@ pub(crate) fn translate_location_uuid(
     if raw.0.is_empty() {
         return Ok((String::new(), String::new()));
     }
-    let Ok(mut m) = dm_gocompat::json::unmarshal::<BTreeMap<String, Value>>(&raw.0) else {
+    let Ok(mut m) = otter_gocompat::json::unmarshal::<BTreeMap<String, Value>>(&raw.0) else {
         return Ok((String::new(), String::new()));
     };
     let loc = match m.get("location") {
@@ -61,7 +61,7 @@ pub(crate) fn translate_location_uuid(
     if !ws.is_known_tab_id(&loc) {
         return Err(format!(
             "location 은 list-workspace 의 uuid 만 허용 (좌표/라벨/toolId 거부): {}",
-            dm_gocompat::strconv::quote(&loc)
+            otter_gocompat::strconv::quote(&loc)
         ));
     }
     let coord = ws.coordinate_of(&loc).map_err(|e| e.to_string())?;
@@ -69,8 +69,8 @@ pub(crate) fn translate_location_uuid(
         return Ok((loc, coord));
     }
     m.insert("location".to_owned(), Value::String(coord.clone()));
-    let patched = dm_gocompat::json::marshal(&m).map_err(|e| e.to_string())?;
-    *args = Some(dm_gocompat::json::RawMessage(patched));
+    let patched = otter_gocompat::json::marshal(&m).map_err(|e| e.to_string())?;
+    *args = Some(otter_gocompat::json::RawMessage(patched));
     Ok((loc, coord))
 }
 
@@ -191,7 +191,7 @@ impl Server {
         };
         if hub::awaits_result(&req.action) {
             req.req_id = hub::new_req_id();
-            let payload = dm_gocompat::json::marshal(&req).unwrap_or_default();
+            let payload = otter_gocompat::json::marshal(&req).unwrap_or_default();
             let (res, n, timed_out) = cmds
                 .broadcast_and_await(&payload, &req.req_id, hub::command_result_timeout())
                 .await;
@@ -204,7 +204,7 @@ impl Server {
             );
             return;
         }
-        let payload = dm_gocompat::json::marshal(&req).unwrap_or_default();
+        let payload = otter_gocompat::json::marshal(&req).unwrap_or_default();
         let n = cmds.broadcast(&payload);
         resp.delivered = Some(n);
         infof!(
@@ -260,7 +260,7 @@ impl Server {
         let q = r.query();
         let presence = q.get_or_empty("presence") == "1";
         let cid = q.get_or_empty("clientId");
-        let (res, mut st) = dm_webserver_sse::start(dm_webserver_sse::WRITE_TIMEOUT);
+        let (res, mut st) = otter_webserver_sse::start(otter_webserver_sse::WRITE_TIMEOUT);
         let sub = if presence {
             if self.conn.presence_subs.fetch_add(1, SEQ) + 1 > hub::SUB_CAP as i64 {
                 self.conn.presence_subs.fetch_sub(1, SEQ);
@@ -309,7 +309,7 @@ impl Server {
         res
     }
 
-    fn foreground_on_connect(&self, st: &mut dm_webserver_sse::Stream) -> bool {
+    fn foreground_on_connect(&self, st: &mut otter_webserver_sse::Stream) -> bool {
         let Some(t) = &self.deps.tools else {
             return false;
         };
@@ -371,7 +371,7 @@ impl Server {
 
     async fn pump_command_sse(
         &self,
-        st: &mut dm_webserver_sse::Stream,
+        st: &mut otter_webserver_sse::Stream,
         sub: Option<&Arc<hub::CmdSub>>,
         hello: &[u8],
     ) {
@@ -421,17 +421,17 @@ impl Server {
     pub(crate) fn hello_event(&self) -> Vec<u8> {
         let v = self.asset_version();
         if v.is_empty() {
-            return dm_webserver_sse::payload::<()>("server_hello", None);
+            return otter_webserver_sse::payload::<()>("server_hello", None);
         }
         let mut m = BTreeMap::new();
         m.insert("assetVersion", v);
-        dm_webserver_sse::payload("server_hello", Some(&m))
+        otter_webserver_sse::payload("server_hello", Some(&m))
     }
 }
 
 const SEQ: std::sync::atomic::Ordering = std::sync::atomic::Ordering::SeqCst;
 
-fn reject_sub(mut st: dm_webserver_sse::Stream) {
+fn reject_sub(mut st: otter_webserver_sse::Stream) {
     tokio::spawn(async move {
         st.data(br#"{"action":"subscribeRejected"}"#);
         st.flush().await;
@@ -443,13 +443,13 @@ async fn parse_command_post(r: &Req) -> Result<CommandPostReq, Response> {
         return Err(not_allowed());
     }
     let body = r.read_body(0).await.map_err(|e| fail_read(&e))?;
-    let req: CommandPostReq = dm_gocompat::json::unmarshal(&body).map_err(|e| {
-        let msg = dm_shared_httpreq::message(
+    let req: CommandPostReq = otter_gocompat::json::unmarshal(&body).map_err(|e| {
+        let msg = otter_shared_httpreq::message(
             r.rid(),
             r.method.as_str(),
             &r.path,
             "invalid json",
-            &dm_shared_httpreq::DecodeError::NotJson(e),
+            &otter_shared_httpreq::DecodeError::NotJson(e),
         );
         http_err(&msg, StatusCode::BAD_REQUEST, apierr::CODE_INVALID_JSON)
     })?;

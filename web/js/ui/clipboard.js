@@ -1,5 +1,5 @@
 /**
- * Dongminal — OS 클립보드에 **쓰는 한 자리** (STRUCTURE_CLEANUP_SRS 묶음 A ·
+ * Otterminal — OS 클립보드에 **쓰는 한 자리** (STRUCTURE_CLEANUP_SRS 묶음 A ·
  * FR-STR-10~16)
  *
  * 몸통은 새로 쓴 것이 아니다. `ui/term-clipboard.js` 가 2026-09-15 에 세운

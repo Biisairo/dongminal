@@ -32,7 +32,7 @@ if [[ ! -x "$llvm_bin/llvm-ar" ]]; then
   echo "cross-check: llvm-ar 가 없다 — rustup component add llvm-tools" >&2
   exit 2
 fi
-tools="$(mktemp -d "${TMPDIR:-/tmp}/dm-cross.XXXXXX")"
+tools="$(mktemp -d "${TMPDIR:-/tmp}/otter-cross.XXXXXX")"
 trap 'rm -rf "$tools"' EXIT
 ln -s "$llvm_bin/llvm-ar" "$tools/llvm-ar"
 ln -s "$llvm_bin/llvm-ar" "$tools/llvm-lib"

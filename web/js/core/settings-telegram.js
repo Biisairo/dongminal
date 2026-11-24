@@ -1,5 +1,5 @@
 /**
- * Dongminal — 설정창의 **Telegram 패널** (TELEGRAM_BRIDGE_SRS FR-TGB-1·10).
+ * Otterminal — 설정창의 **Telegram 패널** (TELEGRAM_BRIDGE_SRS FR-TGB-1·10).
  *
  * 봇 token 은 쓰기 전용이다. 서버는 token 을 돌려주지 않으므로 입력 칸은 늘 비어 있고,
  * 저장한 뒤에도 비운다 (FR-TGB-3). 등록 코드는 만든 응답에만 있어 이 창의 메모리에만 둔다.

@@ -59,7 +59,7 @@
 
 | ID | 요구 |
 |---|---|
-| FR-FR5-10 | `ui/version-watch.js` 의 즉시 실행 함수를 클래스 `VersionWatch`(정적 `start()`)로 바꾼다. 판정(`saw`)·되풀이 막기(`tried`)·다시 열기(`reload`)·dirty 물러서기(`showHeldBanner`)·보조 계기(`check`)가 메서드가 된다. 바깥 표면(`window.__dmAssetVersion(next, live)`·`verReloadTried` 세션 키·`#ver-held` 배너·`__dmReloading`)은 그대로다. 판이 없으면 아무것도 걸지 않는다 |
+| FR-FR5-10 | `ui/version-watch.js` 의 즉시 실행 함수를 클래스 `VersionWatch`(정적 `start()`)로 바꾼다. 판정(`saw`)·되풀이 막기(`tried`)·다시 열기(`reload`)·dirty 물러서기(`showHeldBanner`)·보조 계기(`check`)가 메서드가 된다. 바깥 표면(`window.__otterAssetVersion(next, live)`·`verReloadTried` 세션 키·`#ver-held` 배너·`__otterReloading`)은 그대로다. 판이 없으면 아무것도 걸지 않는다 |
 | FR-FR5-11 | `cm-sticky.js`·`cm-scrollbar.js`·`cm-lsp.js` 의 팩토리 안에 이름 없이 적힌 클래스를 파일 최상위의 이름 있는 클래스로 올린다. 팩토리는 그 클래스를 `CM.ViewPlugin.fromClass` 등에 넘기는 몇 줄이 된다. 클래스 본문은 `CM` 을 메서드 안에서만 읽으므로 로드 시점에 `CM` 이 없어도 된다 |
 | FR-FR5-12 | `_makeTab` 은 탭 요소 만들기와 수신기 배선을 이름 있는 단계로 나눈다(클릭·메뉴·더블클릭·끌기). 수신기를 거는 순서와 핸들러 본문은 그대로다 |
 | FR-FR5-13 | `_renderThemePanel` 은 추종 스위치 배선 · 목록 골격(roving) · 그룹 하나 그리기 · 항목 하나 만들기로 나눈다. DOM 순서·속성·클릭 동작은 그대로다 |

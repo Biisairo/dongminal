@@ -15,7 +15,7 @@ import { tmpPath, realPath } from './osenv';
 // 오른쪽 끝**으로 올라갔다. 그래서 이 스펙이 머리에서 재던 셋 중 둘은 "없다" 가
 // 계약이고, 새로고침은 재는 자리가 바뀌었다.
 // UX_AUDIT_FIX_SRS FR-UXF-27 로 개정: 새로고침 단추는 이제 어디에도 없다 — 갱신은 자동 관측과 `refresh()` 다.
-const FIXTURES = tmpPath('dm-git-fx-head-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-head-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

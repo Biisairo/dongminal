@@ -2,10 +2,10 @@
 //!
 //! 여기서 밖으로 나가지 않는다 (FR-UPD-8) — 읽기는 캐시만 본다. 토글은 설정 blob 이 아니다 (D-UPD-2).
 
-use dm_gocompat::json;
-use dm_shared_httpresp::Response;
-use dm_webserver_apierr as apierr;
 use http::StatusCode;
+use otter_gocompat::json;
+use otter_shared_httpresp::Response;
+use otter_webserver_apierr as apierr;
 use serde::Deserialize;
 
 use crate::Server;

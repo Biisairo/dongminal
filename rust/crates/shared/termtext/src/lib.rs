@@ -1,9 +1,9 @@
-//! Go 기준선 `dongminal/internal/shared/termtext` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/shared/termtext` 의 Rust 포팅.
 //!
 //! 화면·터미널에 찍을 글자의 규칙 한 벌이다 — 숨은 글자의 판정과 정화, 줄이기
 //! (FR-RDG-43·44).
 
-/// 사람이 간선을 가려 보는 화면의 지문 길이다 (FR-PNW-80, `dmctl edges`).
+/// 사람이 간선을 가려 보는 화면의 지문 길이다 (FR-PNW-80, `otterctl edges`).
 pub const FP_SHOWN: usize = 16;
 /// 로그와 채팅 온라인 목록의 짧은 지문 길이다. 채팅 소켓의 온라인 목록은 와이어다.
 pub const FP_SHORT: usize = 12;

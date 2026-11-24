@@ -1,5 +1,5 @@
 /**
- * Dongminal — 렌더러의 노드·pane·탭 (`Renderer.prototype` 증강)
+ * Otterminal — 렌더러의 노드·pane·탭 (`Renderer.prototype` 증강)
  *
  * `renderer.js` 에서 **구간 이동**했다 (STRUCTURE_CLEANUP_SRS FR-STR-44).
  *
@@ -23,12 +23,12 @@ Object.assign(Renderer.prototype, {
 
   // 탭 하나가 탭 바에 **보이는 이름**이다. 단일 자리인 이유는 CONVENIENCE_SRS
   // FR-TAN-17 이다 — 전경 프로세스에서 파생한 이름이 붙을 때, 탭 바와 사이드바와
-  // dmctl list-workspace 가 서로 다른 것을 말하면 안 된다.
+  // otterctl list-workspace 가 서로 다른 것을 말하면 안 된다.
   //
-  // 판정과 파생은 `tabName` 한 곳에 있다 (layout-tree.js) — dmctl 이 같은 규칙을
+  // 판정과 파생은 `tabName` 한 곳에 있다 (layout-tree.js) — otterctl 이 같은 규칙을
   // Go 로 다시 쓰므로, 브라우저 안에서만이라도 자리가 둘이면 안 된다.
   _tabDisplayName(tab){
-    // FR-DRV-11: 렌더 탭임을 알리는 표시. **여기서 붙인다** — `tabName` 은 dmctl 이
+    // FR-DRV-11: 렌더 탭임을 알리는 표시. **여기서 붙인다** — `tabName` 은 otterctl 이
     // 같은 규칙을 Go 로 다시 쓰는 자리이며(layout-tree.js), 그쪽이 모르는 표시를 그
     // 함수에 넣으면 두 구현이 어긋난다.
     // REPO_FIX 03 §3A-7: ● 는 매 렌더 **파생**이다 — 탭 레코드에 두지 않는다.

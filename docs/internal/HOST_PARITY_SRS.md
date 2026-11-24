@@ -33,7 +33,7 @@ OS 에 따라 달라지지 않는다.**
 |---|---|
 | **L1 신호** | PTY 출력에서 읽는 알림 이스케이프 시퀀스 (OSC 9 / 99 / 777;notify) |
 | **에이전트 훅** | Claude Code 가 `--settings` 로 읽는 `claude.json` 의 hook 명령 |
-| **셸 훅** | 도구 셸이 기동 시 읽는 dongminal 의 rc 스크립트 |
+| **셸 훅** | 도구 셸이 기동 시 읽는 otterminal 의 rc 스크립트 |
 | **ConEmu 확장** | `OSC 9 ; <숫자> ; …` 형태의 비알림 제어 명령군 |
 
 ### 1.4 참조 (References)
@@ -74,19 +74,19 @@ L2(유휴)는 원인이 아니다. `maybeIdle` 은 `agentSeen` 을 요구하므�
 `install.go` 가 훅 명령을 문자열 이어붙이기로 만든다.
 
 ```go
-"command": dmctl + " notify " + label
-// → C:\Users\foo\.dongminal\bin\dmctl.exe notify done
+"command": otterctl + " notify " + label
+// → C:\Users\foo\.otterminal\bin\otterctl.exe notify done
 ```
 
 Claude Code 는 Windows 에서 훅을 **Git Bash 가 PATH 에 있으면 `bash -c`, 없으면
 `cmd.exe`** 로 실행한다. 선택은 암묵적이고 오버라이드가 없다.
 
-- bash: 무인용 백슬래시가 escape 로 소비되어 `C:Usersfoo.dongminalbindmctl.exe`
+- bash: 무인용 백슬래시가 escape 로 소비되어 `C:Usersfoo.otterminalbinotterctl.exe`
   가 된다 — command not found
 - cmd: 백슬래시는 살지만 경로에 **공백**이 있으면 첫 토큰에서 잘린다
 
 `installAgentHooks` 의 9개 이벤트와 `installAgentPluginHooks` 의 SessionStart 가
-**전량 무성 실패**한다. `dmctl activity` 가 죽으므로 활동 카드·턴 판정·유휴 억제가
+**전량 무성 실패**한다. `otterctl activity` 가 죽으므로 활동 카드·턴 판정·유휴 억제가
 함께 선다.
 
 POSIX 도 같은 결함을 갖는다 — 홈 경로에 공백이 있으면 그대로 깨진다.
@@ -126,7 +126,7 @@ macOS 는 zsh + `ZDOTDIR` 이라 정상이었고, 그래서 이 결함은 여태
 
 ### 2.5 묶음 E — Windows 에서 도구별 히스토리 격리가 무효다
 
-`toolHistEnv` 는 `HISTFILE` 과 `DONGMINAL_HISTFILE` 을 심는다. PowerShell 은
+`toolHistEnv` 는 `HISTFILE` 과 `OTTERMINAL_HISTFILE` 을 심는다. PowerShell 은
 `HISTFILE` 을 읽지 않는다 — PSReadLine 은 자기 경로
 (`ConsoleHost_history.txt`)를 쓰고, 그것을 바꾸는 길은
 `Set-PSReadLineOption -HistorySavePath` 뿐이다. `powershell-hook.ps1` 에 그
@@ -138,7 +138,7 @@ macOS 는 zsh + `ZDOTDIR` 이라 정상이었고, 그래서 이 결함은 여태
 ### 2.6 묶음 F — 데몬 모드가 BEL 설정을 무시한다
 
 `hub.attnPaneState.allowBell` 을 설정하는 코드가 없다. zero value 로 고정이므로
-`DONGMINAL_ATTENTION_BELL=1` 이 데몬 모드에서 **무성 무시**된다. 직접 모드는
+`OTTERMINAL_ATTENTION_BELL=1` 이 데몬 모드에서 **무성 무시**된다. 직접 모드는
 `ToolManager.allowBell = attentionAllowBell()` 로 읽는다.
 
 `attn_tracker.go` 의 머리말이 스스로 약속한 동형성(FR-ATF-12·NFR-4 — "두 모드의
@@ -176,7 +176,7 @@ macOS 는 zsh + `ZDOTDIR` 이라 정상이었고, 그래서 이 결함은 여태
 - **D-6 스냅샷 캐시의 수명은 전경 조회와 같다.** `fgRefreshInterval`(2초)과 다른
   값을 두면 두 조회가 서로 다른 시점의 세상을 본다.
 - **D-7 PSReadLine 히스토리는 훅이 되살린다.** 값은 서버가 정하고
-  (`DONGMINAL_HISTFILE`) 훅은 그것을 대입만 한다 — `zdotdir/.zshrc` 의
+  (`OTTERMINAL_HISTFILE`) 훅은 그것을 대입만 한다 — `zdotdir/.zshrc` 의
   FR-THI-23 과 같은 규약이다. 경로 규칙이 셸 스크립트로 복제되지 않는다.
 
 ## 3. 요구사항 (Requirements)
@@ -193,7 +193,7 @@ macOS 는 zsh + `ZDOTDIR` 이라 정상이었고, 그래서 이 결함은 여태
 
 | ID | 요구사항 | 우선 |
 |----|---------|------|
-| FR-HPR-4 | 훅 명령의 실행 파일 경로는 큰따옴표로 감싼다. 인자는 감싸지 않는다 (`"<dmctl>" notify done`) | 필수 |
+| FR-HPR-4 | 훅 명령의 실행 파일 경로는 큰따옴표로 감싼다. 인자는 감싸지 않는다 (`"<otterctl>" notify done`) | 필수 |
 | FR-HPR-5 | 이 규칙은 `installAgentHooks`(9개 이벤트)와 `installAgentPluginHooks`(SessionStart)에 **같이** 적용된다 — 훅 명령을 만드는 자리는 하나여야 한다 | 필수 |
 | FR-HPR-6 | 경로에 공백이 있어도, 백슬래시가 있어도 명령의 뜻이 바뀌지 않는다 | 필수 |
 
@@ -218,7 +218,7 @@ macOS 는 zsh + `ZDOTDIR` 이라 정상이었고, 그래서 이 결함은 여태
 
 | ID | 요구사항 | 우선 |
 |----|---------|------|
-| FR-HPR-14 | `powershell-hook.ps1` 은 `DONGMINAL_HISTFILE` 이 있으면 `Set-PSReadLineOption -HistorySavePath` 로 그 값을 건다 | 필수 |
+| FR-HPR-14 | `powershell-hook.ps1` 은 `OTTERMINAL_HISTFILE` 이 있으면 `Set-PSReadLineOption -HistorySavePath` 로 그 값을 건다 | 필수 |
 | FR-HPR-15 | PSReadLine 이 없는 처지에서도 셸은 뜬다 — 실패는 조용히 지나간다 | 필수 |
 | FR-HPR-16 | 히스토리 시드의 원본은 그 셸의 실제 히스토리 자리다. PowerShell 은 PSReadLine 의 기본 경로이며, 그 규칙은 Go 한 곳에 있다 (FR-THI-20) | 필수 |
 
@@ -241,7 +241,7 @@ macOS 는 zsh + `ZDOTDIR` 이라 정상이었고, 그래서 이 결함은 여태
 | V-HPR-6 | 실기 bash 로 `--rcfile` 을 지나면 `claude` 함수가 정의되어 있다 (POSIX 통합) | FR-HPR-7·8 |
 | V-HPR-7 | 하드링크가 되는 처지에서 복사가 일어나지 않는다 (단위, Windows) | FR-HPR-11 |
 | V-HPR-8 | 캐시 수명 안의 두 번째 조회가 스냅샷을 다시 뜨지 않는다 (단위) | FR-HPR-12·13 |
-| V-HPR-9 | 훅 스크립트에 `HistorySavePath` 배선이 있고 `DONGMINAL_HISTFILE` 을 딛는다 (골든) | FR-HPR-14 |
+| V-HPR-9 | 훅 스크립트에 `HistorySavePath` 배선이 있고 `OTTERMINAL_HISTFILE` 을 딛는다 (골든) | FR-HPR-14 |
 | V-HPR-10 | `NewAttnTracker` 가 만든 상태의 BEL 허용이 `AttentionAllowBell()` 과 같다 (단위) | FR-HPR-17 |
 | V-HPR-13 | 시드 원본이 PowerShell 에서는 PSReadLine 의 자리이고, zsh·bash 에서는 종전의 점파일이다. `APPDATA` 가 없으면 빈 값이다 (단위) | FR-HPR-16 |
 | V-HPR-11 | 닫힌 터미널의 `Resize` 가 오류를 내고 API 를 부르지 않는다 (단위, Windows) | FR-HPR-18 |
@@ -274,5 +274,5 @@ macOS 는 zsh + `ZDOTDIR` 이라 정상이었고, 그래서 이 결함은 여태
 | R-1 | `--rcfile` 로 바꾸면 로그인 셸이 아니게 되어 PATH 가 달라질 수 있다 | FR-HPR-8 이 profile 을 로그인 셸과 같은 순서로 읽어 되갚는다. 사용자가 profile 안에서 `$0` 의 `-` 접두나 `shopt -q login_shell` 을 보는 경우는 갈릴 수 있으나, 그것을 지키는 값보다 훅이 아예 안 걸리는 값이 크다 |
 | R-2 | 첫 필드가 숫자인 iTerm2 알림(`OSC 9;42`)이 이제 무시된다 | 그런 알림은 규약상 ConEmu 확장과 구별할 방법이 없다. 숫자만으로 된 알림 문구는 실재하지 않는다 |
 | R-3 | 훅 명령의 인용이 제3의 셸(예: PowerShell 로 훅을 도는 미래 판본)에서 다르게 읽힐 수 있다 | 큰따옴표는 bash·cmd·PowerShell 세 곳에서 모두 경로를 한 덩어리로 만든다 |
-| R-4 | 하드링크는 원본이 갱신되면 링크도 함께 바뀐다 — symlink 와 같은 성질이며 의도한 것이다 | `dongminal` 실행 파일이 교체되면 헬퍼도 새것을 가리켜야 옳다. 교체가 rename 으로 일어나면 하드링크는 옛 실체를 가리키므로, 그때는 재설치가 다시 건다 (매 기동 설치) |
+| R-4 | 하드링크는 원본이 갱신되면 링크도 함께 바뀐다 — symlink 와 같은 성질이며 의도한 것이다 | `otterminal` 실행 파일이 교체되면 헬퍼도 새것을 가리켜야 옳다. 교체가 rename 으로 일어나면 하드링크는 옛 실체를 가리키므로, 그때는 재설치가 다시 건다 (매 기동 설치) |
 | R-5 | 프로세스 스냅샷 캐시가 2초 뒤처진 답을 준다 | `IsBusy` 는 이미 1초 tick 의 판정 재료이고 전경 조회는 같은 수명으로 산다. 2초 안의 정확도를 요구하는 호출자는 없다 |

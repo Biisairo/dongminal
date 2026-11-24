@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-toolhub"
+name = "otter-shared-toolhub"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,14 +10,14 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-shared-activity = { path = "../activity" }
-dm-shared-dmenv = { path = "../dmenv" }
-dm-shared-dmlog = { path = "../dmlog" }
-dm-shared-outbuf = { path = "../outbuf" }
-dm-shared-platform = { path = "../platform" }
-dm-shared-pollwait = { path = "../pollwait" }
-dm-shared-uuid = { path = "../uuid" }
-dm-gocompat = { path = "../../gocompat" }
+otter-shared-activity = { path = "../activity" }
+otter-shared-otterenv = { path = "../otterenv" }
+otter-shared-otterlog = { path = "../otterlog" }
+otter-shared-outbuf = { path = "../outbuf" }
+otter-shared-platform = { path = "../platform" }
+otter-shared-pollwait = { path = "../pollwait" }
+otter-shared-uuid = { path = "../uuid" }
+otter-gocompat = { path = "../../gocompat" }
 serde = { workspace = true }
 futures-util = { workspace = true }
 tokio = { workspace = true }

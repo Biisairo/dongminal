@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-runwait"
+name = "otter-shared-runwait"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

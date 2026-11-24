@@ -6,12 +6,12 @@
 
 use std::fmt;
 
-use dm_gocompat::filepath;
-use dm_shared_httpresp::Response;
-use dm_webserver_apierr::{self as apierr, Classify, Sentinel};
-use dm_webserver_domain_git_core::{Kind, PRE_PHASE_TIMEOUT};
-use dm_webserver_domain_submodule::{self as submodule, Kind as SubKind};
 use http::StatusCode;
+use otter_gocompat::filepath;
+use otter_shared_httpresp::Response;
+use otter_webserver_apierr::{self as apierr, Classify, Sentinel};
+use otter_webserver_domain_git_core::{Kind, PRE_PHASE_TIMEOUT};
+use otter_webserver_domain_submodule::{self as submodule, Kind as SubKind};
 use serde::{Deserialize, Serialize};
 
 use crate::GitServer;

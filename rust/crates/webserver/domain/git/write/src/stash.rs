@@ -2,9 +2,9 @@
 
 use std::sync::LazyLock;
 
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_git_core::{self as core, Ctx, Hint, Output, Service};
-use dm_webserver_domain_git_query as query;
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_git_core::{self as core, Ctx, Hint, Output, Service};
+use otter_webserver_domain_git_query as query;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -393,8 +393,8 @@ fn stash_restore_args(sub: &str, target: &str, with_index: bool) -> Vec<String> 
 
 fn stash_drop_hint(repo: &str, st: &Stash) -> Hint {
     let at = time::OffsetDateTime::from_unix_timestamp_nanos(i128::from(st.at_unix_ms) * 1_000_000)
-        .map(|t| dm_gocompat::time::to_zone(t, dm_gocompat::time::local()))
-        .map(dm_gocompat::time::format_rfc3339)
+        .map(|t| otter_gocompat::time::to_zone(t, otter_gocompat::time::local()))
+        .map(otter_gocompat::time::format_rfc3339)
         .unwrap_or_default();
     Hint {
         repo: repo.to_owned(),

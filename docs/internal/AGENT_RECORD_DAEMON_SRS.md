@@ -14,7 +14,7 @@
 
 ### 1.1 목적 (Purpose)
 
-데몬 모드에서 터미널(PTY)과 에이전트 프로세스는 데몬(`dongminald`)이 들고, 웹서버만 따로 다시 뜰 수 있다. 그런데 에이전트에 관한 기록은 웹서버 메모리에만 있다. 그래서 서버만 다시 띄우면 다음 일이 생긴다.
+데몬 모드에서 터미널(PTY)과 에이전트 프로세스는 데몬(`otterminald`)이 들고, 웹서버만 따로 다시 뜰 수 있다. 그런데 에이전트에 관한 기록은 웹서버 메모리에만 있다. 그래서 서버만 다시 띄우면 다음 일이 생긴다.
 
 - Activity 카드가 사라진다.
 - 알람이 사라지거나 가짜 알람이 생긴다.
@@ -27,7 +27,7 @@
 | 단계 | 묶음 | 내용 |
 |---|---|---|
 | 1 | D·P | 데몬의 기록 저장소, 서버→데몬 쓰기, 데몬→서버 push 와 스냅샷 |
-| 2 | R·C | 데몬의 보고 소켓, `dmctl` 이 데몬에 먼저 보내기 |
+| 2 | R·C | 데몬의 보고 소켓, `otterctl` 이 데몬에 먼저 보내기 |
 | 3 | A | 알람 판정(출력 신호·유휴·재무장)을 데몬으로 옮기기 |
 | 4 | L | 생존 판정의 세 값(산다·죽었다·모른다), Run 열림의 계산 |
 
@@ -70,7 +70,7 @@
 | `agentSeen` | 같은 파일 :58 | 거짓으로 돌아가, 에이전트의 알림 시퀀스(OSC)를 알람으로 오인한다 (:182) |
 | 턴 표시(`AgentTurn`) | 같은 파일 :61 | 재시작 전에 시킨 일이 끝나도 done 알람이 울리지 않거나, waiting 알람이 한 번 더 운다 |
 | 알람 표시·재무장 잠금(`attention`·`attnArmed`·`attnRearmLocked`) | 같은 파일 :55~57 | 알람 배지가 사라지고, 유휴 알람 판정이 달라진다 |
-| 마지막 출력 시각(`lastOutputAt`) | 같은 파일 :54 | `dmctl status` 의 `quietMs` 가 비고, `wait --for ready` 의 조용함 판정이 다음 출력까지 서지 않는다 |
+| 마지막 출력 시각(`lastOutputAt`) | 같은 파일 :54 | `otterctl status` 의 `quietMs` 가 비고, `wait --for ready` 의 조용함 판정이 다음 출력까지 서지 않는다 |
 | statusLine 사용량 | `httpapi/handlers_usage.go` | 모델·맥락이 다음 statusLine 갱신까지 빈다 |
 | 서브에이전트 목록·활동 | `handlers_subagents.go`·`handlers_subagent_activity.go` | 하위 카드가 빈다 |
 | 계정 한도 | `handlers_limits.go` | Usage 바닥이 빈다 |
@@ -90,9 +90,9 @@
 
 ### 2.3 데몬의 제약
 
-- 데몬은 연결을 **하나씩** 받고, 그 하나는 서버가 쥔다(IPC-24). `dmctl` 이 같은 소켓에 붙으면 서버가 놓을 때까지 기다린다.
+- 데몬은 연결을 **하나씩** 받고, 그 하나는 서버가 쥔다(IPC-24). `otterctl` 이 같은 소켓에 붙으면 서버가 놓을 때까지 기다린다.
 - 데몬의 도구 관리자는 직접 모드와 같은 `toolhub.ToolManager` 다. 직접 모드의 `Tool` 에는 활동·턴·알람 판정 코드가 이미 있다(`tool_attention.go`). 다만 데몬에서는 그 알림 콜백을 잇지 않아 돌지 않는다.
-- 샌드박스 창의 `dmctl` 은 `host.docker.internal` 로 서버에 HTTP 로만 붙는다. 데몬 소켓에는 닿지 못한다.
+- 샌드박스 창의 `otterctl` 은 `host.docker.internal` 로 서버에 HTTP 로만 붙는다. 데몬 소켓에는 닿지 못한다.
 
 ## 3. 요구 (Requirements)
 
@@ -163,12 +163,12 @@
 
 **끝난 도구:** 도구가 끝날 때 서버가 쓰는 `ended` 활동은 데몬이 이미 도구를 지운 뒤라 `CodeNotFound` 를 받는다. 정상이므로 로그를 남기지 않는다.
 
-### 3.2 단계 2 — 보고 소켓과 dmctl (묶음 R·C)
+### 3.2 단계 2 — 보고 소켓과 otterctl (묶음 R·C)
 
 - **FR-ARD-20** 데몬은 서버 연결 소켓과 **다른** 보고 소켓(`report.sock`, 같은 0700 폴더)을 연다. 이 소켓은 연결을 동시에 받고, 연결마다 요청 하나를 처리한 뒤 닫는다.
 - **FR-ARD-21** 보고 소켓이 받는 메서드는 넷뿐이다: `report.activity`·`report.usage`·`report.subagents`·`report.notify`. 그 밖은 오류로 답한다. 본문은 지금의 HTTP 본문과 같다.
 - **FR-ARD-22** 보고의 `toolId` 가 데몬의 살아 있는 도구가 아니면 거절한다. 받은 보고는 FR-ARD-10 의 기록에 쓰고, **보고 자체**를 push `report` 로 서버에 넘긴다. 보고로 바뀐 기록을 따로 push 하지 않는다 — 그 이유는 §3.2a 에 있다. 알람 판정(done·waiting 파생)은 단계 3 전에는 서버가 push 를 받고 한다.
-- **FR-ARD-23** `dmctl activity`·`statusline`·`subagent-statusline`·`notify` 는 보고 소켓에 **먼저** 보낸다. 보고 소켓이 없거나(직접 모드·샌드박스·옛 데몬) 실패하면 지금처럼 서버 HTTP 로 보낸다. 두 시도의 합이 종전 시한(`hookBudget`·`slReportBudget`)을 넘지 않는다.
+- **FR-ARD-23** `otterctl activity`·`statusline`·`subagent-statusline`·`notify` 는 보고 소켓에 **먼저** 보낸다. 보고 소켓이 없거나(직접 모드·샌드박스·옛 데몬) 실패하면 지금처럼 서버 HTTP 로 보낸다. 두 시도의 합이 종전 시한(`hookBudget`·`slReportBudget`)을 넘지 않는다.
 - **FR-ARD-24** 서버의 HTTP 보고 종단(`/api/tools/activity/set`·`usage`·`subagents`·`attention/set`)은 그대로 둔다. 데몬이 `records` 를 말하면 FR-ARD-11 로 데몬에 먼저 쓴다. 샌드박스 창의 보고가 이 길로 데몬에 닿는다.
 - **FR-ARD-25** 서버가 꺼져 있어도 데몬은 보고를 받아 기록한다. 서버가 다시 붙으면 FR-ARD-13 의 스냅샷이 그 결과를 싣는다. 그동안의 알람은 울리지 않는다.
 
@@ -189,9 +189,9 @@
 
 **보고 소켓 (FR-ARD-20·21)**
 
-- 자리: 데몬 소켓(`paned.sock`) 폴더의 `report.sock` 이다. 경로는 `agentrec.SocketPath(home)` 한 곳에서 만든다. 데몬과 dmctl 이 같은 함수를 쓴다.
+- 자리: 데몬 소켓(`paned.sock`) 폴더의 `report.sock` 이다. 경로는 `agentrec.SocketPath(home)` 한 곳에서 만든다. 데몬과 otterctl 이 같은 함수를 쓴다.
 - 요청 하나: `{"method":"report.activity","body":{…}}` → `{"ok":true}` 또는 `{"ok":false,"error":"…"}`. 연결마다 한 줄을 받고 답한 뒤 닫는다. 읽기·쓰기 시한은 2초다.
-- `body` 는 지금의 HTTP 본문과 같다. `toolId` 는 본문에서 읽는다. 데몬은 HTTP 의 PID 역추적을 할 수 없다. dmctl 은 이미 모든 본문에 `toolId`(`DONGMINAL_TOOL_ID`)를 싣는다.
+- `body` 는 지금의 HTTP 본문과 같다. `toolId` 는 본문에서 읽는다. 데몬은 HTTP 의 PID 역추적을 할 수 없다. otterctl 은 이미 모든 본문에 `toolId`(`OTTERMINAL_TOOL_ID`)를 싣는다.
 - 거절하는 경우:
   - 넷이 아닌 메서드
   - 본문이 깨짐, `toolId` 가 빔, 상태 어휘가 틀림
@@ -217,15 +217,15 @@
 - **보고를 `record` push 로 보내지 않는 이유 (FR-ARD-22):** 데몬이 기록 push 를 먼저 보내면 서버 거울의 상태가 먼저 `done` 이 된다. 그 뒤 서버가 같은 보고를 처리하면 상태가 바뀌지 않은 것으로 보여 알람이 울리지 않는다. 그래서 보고로 바뀐 기록은 `record` push 로 보내지 않는다. 데몬과 서버가 같은 보고를 두 번 반영하지만, 서버의 되쓰기가 마지막에 덮으므로 결과는 같다.
 - 서버는 push 를 읽기 루프에서 처리하지 않는다. 처리 중 데몬 RPC(맥락 경고 전달의 입력 등)를 기다리면 교착이 생긴다. 고루틴 하나가 받은 순서대로 처리한다. 줄(1024)이 차면 버리고 로그를 남긴다. 버린 보고도 데몬 기록에는 남는다.
 
-**옛 서버 (NFR-ARD-3):** 서버는 `hello` 에서 새 기능 `reports` 를 말한다. 붙은 서버가 그것을 말하지 않으면 데몬은 보고를 거절한다. 그러면 dmctl 이 HTTP 로 보낸다. 받아 버리면 옛 서버가 push 를 모른 채 버려 카드·알람이 사라진다. 서버가 붙어 있지 않으면 받는다 (FR-ARD-25).
+**옛 서버 (NFR-ARD-3):** 서버는 `hello` 에서 새 기능 `reports` 를 말한다. 붙은 서버가 그것을 말하지 않으면 데몬은 보고를 거절한다. 그러면 otterctl 이 HTTP 로 보낸다. 받아 버리면 옛 서버가 push 를 모른 채 버려 카드·알람이 사라진다. 서버가 붙어 있지 않으면 받는다 (FR-ARD-25).
 
-**dmctl (FR-ARD-23)**
+**otterctl (FR-ARD-23)**
 
-- `DONGMINAL_HOME` 이 있으면 보고 소켓에 먼저 보낸다. 소켓 시도의 시한은 예산의 절반이다. 성공이면 HTTP 를 보내지 않는다.
+- `OTTERMINAL_HOME` 이 있으면 보고 소켓에 먼저 보낸다. 소켓 시도의 시한은 예산의 절반이다. 성공이면 HTTP 를 보내지 않는다.
 - 소켓이 없거나 실패하면, 남은 예산으로 지금과 같은 HTTP 요청을 보낸다. 두 시도의 합은 예산(`hookBudget` 2초·`slReportBudget` 100ms)을 넘지 않는다.
-- 소켓으로 성공하면 호출자에게 HTTP 200 `{"ok":true}` 와 같은 결과를 준다. `dmctl notify` 의 종료 코드가 바뀌지 않는다.
+- 소켓으로 성공하면 호출자에게 HTTP 200 `{"ok":true}` 와 같은 결과를 준다. `otterctl notify` 의 종료 코드가 바뀌지 않는다.
 - 직접 모드·옛 데몬은 소켓 파일이 없다. 샌드박스 창은 컨테이너 안에 그 경로가 없다. 그래서 곧바로 HTTP 로 간다 (D-ARD-7).
-- `dmctl activity` 의 맥락 관측(`/api/runs/context`)은 넷에 들지 않으므로 HTTP 에 둔다.
+- `otterctl activity` 의 맥락 관측(`/api/runs/context`)은 넷에 들지 않으므로 HTTP 에 둔다.
 
 ### 3.3 단계 3 — 알람 판정의 데몬 이관 (묶음 A)
 
@@ -274,7 +274,7 @@
 - `activity` 는 카드가 같아도 방송한다. 직접 모드의 `onActivity` 가 보고마다 방송하는 것과 같다.
 - 마지막 출력 시각은 서버가 계속 적는다. 데몬은 출력마다 push 하지 않는다. `quietMs` 와 준비 판정이 그 값을 읽는다.
 - HTTP 보고를 데몬에 넘기지 못하면 로그를 남기고 서버가 판정하지 않는다. 도구가 없다는 답은 종전처럼 200 무동작이다. 연결 오류는 503 이다.
-- `attnconfig` 는 서버가 (다시) 붙을 때 기록 스냅샷보다 먼저 보낸다. 값은 서버가 읽은 환경변수(`DONGMINAL_ATTENTION_IDLE_MS`·`DONGMINAL_ATTENTION_BELL`)다.
+- `attnconfig` 는 서버가 (다시) 붙을 때 기록 스냅샷보다 먼저 보낸다. 값은 서버가 읽은 환경변수(`OTTERMINAL_ATTENTION_IDLE_MS`·`OTTERMINAL_ATTENTION_BELL`)다.
   - FR-ARD-31 의 "바뀔 때" 는 없다. 두 값은 설정 화면이 없고, 서버가 뜰 때 한 번 읽는다.
   - 붙을 때마다 보내므로, 다른 환경으로 다시 뜬 서버의 값이 데몬에 간다.
 
@@ -297,7 +297,7 @@
   | Run 수거(`ReapTargets`·`reapRuns`) | 그 Run 을 대상에서 뺀다 |
   | 사용량·서브에이전트 수거(`prune`) | 지우지 않는다 |
   | 알람 생존 검사(`SetLiveProbe`) | 알람을 거르지 않는다. 종전에는 `unknown` 을 죽음으로 읽어 걸렀다 |
-  | `dmctl status` 의 `live` | `false` 로 답하되 `liveUnknown: true` 를 더한다 |
+  | `otterctl status` 의 `live` | `false` 로 답하되 `liveUnknown: true` 를 더한다 |
 
 - **FR-ARD-3** **데몬 모드에서** Run 의 **열림**은 저장하지 않는다. 서버 시작 때 Run 을 `aborted` 로 바꾸는 펜싱(`fenceStale`)을 없앤다. 직접 모드는 서버가 다시 뜨면 에이전트도 끝났으므로 종전처럼 열린 Run 을 `aborted` 로 닫는다 (§1.2, §3.4a). 명시적으로 닫힌 상태(`run close`·성공·실패 보고·사용자 삭제)만 `runs.json` 에 저장한다.
 - **FR-ARD-4** 응답(`/api/runs`·`run status`)의 Run 마다 `liveness` 를 계산해 싣는다.
@@ -330,9 +330,9 @@
 | Run 수거 | `Store.ReapTargets(dead)` 로 바꾼다. 인자는 "확인된 죽음인가"다. 열린 Run 은 `dead(조정자)` 일 때만 대상이다 (FR-ARD-5). `dead` 가 nil 이면 열린 Run 은 대상이 아니다. 끝난 Run(closed·aborted)은 종전처럼 대상이다 |
 | `prune` 셋 | 함수 모양은 그대로다. 넘기는 질의를 `toolLive` 에서 "`dead` 가 아니다"로 바꾼다. 수거 틱의 몸은 `reapTick` 으로 떼어 시험한다 |
 | 알람 생존 검사 | `SetLiveProbe(attnLiveProbe(toolHub))`. `unknown` 이면 알람을 거르지 않는다. 종전에는 `IsLive` 가 거짓이라 걸렀다 |
-| `dmctl status` | 응답 `toolStatus` 에 `liveUnknown` 을 더한다(`omitempty`). `unknown` 이면 `live:false, liveUnknown:true` 다. `dmctl status` 의 글 출력은 그때 `live=unknown` 이라 쓴다 |
+| `otterctl status` | 응답 `toolStatus` 에 `liveUnknown` 을 더한다(`omitempty`). `unknown` 이면 `live:false, liveUnknown:true` 다. `otterctl status` 의 글 출력은 그때 `live=unknown` 이라 쓴다 |
 
-- `dmctl wait`(`/api/tools/activity/wait`)는 같은 `toolStatus` 를 쓴다. `liveUnknown` 이면 `gone` 으로 끝내지 않고 계속 기다린다. 다음 생존 확인(1초)에서 다시 판정한다. 시한이 지나면 종전처럼 `timeout` 이다.
+- `otterctl wait`(`/api/tools/activity/wait`)는 같은 `toolStatus` 를 쓴다. `liveUnknown` 이면 `gone` 으로 끝내지 않고 계속 기다린다. 다음 생존 확인(1초)에서 다시 판정한다. 시한이 지나면 종전처럼 `timeout` 이다.
 - 나머지 `toolLive` 자리는 표에 없으므로 그대로 둔다. 예: 멤버 상태 판정(`lost`), 헤드리스·close·tree·assign·peer.
 
 **펜싱을 없앤다 (FR-ARD-3·7) — 데몬 모드만**

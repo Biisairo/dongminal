@@ -27,7 +27,7 @@
 |---|---|
 | **S** 서술자 | 브라우저 설정 키의 **단일 원천** — 키·타입·범위·기본값 |
 | **D** 파생 | `saveSettings` 의 키 나열과 `BACKUP_KEYS` 가 그 표에서 파생된다 |
-| **C** CLI | `dongminal config show` · `dongminal config validate` |
+| **C** CLI | `otterminal config show` · `otterminal config validate` |
 | **F** 파일 | `server.json` — 서버 기동값의 파일 계층 |
 | **P** 우선순위 | **플래그 > 환경변수 > 파일 > 기본값** |
 | **E** 환경변수 | 14개 전수 문서화 + `PORT` 비숫자 거부 |
@@ -86,7 +86,7 @@
 
 지금 서버 기동값의 출처는 **둘**이다 — 플래그와 환경변수. 기계마다 다른
 기동값(포트·바인드 주소·로그 자리)을 고정하려면 셸 프로필이나 래퍼 스크립트가
-필요하고, 그것은 dongminal 이 관리하지 않는 자리다.
+필요하고, 그것은 otterminal 이 관리하지 않는 자리다.
 
 ### 2.4 `settings.json` 을 서버가 해석하게 할 것인가 — **판정: 뒤집지 않는다**
 
@@ -116,27 +116,27 @@
 | 변수 | 자리 | 문서 |
 |---|---|---|
 | `PORT` | `options.go:26` | ✅ |
-| `DONGMINAL_HOME` | `dmenv.go` | ✅ |
-| `DONGMINAL_HOST` | `dmenv.go` | ✅ |
-| `DONGMINAL_PORT` | `dmenv.go` | ✅ |
-| `DONGMINAL_LOG` | `options.go:29` | ✅ |
-| `DONGMINAL_RESTART_RUNNER` | `options.go:33` | ❌ |
-| `DONGMINAL_TOOL_ID` | `dmenv.go` | ✅ |
-| `DONGMINAL_TOOL_HOME` | `dmenv.go` | ✅ |
-| `DONGMINAL_HISTFILE` | `dmenv.go` | ✅ |
-| `DONGMINAL_ATTENTION_IDLE_MS` | `attention.go:57` | ❌ |
-| `DONGMINAL_ATTENTION_BELL` | `attention.go:72` | ❌ |
-| `DONGMINAL_CMD_RESULT_TIMEOUT_MS` | `commands.go:97` | ❌ |
-| `DONGMINAL_URL_OPEN` | `openurl.go:29` | ❌ |
-| `DONGMINAL_SHELL` | `shell.go:237` | ❌ |
-| `DONGMINAL_LOG_LEVEL` | (이 문서가 신설) | ❌ |
+| `OTTERMINAL_HOME` | `otterenv.go` | ✅ |
+| `OTTERMINAL_HOST` | `otterenv.go` | ✅ |
+| `OTTERMINAL_PORT` | `otterenv.go` | ✅ |
+| `OTTERMINAL_LOG` | `options.go:29` | ✅ |
+| `OTTERMINAL_RESTART_RUNNER` | `options.go:33` | ❌ |
+| `OTTERMINAL_TOOL_ID` | `otterenv.go` | ✅ |
+| `OTTERMINAL_TOOL_HOME` | `otterenv.go` | ✅ |
+| `OTTERMINAL_HISTFILE` | `otterenv.go` | ✅ |
+| `OTTERMINAL_ATTENTION_IDLE_MS` | `attention.go:57` | ❌ |
+| `OTTERMINAL_ATTENTION_BELL` | `attention.go:72` | ❌ |
+| `OTTERMINAL_CMD_RESULT_TIMEOUT_MS` | `commands.go:97` | ❌ |
+| `OTTERMINAL_URL_OPEN` | `openurl.go:29` | ❌ |
+| `OTTERMINAL_SHELL` | `shell.go:237` | ❌ |
+| `OTTERMINAL_LOG_LEVEL` | (이 문서가 신설) | ❌ |
 
 > **로드맵은 "상수 9 + 흩어진 4 = 13" 이라 적었다.** 실측은 다르다.
-> `DONGMINAL_SHELL` 이 집계에서 통째로 빠져 있었고, `DONGMINAL_RESTART_RUNNER` 는
+> `OTTERMINAL_SHELL` 이 집계에서 통째로 빠져 있었고, `OTTERMINAL_RESTART_RUNNER` 는
 > "상수 9" 에 들어 문서화된 것으로 셌으나 **`getting-started.md` 의 표에 없었다**
 > — 상수로 선언된 것과 문서에 실린 것은 다른 물음이다.
 >
-> 문서에 없던 것은 **여섯**이고, 이 문서가 `DONGMINAL_LOG_LEVEL` 을 신설하므로
+> 문서에 없던 것은 **여섯**이고, 이 문서가 `OTTERMINAL_LOG_LEVEL` 을 신설하므로
 > 표는 **15개**(+`PORT`·`BINARY`)가 된다. 다시 세지 않아도 되도록
 > **`scripts/check-env-docs.sh` 가 양방향으로 센다** (FR-CFG-18).
 
@@ -194,13 +194,13 @@
 빠진다.** 아직 UI 가 없는 값을 표에 적어 두는 길을 남긴다 (`FR-SPT-2` 의 "값이
 설정인 것과 화면에 칸이 있는 것은 다르다" 를 잇는다).
 
-### 3.3 묶음 C — `dongminal config`
+### 3.3 묶음 C — `otterminal config`
 
-**FR-CFG-7** `dongminal config show` 는 **실효값과 그 출처**를 낸다.
+**FR-CFG-7** `otterminal config show` 는 **실효값과 그 출처**를 낸다.
 출처는 `flag`·`env`·`file`·`default` 중 하나이며 **어디서 왔는지가 값보다 중요하다**
 — 안 듣는 설정을 쫓을 때 사람이 묻는 것이 그것이다.
 
-**FR-CFG-8** `dongminal config validate` 는 `<home>/server.json` 과
+**FR-CFG-8** `otterminal config validate` 는 `<home>/server.json` 과
 `<home>/settings.json` 을 서술자에 대조해 **불일치를 전부** 낸다. 첫 오류에서
 멈추지 않는다 — 고치고 다시 돌리는 왕복을 키 수만큼 시키지 않는다.
 
@@ -219,10 +219,10 @@
 
 | 키 | 타입 | 기본 | 대응 플래그 / 환경변수 |
 |---|---|---|---|
-| `host` | string | `127.0.0.1` | `--expose` / `DONGMINAL_HOST` |
-| `port` | string | `58146` | `--port` / `PORT`·`DONGMINAL_PORT` |
-| `logLevel` | string | `info` | — / `DONGMINAL_LOG_LEVEL` |
-| `logFile` | string | OS 기본 | — / `DONGMINAL_LOG` |
+| `host` | string | `127.0.0.1` | `--expose` / `OTTERMINAL_HOST` |
+| `port` | string | `58146` | `--port` / `PORT`·`OTTERMINAL_PORT` |
+| `logLevel` | string | `info` | — / `OTTERMINAL_LOG_LEVEL` |
+| `logFile` | string | OS 기본 | — / `OTTERMINAL_LOG` |
 
 **FR-CFG-13** 우선순위는 **플래그 > 환경변수 > 파일 > 기본값**이다. 빈 문자열은
 "정하지 않음" 이며 다음 계층으로 넘어간다.
@@ -234,11 +234,11 @@
 > 다섯 명령을 갈랐다 — `stop` 은 `killPort` 로 **그 포트의 남의 프로세스를
 > 죽였고**, `migrate` 의 포트 점유 안전장치(FR-ACT-12)는 무력화됐다.
 > 넷이 `Common.ResolveTarget()` 을 지나게 했고 `scripts/check-server-target.sh`
-> 가 그것을 센다. **`dmctl`(헬퍼)은 여전히 3계층이다** — 프로세스 축 경계가
+> 가 그것을 센다. **`otterctl`(헬퍼)은 여전히 3계층이다** — 프로세스 축 경계가
 > `ctl/cli` import 를 막는다 (D-STR-3).
 
 > **변경 2026-11-18 (`HOT_REBIND_SRS` FR-HRB-1·3·7 / D-HRB-1·2).** 바인드(`host`·`port`)에는
-> 환경변수 계층이 없다 — **플래그 > 파일 > 기본값**이다. `PORT`·`DONGMINAL_PORT`·`DONGMINAL_HOST`
+> 환경변수 계층이 없다 — **플래그 > 파일 > 기본값**이다. `PORT`·`OTTERMINAL_PORT`·`OTTERMINAL_HOST`
 > 가 설정돼 있으면 `start` 가 경고만 한다. `start` 의 `--port`·`--expose` 는 `server.json` 에
 > 저장된다. 겨누는 명령은 **플래그 > 주소 파일(`server.addr`) > 파일 > 기본값**이다.
 > 로그 계층(`logLevel`·`logFile`)은 그대로 넷이다.
@@ -267,7 +267,7 @@
 (`scripts/check-env-docs.sh`). 문서는 조용히 낡으므로 사람의 눈을 집행자로 두지
 않는다.
 
-**FR-CFG-19** `PORT`·`DONGMINAL_PORT` 의 비숫자 값은 **`net.Listen` 전에**
+**FR-CFG-19** `PORT`·`OTTERMINAL_PORT` 의 비숫자 값은 **`net.Listen` 전에**
 거부된다. 오류 문구에 **어느 변수의 어떤 값인지**가 실린다.
 
 > **변경 2026-11-18 (`HOT_REBIND_SRS` FR-HRB-1·2).** 두 변수는 이제 포트를 정하지 않으므로 거부할
@@ -341,7 +341,7 @@
 3. **`server.json` 을 UI 에서 편집하는 것.** 기동값은 기동 전에 정해진다.
    *(2026-11-18 바인드에 한해 해제 — `HOT_REBIND_SRS` 묶음 U 가 Settings·CLI 로 `host`·`port` 를 바꾼다.)*
 4. **환경변수의 재정의(rename)·폐기.** 이름은 계약이다. 문서화만 한다.
-   *(2026-11-18 `PORT`·`DONGMINAL_PORT`·`DONGMINAL_HOST` 는 바인드를 정하지 않게 됐다 — `HOT_REBIND_SRS` D-HRB-1.)*
+   *(2026-11-18 `PORT`·`OTTERMINAL_PORT`·`OTTERMINAL_HOST` 는 바인드를 정하지 않게 됐다 — `HOT_REBIND_SRS` D-HRB-1.)*
 5. **TLS·인증 관련 키.** 영구 제외다 (로드맵 결정 9).
 
 ---
@@ -350,5 +350,5 @@
 
 | 날짜 | 내용 |
 |---|---|
-| 2026-09-12 | 신규. M5 `G5-1`·`G5-2`·`G5-3`. `SEC-27` 잔여의 `settings.json`·`access.json` 쪽을 §2.4 로 **판정하고 닫는다**. 로드맵의 낡은 수치 둘을 정정 — 블롭 키 **24→20**, 환경변수 **13→14**(`DONGMINAL_SHELL` 누락) |
+| 2026-09-12 | 신규. M5 `G5-1`·`G5-2`·`G5-3`. `SEC-27` 잔여의 `settings.json`·`access.json` 쪽을 §2.4 로 **판정하고 닫는다**. 로드맵의 낡은 수치 둘을 정정 — 블롭 키 **24→20**, 환경변수 **13→14**(`OTTERMINAL_SHELL` 누락) |
 | 2026-11-18 | `HOT_REBIND_SRS` 묶음 S 반영 — 바인드의 환경변수 계층 제거(FR-CFG-13·19), 파일의 틀린 포트는 기본값(FR-CFG-15), 비목표 3·4 를 바인드에 한해 해제 |

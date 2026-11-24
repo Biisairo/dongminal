@@ -2,9 +2,9 @@
 
 use std::sync::{Arc, Mutex};
 
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::{self as core, Kind, Output};
-use dm_webserver_domain_git_store::Observation;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::{self as core, Kind, Output};
+use otter_webserver_domain_git_store::Observation;
 use serde_json::{Value, json};
 
 use super::harness::*;
@@ -51,7 +51,7 @@ fn routes_registered() {
     for (method, path, _) in endpoints() {
         let path = path.split('?').next().unwrap();
         assert!(
-            dm_webserver_httproute::dispatch(&crate::routes::ROUTES, method, path).is_some(),
+            otter_webserver_httproute::dispatch(&crate::routes::ROUTES, method, path).is_some(),
             "{method} {path} 가 표에 없다"
         );
     }

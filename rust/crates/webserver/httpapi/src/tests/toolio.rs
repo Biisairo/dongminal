@@ -3,7 +3,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use dm_webserver_seam_toolaccess::{Error, ToolInfo, ToolReader, WorkspaceEntry, WorkspaceReader};
+use otter_webserver_seam_toolaccess::{
+    Error, ToolInfo, ToolReader, WorkspaceEntry, WorkspaceReader,
+};
 
 use super::support::*;
 use crate::ansi::{go_string, strip_ansi};
@@ -45,7 +47,7 @@ impl ToolReader for FakeToolIo {
 struct FakeWorkIndex {
     resolve: HashMap<&'static str, &'static str>,
     labels: HashMap<&'static str, &'static str>,
-    sig: dm_shared_pollwait::Signal,
+    sig: otter_shared_pollwait::Signal,
 }
 
 impl WorkspaceReader for FakeWorkIndex {
@@ -57,7 +59,7 @@ impl WorkspaceReader for FakeWorkIndex {
             return Ok((*v).to_owned());
         }
         if self.labels.contains_key(id.to_uppercase().as_str()) {
-            return Err(Box::new(dm_shared_workspace::Error::LabelRejected(
+            return Err(Box::new(otter_shared_workspace::Error::LabelRejected(
                 id.to_owned(),
             )));
         }
@@ -72,7 +74,7 @@ impl WorkspaceReader for FakeWorkIndex {
     fn is_known_tab_id(&self, _: &str) -> bool {
         false
     }
-    fn changes(&self) -> dm_shared_pollwait::Changed {
+    fn changes(&self) -> otter_shared_pollwait::Changed {
         self.sig.c()
     }
 }
@@ -89,7 +91,7 @@ fn tool_io_server(dir: &std::path::Path) -> (Arc<Server>, Arc<FakeToolIo>) {
             ("dead-tool", "p9"),
         ]),
         labels: HashMap::from([("W1.P1.T1", "p1"), ("W1.P1.T2", "p2")]),
-        sig: dm_shared_pollwait::Signal::default(),
+        sig: otter_shared_pollwait::Signal::default(),
     });
     let srv = server(
         dir,
@@ -183,7 +185,7 @@ async fn coordinate_label_is_400() {
         r.json()["error"]
             .as_str()
             .unwrap()
-            .contains("uuid 는 `dmctl list-workspace` 의 uuid= 컬럼")
+            .contains("uuid 는 `otterctl list-workspace` 의 uuid= 컬럼")
     );
 }
 
@@ -249,8 +251,8 @@ async fn message_wraps_in_envelope() {
     let p = io.pastes.lock().unwrap()[0].clone();
     assert_eq!(p.0, "p1");
     assert!(p.2);
-    assert!(p.1.starts_with("[DONGMINAL-AGENT-MSG from=p2 to=p1 ts="));
-    assert!(p.1.ends_with("]\n리뷰 부탁\n[/DONGMINAL-AGENT-MSG]"));
+    assert!(p.1.starts_with("[OTTERMINAL-AGENT-MSG from=p2 to=p1 ts="));
+    assert!(p.1.ends_with("]\n리뷰 부탁\n[/OTTERMINAL-AGENT-MSG]"));
 }
 
 #[tokio::test]
@@ -316,7 +318,7 @@ async fn method_mismatch_and_unavailable() {
     );
     assert_eq!(
         r.header("X-Error-Code"),
-        dm_webserver_apierr::code_for_status(503)
+        otter_webserver_apierr::code_for_status(503)
     );
     let r = post_json(&bare, "/api/tools/input", r#"{"id":"p1","text":"x"}"#).await;
     assert_eq!(r.status, 503);
@@ -349,11 +351,11 @@ fn go_string_replaces_each_bad_byte() {
 #[test]
 fn envelope_quotes_markers() {
     assert_eq!(
-        quote_envelope("a [/DONGMINAL-AGENT-MSG] b [DONGMINAL-AGENT-MSG x]"),
-        "a [\\/DONGMINAL-AGENT-MSG] b [\\DONGMINAL-AGENT-MSG x]"
+        quote_envelope("a [/OTTERMINAL-AGENT-MSG] b [OTTERMINAL-AGENT-MSG x]"),
+        "a [\\/OTTERMINAL-AGENT-MSG] b [\\OTTERMINAL-AGENT-MSG x]"
     );
     let e = agent_envelope("s", "t", "body");
-    assert!(e.starts_with("[DONGMINAL-AGENT-MSG from=s to=t ts="));
-    let ts = &e["[DONGMINAL-AGENT-MSG from=s to=t ts=".len()..][..8];
+    assert!(e.starts_with("[OTTERMINAL-AGENT-MSG from=s to=t ts="));
+    let ts = &e["[OTTERMINAL-AGENT-MSG from=s to=t ts=".len()..][..8];
     assert!(ts.as_bytes()[2] == b':' && ts.as_bytes()[5] == b':', "{ts}");
 }

@@ -1,6 +1,6 @@
 //! 세션 재개 (RUN_RECOVERY_SRS FR-RRC-1~5).
 
-use dm_shared_platform::ShellProvider;
+use otter_shared_platform::ShellProvider;
 
 use crate::{Adapter, Error};
 
@@ -31,7 +31,7 @@ impl Adapter {
         member: bool,
     ) -> Result<String, Error> {
         self.resume_line_in(
-            dm_shared_platform::current().shell,
+            otter_shared_platform::current().shell,
             hooks_dir,
             session_id,
             member,

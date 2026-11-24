@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/httpreq` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/httpreq` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 요청 본문을 읽는 한 자리다 (REQUEST_GATE_SRS 묶음 J). 오류를 렌더하지 않는다 — 바이트와
 //! 오류만 돌려주고, 무엇을 어떻게 답할지는 호출자가 자기 방언으로 정한다.
@@ -95,7 +95,7 @@ pub enum DecodeError {
     /// 본문을 읽지 못했다. 상한 초과면 [`ReadError::TooLarge`] 다.
     Read(ReadError),
     /// 본문이 값으로 풀리지 않았다.
-    NotJson(dm_gocompat::json::Error),
+    NotJson(otter_gocompat::json::Error),
 }
 
 impl fmt::Display for DecodeError {
@@ -136,14 +136,14 @@ where
     } else {
         &raw
     };
-    dm_gocompat::json::unmarshal(raw).map_err(DecodeError::NotJson)
+    otter_gocompat::json::unmarshal(raw).map_err(DecodeError::NotJson)
 }
 
 /// 디코드 실패를 클라이언트에 보여도 되는 말로 옮긴다 (QUALITY_GO_SRS FR-QG-1·2). 싣는 것은
 /// 요청 자리뿐이다: 문법 오류는 그 문구, 형 오류는 필드 경로와 받은 값의 JSON 종류다.
 /// 그 밖은 빈 문자열이다.
-pub fn reason_json(err: &dm_gocompat::json::Error) -> String {
-    use dm_gocompat::json::ErrorKind;
+pub fn reason_json(err: &otter_gocompat::json::Error) -> String {
+    use otter_gocompat::json::ErrorKind;
     match err.kind() {
         ErrorKind::Syntax { .. } => err.to_string(),
         ErrorKind::Type { value, field, .. } if field.is_empty() => {
@@ -166,13 +166,13 @@ pub fn reason(err: &DecodeError) -> String {
 /// 고정 문구 prefix 에 [`reason`] 을 잇고, 원인 전문은 로그로 남긴다 (FR-QG-3).
 /// 요청 자리가 없으면 prefix 뿐이다. `method`·`path` 는 Go `r.Method`·`r.URL.Path` 다.
 pub fn message(
-    ctx: dm_shared_dmlog::ReqCtx<'_>,
+    ctx: otter_shared_otterlog::ReqCtx<'_>,
     method: &str,
     path: &str,
     prefix: &str,
     err: &DecodeError,
 ) -> String {
-    dm_shared_dmlog::infof!(ctx, "body decode {method} {path}: {err}");
+    otter_shared_otterlog::infof!(ctx, "body decode {method} {path}: {err}");
     let why = reason(err);
     if why.is_empty() {
         prefix.to_owned()

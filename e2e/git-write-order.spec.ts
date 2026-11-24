@@ -32,7 +32,7 @@ function makeRepo(name: string) {
   return realPath(d);
 }
 
-test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-gwo-'))) });
+test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-gwo-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
 async function enter(page: Page, request: APIRequestContext, root: string) {

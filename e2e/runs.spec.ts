@@ -195,7 +195,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     const empty = page.locator('#agents-panel .ag-sec-empty');
     await expect(empty).toContainText(RUN_EMPTY_TEXT);
     // FR-RVZ-4 · FR-CPY-2: 다음 행동을 함께 낸다 — "없다" 만으로는 무엇을 하라는 말이 없다.
-    await expect(empty.locator('.ag-sec-empty-h')).toContainText('/dongminal:issue-tree');
+    await expect(empty.locator('.ag-sec-empty-h')).toContainText('/otterminal:issue-tree');
     await expect(page.locator('#agents-panel .runs-row')).toHaveCount(0);
   });
 

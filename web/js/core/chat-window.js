@@ -1,5 +1,5 @@
 /**
- * Dongminal — 채팅 창 (CHAT_WINDOW_SRS FR-CW-1~31, 사용자 결정 D-7·D-CW-1~6).
+ * Otterminal — 채팅 창 (CHAT_WINDOW_SRS FR-CW-1~31, 사용자 결정 D-7·D-CW-1~6).
  *
  * 채팅은 창 종류 `chat` 하나에 산다. 그 안은 일반 창처럼 칸과 탭이고, 탭 하나가 방 하나다.
  * 칸의 규칙은 Repo 창과 같다 — 칸이 0 이어도 창이 남고, 분할은 탭 끌어 놓기로만 한다.

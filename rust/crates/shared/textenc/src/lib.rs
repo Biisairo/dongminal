@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/textenc` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/shared/textenc` 의 Rust 포팅.
 //!
 //! 텍스트 파일의 인코딩 판별·엄격 디코드·재인코딩이다 (REPO_FIX 03 §3A-1·3A-2·3A-3).
 //! 편집기의 파일 읽기·저장과 git diff 양쪽이 같은 규칙을 쓴다.

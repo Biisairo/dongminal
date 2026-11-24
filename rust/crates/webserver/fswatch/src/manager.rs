@@ -5,8 +5,8 @@ use std::fmt;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
-use dm_gocompat::filepath;
-use dm_shared_dmlog::infof;
+use otter_gocompat::filepath;
+use otter_shared_otterlog::infof;
 
 use crate::backend::{Backend, BackendError, BackendMsg, NewBackend, new_notify_backend};
 use crate::coalesce::Change;

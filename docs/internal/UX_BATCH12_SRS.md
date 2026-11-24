@@ -211,7 +211,7 @@
 **설정 패널**
 
 - **FR-LIV-1** `GET /api/access`·`GET /api/sandbox/config`·`GET /api/peers` 는 응답 헤더 `ETag` 에 지금 설정의 지문을 싣는다. 지문은 저장된 설정 본문의 해시다.
-- **FR-LIV-2** 같은 종단의 `PUT`(`/api/access`·`/api/sandbox/config`·`/api/peers/node`)이 `If-Match` 를 실었는데 지금 지문과 다르면 409 `stale_rev` 로 거절하고 아무것도 바꾸지 않는다. `If-Match` 가 없으면 지금처럼 저장한다(`dmctl`·옛 클라이언트).
+- **FR-LIV-2** 같은 종단의 `PUT`(`/api/access`·`/api/sandbox/config`·`/api/peers/node`)이 `If-Match` 를 실었는데 지금 지문과 다르면 409 `stale_rev` 로 거절하고 아무것도 바꾸지 않는다. `If-Match` 가 없으면 지금처럼 저장한다(`otterctl`·옛 클라이언트).
 - **FR-LIV-3** 샌드박스 저장은 성공 뒤에 `sandbox_changed` 를 방송한다.
 - **FR-LIV-4** 브라우저는 `access_changed`·`sandbox_changed`·`peers_changed` 를 받으면 그 패널이 열려 있을 때 다음을 한다.
   - 저장하지 않은 수정이 없으면 다시 읽어 그린다.
@@ -395,7 +395,7 @@
 - **FR-VTL-1** 원격 워크스페이스를 받을 때, 각 pane 의 `activeTab` 은 이 브라우저가 받기 전에 보던 탭을 지킨다. `activeWindow`·`focusedPane` 과 같은 범주다(SLOT_VIEW_STATE_SRS §2.3). 슬롯 모드 여부와 상관없다.
 - **FR-VTL-2** 이 브라우저가 보던 탭이 받은 pane 에 없으면(닫혔거나 옮겨졌다) 받은 값을 쓴다. 이 브라우저가 처음 보는 pane 도 받은 값을 쓴다.
 - **FR-VTL-3** 지키는 일만으로는 저장하지 않는다. `focusedPane` 복원과 같다. 이 브라우저의 다음 저장이 자기 값을 싣는다.
-- 탭을 여는 원격 명령(`dmctl new-tab` 등)은 각 브라우저가 명령을 직접 실행하므로 이 규칙의 영향을 받지 않는다.
+- 탭을 여는 원격 명령(`otterctl new-tab` 등)은 각 브라우저가 명령을 직접 실행하므로 이 규칙의 영향을 받지 않는다.
 - 이전 동작: 다른 브라우저가 저장하면 단일 슬롯 모드의 각 칸이 그 브라우저가 보던 탭으로 바뀌었다. 새 동작: 이 브라우저가 보던 탭이 남는다. 이유: 보는 자리는 브라우저마다 다르다. 다른 기기의 화면 때문에 지금 보는 화면이 바뀌면 안 된다(사용자 보고).
 - SLOT_VIEW_STATE_SRS FR-SVS-2 의 "단일 슬롯 모드는 본 SRS 이전과 완전히 같다" 를 이 항목만큼 개정한다.
 
@@ -497,7 +497,7 @@
 | R-1 | 탭 전환이 사용자가 고른 여러 선택을 지운다 | MEDIUM | 사용자 결정이다. 같은 탭에서는 지우지 않는다 (FR-FHL-6) |
 | R-2 | 사각형 선택이 빈 여백 클릭(루트 선택, FR-EXR-1)과 부딪힌다 | MEDIUM | 4px 문턱으로 가른다 (FR-EXM-1) |
 | R-3 | 휠 줌이 트리 영역 위를 지나는 스크롤을 가로챈다 | LOW | 영역은 Run 화면의 50% 이고 나머지에서 스크롤된다 (FR-RMM-6) |
-| R-4 | `If-Match` 를 싣지 않는 클라이언트는 여전히 덮어쓴다 | LOW | `dmctl` 등과의 호환을 위해서다. 브라우저 패널은 언제나 싣는다 |
+| R-4 | `If-Match` 를 싣지 않는 클라이언트는 여전히 덮어쓴다 | LOW | `otterctl` 등과의 호환을 위해서다. 브라우저 패널은 언제나 싣는다 |
 | R-5 | `DownloadURL` 의 상대 URL 은 무시된다 | LOW | 절대 URL(`location.origin` + 경로)을 싣는다 |
 | R-6 | 끌기 형식에 바깥 복사를 허용(`copyMove`)하면 트리 안 놓기의 효과가 바뀐다 | MEDIUM | 트리의 `dragover` 가 `dropEffect='move'` 를 정한다. TC-EXD-1 이 트리 안 옮기기를 함께 본다 |
 

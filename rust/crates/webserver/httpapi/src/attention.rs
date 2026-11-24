@@ -9,15 +9,15 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use dm_shared_activity as activity;
-use dm_shared_agentrec as agentrec;
-use dm_shared_dmlog::warnf;
-use dm_shared_httpresp::Response;
-use dm_shared_toolhub::{ActivitySnap, ActivityState, BackgroundEntry};
-use dm_shared_toolipc::RpcError;
-use dm_webserver_apierr as apierr;
-use dm_webserver_hub::{self as hub, AttnTracker};
 use http::StatusCode;
+use otter_shared_activity as activity;
+use otter_shared_agentrec as agentrec;
+use otter_shared_httpresp::Response;
+use otter_shared_otterlog::warnf;
+use otter_shared_toolhub::{ActivitySnap, ActivityState, BackgroundEntry};
+use otter_shared_toolipc::RpcError;
+use otter_webserver_apierr as apierr;
+use otter_webserver_hub::{self as hub, AttnTracker};
 use serde::{Deserialize, Serialize};
 
 use crate::Server;
@@ -353,11 +353,13 @@ impl Server {
             return None;
         }
         let d = self.deps.attn_daemon.clone()?;
-        let blob = dm_gocompat::json::marshal(body).unwrap_or_default();
+        let blob = otter_gocompat::json::marshal(body).unwrap_or_default();
         let res = off_thread(move || d.report(method, &blob)).await;
         Some(match res {
             Some(Ok(())) => ok(),
-            Some(Err(DaemonCallError::Rpc(e))) if e.code == dm_shared_toolipc::CODE_NOT_FOUND => {
+            Some(Err(DaemonCallError::Rpc(e)))
+                if e.code == otter_shared_toolipc::CODE_NOT_FOUND =>
+            {
                 ok()
             }
             Some(Err(e)) => {
@@ -510,7 +512,7 @@ impl Server {
         if state == activity::ENDED {
             // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-12
             self.agents.sub_acts.drop_tool(tool_id);
-            self.put_record::<()>(dm_shared_toolipc::RECORD_SUBAGENT_ACTS, tool_id, None);
+            self.put_record::<()>(otter_shared_toolipc::RECORD_SUBAGENT_ACTS, tool_id, None);
         }
         self.activity_changed.notify();
     }
@@ -545,7 +547,7 @@ impl Server {
                 let mut row = BackgroundRow::default();
                 // 끝난 Run 의 도구는 그 Run 의 것이 아니다 — 그쪽은 고아 목록이 맡는다 (FR-HLM-5).
                 if let Some(m) = self.runs().and_then(|st| st.member_by_tool(&e.tool_id)) {
-                    row.run_short = dm_webserver_domain_run::short(&m.run_id);
+                    row.run_short = otter_webserver_domain_run::short(&m.run_id);
                     row.run_id = m.run_id;
                     row.member_id = m.id;
                     row.role = m.role;
@@ -614,7 +616,7 @@ impl Server {
             args,
             exec_client_id: hub::is_single_executor_action(action).then(|| self.focus.executor()),
         };
-        match dm_gocompat::json::marshal(&req) {
+        match otter_gocompat::json::marshal(&req) {
             Ok(payload) => cmds.broadcast(&payload),
             Err(_) => 0,
         }

@@ -1,6 +1,6 @@
 //! Go `ignore_test.go`.
 
-use dm_gocompat::filepath;
+use otter_gocompat::filepath;
 
 use super::support::*;
 use crate::*;

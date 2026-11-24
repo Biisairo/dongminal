@@ -12,7 +12,7 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Condvar, Mutex, RwLock};
 
-use dm_gocompat::oserr::{go_error_string, path_error};
+use otter_gocompat::oserr::{go_error_string, path_error};
 
 use super::{ProcSpec, Pty, Terminal, clamp_size, closed_error, dedup_env, env_key_as_is};
 use crate::handover::{Frozen, Handover};

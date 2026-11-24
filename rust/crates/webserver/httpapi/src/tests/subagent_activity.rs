@@ -3,8 +3,8 @@
 use std::collections::HashSet;
 use std::time::Duration;
 
-use dm_shared_agentrec::{SUBAGENT_DONE_KEEP, SUBAGENT_STALE_KEEP, SubagentActivity};
-use dm_shared_statusline::SUBAGENT_MAX_TASKS;
+use otter_shared_agentrec::{SUBAGENT_DONE_KEEP, SUBAGENT_STALE_KEEP, SubagentActivity};
+use otter_shared_statusline::SUBAGENT_MAX_TASKS;
 use time::OffsetDateTime;
 
 use super::attnenv::*;
@@ -30,7 +30,7 @@ async fn activity_set(env: &Env, body: serde_json::Value) -> u16 {
 
 /// Go `replayHook`: claude 훅 하나를 해석해 main·서브에이전트 보고로 보낸다.
 async fn replay_hook(env: &Env, tool_id: &str, payload: &str) {
-    let a = dm_shared_agentadapter::get("claude").unwrap();
+    let a = otter_shared_agentadapter::get("claude").unwrap();
     let Some(rep) = (a.hook_parse)(payload.as_bytes()) else {
         return;
     };
@@ -259,11 +259,11 @@ async fn rate_limits_view_and_survives_prune() {
 #[tokio::test]
 async fn rate_limits_names_from_status_line_input() {
     let env = p1();
-    let u = dm_shared_statusline::from_input(
+    let u = otter_shared_statusline::from_input(
         br#"{"rate_limits":{"seven_day_opus":{"used_percentage":5},
 "seven_day":{"used_percentage":21},"five_hour":{"used_percentage":70}}}"#,
     );
-    let usage = String::from_utf8(dm_gocompat::json::marshal(&u).unwrap()).unwrap();
+    let usage = String::from_utf8(otter_gocompat::json::marshal(&u).unwrap()).unwrap();
     let body = format!(r#"{{"toolId":"p1","usage":{usage}}}"#);
     assert_eq!(post(&env.srv, "/api/tools/usage", &body).await.status, 200);
     let v = serde_json::to_value(env.srv.agents.rate_limits.view(now())).unwrap();
@@ -286,7 +286,7 @@ fn limit_level_boundaries() {
         (100.0, "critical"),
     ] {
         assert_eq!(
-            dm_webserver_domain_claudeacct::usage_level(pct),
+            otter_webserver_domain_claudeacct::usage_level(pct),
             want,
             "{pct}"
         );

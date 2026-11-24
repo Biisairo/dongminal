@@ -6,15 +6,15 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock, PoisonError, Weak};
 
-use dm_gocompat::json::RawMessage;
-use dm_shared_agentrec::ReportAccount;
-use dm_shared_dmlog::infof;
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_shared_platform::{Secrets, SecretsError};
-use dm_shared_statusline::RateWindow;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_claudeacct as ca;
 use http::StatusCode;
+use otter_gocompat::json::RawMessage;
+use otter_shared_agentrec::ReportAccount;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::infof;
+use otter_shared_platform::{Secrets, SecretsError};
+use otter_shared_statusline::RateWindow;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_claudeacct as ca;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use tokio_util::sync::CancellationToken;
@@ -68,9 +68,9 @@ impl Secrets for OsSecrets {
 /// Go `claudeUserAgent`.
 pub(crate) fn claude_user_agent(version: &str) -> String {
     if version.is_empty() {
-        return "dongminal".to_owned();
+        return "otterminal".to_owned();
     }
-    format!("dongminal/{version}")
+    format!("otterminal/{version}")
 }
 
 /// Go `initClaudeAccounts`: 계정 서비스를 세운다. data_dir 이나 사용자 홈이 없으면 세우지 않는다.
@@ -98,9 +98,11 @@ pub(crate) fn init_claude_accounts(
     };
     let sec: Arc<dyn Secrets> = match &hooks.secrets {
         Some(s) => s.clone(),
-        None => Arc::new(OsSecrets(dm_shared_platform::current().secrets)),
+        None => Arc::new(OsSecrets(otter_shared_platform::current().secrets)),
     };
-    let dir: PathBuf = cfg.data_dir.join(dm_shared_dmenv::CLAUDE_ACCOUNTS_DIR);
+    let dir: PathBuf = cfg
+        .data_dir
+        .join(otter_shared_otterenv::CLAUDE_ACCOUNTS_DIR);
     let paths = ca::ClaudePaths::default_for(&home);
     let client = Arc::new(ca::Client {
         base: cfg.claude_api.clone(),
@@ -124,7 +126,7 @@ pub(crate) fn init_claude_accounts(
         &dir,
         client.clone(),
         now.clone(),
-        Arc::new(dm_shared_uuid::new_string),
+        Arc::new(otter_shared_uuid::new_string),
     ));
     let sl = Arc::new(ClaudeSlStore::default());
     let changed: ca::OnChangeFn = {
@@ -166,7 +168,7 @@ pub(crate) fn init_claude_accounts(
     let mut auto = ca::Auto::new(eng.clone(), now);
     auto.procs = Some(match &hooks.procs {
         Some(p) => p.clone(),
-        None => Arc::new(|| dm_shared_platform::command_lines().map_err(|e| e.to_string())),
+        None => Arc::new(|| otter_shared_platform::command_lines().map_err(|e| e.to_string())),
     });
     auto.notify = Some(Arc::new(move |a: &ca::Alert| {
         if let Some(s) = me.upgrade() {
@@ -486,7 +488,7 @@ impl Server {
     /// Go `claudeAccountsChanged`: 계정 상태가 바뀌었다고 브라우저에 알린다 (FR-CAC-122).
     pub(crate) fn claude_accounts_changed(&self) {
         if let Some(c) = self.commands() {
-            c.broadcast(&dm_webserver_hub::claude_accounts_changed_payload());
+            c.broadcast(&otter_webserver_hub::claude_accounts_changed_payload());
         }
     }
 
@@ -494,7 +496,7 @@ impl Server {
     /// (FR-CAC-100a).
     pub(crate) fn claude_account_alert(&self, a: &ca::Alert) {
         if let Some(c) = self.commands() {
-            c.broadcast(&dm_webserver_hub::claude_account_alert_payload(a));
+            c.broadcast(&otter_webserver_hub::claude_account_alert_payload(a));
         }
         if let Some(b) = self.tg.as_ref().and_then(|tg| tg.bridge.as_ref()) {
             let text = a.text();
@@ -565,8 +567,8 @@ impl Server {
         // Go `claudeAccountItemReq`: `id` 와 Patch 의 필드가 한 본문에 든다(구조체 끼워 넣기).
         let raw: RawMessage = tri!(read_json_body(r).await);
         let (Ok(id), Ok(patch)) = (
-            dm_gocompat::json::unmarshal::<IdReq>(&raw.0),
-            dm_gocompat::json::unmarshal::<ca::Patch>(&raw.0),
+            otter_gocompat::json::unmarshal::<IdReq>(&raw.0),
+            otter_gocompat::json::unmarshal::<ca::Patch>(&raw.0),
         ) else {
             return code_fail(
                 StatusCode::BAD_REQUEST,

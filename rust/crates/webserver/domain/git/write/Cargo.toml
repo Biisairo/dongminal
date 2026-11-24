@@ -1,5 +1,5 @@
 [package]
-name = "dm-webserver-domain-git-write"
+name = "otter-webserver-domain-git-write"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,15 +10,15 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-webserver-domain-git-core = { path = "../core" }
-dm-webserver-domain-git-query = { path = "../query" }
-dm-gocompat = { path = "../../../../gocompat" }
+otter-webserver-domain-git-core = { path = "../core" }
+otter-webserver-domain-git-query = { path = "../query" }
+otter-gocompat = { path = "../../../../gocompat" }
 regex = { workspace = true }
 serde = { workspace = true }
 time = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-dm-shared-gittest = { path = "../../../../shared/gittest" }
-dm-shared-testpath = { path = "../../../../shared/testpath" }
+otter-shared-gittest = { path = "../../../../shared/gittest" }
+otter-shared-testpath = { path = "../../../../shared/testpath" }
 tokio = { workspace = true }

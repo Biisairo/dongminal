@@ -1,5 +1,5 @@
 /**
- * Dongminal — 설정창의 **접속 허용 목록(ACL) 패널** (FE_MODULE_BOUNDARY_SRS FR-FMB-10).
+ * Otterminal — 설정창의 **접속 허용 목록(ACL) 패널** (FE_MODULE_BOUNDARY_SRS FR-FMB-10).
  *
  * 누가 이 서버에 닿을 수 있는가 (`ACCESS_ALLOWLIST_SRS`). 주소 판정(v4·CIDR)이
  * 여기 함께 있는 이유는 **저장 전에 "지금 나를 잠그는가" 를 물어야** 하기

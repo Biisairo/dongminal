@@ -5,8 +5,8 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use dm_gocompat::filepath;
-use dm_gocompat::json::{self, is_empty};
+use otter_gocompat::filepath;
+use otter_gocompat::json::{self, is_empty};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Sentinel};
@@ -156,7 +156,7 @@ impl Service {
             return Ok(false);
         }
         let b = json::marshal_indent(&m, "", "  ")?;
-        dm_shared_platform::write_file_atomic(&self.mappings_path(), &b, FILE_MODE)?;
+        otter_shared_platform::write_file_atomic(&self.mappings_path(), &b, FILE_MODE)?;
         Ok(true)
     }
 

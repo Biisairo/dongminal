@@ -2,8 +2,8 @@
 
 use std::collections::BTreeMap;
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_toolhub::{AgentState, BackgroundEntry, TermModes, ToolInfo};
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_toolhub::{AgentState, BackgroundEntry, TermModes, ToolInfo};
 use serde::{Deserialize, Serialize};
 
 pub const METHOD_HELLO: &str = "hello";

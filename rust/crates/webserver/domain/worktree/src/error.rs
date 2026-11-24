@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use dm_webserver_domain_git_core as core;
+use otter_webserver_domain_git_core as core;
 
 /// 거부 사유 (Go 의 sentinel 들). 무엇이 위험했는지 호출자가 구분할 수 있어야 한다.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

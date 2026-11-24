@@ -8,10 +8,10 @@ import { tmpPath } from './osenv';
 
 // 묶음 Q — Console 탭 (GIT_UI_REVISION_SRS FR-GIT-218, 검증 V95).
 //
-// Console 은 터미널이 아니라 **dongminal 이 대신 실행한 git 명령의 기록**이다.
+// Console 은 터미널이 아니라 **otterminal 이 대신 실행한 git 명령의 기록**이다.
 // 그 명령들은 서버 프로세스 안에서 돌아 사용자의 터미널에는 남지 않는다.
 
-const FIXTURES = tmpPath('dm-git-fx-console-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-console-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
@@ -57,7 +57,7 @@ test.describe('묶음 Q — Console 탭', () => {
     await waitForInit(page);
     await openGit(page, repo);
 
-    // Changes 에서 파일 하나를 스테이지한다 — dongminal 이 `git add` 를 실행한다.
+    // Changes 에서 파일 하나를 스테이지한다 — otterminal 이 `git add` 를 실행한다.
     const row = page.locator('#area .ed-side .git-group[data-group="working"] .git-file[data-path="tracked.txt"]');
     await expect(row).toBeVisible({ timeout: 10000 });
     await clickRowAct(page, row, 'stage');

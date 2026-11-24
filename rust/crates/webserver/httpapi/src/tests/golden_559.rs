@@ -3,13 +3,13 @@
 
 use std::sync::Arc;
 
-use dm_gocompat::json::RawMessage;
-use dm_shared_chatwire as chatwire;
-use dm_shared_toolipc::{
+use otter_gocompat::json::RawMessage;
+use otter_shared_chatwire as chatwire;
+use otter_shared_toolipc::{
     CHAT_KIND_CHANGED, CHAT_KIND_MSG, ChatEvent, ChatResult, EdgeParams, EdgePortParams, EdgeRef,
     EdgeResult, EdgesEvent,
 };
-use dm_webserver_domain_ext as ext;
+use otter_webserver_domain_ext as ext;
 
 use super::claude_accounts::NoSecrets;
 use super::fakes::FakeBroker;
@@ -78,7 +78,7 @@ fn dump(m: &str, p: &str, r: &Resp) -> String {
         "== {m} {p}\n{} {}\n{}\n",
         r.status,
         hs.join("|"),
-        dm_gocompat::strconv::quote(&r.body)
+        otter_gocompat::strconv::quote(&r.body)
     )
 }
 
@@ -237,7 +237,10 @@ async fn golden_559() {
     });
     srv.edge_resync();
     for p in cmds.published() {
-        got.push_str(&format!("== BCAST\n{}\n", dm_gocompat::strconv::quote(&p)));
+        got.push_str(&format!(
+            "== BCAST\n{}\n",
+            otter_gocompat::strconv::quote(&p)
+        ));
     }
     let want = include_str!("go_golden_559.txt");
     let (got, want) = (mask(&got), mask(want));

@@ -1,5 +1,5 @@
 //! 실제 프로세스로 띄운 데몬의 시험이다. 이 시험 바이너리는 `<bin> d [인자]` 로 불리면 Go 의
-//! `dongminal d` 처럼 데몬이 된다 — 세션 유지 교체가 자기 실행 파일을 `d --handover-fd N` 으로
+//! `otterminal d` 처럼 데몬이 된다 — 세션 유지 교체가 자기 실행 파일을 `d --handover-fd N` 으로
 //! exec 하므로, 시험이 직접 main 을 가진다(harness = false).
 //!
 //! 임시 홈에서만 돈다. 사용 중인 데몬·서버의 소켓·포트에는 닿지 않는다.
@@ -8,10 +8,10 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use dm_shared_dmenv as dmenv;
-use dm_shared_handover as handover;
-use dm_shared_toolhub::Placement;
-use dm_webserver_toolclient::ToolClient;
+use otter_shared_handover as handover;
+use otter_shared_otterenv as otterenv;
+use otter_shared_toolhub::Placement;
+use otter_webserver_toolclient::ToolClient;
 
 const TEST_VERSION: &str = "boot-test";
 const TEST_BUILD: &str = "boot-test-build";
@@ -58,16 +58,16 @@ fn main() {
     }
 }
 
-/// Go `cmd/dongminal` 의 데몬 분기와 같다.
+/// Go `cmd/otterminal` 의 데몬 분기와 같다.
 fn daemon_main(rest: &[String]) {
-    dm_shared_dmlog::init(dm_shared_dmlog::Options {
-        level: std::env::var(dmenv::ENV_LOG_LEVEL).unwrap_or_default(),
+    otter_shared_otterlog::init(otter_shared_otterlog::Options {
+        level: std::env::var(otterenv::ENV_LOG_LEVEL).unwrap_or_default(),
         out: None,
     });
     let dargs = match handover::parse_daemon_args(rest) {
         Ok(a) => a,
         Err(e) => {
-            dm_shared_dmlog::errorf!(None, "{e}");
+            otter_shared_otterlog::errorf!(None, "{e}");
             std::process::exit(2);
         }
     };
@@ -75,8 +75,8 @@ fn daemon_main(rest: &[String]) {
         println!("{}", handover::VERSION);
         return;
     }
-    let home = std::env::var(dmenv::ENV_HOME).expect("DONGMINAL_HOME");
-    dm_daemon_boot::run(&home, TEST_VERSION, TEST_BUILD, dargs.handover_fd);
+    let home = std::env::var(otterenv::ENV_HOME).expect("OTTERMINAL_HOME");
+    otter_daemon_boot::run(&home, TEST_VERSION, TEST_BUILD, dargs.handover_fd);
 }
 
 // ── 도우미 ─────────────────────────────────────────────────────────────────
@@ -97,13 +97,13 @@ impl Daemon {
     }
 
     fn bin(&self) -> PathBuf {
-        self.home().join("dongminal")
+        self.home().join("otterminal")
     }
 }
 
 impl Drop for Daemon {
     fn drop(&mut self) {
-        let p = dm_shared_platform::current().process;
+        let p = otter_shared_platform::current().process;
         if self.shell > 0 {
             let _ = p.kill(self.shell);
         }
@@ -126,20 +126,20 @@ impl Drop for Daemon {
 /// 짧은 임시 홈이다(유닉스 소켓 경로 길이 상한). 운영 홈 아래면 멈춘다.
 fn temp_home() -> tempfile::TempDir {
     let home = tempfile::Builder::new()
-        .prefix("dmb")
+        .prefix("otterb")
         .tempdir_in("/tmp")
         .unwrap();
-    let prod = std::env::var("HOME").map(|h| PathBuf::from(h).join(".dongminal"));
+    let prod = std::env::var("HOME").map(|h| PathBuf::from(h).join(".otterminal"));
     if let Ok(prod) = prod {
         assert!(!home.path().starts_with(&prod), "운영 홈 아래다");
     }
     home
 }
 
-/// bin 을 홈 안 `dongminal` 로 복사해 `d` 로 띄운다.
+/// bin 을 홈 안 `otterminal` 로 복사해 `d` 로 띄운다.
 fn spawn(bin: &Path) -> Daemon {
     let home = temp_home();
-    let exe = home.path().join("dongminal");
+    let exe = home.path().join("otterminal");
     std::fs::copy(bin, &exe).unwrap();
     let log = std::fs::File::create(home.path().join("daemon.log")).unwrap();
     let mut cmd = Command::new(&exe);
@@ -148,13 +148,13 @@ fn spawn(bin: &Path) -> Daemon {
         .stdout(log.try_clone().unwrap())
         .stderr(log);
     for (k, _) in std::env::vars() {
-        if k.starts_with("DONGMINAL_") {
+        if k.starts_with("OTTERMINAL_") {
             cmd.env_remove(k);
         }
     }
-    cmd.env(dmenv::ENV_HOME, home.path())
-        .env(dmenv::ENV_TOOL_HOME, home.path().join("tool-home"))
-        .env("DONGMINAL_NO_UPDATE_CHECK", "1");
+    cmd.env(otterenv::ENV_HOME, home.path())
+        .env(otterenv::ENV_TOOL_HOME, home.path().join("tool-home"))
+        .env("OTTERMINAL_NO_UPDATE_CHECK", "1");
     let child = cmd.spawn().unwrap();
     let d = Daemon {
         home,
@@ -191,14 +191,14 @@ fn read_pid(path: &Path) -> i32 {
 }
 
 fn pid_file(home: &Path) -> u32 {
-    std::fs::read_to_string(home.join(dmenv::PANED_PID_FILE))
+    std::fs::read_to_string(home.join(otterenv::PANED_PID_FILE))
         .ok()
         .and_then(|s| s.trim().parse().ok())
         .unwrap_or(0)
 }
 
 fn dial(home: &Path) -> ToolClient {
-    ToolClient::dial(dm_shared_platform::current().ipc.endpoint(home)).unwrap()
+    ToolClient::dial(otter_shared_platform::current().ipc.endpoint(home)).unwrap()
 }
 
 /// 셸 하나를 띄우고 그 셸의 pid 를 적어 둔다.
@@ -246,9 +246,9 @@ fn self_bin() -> PathBuf {
 }
 
 /// Go 참조 바이너리(go1.27.2 로 기준선을 빌드한 것)다. 없으면 그 시험을 건너뛴다.
-/// 만드는 법: `DM_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh <bin> ./cmd/dongminal`.
+/// 만드는 법: `OTTER_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh <bin> ./cmd/otterminal`.
 fn go_bin() -> Option<PathBuf> {
-    let p = std::env::var_os("DM_GO_DONGMINAL")?;
+    let p = std::env::var_os("OTTER_GO_OTTERMINAL")?;
     Some(PathBuf::from(p))
 }
 
@@ -267,7 +267,7 @@ fn boot_listens_and_saves_on_signal() {
     let home = d.home().to_path_buf();
     assert_eq!(pid_file(&home), d.child.id());
     assert_eq!(
-        std::fs::read_to_string(home.join(dm_shared_toolipc::DAEMON_BUILD_FILE)).unwrap(),
+        std::fs::read_to_string(home.join(otter_shared_toolipc::DAEMON_BUILD_FILE)).unwrap(),
         format!("{TEST_BUILD}\n")
     );
     let pc = dial(&home);
@@ -276,23 +276,23 @@ fn boot_listens_and_saves_on_signal() {
     let log = d.log();
     assert!(
         log.contains(&format!(
-            "dongminald starting home={} handover=false",
+            "otterminald starting home={} handover=false",
             home.display()
         )),
         "{log}"
     );
-    let sock = dm_shared_platform::current().ipc.endpoint(&home);
+    let sock = otter_shared_platform::current().ipc.endpoint(&home);
     assert!(
         log.contains(&format!(
-            "dongminald listening on {} (platform={})",
+            "otterminald listening on {} (platform={})",
             sock.display(),
-            dm_shared_platform::current().os
+            otter_shared_platform::current().os
         )),
         "{log}"
     );
     let tool = open_shell(&mut d);
 
-    dm_shared_platform::current()
+    otter_shared_platform::current()
         .process
         .terminate(d.child.id() as i32)
         .unwrap();
@@ -307,7 +307,7 @@ fn boot_listens_and_saves_on_signal() {
     assert!(status.success(), "{status:?}");
     let log = d.log();
     assert!(
-        log.contains("dongminald shutting down, saving 1 tools..."),
+        log.contains("otterminald shutting down, saving 1 tools..."),
         "{log}"
     );
     let saved = std::fs::read_to_string(home.join("tools.json")).unwrap();
@@ -324,7 +324,7 @@ fn rust_reload_keeps_session() {
 /// FR-RSP-22: Go 데몬이 Rust 데몬에게 세션을 넘긴다.
 fn go_to_rust_reload_keeps_session() {
     let Some(go) = go_bin() else {
-        println!("ignored: DM_GO_DONGMINAL 없음");
+        println!("ignored: OTTER_GO_OTTERMINAL 없음");
         return;
     };
     let mut d = spawn(&go);
@@ -337,7 +337,7 @@ fn go_to_rust_reload_keeps_session() {
 /// FR-RSP-20 의 거꾸로 방향: Rust 데몬이 Go 데몬에게 세션을 넘긴다(되돌리기).
 fn rust_to_go_reload_keeps_session() {
     let Some(go) = go_bin() else {
-        println!("ignored: DM_GO_DONGMINAL 없음");
+        println!("ignored: OTTER_GO_OTTERMINAL 없음");
         return;
     };
     let mut d = spawn(&self_bin());

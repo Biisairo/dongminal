@@ -11,9 +11,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
-use dm_shared_dmlog::{errorf, infof};
-use dm_webserver_action::{self as action, Answer};
-use dm_webserver_apierr as apierr;
+use otter_shared_otterlog::{errorf, infof};
+use otter_webserver_action::{self as action, Answer};
+use otter_webserver_apierr as apierr;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
@@ -146,7 +146,7 @@ impl AccessStore {
             state: Mutex::new(st),
             path,
             lookup_host: RwLock::new(Arc::new(|h: &str| timed_lookup(h, ACCESS_LOOKUP_TIMEOUT))),
-            interface_addrs: RwLock::new(Arc::new(dm_shared_platform::interface_addrs)),
+            interface_addrs: RwLock::new(Arc::new(otter_shared_platform::interface_addrs)),
         };
         let data = match std::fs::read(&s.path) {
             Ok(d) => d,
@@ -157,7 +157,7 @@ impl AccessStore {
                 return s;
             }
         };
-        let cfg: AccessConfig = match dm_gocompat::json::unmarshal(&data) {
+        let cfg: AccessConfig = match otter_gocompat::json::unmarshal(&data) {
             Ok(c) => c,
             Err(e) => {
                 infof!(None, "loadAccess: {e} — 허용 목록을 끈 채로 시작한다");
@@ -215,7 +215,10 @@ impl AccessStore {
             let mut st = self.lock();
             let prev = std::mem::replace(&mut st.cfg, norm);
             self.rebuild(&st);
-            (prev, dm_gocompat::json::marshal_indent(&st.cfg, "", "  "))
+            (
+                prev,
+                otter_gocompat::json::marshal_indent(&st.cfg, "", "  "),
+            )
         };
         let data = match data {
             Ok(d) => d,
@@ -225,11 +228,12 @@ impl AccessStore {
                 return Err(SaveError::Failed);
             }
         };
-        if let Err(e) = dm_shared_platform::write_state_file(&self.path, &data, ACCESS_FILE_PERM) {
+        if let Err(e) = otter_shared_platform::write_state_file(&self.path, &data, ACCESS_FILE_PERM)
+        {
             infof!(
                 None,
                 "saveAccess: {}",
-                dm_gocompat::oserr::go_error_string(&e)
+                otter_gocompat::oserr::go_error_string(&e)
             );
             self.restore(prev);
             return Err(SaveError::Failed);
@@ -257,7 +261,7 @@ impl AccessStore {
                 errorf!(
                     None,
                     "access: 인터페이스 주소 수집 실패 ({}) — loopback 예외만 남는다",
-                    dm_gocompat::oserr::go_error_string(&e)
+                    otter_gocompat::oserr::go_error_string(&e)
                 );
                 Vec::new()
             }
@@ -413,7 +417,7 @@ pub(crate) fn go_read_error(path: &std::path::Path, e: &io::Error) -> String {
         || io::Error::new(e.kind(), e.to_string()),
         io::Error::from_raw_os_error,
     );
-    dm_gocompat::oserr::go_error_string(&dm_gocompat::oserr::path_error(
+    otter_gocompat::oserr::go_error_string(&otter_gocompat::oserr::path_error(
         "open",
         &path.to_string_lossy(),
         raw,
@@ -484,7 +488,7 @@ fn validate_access_value(v: &str) -> Result<(), String> {
     }
     Err(format!(
         "{} 는 IP·CIDR·호스트명 중 어느 것도 아니다",
-        dm_gocompat::strconv::quote(v)
+        otter_gocompat::strconv::quote(v)
     ))
 }
 
@@ -495,7 +499,7 @@ pub(crate) fn normalize_host_alias(raw: &str) -> Result<String, String> {
     if v.is_empty() {
         return Err("빈 값".to_owned());
     }
-    let q = dm_gocompat::strconv::quote(raw);
+    let q = otter_gocompat::strconv::quote(raw);
     if v.contains(['*', '?']) {
         return Err(format!(
             "{q} — 와일드카드는 쓸 수 없다. 이 컴퓨터가 불리는 이름을 그대로 적는다"

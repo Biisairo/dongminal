@@ -4,13 +4,13 @@
 //! 목록은 /api/git/refs 다 (FR-GIT-147). 삭제는 두 라우트다 (FR-GIT-261) — 로컬과 원격은 하나가
 //! 다른 하나를 자동으로 하지 않는다. 원격을 지나는 둘은 잡 경로다 (FR-GIT-101~104).
 
-use dm_shared_httpresp::Response;
-use dm_webserver_action::Answer;
-use dm_webserver_apierr::{self as apierr, Classify, Sentinel};
-use dm_webserver_domain_git_core::{Kind, WriteSpec};
-use dm_webserver_domain_git_query as query;
-use dm_webserver_domain_git_write::{self as write, TagCreateOpts, TagRemoteOpts, WriteKind};
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_action::Answer;
+use otter_webserver_apierr::{self as apierr, Classify, Sentinel};
+use otter_webserver_domain_git_core::{Kind, WriteSpec};
+use otter_webserver_domain_git_query as query;
+use otter_webserver_domain_git_write::{self as write, TagCreateOpts, TagRemoteOpts, WriteKind};
 use serde::Deserialize;
 
 use crate::GitServer;
@@ -231,8 +231,8 @@ impl GitServer {
     /// 이름 규칙과 이름 충돌을 실행 전에 답한다 (FR-GIT-250.3). `Some` 이면 다 만든 응답이다.
     async fn git_tag_name_taken(
         &self,
-        git: &std::sync::Arc<dm_webserver_domain_git_store::Store>,
-        ctx: &dm_webserver_domain_git_core::Ctx,
+        git: &std::sync::Arc<otter_webserver_domain_git_store::Store>,
+        ctx: &otter_webserver_domain_git_core::Ctx,
         requested: &str,
         root: &str,
         name: &str,

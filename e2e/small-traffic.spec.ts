@@ -31,7 +31,7 @@ test('SMT2 (FEC-3): OSC 로 받은 위치가 있으면 포커스가 바뀌어도
   const ids = await page.evaluate(() => {
     const app = (window as any).app;
     const a = app.testing.focusedTerminal();
-    a.output._onCwd('/tmp/dm-smt-a');
+    a.output._onCwd('/tmp/otter-smt-a');
     app.layout.tabOps.split('horizontal');
     return { a: a.id };
   });
@@ -47,7 +47,7 @@ test('SMT2 (FEC-3): OSC 로 받은 위치가 있으면 포커스가 바뀌어도
   }, ids.a);
   await page.waitForTimeout(800);
   expect(cwd.n, 'OSC 값이 있는데 서버에 물었다').toBe(0);
-  expect(await page.evaluate(() => (window as any).app.cwd)).toBe('/tmp/dm-smt-a');
+  expect(await page.evaluate(() => (window as any).app.cwd)).toBe('/tmp/otter-smt-a');
 });
 
 test('SMT3 (FEC-M1): 포커스 아닌 터미널의 OSC 는 상태바의 위치를 덮지 않는다', async ({ page }) => {
@@ -55,7 +55,7 @@ test('SMT3 (FEC-M1): 포커스 아닌 터미널의 OSC 는 상태바의 위치�
   const other = await page.evaluate(() => {
     const app = (window as any).app;
     const a = app.testing.focusedTerminal();
-    a.output._onCwd('/tmp/dm-smt-focus');
+    a.output._onCwd('/tmp/otter-smt-focus');
     app.layout.tabOps.split('horizontal');
     return a.id;
   });
@@ -66,11 +66,11 @@ test('SMT3 (FEC-M1): 포커스 아닌 터미널의 OSC 는 상태바의 위치�
   const got = await page.evaluate((a) => {
     const app = (window as any).app;
     const f = app.testing.focusedTerminal();
-    f.output._onCwd('/tmp/dm-smt-mine');
-    app.tools.get(a).output._onCwd('/tmp/dm-smt-bg');
+    f.output._onCwd('/tmp/otter-smt-mine');
+    app.tools.get(a).output._onCwd('/tmp/otter-smt-bg');
     return app.cwd;
   }, other);
-  expect(got, '옆 칸 셸의 cd 가 상태바를 덮었다').toBe('/tmp/dm-smt-mine');
+  expect(got, '옆 칸 셸의 cd 가 상태바를 덮었다').toBe('/tmp/otter-smt-mine');
 });
 
 test('SMT4 (FEU-8): run_changed 가 몰려도 목록 재조회는 합친다', async ({ page }) => {
@@ -78,7 +78,7 @@ test('SMT4 (FEU-8): run_changed 가 몰려도 목록 재조회는 합친다', as
   const runs = count(page, '/api/runs');
   await page.evaluate(() => {
     const bus = (window as any).app.bus;
-    for (let i = 0; i < 10; i++) bus.publish('run_changed', { runId: 'dm-smt-none' });
+    for (let i = 0; i < 10; i++) bus.publish('run_changed', { runId: 'otter-smt-none' });
   });
   await expect.poll(() => runs.n, { timeout: 5000 }).toBeGreaterThan(0);
   await page.waitForTimeout(800);

@@ -1,5 +1,5 @@
 /**
- * Dongminal — **커밋과 파괴적 동작 확인**의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
+ * Otterminal — **커밋과 파괴적 동작 확인**의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
  *
  * 커밋 입력·amend·서명, 되돌릴 수 없는 동작의 확인 문구, 그리고 그 확인들이
  * 함께 쓰는 다이얼로그 골격. 확인이 커밋과 한 파일인 이유는 **되돌릴 수 없음**을

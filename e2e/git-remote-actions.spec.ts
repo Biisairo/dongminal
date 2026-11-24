@@ -16,7 +16,7 @@ import { TMP, tmpPath, realPath } from './osenv';
 // 형태는 git-remote.spec.ts 를 그대로 본뜬다 — 원격 표면의 e2e 규약이 두 벌이면
 // 한쪽만 고쳐진다.
 
-const FIXTURES = tmpPath('dm-git-fx-remact-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-remact-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
@@ -44,11 +44,11 @@ function copyPair(tag: string) {
 
 // 원격을 한 커밋 앞세운다 — 별도 클론에서 밀어야 bare 를 정직하게 움직인다.
 function advanceRemote(remote: string, text: string) {
-  const work = realPath(mkdtempSync(join(TMP, 'dm-git-adv-')));
+  const work = realPath(mkdtempSync(join(TMP, 'otter-git-adv-')));
   const clone = join(work, 'c');
   execFileSync('git', ['clone', '-q', remote, clone]);
-  git(clone, 'config', 'user.name', 'dm');
-  git(clone, 'config', 'user.email', 'dm@example.com');
+  git(clone, 'config', 'user.name', 'otter');
+  git(clone, 'config', 'user.email', 'otter@example.com');
   git(clone, 'config', 'commit.gpgsign', 'false');
   writeFileSync(join(clone, 'remote-side.txt'), text + '\n');
   git(clone, 'add', '-A');
@@ -59,11 +59,11 @@ function advanceRemote(remote: string, text: string) {
 
 // 원격이 같은 줄을 다르게 고치게 한다 — pull 이 충돌로 끝나는 유일한 정직한 방법이다.
 function conflictRemote(remote: string) {
-  const work = realPath(mkdtempSync(join(TMP, 'dm-git-cf-')));
+  const work = realPath(mkdtempSync(join(TMP, 'otter-git-cf-')));
   const clone = join(work, 'c');
   execFileSync('git', ['clone', '-q', remote, clone]);
-  git(clone, 'config', 'user.name', 'dm');
-  git(clone, 'config', 'user.email', 'dm@example.com');
+  git(clone, 'config', 'user.name', 'otter');
+  git(clone, 'config', 'user.email', 'otter@example.com');
   git(clone, 'config', 'commit.gpgsign', 'false');
   writeFileSync(join(clone, 'f.txt'), 'a\nfrom-remote\n');
   git(clone, 'commit', '-qam', 'remote edit');
@@ -150,17 +150,17 @@ test.describe('묶음 E — 원격 동작 (FR-GIT-269~271)', () => {
     await expect(addDlg(page)).toBeVisible();
     await expect(addDlg(page).locator('input[type="password"]')).toHaveCount(0);
     await addDlg(page).locator('.gra-name').fill('upstream');
-    await addDlg(page).locator('.gra-url').fill('/tmp/dm-upstream.git');
+    await addDlg(page).locator('.gra-url').fill('/tmp/otter-upstream.git');
     await addDlg(page).locator('.gra-go').click();
 
     await expect(remoteRows(page)).toHaveCount(2, { timeout: 20000 });
-    expect(git(repo, 'config', '--get', 'remote.upstream.url')).toBe('/tmp/dm-upstream.git');
+    expect(git(repo, 'config', '--get', 'remote.upstream.url')).toBe('/tmp/otter-upstream.git');
 
     // remove — **되살릴 명령**을 그 자리에 보인다 (FR-GIT-92·269).
     await remotes(page).locator('.git-rm-row[data-remote="upstream"] .git-rm-del').click();
     await expect(confirm(page)).toHaveAttribute('data-action', 'remote_remove');
     await expect(confirm(page).locator('.gc-hint-cmd'))
-      .toContainText('remote add upstream /tmp/dm-upstream.git');
+      .toContainText('remote add upstream /tmp/otter-upstream.git');
     await confirm(page).locator('.gc-go').click();
 
     await expect(remoteRows(page)).toHaveCount(1, { timeout: 20000 });
@@ -204,25 +204,25 @@ test.describe('묶음 E — 원격 동작 (FR-GIT-269~271)', () => {
     //   새  동작: 입력 중에 서버에 묻고 실행 버튼을 끈다 — 실행 요청도 같은 코드로 거절된다
     const why = addDlg(page).locator('.git-dialog-why');
     await addDlg(page).locator('.gra-name').fill('bad/name');
-    await addDlg(page).locator('.gra-url').fill('/tmp/dm-bad.git');
+    await addDlg(page).locator('.gra-url').fill('/tmp/otter-bad.git');
     await expect(why).toHaveAttribute('data-why', 'why', { timeout: 10000 });
     await expect(addDlg(page).locator('.gra-go')).toBeDisabled();
     const bad = await page.request.post('/api/git/remote/add',
-      { data: { repo, name: 'bad/name', url: '/tmp/dm-bad.git' } });
+      { data: { repo, name: 'bad/name', url: '/tmp/otter-bad.git' } });
     expect(bad.status()).toBe(400);
     expect((await bad.json()).error).toBe('remote_name_invalid');
     expect(git(repo, 'config', '--list')).not.toContain('bad/name');
 
     // 같은 이름을 두 번 더하지 않는다.
     await addDlg(page).locator('.gra-name').fill('origin');
-    await addDlg(page).locator('.gra-url').fill('/tmp/dm-other.git');
+    await addDlg(page).locator('.gra-url').fill('/tmp/otter-other.git');
     await expect(addDlg(page).locator('.gra-go')).toBeDisabled();
     await expect(why).toHaveAttribute('data-why', 'why', { timeout: 10000 });
     const dup = await page.request.post('/api/git/remote/add',
-      { data: { repo, name: 'origin', url: '/tmp/dm-other.git' } });
+      { data: { repo, name: 'origin', url: '/tmp/otter-other.git' } });
     expect(dup.status()).toBe(409);
     expect((await dup.json()).error).toBe('remote_exists');
-    expect(git(repo, 'config', '--get', 'remote.origin.url')).not.toBe('/tmp/dm-other.git');
+    expect(git(repo, 'config', '--get', 'remote.origin.url')).not.toBe('/tmp/otter-other.git');
 
     // 쓸 수 있는 이름이면 열린다.
     await addDlg(page).locator('.gra-name').fill('up');
@@ -246,7 +246,7 @@ test.describe('묶음 E — 원격 동작 (FR-GIT-269~271)', () => {
     await ready(page);
 
     // 원격 생성이 받는 것은 이름과 URL 뿐이다 — URL 은 `git remote add` 의 인자이며
-    // dongminal 이 보관하거나 인증에 쓰는 값이 아니다.
+    // otterminal 이 보관하거나 인증에 쓰는 값이 아니다.
     await openBranches(page);
     await remotes(page).locator('.git-rm-add').click();
     await expect(addDlg(page)).toBeVisible();

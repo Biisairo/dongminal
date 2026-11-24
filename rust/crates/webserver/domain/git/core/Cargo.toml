@@ -1,5 +1,5 @@
 [package]
-name = "dm-webserver-domain-git-core"
+name = "otter-webserver-domain-git-core"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,8 +10,8 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../../../gocompat" }
-dm-shared-platform = { path = "../../../../shared/platform" }
+otter-gocompat = { path = "../../../../gocompat" }
+otter-shared-platform = { path = "../../../../shared/platform" }
 rand = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }

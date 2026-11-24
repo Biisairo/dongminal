@@ -1,19 +1,19 @@
 //! Go 노드와 간선 계층(mesh)으로 서로 잇는가 (RUST_PORT_SRS FR-RSP-23, V-RSP-4). hello·net 서명
 //! 확인·Go 노드가 넘겨 준 net·초대 상자(ECDH·HKDF·AES-GCM)를 양쪽으로 시험한다.
 //!
-//! `DM_PARITY_GO_MESHPEER` 가 없으면 건너뛴다. 격리 실행으로 돌린다:
-//! `rust/scripts/hermetic.sh env DM_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh rust/target/go-ref/meshpeer rust/crates/shared/edgemesh/testdata/gopeer`
-//! `rust/scripts/hermetic.sh env DM_PARITY_GO_MESHPEER=$PWD/rust/target/go-ref/meshpeer cargo test --manifest-path rust/Cargo.toml -p dm-shared-edgemesh --test go_interop`
+//! `OTTER_PARITY_GO_MESHPEER` 가 없으면 건너뛴다. 격리 실행으로 돌린다:
+//! `rust/scripts/hermetic.sh env OTTER_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh rust/target/go-ref/meshpeer rust/crates/shared/edgemesh/testdata/gopeer`
+//! `rust/scripts/hermetic.sh env OTTER_PARITY_GO_MESHPEER=$PWD/rust/target/go-ref/meshpeer cargo test --manifest-path rust/Cargo.toml -p otter-shared-edgemesh --test go_interop`
 
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use dm_shared_edge::{
+use otter_shared_edge::{
     INVITE_TTL, InviteCode, decode_invite, encode_invite, load_or_create_identity,
 };
-use dm_shared_edgemesh::{Conn, Hello, Invite, Mesh, Options};
+use otter_shared_edgemesh::{Conn, Hello, Invite, Mesh, Options};
 use time::OffsetDateTime;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Lines};
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
@@ -105,8 +105,8 @@ async fn eventually(what: &str, cond: impl Fn() -> bool) {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn rust_and_go_meshes_interoperate() {
-    let Some(bin) = std::env::var_os("DM_PARITY_GO_MESHPEER").map(PathBuf::from) else {
-        eprintln!("DM_PARITY_GO_MESHPEER 가 없어 건너뛴다");
+    let Some(bin) = std::env::var_os("OTTER_PARITY_GO_MESHPEER").map(PathBuf::from) else {
+        eprintln!("OTTER_PARITY_GO_MESHPEER 가 없어 건너뛴다");
         return;
     };
     let dir = tempfile::TempDir::new().unwrap();

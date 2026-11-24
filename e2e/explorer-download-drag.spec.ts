@@ -23,7 +23,7 @@ function mkRoot(tag: string) {
   return realPath(d);
 }
 
-test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-exd-'))) });
+test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-exd-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
 const mod = process.platform === 'darwin' ? 'Meta' : 'Control';

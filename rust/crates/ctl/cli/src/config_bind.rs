@@ -1,4 +1,4 @@
-//! `dongminal config set|get` — 바인드를 바꾸고 보는 CLI (HOT_REBIND_SRS FR-HRB-41·42·43).
+//! `otterminal config set|get` — 바인드를 바꾸고 보는 CLI (HOT_REBIND_SRS FR-HRB-41·42·43).
 //!
 //! 서버가 돌고 있으면 리바인드 API 를 부르고, 돌고 있지 않으면 `server.json` 만 고친다 (D-HRB-2·3).
 
@@ -6,11 +6,11 @@ use std::io::Write;
 use std::path::Path;
 use std::time::Duration;
 
-use dm_gocompat::json;
-use dm_gocompat::strconv::quote;
-use dm_shared_apipath as apipath;
-use dm_shared_dmenv as dmenv;
-use dm_shared_serverconf as serverconf;
+use otter_gocompat::json;
+use otter_gocompat::strconv::quote;
+use otter_shared_apipath as apipath;
+use otter_shared_otterenv as otterenv;
+use otter_shared_serverconf as serverconf;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -72,7 +72,7 @@ pub(crate) fn check_config_set(key: &str, value: &str) -> Result<(), ParseError>
 /// 주소 파일이 가리키고 실제로 답하는 서버의 URL 이다.
 fn running_server(home: &Path) -> Option<String> {
     let (h, p) = serverconf::read_addr(home)?;
-    let u = dmenv::base_url(&h, &p);
+    let u = otterenv::base_url(&h, &p);
     ping(&format!("{u}{}", apipath::PING), ALIVE_PROBE_TIMEOUT).then_some(u)
 }
 
@@ -161,7 +161,7 @@ fn call_bind(
     let _ = writeln!(
         stdout,
         "✅ 바인드 {} ({}) — {}",
-        dm_shared_dmenv::join_host_port(&out.host, &out.port),
+        otter_shared_otterenv::join_host_port(&out.host, &out.port),
         expose_word(out.expose),
         out.url
     );
@@ -181,15 +181,15 @@ pub(crate) fn run_config_get(home: &str, env: &Env<'_>, stdout: &mut dyn Write) 
     match serverconf::read_addr(home_path) {
         Some((h, p))
             if ping(
-                &format!("{}{}", dmenv::base_url(&h, &p), apipath::PING),
+                &format!("{}{}", otterenv::base_url(&h, &p), apipath::PING),
                 ALIVE_PROBE_TIMEOUT,
             ) =>
         {
             let _ = writeln!(
                 stdout,
                 "지금 바인드: {} ({})",
-                dm_shared_dmenv::join_host_port(&h, &p),
-                expose_word(dmenv::is_exposed_host(&h))
+                otter_shared_otterenv::join_host_port(&h, &p),
+                expose_word(otterenv::is_exposed_host(&h))
             );
         }
         _ => {

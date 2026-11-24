@@ -6,12 +6,12 @@
 use std::io;
 use std::time::UNIX_EPOCH;
 
-use dm_gocompat::{filepath, oserr};
-use dm_shared_httpresp::Response;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core as core;
-use dm_webserver_domain_git_jobs::{SLOT_COMMON, SLOT_INDEX};
 use http::StatusCode;
+use otter_gocompat::{filepath, oserr};
+use otter_shared_httpresp::Response;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core as core;
+use otter_webserver_domain_git_jobs::{SLOT_COMMON, SLOT_INDEX};
 use serde::Deserialize;
 
 use crate::GitServer;
@@ -122,7 +122,7 @@ impl GitServer {
             return t.finish();
         }
         let m = req.mtime_unix_ms;
-        dm_shared_dmlog::infof!(
+        otter_shared_otterlog::infof!(
             r_rid(&t),
             "[git] 남은 index.lock 삭제: {lock_path} (mtime {m})"
         );
@@ -165,6 +165,6 @@ impl GitServer {
     }
 }
 
-fn r_rid<'a>(t: &'a GitWrite<'_>) -> dm_shared_dmlog::ReqCtx<'a> {
+fn r_rid<'a>(t: &'a GitWrite<'_>) -> otter_shared_otterlog::ReqCtx<'a> {
     t.r.rid()
 }

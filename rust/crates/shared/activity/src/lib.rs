@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/activity` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/shared/activity` 의 Rust 포팅.
 //!
 //! 에이전트 활동 상태의 어휘다 (FR-OPT-10-1). 값은 와이어 그대로다 — 훅 표면·SSE
 //! `tool_activity`·`/api/tools/activity` 가 이 문자열을 싣는다.

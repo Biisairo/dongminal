@@ -12,7 +12,7 @@
 > 확인하면 서버는 잘 작동중이다. 서버를 재시작하면 다시 접속이 된다."**
 
 > **"한번씩 나오는 아래 오류 원천 차단 — `/bin/sh:
-> /Users/dykim/.dongminal/bin/dmctl: No such file or directory`"**
+> /Users/dykim/.otterminal/bin/otterctl: No such file or directory`"**
 
 둘은 별개의 결함이지만 같은 성질을 공유한다 — **정상 경로에서는 보이지 않고,
 드문 조건에서만 열리는 창(window)이 있다.** 이 문서는 그 두 창을 닫는다.
@@ -35,7 +35,7 @@
 
 ### 2.1 결함 ① — WS 재연결이 지연 0 의 무한 루프를 돈다
 
-2026-08-30 10:04 관측. `/tmp/dongminal.log` 발췌:
+2026-08-30 10:04 관측. `/tmp/otterminal.log` 발췌:
 
 ```
 10:04:46.120669 ws connected addr=100.117.248.111:62053 tool=01a04d3b-f9bc-7000-a92a-621da644fef1
@@ -44,7 +44,7 @@
 10:04:46.288007 ws connected addr=100.117.248.111:62057 tool=01a04d3b-f9bc-7000-a92a-621da644fef1
 ```
 
-`01a04d3b-…` 는 07:56:21 에 kill 된 도구다 (`~/.dongminal/daemon.log`). 브라우저는
+`01a04d3b-…` 는 07:56:21 에 kill 된 도구다 (`~/.otterminal/daemon.log`). 브라우저는
 그것을 8시간 뒤에도 초당 수십 회 부르고 있다.
 
 **사슬**
@@ -77,14 +77,14 @@ WS **업그레이드 자체는 성공**한다. 그러므로 매 사이클이 `on
 
 - Tailscale 피어는 tailscaled 유저스페이스 netstack 을 거친다. 세션 테이블과 포트가
   먼저 말라 **새 TCP 연결을 열지 못한다** → 원격 접속이 끊긴다.
-- `dmctl health` 는 `http://localhost:PORT/` 를 친다 (`ctl/cli/health.go:17`).
+- `otterctl health` 는 `http://localhost:PORT/` 를 친다 (`ctl/cli/health.go:17`).
   **루프백은 tailscaled 를 거치지 않고** 단발 요청이라 통과한다 → "서버는 정상".
 - 서버를 재시작하면 폭주 참여자가 리셋되고 TIME_WAIT 은 30초 안에 회수된다
   → **다시 접속된다.**
 
 관측된 세 증상이 모두 이 하나로 설명된다.
 
-**부수 피해**: `/tmp/dongminal.log` 가 4.17 GB (일 ~2.4 GB 증가). 서버 CPU 8.4%.
+**부수 피해**: `/tmp/otterminal.log` 가 4.17 GB (일 ~2.4 GB 증가). 서버 CPU 8.4%.
 
 ### 2.3 결함 ② — 헬퍼 설치가 원자적이지 않다
 
@@ -112,8 +112,8 @@ no-op 로 막았다. 그러나 그것은 조건부 방어다. `src`(= `os.Execut
 - worktree 안의 바이너리로 기동
 - 격리 인스턴스(`--isolated`)가 실 HOME 을 가리킨 경우
 
-`~/.dongminal/bin/dmctl` 은 Claude Code 훅 10종이 **도구 사용마다** 부르는 경로다
-(`~/.dongminal/bin/agent-hooks/claude.json`). 창이 아무리 짧아도 호출 빈도가
+`~/.otterminal/bin/otterctl` 은 Claude Code 훅 10종이 **도구 사용마다** 부르는 경로다
+(`~/.otterminal/bin/agent-hooks/claude.json`). 창이 아무리 짧아도 호출 빈도가
 높으면 언젠가 겹친다 — 그것이 "한번씩"의 정체다.
 
 `copyExecutable`(같은 파일 88행)에도 같은 성질의 창이 둘 있다:

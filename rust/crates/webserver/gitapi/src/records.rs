@@ -1,9 +1,9 @@
 //! GET /api/git/records — Console 탭의 실행 기록 (GIT_UI_REVISION_SRS FR-GIT-218).
 
-use dm_gocompat::json::RawMessage;
-use dm_shared_httpresp::Response;
-use dm_webserver_domain_git_core::Record;
 use http::StatusCode;
+use otter_gocompat::json::RawMessage;
+use otter_shared_httpresp::Response;
+use otter_webserver_domain_git_core::Record;
 use serde::Serialize;
 
 use crate::GitServer;
@@ -30,7 +30,7 @@ impl GitServer {
         };
         let svc = git.service();
         let (all, cursor) = if r.query.has("after") {
-            let Ok(after) = dm_gocompat::strconv::parse_uint10(&r.q("after")) else {
+            let Ok(after) = otter_gocompat::strconv::parse_uint10(&r.q("after")) else {
                 return git_fail(
                     StatusCode::BAD_REQUEST,
                     ERR_BAD_REQUEST,

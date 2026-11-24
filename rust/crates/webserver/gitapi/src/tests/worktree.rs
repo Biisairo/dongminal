@@ -16,15 +16,15 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_shared_gittest::{Repo, TempDir};
-use dm_webserver_action as action;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::{self as core, Ctx, Service};
-use dm_webserver_domain_git_jobs::{Exclusion, Job, JobRunner, Keys, LINE_STDERR, StartOptions};
-use dm_webserver_domain_git_store::{Store, StoreOptions};
-use dm_webserver_domain_git_write as write;
-use dm_webserver_domain_worktree::{self as worktree, Manager};
 use http::Method;
+use otter_shared_gittest::{Repo, TempDir};
+use otter_webserver_action as action;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::{self as core, Ctx, Service};
+use otter_webserver_domain_git_jobs::{Exclusion, Job, JobRunner, Keys, LINE_STDERR, StartOptions};
+use otter_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_domain_git_write as write;
+use otter_webserver_domain_worktree::{self as worktree, Manager};
 use serde_json::{Value, json};
 
 use super::harness::{abs, q, qe, req};
@@ -56,7 +56,7 @@ impl Drop for Wt {
 }
 
 fn wt_git(dir: &str, args: &[&str]) -> String {
-    dm_shared_gittest::run(Path::new(dir), args)
+    otter_shared_gittest::run(Path::new(dir), args)
 }
 
 /// Go `worktreeTestServer`: 실제 git 을 쓰는 GitServer. RunWorktreeRoot 는 만들지 않는다.
@@ -71,8 +71,8 @@ fn wt_excl_server(edit: impl FnOnce(&mut GitServer, &Path)) -> Option<Wt> {
 }
 
 fn wt_server_with(excl: bool, edit: impl FnOnce(&mut GitServer, &Path)) -> Option<Wt> {
-    let repo = dm_shared_gittest::repo()?;
-    let tmp = TempDir::new("dm-gitapi-wt-");
+    let repo = otter_shared_gittest::repo()?;
+    let tmp = TempDir::new("otter-gitapi-wt-");
     let home = std::fs::canonicalize(tmp.path()).unwrap();
     let mgr = Manager::new(home.join("git-worktrees").to_str().unwrap());
     let user_root = mgr.root().to_owned();
@@ -114,7 +114,7 @@ fn excl_runner(root: String, release: Arc<tokio::sync::Semaphore>) -> JobRunner 
             {
                 return Box::pin(async move {
                     let a: Vec<&str> = args.iter().map(String::as_str).collect();
-                    match dm_webserver_domain_submodule::exec_git(&ctx, &dir, &a).await {
+                    match otter_webserver_domain_submodule::exec_git(&ctx, &dir, &a).await {
                         Ok(_) => (0, None),
                         Err(f) => {
                             emit(LINE_STDERR, &f.text);
@@ -386,7 +386,7 @@ async fn main_stays_on_origin_when_queried_from_linked_worktree() {
 #[tokio::test]
 async fn remove_removes_outside_user_area() {
     let Some(w) = wt_server() else { return };
-    let parent = TempDir::new("dm-gitapi-wt-out-");
+    let parent = TempDir::new("otter-gitapi-wt-out-");
     let outside = std::fs::canonicalize(parent.path())
         .unwrap()
         .join("outside");
@@ -469,7 +469,7 @@ async fn common_key(repo: &str) -> String {
 }
 
 /// 잡 허브다.
-fn hub(w: &Wt) -> dm_webserver_domain_git_jobs::Jobs {
+fn hub(w: &Wt) -> otter_webserver_domain_git_jobs::Jobs {
     w.s.jobs_hub(w.s.git.as_ref().unwrap())
 }
 
@@ -789,7 +789,7 @@ async fn remove_gone_outside_and_consecutive() {
 // Git 이 없는 배선에서도 잡 키의 common 은 common-dir 이다 (FR-GXU-4).
 #[tokio::test]
 async fn job_keys_without_git_uses_common_dir() {
-    let Some(repo) = dm_shared_gittest::repo() else {
+    let Some(repo) = otter_shared_gittest::repo() else {
         return;
     };
     let root = repo.path().to_string_lossy().into_owned();

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::support::*;
 use crate::log::{LOG_DECORATE, LOG_FORMAT};
 use crate::*;
-use dm_webserver_domain_git_core::{DEFAULT_MAX_OUTPUT, Output, Service};
+use otter_webserver_domain_git_core::{DEFAULT_MAX_OUTPUT, Output, Service};
 
 fn hunk_file(dir: &str, name: &str, n: usize, edit: &HashMap<usize, &str>) {
     let lines: Vec<String> = (1..=n)

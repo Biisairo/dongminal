@@ -21,12 +21,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_webserver_action as action;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::{self as core, Ctx, Output, Service};
-use dm_webserver_domain_git_jobs::Exclusion;
-use dm_webserver_domain_git_store::{Store, StoreOptions};
-use dm_webserver_domain_worktree::Manager;
+use otter_webserver_action as action;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::{self as core, Ctx, Output, Service};
+use otter_webserver_domain_git_jobs::Exclusion;
+use otter_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_domain_worktree::Manager;
 use serde_json::{Value, json};
 
 use super::actions::{args_eq, jreq};
@@ -522,7 +522,7 @@ async fn git_m5_stash_routes_registered_and_unavailable() {
     for (method, path, body) in eps {
         let p = path.split('?').next().unwrap();
         assert!(
-            dm_webserver_httproute::dispatch(&crate::routes::ROUTES, method, p).is_some(),
+            otter_webserver_httproute::dispatch(&crate::routes::ROUTES, method, p).is_some(),
             "{method} {p} 가 gitapi.routes 에 없다"
         );
         let (code, out) = jreq(&s, method, &path, &body).await;
@@ -538,14 +538,14 @@ async fn git_m5_stash_routes_registered_and_unavailable() {
 // 상한이다. 공용 Service 의 출력 상한(1 MiB)을 넘는 파일로 본다. 실제 git 을 쓴다.
 #[tokio::test]
 async fn file_head_over_git_output_cap() {
-    let Some(r) = dm_shared_gittest::repo() else {
+    let Some(r) = otter_shared_gittest::repo() else {
         return;
     };
     let p = r.path();
     let size = core::DEFAULT_MAX_OUTPUT + 1;
     std::fs::write(p.join("mid.txt"), "m".repeat(size)).unwrap();
-    dm_shared_gittest::run(p, &["add", "mid.txt"]);
-    dm_shared_gittest::run(p, &["commit", "-qm", "mid.txt"]);
+    otter_shared_gittest::run(p, &["add", "mid.txt"]);
+    otter_shared_gittest::run(p, &["commit", "-qm", "mid.txt"]);
     let s = Arc::new(GitServer {
         git: Some(Store::new(
             Arc::new(Service::new()),
@@ -573,7 +573,7 @@ async fn file_head_over_git_output_cap() {
 // 정확히 하나다 (FR-DPN-24).
 #[tokio::test]
 async fn nil_git_never_panics() {
-    let home = dm_shared_gittest::TempDir::new("dm-gitapi-nilgit-");
+    let home = otter_shared_gittest::TempDir::new("otter-gitapi-nilgit-");
     // worktree 관리자만 있고 Git 이 없는 조합이 문제였던 자리다.
     let s = Arc::new(GitServer {
         user_worktrees: Some(Arc::new(Manager::new(home.path().to_str().unwrap()))),

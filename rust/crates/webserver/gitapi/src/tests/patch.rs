@@ -8,9 +8,9 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::SystemTime;
 
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::{Output, Service};
-use dm_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::{Output, Service};
+use otter_webserver_domain_git_store::{Store, StoreOptions};
 use serde_json::{Value, json};
 use tempfile::TempDir;
 

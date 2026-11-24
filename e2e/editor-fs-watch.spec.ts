@@ -22,7 +22,7 @@ test.skip(process.platform === 'win32', 'Windows 는 파일 감시를 하지 않
 let BASE = '';
 /** 앱의 `pathJoin` 과 같은 규칙 — 서버가 준 경로의 구분자를 따른다. `/` 로 이으면 Windows 에서 섞인 경로가 된다. */
 const pj = (d: string, r: string) => d + (d.includes('\\') && !d.includes('/') ? '\\' : '/') + r;
-test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'dm-fsw-'))) });
+test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'otter-fsw-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
 const SLOW = { gitReposInterval: 30000, gitStatusInterval: 0, gitWorktreeInterval: 30000 };

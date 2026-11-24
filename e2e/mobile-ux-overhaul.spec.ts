@@ -7,7 +7,7 @@ import {
 import { tmpPath } from './osenv';
 
 const VIEW = { width: 412, height: 839 };
-const FIXTURES = tmpPath('dm-git-fx-mux-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-mux-' + process.pid);
 const copyFx = makeCopyFx(FIXTURES);
 
 test.beforeAll(() => { gitFixture(FIXTURES) });

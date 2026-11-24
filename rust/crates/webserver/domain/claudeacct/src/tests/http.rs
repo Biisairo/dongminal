@@ -101,7 +101,7 @@ async fn client_profile() {
     .await;
     let c = Client {
         base: url,
-        user_agent: "dongminal/test".into(),
+        user_agent: "otterminal/test".into(),
         ..Client::default()
     };
     let id = c.profile("tok").await.unwrap();
@@ -116,7 +116,7 @@ async fn client_profile() {
     let s = seen.lock().unwrap()[0].clone();
     assert_eq!(
         (h(&s, "authorization"), h(&s, "user-agent")),
-        ("Bearer tok", "dongminal/test")
+        ("Bearer tok", "otterminal/test")
     );
     assert_eq!(
         (s.method.as_str(), h(&s, "content-type")),
@@ -298,7 +298,7 @@ async fn client_usage_headers() {
     .await;
     let c = Client {
         base: url,
-        user_agent: "dongminal/x".into(),
+        user_agent: "otterminal/x".into(),
         ..Client::default()
     };
     let raw = c.usage_raw("tok", "").await.unwrap();
@@ -312,7 +312,7 @@ async fn client_usage_headers() {
             h(&all[0], "user-agent"),
             all[0].query.as_str()
         ),
-        ("Bearer tok", "oauth-2025-04-20", "dongminal/x", "")
+        ("Bearer tok", "oauth-2025-04-20", "otterminal/x", "")
     );
     assert_eq!(all[1].query, "at_wall=1&skip_spend=1");
 }

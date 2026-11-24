@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/apipath` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/shared/apipath` 의 Rust 포팅.
 //!
 //! 서버 로컬 API(`/api/*`)의 경로 한 벌이다 (FR-RGS-40). 쿼리(`?…`)와 경로 변수(`{id}`)는
 //! 부르는 쪽이 붙인다.

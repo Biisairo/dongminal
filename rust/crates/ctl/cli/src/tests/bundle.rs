@@ -33,7 +33,7 @@ fn bundle_home() -> tempfile::TempDir {
     d
 }
 
-/// `DONGMINAL_HOME` 으로 홈을 고르고 `doctor --bundle out` 을 돌린다.
+/// `OTTERMINAL_HOME` 으로 홈을 고르고 `doctor --bundle out` 을 돌린다.
 fn run(home: &Path, out: &Path) -> (i32, String, String) {
     let o = DoctorOpts {
         bundle: out.to_str().unwrap().to_owned(),
@@ -137,7 +137,7 @@ fn about_has_no_home_path() {
     assert!(
         about.starts_with(&format!(
             "version: {VERSION}\ntarget: {}\ngo: {GO_RUNTIME}\nhome-exists: true\nlast-exit: ",
-            dm_shared_platform::build_target()
+            otter_shared_platform::build_target()
         )),
         "{about}"
     );

@@ -2,8 +2,8 @@
 //!
 //! 인코딩은 serde `Serialize` 를 받는다. Go 와 같은 출력을 내려면 다음을 지킨다.
 //! - 구조체 필드 순서는 Rust 선언 순서다. Go 구조체와 같은 순서로 선언한다.
-//! - `omitempty` 는 `#[serde(skip_serializing_if = "dm_gocompat::json::is_empty")]` 로 쓴다.
-//! - Go `[]byte` 는 `#[serde(with = "dm_gocompat::json::bytes")]` 로 base64 문자열이 된다.
+//! - `omitempty` 는 `#[serde(skip_serializing_if = "otter_gocompat::json::is_empty")]` 로 쓴다.
+//! - Go `[]byte` 는 `#[serde(with = "otter_gocompat::json::bytes")]` 로 base64 문자열이 된다.
 //! - Go 의 nil slice·nil map·nil 포인터(`null`)는 `Option<…>` 의 `None` 으로 쓴다. 빈 `Vec` 은 `[]` 이다.
 //! - map(`HashMap`·`BTreeMap`·`serde_json::Value` 객체)은 Go map 처럼 키 바이트 순으로 정렬된다.
 //! - `json.RawMessage` 는 [`RawMessage`] 다.
@@ -23,7 +23,7 @@
 //!   (Go 와 같게 하려면 `#[serde(rename = "pkg.Type")]`), slice 는 `[]interface {}`, map 은
 //!   `map[string]interface {}`(`serde_json::Value` 를 담는 것에 맞춘 기본값). 그 밖의 slice·map
 //!   (예: Go `[]main.WsWindow`) 은 [`go_type!`](crate::go_type) 표식과
-//!   `#[serde(deserialize_with = "dm_gocompat::json::with_go_type::<표식, _, _>")]` 로 이름을 준다.
+//!   `#[serde(deserialize_with = "otter_gocompat::json::with_go_type::<표식, _, _>")]` 로 이름을 준다.
 //!   맨 위 값은 [`GoTyped`] 로 감싼다.
 //! - Go 는 타입 오류가 나도 나머지 필드를 채운 값을 남기지만, 여기서는 값을 돌려주지 않는다.
 
@@ -166,7 +166,7 @@ pub trait IsEmpty {
     fn is_go_empty(&self) -> bool;
 }
 
-/// `#[serde(skip_serializing_if = "dm_gocompat::json::is_empty")]` 용.
+/// `#[serde(skip_serializing_if = "otter_gocompat::json::is_empty")]` 용.
 pub fn is_empty<T: IsEmpty + ?Sized>(v: &T) -> bool {
     v.is_go_empty()
 }
@@ -247,7 +247,7 @@ impl IsEmpty for serde_json::Value {
     }
 }
 
-/// Go `[]byte` 필드: `#[serde(with = "dm_gocompat::json::bytes")]`. base64(StdEncoding) 문자열.
+/// Go `[]byte` 필드: `#[serde(with = "otter_gocompat::json::bytes")]`. base64(StdEncoding) 문자열.
 pub mod bytes {
     use serde::{Deserializer, Serializer};
 
@@ -260,7 +260,7 @@ pub mod bytes {
     }
 }
 
-/// nil 일 수 있는 Go `[]byte` 필드: `Option<Vec<u8>>` 에 `#[serde(with = "dm_gocompat::json::opt_bytes")]`. `None` 은 `null`.
+/// nil 일 수 있는 Go `[]byte` 필드: `Option<Vec<u8>>` 에 `#[serde(with = "otter_gocompat::json::opt_bytes")]`. `None` 은 `null`.
 pub mod opt_bytes {
     use serde::{Deserializer, Serializer};
 

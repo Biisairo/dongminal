@@ -7,10 +7,10 @@ use std::collections::HashMap;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, SystemTime};
 
-use dm_webserver_domain_git_core::{
+use otter_webserver_domain_git_core::{
     Ctx, CtxError, Error as CoreError, Kind, Output, Runner, Service, is_terminal,
 };
-use dm_webserver_domain_git_query::{FileEntry, Status};
+use otter_webserver_domain_git_query::{FileEntry, Status};
 use tempfile::TempDir;
 
 use crate::store::{Cached, prune_cache};
@@ -25,7 +25,7 @@ fn nul(recs: &[&str]) -> String {
 
 fn abs(p: &str) -> String {
     let root = if cfg!(windows) { "C:\\" } else { "/" };
-    dm_gocompat::filepath::join(&[root, p])
+    otter_gocompat::filepath::join(&[root, p])
 }
 
 /// 열릴 때까지 막는 문.
@@ -415,7 +415,7 @@ async fn forget_root_detaches_flight_and_clears() {
     h.await.unwrap().unwrap();
     assert!(!st.lock().roots.contains_key(&abs("r")));
 
-    let sub = dm_gocompat::filepath::join(&[abs("r").as_str(), "sub"]);
+    let sub = otter_gocompat::filepath::join(&[abs("r").as_str(), "sub"]);
     let fs_root = abs("");
     for forget in [abs("r"), fs_root] {
         let st = Store::new(Arc::new(Service::new()), StoreOptions::default());

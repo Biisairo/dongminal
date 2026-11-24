@@ -99,10 +99,10 @@ I5(단축키)·I6(창 순회 복귀)은 사용자 결정으로 뺐고, 두 안�
 만들고 지운다. **경계를 스펙에서 먼저 정해라 — 사용자가 만든 worktree 를 Run 정리가
 지우면 안 된다.** 그 가드를 읽어 둔 결과는 이렇다 (2026-08-27).
 
-- `Manager` 는 **`$DONGMINAL_HOME/worktrees` 아래만** 자기 영역으로 삼는다.
+- `Manager` 는 **`$OTTERMINAL_HOME/worktrees` 아래만** 자기 영역으로 삼는다.
   `checkPath` 가 그 밖의 경로·루트 자신·저장소 자신을 `unsafe_path` 로 거부하고,
   `Remove` 는 거부당하면 `residue` 를 남긴다 (FR-WKT-8).
-- 경로 규약은 `Path(runShort, leaf)` = `$DONGMINAL_HOME/worktrees/<run.short>/<member.short>`.
+- 경로 규약은 `Path(runShort, leaf)` = `$OTTERMINAL_HOME/worktrees/<run.short>/<member.short>`.
 - **전체를 쓸어내는 경로가 없다.** `Remove` 는 `RemoveSpec` 하나씩이고, 정리는 Run 이
   자기가 만든 것만 대상으로 한다. 즉 **경로만 갈라 두면 구조적으로 안전하다.**
 - 따라서 물을 것은 "사용자 worktree 를 어디에 만드는가"다. ① Run 영역 밖(예: 저장소
@@ -202,14 +202,14 @@ E1·E3 의 원인은 하나였다 — **바깥 계기(폴링·서버 푸시)의 
 - 화면 배치·색·읽힘은 스펙이 정하지 않은 것이 많으므로 **"결함"과 "취향"을
   구분해** 기록한다.
 
-**격리 인스턴스로 하는 것이 안전하다** — 사용자가 쓰는 dongminal(포트 58146)과
+**격리 인스턴스로 하는 것이 안전하다** — 사용자가 쓰는 otterminal(포트 58146)과
 워크스페이스를 공유하면 검증이 남긴 창·핀이 사용자 것을 오염시킨다.
 
 ```bash
-e2e/git_fixture.sh /tmp/dm-git-fixtures
+e2e/git_fixture.sh /tmp/otter-git-fixtures
 ./scripts/build.sh
-./dongminal start --isolated
-./dongminal window --port <격리 포트>
+./otterminal start --isolated
+./otterminal window --port <격리 포트>
 # → 임시 홈과 빈 포트를 골라 띄우고, 정지 명령을 함께 출력한다.
 ```
 
@@ -256,7 +256,7 @@ e2e/git_fixture.sh /tmp/dm-git-fixtures
 
 | 항목 | 왜 다른가 |
 |---|---|
-| **자격증명 저장·중계** | FR-GIT-104 의 **의도적 배제**다. "통과하지 않음을 보장하는 유일한 방법은 담을 자리를 만들지 않는 것"이라는 근거로, `TestNoCredentialFields` 가 `domain/git/*`·`gitapi`·`httpapi` 를 훑어 **필드 이름만으로** 막고 있다. 되살리려면 그 보호 테스트를 약화해야 하고, 그건 이 저장소의 안전망 셋 중 하나를 여는 일이다. **되살릴지부터 물어라.** 대안은 시스템 credential helper 에 위임하는 것 — dongminal 이 값을 보지 않는다 |
+| **자격증명 저장·중계** | FR-GIT-104 의 **의도적 배제**다. "통과하지 않음을 보장하는 유일한 방법은 담을 자리를 만들지 않는 것"이라는 근거로, `TestNoCredentialFields` 가 `domain/git/*`·`gitapi`·`httpapi` 를 훑어 **필드 이름만으로** 막고 있다. 되살리려면 그 보호 테스트를 약화해야 하고, 그건 이 저장소의 안전망 셋 중 하나를 여는 일이다. **되살릴지부터 물어라.** 대안은 시스템 credential helper 에 위임하는 것 — otterminal 이 값을 보지 않는다 |
 | **안내문·툴팁이 한글인 것** | FR-GIT-202 의 확정 결정이다 — 버튼만 영어이고 설명은 읽는 사람의 말이어야 한다. 결함이 아니라 설계다. 바꿀 이유가 생겼는지부터 물어라 |
 
 ## 5. 알려진 간헐 실패 (제품 결함 아님)

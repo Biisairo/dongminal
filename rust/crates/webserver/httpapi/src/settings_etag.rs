@@ -10,7 +10,7 @@ const TAG_BYTES: usize = 8;
 
 /// Go `settingsTag`: JSON 직렬화의 SHA-256 앞 8바이트를 16진으로. 직렬화 실패면 빈 문자열이다.
 pub(crate) fn settings_tag<T: Serialize + ?Sized>(v: &T) -> String {
-    match dm_gocompat::json::marshal(v) {
+    match otter_gocompat::json::marshal(v) {
         Ok(b) => hex::encode(&Sha256::digest(&b)[..TAG_BYTES]),
         Err(_) => String::new(),
     }

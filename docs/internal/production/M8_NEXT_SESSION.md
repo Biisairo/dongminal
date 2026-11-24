@@ -54,5 +54,5 @@ P6 CLI 계약 → P7 분리·중복·죽은 코드·테스트 결정성). 인계
 
   1. 문서 갱신 — `<M>_PROGRESS.md`(§1 상태·판정표·§2 배운 것) · 스펙 §10 변경 기록 · `<M>_NEXT_SESSION.md` 를 다음 단계의 착수 프롬프트로
   2. `make gates` 초록 확인 뒤 **커밋** (단계 종료 커밋 하나 — 사용자 확인 뒤)
-  3. 인수인계 — dongminal 접합면으로 현재 위치에 새 탭(`dmctl new-tab -n`, `--help` 없이)을 열고 claude 를 띄운다 → `dmctl msg --to <toolId> -` 로 `[HANDOFF …]` 엔벨로프 → `dmctl status --at <탭>` 로 `working` 확인
-  4. 자기 탭을 닫는다 — `dmctl close-tab --at <자기 탭 uuid>`. 이것이 세션의 마지막 명령이다
+  3. 인수인계 — otterminal 접합면으로 현재 위치에 새 탭(`otterctl new-tab -n`, `--help` 없이)을 열고 claude 를 띄운다 → `otterctl msg --to <toolId> -` 로 `[HANDOFF …]` 엔벨로프 → `otterctl status --at <탭>` 로 `working` 확인
+  4. 자기 탭을 닫는다 — `otterctl close-tab --at <자기 탭 uuid>`. 이것이 세션의 마지막 명령이다

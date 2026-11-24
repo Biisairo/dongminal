@@ -11,14 +11,14 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use bytes::Bytes;
-use dm_gocompat::neturl;
-use dm_shared_dmlog::{errorf, infof};
-use dm_shared_httpreq::BoxError;
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr as apierr;
 use http::{HeaderValue, Method, StatusCode, header};
 use http_body_util::BodyExt;
 use hyper::body::Body;
+use otter_gocompat::neturl;
+use otter_shared_httpreq::BoxError;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::{errorf, infof};
+use otter_webserver_apierr as apierr;
 
 use crate::Server;
 use crate::access_api::access_gate;
@@ -37,7 +37,7 @@ pub trait GitHandler: Send + Sync {
     ) -> Pin<Box<dyn Future<Output = Option<Response>> + Send + '_>>;
 
     /// 진행 중 git 작업이다 (`/api/stats?jobs=1`). git 이 없으면 `None` 이다.
-    fn active_jobs(&self) -> Option<Vec<dm_webserver_domain_git_jobs::Job>> {
+    fn active_jobs(&self) -> Option<Vec<otter_webserver_domain_git_jobs::Job>> {
         None
     }
 }
@@ -124,12 +124,12 @@ impl Server {
         let (parts, body) = req.into_parts();
         let hdr_id = parts
             .headers
-            .get(dm_shared_dmlog::REQ_ID_HEADER)
+            .get(otter_shared_otterlog::REQ_ID_HEADER)
             .map(|v| String::from_utf8_lossy(v.as_bytes()).into_owned())
             .unwrap_or_default();
-        let mut id = dm_shared_dmlog::sanitize_req_id(&hdr_id).to_owned();
+        let mut id = otter_shared_otterlog::sanitize_req_id(&hdr_id).to_owned();
         if id.is_empty() {
-            id = dm_shared_dmlog::new_req_id();
+            id = otter_shared_otterlog::new_req_id();
         }
         let body = body
             .map_err(|e| BodyError(Into::<BoxError>::into(e).to_string()))
@@ -151,7 +151,8 @@ impl Server {
             return res;
         }
         if let Ok(v) = HeaderValue::from_str(&id) {
-            res.headers_mut().insert(dm_shared_dmlog::REQ_ID_HEADER, v);
+            res.headers_mut()
+                .insert(otter_shared_otterlog::REQ_ID_HEADER, v);
         }
         res
     }
@@ -176,7 +177,7 @@ impl Server {
             infof!(
                 rid.as_deref(),
                 "http {method} {path} {status} {} addr={addr}",
-                dm_gocompat::time::format_std_duration(round_ms(start.elapsed()))
+                otter_gocompat::time::format_std_duration(round_ms(start.elapsed()))
             );
         }
         res
@@ -288,7 +289,7 @@ impl Server {
                 }
             }
         } else if let Some(h) =
-            dm_webserver_httproute::dispatch(&API_ROUTES, r.method.as_str(), &r.path)
+            otter_webserver_httproute::dispatch(&API_ROUTES, r.method.as_str(), &r.path)
         {
             return h(self, r).await;
         }
@@ -379,8 +380,8 @@ async fn finish(res: Response) -> Response {
         return http::Response::from_parts(parts, httpresp::empty());
     };
     let b = c.to_bytes();
-    let n = b.len().min(dm_shared_mimeprobe::SNIFF_LEN);
-    if let Ok(v) = HeaderValue::from_str(dm_shared_mimeprobe::detect_content_type(&b[..n])) {
+    let n = b.len().min(otter_shared_mimeprobe::SNIFF_LEN);
+    if let Ok(v) = HeaderValue::from_str(otter_shared_mimeprobe::detect_content_type(&b[..n])) {
         parts.headers.insert(header::CONTENT_TYPE, v);
     }
     http::Response::from_parts(parts, httpresp::full(b))
@@ -428,7 +429,7 @@ pub(crate) fn clean_path(p: &str) -> String {
     } else {
         format!("/{p}")
     };
-    let mut np = dm_gocompat::path::clean(&p);
+    let mut np = otter_gocompat::path::clean(&p);
     if p.ends_with('/') && np != "/" {
         if p.len() == np.len() + 1 && p.starts_with(&np) {
             np = p;

@@ -1,13 +1,13 @@
-//! Go 기준선 `dongminal/internal/webserver/seam/adapters` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/seam/adapters` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 도구 허브(데몬)·`workspace::Manager` 를 `seam/toolaccess` 접합면으로 잇는 어댑터들이다.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use dm_shared_toolhub::{ToolInfo as HubToolInfo, ToolSnapshot};
-use dm_shared_workspace::Manager;
-use dm_webserver_seam_toolaccess::{
+use otter_shared_toolhub::{ToolInfo as HubToolInfo, ToolSnapshot};
+use otter_shared_workspace::Manager;
+use otter_webserver_seam_toolaccess::{
     ClientToolResolver, Error, ToolInfo, ToolReader, WorkspaceEntry, WorkspaceReader,
 };
 
@@ -87,7 +87,7 @@ const ANCESTOR_WALK_MAX: usize = 32;
 impl ClientToolResolver for Client {
     fn resolve_client_pane(&self, remote_addr: &str) -> Result<(String, i64), Error> {
         // 클라이언트 pid 역추적과 부모 거슬러 오르기는 platform.ProcInfo 뒤에 있다 (FR-XPI-7).
-        let info = dm_shared_platform::current().info;
+        let info = otter_shared_platform::current().info;
         let Some(client_pid) = info.connection_owner_pid(remote_addr) else {
             return Err(format!("클라이언트 PID를 찾을 수 없음 (remoteAddr={remote_addr})").into());
         };
@@ -155,7 +155,7 @@ impl WorkspaceReader for Workspace {
         self.ws.is_known_tab_id(id)
     }
 
-    fn changes(&self) -> dm_shared_pollwait::Changed {
+    fn changes(&self) -> otter_shared_pollwait::Changed {
         self.ws.changes()
     }
 }

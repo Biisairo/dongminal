@@ -2,15 +2,17 @@
 //! 대조한다. 기대값 `go_golden_554.json` 은 Go `New(...).Handler()` 에 같은 가짜(도구 허브·입출력·
 //! 색인·명령 허브·workspace)와 시계·id 를 고정한 Run 저장소를 넣고 같은 요청을 차례로 보내 뽑았다.
 //! 요청마다 방송(`pub`)·붙여넣기(`pastes`)·workspace rev 도 대조한다. 벽시계 값(`updatedAt`·
-//! 봉투의 `ts=`)과 요청 ID 는 양쪽에서 가린다. `$DONGMINAL_HOME` 은 `{HOME}` 이다.
+//! 봉투의 `ts=`)과 요청 ID 는 양쪽에서 가린다. `$OTTERMINAL_HOME` 은 `{HOME}` 이다.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use dm_shared_pollwait::Signal;
-use dm_webserver_domain_run::Store;
-use dm_webserver_hub::{AttnTracker, CommandBroker, CommandHub};
-use dm_webserver_seam_toolaccess::{Error, ToolInfo, ToolReader, WorkspaceEntry, WorkspaceReader};
+use otter_shared_pollwait::Signal;
+use otter_webserver_domain_run::Store;
+use otter_webserver_hub::{AttnTracker, CommandBroker, CommandHub};
+use otter_webserver_seam_toolaccess::{
+    Error, ToolInfo, ToolReader, WorkspaceEntry, WorkspaceReader,
+};
 use serde::Deserialize;
 
 use super::fakes::{FakeBroker, FakeHub, FakeWork};
@@ -75,7 +77,7 @@ impl WorkspaceReader for RunIndex {
             return Ok(v.clone());
         }
         if self.labels.contains_key(&id.to_uppercase()) {
-            return Err(Box::new(dm_shared_workspace::Error::LabelRejected(
+            return Err(Box::new(otter_shared_workspace::Error::LabelRejected(
                 id.to_owned(),
             )));
         }
@@ -90,7 +92,7 @@ impl WorkspaceReader for RunIndex {
     fn is_known_tab_id(&self, _: &str) -> bool {
         false
     }
-    fn changes(&self) -> dm_shared_pollwait::Changed {
+    fn changes(&self) -> otter_shared_pollwait::Changed {
         self.sig.c()
     }
 }
@@ -230,7 +232,7 @@ fn canon(k: &str) -> String {
 }
 
 fn mask(s: &str) -> String {
-    let home = std::env::var(dm_shared_dmenv::ENV_HOME).unwrap_or_default();
+    let home = std::env::var(otter_shared_otterenv::ENV_HOME).unwrap_or_default();
     let mut s = s.to_owned();
     if !home.is_empty() {
         s = s.replace(&home, "{HOME}");
@@ -268,7 +270,9 @@ async fn send(srv: &Arc<Server>, m: &str, target: &str, body: &str) -> Resp {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn golden_554() {
-    let g: Golden = dm_gocompat::json::unmarshal(include_bytes!("go_golden_554.json")).unwrap();
+    // OTTERMINAL_RENAME_SRS FR-REN-10: 정답 자료는 옛 이름으로 기록되어 있다.
+    let golden = otter_shared_otterenv::legacy::current_names(include_str!("go_golden_554.json"));
+    let g: Golden = otter_gocompat::json::unmarshal(golden.as_bytes()).unwrap();
     let env = run_env(true, |_| {});
     let none = run_env(false, |_| {});
     let n = g.http.len();

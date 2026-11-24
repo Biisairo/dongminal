@@ -19,13 +19,13 @@ import { TMP, realPath, tmpPath, cssPath } from './osenv';
  * **사용자가 보는 결과**다. (서버의 반납은 걷혔다 — FOCUS_INITIAL_RESTORE_SRS.)
  */
 
-const FIXTURES = tmpPath('dm-uxb10-fx-' + process.pid);
+const FIXTURES = tmpPath('otter-uxb10-fx-' + process.pid);
 let BASE = '';
 let ROOT = '';
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
-  BASE = realPath(mkdtempSync(join(TMP, 'dm-uxb10-')));
+  BASE = realPath(mkdtempSync(join(TMP, 'otter-uxb10-')));
   ROOT = join(BASE, 'root');
   execFileSync('mkdir', ['-p', ROOT]);
   writeFileSync(join(ROOT, 'a.txt'), 'hello\n');

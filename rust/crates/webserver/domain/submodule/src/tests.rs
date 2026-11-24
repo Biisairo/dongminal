@@ -1,13 +1,13 @@
 use std::sync::{Arc, Mutex};
 
-use dm_shared_gittest as gittest;
-use dm_webserver_domain_git_core::{self as core, Ctx, Output, Service as GitService};
+use otter_shared_gittest as gittest;
+use otter_webserver_domain_git_core::{self as core, Ctx, Output, Service as GitService};
 
 use super::*;
 
 fn repo_path() -> String {
     let root = if cfg!(windows) { "C:\\" } else { "/" };
-    dm_gocompat::filepath::join(&[root, "repo"])
+    otter_gocompat::filepath::join(&[root, "repo"])
 }
 
 fn ctx() -> Ctx {
@@ -106,7 +106,7 @@ async fn list_empty_is_not_an_error() {
     let (m, _) = mgr("", None);
     let got = m.list(&ctx(), &repo_path()).await.unwrap();
     assert!(got.is_empty());
-    assert_eq!(dm_gocompat::json::marshal(&got).unwrap(), b"[]");
+    assert_eq!(otter_gocompat::json::marshal(&got).unwrap(), b"[]");
 }
 
 #[tokio::test]
@@ -409,7 +409,7 @@ async fn exec_git_keeps_leading_space() {
 fn entry_json_shape() {
     let v = vec![e("o", "p", STATE_OK, ""), e("o", "p", STATE_OK, "d")];
     assert_eq!(
-        dm_gocompat::json::marshal(&v).unwrap(),
+        otter_gocompat::json::marshal(&v).unwrap(),
         br#"[{"path":"p","oid":"o","state":"ok"},{"path":"p","oid":"o","state":"ok","describe":"d"}]"#
     );
 }

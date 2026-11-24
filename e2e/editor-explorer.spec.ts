@@ -112,7 +112,7 @@ function makeRepo(base: string) {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-edx-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-edx-')));
   PLAIN = makePlain(BASE);
   REPO = makeRepo(BASE);
 });
@@ -608,7 +608,7 @@ test.describe('묶음 X — 다시 그리기와 실패의 회복 (FR-EDT-66·69)
       })).toBe(false);
     });
   test('X16 (FR-EDT-42): 일반 창에 있는 동안 Editor 행을 지워도 그 창의 탐색기가 즉시 거둬진다', async ({ page, request }) => {
-    const base = fs.mkdtempSync(path.join(TMP, 'dm-ed-reap-'));
+    const base = fs.mkdtempSync(path.join(TMP, 'otter-ed-reap-'));
     const root = makePlain(base);
     await enterExplorer(page, request, root);
     await expect.poll(() => page.evaluate(() => (window as any).app.testing.edTrees?.size || 0)).toBeGreaterThan(0);

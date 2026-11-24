@@ -3,11 +3,11 @@
 use std::fmt;
 use std::io;
 
-use dm_webserver_domain_git_core as core;
-use dm_webserver_domain_git_jobs as jobs;
-use dm_webserver_domain_git_query as query;
-use dm_webserver_domain_git_write as write;
-use dm_webserver_domain_worktree as worktree;
+use otter_webserver_domain_git_core as core;
+use otter_webserver_domain_git_jobs as jobs;
+use otter_webserver_domain_git_query as query;
+use otter_webserver_domain_git_write as write;
+use otter_webserver_domain_worktree as worktree;
 
 /// wsentry 의 sentinel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -114,15 +114,15 @@ impl Classify for worktree::Error {
     }
 }
 
-impl Classify for dm_webserver_domain_run::Error {
+impl Classify for otter_webserver_domain_run::Error {
     fn is(&self, s: &Sentinel) -> bool {
         matches!(s, Sentinel::Run(c) if self.code() == *c)
     }
 }
 
-impl Classify for dm_webserver_domain_wsentry::Error {
+impl Classify for otter_webserver_domain_wsentry::Error {
     fn is(&self, s: &Sentinel) -> bool {
-        use dm_webserver_domain_wsentry::Error as E;
+        use otter_webserver_domain_wsentry::Error as E;
         let Sentinel::Wsentry(k) = s else {
             return false;
         };
@@ -142,12 +142,12 @@ impl Classify for io::Error {
     }
 }
 
-impl Classify for dm_webserver_domain_sysstat::Error {
+impl Classify for otter_webserver_domain_sysstat::Error {
     fn is(&self, s: &Sentinel) -> bool {
         matches!(
             (self, s),
             (
-                dm_webserver_domain_sysstat::Error::Unsupported,
+                otter_webserver_domain_sysstat::Error::Unsupported,
                 Sentinel::SysstatUnsupported
             )
         )

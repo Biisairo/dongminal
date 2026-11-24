@@ -1,20 +1,20 @@
 //! 도구별 사용량과 계정 한도 (Go `handlers_usage.go`, `handlers_limits.go` 의 저장소, `server_state.go`
 //! 의 `agentState`).
 //!
-//! `dmctl statusline`(프록시)이 Claude Code 의 statusLine 입력에서 꺼낸 값을 보낸다. 받는 꼴은
+//! `otterctl statusline`(프록시)이 Claude Code 의 statusLine 입력에서 꺼낸 값을 보낸다. 받는 꼴은
 //! 타입으로 고정한 허용 목록(`statusline::Usage`)이다 (FR-SLP-2a). 메모리에만 둔다.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Mutex;
 
-use dm_shared_activity as activity;
-use dm_shared_agentrec as agentrec;
-use dm_shared_httpresp::Response;
-use dm_shared_statusline as statusline;
-use dm_shared_toolipc as toolipc;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_run::ContextPolicy;
 use http::StatusCode;
+use otter_shared_activity as activity;
+use otter_shared_agentrec as agentrec;
+use otter_shared_httpresp::Response;
+use otter_shared_statusline as statusline;
+use otter_shared_toolipc as toolipc;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_run::ContextPolicy;
 use serde::Serialize;
 use time::OffsetDateTime;
 
@@ -87,7 +87,7 @@ impl UsageStore {
     }
 }
 
-/// `dmctl status` 의 `context` 다 (FR-SLP-20).
+/// `otterctl status` 의 `context` 다 (FR-SLP-20).
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub(crate) struct ToolContext {
     #[serde(rename = "usedPct", skip_serializing_if = "Option::is_none")]
@@ -226,7 +226,7 @@ fn limit_window_of(name: &str, w: &statusline::RateWindow, now: OffsetDateTime) 
         level: String::new(),
     };
     if let Some(pct) = w.used_pct {
-        out.level = dm_webserver_domain_claudeacct::usage_level(pct).to_owned();
+        out.level = otter_webserver_domain_claudeacct::usage_level(pct).to_owned();
     }
     if let Some(mut at) = w.resets_at {
         if at > RESETS_AT_MILLIS_FLOOR {
@@ -371,7 +371,7 @@ impl Server {
         if let (Some(acc), Some(ca)) = (acc, &self.ca) {
             ca.sl.put(acc, u.usage.rate_limits.as_ref(), now);
         } else if let (Some(agent), Some(limits)) =
-            (dm_shared_agentadapter::status_line_reporter(), limits)
+            (otter_shared_agentadapter::status_line_reporter(), limits)
         {
             self.agents.rate_limits.put(agent, limits, now);
             let recs = self.agents.rate_limits.records();
@@ -426,7 +426,7 @@ impl Server {
         let Some(tokens) = u.context_tokens() else {
             return;
         };
-        let mut obs = dm_webserver_domain_run::ContextObservation {
+        let mut obs = otter_webserver_domain_run::ContextObservation {
             tokens: tokens as i64,
             has_tokens: true,
             ..Default::default()

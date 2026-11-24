@@ -3,9 +3,9 @@
 
 use std::sync::Arc;
 
-use dm_webserver_action::{self as action};
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_wsentry::normalize_path;
+use otter_webserver_action::{self as action};
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_wsentry::normalize_path;
 use serde_json::Value;
 
 use super::fsenv::{Env, fs_env, get, jq, post, qe, seed_root, temp_dir, write};
@@ -120,7 +120,7 @@ fn fs_under_root_allows_dot_dot_names() {
         let p = format!("{root}/{name}");
         assert_eq!(fs_under_root(&root, &p), Ok(p.clone()), "{name}");
     }
-    let parent = dm_gocompat::filepath::dir(&root);
+    let parent = otter_gocompat::filepath::dir(&root);
     assert!(fs_under_root(&root, &parent).is_err());
     assert!(fs_under_root(&root, &format!("{root}-sibling")).is_err());
 }

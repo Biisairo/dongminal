@@ -6,15 +6,15 @@
 
 use std::collections::BTreeMap;
 
-use dm_gocompat::neturl::Values;
-use dm_shared_httpresp::Response;
-use dm_webserver_action::{self as action, Answer, allow, deny};
-use dm_webserver_apierr::{self as apierr, Classify, Sentinel};
-use dm_webserver_domain_git_core::{Ctx, Kind};
-use dm_webserver_domain_git_jobs::SLOT_INDEX;
-use dm_webserver_domain_git_query::{self as query, Status};
-use dm_webserver_domain_git_write as write;
 use http::StatusCode;
+use otter_gocompat::neturl::Values;
+use otter_shared_httpresp::Response;
+use otter_webserver_action::{self as action, Answer, allow, deny};
+use otter_webserver_apierr::{self as apierr, Classify, Sentinel};
+use otter_webserver_domain_git_core::{Ctx, Kind};
+use otter_webserver_domain_git_jobs::SLOT_INDEX;
+use otter_webserver_domain_git_query::{self as query, Status};
+use otter_webserver_domain_git_write as write;
 
 use crate::GitServer;
 use crate::answers::{
@@ -247,7 +247,7 @@ impl GitServer {
     /// stash 에서 브랜치 만들기의 판정이다 (GV-c). 이름 규칙 전체는 git 에 묻는다 (FR-GIT-159).
     pub(crate) async fn stash_branch_answer(
         &self,
-        git: &std::sync::Arc<dm_webserver_domain_git_store::Store>,
+        git: &std::sync::Arc<otter_webserver_domain_git_store::Store>,
         ctx: &Ctx,
         root: &str,
         name: &str,

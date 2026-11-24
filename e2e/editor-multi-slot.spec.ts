@@ -19,7 +19,7 @@ let ROOT = '';
 let FILE = '';
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(path.join(TMP, 'dm-cms-')));
+  BASE = realPath(fs.mkdtempSync(path.join(TMP, 'otter-cms-')));
   ROOT = path.join(BASE, 'root');
   fs.mkdirSync(ROOT);
   ROOT = realPath(ROOT);

@@ -7,10 +7,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use dm_shared_activity as activity;
-use dm_shared_httpresp::Response;
-use dm_shared_statusline::Subagent;
 use http::StatusCode;
+use otter_shared_activity as activity;
+use otter_shared_httpresp::Response;
+use otter_shared_statusline::Subagent;
 use serde::Serialize;
 
 use crate::Server;
@@ -23,8 +23,8 @@ use crate::usage::{LimitEntry, ToolContext, ToolUsage};
 const ACTIVITY_STATE_UNKNOWN: &str = "unknown";
 /// 훅 상태가 없을 때 준비완료로 볼 출력 정적 구간 (FR-STA-4 3단계).
 const READY_QUIET_MS: i64 = 3000;
-const WAIT_DEFAULT_TIMEOUT_MS: i64 = dm_shared_runwait::ACTIVITY_WAIT_DEFAULT.as_millis() as i64;
-const WAIT_MAX_TIMEOUT_MS: i64 = dm_shared_runwait::ACTIVITY_WAIT_MAX.as_millis() as i64;
+const WAIT_DEFAULT_TIMEOUT_MS: i64 = otter_shared_runwait::ACTIVITY_WAIT_DEFAULT.as_millis() as i64;
+const WAIT_MAX_TIMEOUT_MS: i64 = otter_shared_runwait::ACTIVITY_WAIT_MAX.as_millis() as i64;
 const WAIT_MIN_TIMEOUT_MS: i64 = 100;
 /// 생존 확인의 주기다 (NFR-RUN-4). 알림 밖의 변화를 줍는 안전망이기도 하다.
 const WAIT_LIVENESS_INTERVAL: Duration = Duration::from_secs(1);
@@ -278,7 +278,7 @@ impl Server {
         let Some(m) = self.runs().and_then(|st| st.member_by_tool(tool_id)) else {
             return true;
         };
-        match dm_shared_agentadapter::get(&m.agent) {
+        match otter_shared_agentadapter::get(&m.agent) {
             Ok(ad) => !ad.readiness.hooks,
             Err(_) => true,
         }

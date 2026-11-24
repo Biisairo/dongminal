@@ -3,8 +3,8 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use dm_webserver_domain_git_core::{self as core, Kind, Output, Service};
-use dm_webserver_domain_git_query as query;
+use otter_webserver_domain_git_core::{self as core, Kind, Output, Service};
+use otter_webserver_domain_git_query as query;
 
 use super::support::*;
 use crate::*;
@@ -248,7 +248,7 @@ async fn discard_failure_leaves_no_hint() {
 // DIFF-14: `:` 로 시작하는 경로가 pathspec 매직으로 읽히지 않는다 — 그 이름의 파일만 스테이징된다.
 #[tokio::test]
 async fn stage_reads_magic_looking_path_literally() {
-    let Some(repo) = dm_shared_gittest::repo() else {
+    let Some(repo) = otter_shared_gittest::repo() else {
         return;
     };
     let dir = repo.path().to_str().unwrap().to_owned();

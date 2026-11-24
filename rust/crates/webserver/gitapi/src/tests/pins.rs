@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::time::Duration;
 
-use dm_webserver_domain_wsentry as wsentry;
+use otter_webserver_domain_wsentry as wsentry;
 use serde_json::{Value, json};
 
 use super::harness::*;

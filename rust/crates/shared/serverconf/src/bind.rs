@@ -76,7 +76,7 @@ pub fn write_addr(home: &Path, addr: &str) -> Result<(), Error> {
     }
     let path = addr_path(home);
     fsx::mkdir_all(&home.join(ADDR_DIR), 0o700)?;
-    dm_shared_platform::write_file_atomic(&path, format!("{addr}\n").as_bytes(), 0o600)?;
+    otter_shared_platform::write_file_atomic(&path, format!("{addr}\n").as_bytes(), 0o600)?;
     Ok(())
 }
 

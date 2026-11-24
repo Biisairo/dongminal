@@ -4,8 +4,8 @@
 
 use std::sync::Arc;
 
-use dm_webserver_domain_git_core::Service;
-use dm_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_domain_git_core::Service;
+use otter_webserver_domain_git_store::{Store, StoreOptions};
 
 use super::support::{get, server};
 use crate::Deps;
@@ -69,10 +69,10 @@ async fn git_status_through_httpapi() {
     let d = tempfile::tempdir().unwrap();
     let repo = d.path().join("repo");
     std::fs::create_dir(&repo).unwrap();
-    if dm_shared_gittest::path().is_none() {
+    if otter_shared_gittest::path().is_none() {
         return; // git 이 없다.
     }
-    dm_shared_gittest::run(&repo, &["init", "-q"]);
+    otter_shared_gittest::run(&repo, &["init", "-q"]);
     let s = server(
         d.path(),
         Deps {

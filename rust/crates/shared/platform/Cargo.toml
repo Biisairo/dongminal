@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-platform"
+name = "otter-shared-platform"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,9 +10,9 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-dmenv = { path = "../dmenv" }
-dm-shared-dmlog = { path = "../dmlog" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-otterenv = { path = "../otterenv" }
+otter-shared-otterlog = { path = "../otterlog" }
 socket2 = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]

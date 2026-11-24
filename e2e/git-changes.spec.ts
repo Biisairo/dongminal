@@ -15,7 +15,7 @@ import { tmpPath, realPath, cssPath } from './osenv';
 // 테스트 저장소는 e2e/git_fixture.sh 가 만든다 (design/README.md) — 테스트
 // 안에서 git init 을 되풀이하지 않는다.
 
-const FIXTURES = tmpPath('dm-git-fx-changes-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-changes-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

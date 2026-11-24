@@ -205,7 +205,7 @@ const LEGACY_WS: &str = r#"{
   "activeWindow": "s45",
   "agentsOrder": ["267"],
   "windows": [
-    {"id":"s45","name":"dongminal","focusedPane":"r146","layout":{
+    {"id":"s45","name":"otterminal","focusedPane":"r146","layout":{
       "type":"split","direction":"vertical","sizes":[0.5,0.5],
       "children":[
         {"type":"pane","id":"r146","activeTab":"t201","tabs":[
@@ -558,7 +558,7 @@ fn apply_refuses_while_daemon_alive() {
     assert_eq!(
         e.to_string(),
         format!(
-            "dongminald 가 실행 중입니다 — `dongminal stop --all` 로 정지한 뒤 다시 실행하세요 (pid={pid})"
+            "otterminald 가 실행 중입니다 — `otterminal stop --all` 로 정지한 뒤 다시 실행하세요 (pid={pid})"
         )
     );
     assert!(!exists(dir, "tools.json"));

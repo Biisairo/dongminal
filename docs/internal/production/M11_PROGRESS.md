@@ -104,7 +104,7 @@ M11-B7 의 신원 보고는 *"어떤 실패에서도 조용하다"* 로 적혀 �
 떼어낸다. `run_in_background` 는 세션에 묶여 있어 경계를 넘지 못한다.
 
     nohup env PW_WORKERS=1 sh -c 'seq 6 8 | xargs -P 3 -I{} scripts/e2e-shard-run.sh {} 8' \
-      > /tmp/dm-e2e-678.log 2>&1 &
+      > /tmp/otter-e2e-678.log 2>&1 &
 
 **샤드 리포트가 부분 완주를 살린다.** 세 번째 실행은 s1~s5 를 완주하고 죽었는데, 그
 다섯은 `test-results/s<N>/report.json` 에 `unexpected 0` 으로 남아 있었다 — 소스가
@@ -356,7 +356,7 @@ const dom = [...p.el.querySelector('.xterm-rows').children].map(r => r.textConte
 ### 3-3. TUI 가 칸을 **건너뛰는지**는 와이어가 답한다
 
 ```sh
-dmctl read-output --at <탭 uuid> --bytes 400000 | cat -v | head
+otterctl read-output --at <탭 uuid> --bytes 400000 | cat -v | head
 ```
 
 `^[[2C`(커서 전진) · `^[[19G`(절대 열)가 보이면 그 TUI 는 **공백 칸을 쓰지 않고 지나간다.**
@@ -368,7 +368,7 @@ dmctl read-output --at <탭 uuid> --bytes 400000 | cat -v | head
 ### 3-4. 서버만 재시작해 **소켓이 없는 구간**을 만든다
 
 ```sh
-dongminal stop --port <n> --home <홈>     # --all 이 없으면 dongminald·세션은 산다
+otterminal stop --port <n> --home <홈>     # --all 이 없으면 otterminald·세션은 산다
 ```
 
 도구는 데몬이 들고 있으므로 살아남고, 브라우저의 WS 만 끊긴다. 재접속 대기 구간에서

@@ -1,15 +1,15 @@
 //! 경로·브랜치 이름 파생과 ref 인자 검사 (FR-WKT-3·6·13).
 
-use dm_gocompat::filepath;
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_git_core as core;
+use otter_gocompat::filepath;
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_git_core as core;
 use sha2::{Digest, Sha256};
 
 use crate::error::{Error, Kind};
 
 const SLUG_MAX: usize = 40;
 const BUCKET_HASH_LEN: usize = 8;
-const BRANCH_PREFIX: &str = "dmn/";
+const BRANCH_PREFIX: &str = "otter/";
 const REF_FORBIDDEN: &str = "~^:?*[\\\"'`$;|&<>";
 
 /// 사용자 worktree 영역의 저장소별 버킷 이름이다 (FR-WKT-13, V159):
@@ -24,7 +24,7 @@ pub fn repo_bucket(root: &str) -> String {
     )
 }
 
-/// 브랜치 이름을 파생한다 (FR-WKT-3): `dmn/<run.short>/<role>`. role 을 ASCII 로 환원할 수
+/// 브랜치 이름을 파생한다 (FR-WKT-3): `otter/<run.short>/<role>`. role 을 ASCII 로 환원할 수
 /// 없으면 fallback, 그것도 없으면 `member` 다.
 pub fn branch(run_short: &str, role: &str, fallback: &str) -> String {
     let mut name = slug(role);

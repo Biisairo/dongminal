@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/edgemesh` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/edgemesh` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 간선 계층의 간선 연결과 망 정보다 (EDGE_MESH_SRS). 간선마다 계속 열어 두는 연결 하나를 갖고,
 //! 그 연결로 망 정보(`net`)·직접 정보(`hello`)·간선 초대(`invite`)·생존 확인(`ping`)을 주고받는다.

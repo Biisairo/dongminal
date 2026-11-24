@@ -17,7 +17,7 @@ import {
 import { TMP, realPath } from './osenv';
 
 let BASE = '';
-test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'dm-clg-'))) });
+test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'otter-clg-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
 const OVERLAY = '.confirm-overlay';
@@ -124,7 +124,7 @@ test.describe('나가기 확인 토글', () => {
     await seedConfirmLeave(request, true);
     await waitForInit(page);
     expect(await guardFires(page)).toBe(true);
-    await page.evaluate(() => { (window as any).__dmReloading = true });
+    await page.evaluate(() => { (window as any).__otterReloading = true });
     expect(await guardFires(page)).toBe(false);
   });
 });

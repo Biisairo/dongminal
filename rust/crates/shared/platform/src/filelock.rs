@@ -49,7 +49,8 @@ impl Drop for FileLock {
 /// POSIX 는 flock, Windows 는 LockFileEx 다 — Go 판과 같은 파일을 두고 서로를 막는다.
 pub fn lock_file(path: &Path, timeout: Duration) -> Result<FileLock, LockError> {
     let dir = crate::atomic::parent_dir(path);
-    dm_gocompat::oserr::mkdir_all(&dir.to_string_lossy(), LOCK_DIR_PERM).map_err(LockError::Io)?;
+    otter_gocompat::oserr::mkdir_all(&dir.to_string_lossy(), LOCK_DIR_PERM)
+        .map_err(LockError::Io)?;
     let mut opts = OpenOptions::new();
     opts.read(true).write(true).create(true).truncate(false);
     #[cfg(unix)]

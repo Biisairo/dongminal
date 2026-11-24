@@ -1,4 +1,6 @@
-# Dongminal
+<p align="center"><img src="web/assets/brand/otter-02.svg" alt="otterminal" width="640"></p>
+
+# Otterminal
 
 **브라우저에서 쓰는 터미널 워크스페이스.** 서버에서 한 번 띄우면, 노트북에서도
 아이패드에서도 같은 터미널·같은 창 배치로 이어서 씁니다. 창을 닫아도 세션은
@@ -18,10 +20,10 @@
 **macOS (Apple Silicon)**
 
 ```bash
-curl -fL -o dongminal https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-darwin-arm64
-chmod +x dongminal && xattr -d com.apple.quarantine dongminal
-./dongminal start
-./dongminal window
+curl -fL -o otterminal https://github.com/Biisairo/otterminal/releases/latest/download/otterminal-darwin-arm64
+chmod +x otterminal && xattr -d com.apple.quarantine otterminal
+./otterminal start
+./otterminal window
 ```
 
 Intel 맥이면 `darwin-arm64` 를 `darwin-amd64` 로 바꾸세요.
@@ -33,9 +35,9 @@ Intel 맥이면 `darwin-arm64` 를 `darwin-amd64` 로 바꾸세요.
 **Linux · WSL**
 
 ```bash
-curl -fL -o dongminal https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-linux-amd64
-chmod +x dongminal
-./dongminal start
+curl -fL -o otterminal https://github.com/Biisairo/otterminal/releases/latest/download/otterminal-linux-amd64
+chmod +x otterminal
+./otterminal start
 ```
 
 ARM 이면 `linux-amd64` 를 `linux-arm64` 로.
@@ -43,9 +45,9 @@ ARM 이면 `linux-amd64` 를 `linux-arm64` 로.
 **Windows 10 1809+** (PowerShell)
 
 ```powershell
-curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-windows-amd64.exe
-.\dongminal.exe start
-.\dongminal.exe window
+curl.exe -fL -o otterminal.exe https://github.com/Biisairo/otterminal/releases/latest/download/otterminal-windows-amd64.exe
+.\otterminal.exe start
+.\otterminal.exe window
 ```
 
 받은 파일이 맞는지 확인하려면 릴리스 페이지의 `SHA256SUMS` 를 함께 받아
@@ -58,14 +60,14 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 **1. 띄웁니다.**
 
 ```bash
-./dongminal start
+./otterminal start
 ```
 
-`✅ dongminal running on http://127.0.0.1:58146 (local-only)` 가 뜨면 준비된 것입니다.
+`✅ otterminal running on http://127.0.0.1:58146 (local-only)` 가 뜨면 준비된 것입니다.
 터미널은 돌려받습니다 — 서버는 뒤에서 계속 돕니다.
 
 **2. 엽니다.** 브라우저에서 `http://localhost:58146` 으로 들어가거나,
-`./dongminal window` 로 주소창 없는 창을 띄웁니다.
+`./otterminal window` 로 주소창 없는 창을 띄웁니다.
 
 **3. 나눠 씁니다.** 탭 줄 오른쪽 끝의 분할 단추 둘(툴팁 `Split Horizontal` ·
 `Split Vertical`)로 화면을 가르고, 탭 줄의 `+` 로 탭을 늘립니다. 목록 패널(전의 사이드바 — 두 사이드 패널 중 창·저장소·채팅 목록이 있는 쪽)의
@@ -74,7 +76,7 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 **4. 다른 기기에서도 씁니다.**
 
 ```bash
-./dongminal start --expose      # 0.0.0.0 에 바인드
+./otterminal start --expose      # 0.0.0.0 에 바인드
 ```
 
 같은 네트워크의 다른 기기에서 `http://<서버-IP>:58146` 으로 들어가면 됩니다.
@@ -91,7 +93,7 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 >
 > **그리고 접속은 곧 전권입니다.** 들어온 기기는 서버를 띄운 계정의 권한으로
 > **파일시스템 전체를 읽고 씁니다** — 편집기와 git 종단에 경로 경계가 없습니다
-> (2026-09-20 ~, 사용자 결정). `~/.dongminal` 아래도 예외가 아니어서 허용 목록
+> (2026-09-20 ~, 사용자 결정). `~/.otterminal` 아래도 예외가 아니어서 허용 목록
 > 파일 자체를 덮을 수 있습니다.
 >
 > 그래서 아래 셋은 "지켜 주세요" 가 아니라 **필수**입니다.
@@ -100,7 +102,7 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 >    평문 HTTP 이므로 그 밖에서는 같은 네트워크에서 트래픽이 읽힙니다.
 > 2. **`--expose` 에는 허용 목록을 켠다.** 켜지 않으면 서버가 뜨지 않습니다.
 >    되돌리는 길은 `--insecure-no-acl` 하나이고 그 이름이 곧 경고입니다.
-> 3. **공용 Wi-Fi 에서는 `--expose` 를 쓰지 않는다.** `DONGMINAL_HOST` 를 셸
+> 3. **공용 Wi-Fi 에서는 `--expose` 를 쓰지 않는다.** `OTTERMINAL_HOST` 를 셸
 >    프로필에 넣어 두었다면 그것도 같습니다 — 환경변수 하나로 노출됩니다.
 >
 > **무엇을 보증하고 무엇을 보증하지 않는지는 [`SECURITY.md`](./SECURITY.md) 에
@@ -110,8 +112,8 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 **5. 멈춥니다.**
 
 ```bash
-./dongminal stop        # 서버만 정지 (터미널 세션은 살아 있습니다)
-./dongminal stop --all  # 세션까지 정리
+./otterminal stop        # 서버만 정지 (터미널 세션은 살아 있습니다)
+./otterminal stop --all  # 세션까지 정리
 ```
 
 ---
@@ -124,7 +126,7 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 브라우저를 닫아도, 다른 기기로 옮겨도 그대로 이어집니다. 자주 쓰는 배치는
 **프리셋**으로 저장해 두고 한 번에 펼칩니다.
 
-터미널 안에서 `dmctl` 로 워크스페이스를 조작할 수도 있습니다 — 새 창을 만들거나,
+터미널 안에서 `otterctl` 로 워크스페이스를 조작할 수도 있습니다 — 새 창을 만들거나,
 화면을 나누거나, 다른 탭으로 포커스를 옮기는 일을 명령으로 합니다.
 
 **창을 한 화면에 여럿 놓습니다.** 상단바의 `− 1 +`(가운데 숫자는 지금 칸 수)로 칸을 넷까지 늘리고
@@ -167,7 +169,7 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 창이 서고, 그 안에서는 여느 편집기와 똑같이 씁니다 — 탐색기의 `새 파일` 로 메모를
 늘리고, 분할해서 둘을 나란히 놓고, `Cmd+S` 로 저장합니다.
 
-메모는 **서버의 `~/.dongminal/notes/` 에 그냥 파일로** 삽니다. 브라우저를 닫아도,
+메모는 **서버의 `~/.otterminal/notes/` 에 그냥 파일로** 삽니다. 브라우저를 닫아도,
 다른 기기에서 접속해도 그대로 있고, 터미널에서 `grep` 으로 뒤지거나 git 으로
 버전을 매길 수도 있습니다.
 
@@ -186,11 +188,11 @@ Claude Code·Codex 같은 에이전트를 터미널에서 돌릴 때, **보고 �
 있다가, 서버가 다시 붙으면 그대로 보입니다. 서버가 꺼져 있는 동안 들어온 에이전트
 보고도 데몬이 받아 둡니다.
 
-**데몬을 새 판으로 바꿔도 세션이 남습니다.** `dongminal start` 는 데몬을 세션을 유지한 채
+**데몬을 새 판으로 바꿔도 세션이 남습니다.** `otterminal start` 는 데몬을 세션을 유지한 채
 교체합니다(macOS·Linux). 돌고 있는 데몬이 교체를 모르는 옛 판이면 한 번은
-`dongminal start --refresh-daemon` 으로 새로 띄워야 합니다(터미널 세션을 잃습니다).
+`otterminal start --refresh-daemon` 으로 새로 띄워야 합니다(터미널 세션을 잃습니다).
 
-`dmctl run` 이나 `/dongminal:issue-tree` 로 여러 에이전트를 묶어 돌리면 작업 패널의 `Run`
+`otterctl run` 이나 `/otterminal:issue-tree` 로 여러 에이전트를 묶어 돌리면 작업 패널의 `Run`
 탭(`Ctrl+Shift+O`)에서 이슈 트리를 봅니다. `Cmd+휠`(Windows·Linux 는 `Ctrl+휠`)로
 줌하고 끌어서 옮깁니다.
 
@@ -202,9 +204,9 @@ Telegram 은 **보기 전용**입니다. 답은 PC 로 돌아와서 하고, 알�
 PC 한 대에서만 씁니다. 자세히는
 [Telegram 알림](docs/external/features.md#telegram-알림-실험-기능).
 
-**다른 PC 의 dongminal 과 간선을 맺을 수 있습니다.** 간선은 서로의 인증서 지문을 믿고
+**다른 PC 의 otterminal 과 간선을 맺을 수 있습니다.** 간선은 서로의 인증서 지문을 믿고
 TLS 로 잇는 관계입니다. 노드 포트는 기본으로 꺼져 있습니다. 설정 → 간선 탭이나
-`dmctl edge` 로 다룹니다. 한 노드는 간선을 64개까지 맺습니다 — 자세히는 [노드 간 통신](docs/external/edges.md).
+`otterctl edge` 로 다룹니다. 한 노드는 간선을 64개까지 맺습니다 — 자세히는 [노드 간 통신](docs/external/edges.md).
 
 **간선으로 이어진 노드끼리 채팅합니다.** 목록 패널의 `채팅` 탭(`Ctrl+Shift+3`)에 방 목록과
 온라인 목록이 있습니다. 방을 누르면 채팅 전용 창에 그 방의 탭이 열립니다. 대화는 남지 않습니다 —
@@ -221,7 +223,7 @@ Claude** 에서 지금 로그인한 계정을 등록하고, 계정마다 별칭�
 계정으로 전환합니다. 작업 패널을 레일로 접어도 맨 아래에 사용 중 계정의 이름과 `5h`·`7d`
 세로 막대 둘이 남습니다. 막대 위의 숫자는 사용률(%)이고, 자세한 값은 막대에 마우스를 올리면 보입니다.
 
-전환은 카드 요약, 머리 줄의 `전환 …` 메뉴, `dmctl account switch` 로 합니다. 자동 전환을
+전환은 카드 요약, 머리 줄의 `전환 …` 메뉴, `otterctl account switch` 로 합니다. 자동 전환을
 켜 두면 활성 계정이 문턱값에 닿을 때 여유가 있는 계정으로 옮깁니다. 폴더나 탭에 계정을
 정해 두면 그 자리에서 실행한 claude 가 그 계정을 씁니다(탐색기 폴더 우클릭
 "Claude 계정 연결…", 탭 우클릭 "Claude 계정…"). 계정 토큰과 사용량 조회는 이 PC 안에서만
@@ -282,7 +284,7 @@ UI 는 **한국어(`ko`)와 영어(`en`)** 로 나오고 기본은 한국어입�
 기준이고, 바꾸면 페이지가 다시 열립니다. 번역이 빠진 문장은 한국어로 나오고 브라우저
 콘솔에 경고가 남습니다.
 
-범위 밖은 셋입니다 — `dongminal`·`dmctl` 의 **터미널 출력**, 서버 **로그**, 서버
+범위 밖은 셋입니다 — `otterminal`·`otterctl` 의 **터미널 출력**, 서버 **로그**, 서버
 **오류 응답의 본문**(코드 `X-Error-Code` 로 화면 문장을 고르므로 본문은 그대로입니다).
 근거와 규약은 [통합 일정 SRS](docs/internal/M8_UNIFIED_SRS.md) §3.3 에 있습니다.
 
@@ -323,17 +325,17 @@ UI 는 **한국어(`ko`)와 영어(`en`)** 로 나오고 기본은 한국어입�
 **터미널이 뜨지 않거나 비어 보이면** 먼저 이것을 돌립니다.
 
 ```bash
-./dongminal doctor
+./otterminal doctor
 ```
 
 셸 선택, 의사 터미널 기동, 로컬 통신, 프로세스 제어를 **계층별로 실제 실행해서**
 어디서 막혔는지 그대로 보여 줍니다. 증상만으로 추측하지 않아도 됩니다.
 
-**에이전트 훅이 `dmctl: No such file or directory` 로 실패하면** 설치된 헬퍼가
+**에이전트 훅이 `otterctl: No such file or directory` 로 실패하면** 설치된 헬퍼가
 깨진 것입니다.
 
 ```bash
-./dongminal health
+./otterminal health
 ```
 
 가 그 사실을 알려 주고, 서버를 다시 띄우면 다시 설치됩니다.
@@ -351,10 +353,10 @@ UI 는 **한국어(`ko`)와 영어(`en`)** 로 나오고 기본은 한국어입�
 
 - [설치·실행 자세히](docs/external/getting-started.md) — 환경 변수, 격리 실행, 헬퍼 배포
 - [기능 전반](docs/external/features.md) — 창·터미널·Git·편집기·표시 설정·Claude 계정
-- [터미널 안 명령](docs/external/commands.md) — `dmctl` · `edit` · `download` · `detach`
+- [터미널 안 명령](docs/external/commands.md) — `otterctl` · `edit` · `download` · `detach`
 - [단축키](docs/external/shortcuts.md)
 - [에이전트 오케스트레이션](docs/external/agent-orchestration.md)
-- [노드 간 통신](docs/external/edges.md) — 다른 PC 의 dongminal 과 간선 맺기
+- [노드 간 통신](docs/external/edges.md) — 다른 PC 의 otterminal 과 간선 맺기
 - [HTTP·WebSocket API](docs/external/api.md)
 - [변경 이력](CHANGELOG.md)
 

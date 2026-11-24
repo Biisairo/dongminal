@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/domain/git/query` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/domain/git/query` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 저장소를 읽는 함수들이다 (FR-GIT-2). git 실행은 전부 `core::Service::exec` 를 지난다.
 //! 함수는 `&Service` 를 첫 인자로 받는다 (FR-GIT-4).

@@ -43,7 +43,7 @@
 | 용어 | 정의 |
 |---|---|
 | **브라우저 종단간** | `playwright test` — 실제 브라우저가 실제 서버를 조작한다 (`e2e/*.spec.ts`, 1,257항목) |
-| **종단간(verify)** | `dongminal verify` — 브라우저 없이 서버·데몬·PTY 를 훑는 Go 한 벌 (`verify.yml`) |
+| **종단간(verify)** | `otterminal verify` — 브라우저 없이 서버·데몬·PTY 를 훑는 Go 한 벌 (`verify.yml`) |
 | **러너** | GitHub Actions 의 `runs-on` 호스트. `ubuntu-latest` · `windows-latest` |
 | **개발 호스트** | 이 저장소를 사람이 손으로 돌리는 자리. macOS 다 (CROSS_PLATFORM_SRS R-1) |
 | **샤드** | `--shard=n/8`. 러너를 나눠 스위트를 여덟으로 가른다 |
@@ -62,7 +62,7 @@
 | `e2e.yml` 러너 | `ubuntu-latest` 하나 × 샤드 4 |
 | `verify.yml` 러너 | `windows-latest` · `ubuntu-latest` (macOS 없음) — build·vet·단위·doctor·verify |
 | `release.yml` gate | 세 OS. 단 build·vet·단위·doctor·verify 이며 **브라우저 종단간은 없다** |
-| 스펙의 임시 디렉터리 | `'/tmp/dm-git-fx-…' + process.pid` 리터럴 (스펙 30여 자리) · `readdirSync('/tmp')` (global-setup·teardown) |
+| 스펙의 임시 디렉터리 | `'/tmp/otter-git-fx-…' + process.pid` 리터럴 (스펙 30여 자리) · `readdirSync('/tmp')` (global-setup·teardown) |
 | 픽스처 저장소 | `execFileSync('bash', ['e2e/git_fixture.sh', FIXTURES])` |
 | 셸에 타이핑하는 명령 | `echo …` · `cd /tmp` · `sleep 2 && …` — POSIX 셸 전제 |
 

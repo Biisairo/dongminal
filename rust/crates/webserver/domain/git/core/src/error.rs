@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use dm_gocompat::strconv::quote;
+use otter_gocompat::strconv::quote;
 
 use crate::ctx::{Ctx, CtxError};
 use crate::exclusion::index_locked_stderr;

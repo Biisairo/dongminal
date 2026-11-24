@@ -1,5 +1,5 @@
 [package]
-name = "dm-webserver-apierr"
+name = "otter-webserver-apierr"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,16 +10,16 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-shared-edge = { path = "../../shared/edge" }
-dm-shared-httpreq = { path = "../../shared/httpreq" }
-dm-shared-httpresp = { path = "../../shared/httpresp" }
-dm-webserver-domain-git-core = { path = "../domain/git/core" }
-dm-webserver-domain-git-jobs = { path = "../domain/git/jobs" }
-dm-webserver-domain-git-query = { path = "../domain/git/query" }
-dm-webserver-domain-git-write = { path = "../domain/git/write" }
-dm-webserver-domain-run = { path = "../domain/run" }
-dm-webserver-domain-sysstat = { path = "../domain/sysstat" }
-dm-webserver-domain-worktree = { path = "../domain/worktree" }
-dm-webserver-domain-wsentry = { path = "../domain/wsentry" }
+otter-shared-edge = { path = "../../shared/edge" }
+otter-shared-httpreq = { path = "../../shared/httpreq" }
+otter-shared-httpresp = { path = "../../shared/httpresp" }
+otter-webserver-domain-git-core = { path = "../domain/git/core" }
+otter-webserver-domain-git-jobs = { path = "../domain/git/jobs" }
+otter-webserver-domain-git-query = { path = "../domain/git/query" }
+otter-webserver-domain-git-write = { path = "../domain/git/write" }
+otter-webserver-domain-run = { path = "../domain/run" }
+otter-webserver-domain-sysstat = { path = "../domain/sysstat" }
+otter-webserver-domain-worktree = { path = "../domain/worktree" }
+otter-webserver-domain-wsentry = { path = "../domain/wsentry" }
 
 [dev-dependencies]

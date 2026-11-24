@@ -1,5 +1,5 @@
 /**
- * Dongminal — Claude 계정의 탭 틴트·Repo 칩·Explorer 칩과 계정 메뉴 (CLAUDE_ACCOUNTS_SRS FR-CAC-95~97·95a·85·36).
+ * Otterminal — Claude 계정의 탭 틴트·Repo 칩·Explorer 칩과 계정 메뉴 (CLAUDE_ACCOUNTS_SRS FR-CAC-95~97·95a·85·36).
  *
  * 해석(FR-CAC-81)은 `GET /mappings` 와 계정 목록으로 화면이 셈한다. 경로는 서버가 정규화한 값으로 견준다 (D-CAC-30).
  *

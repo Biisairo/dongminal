@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/mimeprobe` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/shared/mimeprobe` 의 Rust 포팅.
 //!
 //! **바이트의 앞머리로 그림인지**를 판정한다. 이 판정이 참이면 그 바이트가 추론된
 //! MIME 으로 우리 출처에서 인라인으로 나간다 — `/api/file/raw`(FR-DRV-24)와

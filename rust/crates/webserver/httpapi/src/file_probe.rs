@@ -4,11 +4,11 @@
 use std::fs::{File, Metadata};
 use std::io::{Read, Seek, SeekFrom};
 
-use dm_shared_editorlimit::BINARY_SNIFF_BYTES;
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_shared_mimeprobe as mimeprobe;
-use dm_webserver_apierr as apierr;
 use http::{HeaderValue, StatusCode, header};
+use otter_shared_editorlimit::BINARY_SNIFF_BYTES;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_mimeprobe as mimeprobe;
+use otter_webserver_apierr as apierr;
 use serde::Serialize;
 
 use crate::Server;
@@ -53,7 +53,7 @@ fn probe_file(f: &mut File) -> std::io::Result<(&'static str, &'static str, Vec<
 /// BOM 이면 NUL 이 있어도 텍스트다 (§3A-1). 편집기(probe)와 검색이 같이 쓴다 (FR-RDG-9).
 pub(crate) fn is_binary(head: &[u8]) -> bool {
     let head = &head[..head.len().min(BINARY_SNIFF_BYTES)];
-    if dm_shared_textenc::has_utf16_bom(head) {
+    if otter_shared_textenc::has_utf16_bom(head) {
         return false;
     }
     head.contains(&0)

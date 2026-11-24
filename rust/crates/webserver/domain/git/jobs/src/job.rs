@@ -5,11 +5,11 @@ use std::panic::AssertUnwindSafe;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_git_core::{
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_git_core::{
     self as core, BoxFut, Ctx, CtxError, Kind, LockInfo, Output, Service, UnguardedSpec, WriteSpec,
 };
-use dm_webserver_domain_git_write as write;
+use otter_webserver_domain_git_write as write;
 use serde::Serialize;
 use tokio::sync::mpsc;
 
@@ -110,13 +110,13 @@ pub struct Job {
     pub auth_required: bool,
     /// non-fast-forward 거부 (FR-GIT-105).
     pub rejected: bool,
-    #[serde(skip_serializing_if = "dm_gocompat::json::is_empty")]
+    #[serde(skip_serializing_if = "otter_gocompat::json::is_empty")]
     pub options: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "dm_gocompat::json::is_empty")]
+    #[serde(skip_serializing_if = "otter_gocompat::json::is_empty")]
     pub fixes: Option<Vec<Fix>>,
     #[serde(rename = "stderrTail", skip_serializing_if = "String::is_empty")]
     pub stderr_tail: String,
-    #[serde(skip_serializing_if = "dm_gocompat::json::is_empty")]
+    #[serde(skip_serializing_if = "otter_gocompat::json::is_empty")]
     pub slots: Option<Vec<String>>,
     pub indicator: bool,
     /// server_shutdown | index_locked | git_timeout.
@@ -345,7 +345,7 @@ impl Jobs {
         unguarded: String,
         opts: StartOptions,
     ) -> Result<Job, Error> {
-        let id = dm_shared_uuid::new_string();
+        let id = otter_shared_uuid::new_string();
         let snapshot = {
             let mut t = self.inner.lock();
             self.sweep_locked(&mut t);
@@ -476,7 +476,7 @@ impl Jobs {
                 Kind::Timeout,
                 format!(
                     "상한 {} 를 넘겨 종료했다",
-                    dm_gocompat::time::format_std_duration(self.inner.ceiling)
+                    otter_gocompat::time::format_std_duration(self.inner.ceiling)
                 ),
             ));
         }
@@ -522,7 +522,7 @@ impl Jobs {
             .get(id)
             .map(|st| st.job.kind.clone())
             .unwrap_or_default();
-        dm_shared_dmlog::errorf!(
+        otter_shared_otterlog::errorf!(
             None,
             "git job panic id={id} kind={kind} where={where_}: {v}"
         );
@@ -650,7 +650,7 @@ impl Jobs {
             .get(id)
             .map(|st| st.job.kind.clone())
             .unwrap_or_default();
-        dm_shared_dmlog::errorf!(
+        otter_shared_otterlog::errorf!(
             None,
             "git job panic id={id} kind={kind} where={where_}: {v}"
         );
@@ -713,7 +713,7 @@ impl Jobs {
 }
 
 fn check_abs_repo(repo: &str) -> Result<(), Error> {
-    if repo.trim().is_empty() || !dm_gocompat::filepath::is_abs(repo) {
+    if repo.trim().is_empty() || !otter_gocompat::filepath::is_abs(repo) {
         return Err(core::Error::new(
             Kind::UnsafeArgument,
             format!("cwd 는 절대 경로여야 한다: {}", quote(repo)),

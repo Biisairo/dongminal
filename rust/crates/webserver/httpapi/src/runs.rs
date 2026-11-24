@@ -9,16 +9,16 @@ use std::collections::BTreeMap;
 use std::future::Future;
 use std::sync::Arc;
 
-use dm_shared_activity as activity;
-use dm_shared_dmlog::infof;
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_shared_pollwait as pollwait;
-use dm_shared_runwait as runwait;
-use dm_webserver_action::{self as action, Answer};
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core as core;
-use dm_webserver_domain_run::{self as run, Member, Record};
 use http::StatusCode;
+use otter_shared_activity as activity;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::infof;
+use otter_shared_pollwait as pollwait;
+use otter_shared_runwait as runwait;
+use otter_webserver_action::{self as action, Answer};
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core as core;
+use otter_webserver_domain_run::{self as run, Member, Record};
 use serde::{Deserialize, Serialize, Serializer};
 use tokio::runtime::Handle;
 use tokio_util::sync::CancellationToken;
@@ -566,7 +566,7 @@ impl Server {
         if !run::valid_isolation(&iso) {
             let e = invalid(format!(
                 "알 수 없는 isolation: {}",
-                dm_gocompat::strconv::quote(&iso)
+                otter_gocompat::strconv::quote(&iso)
             ));
             return write_run_error(&e, Obj::new());
         }
@@ -697,7 +697,10 @@ impl Server {
         if headless && let Some(hub) = self.tools(None) {
             // `GO-8`: 이 경로에서 "이미 없다" 는 정상이다 — 오류를 명시로 무시한다.
             let _ = hub.delete(tool_id);
-            dm_shared_dmlog::errorf!(None, "[run] headless 롤백 — 멤버 등록 실패: tool={tool_id}");
+            otter_shared_otterlog::errorf!(
+                None,
+                "[run] headless 롤백 — 멤버 등록 실패: tool={tool_id}"
+            );
         }
         self.rollback_member(mi);
     }
@@ -767,7 +770,7 @@ impl Server {
                 infof!(
                     None,
                     "[run] handoff 기다림 종료 member={member_id} wait={} — 요약 없이 프리앰블을 낸다",
-                    dm_gocompat::time::format_std_duration(HANDOFF_PREAMBLE_WAIT)
+                    otter_gocompat::time::format_std_duration(HANDOFF_PREAMBLE_WAIT)
                 );
                 st.give_up_handoff(member_id);
                 true

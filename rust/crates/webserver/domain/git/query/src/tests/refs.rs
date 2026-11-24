@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::hunk_log::log_real_repo;
 use super::support::*;
 use crate::*;
-use dm_webserver_domain_git_core::{Kind, Service};
+use otter_webserver_domain_git_core::{Kind, Service};
 
 fn rr(f: [&str; 7]) -> String {
     f.join("\0")

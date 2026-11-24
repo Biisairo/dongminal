@@ -1,7 +1,7 @@
 //! 커밋 그래프 조회 (FR-GIT-120~130).
 
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_git_core::{self as core, Ctx, Service, plain_exit, unix_sec_to_milli};
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_git_core::{self as core, Ctx, Service, plain_exit, unix_sec_to_milli};
 use serde::Serialize;
 
 use crate::error::{Error, QueryKind, quote_list};

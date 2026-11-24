@@ -1,5 +1,5 @@
 /**
- * Dongminal — Git 컨텍스트 메뉴의 **항목 표** (GIT_SRS §3C.2 / FR-GIT-146)
+ * Otterminal — Git 컨텍스트 메뉴의 **항목 표** (GIT_SRS §3C.2 / FR-GIT-146)
  *
  * `menu.js`(프레임워크)에서 떼어 냈다 — 모듈 크기 기준선(FR-STR-40)을 지키기 위한
  * 이동이며 내용은 같다. 항목의 모양은 `menu.js` 머리 주석에 있다.

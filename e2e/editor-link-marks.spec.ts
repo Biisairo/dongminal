@@ -13,7 +13,7 @@ import { ED_SEL } from './editor';
 import { TMP, realPath } from './osenv';
 
 let BASE = '';
-test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'dm-elm-'))) });
+test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'otter-elm-'))) });
 test.afterAll(() => { rmTree(BASE) });
 // 설치 제안 띠가 편집기 위를 덮지 않게 서버 목록을 비운다 (editor-scrollbar.spec.ts 와 같다).
 test.beforeEach(async ({ page }) => {

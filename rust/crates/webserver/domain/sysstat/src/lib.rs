@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/domain/sysstat` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/webserver/domain/sysstat` 의 Rust 포팅.
 //!
 //! 상태바 지표(CPU·메모리·디스크·부팅시각)를 커널에서 직접 읽는다. 외부 프로세스를
 //! 띄우지 않는다 (FR-STAT-6). OS 호출은 `os` 모듈 하나에만 있고, `unsafe` 도 그

@@ -10,7 +10,7 @@ use std::ptr;
 use std::sync::OnceLock;
 use std::time::Duration;
 
-use dm_gocompat::oserr::syscall_error;
+use otter_gocompat::oserr::syscall_error;
 use windows_sys::Win32::Foundation::{ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND, WIN32_ERROR};
 use windows_sys::Win32::Networking::WinSock as ws;
 use windows_sys::Win32::Storage::FileSystem::{

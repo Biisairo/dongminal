@@ -245,7 +245,7 @@ let ROOT = '';
 
 test.describe('접근성 — 탐색기의 키보드 (FR-A11Y-16·17 / UX-4)', () => {
   test.beforeAll(() => {
-    BASE = realPath(fs.mkdtempSync(path.join(TMP, 'dm-a11y-')));
+    BASE = realPath(fs.mkdtempSync(path.join(TMP, 'otter-a11y-')));
     ROOT = path.join(BASE, 'root');
     fs.mkdirSync(path.join(ROOT, 'sub'), { recursive: true });
     fs.writeFileSync(path.join(ROOT, 'sub', 'inner.txt'), 'inner\n');

@@ -1,5 +1,5 @@
 /**
- * Dongminal — History 의 **행** (FE_MODULE_BOUNDARY_SRS FR-FMB-32).
+ * Otterminal — History 의 **행** (FE_MODULE_BOUNDARY_SRS FR-FMB-32).
  *
  * 가상 스크롤의 행 창 (FR-GIT-116, 검증 V48) · 미커밋 행 · ref 배지 · 행별 인라인
  * 레인 SVG (FR-GIT-118·119) · 날짜 표기 (O12).

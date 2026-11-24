@@ -1,5 +1,5 @@
 [package]
-name = "dm-webserver-domain-wsentry"
+name = "otter-webserver-domain-wsentry"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,11 +10,11 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../../gocompat" }
-dm-shared-listorder = { path = "../../../shared/listorder" }
-dm-shared-workspace = { path = "../../../shared/workspace" }
-dm-webserver-domain-git-core = { path = "../git/core" }
-dm-webserver-sse = { path = "../../sse" }
+otter-gocompat = { path = "../../../gocompat" }
+otter-shared-listorder = { path = "../../../shared/listorder" }
+otter-shared-workspace = { path = "../../../shared/workspace" }
+otter-webserver-domain-git-core = { path = "../git/core" }
+otter-webserver-sse = { path = "../../sse" }
 serde_json = { workspace = true }
 
 [dev-dependencies]

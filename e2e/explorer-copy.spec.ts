@@ -39,7 +39,7 @@ function mkRoot(tag: string) {
   return realPath(d);
 }
 
-test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-edcp-'))) });
+test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-edcp-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
 const row = (page: Page, p: string) => page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`);

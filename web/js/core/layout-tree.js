@@ -100,8 +100,8 @@ function doRemove(n,rid){
 }
 // uuid 생성 단일 진입점 (WORKSPACE_IDENTITY_SRS FR-UNI-3/4/5).
 //
-// crypto.randomUUID() 는 **보안 컨텍스트 전용**이다. `dongminal start --expose` /
-// DONGMINAL_HOST=0.0.0.0 은 평문 HTTP 로 LAN 에 노출하므로 그 주소로 접속한
+// crypto.randomUUID() 는 **보안 컨텍스트 전용**이다. `otterminal start --expose` /
+// OTTERMINAL_HOST=0.0.0.0 은 평문 HTTP 로 LAN 에 노출하므로 그 주소로 접속한
 // 브라우저에서는 undefined 이고, 직접 호출하면 엔터티 생성이 TypeError 로 죽는다
 // (SRS §2.7 (1)). crypto.getRandomValues() 는 비보안 컨텍스트에서도 쓸 수 있어
 // 폴백 수단이 된다.

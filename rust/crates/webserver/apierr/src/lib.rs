@@ -1,14 +1,14 @@
-//! Go 기준선 `dongminal/internal/webserver/apierr` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/apierr` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 오류값 → (HTTP 상태, 와이어 코드) 판정표와 코드 목록·안내다. 코드는 `X-Error-Code` 헤더로 실린다.
 
 use std::io;
 
-use dm_webserver_domain_git_core as core;
-use dm_webserver_domain_git_jobs::JobsKind;
-use dm_webserver_domain_git_query::QueryKind;
-use dm_webserver_domain_git_write::WriteKind;
-use dm_webserver_domain_worktree as worktree;
+use otter_webserver_domain_git_core as core;
+use otter_webserver_domain_git_jobs::JobsKind;
+use otter_webserver_domain_git_query::QueryKind;
+use otter_webserver_domain_git_write::WriteKind;
+use otter_webserver_domain_worktree as worktree;
 
 mod codes;
 mod inventory;
@@ -376,9 +376,9 @@ pub static FS: Table = Table(&[
     ),
 ]);
 /// 본문 읽기 실패의 코드다. 상한 초과만 `body_too_large` 다.
-pub fn body_read_code(err: &dm_shared_httpreq::ReadError) -> &'static str {
+pub fn body_read_code(err: &otter_shared_httpreq::ReadError) -> &'static str {
     match err {
-        dm_shared_httpreq::ReadError::TooLarge => CODE_BODY_TOO_BIG,
+        otter_shared_httpreq::ReadError::TooLarge => CODE_BODY_TOO_BIG,
         _ => CODE_BAD_REQUEST,
     }
 }
@@ -430,7 +430,7 @@ pub fn all_codes() -> Vec<&'static str> {
     let mut out = Vec::new();
     out.extend_from_slice(GIT_CODES);
     out.extend_from_slice(CORE_CODES);
-    out.extend_from_slice(dm_shared_edge::CODES);
+    out.extend_from_slice(otter_shared_edge::CODES);
     out.extend_from_slice(CHAT_CODES);
     out.extend_from_slice(TELEGRAM_CODES);
     out.extend_from_slice(CLAUDE_CODES);

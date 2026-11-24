@@ -5,8 +5,8 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use dm_gocompat::filepath;
-use dm_gocompat::oserr::{link_error, path_error};
+use otter_gocompat::filepath;
+use otter_gocompat::oserr::{link_error, path_error};
 
 /// Go `os.Open`.
 pub(crate) fn open(p: &str) -> io::Result<File> {
@@ -61,7 +61,7 @@ fn mkdir(p: &str, perm: u32) -> io::Result<()> {
 
 /// Go `os.MkdirAll`.
 pub(crate) fn mkdir_all(p: &str, perm: u32) -> io::Result<()> {
-    dm_gocompat::oserr::mkdir_all(p, perm)
+    otter_gocompat::oserr::mkdir_all(p, perm)
 }
 
 /// Go `os.OpenFile(p, O_CREATE|O_WRONLY|O_TRUNC, perm)`.

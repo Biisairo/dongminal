@@ -1,5 +1,5 @@
 [package]
-name = "dm-webserver-domain-lsp"
+name = "otter-webserver-domain-lsp"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,11 +10,11 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../../gocompat" }
-dm-shared-dmlog = { path = "../../../shared/dmlog" }
-dm-shared-editorlimit = { path = "../../../shared/editorlimit" }
-dm-shared-platform = { path = "../../../shared/platform" }
-dm-webserver-domain-ext = { path = "../ext" }
+otter-gocompat = { path = "../../../gocompat" }
+otter-shared-otterlog = { path = "../../../shared/otterlog" }
+otter-shared-editorlimit = { path = "../../../shared/editorlimit" }
+otter-shared-platform = { path = "../../../shared/platform" }
+otter-webserver-domain-ext = { path = "../ext" }
 serde = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }

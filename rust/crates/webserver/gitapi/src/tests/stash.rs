@@ -7,10 +7,10 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::SystemTime;
 
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::{self as core, Output, Service};
-use dm_webserver_domain_git_jobs::{JobRunner, LINE_STDERR};
-use dm_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::{self as core, Output, Service};
+use otter_webserver_domain_git_jobs::{JobRunner, LINE_STDERR};
+use otter_webserver_domain_git_store::{Store, StoreOptions};
 use serde_json::Value;
 use tempfile::TempDir;
 

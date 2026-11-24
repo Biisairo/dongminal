@@ -13,9 +13,9 @@
 use std::sync::{Arc, Mutex, Once};
 use std::time::{Duration, Instant};
 
-use dm_webserver_domain_git_core::{self as core, Ctx, Output};
-use dm_webserver_domain_git_jobs::{Exclusion, Keys};
 use http::Method;
+use otter_webserver_domain_git_core::{self as core, Ctx, Output};
+use otter_webserver_domain_git_jobs::{Exclusion, Keys};
 use serde_json::{Value, json};
 
 use super::answers::{branch_server, repo, status_actions};
@@ -197,7 +197,7 @@ fn stage_req() -> (Req, Ctx) {
     (r, ctx)
 }
 
-async fn run_stage(s: &Arc<GitServer>, mut r: Req) -> dm_shared_httpresp::Response {
+async fn run_stage(s: &Arc<GitServer>, mut r: Req) -> otter_shared_httpresp::Response {
     let res = s.api_git_stage(&mut r).await;
     if let Some(l) = &r.lease {
         l.release();
@@ -321,7 +321,11 @@ fn want_answers(acts: &Value, want: &[(&str, bool)]) {
         if !ok {
             assert_eq!(a["why"], "job_busy", "{id} why");
             assert!(
-                dm_webserver_action::may_give(&dm_webserver_action::catalog(), id, "job_busy"),
+                otter_webserver_action::may_give(
+                    &otter_webserver_action::catalog(),
+                    id,
+                    "job_busy"
+                ),
                 "{id} 가 동작 목록에 job_busy 를 갖지 않는다"
             );
         }
@@ -332,7 +336,7 @@ fn want_answers(acts: &Value, want: &[(&str, bool)]) {
 // index 칸 동작은 켜져 있다.
 #[tokio::test]
 async fn status_actions_follow_slots() {
-    use dm_webserver_action::*;
+    use otter_webserver_action::*;
     let f = WriteFake::new();
     let x = excl_server(&f);
     let (_, idle) = status_actions(&x.e.s, "").await;
@@ -357,7 +361,7 @@ async fn status_actions_follow_slots() {
 // GR-1b: pull 은 두 칸을 쥔다 — 동기 쓰기도 꺼진다.
 #[tokio::test]
 async fn status_actions_pull_holds_both() {
-    use dm_webserver_action::*;
+    use otter_webserver_action::*;
     let f = WriteFake::new();
     let x = excl_server(&f);
     let (code, out) = post(&x.e.s, "/api/git/pull", &repo_body()).await;
@@ -372,7 +376,7 @@ async fn status_actions_pull_holds_both() {
 // GR-1c: 잡 상태는 mark 밖이다 — unchanged 응답에도 actions 가 실린다.
 #[tokio::test]
 async fn status_actions_in_unchanged() {
-    use dm_webserver_action::*;
+    use otter_webserver_action::*;
     let f = WriteFake::new();
     let x = excl_server(&f);
     let (out, _) = status_actions(&x.e.s, "").await;
@@ -390,7 +394,7 @@ async fn status_actions_in_unchanged() {
 // 지우기 대표 셋.
 #[tokio::test]
 async fn status_actions_match_rejection() {
-    use dm_webserver_action::*;
+    use otter_webserver_action::*;
     let f = WriteFake::new();
     let x = excl_server(&f);
     let (code, out) = post(&x.e.s, "/api/git/pull", &repo_body()).await;
@@ -418,7 +422,7 @@ async fn status_actions_match_rejection() {
 // GR-2a: 칸이 먼저다 — index 잡이 돌면 상태 사실과 무관하게 job_busy.
 #[tokio::test]
 async fn fact_answers_slot_first() {
-    use dm_webserver_action::*;
+    use otter_webserver_action::*;
     let f = WriteFake::new();
     let x = excl_server(&f);
     let (code, out) = post(&x.e.s, "/api/git/pull", &repo_body()).await;

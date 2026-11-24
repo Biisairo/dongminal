@@ -4,11 +4,11 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
-use dm_shared_dmlog::infof;
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_action::{self as action, Answer};
-use dm_webserver_apierr as apierr;
 use http::{HeaderValue, StatusCode};
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::infof;
+use otter_webserver_action::{self as action, Answer};
+use otter_webserver_apierr as apierr;
 use serde::Serialize;
 use tokio_util::sync::CancellationToken;
 
@@ -81,7 +81,7 @@ fn with_etag(mut res: Response, tag: &str) -> Response {
 /// 본문을 읽어 구성으로 푼다. 실패면 이미 만든 응답이다.
 async fn read_access_config(r: &Req) -> Result<AccessConfig, Response> {
     let body = r.read_body(0).await.map_err(|e| read_body_err(&e))?;
-    dm_gocompat::json::unmarshal::<AccessConfig>(&body).map_err(|_| {
+    otter_gocompat::json::unmarshal::<AccessConfig>(&body).map_err(|_| {
         http_err(
             "invalid json",
             StatusCode::BAD_REQUEST,
@@ -207,5 +207,5 @@ impl Server {
 
 /// SSE `access_changed`.
 pub(crate) fn access_changed_payload() -> Vec<u8> {
-    dm_webserver_sse::payload("access_changed", Some(&serde_json::Map::new()))
+    otter_webserver_sse::payload("access_changed", Some(&serde_json::Map::new()))
 }

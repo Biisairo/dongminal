@@ -2,8 +2,8 @@
 
 use std::time::Duration;
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_toolipc::{
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_toolipc::{
     AttendAllResult, AttendParams, AttnConfigParams, ChatParams, ChatResult, EdgeParams,
     EdgePortParams, EdgeResult, FEATURE_CHAT, FEATURE_EDGE, METHOD_ATTEND, METHOD_ATTEND_ALL,
     METHOD_ATTN_CONFIG, METHOD_CHAT, METHOD_EDGE, METHOD_EDGE_PORT, METHOD_RECORD_SET,

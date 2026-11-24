@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * Dongminal — Git 히스토리 그래프의 레인 배치
+ * Otterminal — Git 히스토리 그래프의 레인 배치
  * (GIT_SRS §3C / FR-GIT-117~121, GIT_REVIEW4_SRS §3.3 / FR-GIT-228~234)
  *
  * **VSCode Git Graph 의 배치 알고리즘을 따른다** (`mhutchie/vscode-git-graph`

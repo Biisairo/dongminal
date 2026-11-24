@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use dm_shared_toolhub::ShellState;
-use dm_webserver_domain_run::{self as run, ContextObservation, ContextPolicy};
-use dm_webserver_seam_toolaccess::WorkspaceEntry;
+use otter_shared_toolhub::ShellState;
+use otter_webserver_domain_run::{self as run, ContextObservation, ContextPolicy};
+use otter_webserver_seam_toolaccess::WorkspaceEntry;
 use serde_json::Value;
 
 use super::golden_554::{RunEnv, run_env, run_env_with};
@@ -88,7 +88,7 @@ async fn blocking<T: Send + 'static>(
 
 #[test]
 fn member_state_from_table() {
-    use dm_shared_activity as a;
+    use otter_shared_activity as a;
     let cases: &[(&str, &str, bool, &str, bool, &str)] = &[
         (
             "쉬는 중간 노드",
@@ -602,7 +602,7 @@ async fn quiescence_follows_the_members_adapter() {
     let env = run_env(true, |_| {});
     let id = start(&env, "tool-a").await;
     add_member(&env, &id, "writer", "tab-b").await;
-    let hooks = dm_shared_agentadapter::get("claude")
+    let hooks = otter_shared_agentadapter::get("claude")
         .unwrap()
         .readiness
         .hooks;
@@ -628,13 +628,13 @@ async fn usage_report_feeds_the_run_context() {
 }
 
 /// git 이 없으면 건너뛴다.
-fn isolated_env() -> Option<(RunEnv, dm_shared_gittest::Repo, tempfile::TempDir)> {
-    let repo = dm_shared_gittest::repo()?;
+fn isolated_env() -> Option<(RunEnv, otter_shared_gittest::Repo, tempfile::TempDir)> {
+    let repo = otter_shared_gittest::repo()?;
     let home = tempfile::tempdir().unwrap();
     let root = std::fs::canonicalize(home.path())
         .unwrap()
         .join("worktrees");
-    let mgr = dm_webserver_domain_worktree::Manager::new(&root.to_string_lossy());
+    let mgr = otter_webserver_domain_worktree::Manager::new(&root.to_string_lossy());
     let env = run_env(true, move |d| d.worktrees = Some(Arc::new(mgr)));
     Some((env, repo, home))
 }

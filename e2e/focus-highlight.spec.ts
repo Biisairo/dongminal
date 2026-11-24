@@ -8,7 +8,7 @@ import { tmpPath, realPath } from './osenv';
 // UX_BATCH12_SRS FR-FHL-1~7 (R12) — Repo 창의 하이라이트는 Changes·Explorer 를 통틀어 하나이고
 // 포커스 탭을 따른다 (TC-FHL-1~3). 파일을 바꾸지 않으므로 픽스처는 스펙 하나가 함께 쓴다.
 
-const FIXTURES = tmpPath('dm-git-fx-fhl-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-fhl-' + process.pid);
 test.beforeAll(() => { gitFixture(FIXTURES) });
 test.afterAll(() => { cleanGitFixture(FIXTURES) });
 

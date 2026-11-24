@@ -21,7 +21,7 @@ declare function edDiffLines(a: string[], b: string[]): any;
 // 여럿(rename·유니코드·충돌)이라 "한 줄만 고쳤다" 를 재는 자리로는 잡음이 많다 —
 // 여기서 재는 것은 조각 하나의 좌표이므로 입력이 정확해야 한다.
 
-const ROOT = tmpPath('dm-dd-' + process.pid);
+const ROOT = tmpPath('otter-dd-' + process.pid);
 
 // 기준 파일. 줄 번호가 그대로 단언이 되므로 내용을 짧고 다르게 둔다.
 const BASE = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];

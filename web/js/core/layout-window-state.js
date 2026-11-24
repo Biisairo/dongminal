@@ -1,5 +1,5 @@
 /**
- * Dongminal — 받은 워크스페이스의 정규화와 활성 창 전환 (OPTIMIZE_REFACTOR_SRS FR-OPT-11-1).
+ * Otterminal — 받은 워크스페이스의 정규화와 활성 창 전환 (OPTIMIZE_REFACTOR_SRS FR-OPT-11-1).
  *
  * **두 로드 경로가 한 벌을 지난다** (FEC-17). 첫 로드(`init`)와 원격 채택
  * (`_applyRemoteWorkspace`)이 같은 단계를 각자 적고 있었다 — clean·normalize,

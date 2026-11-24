@@ -1,11 +1,11 @@
-//! Go 기준선 `dongminal/internal/helper/toolline` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/helper/toolline` 의 Rust 포팅.
 //!
-//! dmctl 과 MCP(list_workspace / who_am_i)가 함께 쓰는 한 줄 출력 렌더러다
-//! (DMCTL_WHO_AM_I_SRS FR-PL-1~3). 두 채널의 출력이 바이트 단위로 같아야 한다.
+//! otterctl 과 MCP(list_workspace / who_am_i)가 함께 쓰는 한 줄 출력 렌더러다
+//! (OTTERCTL_WHO_AM_I_SRS FR-PL-1~3). 두 채널의 출력이 바이트 단위로 같아야 한다.
 
 use std::fmt::Write;
 
-use dm_gocompat::strconv::append_quote;
+use otter_gocompat::strconv::append_quote;
 
 /// 한 줄의 필드다. 0·빈 값인 선택 열은 생략한다 (FR-PL-2).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

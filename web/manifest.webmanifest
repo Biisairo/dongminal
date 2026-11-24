@@ -1,6 +1,6 @@
 {
-  "name": "dongminal",
-  "short_name": "dongminal",
+  "name": "otterminal",
+  "short_name": "otterminal",
   "description": "브라우저에서 쓰는 터미널 워크스페이스",
   "start_url": "/",
   "display": "standalone",

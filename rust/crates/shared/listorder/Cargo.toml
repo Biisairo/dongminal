@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-listorder"
+name = "otter-shared-listorder"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

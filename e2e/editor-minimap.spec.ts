@@ -22,10 +22,10 @@ import { ED_SEL } from './editor';
 import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 let BASE = '';
-const FIXTURES = tmpPath('dm-mmp-fx-' + process.pid);
+const FIXTURES = tmpPath('otter-mmp-fx-' + process.pid);
 
 test.beforeAll(() => {
-  BASE = realPath(mkdtempSync(join(TMP, 'dm-mmp-')));
+  BASE = realPath(mkdtempSync(join(TMP, 'otter-mmp-')));
   gitFixture(FIXTURES);
 });
 test.afterAll(() => {

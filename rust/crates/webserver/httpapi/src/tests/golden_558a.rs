@@ -87,7 +87,7 @@ async fn dump(s: &Arc<Server>, method: &str, target: &str, hdrs: &[(&str, &str)]
     format!(
         "{status} {}\n{}\n",
         hs.join("|"),
-        dm_gocompat::strconv::quote_bytes(&body)
+        otter_gocompat::strconv::quote_bytes(&body)
     )
 }
 

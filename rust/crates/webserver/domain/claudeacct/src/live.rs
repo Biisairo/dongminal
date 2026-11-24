@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use dm_shared_platform::Secrets;
+use otter_shared_platform::Secrets;
 
 use crate::creds::Credential;
 use crate::error::{Error, Sentinel};
@@ -87,7 +87,11 @@ impl LiveStore {
             let svc = &self.paths.keychain_service;
             if self.sec.set(svc, &self.sec.account(), &s).is_ok() {
                 if fs::metadata(&self.paths.credentials).is_ok() {
-                    dm_shared_platform::write_file_atomic(&self.paths.credentials, &b, FILE_MODE)?;
+                    otter_shared_platform::write_file_atomic(
+                        &self.paths.credentials,
+                        &b,
+                        FILE_MODE,
+                    )?;
                 }
                 return Ok(());
             }
@@ -104,5 +108,7 @@ pub(crate) fn write_secret_file(path: &Path, b: &[u8]) -> Result<(), Error> {
         &path.parent().map(Path::to_path_buf).unwrap_or_default(),
         DIR_MODE,
     )?;
-    Ok(dm_shared_platform::write_file_atomic(path, b, FILE_MODE)?)
+    Ok(otter_shared_platform::write_file_atomic(
+        path, b, FILE_MODE,
+    )?)
 }

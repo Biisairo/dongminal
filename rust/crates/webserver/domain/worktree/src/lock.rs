@@ -7,8 +7,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::Duration;
 
-use dm_gocompat::time::format_std_duration;
-use dm_webserver_domain_git_core::{self as core, Ctx, CtxError};
+use otter_gocompat::time::format_std_duration;
+use otter_webserver_domain_git_core::{self as core, Ctx, CtxError};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use crate::error::{Error, Kind};

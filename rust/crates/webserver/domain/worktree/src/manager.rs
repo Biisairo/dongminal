@@ -3,9 +3,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_gocompat::strconv::quote;
-use dm_gocompat::{filepath, oserr};
-use dm_webserver_domain_git_core::{
+use otter_gocompat::strconv::quote;
+use otter_gocompat::{filepath, oserr};
+use otter_webserver_domain_git_core::{
     self as core, BoxFut, Ctx, MANAGER_WRITE_TIMEOUT, Service as GitService, unguarded_text_runner,
 };
 use serde::Serialize;
@@ -88,7 +88,7 @@ pub struct ExecSpec {
     pub reason: String,
 }
 
-/// `$DONGMINAL_HOME/worktrees` 아래만을 자기 영역으로 삼는다.
+/// `$OTTERMINAL_HOME/worktrees` 아래만을 자기 영역으로 삼는다.
 #[derive(Clone)]
 pub struct Manager {
     pub(crate) root: String,

@@ -1,4 +1,4 @@
-# SRS: `dongminal window` — IEEE 29148
+# SRS: `otterminal window` — IEEE 29148
 
 > **문서 상태**: 승인·구현완료
 
@@ -9,7 +9,7 @@
 접수한 요구는 두 줄이다.
 
 > **"`--open` 명령어를 지우고, 서버를 열지 않고 단순 창만 여는 명령어를
-> `dongminal window` 로 만들어줘."**
+> `otterminal window` 로 만들어줘."**
 
 지금 창을 여는 수단은 `start --open` 하나뿐이고, 그것은 **서버를 띄우는 명령의
 꼬리표**다. 이미 돌고 있는 서버에 창만 하나 더 붙이고 싶을 때 쓸 것이 없다 —
@@ -21,7 +21,7 @@
 
 | 묶음 | 내용 |
 |---|---|
-| **W** 새 명령 | `dongminal window` — 돌고 있는 서버에 frameless window 를 연다. 서버를 띄우지 않는다 |
+| **W** 새 명령 | `otterminal window` — 돌고 있는 서버에 frameless window 를 연다. 서버를 띄우지 않는다 |
 | **R** 제거 | `start --open` 을 없앤다. 대체 별칭도 남기지 않는다 |
 | **D** 문서 | README · getting-started · 릴리스 노트 본문의 안내를 두 명령으로 고친다 |
 
@@ -52,7 +52,7 @@
 1. 홈·포트 결정, `--isolated` 가 아니면 **그 포트의 기존 서버를 죽인다**
 2. 자기 자신을 `start --foreground` 로 재실행해 떼어 낸다
 3. `waitReady` 로 준비를 확인한다 (0.5초 × 10회)
-4. `✅ dongminal running on ...`
+4. `✅ otterminal running on ...`
 5. `if o.Open { openFrameless(url) }` — **여기가 전부다** (`start.go:142`)
 
 그래서 준비 확인이 실패하면 3에서 `return 1` 이라 창은 열리지 않고(FR-OPN-1),
@@ -67,7 +67,7 @@
 ### 2.3 `--open` 은 문서의 첫 줄에 있다
 
 README 의 빠른 시작과 `docs/external/getting-started.md`, 그리고 릴리스 노트
-본문(`.github/workflows/release.yml` 안의 마크다운)이 `./dongminal start --open`
+본문(`.github/workflows/release.yml` 안의 마크다운)이 `./otterminal start --open`
 을 **설치 직후의 첫 명령**으로 안내한다. 지우면 그 안내가 두 명령이 된다.
 
 ### 2.4 액션 추가에는 자리가 넷이다
@@ -79,14 +79,14 @@ README 의 빠른 시작과 `docs/external/getting-started.md`, 그리고 릴리
 
 ## 3. 기능 요구사항 (Functional Requirements)
 
-### 3.1 묶음 W — `dongminal window`
+### 3.1 묶음 W — `otterminal window`
 
-- **FR-WIN-1** `dongminal window` 는 돌고 있는 서버를 향해 frameless window 를
+- **FR-WIN-1** `otterminal window` 는 돌고 있는 서버를 향해 frameless window 를
   연다. **서버를 띄우지 않고, 죽이지 않으며, 어떤 프로세스도 새로 만들지 않는다**
   (창을 여는 프로세스 외에는).
 - **FR-WIN-2** 대상 주소는 `start` 와 같은 규칙으로 정한다 — **플래그 > 환경변수 >
   파일(`server.json`) > 기본값**의 네 계층(`Common.ResolveTarget`, FR-CFG-13).
-  `0.0.0.0`·`::` 로 바인드된 경우에도 두드리는 주소는 loopback 이다 (`dmenv.DialHost`).
+  `0.0.0.0`·`::` 로 바인드된 경우에도 두드리는 주소는 loopback 이다 (`otterenv.DialHost`).
 
   > **개정 2026-09-21 (`STRUCTURE_CLEANUP_SRS` FR-STR-23).** 이 요구의 글은 처음부터
   > *"`start` 와 같은 규칙"* 이었으나 **괄호 안의 열거가 세 계층뿐이었고 구현도
@@ -95,13 +95,13 @@ README 의 빠른 시작과 `docs/external/getting-started.md`, 그리고 릴리
   > 있었다. 이전: 3계층 · 새: 4계층 · 이유: FR-CFG-13 이 계약이고 그 유일한
   > 구현이 `serverconf.Resolve` 다.
 - **FR-WIN-3** 서버가 준비되어 있지 않으면 **창을 열지 않고** 실패한다(rc=1).
-  무엇이 없는지와 `dongminal start` 를 안내한다.
+  무엇이 없는지와 `otterminal start` 를 안내한다.
 - **FR-WIN-4** 창 열기에 실패하면 이 명령은 실패다(rc=1). `start --open` 의
   FR-OPN-3(경고만)과 반대이며, 그 이유는 §5 D-3 이다.
 - **FR-WIN-5** 성공하면 어떤 주소로 열었는지 한 줄로 알린다.
 - **FR-WIN-6** 준비 확인은 **한 번**만 한다. 기다리지 않는다 — 이 명령은 기동을
   기다리는 명령이 아니다.
-- **FR-WIN-7** `dongminal window --help` 가 사용법을 낸다. `Help()` 의 액션
+- **FR-WIN-7** `otterminal window --help` 가 사용법을 낸다. `Help()` 의 액션
   목록에도 선다 (§2.4).
 
 ### 3.2 묶음 R — `--open` 제거

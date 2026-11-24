@@ -2,13 +2,13 @@
 #
 #   printf '<파일>\t<토큰>\n' … | perl scripts/lib/rs-const.pl [crates 뿌리]
 #
-# 토큰은 `"리터럴"`, `NAME`, `경로::NAME`(`dmenv::X`·`dm_shared_runfile::FILE_NAME`·
+# 토큰은 `"리터럴"`, `NAME`, `경로::NAME`(`otterenv::X`·`otter_shared_runfile::FILE_NAME`·
 # `crate::X`·`self::X`·`super::X`) 이다. 앞의 `&` 는 무시한다.
 # 출력: 입력 한 줄마다 "<파일>\t=<값>" 또는 풀지 못하면 "<파일>\t?<토큰>".
 #
-# 푸는 순서: `use dm_x as y;`·`use dm_x::{self as y}` 별칭 → crate 이름(dm_*) → 그 crate 의 src 에서
+# 푸는 순서: `use otter_x as y;`·`use otter_x::{self as y}` 별칭 → crate 이름(otter_*) → 그 crate 의 src 에서
 # `const NAME: &str = …;`(pub 무엇이든) 를 찾고, 값이 다시 이름이면 그 정의 파일 기준으로
-# 이어서 푼다(4단계까지). 맨 이름은 같은 파일 → 같은 crate → `use dm_x::{…NAME…}` 순서로 찾는다.
+# 이어서 푼다(4단계까지). 맨 이름은 같은 파일 → 같은 crate → `use otter_x::{…NAME…}` 순서로 찾는다.
 # 값에 `/` 가 있거나 `~` 로 시작하면 홈 아래 첫 조각이 아니므로 푼 것으로 치지 않는다.
 use strict;
 use warnings;
@@ -66,7 +66,7 @@ sub resolve {
     if (!@seg) {
       ($v, $at) = find_const($name, $file);
       ($v, $at) = find_const($name, rs_files(crate_of($file))) unless defined $v;
-      # `use dm_x::NAME;`·`use dm_x::{…, NAME, …};` 로 들여온 이름
+      # `use otter_x::NAME;`·`use otter_x::{…, NAME, …};` 로 들여온 이름
       if (!defined $v) {
         my $s = slurp($file);
         if ($s =~ /\buse\s+([a-z_][a-z0-9_]*)(?:::[A-Za-z_][A-Za-z0-9_]*)*::(?:\Q$name\E\s*;|\{[^}]*\b\Q$name\E\b[^}]*\})/s) {

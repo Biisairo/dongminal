@@ -33,8 +33,8 @@ impl Homes {
     }
     fn env(&self) -> Env {
         Env::new(&[
-            (dmenv::ENV_HOME, self.inst.path().to_str().unwrap()),
-            (dmenv::ENV_TOOL_HOME, self.tool.path().to_str().unwrap()),
+            (otterenv::ENV_HOME, self.inst.path().to_str().unwrap()),
+            (otterenv::ENV_TOOL_HOME, self.tool.path().to_str().unwrap()),
         ])
     }
 }
@@ -60,7 +60,7 @@ fn hist_file_per_tool_and_stable() {
     assert_eq!(a["HISTFILE"], want.to_str().unwrap());
     assert_eq!(hist(&e, "tool-a", "/bin/zsh")["HISTFILE"], a["HISTFILE"]);
     assert_eq!(a.len(), 2);
-    assert_eq!(a[dmenv::ENV_HIST_FILE], a["HISTFILE"]);
+    assert_eq!(a[otterenv::ENV_HIST_FILE], a["HISTFILE"]);
 }
 
 #[test]
@@ -112,7 +112,7 @@ fn hist_file_degrades() {
     assert!(tool_hist_env(&|k| no_home.get(k), "tool-a", "/bin/zsh").is_empty());
     let blocked = h.tool.path().join("blocked");
     fs::write(&blocked, "").unwrap();
-    let be = Env::new(&[(dmenv::ENV_HOME, blocked.to_str().unwrap())]);
+    let be = Env::new(&[(otterenv::ENV_HOME, blocked.to_str().unwrap())]);
     assert!(tool_hist_env(&|k| be.get(k), "tool-a", "/bin/zsh").is_empty());
 }
 
@@ -140,7 +140,7 @@ fn user_hist_file_rules() {
     }
     let none = Env::new(&[]);
     assert!(user_hist_file(&|k| none.get(k), "powershell").is_none());
-    let t = Env::new(&[(dmenv::ENV_TOOL_HOME, "/th")]);
+    let t = Env::new(&[(otterenv::ENV_TOOL_HOME, "/th")]);
     for sh in ["zsh", "bash"] {
         let want = filepath::join(&["/th", &format!(".{sh}_history")]);
         assert_eq!(
@@ -153,7 +153,7 @@ fn user_hist_file_rules() {
 #[test]
 fn tool_home_override_and_fallback() {
     let home_key = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
-    let e = Env::new(&[(dmenv::ENV_TOOL_HOME, "/iso"), (home_key, "/u")]);
+    let e = Env::new(&[(otterenv::ENV_TOOL_HOME, "/iso"), (home_key, "/u")]);
     assert_eq!(tool_home(&|k| e.get(k)), "/iso");
     let e = Env::new(&[(home_key, "/u")]);
     assert_eq!(tool_home(&|k| e.get(k)), "/u");
@@ -163,7 +163,7 @@ fn tool_home_override_and_fallback() {
 fn bin_dir_and_path() {
     let none = Env::new(&[]);
     assert_eq!(tool_bin_dir(&|k| none.get(k)), "");
-    let e = Env::new(&[(dmenv::ENV_HOME, "/h"), ("PATH", "/usr/bin")]);
+    let e = Env::new(&[(otterenv::ENV_HOME, "/h"), ("PATH", "/usr/bin")]);
     assert_eq!(tool_bin_dir(&|k| e.get(k)), filepath::join(&["/h", "bin"]));
     assert_eq!(tool_path(&|k| e.get(k), ""), "/usr/bin");
     let sep = if cfg!(windows) { ';' } else { ':' };
@@ -206,30 +206,30 @@ fn ov(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
 
 #[test]
 fn overlay_getenv_prefers_overlay_last_wins() {
-    let o = ov(&[(dmenv::ENV_HOME, "/a"), (dmenv::ENV_HOME, "/b")]);
-    assert_eq!(overlay_getenv(&o, dmenv::ENV_HOME), "/b");
+    let o = ov(&[(otterenv::ENV_HOME, "/a"), (otterenv::ENV_HOME, "/b")]);
+    assert_eq!(overlay_getenv(&o, otterenv::ENV_HOME), "/b");
     // 덮지 않은 이름은 프로세스 환경이다.
     assert_eq!(
         overlay_getenv(&o, "PATH"),
         std::env::var("PATH").unwrap_or_default()
     );
-    assert_eq!(overlay_getenv(&[], "DM_TEST_SURELY_UNSET_9f3"), "");
+    assert_eq!(overlay_getenv(&[], "OTTER_TEST_SURELY_UNSET_9f3"), "");
 }
 
 #[test]
 fn environ_with_replaces_overlaid_keys_once() {
     let base = vec![
         "A=1".to_string(),
-        format!("{}=/old", dmenv::ENV_HOME),
+        format!("{}=/old", otterenv::ENV_HOME),
         "B=2".to_string(),
     ];
-    let got = environ_with(base, &ov(&[(dmenv::ENV_HOME, "/new"), ("C", "3")]));
+    let got = environ_with(base, &ov(&[(otterenv::ENV_HOME, "/new"), ("C", "3")]));
     assert_eq!(
         got,
         vec![
             "A=1".to_string(),
             "B=2".to_string(),
-            format!("{}=/new", dmenv::ENV_HOME),
+            format!("{}=/new", otterenv::ENV_HOME),
             "C=3".to_string(),
         ]
     );
@@ -241,16 +241,16 @@ fn environ_with_replaces_overlaid_keys_once() {
 
 #[test]
 fn tool_env_with_home_overlay_sets_bin_and_home() {
-    let o = ov(&[(dmenv::ENV_HOME, "/inst")]);
+    let o = ov(&[(otterenv::ENV_HOME, "/inst")]);
     let g = |k: &str| overlay_getenv(&o, k);
     let bin = tool_bin_dir(&g);
     assert_eq!(bin, filepath::join(&["/inst", "bin"]));
     let env = tool_env(&g, "T1", "/bin/sh", &bin, &[], &[], &o);
     let homes: Vec<&String> = env
         .iter()
-        .filter(|kv| kv.starts_with(&format!("{}=", dmenv::ENV_HOME)))
+        .filter(|kv| kv.starts_with(&format!("{}=", otterenv::ENV_HOME)))
         .collect();
-    assert_eq!(homes, vec![&format!("{}=/inst", dmenv::ENV_HOME)]);
+    assert_eq!(homes, vec![&format!("{}=/inst", otterenv::ENV_HOME)]);
     let path = env.iter().rev().find(|kv| kv.starts_with("PATH=")).unwrap();
     assert!(path.ends_with(&bin), "{path}");
 }

@@ -149,7 +149,7 @@ class SlotsController extends Controller {
    * FR-SVS-4·14: 칸 `slot` 이 pane `pn` 에서 보는 탭을 정한다.
    *
    * 그 칸의 오버라이드만 바꾼다 — 다른 칸은 움직이지 않는다. 다만 **포커스
-   * 칸**이면 워크스페이스의 `pn.activeTab` 에도 쓴다. `dmctl` 의 활성 판정이
+   * 칸**이면 워크스페이스의 `pn.activeTab` 에도 쓴다. `otterctl` 의 활성 판정이
    * 그것을 딛기 때문이며 (SRS §2.4), `focusedPane` 이 로컬이면서 워크스페이스에도
    * 쓰이는 것과 같은 취급이다.
    */

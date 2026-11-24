@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-httpreq"
+name = "otter-shared-httpreq"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,8 +11,8 @@ workspace = true
 
 [dependencies]
 bytes = { workspace = true }
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-dmlog = { path = "../dmlog" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-otterlog = { path = "../otterlog" }
 http = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }

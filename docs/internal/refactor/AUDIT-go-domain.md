@@ -296,7 +296,7 @@
 
 ### [LOW] attnPaneState.attnCarry 의 단일 작성자 불변식이 적혀 있지 않다
 - 위치: `hub/attn_tracker.go:61` (필드), `:174-188` (`FeedOutput` 에서 잠금 없이 읽고 쓴다)
-- 현상: `attnCarry` 는 `sync/atomic` 이 아닌 평범한 `[]byte` 인데 `t.mu` 밖에서 수정된다. 안전한 이유는 `FeedOutput` 의 호출자가 하나(`cmd/dongminal/app.go:123`, toolclient 의 `readLoop` 고루틴)이기 때문이다.
+- 현상: `attnCarry` 는 `sync/atomic` 이 아닌 평범한 `[]byte` 인데 `t.mu` 밖에서 수정된다. 안전한 이유는 `FeedOutput` 의 호출자가 하나(`cmd/otterminal/app.go:123`, toolclient 의 `readLoop` 고루틴)이기 때문이다.
 - 비용: 직접 모드의 대응물에는 이 불변식이 적혀 있다 — `toolhub/tool_attention.go:12` (*"Called from the readPTY goroutine only; attnCarry needs no lock"*), `toolhub/tool.go:71`. 데몬 모드 쪽만 빠져 있어서, 이 파일만 읽는 사람은 잠금 누락으로 읽는다. 이 구조체의 다른 필드는 전부 `atomic.*` 이라 대비가 더 두드러진다.
 - 제안: 같은 문장을 필드 옆에 적는다 — *"`attnCarry` 는 `FeedOutput` 만 만지고 그 호출자는 toolclient readLoop 하나다 (toolhub.Tool.attnCarry 와 같은 규약)."*
 - 위험도: LOW (주석만)

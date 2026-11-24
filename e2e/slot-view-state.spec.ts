@@ -10,7 +10,7 @@ import { TMP, tmpPath, realPath, cssPath } from './osenv';
 //
 // M1 은 묶음 T(칸별 활성 탭)와 F(편집기 회수 결함)다. 칸은 클라이언트의 것이므로
 // (FR-WSL-2) 검증은 DOM 과 sessionStorage 로 하고, 서버를 보는 것은 FR-SVS-14
-// 하나뿐이다 — 포커스 칸의 탭이 워크스페이스에 반영되는지가 `dmctl` 의 활성
+// 하나뿐이다 — 포커스 칸의 탭이 워크스페이스에 반영되는지가 `otterctl` 의 활성
 // 판정(SRS §2.4)을 지탱하기 때문이다.
 
 const slotAdd = (page: Page) => page.evaluate(() => (window as any).app.slot.ops.slotAdd());
@@ -28,7 +28,7 @@ const slotsState = (page: Page) => page.evaluate(() => (window as any).app.slots
  * 고정 탭이 아니라 **필요할 때 여는 본문 탭**이므로(FR-RTU-30) 이 묶음이 재는
  * "칸마다 다른 탭" 을 위해 여섯을 미리 세운다.
  */
-const TOP_FIXTURES = tmpPath('dm-git-fx-svs-top-' + process.pid);
+const TOP_FIXTURES = tmpPath('otter-git-fx-svs-top-' + process.pid);
 test.beforeAll(() => {
   gitFixture(TOP_FIXTURES);
 });
@@ -500,7 +500,7 @@ test.describe('묶음 F — 함께 고치는 결함 (FR-SVS-60)', () => {
   let SOME_FILE = '';
 
   test.beforeAll(() => {
-    HOME_DIR = realPath(fs.mkdtempSync(path.join(TMP, 'dm-svs-')));
+    HOME_DIR = realPath(fs.mkdtempSync(path.join(TMP, 'otter-svs-')));
     SOME_FILE = path.join(HOME_DIR, 'm1.txt');
     fs.writeFileSync(SOME_FILE, 'hello\n');
   });
@@ -561,7 +561,7 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
   let ROOT = '';
 
   test.beforeAll(() => {
-    BASE = realPath(fs.mkdtempSync(path.join(TMP, 'dm-svs-x-')));
+    BASE = realPath(fs.mkdtempSync(path.join(TMP, 'otter-svs-x-')));
     ROOT = path.join(BASE, 'proj');
     fs.mkdirSync(ROOT);
     for (const d of ['dirA', 'dirB']) {
@@ -843,7 +843,7 @@ test.describe('묶음 F — 누른 한 번이 듣는다 (FR-SVS-61)', () => {
 
 test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
   // 저장소는 e2e/git_fixture.sh 가 만든다 — 다른 git 스펙과 같은 규약이다.
-  const FIXTURES = tmpPath('dm-git-fx-svs-' + process.pid);
+  const FIXTURES = tmpPath('otter-git-fx-svs-' + process.pid);
 
   test.beforeAll(() => {
     gitFixture(FIXTURES);
@@ -1131,7 +1131,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
   let FILE = '';
 
   test.beforeAll(() => {
-    BASE = realPath(fs.mkdtempSync(path.join(TMP, 'dm-svs-e-')));
+    BASE = realPath(fs.mkdtempSync(path.join(TMP, 'otter-svs-e-')));
     ROOT = path.join(BASE, 'proj');
     fs.mkdirSync(ROOT);
     FILE = path.join(ROOT, 'doc.txt');

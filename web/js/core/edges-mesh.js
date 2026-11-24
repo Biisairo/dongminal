@@ -1,5 +1,5 @@
 /**
- * Dongminal — 설정 ▸ Edges 의 망 그림 계산 (EDGE_MESH_SRS FR-EGM-50~56).
+ * Otterminal — 설정 ▸ Edges 의 망 그림 계산 (EDGE_MESH_SRS FR-EGM-50~56).
  *
  * 망 그림은 `GET /api/edges` 의 `mesh {nodes, links}` 를 SVG 로 그린다. 나는 가운데에 고정하고
  * 나머지는 힘 배치로 놓는다 — 처음 자리를 지문 순서로 정하고 정해진 횟수만 계산하므로 같은 망은

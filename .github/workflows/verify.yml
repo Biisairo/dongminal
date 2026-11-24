@@ -8,8 +8,8 @@ name: verify
 # 결함이 나왔다 (§11).
 #
 # 그래서 두 층을 돌린다.
-#   1. dongminal doctor — 플랫폼 계층을 계층별로 실제 실행 (서버 없이)
-#   2. dongminal verify — 격리 인스턴스를 띄워 종단간 표면을 훑는다
+#   1. otterminal doctor — 플랫폼 계층을 계층별로 실제 실행 (서버 없이)
+#   2. otterminal verify — 격리 인스턴스를 띄워 종단간 표면을 훑는다
 # 2번이 중요한 이유는 doctor 가 direct mode 로만 도는 데 반해 실제 서버는
 # **데몬 모드**로 돌기 때문이다. 데몬은 끊어 띄운 프로세스이고, §11.6 의 결함이
 # 정확히 그 조건에서만 났다.
@@ -436,24 +436,24 @@ jobs:
           cache-key: runtime
 
       # 호스트 빌드는 `./$BINARY` 를 그대로 만든다 — windows 에서도 확장자를 붙이지 않으므로
-      # 이름을 준다 (Go 판의 `-o dongminal.exe` 와 같은 파일).
+      # 이름을 준다 (Go 판의 `-o otterminal.exe` 와 같은 파일).
       - name: 바이너리 빌드
         shell: bash
-        run: BINARY=dongminal.exe scripts/build.sh
+        run: BINARY=otterminal.exe scripts/build.sh
 
       # doctor 는 플랫폼 계층을 계층별로 실제 실행한다. 실패하면 어느 계층에서
       # 무슨 오류였는지 그대로 나온다.
       - name: doctor
         run: |
-          $env:DONGMINAL_HOME = "$env:RUNNER_TEMP\dm-doctor"
-          .\dongminal.exe doctor
+          $env:OTTERMINAL_HOME = "$env:RUNNER_TEMP\otter-doctor"
+          .\otterminal.exe doctor
         shell: pwsh
 
       # 종단간. doctor 가 덮지 못하는 **데몬 모드**를 여기서 확인한다 —
       # 서버가 데몬을 끊어 띄우고, 그 데몬 안의 ConPTY 에 붙은 셸이 실제로
       # 입출력을 왕복해야 한다.
       - name: 종단간 (서버 → 데몬 → ConPTY)
-        run: .\dongminal.exe verify
+        run: .\otterminal.exe verify
         shell: pwsh
 
   linux-runtime:
@@ -469,7 +469,7 @@ jobs:
         run: scripts/build.sh
 
       - name: doctor
-        run: DONGMINAL_HOME="$RUNNER_TEMP/dm-doctor" ./dongminal doctor
+        run: OTTERMINAL_HOME="$RUNNER_TEMP/otter-doctor" ./otterminal doctor
 
       - name: 종단간 (서버 → 데몬 → PTY)
-        run: ./dongminal verify
+        run: ./otterminal verify

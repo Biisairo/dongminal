@@ -51,8 +51,8 @@ bash scripts/test_migrate.sh   28 통과
 ### 묶음 B — 마이그레이션 진입점 (`e6463e1`)
 
 `scripts/migrate.sh` 가 사용자 진입점이었다. (2026-08-26 `CLI_CONSOLIDATION_SRS`
-로 폐지 — 지금의 진입점은 `./dongminal migrate` 다.) `dongminal` 은 PATH 에 없다 —
-`runtimebin` 이 설치하는 helper 는 `dmctl`·`edit`·`download`·`detach` 4개뿐이다.
+로 폐지 — 지금의 진입점은 `./otterminal migrate` 다.) `otterminal` 은 PATH 에 없다 —
+`runtimebin` 이 설치하는 helper 는 `otterctl`·`edit`·`download`·`detach` 4개뿐이다.
 
 스크립트가 지키는 세 가지(전부 구현 중 실제로 밟은 함정에서 나왔다 — SRS §2.5a):
 
@@ -98,7 +98,7 @@ bash scripts/test_migrate.sh   28 통과
 
 ### 묶음 E — 크로스 기기 창 포커스 (`854ada6`)
 
-`BroadcastChannel('dongminal-focus')` 을 **서버 권위**로 옮겼다. 채널은 동일 브라우저·
+`BroadcastChannel('otterminal-focus')` 을 **서버 권위**로 옮겼다. 채널은 동일 브라우저·
 동일 origin 한정이라 다른 기기와 원리적으로 통신할 수 없었고, `--expose` 시
 `localhost:PORT` 와 `<host-ip>:PORT` 는 origin 이 달라 같은 컴퓨터의 두 탭도 격리됐다.
 
@@ -184,23 +184,23 @@ C11.8~C11.10). 자동 검증으로 대체할 수 없다.
 ### 1. `.env` 가 호출자 환경변수를 덮어쓴다
 
 `_load_env`(`scripts/*.sh`)는 값을 무조건 `export` 한다. `.env` 에
-`DONGMINAL_HOME=~/.dongminal` 이 있으므로, 격리 홈을 지정해도 운영 홈으로
+`OTTERMINAL_HOME=~/.otterminal` 이 있으므로, 격리 홈을 지정해도 운영 홈으로
 대체된다. `start.sh`·`stop.sh` 는 `.env` 를 기본값으로 쓰는 것이 의도라 무해하지만,
 **파괴적 동작에서는 지정한 대상이 무시되는 것 자체가 결함**이다.
 새 스크립트를 만들 때는 `migrate.sh` 의 `_CALLER_*` 패턴을 따라라.
 
-### 2. 낡은 `./dongminal` 은 인자를 무시하고 웹 서버로 부팅한다
+### 2. 낡은 `./otterminal` 은 인자를 무시하고 웹 서버로 부팅한다
 
 `migrate` 서브커맨드가 없던 시절의 바이너리에 `migrate` 를 주면 서버가 뜬다.
 실측 결과: 데몬 대기 100초 → direct mode 폴백 → **운영 홈의 PTY 16개 되살림** →
 포트 충돌로 rc=1. `migrate.Apply` 의 데몬 검사는 이 경로에 도달조차 못 한다.
 **바이너리를 재사용하지 말고 항상 빌드하라.**
 
-### 3. 루트 `./dongminal` 은 실행 중인 서버의 실행 파일이다
+### 3. 루트 `./otterminal` 은 실행 중인 서버의 실행 파일이다
 
-`ps` 로 확인하면 `./dongminal` 이 17일째 돌고 있다. 테스트가 이걸 삭제·재빌드하면
+`ps` 로 확인하면 `./otterminal` 이 17일째 돌고 있다. 테스트가 이걸 삭제·재빌드하면
 운영 인스턴스의 바이너리를 바꾼다. **테스트는 격리 산출물을 써라** —
-`BINARY=.test-dongminal/...`. `scripts/test_migrate.sh` 의 `TC-MIG-10` 이 루트
+`BINARY=.test-otterminal/...`. `scripts/test_migrate.sh` 의 `TC-MIG-10` 이 루트
 바이너리의 권한·크기·해시 무변경을 대조한다.
 
 ### 4. 캐시 버스터가 두 종류다
@@ -235,7 +235,7 @@ Desktop Chrome 프로젝트에서 `.click()` 을 쓰면 터치 코드 경로를 
 
 ### 9. `detach` 의 `-l` 은 `--list` 다
 
-`dmctl` 은 `-l` 을 `--at` 의 단축으로 쓰지만(`dmctl.go:213`), `detach` 에서는
+`otterctl` 은 `-l` 을 `--at` 의 단축으로 쓰지만(`otterctl.go:213`), `detach` 에서는
 `--list` 다. 두 CLI 의 단축이 다르다는 것을 전제하라.
 
 ### 10. `resizeCheck` 는 **toolId** 를 받는다 — pane id 를 넘기면 조용히 통과한다

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use super::*;
-use dm_gocompat::filepath;
+use otter_gocompat::filepath;
 
 fn fake_env(kv: &[(&str, &str)]) -> EnvFn {
     let m: HashMap<String, String> = kv
@@ -49,7 +49,7 @@ fn posix_shell_prefers_shell() {
         &[("SHELL", "/usr/local/bin/fish")],
         &["/usr/local/bin/fish", "/bin/bash", "/bin/sh"],
     );
-    let spec = shell(&s, "/home/u/.dongminal/bin");
+    let spec = shell(&s, "/home/u/.otterminal/bin");
     assert_eq!(spec.path, "/usr/local/bin/fish");
     assert_eq!(spec.args, ["-l"]);
     assert_eq!(
@@ -179,7 +179,7 @@ fn dot_source_escapes_quote() {
 
 #[test]
 fn windows_shell_honors_override() {
-    let s = windows(&[("DONGMINAL_SHELL", r"C:\nu\nu.exe")], &["pwsh.exe"]);
+    let s = windows(&[("OTTERMINAL_SHELL", r"C:\nu\nu.exe")], &["pwsh.exe"]);
     let spec = shell(&s, r"C:\b");
     assert_eq!(spec.path, r"C:\nu\nu.exe");
     assert!(spec.args.is_empty());

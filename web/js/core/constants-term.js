@@ -1,5 +1,5 @@
 /**
- * Dongminal — 터미널·모바일 입력 상수 (REFACTOR3_FE_REST5_SRS FR-FR5-20).
+ * Otterminal — 터미널·모바일 입력 상수 (REFACTOR3_FE_REST5_SRS FR-FR5-20).
  *
  * 모바일 키바·터치 입력 · 터미널 WS 재접속·입력 보류·직접 보내는 키 · 스크롤백·xterm 옵션(`TOPTS`)·
  * 종료·검색 문구 · 터미널이 스스로 내는 보고 · 파일 전송·전송 알림 · 터미널의 복사.

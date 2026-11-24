@@ -25,7 +25,7 @@ import { TMP, tmpPath, realPath, cssPath, appJoin } from './osenv';
 //     사이드 탭 줄로 올렸고, UX_AUDIT_FIX_SRS FR-UXF-27 로 없어졌다 — 갱신은 같은 함수
 //     (`app.gitPanel.refresh()`)를 직접 부르고, 단추는 "없다" 만 잰다.
 
-const FIXTURES = tmpPath('dm-git-fx-improve-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-improve-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
@@ -480,8 +480,8 @@ test.describe('묶음 L — 핀 행 배지 자리 (FR-GIT-239 축소)', () => {
   // 사라졌으므로(FR-FLW-1) 남는 계약은 **핀 행끼리** 어긋나지 않는 것이다 —
   // 자리 폭이 여전히 한 선언에서 나오는지를 본다.
   async function twoPinnedWithBadge(page: any, request: any, tag: string) {
-    const a = await pin(request, makeRepoWithChange('dm-repo-' + tag + 'a-'));
-    const b = await pin(request, makeRepoWithChange('dm-repo-' + tag + 'b-'));
+    const a = await pin(request, makeRepoWithChange('otter-repo-' + tag + 'a-'));
+    const b = await pin(request, makeRepoWithChange('otter-repo-' + tag + 'b-'));
     for (const r of [a, b]) {
       const st = await request.get('/api/git/status?repo=' + encodeURIComponent(r));
       expect(st.ok(), `status 실패: ${await st.text()}`).toBeTruthy();

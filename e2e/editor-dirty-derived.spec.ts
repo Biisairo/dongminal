@@ -10,7 +10,7 @@ import { join } from 'path';
 import { test, expect, waitForInit } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
-const ROOT = tmpPath('dm-edd-' + process.pid);
+const ROOT = tmpPath('otter-edd-' + process.pid);
 const fx = () => realPath(ROOT);
 
 test.beforeAll(() => {

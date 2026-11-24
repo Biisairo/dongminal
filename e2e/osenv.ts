@@ -111,7 +111,7 @@ export function cssPath(p: string): string {
  *
  *   환경변수  `$NAME` ↔ `$env:NAME`
  *   기다림    `sleep 2` ↔ `Start-Sleep 2`
- *   실행 파일 `dmctl` ↔ `dmctl.exe` (`platform.Paths.ExeSuffix`)
+ *   실행 파일 `otterctl` ↔ `otterctl.exe` (`platform.Paths.ExeSuffix`)
  *
  * 파이프와 `&&` 는 둘 다 받는다 (pwsh 7). 그래서 이 셋만 바꾸면 같은 문장이
  * 양쪽에서 같은 일을 한다.
@@ -121,11 +121,11 @@ export function envRef(name: string): string {
 }
 
 /** 그 홈 아래 `bin` 의 헬퍼를 부르는 조각. 절대경로인 이유는 PATH 앞쪽의 낡은
- * dmctl 이 새 하위명령을 모를 수 있기 때문이다. */
-export function dmctl(...args: string[]): string {
+ * otterctl 이 새 하위명령을 모를 수 있기 때문이다. */
+export function otterctl(...args: string[]): string {
   const path = isWin
-    ? `"${envRef('DONGMINAL_HOME')}\\bin\\dmctl.exe"`
-    : `"${envRef('DONGMINAL_HOME')}/bin/dmctl"`;
+    ? `"${envRef('OTTERMINAL_HOME')}\\bin\\otterctl.exe"`
+    : `"${envRef('OTTERMINAL_HOME')}/bin/otterctl"`;
   return [isWin ? '& ' + path : path, ...args].join(' ');
 }
 

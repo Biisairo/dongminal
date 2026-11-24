@@ -1,5 +1,5 @@
 /**
- * Dongminal — Branches 탭 아래의 원격 목록 (FR-GIT-269).
+ * Otterminal — Branches 탭 아래의 원격 목록 (FR-GIT-269).
  *
  * 채우는 자리(`.git-br-remotes`)는 `GitBranches` 가 골격과 함께 내준다. 목록은 자기 상태를 스스로
  * 든다 — 적재는 `gitLoadList` 규약을 지나고, 쓰기(add·remove)의 응답이 실은 목록을 그대로 쓴다.

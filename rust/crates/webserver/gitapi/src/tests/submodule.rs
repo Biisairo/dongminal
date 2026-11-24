@@ -10,11 +10,11 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
-use dm_webserver_action as action;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::{self as core, Ctx, Service};
-use dm_webserver_domain_git_store::{Store, StoreOptions};
-use dm_webserver_domain_submodule::{self as submodule, Failure, Manager};
+use otter_webserver_action as action;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::{self as core, Ctx, Service};
+use otter_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_domain_submodule::{self as submodule, Failure, Manager};
 use serde_json::Value;
 
 use super::harness::{abs, q, qe, req};
@@ -25,11 +25,11 @@ use crate::GitServer;
 struct Sub {
     s: Arc<GitServer>,
     repo: String,
-    _repo: dm_shared_gittest::Repo,
+    _repo: otter_shared_gittest::Repo,
 }
 
 fn sub_server(edit: impl FnOnce(&mut GitServer)) -> Option<Sub> {
-    let repo = dm_shared_gittest::repo()?;
+    let repo = otter_shared_gittest::repo()?;
     let mut s = GitServer {
         git: Some(Store::new(
             Arc::new(Service::new()),
@@ -68,7 +68,7 @@ const WRITES: [&str; 2] = ["/api/git/submodules/update", "/api/git/submodules/sy
 /// `inner` 를 repo 의 `at` 에 서브모듈로 붙이고 커밋한다.
 fn add_submodule(repo: &str, inner: &str, at: &str) {
     let dir = std::path::Path::new(repo);
-    dm_shared_gittest::run(
+    otter_shared_gittest::run(
         dir,
         &[
             "-c",
@@ -79,7 +79,7 @@ fn add_submodule(repo: &str, inner: &str, at: &str) {
             at,
         ],
     );
-    dm_shared_gittest::run(dir, &["commit", "-m", "add submodule"]);
+    otter_shared_gittest::run(dir, &["commit", "-m", "add submodule"]);
 }
 
 // 라우팅 등록 + Submodules 가 없으면 503.
@@ -114,7 +114,7 @@ async fn submodules_empty_repo_is_empty_list() {
 #[tokio::test]
 async fn submodules_lists_registered_entry_with_abs_path() {
     let Some(w) = sub_server(|_| {}) else { return };
-    let Some(inner) = dm_shared_gittest::repo() else {
+    let Some(inner) = otter_shared_gittest::repo() else {
         return;
     };
     add_submodule(&w.repo, inner.path().to_str().unwrap(), "vendor/inner");
@@ -133,7 +133,7 @@ async fn submodules_lists_registered_entry_with_abs_path() {
 #[tokio::test]
 async fn submodules_not_a_repo() {
     let Some(w) = sub_server(|_| {}) else { return };
-    let tmp = dm_shared_gittest::TempDir::new("dm-gitapi-sub-plain-");
+    let tmp = otter_shared_gittest::TempDir::new("otter-gitapi-sub-plain-");
     let plain = std::fs::canonicalize(tmp.path()).unwrap();
     let (code, out) = sreq(&w.s, "GET", &list_target(plain.to_str().unwrap()), "").await;
     assert_ne!(code, 200, "저장소가 아니면 실패해야 한다: {out}");
@@ -338,7 +338,7 @@ async fn submodule_sync_shutdown_is_503() {
 #[tokio::test]
 async fn stage_submodule_inner_only_real_git() {
     let Some(w) = sub_server(|_| {}) else { return };
-    let Some(inner) = dm_shared_gittest::repo() else {
+    let Some(inner) = otter_shared_gittest::repo() else {
         return;
     };
     add_submodule(&w.repo, inner.path().to_str().unwrap(), "sub");
@@ -363,6 +363,6 @@ async fn stage_submodule_inner_only_real_git() {
         code == 409 && out["error"] == apierr::CODE_SUBMODULE_INNER_ONLY,
         "stage = {code} {out}"
     );
-    let cached = dm_shared_gittest::run(repo, &["diff", "--cached", "--name-only"]);
+    let cached = otter_shared_gittest::run(repo, &["diff", "--cached", "--name-only"]);
     assert_eq!(cached, "", "index 가 바뀌었다");
 }

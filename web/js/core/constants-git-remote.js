@@ -1,5 +1,5 @@
 /**
- * Dongminal — **원격 · Worktrees · Submodules** 의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
+ * Otterminal — **원격 · Worktrees · Submodules** 의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
  *
  * 이 저장소 **바깥**을 가리키는 셋 — 다른 호스트의 ref, 다른 작업 트리, 다른
  * 저장소. 셋 다 "여기 없는 것을 여기서 다룬다" 는 성질을 공유한다.

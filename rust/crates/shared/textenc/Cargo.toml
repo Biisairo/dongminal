@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-textenc"
+name = "otter-shared-textenc"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

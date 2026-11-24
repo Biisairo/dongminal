@@ -4,8 +4,8 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use dm_shared_statusline::{Model, Subagent, Usage};
-use dm_webserver_domain_run::{ContextPolicy, LEVEL_CRITICAL, LEVEL_OK, LEVEL_WARN};
+use otter_shared_statusline::{Model, Subagent, Usage};
+use otter_webserver_domain_run::{ContextPolicy, LEVEL_CRITICAL, LEVEL_OK, LEVEL_WARN};
 use time::OffsetDateTime;
 
 use super::attnenv::*;

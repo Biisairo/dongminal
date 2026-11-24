@@ -14,7 +14,7 @@ pub fn anon_file(dir: &Path) -> io::Result<File> {
 fn imp(_dir: &Path) -> io::Result<File> {
     use std::os::fd::FromRawFd;
     // SAFETY: 이름은 NUL 로 끝나는 정적 문자열이고 플래그는 정수다.
-    let fd = unsafe { libc::memfd_create(c"dongminal-handover".as_ptr(), libc::MFD_CLOEXEC) };
+    let fd = unsafe { libc::memfd_create(c"otterminal-handover".as_ptr(), libc::MFD_CLOEXEC) };
     if fd < 0 {
         return Err(io::Error::last_os_error());
     }

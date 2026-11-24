@@ -2,12 +2,12 @@
 
 use std::collections::BTreeMap;
 
-use dm_shared_httpresp::Response;
-use dm_webserver_domain_git_core as core;
-use dm_webserver_domain_git_jobs as jobs;
-use dm_webserver_domain_git_query as query;
-use dm_webserver_domain_git_write as write;
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_domain_git_core as core;
+use otter_webserver_domain_git_jobs as jobs;
+use otter_webserver_domain_git_query as query;
+use otter_webserver_domain_git_write as write;
 
 use crate::GitServer;
 use crate::reply::{git_error, git_json, git_unavailable, obj};

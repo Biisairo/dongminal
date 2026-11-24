@@ -5,9 +5,9 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 
-use dm_gocompat::json::RawMessage;
-use dm_shared_toolhub::{ActivityState, AgentState};
-use dm_shared_toolipc::{RecordsResult, ToolRecords};
+use otter_gocompat::json::RawMessage;
+use otter_shared_toolhub::{ActivityState, AgentState};
+use otter_shared_toolipc::{RecordsResult, ToolRecords};
 use time::OffsetDateTime;
 
 use super::attnenv::*;
@@ -124,7 +124,7 @@ async fn records_apply_snapshot_replaces_mirror() {
     let ms = unix_milli(now);
     let sub_act = format!(
         r#"{{"a1":{{"agentType":"Explore","state":"working","updatedAt":{}}}}}"#,
-        serde_json::to_string(&dm_gocompat::time::format_rfc3339_nano(now)).unwrap()
+        serde_json::to_string(&otter_gocompat::time::format_rfc3339_nano(now)).unwrap()
     );
     let raw = |s: &str| RawMessage(s.as_bytes().to_vec());
     let res = RecordsResult {
@@ -373,7 +373,7 @@ async fn snapshot_parts_are_endpoint_bodies() {
         assert_eq!(b.status, 200);
         assert_eq!(got[part], b.json(), "{part}");
         let compact =
-            String::from_utf8(dm_gocompat::json::compact(b.body.as_bytes()).unwrap()).unwrap();
+            String::from_utf8(otter_gocompat::json::compact(b.body.as_bytes()).unwrap()).unwrap();
         assert!(
             r.body.contains(&compact),
             "{part}: {compact} 가 그대로 실리지 않았다"

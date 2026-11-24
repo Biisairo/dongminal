@@ -12,7 +12,7 @@
 - 딛는 것: [DESIGN_TOKENS_SRS](./DESIGN_TOKENS_SRS.md) ·
   [UI_KIT_SRS](./UI_KIT_SRS.md) · [ACCESSIBILITY_BASELINE_SRS](./ACCESSIBILITY_BASELINE_SRS.md)
 - 기준선 실측: 2026-09-21, 실행 중인 서버(`:58146`)의 실제 화면 8장
-  (`tmp/uiux-baseline/uiux-0{1..8}-*.png`) + `dmctl list-workspace` 전수
+  (`tmp/uiux-baseline/uiux-0{1..8}-*.png`) + `otterctl list-workspace` 전수
 
 ---
 
@@ -104,11 +104,11 @@
 
 ### 2.1 규모 — 창 12개 · 도구 26개
 
-`dmctl list-workspace` 전수 (2026-09-21):
+`otterctl list-workspace` 전수 (2026-09-21):
 
 | 항목 | 값 |
 |---|---|
-| 창 | **12개** (이름 11종 — `dongminal` 이 둘: 터미널 창과 Git 창) |
+| 창 | **12개** (이름 11종 — `otterminal` 이 둘: 터미널 창과 Git 창) |
 | 도구 | **26개** |
 
 라벨 중복:
@@ -371,7 +371,7 @@ Agents)을 그 자리로 되돌린다. pane 탭줄에는 그 pane 에 관여하�
 > 하나라도 열리면 줄이 서고, 그때 분할은 **자리를 지키되 `disabled`** 다 —
 > `git-window.spec.ts` E6 가 뷰를 하나 열고 그것을 잰다.
 
-**FR-CHR-4** 현재 위치(`Windows · dongminal`)는 상태바 왼쪽으로 내려간다.
+**FR-CHR-4** 현재 위치(`Windows · otterminal`)는 상태바 왼쪽으로 내려간다.
 클릭하면 사이드바의 해당 항목으로 간다 — **기존 창 선택 동작을 그 자리에서
 부르는 것이고 새 동작이 아니다**.
 

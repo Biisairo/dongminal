@@ -50,7 +50,7 @@ pub fn rewrite_identifiers(
     tools_blob: &[u8],
     next_id: Option<&mut dyn FnMut() -> String>,
 ) -> Result<Rewritten, Error> {
-    let mut default_next_id = dm_shared_uuid::new_string;
+    let mut default_next_id = otter_shared_uuid::new_string;
     let next_id: &mut dyn FnMut() -> String = match next_id {
         Some(g) => g,
         None => &mut default_next_id,

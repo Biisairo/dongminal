@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::io;
 use std::path::Path;
 
-use dm_gocompat::json::{self, RawMessage};
+use otter_gocompat::json::{self, RawMessage};
 use serde::Deserialize;
 
 use crate::error::Error;
@@ -66,6 +66,6 @@ pub fn splice_oauth_account(path: &Path, acct: Option<&RawMessage>) -> Result<Ra
         Some(a) => m.insert(OAUTH_ACCOUNT_KEY.to_owned(), a.clone()),
     };
     let b = json::marshal_indent(&m, "", "  ").map_err(|e| Error::from(e).wrap("claude config"))?;
-    dm_shared_platform::write_file_atomic(path, &b, FILE_MODE)?;
+    otter_shared_platform::write_file_atomic(path, &b, FILE_MODE)?;
     Ok(prev.unwrap_or_default())
 }

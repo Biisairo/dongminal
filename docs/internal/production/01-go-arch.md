@@ -25,7 +25,7 @@
 - 조치
   1. `Upgrader.CheckOrigin` 을 "Origin 이 없거나(비브라우저) Host 와 동일 출처" 로 제한.
   2. 상태 변경 종단(POST/PUT/DELETE) 공통 미들웨어: `Content-Type: application/json` 강제 + `Sec-Fetch-Site` 가 `cross-site` 면 거절 (단순 요청 CSRF 차단). `decodeJSONBody`·`fsDecode`·`gitDecodeBody` 를 하나의 헬퍼로 통일해 그 안에서 검사.
-  3. 근본 대책: `$DONGMINAL_HOME/token` 을 기동 시 생성해 `index.html` 주입 + 도구 셸 환경(`DONGMINAL_TOKEN`)으로 `dmctl` 에 전달, 모든 `/api/*`·`/ws` 에서 검증. `access.go` 의 게이트 자리에 얹으면 한 겹으로 덮인다.
+  3. 근본 대책: `$OTTERMINAL_HOME/token` 을 기동 시 생성해 `index.html` 주입 + 도구 셸 환경(`OTTERMINAL_TOKEN`)으로 `otterctl` 에 전달, 모든 `/api/*`·`/ws` 에서 검증. `access.go` 의 게이트 자리에 얹으면 한 겹으로 덮인다.
 - 규모: 1·2 = S, 3 = M
 
 ---
@@ -50,13 +50,13 @@
   - `internal/daemon/boot → internal/webserver/domain/run` (`boot.go:71,73` `run.HeadlessToolIDs`) — ② 데몬이 ③ 웹서버 도메인 import
   - `internal/ctl/cli → internal/webserver/domain/git/core` (`verify.go:104`), `→ internal/helper/runtimebin`, `→ internal/shared/toolhub` — ④ 제어 CLI 가 ③·① 에 의존
   - `internal/shared/sandboxplace → internal/shared/toolhub` (배선 패키지가 shared 아래)
-  - `docs/internal/architecture.md:49-111` 패키지 표에 `shared/{dmenv,platform,sandbox,sandboxplace,diagtail,listorder,testpath}`, `webserver/domain/{lsp,ext,submodule,wsentry}`, `webserver/httproute` 누락. `:113` "프로세스 축에 예외는 없다" 는 현재 거짓.
+  - `docs/internal/architecture.md:49-111` 패키지 표에 `shared/{otterenv,platform,sandbox,sandboxplace,diagtail,listorder,testpath}`, `webserver/domain/{lsp,ext,submodule,wsentry}`, `webserver/httproute` 누락. `:113` "프로세스 축에 예외는 없다" 는 현재 거짓.
 - 왜 문제인가: 축 규칙이 유일한 계층 기준인데 강제 장치가 없어 이미 4곳이 새었다. `domain/git` 만 `static_test.go` 로 경계를 지킨다.
-- 조치: ① `HelperNames` 를 `shared/dmenv`(또는 `shared/helpernames`)로 내리기. ② `HeadlessToolIDs` 처럼 파일만 읽는 함수는 `shared/runfile` 로 분리하고 `domain/run` 이 그것을 import. ③ `verify.go` 의 `core.New().RepoRoot` 는 `exec.LookPath("git")` + `rev-parse` 한 줄로 대체하거나 `shared/gitprobe` 로. ④ 패키지 경계 테스트 추가(`go list -deps` 를 읽어 `internal/{ctl,daemon,helper}` 가 `internal/webserver` 를 import 하지 않음을 검증). ⑤ architecture.md 표 갱신.
+- 조치: ① `HelperNames` 를 `shared/otterenv`(또는 `shared/helpernames`)로 내리기. ② `HeadlessToolIDs` 처럼 파일만 읽는 함수는 `shared/runfile` 로 분리하고 `domain/run` 이 그것을 import. ③ `verify.go` 의 `core.New().RepoRoot` 는 `exec.LookPath("git")` + `rev-parse` 한 줄로 대체하거나 `shared/gitprobe` 로. ④ 패키지 경계 테스트 추가(`go list -deps` 를 읽어 `internal/{ctl,daemon,helper}` 가 `internal/webserver` 를 import 하지 않음을 검증). ⑤ architecture.md 표 갱신.
 - 규모: M
 
 ### [P1] 문서화된 채 남아 있는 데이터 레이스 — `ToolClient.OnOutput / OnExit`
-- 위치: `internal/webserver/toolclient/client.go:89-91` (주석이 레이스를 인정), `:279-280` (`pc.OnOutput` 잠금 없이 읽음), `:341-347`(OnExit 은 잠금), 쓰기 `cmd/dongminal/main.go:468,472` (맨 대입)
+- 위치: `internal/webserver/toolclient/client.go:89-91` (주석이 레이스를 인정), `:279-280` (`pc.OnOutput` 잠금 없이 읽음), `:341-347`(OnExit 은 잠금), 쓰기 `cmd/otterminal/main.go:468,472` (맨 대입)
 - 현상: `DialPaneClientWithReconnect` 가 돌아온 순간 `readLoop` 는 이미 돌고 있고 데몬은 접속 직후 `output` push 를 보낼 수 있다. 같은 계열의 `OnForeground` 는 `go test -race` 3회 중 1회 관측되어 setter 로 고쳤다(`:83-96`)고 적혀 있는데 나머지 둘은 "범위 밖" 으로 남겼다.
 - 조치: `SetOnOutput/SetOnExit` (mu 또는 `atomic.Pointer[func]`) 로 통일, 필드 비공개화.
 - 규모: S
@@ -76,7 +76,7 @@
 
 ### [P1] IPC 경계에서 실패를 성공으로 응답 — 에이전트가 배달됐다고 믿는다
 - 위치: `internal/daemon/ipc/paned.go:258` (`pc.pm.Write(p.ID, raw)` 반환값 폐기 후 성공 응답), `:294` (`Resize` 동일), `internal/shared/toolhub/manager_hub.go:21` (없는 도구에 Write → `nil`, 주석 "silently drop"), `internal/webserver/toolclient/client.go:562` (`Delete` 가 `call` 오류 무시), `:576-577` (`SaveAll/LoadAll` no-op)
-- 현상: `dmctl send-input` → `/api/tools/input` → `SendPaste` 는 오류를 돌려주지만 그 아래 `write` RPC 는 PTY 쓰기 실패·없는 도구 모두 200 이다. 데몬 모드 `DELETE /api/tools/{id}` 도 실패를 알 수 없다.
+- 현상: `otterctl send-input` → `/api/tools/input` → `SendPaste` 는 오류를 돌려주지만 그 아래 `write` RPC 는 PTY 쓰기 실패·없는 도구 모두 200 이다. 데몬 모드 `DELETE /api/tools/{id}` 도 실패를 알 수 없다.
 - 조치: `write`/`resize` 핸들러가 오류를 `PanedError{-32000}` 로 돌려주고, `ToolManager.Write` 는 없는 도구에 `ErrToolNotFound` sentinel 을 반환. `ToolHub.Delete` 시그니처에 `error` 추가.
 - 규모: S
 
@@ -87,7 +87,7 @@
 - 규모: M
 
 ### [P1] 영속 실패가 사용자에게 성공으로 보인다
-- 위치: `cmd/dongminal/main.go:593` `_ = bd.wsMgr.Close()`; `shared/workspace/manager.go:139-140,147-148` (비동기 writer 가 실패를 로그만); `httpapi/access.go:135-137` (`WriteFileAtomic` 실패해도 `setConfig` 가 `nil` 반환 → PUT 200); `handlers_settings.go:57-59,90-102` (`save()` 실패 로그만, PUT 200); `handlers_api.go:321-352` (workspace PUT 은 인메모리 성공만 확인)
+- 위치: `cmd/otterminal/main.go:593` `_ = bd.wsMgr.Close()`; `shared/workspace/manager.go:139-140,147-148` (비동기 writer 가 실패를 로그만); `httpapi/access.go:135-137` (`WriteFileAtomic` 실패해도 `setConfig` 가 `nil` 반환 → PUT 200); `handlers_settings.go:57-59,90-102` (`save()` 실패 로그만, PUT 200); `handlers_api.go:321-352` (workspace PUT 은 인메모리 성공만 확인)
 - 현상: 디스크 풀·권한 오류·경로 소실 시 `workspace.json` 이 갱신되지 않아도 브라우저는 저장 성공(ETag 증가)을 본다. 재기동 시 세션 배치 손실.
 - 조치: writer 의 마지막 실패를 `atomic.Pointer[error]` 로 보관해 `Save` 다음 호출·`/api/ping`/diag 스냅샷에 노출(`persistErr` 필드), `Close()` 가 flush 오류를 반환하고 `serve` 가 로그+비0 종료. `setConfig`·`save()` 는 오류를 반환해 500 으로.
 - 규모: S
@@ -116,10 +116,10 @@
 ### 거대 파일 · 거대 함수 · 과도한 책임 (8건)
 - `httpapi/handlers_fs.go` 775줄 — fs 조작(`:1-663`)과 `/api/editors/*`(`:665-775`)가 한 파일. 후자를 `handlers_editors.go` 로. (S)
 - `shared/toolhub/tool.go` 774줄 — PTY 수명(`:245-376,605-774`)과 주의/활동 상태기(`:398-603`)가 섞임. `tool_attention.go` 로 분리하면 `attention.go`·`agentturn.go` 와 응집. (S)
-- `cmd/dongminal/main.go:442-600` `serve` 158줄 + `buildDeps/buildDepsWithHub/buildCommonDeps` 3벌(`:209-396`) — 조립·기동·종료가 한 함수. `internal/webserver/app`(또는 `cmd/dongminal/wire.go`) 로 `Build(cfg) (*App, error)` / `App.Run(ctx)` / `App.Shutdown()` 분리. 종료 순서 주석(`:571-593`)이 코드가 되게. (M)
+- `cmd/otterminal/main.go:442-600` `serve` 158줄 + `buildDeps/buildDepsWithHub/buildCommonDeps` 3벌(`:209-396`) — 조립·기동·종료가 한 함수. `internal/webserver/app`(또는 `cmd/otterminal/wire.go`) 로 `Build(cfg) (*App, error)` / `App.Run(ctx)` / `App.Shutdown()` 분리. 종료 순서 주석(`:571-593`)이 코드가 되게. (M)
 - `httpapi/handlers_runs.go` 710줄 — `apiRunClose` 94줄(`:428`), `apiRunMemberAdd` 90줄(`:223`), workspace JSON 트리 직접 조작(`:560-710` `markWorkspaceRun*`·`applyRunMarks`·`markTabsIn`) 은 `shared/workspace` 의 책임. (M)
 - `domain/worktree/worktree.go` 701줄 — git 실행·정리 규칙·porcelain 파서·slug/validRef 가 한 파일. `parse.go`, `naming.go` 로. `checkPath:600` 의 `strings.Contains(p, "..")` 는 `a..b` 같은 정상 이름을 거부(`handlers_fs.go:167-170` 이 같은 오탐을 이미 지적). (S)
-- `helper/runtimebin/dmctl_run.go:521` `runSubClose` 121줄, `dmctl_listworkspace.go:16` 118줄, `ctl/migrate/identity.go:44` `RewriteIdentifiers` 146줄. (S 각)
+- `helper/runtimebin/otterctl_run.go:521` `runSubClose` 121줄, `otterctl_listworkspace.go:16` 118줄, `ctl/migrate/identity.go:44` `RewriteIdentifiers` 146줄. (S 각)
 - `ctl/cli/doctor.go` 685줄 — 진단 항목 11개가 순차 함수; 항목을 `[]check{name, fn}` 표로. (S)
 - `toolclient/client.go:263-349` `handlePush` 86줄 switch — 이벤트별 메서드로. (S)
 
@@ -152,7 +152,7 @@
 
 ### 설정 · 상수 · 전역 (4건)
 - `main.go:90` `3 * time.Second`, `:108-109` `20`/`100ms`; `toolhub/tool.go:746` `50ms`; `handlers_ws.go:21` `termReset` 시퀀스 리터럴; `platform/paths.go:65` `/tmp` 로그 기본값 — 이름 있는 상수로. (S)
-- 환경변수 기반 런타임 설정이 `hub/commands.go:96-103` (`DONGMINAL_CMD_RESULT_TIMEOUT_MS`), `toolhub/attention.go`(`DONGMINAL_ATTENTION_*`), `dmenv` 에 분산 — `dmenv` 한 곳에서 파싱해 `Config` 로 주입. (S)
+- 환경변수 기반 런타임 설정이 `hub/commands.go:96-103` (`OTTERMINAL_CMD_RESULT_TIMEOUT_MS`), `toolhub/attention.go`(`OTTERMINAL_ATTENTION_*`), `otterenv` 에 분산 — `otterenv` 한 곳에서 파싱해 `Config` 로 주입. (S)
 - 패키지 변수 테스트 훅 `toolBusyProbe`(`tool.go:128`), `attnBusyProbe`(`:507`), `fgProbe`(`foreground.go:42`), `attnNow`, `procCtl`(`cli/proc.go:77`) — 전역 교체는 `t.Parallel` 을 막는다. 구조체 필드 주입으로. (M)
 - 로깅: `log.Printf` 146곳, 레벨·구조화 없음(`log/slog` 0건). 크기 감시(`cli.WatchLogSize`)는 있으나 회전 없음. `slog` + 필드(tool, addr) 도입. (M)
 
@@ -170,4 +170,4 @@
 ## 참고: 검증 결과
 - `go vet ./...` — 경고 없음
 - `go build ./...` — 성공
-- `go test -race -count=1 ./internal/webserver/toolclient/ ./internal/shared/toolhub/ ./internal/webserver/hub/ ./internal/shared/workspace/` — 전부 ok (P1 의 OnOutput 레이스는 배선이 `cmd/dongminal` 에 있어 패키지 테스트가 닿지 않는다)
+- `go test -race -count=1 ./internal/webserver/toolclient/ ./internal/shared/toolhub/ ./internal/webserver/hub/ ./internal/shared/workspace/` — 전부 ok (P1 의 OnOutput 레이스는 배선이 `cmd/otterminal` 에 있어 패키지 테스트가 닿지 않는다)

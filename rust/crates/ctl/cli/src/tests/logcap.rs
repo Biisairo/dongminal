@@ -21,11 +21,11 @@ fn size_of(p: &Path) -> u64 {
 #[test]
 fn leaves_small_file_alone() {
     let d = tempfile::tempdir().unwrap();
-    let p = d.path().join("dongminal.log");
+    let p = d.path().join("otterminal.log");
     write_log(&p, 100);
     cap_log(s(&p), 1000, 400);
     assert_eq!(size_of(&p), 100);
-    assert!(!d.path().join("dongminal.log.1").exists());
+    assert!(!d.path().join("otterminal.log.1").exists());
 }
 
 // V-LOG-2: 상한을 넘으면 줄어들고, 같은 파일이다 (FR-LOG-3).
@@ -34,7 +34,7 @@ fn leaves_small_file_alone() {
 fn truncates_in_place() {
     use std::os::unix::fs::MetadataExt;
     let d = tempfile::tempdir().unwrap();
-    let p = d.path().join("dongminal.log");
+    let p = d.path().join("otterminal.log");
     write_log(&p, 5000);
     let before = fs::metadata(&p).unwrap().ino();
     cap_log(s(&p), 1000, 400);
@@ -47,13 +47,13 @@ fn truncates_in_place() {
 #[test]
 fn keeps_recent_tail() {
     let d = tempfile::tempdir().unwrap();
-    let p = d.path().join("dongminal.log");
+    let p = d.path().join("otterminal.log");
     let mut body = vec![b'a'; 4600];
     body.extend(vec![b'b'; 400]);
     fs::write(&p, body).unwrap();
     cap_log(s(&p), 1000, 400);
     assert_eq!(
-        fs::read(d.path().join("dongminal.log.1")).unwrap(),
+        fs::read(d.path().join("otterminal.log.1")).unwrap(),
         vec![b'b'; 400]
     );
 }
@@ -62,7 +62,7 @@ fn keeps_recent_tail() {
 #[test]
 fn keeps_append_fd_writing() {
     let d = tempfile::tempdir().unwrap();
-    let p = d.path().join("dongminal.log");
+    let p = d.path().join("otterminal.log");
     write_log(&p, 5000);
     let mut f = fs::OpenOptions::new().append(true).open(&p).unwrap();
     cap_log(s(&p), 1000, 400);
@@ -84,13 +84,13 @@ fn quiet_on_missing_path() {
 #[test]
 fn replaces_previous_keep() {
     let d = tempfile::tempdir().unwrap();
-    let p = d.path().join("dongminal.log");
+    let p = d.path().join("otterminal.log");
     write_log(&p, 5000);
     cap_log(s(&p), 1000, 400);
     fs::write(&p, vec![b'z'; 5000]).unwrap();
     cap_log(s(&p), 1000, 400);
     assert_eq!(
-        fs::read(d.path().join("dongminal.log.1")).unwrap(),
+        fs::read(d.path().join("otterminal.log.1")).unwrap(),
         vec![b'z'; 400]
     );
     assert_eq!(fs::read_dir(d.path()).unwrap().count(), 2);
@@ -163,7 +163,7 @@ fn watch_log_size_stops_when_done() {
 fn watch_loop_caps_given_home() {
     let d = tempfile::tempdir().unwrap();
     let home = s(d.path()).to_owned();
-    let daemon = d.path().join(dm_shared_dmenv::DAEMON_LOG_FILE);
+    let daemon = d.path().join(otter_shared_otterenv::DAEMON_LOG_FILE);
     write_log(&daemon, 1000);
     let no_env = |_: &str| String::new();
     let env = crate::env::Env::from_fn(&no_env);
@@ -189,7 +189,7 @@ fn watch_loop_caps_given_home() {
     assert_eq!(
         size_of(
             &d.path()
-                .join(format!("{}.1", dm_shared_dmenv::DAEMON_LOG_FILE))
+                .join(format!("{}.1", otter_shared_otterenv::DAEMON_LOG_FILE))
         ),
         40
     );

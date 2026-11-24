@@ -1,12 +1,12 @@
-//! Go 기준선 `dongminal/internal/shared/chatwire` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/chatwire` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
-//! 데몬의 채팅 소켓 와이어다 (PEER_CHAT_SRS §3.10). 데몬(chatsock)과 dmctl(chat-mcp·ctx-hook)이
+//! 데몬의 채팅 소켓 와이어다 (PEER_CHAT_SRS §3.10). 데몬(chatsock)과 otterctl(chat-mcp·ctx-hook)이
 //! 같은 한 벌을 쓴다. 줄 하나에 JSON 프레임 하나다.
 
 use std::io::{self, ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
-use dm_gocompat::json::{self, RawMessage};
+use otter_gocompat::json::{self, RawMessage};
 use serde::{Deserialize, Serialize};
 
 /// 채팅 소켓 이름이다. 데몬 소켓과 같은 0700 폴더에 산다.
@@ -38,8 +38,8 @@ pub const OP_SEND: &str = "send";
 /// 사람 화면의 한 번 읽기다: 나·온라인 목록·방 목록 (§3.11).
 pub const OP_STATE: &str = "state";
 /// 사람 명령이다 (§3.12). 서명한 명령 본문의 종류로 그대로 건네지므로 humancmd 의 이름을 가리킨다.
-pub const OP_KILL: &str = dm_shared_humancmd::OP_KILL;
-pub const OP_KICK: &str = dm_shared_humancmd::OP_KICK;
+pub const OP_KILL: &str = otter_shared_humancmd::OP_KILL;
+pub const OP_KICK: &str = otter_shared_humancmd::OP_KICK;
 
 pub const CODE_BAD_REQUEST: &str = "bad_request";
 pub const CODE_DAEMON_UNAVAILABLE: &str = "daemon_unavailable";
@@ -51,7 +51,7 @@ pub const CODE_NO_HELPER: &str = "no_helper";
 
 /// home 인스턴스의 채팅 소켓 경로다.
 pub fn socket_path(home: &Path) -> PathBuf {
-    dm_shared_platform::sibling_socket(home, SOCKET_FILE)
+    otter_shared_platform::sibling_socket(home, SOCKET_FILE)
 }
 
 /// 채팅 소켓의 프레임 하나다. 종류에 따라 쓰는 필드가 다르다(§3.10 표).

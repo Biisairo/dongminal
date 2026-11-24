@@ -1,8 +1,8 @@
 //! GET /api/git/blame?repo=&rev=&path= — 파일 하나의 줄별 출처 (FR-GIT-276). Go `handlers_git_blame.go`.
 
-use dm_shared_httpresp::Response;
-use dm_webserver_domain_git_query::{self as query, BlameQuery};
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_domain_git_query::{self as query, BlameQuery};
 use serde::Serialize;
 
 use crate::GitServer;

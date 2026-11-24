@@ -8,18 +8,18 @@
 ## 1. 시작하기
 
 ```bash
-git clone <repo> && cd dongminal
-scripts/build.sh    # ./dongminal (Rust 툴체인은 rustup 이 rust/rust-toolchain.toml 판으로 받는다)
+git clone <repo> && cd otterminal
+scripts/build.sh    # ./otterminal (Rust 툴체인은 rustup 이 rust/rust-toolchain.toml 판으로 받는다)
 make gates          # 커밋 전에 도는 것 전부 (CI 와 같은 목록)
 ```
 
 **격리 인스턴스로 확인하세요.** 이 저장소의 바이너리로 `start`/`stop` 을 부르면
-여러분이 쓰고 있는 실제 인스턴스를 건드립니다 — 도구 셸의 `DONGMINAL_PORT` 가
+여러분이 쓰고 있는 실제 인스턴스를 건드립니다 — 도구 셸의 `OTTERMINAL_PORT` 가
 그것을 가리키기 때문입니다.
 
 ```bash
-./dongminal start --isolated   # 임시 홈 + 빈 포트. 운영 인스턴스를 건드리지 않습니다
-./dongminal verify             # 격리 인스턴스를 스스로 띄워 종단간 표면을 훑습니다
+./otterminal start --isolated   # 임시 홈 + 빈 포트. 운영 인스턴스를 건드리지 않습니다
+./otterminal verify             # 격리 인스턴스를 스스로 띄워 종단간 표면을 훑습니다
 ```
 
 ---
@@ -85,16 +85,16 @@ make gates          # 커밋 전에 도는 것 전부 (CI 와 같은 목록)
 |---|---|---|
 | `docs/external/errors.md` | **생성** | `rust/crates/webserver/apierr/src/codes.rs` 의 `CODE_DOC` |
 | `docs/internal/decisions.md` | **생성** | SRS 안의 결정 항목 |
-| `docs/external/commands.md` | 대조 | `dmctl.go` |
+| `docs/external/commands.md` | 대조 | `otterctl.go` |
 | `docs/external/api.md` | 대조 | 라우트 표 |
 | `docs/external/shortcuts.md` | 대조 | `shortcuts.js` |
-| `docs/external/getting-started.md` 환경변수 표 | 대조 | 코드의 `DONGMINAL_*` |
+| `docs/external/getting-started.md` 환경변수 표 | 대조 | 코드의 `OTTERMINAL_*` |
 
 생성물은 직접 고치지 마세요. 원천을 고치고 다시 만듭니다:
 
 ```bash
-cargo run -q --manifest-path rust/Cargo.toml -p dm-scripts-gen-errors
-cargo run -q --manifest-path rust/Cargo.toml -p dm-scripts-gen-decisions
+cargo run -q --manifest-path rust/Cargo.toml -p otter-scripts-gen-errors
+cargo run -q --manifest-path rust/Cargo.toml -p otter-scripts-gen-decisions
 ```
 
 ---

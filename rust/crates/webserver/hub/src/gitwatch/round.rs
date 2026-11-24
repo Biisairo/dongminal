@@ -4,9 +4,9 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use dm_gocompat::time::format_std_duration;
-use dm_webserver_domain_git_core::Ctx;
-use dm_webserver_domain_git_query::Error;
+use otter_gocompat::time::format_std_duration;
+use otter_webserver_domain_git_core::Ctx;
+use otter_webserver_domain_git_query::Error;
 use tokio_util::sync::CancellationToken;
 
 use super::{
@@ -17,7 +17,7 @@ use super::{
 /// Go `core.IsTerminal(err)` — 다시 물어도 같은 답일 실패인가.
 fn is_terminal(e: &Error) -> bool {
     e.core()
-        .is_some_and(dm_webserver_domain_git_core::is_terminal)
+        .is_some_and(otter_webserver_domain_git_core::is_terminal)
 }
 
 fn unix_milli(t: SystemTime) -> i64 {
@@ -84,7 +84,7 @@ impl GitWatcher {
         if ctx.err().is_some() {
             cancel.cancel();
         }
-        let run = dm_shared_fanout::each(&cancel, GIT_WATCH_PARALLEL, repos.len(), |i| {
+        let run = otter_shared_fanout::each(&cancel, GIT_WATCH_PARALLEL, repos.len(), |i| {
             let (repos, sent) = (&repos, &sent);
             async move {
                 if self.observe(ctx, &repos[i], round, false).await {
@@ -206,7 +206,7 @@ impl GitWatcher {
             return false;
         }
         // FR-GLW-7: 탈락은 저장소가 읽히지 않은 것이다 (FR-GPO-5).
-        dm_shared_dmlog::errorf!(
+        otter_shared_otterlog::errorf!(
             None,
             "[gitwatch] 저장소를 읽을 수 없어 감시에서 뺀다 (repo={repo} err={err})"
         );
@@ -240,7 +240,7 @@ impl GitWatcher {
             (n, wait)
         };
         if n == 1 || n % 10 == 0 {
-            dm_shared_dmlog::infof!(
+            otter_shared_otterlog::infof!(
                 None,
                 "[gitwatch] 관측 실패 — 감시는 유지하고 {} 뒤 다시 본다 (repo={repo} n={n} err={err})",
                 format_std_duration(wait)

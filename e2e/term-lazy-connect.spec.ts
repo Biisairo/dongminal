@@ -10,7 +10,7 @@ import { test, expect, waitForInit, waitSettled, JSON_HDR } from './fixtures';
  */
 
 const HIDDEN = 3;
-const FILL = 'yes dm-tlc-fill | head -n 3000';
+const FILL = 'yes otter-tlc-fill | head -n 3000';
 
 // 포커스 칸에 터미널 탭 HIDDEN 개를 더하고, 칸마다 출력을 채운 뒤 첫 탭으로 돌아간다.
 // 배경 창 하나(터미널 하나)도 만든다 — 다른 창의 도구도 숨은 도구다.
@@ -41,7 +41,7 @@ async function seedHidden(page: Page, request: any): Promise<{ first: string; hi
   for (const id of all) {
     await expect.poll(async () => {
       const o = await request.get('/api/tools/output?id=' + id + '&strip=1');
-      return o.ok() ? ((await o.json()).text || '').split('dm-tlc-fill').length : 0;
+      return o.ok() ? ((await o.json()).text || '').split('otter-tlc-fill').length : 0;
     }, { timeout: 20000 }).toBeGreaterThan(3000);
   }
   return { first: r.first, hidden: all.filter((x) => x !== r.first), all };
@@ -102,7 +102,7 @@ test('TLC2 (IPC-5): 숨은 탭은 처음 그려질 때 붙고 전량을 재생�
     app.layout.tabOps.switchTab(loc.pane.id, loc.tab.id);
   }, target);
   await expect.poll(() => boot.ws.includes(target), { timeout: 10000 }).toBe(true);
-  await expect(page.locator('#area .pn.focused .xterm-rows')).toContainText('dm-tlc-fill', { timeout: 15000 });
+  await expect(page.locator('#area .pn.focused .xterm-rows')).toContainText('otter-tlc-fill', { timeout: 15000 });
 });
 
 test('TLC3 (IPC-5): 원격 워크스페이스 변경이 붙지 않은 도구의 탭을 지우지 않고, 죽은 도구의 탭은 지운다', async ({ page, request }) => {

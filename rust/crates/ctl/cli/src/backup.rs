@@ -1,10 +1,10 @@
-//! `dongminal backup`·`restore` — 홈을 zip 하나로 담고 되돌린다 (G4-3).
+//! `otterminal backup`·`restore` — 홈을 zip 하나로 담고 되돌린다 (G4-3).
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 
-use dm_gocompat::oserr::{go_error_string, path_error};
-use dm_gocompat::{filepath, path};
+use otter_gocompat::oserr::{go_error_string, path_error};
+use otter_gocompat::{filepath, path};
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
@@ -16,14 +16,14 @@ use crate::start::mkdir_all;
 /// 백업 zip 의 권한이다 — 소유자만 읽고 쓴다. 노드 개인키가 들어간다 (PEER_NETWORK_SRS).
 const BACKUP_FILE_PERM: u32 = 0o600;
 
-/// `dongminal backup` 의 옵션이다.
+/// `otterminal backup` 의 옵션이다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct BackupOpts {
     pub common: Common,
     pub out: String,
 }
 
-/// `dongminal restore` 의 옵션이다.
+/// `otterminal restore` 의 옵션이다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RestoreOpts {
     pub common: Common,
@@ -275,7 +275,7 @@ pub(crate) fn run_restore_in(
         let _ = writeln!(stderr, "진행하려면 --yes 를 함께 주세요.");
         let _ = writeln!(
             stderr,
-            "먼저 지금 것을 담아 두려면: dongminal backup --out <파일.zip>"
+            "먼저 지금 것을 담아 두려면: otterminal backup --out <파일.zip>"
         );
         return 1;
     }

@@ -29,7 +29,7 @@ function i18n(stored, opts = {}) {
     expose: ['I18N', 'I18N_LOCALES', 'I18N_DEFAULT', 'I18N_STORAGE_KEY'],
     globals: {
       localStorage: {
-        getItem: (k) => (k === 'dm.locale' ? stored : null),
+        getItem: (k) => (k === 'otter.locale' ? stored : null),
         setItem() {},
       },
       console: { ...console, warn: (...a) => { warnings.push(a.join(' ')) } },
@@ -146,5 +146,5 @@ test('상수 셋이 정책과 같다 (FR-B-1)', () => {
   const k = i18n(null);
   assert.deepEqual([...k.ctx.I18N_LOCALES], ['ko', 'en']);
   assert.equal(k.ctx.I18N_DEFAULT, 'ko');
-  assert.equal(k.ctx.I18N_STORAGE_KEY, 'dm.locale');
+  assert.equal(k.ctx.I18N_STORAGE_KEY, 'otter.locale');
 });

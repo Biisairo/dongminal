@@ -2,8 +2,8 @@
 
 use std::io::Read;
 
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_git_core::{Ctx, Service};
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_git_core::{Ctx, Service};
 
 use crate::diff::{
     AXIS_COMMIT_PARENT, AXIS_INDEX_HEAD, AXIS_WORKTREE_HEAD, AXIS_WORKTREE_INDEX, HEAD_REV_PREFIX,
@@ -132,7 +132,7 @@ pub async fn image_mime_of(
         else {
             continue;
         };
-        let m = dm_shared_mimeprobe::image_mime(&b);
+        let m = otter_shared_mimeprobe::image_mime(&b);
         if !m.is_empty() {
             return m.to_owned();
         }

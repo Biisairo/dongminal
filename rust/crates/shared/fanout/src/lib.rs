@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/fanout` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/shared/fanout` 의 Rust 포팅.
 //!
 //! 상한 있는 병렬 반복 한 벌이다 (FR-OPT-7-4). git 핀 관측·핀 목록 조립·감시 회차가
 //! 같은 규칙을 쓴다.

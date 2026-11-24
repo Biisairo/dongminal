@@ -12,8 +12,8 @@ crate 의 Cargo.toml 에서는 언제나 `foo = { workspace = true }` 로 참조
 | WebSocket | tokio-tungstenite | gorilla/websocket 대응 |
 | TLS·인증서 | rustls(ring), tokio-rustls, rcgen(ring), x509-parser | aws-lc·openssl 금지 (deny.toml) |
 | 암호 | sha1, sha2, hmac, hkdf, ed25519-dalek, p256, aes-gcm, subtle, rand | Go crypto/* 대응 |
-| 인코딩 | serde, serde_json(preserve_order), base64, hex, data-encoding, percent-encoding, url, encoding_rs | Go JSON 규칙은 dm-gocompat 에서만 흉내 낸다 |
-| 시간 | time | Go time 형식과 로컬 시간대는 dm-gocompat(`time::local`)으로 얻는다. unix 는 Go 처럼 `TZ`·zoneinfo 를 읽고, Windows 는 Go 처럼 `GetTimeZoneInformation` 을 부른다. chrono 는 유지보수 중단(RUSTSEC-2026-0543)이라 쓰지 않는다 |
+| 인코딩 | serde, serde_json(preserve_order), base64, hex, data-encoding, percent-encoding, url, encoding_rs | Go JSON 규칙은 otter-gocompat 에서만 흉내 낸다 |
+| 시간 | time | Go time 형식과 로컬 시간대는 otter-gocompat(`time::local`)으로 얻는다. unix 는 Go 처럼 `TZ`·zoneinfo 를 읽고, Windows 는 Go 처럼 `GetTimeZoneInformation` 을 부른다. chrono 는 유지보수 중단(RUSTSEC-2026-0543)이라 쓰지 않는다 |
 | 압축·아카이브 | flate2, zip(deflate), tar | |
 | 파일 감시 | notify | fsnotify 대응 |
 | OS | libc, nix(unix), windows-sys(windows), socket2 | `unsafe` 는 C-RSP-4 범위에서만. socket2 는 Go `net.Listen` 의 이중 스택 리슨(IPV6_V6ONLY 명시)에만 쓴다. tokio·hyper-util 이 이미 끌어오는 crate 다(Cargo.lock 0.6.5) |

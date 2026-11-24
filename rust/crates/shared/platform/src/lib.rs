@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/platform` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/platform` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 운영체제마다 갈리는 능력을 trait 뒤로 보낸다. 호출부에 OS 이름이 나타나면 그것은
 //! 이 crate 의 실패다 (CROSS_PLATFORM_SRS FR-XPL-5).

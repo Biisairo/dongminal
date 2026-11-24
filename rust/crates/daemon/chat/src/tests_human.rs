@@ -4,10 +4,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use dm_shared_edge::Edge;
-use dm_shared_edgemesh::{Conn, Frame, encode, sign_frame};
-use dm_shared_humancmd::{self as humancmd, Body, Kick, OP_KICK, OP_KILL, Signed};
 use ed25519_dalek::SigningKey;
+use otter_shared_edge::Edge;
+use otter_shared_edgemesh::{Conn, Frame, encode, sign_frame};
+use otter_shared_humancmd::{self as humancmd, Body, Kick, OP_KICK, OP_KILL, Signed};
 use time::OffsetDateTime;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -410,7 +410,7 @@ fn non_adjacent_pin_ignored() {
         f.state(vec![], vec![], Some(&[t.a.fp()])).await;
         let st = StateBody {
             node: f.fp(),
-            key: dm_shared_edgemesh::public_key(&f.id),
+            key: otter_shared_edgemesh::public_key(&f.id),
             epoch: 1,
             seq: 2,
             pins: Some([(t.c.fp(), humancmd::public_key(&other))].into()),

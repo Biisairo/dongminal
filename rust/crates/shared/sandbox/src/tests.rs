@@ -45,7 +45,7 @@ fn mgr(f: &Arc<FakeDocker>) -> Manager {
                 .as_ref()
                 .map_or_else(RunOutput::default, |r| r(args))
         }),
-        "/home/u/.dongminal",
+        "/home/u/.otterminal",
     )
 }
 
@@ -84,7 +84,7 @@ fn rs(host: &str) -> RunSpec {
 fn container_name_is_window_scoped() {
     assert_eq!(
         mgr(&Arc::default()).container_name("w-123"),
-        "dongminal-sbx-w-123"
+        "otterminal-sbx-w-123"
     );
 }
 
@@ -98,9 +98,9 @@ fn ensure_creates_when_absent() {
     for want in [
         "-d",
         "--init",
-        "--name dongminal-sbx-w1",
-        "--label dongminal.window=w1",
-        "--label dongminal.home=/home/u/.dongminal",
+        "--name otterminal-sbx-w1",
+        "--label otterminal.window=w1",
+        "--label otterminal.home=/home/u/.otterminal",
         "--network none",
         "debian:stable-slim",
         "--pids-limit 512",
@@ -187,7 +187,7 @@ fn ensure_failures() {
 fn ensure_no_such_object_creates_and_name_conflict_is_ok() {
     let f = FakeDocker::with(|a| {
         if a[0] == "inspect" {
-            RunOutput::fail("Error: No such object: dongminal-sbx-w1", "exit status 1")
+            RunOutput::fail("Error: No such object: otterminal-sbx-w1", "exit status 1")
         } else {
             RunOutput::default()
         }
@@ -201,7 +201,7 @@ fn ensure_no_such_object_creates_and_name_conflict_is_ok() {
             return RunOutput::fail("Error: No such object", "exit status 1");
         }
         RunOutput::fail(
-            "docker: Error response from daemon: Conflict. The container name \"/dongminal-sbx-w1\" is already in use by container \"33b22c8d8073\".",
+            "docker: Error response from daemon: Conflict. The container name \"/otterminal-sbx-w1\" is already in use by container \"33b22c8d8073\".",
             "exit status 125",
         )
     });
@@ -215,7 +215,7 @@ fn ensure_dev_mounts_ports_helper_and_limits() {
     let f = state_reply("");
     let r = RunSpec {
         host_dir: "/Users/me/app".into(),
-        helper_path: "/h/cache/dmctl-dev-linux-arm64".into(),
+        helper_path: "/h/cache/otterctl-dev-linux-arm64".into(),
         addr_dir: "/h/run".into(),
     };
     mgr(&f).ensure("w1", &dev_profile(), &r).unwrap();
@@ -225,8 +225,8 @@ fn ensure_dev_mounts_ports_helper_and_limits() {
         "-p 3000:3000",
         "-p 5173-5180:5173-5180",
         "--network bridge",
-        "-v /h/cache/dmctl-dev-linux-arm64:/usr/local/bin/dmctl:ro",
-        "-v /h/run:/run/dongminal:ro",
+        "-v /h/cache/otterctl-dev-linux-arm64:/usr/local/bin/otterctl:ro",
+        "-v /h/run:/run/otterminal:ro",
         "--add-host host.docker.internal:host-gateway",
         "--cpus 2",
         "--memory 2g",
@@ -242,7 +242,7 @@ fn ensure_dev_mounts_ports_helper_and_limits() {
     let f = state_reply("");
     let r = RunSpec {
         host_dir: "/Users/me/app".into(),
-        helper_path: "/h/dmctl".into(),
+        helper_path: "/h/otterctl".into(),
         ..Default::default()
     };
     mgr(&f).ensure("w1", &scratch(), &r).unwrap();
@@ -256,7 +256,7 @@ fn copy_work_copies_into_container_and_cleans_up() {
     mgr(&f)
         .ensure("w1", &scratch(), &rs("/Users/me/app/"))
         .unwrap();
-    assert_eq!(f.call("cp"), "cp /Users/me/app/. dongminal-sbx-w1:/work");
+    assert_eq!(f.call("cp"), "cp /Users/me/app/. otterminal-sbx-w1:/work");
     let f = FakeDocker::with(|a| match a[0].as_str() {
         "inspect" => RunOutput::fail("", "No such object"),
         "cp" => RunOutput::fail("no space\n", "exit status 1"),
@@ -267,7 +267,7 @@ fn copy_work_copies_into_container_and_cleans_up() {
         e.to_string(),
         "작업 폴더를 컨테이너에 복사하지 못했습니다(/a): exit status 1: no space"
     );
-    assert_eq!(f.call("rm"), "rm -f dongminal-sbx-w1");
+    assert_eq!(f.call("rm"), "rm -f otterminal-sbx-w1");
 }
 
 #[test]
@@ -283,7 +283,7 @@ fn exec_spec_shape() {
     assert_eq!(spec.path, "/usr/bin/docker");
     assert_eq!(
         spec.args.join(" "),
-        "/usr/bin/docker exec -it -e TERM=xterm-256color dongminal-sbx-w1 bash -l"
+        "/usr/bin/docker exec -it -e TERM=xterm-256color otterminal-sbx-w1 bash -l"
     );
     let env = ExecEnv {
         tool_id: "tool-9".into(),
@@ -292,21 +292,21 @@ fn exec_spec_shape() {
     let spec = m.exec_spec("w1", "docker", &dev_profile(), &rs("/Users/me/app"), &env);
     assert_eq!(
         spec.args.join(" "),
-        "docker exec -it -e TERM=xterm-256color -e DONGMINAL_HOST=host.docker.internal -e DONGMINAL_PORT=58146 -e DONGMINAL_TOOL_ID=tool-9 -w /work dongminal-sbx-w1 bash -l"
+        "docker exec -it -e TERM=xterm-256color -e OTTERMINAL_HOST=host.docker.internal -e OTTERMINAL_PORT=58146 -e OTTERMINAL_TOOL_ID=tool-9 -w /work otterminal-sbx-w1 bash -l"
     );
     let spec = m.exec_spec("w1", "docker", &scratch(), &RunSpec::default(), &env);
-    assert!(!spec.args.join(" ").contains("DONGMINAL_TOOL_ID"));
+    assert!(!spec.args.join(" ").contains("OTTERMINAL_TOOL_ID"));
 }
 
 #[test]
 fn remove_reap_and_stop() {
     let f = FakeDocker::with(|_| RunOutput::fail("", "No such container"));
     mgr(&f).remove("w1");
-    assert_eq!(f.call("rm"), "rm -f dongminal-sbx-w1");
+    assert_eq!(f.call("rm"), "rm -f otterminal-sbx-w1");
 
     let f = FakeDocker::with(|a| {
         if a[0] == "ps" {
-            RunOutput::ok("dongminal-sbx-live w-live\ndongminal-sbx-dead w-dead\n")
+            RunOutput::ok("otterminal-sbx-live w-live\notterminal-sbx-dead w-dead\n")
         } else {
             RunOutput::default()
         }
@@ -320,15 +320,15 @@ fn remove_reap_and_stop() {
         .filter(|c| c[0] == "rm")
         .map(|c| c.join(" "))
         .collect();
-    assert_eq!(removed, ["rm -f dongminal-sbx-dead"]);
+    assert_eq!(removed, ["rm -f otterminal-sbx-dead"]);
     assert_eq!(
         f.call("ps"),
-        "ps -a --filter label=dongminal.home=/home/u/.dongminal --format {{.Names}} {{.Label \"dongminal.window\"}}"
+        "ps -a --filter label=otterminal.home=/home/u/.otterminal --format {{.Names}} {{.Label \"otterminal.window\"}}"
     );
 
     let f = FakeDocker::with(|a| {
         if a[0] == "ps" {
-            RunOutput::ok("dongminal-sbx-a\ndongminal-sbx-b\n")
+            RunOutput::ok("otterminal-sbx-a\notterminal-sbx-b\n")
         } else {
             RunOutput::default()
         }
@@ -341,10 +341,10 @@ fn remove_reap_and_stop() {
         .filter(|c| c[0] == "stop")
         .map(|c| c[1].clone())
         .collect();
-    assert_eq!(stopped, ["dongminal-sbx-a", "dongminal-sbx-b"]);
+    assert_eq!(stopped, ["otterminal-sbx-a", "otterminal-sbx-b"]);
     assert!(
         f.call("ps")
-            .contains("label=dongminal.home=/home/u/.dongminal")
+            .contains("label=otterminal.home=/home/u/.otterminal")
     );
 
     let f = FakeDocker::with(|_| RunOutput::fail("", "exit status 1"));
@@ -373,9 +373,9 @@ fn find_runtime() {
         "/usr/local/bin/docker"
     );
     assert_eq!(
-        look_path("dongminal-no-such-binary").unwrap_err(),
+        look_path("otterminal-no-such-binary").unwrap_err(),
         format!(
-            "exec: \"dongminal-no-such-binary\": executable file not found in {}",
+            "exec: \"otterminal-no-such-binary\": executable file not found in {}",
             if cfg!(windows) { "%PATH%" } else { "$PATH" }
         )
     );
@@ -387,17 +387,17 @@ fn find_runtime() {
 fn look_path_reports_err_dot() {
     use std::os::unix::fs::PermissionsExt;
     let d = tempfile::tempdir().unwrap();
-    let exe = d.path().join("dm-dot-docker");
+    let exe = d.path().join("otter-dot-docker");
     std::fs::write(&exe, b"#!/bin/sh\n").unwrap();
     std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let rel = dm_gocompat::filepath::rel(
+    let rel = otter_gocompat::filepath::rel(
         &std::env::current_dir().unwrap().to_string_lossy(),
         &d.path().to_string_lossy(),
     )
     .unwrap();
     assert_eq!(
-        super::look_path_in("dm-dot-docker", &rel).unwrap_err(),
-        r#"exec: "dm-dot-docker": cannot run executable found relative to current directory"#
+        super::look_path_in("otter-dot-docker", &rel).unwrap_err(),
+        r#"exec: "otter-dot-docker": cannot run executable found relative to current directory"#
     );
 }
 
@@ -435,7 +435,7 @@ fn parse_mount_forms() {
         );
     }
     let m = parse_mount("~/.ssh:/root/.ssh:ro", &h).unwrap();
-    assert_eq!(m.host, dm_gocompat::filepath::join(&["/home/u", ".ssh"]));
+    assert_eq!(m.host, otter_gocompat::filepath::join(&["/home/u", ".ssh"]));
     assert!(m.read_only);
     for bad in ["", "/onlyhost", "/a:relative", ":/b", "/a:"] {
         assert!(parse_mount(bad, &h).is_err(), "{bad:?}");
@@ -469,7 +469,7 @@ fn load_profiles_base_mounts_and_policy() {
     assert_eq!(dev.base_mounts.len(), 3);
     assert_eq!(
         dev.base_mounts[0].host,
-        dm_gocompat::filepath::join(&["/home/u", ".claude"])
+        otter_gocompat::filepath::join(&["/home/u", ".claude"])
     );
     assert!(dev.base_mounts[1].read_only);
     assert_eq!(dev.ports, ["3000", "5173-5180"]);
@@ -573,7 +573,7 @@ fn parse_config_round_trip_and_encode_bytes() {
     let again = parse_config(&out, &h).unwrap();
     assert_eq!(
         again.mounts[0].host,
-        dm_gocompat::filepath::join(&["/home/u", "a"])
+        otter_gocompat::filepath::join(&["/home/u", "a"])
     );
     let empty = parse_config(b"{}", &h).unwrap();
     assert!(empty.mounts.is_empty() && empty.dev.is_none());
@@ -637,7 +637,7 @@ fn profile_info_grades() {
     assert!(work_picks_of(WorkKind::None).is_empty() && work_picks_of(WorkKind::Unset).is_empty());
     assert_eq!(
         String::from_utf8(
-            dm_gocompat::json::marshal(
+            otter_gocompat::json::marshal(
                 &Profile {
                     name: "x".into(),
                     work: WorkKind::None,
@@ -736,7 +736,7 @@ fn helper_deps(env: &Arc<HelperEnv>, version: &str, fail: bool) -> HelperDeps {
     HelperDeps {
         version: version.into(),
         arch: "arm64".into(),
-        home: "/home/u/.dongminal".into(),
+        home: "/home/u/.otterminal".into(),
         stat: Arc::new(move |p| a.present.lock().unwrap().contains(p)),
         fetch: Arc::new(move |url, dest| {
             if fail {
@@ -765,7 +765,7 @@ fn helper_cache_rules() {
     let a = helper_cache_path("/h", "v1.2.3", "arm64");
     assert_eq!(
         a,
-        dm_gocompat::filepath::join(&["/h", "cache", "dmctl-v1.2.3-linux-arm64"])
+        otter_gocompat::filepath::join(&["/h", "cache", "otterctl-v1.2.3-linux-arm64"])
     );
     assert_ne!(a, helper_cache_path("/h", "v1.3.0", "arm64"));
 
@@ -781,7 +781,7 @@ fn helper_cache_rules() {
     assert_eq!(
         *env.log.lock().unwrap(),
         [
-            "fetch https://github.com/Biisairo/dongminal/releases/download/v1.2.3/dongminal-linux-arm64"
+            "fetch https://github.com/Biisairo/otterminal/releases/download/v1.2.3/otterminal-linux-arm64"
         ]
     );
     let env = Arc::new(HelperEnv::default());
@@ -792,11 +792,11 @@ fn helper_cache_rules() {
     let e = ensure_helper(&helper_deps(&env, "dev", true))
         .unwrap_err()
         .to_string();
-    let dest = helper_cache_path("/home/u/.dongminal", "dev", "arm64");
+    let dest = helper_cache_path("/home/u/.otterminal", "dev", "arm64");
     assert_eq!(
         e,
         format!(
-            "리눅스용 dmctl 를 만들지 못했습니다(개발 빌드): go: command not found\n  직접 놓아두려면: cargo build --release -p dongminal --target aarch64-unknown-linux-gnu && cp target/aarch64-unknown-linux-gnu/release/dongminal {dest}"
+            "리눅스용 otterctl 를 만들지 못했습니다(개발 빌드): go: command not found\n  직접 놓아두려면: cargo build --release -p otterminal --target aarch64-unknown-linux-gnu && cp target/aarch64-unknown-linux-gnu/release/otterminal {dest}"
         )
     );
     let e = ensure_helper(&helper_deps(&env, "v9.9.9", true))
@@ -804,14 +804,14 @@ fn helper_cache_rules() {
         .to_string();
     assert_eq!(
         e,
-        "리눅스용 dmctl 를 받지 못했습니다(https://github.com/Biisairo/dongminal/releases/download/v9.9.9/dongminal-linux-arm64): 404"
+        "리눅스용 otterctl 를 받지 못했습니다(https://github.com/Biisairo/otterminal/releases/download/v9.9.9/otterminal-linux-arm64): 404"
     );
 
     let env = Arc::new(HelperEnv::default());
     let mut d = helper_deps(&env, "v1.3.0", false);
     let cur = helper_cache_path(&d.home, &d.version, &d.arch);
     let old = helper_cache_path(&d.home, "v1.2.3", &d.arch);
-    let other = dm_gocompat::filepath::join(&[d.home.as_str(), "cache", "other.bin"]);
+    let other = otter_gocompat::filepath::join(&[d.home.as_str(), "cache", "other.bin"]);
     let listed = vec![cur, old.clone(), other];
     d.list_cache = Some(Arc::new(move |_| Ok(listed.clone())));
     prune_helper_cache(&d);
@@ -868,7 +868,7 @@ fn runtime_probe() {
     });
     assert_eq!(st.detail, "exit status 1");
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal(&st).unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal(&st).unwrap()).unwrap(),
         r#"{"state":"stopped","os":"linux","runtime":"docker","path":"/usr/local/bin/docker","detail":"exit status 1","installCommand":"curl -fsSL https://get.docker.com | sh","startCommand":"sudo systemctl start docker","startTryable":false}"#
     );
 }

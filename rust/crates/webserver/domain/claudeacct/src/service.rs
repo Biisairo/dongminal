@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use dm_gocompat::json::{self, RawMessage, is_empty};
+use otter_gocompat::json::{self, RawMessage, is_empty};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
@@ -141,7 +141,7 @@ impl Service {
                         id: (self.new_id)(),
                         email: oa.email_address.clone(),
                         org_uuid: oa.organization_uuid.clone(),
-                        added_at: dm_gocompat::time::GoTime(
+                        added_at: otter_gocompat::time::GoTime(
                             (self.now)().to_offset(time::UtcOffset::UTC),
                         ),
                         color,
@@ -384,7 +384,7 @@ impl Service {
             .unwrap_or_default()
     }
 
-    /// dongminal 밖(`/login`·cswap)에서 바꾼 활성 계정을 활성 기록에 맞춘다 (FR-CAC-34b).
+    /// otterminal 밖(`/login`·cswap)에서 바꾼 활성 계정을 활성 기록에 맞춘다 (FR-CAC-34b).
     /// 등록되지 않은 계정이면 고치지 않는다. 전환 기록은 남기지 않는다. 고쳤으면 true.
     pub fn sync_active_from_live(&self) -> Result<bool, Error> {
         let st = self.store.load()?;

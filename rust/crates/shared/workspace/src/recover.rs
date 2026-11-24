@@ -4,9 +4,9 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::PathBuf;
 
-use dm_gocompat::oserr::{go_error_string, link_error, path_error};
-use dm_shared_dmlog::errorf;
-use dm_shared_platform::{STATE_FILE_GENERATIONS, write_state_file};
+use otter_gocompat::oserr::{go_error_string, link_error, path_error};
+use otter_shared_otterlog::errorf;
+use otter_shared_platform::{STATE_FILE_GENERATIONS, write_state_file};
 use time::{OffsetDateTime, UtcOffset};
 
 use crate::Persister;

@@ -152,7 +152,7 @@ git 의 `add`/`reset`/`checkout` 은 각각 원자적이지 않다(경로별로 
 — **실행 후 상태를 응답에 함께 담는다** (FR-GIT-71: 폴링 주기를 기다리지 않는다).
 
 `/discard` 는 `confirm:true` 가 없으면 400 `confirmation_required`.
-서버도 확인을 요구한다 — 클라이언트만 막으면 `dmctl git discard` 가 우회한다.
+서버도 확인을 요구한다 — 클라이언트만 막으면 `otterctl git discard` 가 우회한다.
 
 ### 1.4 클라이언트 (FR-GIT-66~72)
 
@@ -221,7 +221,7 @@ func (s *Service) LastCommitMessage(ctx context.Context, repo string) (string, e
 - 메시지는 **본문으로만** 받는다. 쿼리 파라미터로 받지 않는다 (FR-GIT-61 표의 명시).
 - 커밋 전 `Preflight` 를 서버가 다시 돌린다. `Blocks` 가 비어 있지 않으면
   409 `preflight_blocked` + `{"preflight":{…}}`. **클라이언트만 막으면
-  `dmctl git commit` 이 우회한다.**
+  `otterctl git commit` 이 우회한다.**
 - 빈 메시지 → 400 `empty_message`. staged 가 없고 `all:false` → 400
   `nothing_staged` (FR-GIT-84). `--allow-empty` 는 M2 범위 밖이다.
 

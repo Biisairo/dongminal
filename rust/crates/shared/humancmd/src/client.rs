@@ -2,7 +2,7 @@ use std::io::{self, Read, Write};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use dm_shared_platform::IpcStream;
+use otter_shared_platform::IpcStream;
 
 use crate::{
     DEFAULT_TIMEOUT, Error, Frame, Request, Signed, TYPE_ERROR, TYPE_INFO, TYPE_SIGN, TYPE_SIGNED,
@@ -63,7 +63,7 @@ impl Client {
         } else {
             self.timeout
         };
-        let conn = dm_shared_platform::current()
+        let conn = otter_shared_platform::current()
             .ipc
             .dial(&self.path, wait)
             .map_err(|_| Error::no_helper())?;

@@ -122,7 +122,7 @@ test('상대가 지운 removed 방송만 "끊겼습니다" 알림을 띄운다',
   assert.equal(shown.length, 1);
   assert.match(shown[0].text, /^edge\.removed_notice/);
   assert.match(shown[0].text, /"name":"node-b#0001"/);
-  // 이쪽에서 지운 것(어느 탭이든 dmctl 이든)은 알리지 않는다.
+  // 이쪽에서 지운 것(어느 탭이든 otterctl 이든)은 알리지 않는다.
   await app.edges._onEdgesChanged({ removed: { fp: 'f2', name: 'node-c' } });
   assert.equal(shown.length, 1, '이쪽에서 지운 간선을 알렸다');
 });

@@ -1,8 +1,8 @@
 //! 진행 중 작업의 출구 (GIT_ACTIONS_SRS §3.1 / FR-GIT-252). 종류는 `query::OP_*` 를 그대로 쓴다.
 
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_git_core::WriteSpec;
-use dm_webserver_domain_git_query as query;
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_git_core::WriteSpec;
+use otter_webserver_domain_git_query as query;
 
 use crate::error::{Error, WriteKind};
 

@@ -4,8 +4,8 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use dm_shared_dmenv as dmenv;
-use dm_shared_handover::{Kind, Outcome, REASON_PREFLIGHT};
+use otter_shared_handover::{Kind, Outcome, REASON_PREFLIGHT};
+use otter_shared_otterenv as otterenv;
 
 use super::fake_http::FakeServer;
 use super::{Vars, temp_home, with_env, write_server_json};
@@ -47,7 +47,7 @@ fn start_fg(o: StartOpts, v: &Vars) -> (i32, Served, String, String) {
         0
     };
     let ps = Procs {
-        proc: dm_shared_platform::current().process,
+        proc: otter_shared_platform::current().process,
         pids_on_port: &no_listener,
     };
     let mut out = Vec::new();
@@ -64,7 +64,7 @@ fn start_fg(o: StartOpts, v: &Vars) -> (i32, Served, String, String) {
 }
 
 fn read_server_json(home: &Path) -> serde_json::Map<String, serde_json::Value> {
-    dm_gocompat::json::unmarshal(&std::fs::read(home.join("server.json")).unwrap()).unwrap()
+    otter_gocompat::json::unmarshal(&std::fs::read(home.join("server.json")).unwrap()).unwrap()
 }
 
 fn common(home: &Path, port: &str) -> Common {
@@ -79,9 +79,9 @@ fn isolated_tool_home_paths() {
     let iso = format!("/tmp/{ISOLATED_HOME_PREFIX}abc123");
     assert_eq!(
         isolated_tool_home(&iso),
-        dm_gocompat::filepath::join(&[iso.as_str(), "tool-home"])
+        otter_gocompat::filepath::join(&[iso.as_str(), "tool-home"])
     );
-    assert_eq!(isolated_tool_home("/Users/someone/.dongminal"), "");
+    assert_eq!(isolated_tool_home("/Users/someone/.otterminal"), "");
 }
 
 // D-A-9: 격리 전경 기동은 어디에 떴는지 말하고, 도구 셸의 홈을 serve 에 넘긴다.
@@ -187,7 +187,7 @@ fn port_flag_writes_server_json() {
     assert_eq!(m["logLevel"], "debug");
     assert_eq!(
         out,
-        "dongminald 미실행 — dongminal 이 자동 기동합니다\n\
+        "otterminald 미실행 — otterminal 이 자동 기동합니다\n\
          ℹ️  새 판이 나오면 화면에 알려 드립니다 — 서버가 GitHub 릴리스를 하루 한 번 확인합니다.\n\
          \x20  끄려면: 설정 ▸ 업데이트 알림 (또는 server.json 의 updateCheck 를 false 로)\n"
     );
@@ -229,8 +229,8 @@ fn ignores_bind_env_and_warns() {
     write_server_json(&home, &format!(r#"{{"port":"{p}"}}"#));
     let mut v = Vars::home(&home);
     v.set("PORT", "61001");
-    v.set(dmenv::ENV_PORT, "61001");
-    v.set(dmenv::ENV_HOST, EXPOSE_HOST);
+    v.set(otterenv::ENV_PORT, "61001");
+    v.set(otterenv::ENV_HOST, EXPOSE_HOST);
     let (_, s, _, err) = start_fg(
         StartOpts {
             common: common(&home, ""),
@@ -242,7 +242,7 @@ fn ignores_bind_env_and_warns() {
         (s.host.as_str(), s.port.as_str()),
         (DEFAULT_HOST, p.as_str())
     );
-    assert_eq!(err.matches(dmenv::ENV_PORT).count(), 1, "{err}");
+    assert_eq!(err.matches(otterenv::ENV_PORT).count(), 1, "{err}");
 }
 
 // FR-CFG-19: 잘못된 플래그 포트는 파서가 막지만, 파일 포트 오류는 막지 않는다.
@@ -278,15 +278,15 @@ fn server_cmd_carries_no_bind_env() {
     let envs: HashMap<&OsStr, Option<&OsStr>> = cmd.cmd.get_envs().collect();
     for k in [
         "PORT",
-        dmenv::ENV_PORT,
-        dmenv::ENV_HOST,
-        dmenv::ENV_RESTART_RUNNER,
-        dmenv::ENV_TOOL_ID,
+        otterenv::ENV_PORT,
+        otterenv::ENV_HOST,
+        otterenv::ENV_RESTART_RUNNER,
+        otterenv::ENV_TOOL_ID,
     ] {
         assert_eq!(envs.get(OsStr::new(k)), Some(&None), "{k}");
     }
     assert_eq!(
-        envs.get(OsStr::new(dmenv::ENV_HOME)),
+        envs.get(OsStr::new(otterenv::ENV_HOME)),
         Some(&Some(home.as_os_str()))
     );
     let args: Vec<_> = cmd.cmd.get_args().collect();
@@ -302,12 +302,12 @@ fn resolve_target_plain_and_isolated() {
     let (h, p) = with_env(&v, |env| resolve_start_target(&StartOpts::default(), env)).unwrap();
     assert_eq!((h.as_str(), p.as_str()), (home.to_str().unwrap(), ""));
     let o = StartOpts {
-        common: common(Path::new("/tmp/dm-explicit"), "60200"),
+        common: common(Path::new("/tmp/otter-explicit"), "60200"),
         isolated: true,
         ..Default::default()
     };
     let (h, p) = with_env(&v, |env| resolve_start_target(&o, env)).unwrap();
-    assert_eq!((h.as_str(), p.as_str()), ("/tmp/dm-explicit", "60200"));
+    assert_eq!((h.as_str(), p.as_str()), ("/tmp/otter-explicit", "60200"));
     let iso = StartOpts {
         isolated: true,
         ..Default::default()
@@ -360,7 +360,7 @@ impl DaemonOps for Recorder {
         true
     }
     fn notice(&mut self) -> String {
-        "dongminald 실행 중".to_owned()
+        "otterminald 실행 중".to_owned()
     }
 }
 
@@ -395,7 +395,7 @@ fn prepare_swaps_then_proceeds() {
     assert_eq!((r.reloads, r.confirms, r.stops), (1, 1, 0));
     assert_eq!(
         out,
-        "dongminald 를 세션을 유지하며 교체합니다...\n✅ dongminald 교체 완료 (세션 유지)\n"
+        "otterminald 를 세션을 유지하며 교체합니다...\n✅ otterminald 교체 완료 (세션 유지)\n"
     );
 }
 
@@ -412,7 +412,7 @@ fn prepare_refused_stops_everything() {
     assert_eq!(
         err,
         format!(
-            "❌ dongminald 교체 실패 ({REASON_PREFLIGHT}): 판이 다르다\n  서버·데몬·세션은 그대로입니다.\n  세션을 버리고 새로 띄우려면: dongminal start --refresh-daemon\n"
+            "❌ otterminald 교체 실패 ({REASON_PREFLIGHT}): 판이 다르다\n  서버·데몬·세션은 그대로입니다.\n  세션을 버리고 새로 띄우려면: otterminal start --refresh-daemon\n"
         )
     );
 }
@@ -427,7 +427,7 @@ fn prepare_unconfirmed_swap_stops() {
     };
     let (res, _, err) = prepare(StartOpts::default(), &mut r);
     assert_eq!(res, Err(1));
-    assert!(err.starts_with("❌ 교체한 dongminald 를 확인하지 못했습니다: pid 가 바뀌었다\n"));
+    assert!(err.starts_with("❌ 교체한 otterminald 를 확인하지 못했습니다: pid 가 바뀌었다\n"));
 }
 
 #[test]
@@ -452,7 +452,7 @@ fn prepare_not_running_just_proceeds() {
     let (res, out, _) = prepare(StartOpts::default(), &mut r);
     assert_eq!(res, Ok(()));
     assert_eq!((r.reloads, r.stops), (0, 0));
-    assert_eq!(out, "dongminald 미실행 — dongminal 이 자동 기동합니다\n");
+    assert_eq!(out, "otterminald 미실행 — otterminal 이 자동 기동합니다\n");
 }
 
 #[test]
@@ -468,7 +468,7 @@ fn prepare_server_only_touches_nothing() {
     let (res, out, _) = prepare(o, &mut r);
     assert_eq!(res, Ok(()));
     assert_eq!((r.reloads, r.stops), (0, 0));
-    assert_eq!(out, "dongminald 실행 중\n");
+    assert_eq!(out, "otterminald 실행 중\n");
 }
 
 #[test]
@@ -548,7 +548,7 @@ fn update_notice_once_then_never() {
     let mut second = Vec::new();
     announce_update_check(home, &no_env, &mut second);
     assert!(second.is_empty());
-    let conf = dm_shared_serverconf::resolve(&dm_shared_serverconf::Inputs {
+    let conf = otter_shared_serverconf::resolve(&otter_shared_serverconf::Inputs {
         home: d.path(),
         getenv: Some(&no_env),
         ..Default::default()
@@ -559,14 +559,14 @@ fn update_notice_once_then_never() {
 #[test]
 fn update_notice_silent_when_decided_or_killed() {
     let d = tempfile::tempdir().unwrap();
-    dm_shared_serverconf::set_update_check(d.path(), false).unwrap();
+    otter_shared_serverconf::set_update_check(d.path(), false).unwrap();
     let mut out = Vec::new();
     announce_update_check(d.path().to_str().unwrap(), &no_env, &mut out);
     assert!(out.is_empty());
 
     let d = tempfile::tempdir().unwrap();
     let kill = |k: &str| {
-        if k == dmenv::ENV_NO_CHECK {
+        if k == otterenv::ENV_NO_CHECK {
             "1".to_owned()
         } else {
             String::new()
@@ -612,7 +612,7 @@ fn tail_reads_only_the_end() {
 #[test]
 fn mkdir_all_error_matches_go() {
     let d = tempfile::tempdir().unwrap();
-    let blocker = dm_gocompat::filepath::join(&[d.path().to_str().unwrap(), "f"]);
+    let blocker = otter_gocompat::filepath::join(&[d.path().to_str().unwrap(), "f"]);
     std::fs::write(&blocker, "x").unwrap();
     let e = crate::start::mkdir_all(&format!("{blocker}/a/b"), 0o700).unwrap_err();
     assert_eq!(e.to_string(), format!("mkdir {blocker}: not a directory"));

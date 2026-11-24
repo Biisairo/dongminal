@@ -1,0 +1,60 @@
+[package]
+name = "otterminal"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "otterminal"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+otter-gocompat = { path = "../../gocompat" }
+otter-ctl-cli = { path = "../../ctl/cli" }
+otter-daemon-boot = { path = "../../daemon/boot" }
+otter-helper-runtimebin = { path = "../../helper/runtimebin" }
+otter-shared-activity = { path = "../../shared/activity" }
+otter-shared-otterenv = { path = "../../shared/otterenv" }
+otter-shared-otterlog = { path = "../../shared/otterlog" }
+otter-shared-handover = { path = "../../shared/handover" }
+otter-shared-platform = { path = "../../shared/platform" }
+otter-shared-pollwait = { path = "../../shared/pollwait" }
+otter-shared-runtime = { path = "../../shared/runtime" }
+otter-shared-sandbox = { path = "../../shared/sandbox" }
+otter-shared-sandboxplace = { path = "../../shared/sandboxplace" }
+otter-shared-serverconf = { path = "../../shared/serverconf" }
+otter-shared-toolhub = { path = "../../shared/toolhub" }
+otter-shared-toolipc = { path = "../../shared/toolipc" }
+otter-shared-updatecheck = { path = "../../shared/updatecheck" }
+otter-shared-workspace = { path = "../../shared/workspace" }
+otter-webserver-domain-ext = { path = "../../webserver/domain/ext" }
+otter-webserver-domain-git-core = { path = "../../webserver/domain/git/core" }
+otter-webserver-domain-git-jobs = { path = "../../webserver/domain/git/jobs" }
+otter-webserver-domain-git-query = { path = "../../webserver/domain/git/query" }
+otter-webserver-domain-git-store = { path = "../../webserver/domain/git/store" }
+otter-webserver-domain-lsp = { path = "../../webserver/domain/lsp" }
+otter-webserver-domain-run = { path = "../../webserver/domain/run" }
+otter-webserver-domain-sysstat = { path = "../../webserver/domain/sysstat" }
+otter-webserver-domain-worktree = { path = "../../webserver/domain/worktree" }
+otter-webserver-domain-wsentry = { path = "../../webserver/domain/wsentry" }
+otter-webserver-httpapi = { path = "../../webserver/httpapi" }
+otter-webserver-hub = { path = "../../webserver/hub" }
+otter-webserver-recordsync = { path = "../../webserver/recordsync" }
+otter-webserver-seam-adapters = { path = "../../webserver/seam/adapters" }
+otter-webserver-seam-toolaccess = { path = "../../webserver/seam/toolaccess" }
+otter-webserver-toolclient = { path = "../../webserver/toolclient" }
+otter-web-assets = { path = "../../web" }
+futures-util = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+
+[dev-dependencies]
+otter-daemon-ipc = { path = "../../daemon/ipc" }
+otter-shared-agentrec = { path = "../../shared/agentrec" }
+otter-shared-gittest = { path = "../../shared/gittest" }
+tempfile = { workspace = true }

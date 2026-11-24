@@ -4,8 +4,8 @@
 use std::fs::Metadata;
 use std::io::ErrorKind;
 
-use dm_gocompat::filepath;
-use dm_shared_httpresp::Response;
+use otter_gocompat::filepath;
+use otter_shared_httpresp::Response;
 use serde::{Deserialize, Serialize};
 
 use crate::Server;

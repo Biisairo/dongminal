@@ -3,9 +3,11 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::time::{Duration, Instant};
 
-use dm_gocompat::json;
-use dm_shared_toolhub::{BackgroundEntry, ExitInfo, Placement, ShellState, ToolInfo, ToolSnapshot};
-use dm_shared_toolipc::{
+use otter_gocompat::json;
+use otter_shared_toolhub::{
+    BackgroundEntry, ExitInfo, Placement, ShellState, ToolInfo, ToolSnapshot,
+};
+use otter_shared_toolipc::{
     BackgroundListResult, BusyManyParams, BusyManyResult, BusyResult, CODE_NOT_FOUND,
     CODE_TOOL_CAP, CreateParams, CreateResult, CwdResult, FEATURE_BUSY_MANY, FEATURE_NOTIFY,
     FEATURE_SHELL_PROBE, IdParams, METHOD_BACKGROUND_LIST, METHOD_BUSY, METHOD_BUSY_MANY,

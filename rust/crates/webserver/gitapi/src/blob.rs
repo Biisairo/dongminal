@@ -2,11 +2,11 @@
 //!
 //! 그림만 내보낸다. SVG 는 `Content-Security-Policy: sandbox` 로 스크립트를 막는다.
 
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_shared_mimeprobe as mimeprobe;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_query as query;
 use http::{HeaderValue, StatusCode, header};
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_mimeprobe as mimeprobe;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_query as query;
 
 use crate::GitServer;
 use crate::reply::{git_error, git_fail};

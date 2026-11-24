@@ -5,7 +5,7 @@ use std::io;
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
-use dm_gocompat::json::{self, RawMessage, is_empty};
+use otter_gocompat::json::{self, RawMessage, is_empty};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use tokio_util::sync::CancellationToken;
@@ -283,9 +283,9 @@ pub fn cswap_auto_running(cmdlines: &[String]) -> bool {
     for line in cmdlines {
         let f: Vec<&str> = line.split_whitespace().collect();
         for i in 0..f.len().saturating_sub(1) {
-            let base = dm_gocompat::filepath::base(f[i]);
+            let base = otter_gocompat::filepath::base(f[i]);
             let prev = if i > 0 {
-                dm_gocompat::filepath::base(f[i - 1])
+                otter_gocompat::filepath::base(f[i - 1])
             } else {
                 String::new()
             };
@@ -332,7 +332,7 @@ fn apply_auto_key(s: &mut AutoSettings, k: &str, v: &RawMessage) -> Result<(), E
         _ => {
             return Err(Error::with_detail(
                 Sentinel::Invalid,
-                format!("모르는 키 {}", dm_gocompat::strconv::quote(k)),
+                format!("모르는 키 {}", otter_gocompat::strconv::quote(k)),
             ));
         }
     }
@@ -493,7 +493,7 @@ impl Auto {
                 f.schema_version = AUTOSWITCH_SCHEMA;
                 g.file = f;
             }
-            _ => dm_shared_dmlog::infof!(
+            _ => otter_shared_otterlog::infof!(
                 None,
                 "claude-accounts: {AUTOSWITCH_FILE} 가 깨졌다 — 기본값으로 시작한다"
             ),
@@ -508,12 +508,18 @@ impl Auto {
         let _lock = match self.eng.svc.store.lock() {
             Ok(l) => l,
             Err(e) => {
-                dm_shared_dmlog::infof!(None, "claude-accounts: {AUTOSWITCH_FILE} 락 실패: {e}");
+                otter_shared_otterlog::infof!(
+                    None,
+                    "claude-accounts: {AUTOSWITCH_FILE} 락 실패: {e}"
+                );
                 return;
             }
         };
         if let Err(e) = write_secret_file(&self.eng.svc.dir.join(AUTOSWITCH_FILE), &b) {
-            dm_shared_dmlog::infof!(None, "claude-accounts: {AUTOSWITCH_FILE} 쓰기 실패: {e}");
+            otter_shared_otterlog::infof!(
+                None,
+                "claude-accounts: {AUTOSWITCH_FILE} 쓰기 실패: {e}"
+            );
         }
     }
 
@@ -878,7 +884,7 @@ impl Auto {
             let res = match self.eng.switch_to(&c.acc.id, trigger, BY_AUTO).await {
                 Ok(r) => r,
                 Err(e) => {
-                    dm_shared_dmlog::infof!(None, "claude-accounts: 자동 전환 실패: {e}");
+                    otter_shared_otterlog::infof!(None, "claude-accounts: 자동 전환 실패: {e}");
                     continue;
                 }
             };

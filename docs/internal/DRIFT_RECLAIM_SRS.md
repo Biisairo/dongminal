@@ -124,7 +124,7 @@ func gitTail(msg string) string
 `handlers_ws.go:196≡:233` · `handlers_toolio.go:45≡:181` ·
 `handlers_runs_headless.go:116≡:182` · `handlers_git.go:369≡wsentry/link.go:94` ·
 `handlers_git.go:266≡handlers_git_init.go:26` ·
-`write/branch.go:494≡write/remote.go:156` · `dmctl.go:403≡:435`
+`write/branch.go:494≡write/remote.go:156` · `otterctl.go:403≡:435`
 
 뒤의 셋은 앞의 여섯을 걷어낸 뒤 같은 측정이 드러냈다 — 큰 복제가 작은 복제를
 가리고 있었다.
@@ -135,12 +135,12 @@ func gitTail(msg string) string
 // ctl/cli/health.go:23 — 호스트를 박아 쓴다
 ping(fmt.Sprintf("http://localhost:%s/", port), 3*time.Second)
 // ctl/cli/migrate.go:41 — 바로 옆은 상수를 쓴다
-ping(fmt.Sprintf("http://%s:%s/api/ping", dmenv.DefaultHost, port), 2*time.Second)
+ping(fmt.Sprintf("http://%s:%s/api/ping", otterenv.DefaultHost, port), 2*time.Second)
 ```
 
-`dmenv.DefaultHost` 는 `"127.0.0.1"` 이다. `localhost` 가 `::1` 로 먼저 풀리는
+`otterenv.DefaultHost` 는 `"127.0.0.1"` 이다. `localhost` 가 `::1` 로 먼저 풀리는
 환경에서 **health 만 실패한다.** 같은 데몬을 두 이름으로 부르면 한쪽이 다른
-인스턴스를 본다는 것이 `dmenv.go:40` 주석이 이미 말한 것이다.
+인스턴스를 본다는 것이 `otterenv.go:40` 주석이 이미 말한 것이다.
 
 **(7) 큰 파일**
 
@@ -150,7 +150,7 @@ ping(fmt.Sprintf("http://%s:%s/api/ping", dmenv.DefaultHost, port), 2*time.Secon
 | `web/js/git/history.js` | 1,236 |
 | `web/js/core/app-editor.js` | 1,152 |
 | `web/js/ui/file-editor.js` | 1,027 |
-| `internal/helper/runtimebin/dmctl_run.go` | 880 |
+| `internal/helper/runtimebin/otterctl_run.go` | 880 |
 | `internal/webserver/domain/run/store.go` | 837 |
 
 ---
@@ -196,15 +196,15 @@ ping(fmt.Sprintf("http://%s:%s/api/ping", dmenv.DefaultHost, port), 2*time.Secon
 
 **FR-DRC-11** §2.2(5) 의 중복 블록 9건은 각 파일 안에서 회수되어야 한다.
 
-**FR-DRC-12** `ctl/cli/health.go` 는 `dmenv.DefaultHost` 를 써야 한다.
+**FR-DRC-12** `ctl/cli/health.go` 는 `otterenv.DefaultHost` 를 써야 한다.
 
 > **개정 2026-09-21 (`STRUCTURE_CLEANUP_SRS` FR-STR-24).** 이 요구는 **과교정이었다.**
 > 고치려던 결함은 *"`localhost` 가 `::1` 로 먼저 풀려 health 만 실패한다"* 였고,
-> 그 해법을 **상수 고정**으로 적은 탓에 `DONGMINAL_HOST=192.168.1.5` 로 띄운
+> 그 해법을 **상수 고정**으로 적은 탓에 `OTTERMINAL_HOST=192.168.1.5` 로 띄운
 > 인스턴스에는 health 가 **언제나 실패**하게 됐다.
 >
-> 이전: `dmenv.DefaultHost` 고정 · 새: `Common.ResolveTarget()` 이 준 host
-> (`dmenv.DialHost` 를 지난 값) · 이유: `DialHost` 가 이름 해석 문제를 이미 푼다 —
+> 이전: `otterenv.DefaultHost` 고정 · 새: `Common.ResolveTarget()` 이 준 host
+> (`otterenv.DialHost` 를 지난 값) · 이유: `DialHost` 가 이름 해석 문제를 이미 푼다 —
 > 미지정 주소만 loopback 으로 바꾸고 나머지는 그대로 두드린다. 옆의 `start` 가
 > 처음부터 그 규칙이었고, 두 벌로 두면 한쪽만 고쳐진다.
 
@@ -264,13 +264,13 @@ ping(fmt.Sprintf("http://%s:%s/api/ping", dmenv.DefaultHost, port), 2*time.Secon
 |---|---|---|---|
 | submodule confirm 누락 | `400 bad_request` / "잘못된 요청입니다" | `400 confirmation_required` / "확인이 필요합니다" | FR-DRC-5. 같은 뜻에 코드가 둘이면 사용자가 보는 말이 갈린다. worktree 가 이미 쓰는 코드로 맞춘다 |
 | submodule 쓰기 성공 본문 | `{ok, repo}` | `{ok, repo, requested}` | 쓰기 응답 모양의 통일. `requested` 는 화면의 stale 판정 근거이며(`panel-write.js:185`) 없으면 그 판정을 못 한다. 추가만 하므로 기존 소비자는 영향 없다 |
-| `health` 의 대상 호스트 | `localhost` | `dmenv.DefaultHost` (`127.0.0.1`) | FR-DRC-12. `localhost` 가 `::1` 로 먼저 풀리는 환경에서 health 만 실패했다 |
+| `health` 의 대상 호스트 | `localhost` | `otterenv.DefaultHost` (`127.0.0.1`) | FR-DRC-12. `localhost` 가 `::1` 로 먼저 풀리는 환경에서 health 만 실패했다 |
 | 데몬 배선 WS 읽기 오류 로그 | `readWS error: <err>` | `readWS error addr=<addr>: <err>` | 직접 배선과 같은 사건인데 한쪽에만 주소가 있었다. 통합하면서 정보가 많은 쪽으로 맞췄다 |
 | `sandbox`·`submodule` 진단 자르기 | 바이트 경계로 자름 | `ToValidUTF8` 을 지남 | FR-DRC-9. 한글이 실린 stderr 를 바이트로 자르면 마지막 글자가 깨져 나갔다. `gitTail` 만 옳던 규칙을 셋이 함께 쓴다 |
 
 **동작이 바뀌지 않은 것:** 나머지 회수는 전부 같은 응답·같은 순서다. gitapi 쓰기
 핸들러 이관, `httproute` 추출, `listorder`·`fsWalkFiles`·`wsReadLoop`·
-`decodeJSONBody`·`runMember`·`fsRootTarget`·`pushForceArgs`·`dmctlHTTPResult`,
+`decodeJSONBody`·`runMember`·`fsRootTarget`·`pushForceArgs`·`otterctlHTTPResult`,
 그리고 묶음 C 의 파일 분할은 전부 순수 이동이다.
 
 `listorder` 는 **정책 차이를 보존한다** — `gitapi` 는 `ToEnd`, `wsentry` 는 `Keep`
@@ -321,7 +321,7 @@ ping(fmt.Sprintf("http://%s:%s/api/ping", dmenv.DefaultHost, port), 2*time.Secon
 | `web/js/ui/file-editor.js` 1,027 | 747 | `file-editor-find.js` 288 |
 | `web/js/core/constants-git.js` 1,690 | 1,261 | `constants-git-actions.js` 447 |
 | `internal/webserver/domain/run/store.go` 837 | 622 | `vocabulary.go` 225 |
-| `internal/helper/runtimebin/dmctl_run.go` 880 | 687 | `dmctl_run_print.go` 203 |
+| `internal/helper/runtimebin/otterctl_run.go` 880 | 687 | `otterctl_run_print.go` 203 |
 
 ### 7.5 간헐 실패를 파고들어 잡은 제품 결함 둘
 

@@ -5,10 +5,10 @@ use std::ops::Deref;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_edge::{CallError, Client, Config, Edge, Listener, MAX_EDGES, Target, tag};
-use dm_shared_edgemesh::{Invite, PATH, PROTO};
 use http::StatusCode;
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_edge::{CallError, Client, Config, Edge, Listener, MAX_EDGES, Target, tag};
+use otter_shared_edgemesh::{Invite, PATH, PROTO};
 use serde::Deserialize;
 use tempfile::TempDir;
 
@@ -74,7 +74,7 @@ fn new_test_node(name: &str, mesh: bool) -> TestNode {
     panic!("노드 포트를 열지 못했다: {last:?}");
 }
 
-fn try_test_node(name: &str, mesh: bool) -> Result<TestNode, dm_shared_edge::Status> {
+fn try_test_node(name: &str, mesh: bool) -> Result<TestNode, otter_shared_edge::Status> {
     let home = TempDir::new().unwrap();
     let cfg = Config {
         enabled: true,
@@ -85,7 +85,7 @@ fn try_test_node(name: &str, mesh: bool) -> Result<TestNode, dm_shared_edge::Sta
         edges: Vec::new(),
     };
     std::fs::write(
-        home.path().join(dmenv::EDGES_FILE),
+        home.path().join(otterenv::EDGES_FILE),
         json::marshal(&cfg).unwrap(),
     )
     .unwrap();
@@ -392,7 +392,7 @@ async fn handler_only_edge_paths() {
 async fn new_migrates_legacy_file() {
     let home = TempDir::new().unwrap();
     std::fs::write(
-        home.path().join(dmenv::LEGACY_PEERS_FILE),
+        home.path().join(otterenv::LEGACY_PEERS_FILE),
         br#"{"name":"moved"}"#,
     )
     .unwrap();
@@ -403,7 +403,7 @@ async fn new_migrates_legacy_file() {
         ..Options::default()
     })
     .unwrap();
-    assert!(!home.path().join(dmenv::LEGACY_PEERS_FILE).exists());
+    assert!(!home.path().join(otterenv::LEGACY_PEERS_FILE).exists());
     assert!(!home.path().join(LEGACY_SPAWNS_FILE).exists());
     assert_eq!(n.config().name, "moved");
 }
@@ -952,7 +952,7 @@ async fn invite_reject() {
         c.op("invite_reject", &args(&[("id", &id)])).await.status,
         StatusCode::NOT_FOUND
     );
-    let expires = dm_gocompat::time::now_local() + Duration::from_secs(60);
+    let expires = otter_gocompat::time::now_local() + Duration::from_secs(60);
     c.on_invite(Invite {
         id,
         from: a.fp(),
@@ -999,13 +999,13 @@ async fn mesh_ops_without_mesh() {
 struct RelayNode {
     node: Arc<Node>,
     _ln: Listener,
-    _port: Arc<dm_shared_edgerelay::Port>,
-    _dial: dm_shared_edgerelay::DialServer,
+    _port: Arc<otter_shared_edgerelay::Port>,
+    _dial: otter_shared_edgerelay::DialServer,
     _home: TempDir,
 }
 
 fn relay_node(name: &str) -> RelayNode {
-    use dm_shared_edgerelay as relay;
+    use otter_shared_edgerelay as relay;
     let home = tempfile::Builder::new()
         .prefix("en")
         .tempdir_in("/tmp")
@@ -1019,7 +1019,7 @@ fn relay_node(name: &str) -> RelayNode {
         edges: Vec::new(),
     };
     std::fs::write(
-        home.path().join(dmenv::EDGES_FILE),
+        home.path().join(otterenv::EDGES_FILE),
         json::marshal(&cfg).unwrap(),
     )
     .unwrap();
@@ -1038,7 +1038,7 @@ fn relay_node(name: &str) -> RelayNode {
     .unwrap();
     let ln = Listener::new(node.identity(), node.admission(), node.handler()).unwrap();
     ln.use_listen(Box::new(move |_, _| {
-        relay::listen_node(&node_sock).map(|n| Box::new(n) as Box<dyn dm_shared_edge::Acceptor>)
+        relay::listen_node(&node_sock).map(|n| Box::new(n) as Box<dyn otter_shared_edge::Acceptor>)
     }));
     ln.apply(&node.config());
     let c = node.config();
@@ -1081,7 +1081,7 @@ async fn relay_pair_full_flow() {
 // 문구로 끝나도 Rejected 로 오인하지 않는다. 문구는 감싼 오류 전체다.
 #[test]
 fn mesh_call_fail_uses_wrapped_cause() {
-    use dm_shared_edgemesh::{ErrorKind, MeshError};
+    use otter_shared_edgemesh::{ErrorKind, MeshError};
     let rejected_text = CallError::Rejected.to_string();
     let not_edge = CallError::Remote(edge::RemoteError {
         status: 403,

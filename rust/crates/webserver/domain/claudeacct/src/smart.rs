@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use crate::engine::Engine;
 use crate::error::{Error, Sentinel};
 use crate::history::{
-    BY_DMCTL, BY_UI, HistoryEntry, TRIGGER_BEST, TRIGGER_MANUAL, TRIGGER_NEXT,
+    BY_OTTERCTL, BY_UI, HistoryEntry, TRIGGER_BEST, TRIGGER_MANUAL, TRIGGER_NEXT,
     TRIGGER_NEXT_AVAILABLE, append_history,
 };
 use crate::policy::FRESH_FOR_DECISION_S;
@@ -160,10 +160,10 @@ impl Engine {
         } else {
             req.by.as_str()
         };
-        if by != BY_UI && by != BY_DMCTL {
+        if by != BY_UI && by != BY_OTTERCTL {
             return Err(Error::with_detail(
                 Sentinel::Invalid,
-                format!("by {}", dm_gocompat::strconv::quote(&req.by)),
+                format!("by {}", otter_gocompat::strconv::quote(&req.by)),
             ));
         }
         if !req.id.is_empty() {
@@ -262,7 +262,7 @@ impl Engine {
             by: by.to_owned(),
         };
         if let Err(e) = append_history(&self.svc.dir, &h) {
-            dm_shared_dmlog::infof!(None, "claude-accounts: 전환 기록 실패: {e}");
+            otter_shared_otterlog::infof!(None, "claude-accounts: 전환 기록 실패: {e}");
         }
         Ok(res)
     }

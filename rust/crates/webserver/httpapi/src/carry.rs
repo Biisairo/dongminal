@@ -6,10 +6,10 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
-use dm_shared_httpreq as httpreq;
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr as apierr;
 use http::{HeaderValue, StatusCode, header};
+use otter_shared_httpreq as httpreq;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_webserver_apierr as apierr;
 use rand::TryRng;
 use rand::rngs::SysRng;
 
@@ -93,7 +93,7 @@ impl Server {
                 );
             }
         };
-        if !dm_gocompat::json::valid(&raw) {
+        if !otter_gocompat::json::valid(&raw) {
             return code_fail(
                 StatusCode::BAD_REQUEST,
                 apierr::CODE_BAD_REQUEST,

@@ -7,10 +7,10 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
-use dm_webserver_domain_ext as ext;
-use dm_webserver_domain_lsp::{FileEvent, OpenError, PathsError, Tunnel};
 use futures_util::future::BoxFuture;
 use futures_util::{SinkExt, StreamExt};
+use otter_webserver_domain_ext as ext;
+use otter_webserver_domain_lsp::{FileEvent, OpenError, PathsError, Tunnel};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
@@ -286,7 +286,7 @@ async fn lsp_body_too_large() {
     let (_d, srv) = lsp_server(Arc::new(FakeLsp::default()));
     let big = format!(
         r#"{{"id":"{}"}}"#,
-        "x".repeat(dm_shared_httpreq::SMALL_LIMIT as usize)
+        "x".repeat(otter_shared_httpreq::SMALL_LIMIT as usize)
     );
     let r = support::post_json(&srv, "/api/lsp/install", &big).await;
     assert_eq!(r.status, 413);

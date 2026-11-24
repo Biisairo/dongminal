@@ -8,12 +8,12 @@
 
 ### 1.1 목적 (Purpose)
 
-Claude Code 의 화면은 main 세션의 모델·effort·맥락만 보인다. 서브에이전트의 값은 보이지 않는다. Claude Code 는 이 값을 `subagentStatusLine` 명령의 입력으로 넘긴다. 이 SRS 는 그 입력을 dongminal 서버에 남기고, Activity 에이전트 카드에 서브에이전트마다 한 줄로 그린다.
+Claude Code 의 화면은 main 세션의 모델·effort·맥락만 보인다. 서브에이전트의 값은 보이지 않는다. Claude Code 는 이 값을 `subagentStatusLine` 명령의 입력으로 넘긴다. 이 SRS 는 그 입력을 otterminal 서버에 남기고, Activity 에이전트 카드에 서브에이전트마다 한 줄로 그린다.
 
 ### 1.2 범위 (Scope)
 
-- `dmctl subagent-statusline`: `subagentStatusLine` 프록시. 값을 서버에 보고하고, 원래 등록된 명령에 같은 입력을 넘긴다.
-- 서버: 도구별 서브에이전트 목록을 메모리에 둔다. `GET /api/tools/activity` 와 `dmctl status --json` 으로 내보낸다.
+- `otterctl subagent-statusline`: `subagentStatusLine` 프록시. 값을 서버에 보고하고, 원래 등록된 명령에 같은 입력을 넘긴다.
+- 서버: 도구별 서브에이전트 목록을 메모리에 둔다. `GET /api/tools/activity` 와 `otterctl status --json` 으로 내보낸다.
 - 클라이언트: 에이전트 카드에 서브에이전트 줄을 그린다.
 
 **미포함:** §6 비목표.
@@ -43,7 +43,7 @@ Claude Code 의 화면은 main 세션의 모델·effort·맥락만 보인다. �
 
 ### 2.1 지금 있는 것
 
-- dongminal 은 띄운 claude 세션에 flag 설정으로 `statusLine` 프록시(`dmctl statusline`)를 건다 (`agentadapter/claude_install.go`).
+- otterminal 은 띄운 claude 세션에 flag 설정으로 `statusLine` 프록시(`otterctl statusline`)를 건다 (`agentadapter/claude_install.go`).
 - 프록시는 main 세션 값만 받는다. 서브에이전트 값은 그 입력에 없다.
 - 카드의 사용량 줄(FR-ACU-10)은 main 세션 값이다.
 
@@ -82,11 +82,11 @@ Claude Code 의 화면은 main 세션의 모델·effort·맥락만 보인다. �
 - **FR-SAU-3** `description`·`label`·`name`·`cwd`·`tokenSamples` 와 최상위의 경로(`transcript_path`·`cwd`)는 싣지 않는다.
 - **FR-SAU-4** `id` 가 없는 원소는 버린다. 목록은 앞에서부터 최대 `subagentMaxTasks`(32)개만 싣는다.
 
-### 3.2 프록시 (`dmctl subagent-statusline`)
+### 3.2 프록시 (`otterctl subagent-statusline`)
 
-- **FR-SAU-5** dongminal 이 claude 세션에 넘기는 flag 설정에 `"subagentStatusLine": {"type":"command","command":<dmctl> subagent-statusline}` 을 더한다.
-- **FR-SAU-6** 프록시는 stdin 을 읽어 `DONGMINAL_TOOL_ID` 가 있고 입력에 `tasks` 배열이 있으면 `POST /api/tools/subagents` 에 `{toolId, tasks}` 를 보낸다. `tasks` 가 빈 배열이면 빈 목록을 보낸다. 보고 시한은 `slReportBudget`(100ms)이고, 넘기면 버린다.
-- **FR-SAU-7** 하위 명령은 `subagentStatusLine` 키로 찾는다. 찾는 순서와 `disableAllHooks` 규칙은 FR-SLP-4 와 같다. 자기 자신(`dmctl subagent-statusline`)은 고르지 않는다.
+- **FR-SAU-5** otterminal 이 claude 세션에 넘기는 flag 설정에 `"subagentStatusLine": {"type":"command","command":<otterctl> subagent-statusline}` 을 더한다.
+- **FR-SAU-6** 프록시는 stdin 을 읽어 `OTTERMINAL_TOOL_ID` 가 있고 입력에 `tasks` 배열이 있으면 `POST /api/tools/subagents` 에 `{toolId, tasks}` 를 보낸다. `tasks` 가 빈 배열이면 빈 목록을 보낸다. 보고 시한은 `slReportBudget`(100ms)이고, 넘기면 버린다.
+- **FR-SAU-7** 하위 명령은 `subagentStatusLine` 키로 찾는다. 찾는 순서와 `disableAllHooks` 규칙은 FR-SLP-4 와 같다. 자기 자신(`otterctl subagent-statusline`)은 고르지 않는다.
 - **FR-SAU-8** 하위 명령이 있으면 같은 입력을 넘기고, stdout·stderr·종료 코드를 그대로 돌려준다. 없으면 아무것도 출력하지 않고 0 으로 끝난다. 그래서 Claude Code 의 기본 행이 그대로 보인다 (§2.2).
 
 ### 3.3 서버
@@ -104,7 +104,7 @@ Claude Code 의 화면은 main 세션의 모델·effort·맥락만 보인다. �
   | `ctxLevel` | `ctxPct` 가 있을 때 맥락 정책으로 정한 등급 (FR-ACU-3 과 같은 함수) |
 
 - **FR-SAU-14** `subagents` 는 `startTime` 오름차순이다. `startTime` 이 없는 원소는 끝에 받은 순서로 둔다.
-- **FR-SAU-15** `dmctl status --json` 의 도구 상태는 신선한 목록이 있으면 `subagents` 필드에 허용 목록 항목(FR-SAU-2) 그대로를 싣는다.
+- **FR-SAU-15** `otterctl status --json` 의 도구 상태는 신선한 목록이 있으면 `subagents` 필드에 허용 목록 항목(FR-SAU-2) 그대로를 싣는다.
 
 ### 3.4 클라이언트
 
@@ -136,21 +136,21 @@ Claude Code 의 화면은 main 세션의 모델·effort·맥락만 보인다. �
 | TC | 대상 | 방법 | 기대 |
 |---|---|---|---|
 | TC-SAU-1 | FR-SAU-1~4 | Go: §2.2 실측 입력에 모르는 필드·경로·`description` 을 더해 꺼냄 | 허용 필드만 남는다. `effort` 가 string/number 일 때 각각 `effort`/`effortBudget` 이다. `id` 없는 원소는 없다. 33개 입력은 32개다 |
-| TC-SAU-2 | FR-SAU-5 | Go: claude 설치 설정 | `subagentStatusLine.command` 가 `"<dmctl>" subagent-statusline` 이다 |
-| TC-SAU-3 | FR-SAU-6 | Go: 시험 서버로 프록시 실행 | `/api/tools/subagents` 에 `{toolId, tasks}` 가 온다. `DONGMINAL_TOOL_ID` 가 없으면 보내지 않는다 |
+| TC-SAU-2 | FR-SAU-5 | Go: claude 설치 설정 | `subagentStatusLine.command` 가 `"<otterctl>" subagent-statusline` 이다 |
+| TC-SAU-3 | FR-SAU-6 | Go: 시험 서버로 프록시 실행 | `/api/tools/subagents` 에 `{toolId, tasks}` 가 온다. `OTTERMINAL_TOOL_ID` 가 없으면 보내지 않는다 |
 | TC-SAU-4 | FR-SAU-7·8 | Go: 사용자 설정에 `subagentStatusLine` 하위 명령 / 자기 자신 / 없음 / `disableAllHooks` | 하위 명령의 stdout 이 그대로 나온다 / 자기는 고르지 않는다 / 출력 없이 0 이다 / 실행하지 않는다 |
 | TC-SAU-5 | FR-SAU-10·12·13·14 | Go: 보고 후 `/api/tools/activity` 를 시각을 바꿔 호출 | 신선하면 `subagents` 가 `startTime` 순으로 있고 `ctxPct`·`ctxLevel` 이 맞다. 기한이 지나면 필드가 없다. 빈 목록 보고 뒤에도 없다 |
-| TC-SAU-6 | FR-SAU-11·15 | Go: 도구가 죽은 뒤 수거 / `dmctl status --json` 응답 | 목록이 지워진다 / `subagents` 가 허용 목록 항목이다 |
+| TC-SAU-6 | FR-SAU-11·15 | Go: 도구가 죽은 뒤 수거 / `otterctl status --json` 응답 | 목록이 지워진다 / `subagents` 가 허용 목록 항목이다 |
 | TC-SAU-7 | FR-SAU-20~23 | JS 단위: 서브에이전트 조합별 카드 | 원소마다 줄이 서고, 모델 글자에 `claude-` 가 없고, `running` 이 아닌 줄에 흐림 클래스가 붙고, 툴팁이 영어다 |
 | TC-SAU-8 | FR-SAU-24·25 | JS 단위: `ctxPct` 2.1→2.3 / status 변경 / SSE 덮어쓰기 / `subagents` 없는 복원 | `sig` 같음 / 다름 / 남음 / 지워짐 |
 | TC-SAU-9 | FR-SAU-20·NFR-SAU-2 | e2e: 서브에이전트를 보고한 도구로 패널을 열고 최소 폭으로 줄임 | 줄이 보이고 카드 폭을 넘지 않는다 |
-| TC-SAU-10 | FR-SAU-5·8, §2.2 | 수동: 새로 빌드한 dongminal 에서 띄운 claude 세션이 서브에이전트를 실행 | Activity 카드에 줄이 서고, Claude Code 화면의 기본 행이 그대로다 |
+| TC-SAU-10 | FR-SAU-5·8, §2.2 | 수동: 새로 빌드한 otterminal 에서 띄운 claude 세션이 서브에이전트를 실행 | Activity 카드에 줄이 서고, Claude Code 화면의 기본 행이 그대로다 |
 
 ## 6. 비목표 (Non-goals)
 
 - 서브에이전트의 비용·`tokenSamples` 추이·설명 글 표시 (D-SAU-3)
 - Claude Code 화면의 서브에이전트 행 모양 바꾸기 (프록시는 행을 출력하지 않는다)
-- dongminal 이 띄우지 않은 claude 세션의 서브에이전트
+- otterminal 이 띄우지 않은 claude 세션의 서브에이전트
 - Claude 외 에이전트(codex 등)의 서브에이전트
 - 서브에이전트 줄 클릭 동작 (카드 클릭과 같다)
 
@@ -158,7 +158,7 @@ Claude Code 의 화면은 main 세션의 모델·effort·맥락만 보인다. �
 
 | ID | 위험 | 등급 | 대응 |
 |---|---|---|---|
-| R-1 | flag 설정의 `subagentStatusLine` 이 사용자 설정을 덮는지 실측하지 않았다 | MEDIUM | `statusLine` 은 flag 가 이긴다(TC-SLP-5). 같은 규칙으로 보고, TC-SAU-10 에서 확인한다. 덮지 못하면 사용자 설정의 명령이 그대로 돌고 dongminal 은 값을 받지 못한다 — 동작이 망가지지는 않는다 |
+| R-1 | flag 설정의 `subagentStatusLine` 이 사용자 설정을 덮는지 실측하지 않았다 | MEDIUM | `statusLine` 은 flag 가 이긴다(TC-SLP-5). 같은 규칙으로 보고, TC-SAU-10 에서 확인한다. 덮지 못하면 사용자 설정의 명령이 그대로 돌고 otterminal 은 값을 받지 못한다 — 동작이 망가지지는 않는다 |
 | R-2 | 틱 주기나 끝난 행의 유지 시간이 Claude Code 판마다 바뀐다 | LOW | 기한(`subagentStaleMs`)만 기대고, 상수 하나로 둔다 |
 | R-3 | `tokenCount` 의 뜻이 문서에 정확히 없다 | LOW | 실측으로 맥락 크기와 가깝다(§2.2). 툴팁에 원래 수를 함께 보인다 |
 | R-4 | 서브에이전트가 많으면 카드가 길어진다 | LOW | Claude Code 가 보이는 행만 온다. 32개로 자른다 (FR-SAU-4) |

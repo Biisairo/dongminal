@@ -74,7 +74,7 @@ function makeParent(base: string) {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-dir-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-dir-')));
   PARENT = makeParent(BASE);
   SUBDIR = j(PARENT, 'src');
 });

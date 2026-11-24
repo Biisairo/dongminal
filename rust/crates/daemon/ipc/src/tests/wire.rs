@@ -3,9 +3,9 @@
 
 use std::time::{Duration, Instant};
 
-use dm_gocompat::json::RawMessage;
-use dm_shared_toolhub::{Placement, TOOL_CAP};
-use dm_shared_toolipc::PanedRequest;
+use otter_gocompat::json::RawMessage;
+use otter_shared_toolhub::{Placement, TOOL_CAP};
+use otter_shared_toolipc::PanedRequest;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -40,7 +40,10 @@ async fn hello_carries_protocol_and_build() {
     let d = daemon("1.2.3");
     let mut c = raw(&d.sock);
     let r: Value = serde_json::from_str(&c.call(r#"{"id":1,"method":"hello"}"#)).unwrap();
-    assert_eq!(r["result"]["version"], dm_shared_toolipc::PROTOCOL_VERSION);
+    assert_eq!(
+        r["result"]["version"],
+        otter_shared_toolipc::PROTOCOL_VERSION
+    );
     assert_eq!(r["result"]["build"], "1.2.3");
 }
 
@@ -159,7 +162,7 @@ async fn shell_probe_real_shell() {
     ));
     c.recv_id(2);
     wait_state(&mut c, "busy", "[]");
-    let parents = dm_shared_platform::current()
+    let parents = otter_shared_platform::current()
         .info
         .parents()
         .expect("프로세스 표를 읽지 못했다");

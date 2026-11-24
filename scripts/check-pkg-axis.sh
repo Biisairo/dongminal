@@ -55,7 +55,7 @@ fi
 #     ④ 가 그 규칙을 우회해 자기 사본을 갖는 것이 더 나쁘다.
 #   rust/crates/ctl/errdoc → rust/crates/webserver/apierr
 #     오류 카탈로그 **생성기**다. 실행 주체는 ④ 프로세스가 아니라
-#     `cargo run -p dm-scripts-gen-errors` 이고, 원천이 `apierr` 의 등록부이므로 그것을
+#     `cargo run -p otter-scripts-gen-errors` 이고, 원천이 `apierr` 의 등록부이므로 그것을
 #     읽지 않으면 생성물이 성립하지 않는다 (ERROR_CONTRACT_SRS 묶음 K).
 ALLOW=(
   "rust/crates/ctl/cli rust/crates/webserver/domain/git/core"

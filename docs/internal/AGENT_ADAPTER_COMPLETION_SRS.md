@@ -21,7 +21,7 @@
 - `internal/shared/agentadapter/` — `Adapter` 에 세 능력을 더하고 claude·omp·codex 가
   각자 채운다.
 - `internal/shared/runtime/install.go`·`install_omp.go` — 설치의 분기를 순회로 바꾼다.
-- `internal/helper/runtimebin/dmctl_activity.go` — 전사본 해석을 어댑터에 묻는다.
+- `internal/helper/runtimebin/otterctl_activity.go` — 전사본 해석을 어댑터에 묻는다.
 - `internal/webserver/domain/run/context_window.go`·`store_context.go` — 창 크기를
   어댑터에 묻는다.
 - `internal/webserver/httpapi/handlers_runs_context.go` — 관측이 **누가 보고했는지**를
@@ -29,7 +29,7 @@
 
 비포함:
 
-- **CLI 도움말 문자열** (`dmctl activity <agent>: claude | codex …`). 그것은 사용자에게
+- **CLI 도움말 문자열** (`otterctl activity <agent>: claude | codex …`). 그것은 사용자에게
   **무엇을 칠 수 있는지** 알리는 자리이며, 등록된 이름을 보이는 것이 목적이다.
   다만 손으로 적은 목록은 낡으므로 `IDs()` 에서 파생시킨다 (`FR-AAC-30`).
 - **사실을 서술한 주석.** *"이 훅은 Run 과 무관한 claude 전부에서 돌므로"* 같은
@@ -61,7 +61,7 @@
 
 ```go
 // runtime/install.go:419
-activityHook := map[string]any{"type":"command","command":hookCommand(dmctl,"activity","claude")}
+activityHook := map[string]any{"type":"command","command":hookCommand(otterctl,"activity","claude")}
 // runtime/install.go:452
 return os.WriteFile(filepath.Join(dir,"claude.json"), blob, 0o644)
 ```
@@ -84,7 +84,7 @@ return os.WriteFile(filepath.Join(dir,"claude.json"), blob, 0o644)
 
 ### 2.3 전사본 해석이 claude 의 JSONL 형식이다
 
-`parseUsageLine`(`dmctl_activity.go:171`)이 읽는 것은 이 모양이다.
+`parseUsageLine`(`otterctl_activity.go:171`)이 읽는 것은 이 모양이다.
 
 ```json
 {"message":{"model":"…","usage":{"input_tokens":N,"cache_creation_input_tokens":N,"cache_read_input_tokens":N}}}
@@ -145,8 +145,8 @@ claude 의 해석을 붙이지 않는다 (D-4).
 | ID | 요구사항 | 우선순위 |
 |----|---------|---------|
 | FR-AAC-1 | `Adapter.InstallAssets func(InstallSpec) error` 를 둔다. 이 에이전트가 붙기 위해 디스크에 놓아야 할 것을 그 함수가 쓴다. `nil` 은 "놓을 것이 없다" 는 선언이다 (codex) | 필수 |
-| FR-AAC-2 | `InstallSpec` 은 **자리**만 담는다 — `Dir`(자산 디렉터리) · `Dmctl`(절대경로). 경로 규칙은 `runtime` 이 알고 어댑터는 "무엇을 놓을지" 만 안다. 그래야 의존이 `runtime → agentadapter` 한 방향으로 남는다 | 필수 |
-| FR-AAC-3 | 훅 명령 한 줄을 만드는 규약(`HOST_PARITY_SRS FR-HPR-4·5`)은 `InstallSpec.HookCommand` 하나가 갖는다. 어댑터가 `dmctl` 경로를 직접 이어 붙이지 않는다 — 인용 규칙이 여러 벌이 되면 한쪽만 고쳐진다 | 필수 |
+| FR-AAC-2 | `InstallSpec` 은 **자리**만 담는다 — `Dir`(자산 디렉터리) · `Otterctl`(절대경로). 경로 규칙은 `runtime` 이 알고 어댑터는 "무엇을 놓을지" 만 안다. 그래야 의존이 `runtime → agentadapter` 한 방향으로 남는다 | 필수 |
+| FR-AAC-3 | 훅 명령 한 줄을 만드는 규약(`HOST_PARITY_SRS FR-HPR-4·5`)은 `InstallSpec.HookCommand` 하나가 갖는다. 어댑터가 `otterctl` 경로를 직접 이어 붙이지 않는다 — 인용 규칙이 여러 벌이 되면 한쪽만 고쳐진다 | 필수 |
 | FR-AAC-4 | `runtime` 은 **등록된 어댑터를 순회**한다. 이름으로 함수를 부르는 자리가 남지 않는다 | 필수 |
 | FR-AAC-5 | 실패는 **어느 에이전트인지 밝힌다** (`install <id> assets: …`). 순회가 되면서 실패의 출처가 흐려지면 안 된다 | 필수 |
 | FR-AAC-6 | 플러그인(`AgentPluginDir`)의 `SessionStart` 훅도 같은 자리를 지난다. 그것은 claude 의 플러그인 규약이므로 claude 어댑터의 것이다 | 필수 |
@@ -168,7 +168,7 @@ claude 의 해석을 붙이지 않는다 (D-4).
 | FR-AAC-20 | `Adapter.ContextWindow func(model string) (float64, bool)` 를 둔다. `nil` 은 "창 크기를 말하지 않는다" 는 선언이다 | 필수 |
 | FR-AAC-21 | 모델 이름의 해석은 **claude 어댑터로 옮긴다.** `domain/run` 은 그 규칙을 모른다. 옮기는 김에 규칙 자체가 바뀌었다 — `[1m]` 접미어는 폐기되고 **기본이 1M** 이며 다른 크기인 판만 표에 적는다 (`FR-CTX-5b`, 사용자 결정) | 필수 |
 | FR-AAC-22 | 아는 창 크기의 **목록**(넓히기가 딛는 오름차순)은 `domain/run` 에 남는다. 그것은 어느 에이전트의 것도 아니라 이 제품이 아는 단계이며, `WidenWindow` 가 그 위에 선다 | 필수 |
-| FR-AAC-23 | `POST /api/runs/context` 가 `agent` 를 받는다. 빈 값이면 **창을 모르는 것으로 둔다** — 등록되지 않은 에이전트, `ContextWindow` 가 `nil` 인 어댑터와 **같은 답**이며, 그때는 정책 기본값과 넓히기가 받는다 (`FR-CTX-6·7`). `dmctl` 이 언제나 `agent` 를 싣고 그 dmctl 은 이 저장소가 설치하므로, 빈 값은 실무상 옛 클라이언트뿐이다 | 필수 |
+| FR-AAC-23 | `POST /api/runs/context` 가 `agent` 를 받는다. 빈 값이면 **창을 모르는 것으로 둔다** — 등록되지 않은 에이전트, `ContextWindow` 가 `nil` 인 어댑터와 **같은 답**이며, 그때는 정책 기본값과 넓히기가 받는다 (`FR-CTX-6·7`). `otterctl` 이 언제나 `agent` 를 싣고 그 otterctl 은 이 저장소가 설치하므로, 빈 값은 실무상 옛 클라이언트뿐이다 | 필수 |
 | FR-AAC-24 | 창을 모르는 에이전트에서 **동작이 바뀌지 않는다.** `FR-CTX-5·6·7` 의 ②③ 이 그대로 받는다 (§2.5) | 필수 |
 
 ### 3.4 묶음 N — 이름
@@ -227,7 +227,7 @@ claude 의 해석을 붙이지 않는다 (D-4).
 | V-AAC-22 | `agent` 가 빈 값 | **종전 판정 그대로** (FR-AAC-23) — 옛 클라이언트가 조용히 망가지지 않는다 |
 | V-AAC-23 | `ContextWindow` 가 `nil` 인 에이전트 | 창을 말하지 않는다. 정책 기본값에서 출발해 관측으로 넓혀진다 (FR-AAC-24) |
 | V-AAC-24 | 조정자(멤버 아님)의 관측 | 멤버와 **같은 판정**을 받는다 (§2.6) |
-| V-AAC-30 | `dmctl activity` 도움말 | 등록된 id 전부가 나온다. 어댑터를 더하면 도움말도 따라 는다 (FR-AAC-30) |
+| V-AAC-30 | `otterctl activity` 도움말 | 등록된 id 전부가 나온다. 어댑터를 더하면 도움말도 따라 는다 (FR-AAC-30) |
 | V-AAC-31 | `agentadapter/` 밖의 실행 코드 | 에이전트 이름 리터럴이 없다 — 게이트가 잰다 (FR-AAC-31·32) |
 
 ## 6. 비목표 (Non-goals)

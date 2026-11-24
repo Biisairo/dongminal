@@ -49,10 +49,10 @@ pub(crate) fn exec_run(name: &str, args: &[&str]) -> RunOut {
             err: if e.kind() == io::ErrorKind::NotFound {
                 format!(
                     "exec: {}: executable file not found in $PATH",
-                    dm_gocompat::strconv::quote(name)
+                    otter_gocompat::strconv::quote(name)
                 )
             } else {
-                dm_gocompat::oserr::go_error_string(&e)
+                otter_gocompat::oserr::go_error_string(&e)
             },
         },
     }

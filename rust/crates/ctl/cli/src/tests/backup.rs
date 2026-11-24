@@ -142,7 +142,7 @@ fn restore_requires_confirmation() {
     );
     assert_eq!(
         se,
-        "\n지금 홈의 파일을 덮어씁니다. 되돌릴 수 없습니다.\n진행하려면 --yes 를 함께 주세요.\n먼저 지금 것을 담아 두려면: dongminal backup --out <파일.zip>\n"
+        "\n지금 홈의 파일을 덮어씁니다. 되돌릴 수 없습니다.\n진행하려면 --yes 를 함께 주세요.\n먼저 지금 것을 담아 두려면: otterminal backup --out <파일.zip>\n"
     );
 }
 
@@ -178,7 +178,7 @@ fn restore_rejects_path_escape() {
 #[test]
 fn safe_join_cases() {
     // 홈 아래 경로는 OS 구분자로 잇는다 (Go `filepath.Join` — Windows 는 `\h\a\b.json`).
-    let want = |parts: &[&str]| dm_gocompat::filepath::join(parts);
+    let want = |parts: &[&str]| otter_gocompat::filepath::join(parts);
     assert_eq!(
         safe_join("/h", "a/b.json"),
         Some(want(&["/h", "a", "b.json"]))

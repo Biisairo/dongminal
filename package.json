@@ -1,5 +1,5 @@
 {
-  "name": "dongminal-e2e",
+  "name": "otterminal-e2e",
   "private": true,
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

@@ -3,9 +3,9 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use dm_shared_activity as activity;
-use dm_shared_toolhub::{ATTN_WORKING_STALE, ActivityState, AgentState, TurnState};
-use dm_shared_toolipc::{ATTN_KIND_ACTIVITY, ATTN_KIND_ATTENTION, ATTN_KIND_CLEAR, AttnEvent};
+use otter_shared_activity as activity;
+use otter_shared_toolhub::{ATTN_WORKING_STALE, ActivityState, AgentState, TurnState};
+use otter_shared_toolipc::{ATTN_KIND_ACTIVITY, ATTN_KIND_ATTENTION, ATTN_KIND_CLEAR, AttnEvent};
 
 use super::FakeBroker;
 use crate::*;

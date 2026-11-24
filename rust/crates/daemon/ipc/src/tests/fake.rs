@@ -6,9 +6,9 @@ use std::process::ExitStatus;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 
-use dm_shared_outbuf::Stream;
-use dm_shared_platform::{Handover, Terminal};
-use dm_shared_toolhub::{BUF_MAX, StartReq, Tool, ToolManager};
+use otter_shared_outbuf::Stream;
+use otter_shared_platform::{Handover, Terminal};
+use otter_shared_toolhub::{BUF_MAX, StartReq, Tool, ToolManager};
 
 use crate::conn::lock;
 

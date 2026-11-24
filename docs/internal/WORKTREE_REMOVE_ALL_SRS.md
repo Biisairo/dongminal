@@ -13,7 +13,7 @@
 
 1 은 결함 보고처럼 보이나 설계였다 — [`GIT_REVIEW4_SRS`](./GIT_REVIEW4_SRS.md)
 FR-GIT-241 이 Run 것과 바깥 것의 제거 진입점을 만들지 않게 했고, 사용자 영역
-(`$DONGMINAL_HOME/git-worktrees`) 에서 만든 것이 하나도 없으면 목록 어디에도
+(`$OTTERMINAL_HOME/git-worktrees`) 에서 만든 것이 하나도 없으면 목록 어디에도
 제거가 없다. 2 가 그 선을 거둔다.
 
 인터뷰로 확정한 것:

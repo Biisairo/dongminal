@@ -2,12 +2,12 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_daemon_ipc::PanedServer;
-use dm_gocompat::json;
-use dm_shared_activity as activity;
-use dm_shared_dmenv as dmenv;
-use dm_shared_edge::Config;
-use dm_shared_toolhub::{ActivityState, ToolManager};
+use otter_daemon_ipc::PanedServer;
+use otter_gocompat::json;
+use otter_shared_activity as activity;
+use otter_shared_edge::Config;
+use otter_shared_otterenv as otterenv;
+use otter_shared_toolhub::{ActivityState, ToolManager};
 
 use crate::edge::{HELPER_DROP, HelperWatch, resting};
 use crate::{referenced_tools, start_edge};
@@ -60,7 +60,7 @@ fn helper_watch_drops_after_three_failures() {
 #[test]
 fn referenced_tools_reads_workspace() {
     let d = tempfile::tempdir().unwrap();
-    let p = d.path().join(dmenv::WORKSPACE_FILE);
+    let p = d.path().join(otterenv::WORKSPACE_FILE);
     assert!(referenced_tools(&p).is_empty());
     std::fs::write(&p, b"{not json").unwrap();
     assert!(referenced_tools(&p).is_empty());
@@ -87,16 +87,19 @@ async fn start_edge_identity_and_node_socket() {
         ..Config::default()
     })
     .unwrap();
-    std::fs::write(home.join(dmenv::EDGES_FILE), raw).unwrap();
+    std::fs::write(home.join(otterenv::EDGES_FILE), raw).unwrap();
     let tools = tempfile::tempdir().unwrap();
     let pm = Arc::new(ToolManager::new(&tools.path().to_string_lossy(), None));
     let ps = PanedServer::new(Arc::clone(&pm), &home.join("s"), None);
 
     let close_edge = start_edge(&home, &ps, &pm);
 
-    assert!(home.join(dmenv::EDGE_KEY_FILE).exists(), "노드 신원이 없다");
-    let sock = dm_shared_edgerelay::node_socket_path(&home);
-    let ipc = dm_shared_platform::current().ipc;
+    assert!(
+        home.join(otterenv::EDGE_KEY_FILE).exists(),
+        "노드 신원이 없다"
+    );
+    let sock = otter_shared_edgerelay::node_socket_path(&home);
+    let ipc = otter_shared_platform::current().ipc;
     let s2 = sock.clone();
     let c = tokio::task::spawn_blocking(move || ipc.dial(&s2, Duration::from_secs(1)))
         .await

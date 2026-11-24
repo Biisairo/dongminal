@@ -5,7 +5,7 @@
 
 use std::sync::atomic::Ordering;
 
-use dm_shared_httpresp::Response;
+use otter_shared_httpresp::Response;
 use serde::Serialize;
 
 use crate::Server;
@@ -64,7 +64,7 @@ impl Server {
             reconnects: 0,
             uptime: i64::try_from(self.started.elapsed().as_secs()).unwrap_or(i64::MAX),
             version: self.cfg.version.clone(),
-            log_level: dm_shared_dmlog::level().to_owned(),
+            log_level: otter_shared_otterlog::level().to_owned(),
         };
         if let Some(t) = self.deps.tools.clone() {
             // 수만 센다. 목록의 내용(이름·작업 폴더)은 나가지 않는다.

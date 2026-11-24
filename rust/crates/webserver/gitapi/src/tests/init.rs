@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use dm_webserver_domain_git_core::{Ctx, Service};
-use dm_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_domain_git_core::{Ctx, Service};
+use otter_webserver_domain_git_store::{Store, StoreOptions};
 use tempfile::TempDir;
 
 use super::harness::*;

@@ -1,11 +1,11 @@
-# Build artifact (scripts/build.sh → ./dongminal) — 루트 한정
-/dongminal
+# Build artifact (scripts/build.sh → ./otterminal) — 루트 한정
+/otterminal
 
-# Runtime artifacts: dm_shared_runtime::install 이 생성하는 bin/*
+# Runtime artifacts: otter_shared_runtime::install 이 생성하는 bin/*
 /bin
 
 # Runtime data (DATA_DIR 산출물)
-/.dongminal
+/.otterminal
 workspace.json
 settings.json
 panes.json
@@ -31,7 +31,7 @@ parity-flaky.txt
 /tmp/
 
 # script/test_start.sh 가 생성하는 격리 테스트 인스턴스 (PORT=12345)
-/.test-dongminal/
+/.test-otterminal/
 
 .serena
 

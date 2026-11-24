@@ -5,8 +5,8 @@ use std::future::Future;
 use std::io;
 use std::pin::Pin;
 
-use dm_shared_dmlog::errorf;
-use dm_shared_platform::ShutdownSignal;
+use otter_shared_otterlog::errorf;
+use otter_shared_platform::ShutdownSignal;
 
 /// sigs 중 하나가 오면 끝나는 future 다. 지금 등록하므로 돌려준 뒤에 온 신호를 놓치지 않는다.
 /// tokio 런타임 안에서 부른다.
@@ -70,7 +70,7 @@ pub(crate) fn self_exe() -> String {
     let Ok(exe) = std::env::current_exe() else {
         return String::new();
     };
-    dm_gocompat::filepath::eval_symlinks(&exe.to_string_lossy()).unwrap_or_default()
+    otter_gocompat::filepath::eval_symlinks(&exe.to_string_lossy()).unwrap_or_default()
 }
 
 /// 유효 사용자 id 다. Windows 는 교체기가 먼저 거절하므로 쓰이지 않는다.
@@ -119,7 +119,7 @@ pub(crate) fn handover_file(fd: i64) -> io::Result<File> {
     let bad = || {
         io::Error::other(format!(
             "인계 상태 읽기: {}",
-            dm_gocompat::oserr::go_error_string(&dm_gocompat::oserr::path_error(
+            otter_gocompat::oserr::go_error_string(&otter_gocompat::oserr::path_error(
                 "read",
                 "handover",
                 io::Error::from_raw_os_error(libc::EBADF),

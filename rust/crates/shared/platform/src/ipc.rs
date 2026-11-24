@@ -1,4 +1,4 @@
-//! dongminal(웹서버) ↔ dongminald(데몬) 사이의 로컬 전송 (FR-XIP-1). 로컬 전용이다.
+//! otterminal(웹서버) ↔ otterminald(데몬) 사이의 로컬 전송 (FR-XIP-1). 로컬 전용이다.
 //!
 //! 유닉스 도메인 소켓이다. Windows 도 AF_UNIX 를 쓴다 — Windows 10 1803 부터 있고, 이 트랙의
 //! 최소 버전은 ConPTY 때문에 1809 다 (C-1). std 가 Windows AF_UNIX 를 내지 않으므로 직접 부른다.
@@ -19,7 +19,7 @@ use std::net::Shutdown;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use dm_gocompat::oserr::{path_error, raw_os_error, syscall_error};
+use otter_gocompat::oserr::{path_error, raw_os_error, syscall_error};
 
 /// 종단 파일의 이름. 홈 안의 다른 파일들과 함께 쓰이므로 내보낸다.
 pub const SOCKET_FILE_NAME: &str = "paned.sock";

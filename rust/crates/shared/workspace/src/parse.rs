@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use dm_gocompat::json;
+use otter_gocompat::json;
 use serde::Deserialize;
 
 use crate::Error;
@@ -14,10 +14,10 @@ pub const SCHEMA_VERSION: i64 = 2;
 pub const LAYOUT_TYPE_PANE: &str = "pane";
 pub const LAYOUT_TYPE_SPLIT: &str = "split";
 
-dm_gocompat::go_type!(GoTabs = "[]workspace.WsTab");
-dm_gocompat::go_type!(GoLayouts = "[]*workspace.WsLayout");
-dm_gocompat::go_type!(GoWindows = "[]workspace.WsWindow");
-dm_gocompat::go_type!(GoGroups = "[]workspace.WsGroup");
+otter_gocompat::go_type!(GoTabs = "[]workspace.WsTab");
+otter_gocompat::go_type!(GoLayouts = "[]*workspace.WsLayout");
+otter_gocompat::go_type!(GoWindows = "[]workspace.WsWindow");
+otter_gocompat::go_type!(GoGroups = "[]workspace.WsGroup");
 
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(default, rename = "workspace.WsLayout")]
@@ -45,7 +45,7 @@ pub struct WsTab {
     /// 이 탭의 도구를 소유한 Run (FR-EM-17). 비어 있으면 어느 Run 에도 속하지 않는다.
     #[serde(rename = "runId")]
     pub run_id: String,
-    /// dmctl 의 표시 이름 규칙이 읽는다 (CONVENIENCE_SRS FR-TAN-1/3). 서버는 읽지 않는다.
+    /// otterctl 의 표시 이름 규칙이 읽는다 (CONVENIENCE_SRS FR-TAN-1/3). 서버는 읽지 않는다.
     #[serde(rename = "type")]
     pub kind: String,
     #[serde(rename = "nameSource")]

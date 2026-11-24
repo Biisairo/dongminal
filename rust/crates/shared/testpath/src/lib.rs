@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/testpath` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/testpath` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 테스트가 OS 마다 달라지는 전제를 분기 없이 다루게 한다 (WINDOWS_TEST_PARITY_SRS
 //! FR-WTP-10·11). 제품 코드는 이 crate 를 쓰지 않는다. dev-dependencies 로만 넣는다.
@@ -44,7 +44,7 @@ pub fn root() -> PathBuf {
 /// 값을 JSON 문자열 리터럴로 만든다 — 바깥 따옴표까지 포함한다 (FR-WTP-20).
 pub fn json_quote(s: &str) -> String {
     let mut out = Vec::new();
-    dm_gocompat::json::append_string(&mut out, s.as_bytes(), true);
+    otter_gocompat::json::append_string(&mut out, s.as_bytes(), true);
     String::from_utf8_lossy(&out).into_owned()
 }
 

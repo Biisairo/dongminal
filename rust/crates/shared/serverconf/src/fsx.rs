@@ -4,7 +4,7 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::Path;
 
-use dm_gocompat::oserr::path_error;
+use otter_gocompat::oserr::path_error;
 
 fn lossy(p: &Path) -> String {
     p.to_string_lossy().into_owned()
@@ -21,5 +21,5 @@ pub(crate) fn read_file(path: &Path) -> io::Result<Vec<u8>> {
 
 /// Go `os.MkdirAll(path, perm)`.
 pub(crate) fn mkdir_all(path: &Path, perm: u32) -> io::Result<()> {
-    dm_gocompat::oserr::mkdir_all(&lossy(path), perm)
+    otter_gocompat::oserr::mkdir_all(&lossy(path), perm)
 }

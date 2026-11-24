@@ -1,11 +1,11 @@
-//! `GET /api/whoami` (Go `handlers_whoami.go`, DMCTL_WHO_AM_I_SRS FR-API-WAI-1).
+//! `GET /api/whoami` (Go `handlers_whoami.go`, OTTERCTL_WHO_AM_I_SRS FR-API-WAI-1).
 //!
 //! 호출자의 TCP 출발 포트 → clientPID → 도구(부모 사슬)를 주입된 해석기로 찾고, 워크스페이스 항목과
 //! 터미널 크기를 덧붙인다. `?toolId=` 가 오면(데몬 모드) 그 도구가 있는지만 본다.
 
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr as apierr;
 use http::StatusCode;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_webserver_apierr as apierr;
 use serde::Serialize;
 
 use crate::Server;

@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-runtime"
+name = "otter-shared-runtime"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,10 +10,10 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-shared-agentadapter = { path = "../agentadapter" }
-dm-shared-dmenv = { path = "../dmenv" }
-dm-shared-platform = { path = "../platform" }
-dm-gocompat = { path = "../../gocompat" }
+otter-shared-agentadapter = { path = "../agentadapter" }
+otter-shared-otterenv = { path = "../otterenv" }
+otter-shared-platform = { path = "../platform" }
+otter-gocompat = { path = "../../gocompat" }
 
 [dev-dependencies]
 serde_json = { workspace = true }

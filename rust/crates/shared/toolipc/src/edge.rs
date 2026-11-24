@@ -1,6 +1,6 @@
 //! 간선(노드)의 와이어 (PEER_DAEMON_SRS §3.5a). FEATURE_EDGE 를 양쪽이 말할 때만 쓴다.
 
-use dm_gocompat::json::{self, RawMessage};
+use otter_gocompat::json::{self, RawMessage};
 use serde::{Deserialize, Serialize};
 
 /// 로컬 API 연산 하나다 (FR-PDM-30). args 는 HTTP 요청 본문 그대로다.

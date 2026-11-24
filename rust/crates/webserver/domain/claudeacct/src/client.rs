@@ -4,9 +4,9 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 use std::time::Duration;
 
-use dm_gocompat::json;
-use dm_gocompat::strconv::quote;
 use futures_util::future::BoxFuture;
+use otter_gocompat::json;
+use otter_gocompat::strconv::quote;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use serde::Deserialize;
 

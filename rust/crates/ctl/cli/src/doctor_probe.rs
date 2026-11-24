@@ -6,12 +6,12 @@ use std::process::Command;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-use dm_gocompat::filepath;
-use dm_gocompat::oserr::go_error_string;
-use dm_gocompat::strconv::quote_bytes;
-use dm_gocompat::time::format_std_duration;
-use dm_shared_dmenv as dmenv;
-use dm_shared_platform::{Platform, ProcSpec, ShellSpec, Terminal};
+use otter_gocompat::filepath;
+use otter_gocompat::oserr::go_error_string;
+use otter_gocompat::strconv::quote_bytes;
+use otter_gocompat::time::format_std_duration;
+use otter_shared_otterenv as otterenv;
+use otter_shared_platform::{Platform, ProcSpec, ShellSpec, Terminal};
 
 use crate::report::CheckReport;
 use crate::shellwait::{QuietError, SHELL_QUIET_FOR, wait_quiet};
@@ -53,7 +53,7 @@ fn start_term(p: &Platform, spec: ProcSpec) -> io::Result<TermGuard> {
 /// **입력 없이** 한 줄을 출력하고 끝나는 명령을 의사 터미널에 띄운다. 셸·프롬프트·입력 타이밍이
 /// 모두 빠지므로, 실패하면 원인은 의사 터미널의 배관 그 자체다.
 pub(crate) fn doctor_probe_plain_command(r: &mut CheckReport<'_>, p: &Platform, home: &str) {
-    const MARKER: &str = "dongminal-plain-ok";
+    const MARKER: &str = "otterminal-plain-ok";
     let spec = p.shell.echo_command(MARKER);
     if spec.is_empty() {
         return;
@@ -98,7 +98,7 @@ pub(crate) fn doctor_probe_terminal(
 ) -> bool {
     let mut env = environ();
     env.push("TERM=xterm-256color".to_owned());
-    env.push(format!("{}={home}", dmenv::ENV_HOME));
+    env.push(format!("{}={home}", otterenv::ENV_HOME));
     env.extend(spec.env.iter().cloned());
     let term = match start_term(
         p,
@@ -135,7 +135,7 @@ pub(crate) fn doctor_probe_terminal(
     }
 
     // echo 는 sh·bash·zsh·PowerShell·cmd 가 모두 아는 몇 안 되는 명령이다.
-    const MARKER: &str = "dongminal-doctor-ok";
+    const MARKER: &str = "otterminal-doctor-ok";
     let (got, res) =
         doctor_round_trip(t, &format!("echo {MARKER}\r"), MARKER, DOCTOR_PROBE_TIMEOUT);
     if let Err(e) = res {
@@ -395,7 +395,7 @@ pub(crate) fn doctor_detached(r: &mut CheckReport<'_>, p: &Platform, home: &str)
 /// `--probe-pty` 모드다. 의사 터미널을 띄워 왕복시키고 결과를 path 에 적는다. 콘솔이 없으므로
 /// 화면에 적을 자리가 없다 — 그래서 파일이다.
 pub(crate) fn run_pty_probe(path: &str, p: &Platform, home: &str) -> i32 {
-    let bin = filepath::join(&[home, dmenv::BIN_DIR]);
+    let bin = filepath::join(&[home, otterenv::BIN_DIR]);
     let spec = p.shell.shell(std::path::Path::new(&bin));
     let mut env = environ();
     env.extend(spec.env.iter().cloned());
@@ -416,7 +416,7 @@ pub(crate) fn run_pty_probe(path: &str, p: &Platform, home: &str) -> i32 {
             b.extend(format!("FAIL 터미널 기동: {}\n", go_error_string(&e)).bytes());
         }
         Ok(term) => {
-            const MARKER: &str = "dongminal-detached-ok";
+            const MARKER: &str = "otterminal-detached-ok";
             let (got, rerr) = doctor_round_trip(
                 &term.0,
                 &format!("echo {MARKER}\r"),

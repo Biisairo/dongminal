@@ -8,9 +8,9 @@ pub(crate) mod lookpath;
 use std::path::Path;
 use std::sync::LazyLock;
 
-use dm_shared_dmenv::ENV_SHELL;
+use otter_shared_otterenv::ENV_SHELL;
 
-use dm_gocompat::filepath;
+use otter_gocompat::filepath;
 
 /// 도구 하나를 띄울 셸의 명세.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

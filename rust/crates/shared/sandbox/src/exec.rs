@@ -34,11 +34,11 @@ impl RunOutput {
 pub fn combined_output(path: &str, args: &[String], timeout: Option<Duration>) -> RunOutput {
     let (mut reader, writer) = match std::io::pipe() {
         Ok(p) => p,
-        Err(e) => return RunOutput::fail("", dm_gocompat::oserr::go_error_string(&e)),
+        Err(e) => return RunOutput::fail("", otter_gocompat::oserr::go_error_string(&e)),
     };
     let werr = match writer.try_clone() {
         Ok(w) => w,
-        Err(e) => return RunOutput::fail("", dm_gocompat::oserr::go_error_string(&e)),
+        Err(e) => return RunOutput::fail("", otter_gocompat::oserr::go_error_string(&e)),
     };
     let mut cmd = Command::new(path);
     cmd.args(args)
@@ -60,7 +60,7 @@ pub fn combined_output(path: &str, args: &[String], timeout: Option<Duration>) -
     match status {
         Ok(st) if st.success() => RunOutput::ok(out),
         Ok(st) => RunOutput::fail(out, exit_text(&st)),
-        Err(e) => RunOutput::fail(out, dm_gocompat::oserr::go_error_string(&e)),
+        Err(e) => RunOutput::fail(out, otter_gocompat::oserr::go_error_string(&e)),
     }
 }
 
@@ -83,12 +83,12 @@ fn wait(child: &mut std::process::Child, timeout: Option<Duration>) -> std::io::
 
 fn spawn_err_text(e: &std::io::Error) -> String {
     e.raw_os_error()
-        .map_or_else(|| e.to_string(), dm_gocompat::oserr::errno_string)
+        .map_or_else(|| e.to_string(), otter_gocompat::oserr::errno_string)
 }
 
 /// Go `*exec.ExitError` 의 문구(`exit status N`, `signal: killed` 등).
 pub fn exit_text(st: &ExitStatus) -> String {
-    dm_shared_platform::exit_status_text(st)
+    otter_shared_platform::exit_status_text(st)
 }
 
 #[cfg(all(test, unix))]

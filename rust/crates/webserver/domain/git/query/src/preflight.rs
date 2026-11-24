@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::path::Path;
 
-use dm_gocompat::filepath;
-use dm_webserver_domain_git_core::{Ctx, Service};
+use otter_gocompat::filepath;
+use otter_webserver_domain_git_core::{Ctx, Service};
 use serde::Serialize;
 
 use crate::diff::DIFF_MAX_BYTES;

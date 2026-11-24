@@ -2,10 +2,10 @@
 import re, sys, glob, os
 D = sys.argv[1]
 consts = {
- 'dmenv.EnvHome':'DONGMINAL_HOME','serverconf.AddrDir':'run','serverconf.AddrFileName':'server.addr',
- 'serverconf.FileName':'server.json','dmenv.DefaultHost':'127.0.0.1','dmenv.DefaultPort':'58146',
- 'dmenv.EnvHost':'DONGMINAL_HOST','dmenv.ContainerHost':'host.docker.internal',
- 'dmenv.ContainerAddrDir':'/run/dongminal','dmenv.EnvPort':'DONGMINAL_PORT','dmenv.EnvToolID':'DONGMINAL_TOOL_ID',
+ 'otterenv.EnvHome':'OTTERMINAL_HOME','serverconf.AddrDir':'run','serverconf.AddrFileName':'server.addr',
+ 'serverconf.FileName':'server.json','otterenv.DefaultHost':'127.0.0.1','otterenv.DefaultPort':'58146',
+ 'otterenv.EnvHost':'OTTERMINAL_HOST','otterenv.ContainerHost':'host.docker.internal',
+ 'otterenv.ContainerAddrDir':'/run/otterminal','otterenv.EnvPort':'OTTERMINAL_PORT','otterenv.EnvToolID':'OTTERMINAL_TOOL_ID',
 }
 out = []
 def snake(n):

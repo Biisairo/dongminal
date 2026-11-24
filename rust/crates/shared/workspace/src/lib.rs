@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/workspace` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/workspace` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! workspace.json 의 영속화(latest-wins 비동기 저장, 개정 번호, 세대 복구)와 식별자 해석이다.
 
@@ -23,21 +23,20 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError, RwLock};
 use std::thread::JoinHandle;
 
-use dm_gocompat::json;
-use dm_gocompat::oserr::go_error_string;
-use dm_shared_dmlog::infof;
-use dm_shared_pollwait::{Changed, Signal};
+use otter_gocompat::json;
+use otter_gocompat::oserr::go_error_string;
+use otter_shared_otterlog::infof;
+use otter_shared_pollwait::{Changed, Signal};
 
 use parse::{Index, build_index, windows_of};
 
 /// ResolveStrict 가 좌표 라벨 형태의 입력을 거부한 진단의 마지막 줄이다 (FR-IDU-2).
-pub const LABEL_IDENTIFIER_MSG: &str =
-    "uuid 는 `dmctl list-workspace` 의 uuid= 컬럼, 또는 생성 명령(new-tab/split-*)의 응답에 있다.";
+pub const LABEL_IDENTIFIER_MSG: &str = "uuid 는 `otterctl list-workspace` 의 uuid= 컬럼, 또는 생성 명령(new-tab/split-*)의 응답에 있다.";
 
 const STALE_MSG: &str = "workspace: stale revision";
 const SCHEMA_TOO_OLD_MSG: &str =
-    "workspace: schemaVersion 이 2 미만입니다 — `dongminal migrate` 를 먼저 실행하세요";
-const SCHEMA_TOO_NEW_MSG: &str = "workspace: schemaVersion 이 이 판보다 높습니다 — dongminal 을 최신으로 올리거나 백업 세대(.bak.1)에서 되돌리세요";
+    "workspace: schemaVersion 이 2 미만입니다 — `otterminal migrate` 를 먼저 실행하세요";
+const SCHEMA_TOO_NEW_MSG: &str = "workspace: schemaVersion 이 이 판보다 높습니다 — otterminal 을 최신으로 올리거나 백업 세대(.bak.1)에서 되돌리세요";
 
 /// workspace 오류. `Display` 는 Go 의 `err.Error()` 와 같다.
 #[derive(Debug)]

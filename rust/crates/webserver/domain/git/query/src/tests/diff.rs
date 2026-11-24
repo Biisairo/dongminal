@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use super::support::*;
 use crate::*;
-use dm_webserver_domain_git_core::Service;
+use otter_webserver_domain_git_core::Service;
 
 /// rev 마다 blob 을 답하는 가짜. 없는 rev 는 "does not exist in 'HEAD'" 다.
 #[derive(Clone, Default)]
@@ -38,7 +38,7 @@ impl DiffFake {
                     let n = me.sizes.get(rev).copied().unwrap_or(body.len() as i64);
                     return Ok(out(&format!("{n}\n"), "", 0));
                 }
-                Ok(dm_webserver_domain_git_core::Output {
+                Ok(otter_webserver_domain_git_core::Output {
                     stdout: body.clone(),
                     ..Default::default()
                 })
@@ -235,7 +235,7 @@ async fn binary_lfs_too_large() {
     }
     assert_eq!(dc.note, "바이너리 파일입니다 — 본문을 표시하지 않습니다");
 
-    let late = "a".repeat(dm_shared_editorlimit::BINARY_SNIFF_BYTES) + "\0";
+    let late = "a".repeat(otter_shared_editorlimit::BINARY_SNIFF_BYTES) + "\0";
     write_file(&repo.path, "late.txt", &late);
     let f = DiffFake::default().blob(":late.txt", b"x\n");
     let dc = diff_content_of(
@@ -455,5 +455,5 @@ async fn diff_content_real_git() {
 
 #[test]
 fn diff_max_bytes_is_editor_limit() {
-    assert_eq!(DIFF_MAX_BYTES, dm_shared_editorlimit::FILE_MAX_BYTES);
+    assert_eq!(DIFF_MAX_BYTES, otter_shared_editorlimit::FILE_MAX_BYTES);
 }

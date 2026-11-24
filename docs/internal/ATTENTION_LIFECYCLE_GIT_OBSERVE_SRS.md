@@ -77,7 +77,7 @@
 |---|---|---|
 | A1 | `Tool.kill()` 은 활동을 `ended` 로 정리하지만 **주의는 그대로 둔다** | `toolhub/tool.go:660` |
 | A2 | 데몬 모드 `AttnTracker` 에는 **제거 경로가 없다.** `tools` 맵이 무한히 는다 | `hub/attn_tracker.go` 전체 |
-| A3 | 데몬 모드 `OnExit` 도 활동만 정리한다 | `cmd/dongminal/main.go:369` |
+| A3 | 데몬 모드 `OnExit` 도 활동만 정리한다 | `cmd/otterminal/main.go:369` |
 | A4 | `apiToolDelete` 는 주의 상태를 건드리지 않는다 | `httpapi/handlers_api.go:225` |
 | A5 | 클라이언트 `_kill`·`_killTool` 도 `_attn` 에서 지우지 않는다 | `app-tool.js:122,128` |
 | A6 | `_attnRestore` 는 **병합만** 한다 — 서버에 없는 id 를 지우지 않는다 | `app-attn.js:40` |
@@ -215,5 +215,5 @@ A6 이 그것을 영구화한다. 화면을 새로 고쳐도 서버가 유령 id
 - **알람 이력** — 해제된 과거 알람의 보관·타임라인은 여전히 범위 밖
 - **Git 탭 밖에서의 배지 부활** — D-2 로 없앤 것을 다른 수단(경량 시그니처 등)으로
   되살리지 않는다. 필요해지면 그때 별도 묶음이다
-- **§2.1 A 목록 밖의 알람 경로** — L2 idle 임계값·OSC 감지·`dmctl notify` 의 규약은
+- **§2.1 A 목록 밖의 알람 경로** — L2 idle 임계값·OSC 감지·`otterctl notify` 의 규약은
   건드리지 않는다

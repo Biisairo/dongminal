@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 
-use dm_gocompat::time::format_std_duration;
-use dm_webserver_domain_git_store::Observation;
+use otter_gocompat::time::format_std_duration;
+use otter_webserver_domain_git_store::Observation;
 
 use super::{Entry, GitWatcher, State, WatchPend, obs_mark, phase_hash};
 
@@ -136,7 +136,7 @@ impl GitWatcher {
                 return true;
             }
             // FR-GLW-7: 만료는 브라우저가 말을 멈춘 것이다.
-            dm_shared_dmlog::infof!(
+            otter_shared_otterlog::infof!(
                 None,
                 "[gitwatch] 관심 표명 만료 — 감시를 걷는다 (repo={repo} idle={})",
                 format_std_duration(truncate_secs(since(now, e.seen_at)))
@@ -153,13 +153,13 @@ impl GitWatcher {
                 },
             };
             let n = g.watch.get(&oldest).map_or(0, |e| e.holders.len());
-            dm_shared_dmlog::infof!(
+            otter_shared_otterlog::infof!(
                 None,
                 "[gitwatch] 상한 초과로 감시를 퇴출한다 (repo={oldest} cap={} 임차인={n})",
                 self.cap
             );
             if leased {
-                dm_shared_dmlog::infof!(
+                otter_shared_otterlog::infof!(
                     None,
                     "[gitwatch] 퇴출된 저장소에 임차인이 남아 있었다 — 상한이 부족하다 (repo={oldest})"
                 );

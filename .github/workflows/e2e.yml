@@ -78,7 +78,7 @@ jobs:
     # 실측 없이 바꾸는 것은 게이트를 세우는 일이 아니라 거는 일이다.
     timeout-minutes: 60
     env:
-      DM_E2E_PREBUILT_BIN: ${{ github.workspace }}/${{ matrix.os == 'windows-latest' && 'dongminal-e2e.exe' || 'dongminal-e2e' }}
+      OTTER_E2E_PREBUILT_BIN: ${{ github.workspace }}/${{ matrix.os == 'windows-latest' && 'otterminal-e2e.exe' || 'otterminal-e2e' }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       # 판은 Go 판 go.mod 의 툴체인 판이다. go.mod 는 Go 제거(R10)로 사라지므로 여기에 적는다.
@@ -108,7 +108,7 @@ jobs:
         shell: bash
         run: |
           git config --global init.defaultBranch main
-          git config --global user.name  'dongminal e2e'
+          git config --global user.name  'otterminal e2e'
           git config --global user.email 'e2e@example.invalid'
           # 줄바꿈을 건드리지 않는다 (FR-CEM-24). Git for Windows 의 기본값은
           # `core.autocrlf=true` 라 체크아웃이 `\n` 을 `\r\n` 으로 바꾼다 —
@@ -125,13 +125,13 @@ jobs:
 
       # 서버 바이너리를 여기서 한 번 만들어 `globalSetup` 에 넘긴다 (E2E_PARALLEL_SRS FR-EPL-8,
       # RUST_PORT_SRS FR-RSP-31). globalSetup 이 러너의 빈 캐시로 컴파일하면 첫 워커가 그만큼
-      # 늦게 뜬다. 이름은 이 job 의 `DM_E2E_PREBUILT_BIN` 과 같다.
+      # 늦게 뜬다. 이름은 이 job 의 `OTTER_E2E_PREBUILT_BIN` 과 같다.
       - uses: ./.github/actions/rust
         with:
           cache-key: e2e
       - name: 바이너리 빌드
         shell: bash
-        run: BINARY="$(basename "$DM_E2E_PREBUILT_BIN")" scripts/build.sh
+        run: BINARY="$(basename "$OTTER_E2E_PREBUILT_BIN")" scripts/build.sh
 
       # 리포터를 둘 세운다. `html` 은 실패 시 올리는 artifact 의 것이고, `line` 은
       # **로그에 남는 것**이다 — html 만 두면 job 로그에 서버 로그만 남아, 무엇이
@@ -187,7 +187,7 @@ jobs:
       #         두 회차 연속 flaky 0 이었다. 재현할 길이 CI 왕복뿐인 것을 실패로
       #         올리면 게이트가 무엇이 깨졌는지 말하지 못하고 빨간 배지만 남는다 —
       #         사람이 배우는 것은 **배지를 무시하는 습관**이다
-      #   되살리는 손잡이: `DM_E2E_STRICT_FLAKY=1`
+      #   되살리는 손잡이: `OTTER_E2E_STRICT_FLAKY=1`
       - name: flaky 요약
         if: always()
         shell: bash

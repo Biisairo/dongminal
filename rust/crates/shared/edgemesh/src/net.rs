@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_gocompat::json;
+use otter_gocompat::json;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
@@ -121,7 +121,7 @@ fn newer(st: &NetBody, epoch: i64, seq: u64) -> bool {
 }
 
 fn valid_net(st: &NetBody) -> bool {
-    st.links().len() <= MAX_NODES && dm_shared_termtext::line(&st.name, MAX_NAME)
+    st.links().len() <= MAX_NODES && otter_shared_termtext::line(&st.name, MAX_NAME)
 }
 
 impl Inner {

@@ -22,7 +22,7 @@ import { tmpPath } from './osenv';
 // 검사들은 대부분 파일을 만들고 목록에 나타나기를 기다린다 — 그 사이에 무엇이
 // 오갔는지는 `editor-traffic.spec.ts` 의 30초 트래픽 검사가 본다.
 
-const FIXTURES = tmpPath('dm-git-fx-push-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-push-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

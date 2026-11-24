@@ -7,13 +7,13 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use bytes::Bytes;
-use dm_shared_toolhub::ToolInfo;
-use dm_webserver_action as action;
-use dm_webserver_apierr as apierr;
-use dm_webserver_hub::{
+use http_body_util::{BodyExt, Full};
+use otter_shared_toolhub::ToolInfo;
+use otter_webserver_action as action;
+use otter_webserver_apierr as apierr;
+use otter_webserver_hub::{
     CmdPosition, CmdResult, CmdSub, CommandBroker, CommandHub, SUB_CAP, TabRef,
 };
-use http_body_util::{BodyExt, Full};
 use serde_json::Value;
 
 use super::fakes::*;
@@ -334,7 +334,7 @@ async fn command_post_rejects_long_name() {
         .await;
         assert_eq!(r.status, 400, "{act}");
         assert_eq!(
-            r.header(dm_shared_httpresp::CODE_HEADER),
+            r.header(otter_shared_httpresp::CODE_HEADER),
             apierr::CODE_NAME_TOO_LONG
         );
     }
@@ -516,7 +516,7 @@ async fn focus_claim_rejects_bad_body() {
 struct Stream {
     status: u16,
     headers: http::HeaderMap,
-    body: dm_shared_httpresp::Body,
+    body: otter_shared_httpresp::Body,
     seen: String,
 }
 

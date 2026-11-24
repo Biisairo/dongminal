@@ -119,5 +119,8 @@ fn read_frame_header_at_line_cap() {
 
 #[test]
 fn limit_text_is_editor_limit() {
-    assert_eq!(crate::MAX_TEXT_BYTES, dm_shared_editorlimit::FILE_MAX_BYTES);
+    assert_eq!(
+        crate::MAX_TEXT_BYTES,
+        otter_shared_editorlimit::FILE_MAX_BYTES
+    );
 }

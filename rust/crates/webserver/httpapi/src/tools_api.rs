@@ -3,13 +3,13 @@
 use std::collections::BTreeMap;
 use std::time::{Duration, SystemTime};
 
-use dm_gocompat::json::RawMessage;
-use dm_shared_httpreq as httpreq;
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_shared_toolhub::{Placement, ToolInfo, parse_size};
-use dm_shared_workspace::Error as WorkspaceError;
-use dm_webserver_apierr as apierr;
 use http::{HeaderValue, StatusCode};
+use otter_gocompat::json::RawMessage;
+use otter_shared_httpreq as httpreq;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_toolhub::{Placement, ToolInfo, parse_size};
+use otter_shared_workspace::Error as WorkspaceError;
+use otter_webserver_apierr as apierr;
 use serde::{Deserialize, Serialize};
 
 use crate::Server;
@@ -92,7 +92,7 @@ pub(crate) struct Stats {
     hostname: String,
     /// `?jobs=1` 일 때 진행 중 git 작업이다 — Go 의 map 키 순서(바이트 순) 자리다.
     #[serde(skip_serializing_if = "Option::is_none")]
-    jobs: Option<Vec<dm_webserver_domain_git_jobs::Job>>,
+    jobs: Option<Vec<otter_webserver_domain_git_jobs::Job>>,
     #[serde(rename = "memTotal", skip_serializing_if = "Option::is_none")]
     mem_total: Option<u64>,
     #[serde(rename = "memUsed", skip_serializing_if = "Option::is_none")]
@@ -166,7 +166,7 @@ impl Server {
     /// Go `getStats`: 상태바 지표를 조립한다. 커널을 부르지 않는다 (FR-STAT-9·10·11).
     pub(crate) fn get_stats(&self) -> Stats {
         let mut out = Stats {
-            hostname: dm_shared_platform::hostname().unwrap_or_default(),
+            hostname: otter_shared_platform::hostname().unwrap_or_default(),
             srv_uptime: fmt_duration(self.started.elapsed().as_nanos() as i128),
             ..Stats::default()
         };
@@ -210,7 +210,7 @@ impl Server {
         };
         let (raw_ws, rev) = self.work_snapshot();
         // FR-OPT-8-6: blob 을 풀었다 다시 쓰지 않는다. 깨진 blob 은 null 이다.
-        let workspace = if !raw_ws.is_empty() && dm_gocompat::json::valid(&raw_ws) {
+        let workspace = if !raw_ws.is_empty() && otter_gocompat::json::valid(&raw_ws) {
             RawMessage(raw_ws)
         } else {
             RawMessage(b"null".to_vec())
@@ -450,7 +450,7 @@ impl Server {
         if rev_s != if_match
             && let Some(c) = self.commands()
         {
-            c.broadcast(&dm_webserver_sse::workspace_changed(rev));
+            c.broadcast(&otter_webserver_sse::workspace_changed(rev));
         }
         with_header(empty(StatusCode::OK), "ETag", &rev_s)
     }

@@ -1,5 +1,5 @@
 /**
- * Dongminal — Editor 목록의 **서버 동기와 창 재조정** (FE_MODULE_BOUNDARY_SRS FR-FMB-20).
+ * Otterminal — Editor 목록의 **서버 동기와 창 재조정** (FE_MODULE_BOUNDARY_SRS FR-FMB-20).
  *
  * 서버가 준 편집기 목록을 로컬 사본에 반영하고(`_edApplyServer`), 그 결과로 창을
  * 세우거나 지운다(`_edReconcile`). dirty 판정이 함께 있는 이유는 **지우기 전에

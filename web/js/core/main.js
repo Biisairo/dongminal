@@ -3,7 +3,7 @@
  */
 const app=new App();
 window.app=app;
-window.__dongminalDebug={
+window.__otterminalDebug={
   sendDropCount(){let n=0;app.tools&&app.tools.forEach(p=>{n+=p._sendDropCount||0});return n},
   sendQueueLength(){let n=0;app.tools&&app.tools.forEach(p=>{n+=(p._sendQueue&&p._sendQueue.length)||0});return n}
 };
@@ -134,7 +134,7 @@ window.addEventListener('resize',()=>{
 //
 // 세 조건은 각자 다른 것을 말한다:
 //  - `confirmLeave`  — 사용자가 되묻기를 켰는가 (FR-LVC-7)
-//  - `__dmReloading` — **앱이 스스로 여는 새로고침은 예외다** (RELOAD_CONTINUITY_SRS
+//  - `__otterReloading` — **앱이 스스로 여는 새로고침은 예외다** (RELOAD_CONTINUITY_SRS
 //    FR-RLC-5a). 이 가드는 사용자의 실수를 막는 장치이고, 새 버전을 받으려 다시
 //    여는 것은 실수가 아니다 — 거기서 물으면 자동 갱신이 자동이 아니게 된다
 //    (사용자가 화면을 보고 있지 않으면 대화만 떠 있고 갱신은 영영 오지 않는다).
@@ -157,6 +157,6 @@ window.addEventListener('resize',()=>{
 // 필요가 없다 (FR-LVC-10).
 window.addEventListener('beforeunload',e=>{
   if(!confirmLeave) return;
-  if(window.__dmReloading) return;
+  if(window.__otterReloading) return;
   if(app.toolIds.size>0||app.editor.sync.edAnyDirty()) e.preventDefault();   // FR-OPT-4-11: 그려지지 않은 도구도 센다
 });

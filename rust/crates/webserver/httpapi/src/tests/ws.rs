@@ -5,12 +5,12 @@ use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_shared_toolhub::{
+use futures_util::{SinkExt, StreamExt};
+use hyper_util::rt::TokioIo;
+use otter_shared_toolhub::{
     OP_EXIT, OP_INPUT, OP_OUTPUT, OP_REPLY_SEAT, OP_RESIZE, OP_SEQ, OP_SIZE, OP_TOOL_ID, OutChunk,
     ToolSnapshot, size_payload,
 };
-use futures_util::{SinkExt, StreamExt};
-use hyper_util::rt::TokioIo;
 use tokio_tungstenite::tungstenite::Message;
 
 use super::fakes::*;
@@ -328,7 +328,7 @@ async fn relay_flushes_output_before_size() {
     let (_e, mut c, tx, _) = relay_env().await;
     tx.send(chunk("klm", 14)).await.unwrap();
     tx.send(OutChunk {
-        size: Some(dm_shared_toolhub::TermSize { cols: 90, rows: 20 }),
+        size: Some(otter_shared_toolhub::TermSize { cols: 90, rows: 20 }),
         ..OutChunk::default()
     })
     .await

@@ -3,11 +3,11 @@
 //!
 //! 중단은 파괴적이다 — 그 작업 중 해결한 내용이 사라진다. `confirm:true` 없이는 실행하지 않는다.
 
-use dm_shared_httpresp::Response;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::WriteSpec;
-use dm_webserver_domain_git_write as write;
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::WriteSpec;
+use otter_webserver_domain_git_write as write;
 use serde::Deserialize;
 
 use crate::GitServer;

@@ -194,7 +194,7 @@ test.describe('편집기 탭 → 새 도구의 cwd 상속', () => {
  * 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
  */
 
-const UXRFX = tmpPath('dm-uxr-editor-cwd-inherit-' + process.pid);
+const UXRFX = tmpPath('otter-uxr-editor-cwd-inherit-' + process.pid);
 test.beforeAll(() => { gitFixture(UXRFX) });
 test.afterAll(() => { cleanGitFixture(UXRFX) });
 const uxrFx = (n: string) => realPath(join(UXRFX, n));
@@ -280,7 +280,7 @@ test.describe('묶음 W — 새 창의 cwd (FR-CWD-*)', () => {
       await expectToolCwd(request, made, here, '같은 창의 새 탭이 승계를 잃었다');
     });
 
-  test('V-CWD-2: dmctl 이 보낸 cwdTool 이 기준이 된다', async ({ page, request }) => {
+  test('V-CWD-2: otterctl 이 보낸 cwdTool 이 기준이 된다', async ({ page, request }) => {
     await gotoSettled(page);
     const here = uxrFx('basic');
     const caller = await page.evaluate(async ([cwd]) => {

@@ -42,8 +42,8 @@ HOME_DIR=""
 cleanup() {
   if [[ $OWNED -eq 1 && -n "$PORT" ]]; then
     echo "── 치우는 중"
-    env -u DONGMINAL_HOST -u DONGMINAL_PORT -u PORT \
-      DONGMINAL_HOME="$HOME_DIR" ./dongminal stop --all --port "$PORT" >/dev/null 2>&1 || true
+    env -u OTTERMINAL_HOST -u OTTERMINAL_PORT -u PORT \
+      OTTERMINAL_HOME="$HOME_DIR" ./otterminal stop --all --port "$PORT" >/dev/null 2>&1 || true
     [[ -n "$HOME_DIR" ]] && rm -rf "$HOME_DIR"
   fi
 }
@@ -53,15 +53,15 @@ if [[ -z "$PORT" ]]; then
   # **격리가 기본이다.** 운영 인스턴스에 대고 재면 그쪽 부하가 값에 섞이고,
   # 반대로 측정이 그쪽을 느리게 만든다.
   echo "── 격리 인스턴스를 띄운다"
-  BINARY=dongminal scripts/build.sh >/dev/null || exit 1
+  BINARY=otterminal scripts/build.sh >/dev/null || exit 1
   HOME_DIR=$(mktemp -d)
-  # **자기 전제를 스스로 세운다.** 이 스크립트는 dongminal 도구 안에서 돌 수 있고,
-  # 그 셸에는 사용자의 실제 인스턴스를 가리키는 `DONGMINAL_*` 가 심겨 있다
-  # (`toolhub.StartTool`). 물려받으면 격리 기동이 `DONGMINAL_HOST=0.0.0.0` 으로
+  # **자기 전제를 스스로 세운다.** 이 스크립트는 otterminal 도구 안에서 돌 수 있고,
+  # 그 셸에는 사용자의 실제 인스턴스를 가리키는 `OTTERMINAL_*` 가 심겨 있다
+  # (`toolhub.StartTool`). 물려받으면 격리 기동이 `OTTERMINAL_HOST=0.0.0.0` 으로
   # 떠서 노출 게이트에 막히고, 측정은 시작조차 하지 못한다.
-  out=$(env -u DONGMINAL_HOST -u DONGMINAL_PORT -u DONGMINAL_TOOL_ID \
-            -u DONGMINAL_LOG -u DONGMINAL_LOG_LEVEL -u PORT \
-            DONGMINAL_HOME="$HOME_DIR" ./dongminal start --isolated --home "$HOME_DIR" 2>&1) || {
+  out=$(env -u OTTERMINAL_HOST -u OTTERMINAL_PORT -u OTTERMINAL_TOOL_ID \
+            -u OTTERMINAL_LOG -u OTTERMINAL_LOG_LEVEL -u PORT \
+            OTTERMINAL_HOME="$HOME_DIR" ./otterminal start --isolated --home "$HOME_DIR" 2>&1) || {
     echo "$out"; exit 1; }
   PORT=$(printf '%s' "$out" | grep -oE 'http://[^:]+:[0-9]+' | head -1 | grep -oE '[0-9]+$')
   [[ -n "$PORT" ]] || { echo "포트를 읽지 못했습니다:"; echo "$out"; exit 1; }

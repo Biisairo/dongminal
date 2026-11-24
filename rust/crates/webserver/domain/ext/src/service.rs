@@ -4,7 +4,7 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use dm_gocompat::strconv::quote;
+use otter_gocompat::strconv::quote;
 
 use crate::builtin::deploy;
 use crate::ctx::Ctx;

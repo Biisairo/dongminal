@@ -21,7 +21,7 @@
 
 지금 peer 기능(`PEER_NETWORK_SRS`)은 웹서버 프로세스 안에 있다. 노드 신원, 짝 목록, 노드 포트, TLS, 프로토콜 명령을 모두 서버가 처리한다.
 
-그런데 터미널과 에이전트는 데몬(`dongminald`)이 들고 있고, 서버는 업데이트할 때마다 다시 뜬다. 다음 SRS(`PEER_CHAT_SRS`)의 채팅 상태는 세션과 수명이 같아야 하므로, 노드의 주체가 데몬이어야 한다.
+그런데 터미널과 에이전트는 데몬(`otterminald`)이 들고 있고, 서버는 업데이트할 때마다 다시 뜬다. 다음 SRS(`PEER_CHAT_SRS`)의 채팅 상태는 세션과 수명이 같아야 하므로, 노드의 주체가 데몬이어야 한다.
 
 또 노드 사이 연결의 쓰임이 바뀌었다. 지금은 짝에게 명령을 보내 상대의 에이전트를 보고, 메시지를 넣고, 에이전트를 띄운다. 앞으로 노드 사이 연결은 **망의 간선**이다. 간선은 "이 두 노드가 서로를 믿고 TLS 로 이어진다"는 사실만 갖는다. 그 위에서 무엇을 주고받을지는 채팅(`PEER_CHAT_SRS`)이 정한다.
 
@@ -38,7 +38,7 @@
 | 1 | M | peer 도메인 패키지를 공유 계층으로 옮긴다. 동작 변경 없음 (끝) |
 | 2 | L | 서버의 바이트 통로와 데몬의 노드 소켓 부품 (끝) |
 | 3 | R | 간선 축소: 프로토콜 명령·원격 메시지·원격 기동·마지막 응답 시각·허용 폴더를 지운다 |
-| 4 | E | 이름 변경 `peer` → `edge` (코드·API·dmctl·화면·홈 파일·오류 코드·와이어) |
+| 4 | E | 이름 변경 `peer` → `edge` (코드·API·otterctl·화면·홈 파일·오류 코드·와이어) |
 | 5 | N | 데몬이 노드가 된다. 서버는 통로와 로컬 API 위임만 한다. 직접 모드는 같은 패키지를 쓴다 |
 | 6 | X | 문서·e2e |
 
@@ -86,20 +86,20 @@
 | 구성 | 지금 자리 |
 |---|---|
 | 프로토콜 명령 6개(`node.info`·`agents.list`·`message.send`·`agent.spawn`·`agent.status`·`agent.close`) | `httpapi/peer_commands.go`·`peer_spawn.go` |
-| 원격 글의 도구별 전달 상태, 원격 엔벨로프 `[DONGMINAL-PEER-MSG …]` | `httpapi/peer_gate.go`·`peer_envelope.go`, `quoteEnvelope` 의 PEER 표지 |
+| 원격 글의 도구별 전달 상태, 원격 엔벨로프 `[OTTERMINAL-PEER-MSG …]` | `httpapi/peer_gate.go`·`peer_envelope.go`, `quoteEnvelope` 의 PEER 표지 |
 | 로컬 API `POST /api/peers/call` | `peer_commands.go` `apiPeersCall` |
-| `dmctl peer info·tools·spawn·status·close`, `dmctl msg --to <노드>/<uuid>` | `runtimebin/dmctl_peer.go`·`dmctl_toolio.go` |
-| 원격 기동 기록 `peer-spawns.json` | `peer/spawnlog.go`, `dmenv.PeerSpawnsFile`, 홈 표·백업 |
+| `otterctl peer info·tools·spawn·status·close`, `otterctl msg --to <노드>/<uuid>` | `runtimebin/otterctl_peer.go`·`otterctl_toolio.go` |
+| 원격 기동 기록 `peer-spawns.json` | `peer/spawnlog.go`, `otterenv.PeerSpawnsFile`, 홈 표·백업 |
 | 허용 폴더 `allowedDirs` (원격 기동 전용) | `peer/config.go`·`realdir*.go`, 설정 화면 |
-| 마지막 응답 시각 `lastSeen` (명령 호출로만 갱신) | `peer/limit.go` `LastSeen`, 설정 화면·`dmctl peers` |
+| 마지막 응답 시각 `lastSeen` (명령 호출로만 갱신) | `peer/limit.go` `LastSeen`, 설정 화면·`otterctl peers` |
 | 전경 확인 붙여넣기 `SendPasteIfForeground` (원격 글 전용) | `toolhub/bracketpaste.go`, `toolaccess`·`adapters`·`toolclient`·데몬 `paste` 의 `foreground` |
 | `agentadapter.BareLaunchLine` (원격 기동 전용) | `agentadapter/adapter.go` |
-| 에이전트 안내의 원격 절 | `agentmemory/CLAUDE.md`, `dmctl_agentcontext.go` (SessionStart 안내) |
+| 에이전트 안내의 원격 절 | `agentmemory/CLAUDE.md`, `otterctl_agentcontext.go` (SessionStart 안내) |
 | 오류 코드 `peer_unknown_op`·`peer_rate_limited`(명령 몫)·`peer_target_*`·`peer_agent_missing`·`peer_dir_not_allowed`·`peer_not_owner`·`peer_spawn_limit` | `apierr/codes_peer.go`·`codes_doc.go` |
 
-남는 것: 신원, 짝 목록(`peers.json`), 노드 포트·TLS·지문 판정, 짝맞춤 경로 둘(`pair`·`pair/confirm`)과 그 속도 제한, 로컬 API(조회·노드 설정·초대·추가·승인 대기·승인·거절·해제·주소 수정), 설정 화면, `dmctl peers`·`peer invite·add·approve·reject·remove`, 이벤트 `peers_changed`.
+남는 것: 신원, 짝 목록(`peers.json`), 노드 포트·TLS·지문 판정, 짝맞춤 경로 둘(`pair`·`pair/confirm`)과 그 속도 제한, 로컬 API(조회·노드 설정·초대·추가·승인 대기·승인·거절·해제·주소 수정), 설정 화면, `otterctl peers`·`peer invite·add·approve·reject·remove`, 이벤트 `peers_changed`.
 
-**이름이 같지만 이 SRS 와 무관한 것:** Run 동료 명부(`/api/runs/peers`, `handlers_runs_peers.go`, `dmctl_run_peers.go`). 바꾸지도 지우지도 않는다.
+**이름이 같지만 이 SRS 와 무관한 것:** Run 동료 명부(`/api/runs/peers`, `handlers_runs_peers.go`, `otterctl_run_peers.go`). 바꾸지도 지우지도 않는다.
 
 ### 2.3 데몬의 제약
 
@@ -120,17 +120,17 @@
 - **FR-PDM-11** 데몬은 노드 소켓 `node.sock` 을 연다. 권한은 소유자만이다. 연결을 여럿 동시에 받는다. 프리앰블의 출발지 주소는 짝맞춤에서 상대가 주소를 알리지 않았을 때 쓴다(PEER_NETWORK I-4).
 - **FR-PDM-12** 서버는 발신 소켓 `dial.sock` 을 연다. 권한은 소유자만이다. 데몬이 `{addr, port}` 를 보내면 서버가 연결 시간 한도(5초) 안에 TCP 로 연결하고, 성공을 알린 뒤 양쪽 바이트를 그대로 잇는다. 실패하면 사유를 돌려주고 닫는다.
 - **FR-PDM-13** 서버가 꺼져 있으면 노드 포트와 발신 소켓이 없다. 이때 다른 노드는 이 노드에 닿지 못하고, 데몬의 발신은 `edge_unreachable` 로 끝난다. 데몬의 간선 목록·짝맞춤 상태는 그대로 남는다.
-- **FR-PDM-14** 노드 포트를 열지 못하면(포트 사용 중 등) 서버는 계속 동작하고, 그 사유를 데몬에 알린다. 데몬은 그 사유를 노드 상태에 실어 화면과 `dmctl edges` 에 보인다(FR-PNW-9).
+- **FR-PDM-14** 노드 포트를 열지 못하면(포트 사용 중 등) 서버는 계속 동작하고, 그 사유를 데몬에 알린다. 데몬은 그 사유를 노드 상태에 실어 화면과 `otterctl edges` 에 보인다(FR-PNW-9).
 
 ### 3.3 묶음 R — 간선 축소
 
 - **FR-PDM-60** 노드 포트는 짝맞춤 경로 둘(`pair`·`pair/confirm`)만 받는다. 그 밖의 경로는 모두 404 `not_found` 다. 프로토콜 명령 6개를 지운다.
 - **FR-PDM-61** 로컬 API `POST /api/peers/call` 을 지운다. 경로는 404 다.
-- **FR-PDM-62** `dmctl peer info·tools·spawn·status·close` 를 지운다. `dmctl msg` 는 `--to` 에 `/` 가 있으면 원격으로 보내지 않고 다른 잘못된 대상과 같이 거절한다(로컬 규칙 FR-IDU 그대로).
-- **FR-PDM-63** 원격 엔벨로프(`[DONGMINAL-PEER-MSG …]`)를 만들지 않는다. 원격 글의 도구별 전달 상태, 전경 확인 붙여넣기(`SendPasteIfForeground`, 데몬 `paste` 의 `foreground`), `BareLaunchLine` 을 지운다. 로컬 엔벨로프의 인용 규칙에서도 PEER 표지를 뺀다.
+- **FR-PDM-62** `otterctl peer info·tools·spawn·status·close` 를 지운다. `otterctl msg` 는 `--to` 에 `/` 가 있으면 원격으로 보내지 않고 다른 잘못된 대상과 같이 거절한다(로컬 규칙 FR-IDU 그대로).
+- **FR-PDM-63** 원격 엔벨로프(`[OTTERMINAL-PEER-MSG …]`)를 만들지 않는다. 원격 글의 도구별 전달 상태, 전경 확인 붙여넣기(`SendPasteIfForeground`, 데몬 `paste` 의 `foreground`), `BareLaunchLine` 을 지운다. 로컬 엔벨로프의 인용 규칙에서도 PEER 표지를 뺀다.
 - **FR-PDM-64** 원격 기동 기록과 `peer-spawns.json` 을 지운다. 홈에 남은 `peer-spawns.json` 은 노드 계층이 처음 설 때 지운다. 홈 폴더 표·백업 목록에서도 뺀다.
 - **FR-PDM-65** 노드 설정에서 허용 폴더(`allowedDirs`)를 지운다. 저장된 파일에 그 항목이 있으면 읽을 때 버리고, 다음 저장부터 쓰지 않는다. 노드 설정 PUT 이 그 항목을 보내도 무시한다.
-- **FR-PDM-66** 마지막 응답 시각(`lastSeen`)을 지운다. 로컬 API 의 짝 항목, 설정 화면, `dmctl peers` 에서 뺀다.
+- **FR-PDM-66** 마지막 응답 시각(`lastSeen`)을 지운다. 로컬 API 의 짝 항목, 설정 화면, `otterctl peers` 에서 뺀다.
 - **FR-PDM-67** 에이전트 안내(`agentmemory/CLAUDE.md`, SessionStart 안내)에서 원격 명령·원격 엔벨로프 절을 지운다.
 - **FR-PDM-68** 지운 명령에만 쓰이던 오류 코드를 카탈로그와 `errors.md` 에서 지운다. 짝맞춤과 로컬 API 가 쓰는 코드는 남긴다.
 
@@ -144,7 +144,7 @@
   | 로컬 API | `/api/peers`, `/api/peers/*` | `/api/edges`, `/api/edges/*` |
   | 노드 포트 경로 | `/peer/v1/pair`, `/peer/v1/pair/confirm` | `/edge/v1/pair`, `/edge/v1/pair/confirm` |
   | 초대 코드 머리 | `dmpeer1:` | `dmedge1:` |
-  | dmctl | `dmctl peers`, `dmctl peer <sub>` | `dmctl edges`, `dmctl edge <sub>` |
+  | otterctl | `otterctl peers`, `otterctl peer <sub>` | `otterctl edges`, `otterctl edge <sub>` |
   | 홈 파일 | `peers.json` | `edges.json` |
   | 이벤트 | `peers_changed` | `edges_changed` |
   | 오류 코드 | `peer_*` | `edge_*` |
@@ -153,7 +153,7 @@
   | 감사 로그 | `peer audit` | `edge audit` |
 
 - **FR-PDM-71** 노드 계층이 처음 설 때 `edges.json` 이 없고 `peers.json` 이 있으면 `peers.json` 을 `edges.json` 으로 옮긴다(이름 바꾸기). 둘 다 있으면 `edges.json` 을 쓰고 `peers.json` 은 그대로 둔다. 신원 파일은 `edge-cert.pem`·`edge-key.pem` 이다. 옛 신원 파일 `node-cert.pem`·`node-key.pem` 은 옮기지 않고 지운다. 새 신원(새 지문)이 생기므로 옛 간선은 다시 맺어야 한다(D-PDM-18, 맺은 간선이 없다는 사용자 확인).
-- **FR-PDM-72** Run 동료 명부를 `team` 으로 바꾼다. `GET /api/runs/peers` → `GET /api/runs/team`, `dmctl run peers` → `dmctl run team`, 응답 키 `peers` → `team`, 프리앰블 안내문도 `dmctl run team` 이다. 옛 경로와 옛 하위 명령은 없다(404·모르는 하위 명령).
+- **FR-PDM-72** Run 동료 명부를 `team` 으로 바꾼다. `GET /api/runs/peers` → `GET /api/runs/team`, `otterctl run peers` → `otterctl run team`, 응답 키 `peers` → `team`, 프리앰블 안내문도 `otterctl run team` 이다. 옛 경로와 옛 하위 명령은 없다(404·모르는 하위 명령).
 
 ### 3.4a 단계 4 설계 (이름 변경)
 
@@ -167,13 +167,13 @@ FR-PDM-70 의 표를 식별자 단위로 정한다. 사용자가 보는 이름�
 | `peer.Peer`, `Config.Peers`(json `peers`) | `edge.Edge`, `Config.Edges`(json `edges`) |
 | `IsPeer`·`AddPeer`·`PeersOnly`·`ErrInvalidPeer`·`ErrPeerNotFound`·`PerPeerPerMinute` | `IsEdge`·`AddEdge`·`EdgesOnly`·`ErrInvalidEdge`·`ErrEdgeNotFound`·`PerKeyPerMinute` |
 | `InvitePrefix = "dmpeer1:"` | `"dmedge1:"` |
-| `dmenv.PeersFile = "peers.json"` | `dmenv.EdgesFile = "edges.json"`. 옛 이름은 이관에만 쓴다 |
+| `otterenv.PeersFile = "peers.json"` | `otterenv.EdgesFile = "edges.json"`. 옛 이름은 이관에만 쓴다 |
 | `httpapi/peer_*.go`, 메서드 `peer*`·`apiPeers*`, 필드 `s.peers`·`s.peerLn`·`s.peerID`·`s.peerClient`·`s.peerLimiter` | `httpapi/edge_*.go`, `edge*`·`apiEdges*`, `s.edges`·`s.edgeLn`·`s.edgeID`·`s.edgeClient`·`s.edgeLimiter` |
 | 노드 포트 경로 `/peer/v1/` | `/edge/v1/` |
 | `apierr/codes_peer.go`, `CodePeer*` = `peer_*` | `apierr/codes_edge.go`, `CodeEdge*` = `edge_*`. `errors.md` 는 다시 만든다 |
 | 로그 `peer audit`, `peer listener`, `peer identity` | `edge audit`, `edge listener`, `edge identity` |
-| `cmd/dongminal` 의 `startPeerScoped`·`StartPeer` | `startEdgeScoped`·`StartEdge` |
-| dmctl `dmctl_peer.go`, `peers`·`peer <sub>`, 출력 줄 머리 `peer` | `dmctl_edge.go`, `edges`·`edge <sub>`, 줄 머리 `edge`. 공용 인자 해석기 `peerArgs`·`peerSub`·`parsePeerArgs`(account 도 씀)는 `subArgs`·`subSpec`·`parseSubArgs` 로 바꾼다 |
+| `cmd/otterminal` 의 `startPeerScoped`·`StartPeer` | `startEdgeScoped`·`StartEdge` |
+| otterctl `otterctl_peer.go`, `peers`·`peer <sub>`, 출력 줄 머리 `peer` | `otterctl_edge.go`, `edges`·`edge <sub>`, 줄 머리 `edge`. 공용 인자 해석기 `peerArgs`·`peerSub`·`parsePeerArgs`(account 도 씀)는 `subArgs`·`subSpec`·`parseSubArgs` 로 바꾼다 |
 
 **파일 이관 (FR-PDM-71)**: 노드 계층이 설 때 `edges.json` 이 없고 `peers.json` 이 있으면 이름을 바꾼다. 읽을 때 json 키 `edges` 가 없고 `peers` 가 있으면 그 값을 쓴다. 저장은 `edges` 로만 한다. 홈 폴더 표(`homelayout.go`·`getting-started.md`)는 `edges.json` 으로 바꾼다.
 
@@ -185,17 +185,17 @@ FR-PDM-70 의 표를 식별자 단위로 정한다. 사용자가 보는 이름�
 
 **바꾸지 않는 것**: 프리앰블 `DMRELAY1`, 소켓 이름.
 
-**Run 동료 명부 (FR-PDM-72)**: `handlers_runs_peers.go`·`dmctl_run_peers.go` → `handlers_runs_team.go`·`dmctl_run_team.go`, `apiRunPeers` → `apiRunTeam`, `peerView` → `teamView`, `runPeer`·`runSubPeers` → `teamMate`·`runSubTeam`.
+**Run 동료 명부 (FR-PDM-72)**: `handlers_runs_peers.go`·`otterctl_run_peers.go` → `handlers_runs_team.go`·`otterctl_run_team.go`, `apiRunPeers` → `apiRunTeam`, `peerView` → `teamView`, `runPeer`·`runSubPeers` → `teamMate`·`runSubTeam`.
 
-**신원 파일 (FR-PDM-71)**: `dmenv.NodeCertFile`·`NodeKeyFile` → `EdgeCertFile`·`EdgeKeyFile`(`edge-cert.pem`·`edge-key.pem`). 옛 이름은 `LegacyNodeCertFile`·`LegacyNodeKeyFile` 로 지우기에만 쓴다. 이관 함수는 `edge.MigrateLegacyFiles` 하나다.
+**신원 파일 (FR-PDM-71)**: `otterenv.NodeCertFile`·`NodeKeyFile` → `EdgeCertFile`·`EdgeKeyFile`(`edge-cert.pem`·`edge-key.pem`). 옛 이름은 `LegacyNodeCertFile`·`LegacyNodeKeyFile` 로 지우기에만 쓴다. 이관 함수는 `edge.MigrateLegacyFiles` 하나다.
 
 **구현 중 정한 것 (2026-11-17)**
 
-- 텔레그램·Claude 계정 API 도 쓰는 공용 도우미는 dmctl 공용 해석기와 같이 중립 이름으로 바꾼다. `peerFail` → `codeFail`, `peerReadJSON` → `readJSONBody`, `peerBodyLimit` → `jsonBodyLimit`, dmctl `printPeerRefusal` → `printCodeRefusal`(`runtimebin/httpexit.go`).
+- 텔레그램·Claude 계정 API 도 쓰는 공용 도우미는 otterctl 공용 해석기와 같이 중립 이름으로 바꾼다. `peerFail` → `codeFail`, `peerReadJSON` → `readJSONBody`, `peerBodyLimit` → `jsonBodyLimit`, otterctl `printPeerRefusal` → `printCodeRefusal`(`runtimebin/httpexit.go`).
 - 스냅숏 조각 이름도 상태 키를 따라 `peers` → `edges` 다(`/api/snapshot?parts=…,edges`).
 - 화면의 `pn-*` 중 간선 패널만 쓰는 id·클래스를 `eg-*` 로 바꾼다. 간선 패널과 Claude 계정 설정이 같이 쓰는 `pn-row` 는 중립 이름 `set-row` 로 바꾼다(D-PDM-18). 판(pane) 클래스 `pn-tab`·`pn-body` 등은 무관하다. e2e 레이아웃 기준선(`e2e/baseline/ui-layout.*.json`)의 선택자 키도 같이 바꾼다.
 - 설정 탭 이름은 다른 탭처럼 번역하지 않고 "Edges" 하나다. 패널 안의 문구는 ko "간선", en "edge" 다. "해제"는 "끊기"로 바꾼다.
-- 옛 `dmctl peers`·`dmctl peer <sub>` 는 모르는 명령으로 실패하고 서버를 부르지 않는다.
+- 옛 `otterctl peers`·`otterctl peer <sub>` 는 모르는 명령으로 실패하고 서버를 부르지 않는다.
 - 이관(`edge.MigrateLegacyConfig`)은 `initEdge` 가 저장소를 열기 전에 부른다. 실패하면 로그만 남기고 계속한다.
 
 ### 3.5 묶음 N — 데몬의 노드 처리
@@ -206,11 +206,11 @@ FR-PDM-70 의 표를 식별자 단위로 정한다. 사용자가 보는 이름�
 - **FR-PDM-2** 노드 로직(판정·짝맞춤 경로·로컬 API 연산)은 공유 패키지 `internal/shared/edgenode` 에 둔다. 데몬과 직접 모드의 서버가 같은 코드를 쓴다(D-PDM-15).
 - **FR-PDM-26** 감사 로그(`edge audit`)는 노드를 처리하는 프로세스의 로그에 남긴다. 데몬 모드에서는 데몬 로그다.
 - **FR-PDM-27** 간선·초대·승인 대기·노드 포트 상태가 바뀌면 데몬이 push `edges` 를 보낸다. 본문은 `edges_changed` 의 인자와 같다(`paired` 선택 인자 포함). 서버는 받은 그대로 SSE 로 방송한다.
-- **FR-PDM-30** 로컬 API(`/api/edges/*`)의 응답 모양은 단계 4 이후와 같다. 서버는 요청을 IPC 메서드 `edge`(`{op, args, ifMatch}`)로 데몬에 넘기고, 데몬의 답(상태·본문·오류 코드·ETag)을 그대로 돌려준다. `dmctl` 은 바꾸지 않는다.
+- **FR-PDM-30** 로컬 API(`/api/edges/*`)의 응답 모양은 단계 4 이후와 같다. 서버는 요청을 IPC 메서드 `edge`(`{op, args, ifMatch}`)로 데몬에 넘기고, 데몬의 답(상태·본문·오류 코드·ETag)을 그대로 돌려준다. `otterctl` 은 바꾸지 않는다.
 - **FR-PDM-31** `edge` 메서드는 느린 요청으로 처리한다(`goSlow`). 상대 노드 호출(추가·승인)이 걸리는 동안 같은 연결의 다른 요청을 막지 않는다.
 - **FR-PDM-33** 서버가 데몬에 (다시) 붙으면 `edge` 의 조회(`get`)로 노드 설정을 받아 노드 포트를 연다(`Port.Apply`). 노드 설정이 바뀌면 데몬의 push `edges` 를 받고 다시 조회한다.
 - **FR-PDM-50** 데몬은 `hello` 의 기능 목록에 `edge` 를 싣는다. 서버는 `edge` 를 말하는 데몬과만 노드 기능을 켠다.
-- **FR-PDM-51** 데몬이 `edge` 를 말하지 않으면(옛 데몬) 서버는 노드 포트를 열지 않는다. 로컬 API 는 409 `edge_daemon_restart` 로 답하고, 화면과 `dmctl edges` 는 "데몬을 다시 시작해야 노드 기능을 쓸 수 있다"고 알린다. 서버가 노드 역할을 대신하지 않는다.
+- **FR-PDM-51** 데몬이 `edge` 를 말하지 않으면(옛 데몬) 서버는 노드 포트를 열지 않는다. 로컬 API 는 409 `edge_daemon_restart` 로 답하고, 화면과 `otterctl edges` 는 "데몬을 다시 시작해야 노드 기능을 쓸 수 있다"고 알린다. 서버가 노드 역할을 대신하지 않는다.
 - **FR-PDM-52** ~~직접 모드(데몬 없음)에서는 서버 프로세스가 노드다.~~ **(2026-11-18 제거 — DIRECT_MODE_REMOVAL_SRS FR-DMR-20. 서버는 노드를 세우지 않는다.)** 원문: 같은 `edgenode` 코드를 쓰고, 바이트 통로 대신 노드 포트를 직접 처리한다.
 - **FR-PDM-53** 묶음 N 이 끝나면 서버에는 노드 판정 코드가 없다. 서버의 노드 관련 코드는 통로·`edge` 위임·SSE 방송뿐이다.
 
@@ -324,10 +324,10 @@ D-PDM-13 으로 다음 요구를 지운다. 번호는 다시 쓰지 않는다.
 | 항목 | 이전 | 새 동작 | 이유 |
 |---|---|---|---|
 | 프로토콜 명령 | 짝에게 6개 명령을 보낸다 | 없다. 노드 포트는 짝맞춤만 받는다 | D-PDM-13 |
-| `dmctl msg --to <노드>/<uuid>` | 다른 노드의 에이전트에 보낸다 | 잘못된 대상으로 거절한다 | D-PDM-13 |
-| 허용 폴더·마지막 응답 시각 | 설정 화면과 `dmctl peers` 에 보인다 | 없다 | 원격 기동·명령에만 쓰였다 |
+| `otterctl msg --to <노드>/<uuid>` | 다른 노드의 에이전트에 보낸다 | 잘못된 대상으로 거절한다 | D-PDM-13 |
+| 허용 폴더·마지막 응답 시각 | 설정 화면과 `otterctl peers` 에 보인다 | 없다 | 원격 기동·명령에만 쓰였다 |
 | 짝 확인(pending-out → paired) | `pair/confirm` 또는 그 짝에 명령이 성공하면 확정 | `pair/confirm` 으로만 확정. 놓치면 만료 뒤 다시 짝맺는다 | 명령이 없다 |
-| 이름 | peer, `/api/peers`, `peers.json`, `dmctl peers` | edge, `/api/edges`, `edges.json`, `dmctl edges` | D-PDM-14. 파일은 옮긴다(FR-PDM-71) |
+| 이름 | peer, `/api/peers`, `peers.json`, `otterctl peers` | edge, `/api/edges`, `edges.json`, `otterctl edges` | D-PDM-14. 파일은 옮긴다(FR-PDM-71) |
 | 옛 판과의 짝맞춤 | 된다 | 경로가 달라 되지 않는다. 양쪽을 새 판으로 올린 뒤 짝맺는다 | D-PDM-17 |
 | 감사 로그 자리 | `server.log` 의 `peer audit` 줄 | 데몬 로그의 `edge audit` 줄 | 짝맞춤을 처리하는 프로세스가 데몬이다 |
 | `peer-spawns.json` | 홈에 파일로 남는다 | 없다 | 원격 기동이 없다 |
@@ -342,15 +342,15 @@ D-PDM-13 으로 다음 요구를 지운다. 번호는 다시 쓰지 않는다.
 | TC-PDM-2 | FR-PDM-10·11 | Go: 서버 통로 + 데몬 노드 소켓, 실제 TLS 연결 | 서버는 바이트를 그대로 옮기고, TLS 판정은 데몬이 한다 (끝) |
 | TC-PDM-3 | FR-PDM-12·13 | Go: 발신 소켓으로 연결 성공·실패, 서버 없음 | 성공이면 지문 고정 TLS, 실패·서버 없음은 unreachable (끝) |
 | TC-PDM-20 | FR-PDM-60·61 | Go: 짝인 노드가 옛 명령 경로 6개와 `/api/peers/call` 을 부름 | 모두 404 |
-| TC-PDM-21 | FR-PDM-62 | Go(dmctl): `peer tools` 등 지운 하위 명령, `msg --to a/b` | 모르는 명령·잘못된 대상으로 실패, 원격 호출 없음 |
+| TC-PDM-21 | FR-PDM-62 | Go(otterctl): `peer tools` 등 지운 하위 명령, `msg --to a/b` | 모르는 명령·잘못된 대상으로 실패, 원격 호출 없음 |
 | TC-PDM-22 | FR-PDM-64 | Go: `peer-spawns.json` 이 있는 홈으로 노드 계층 기동 | 파일이 지워진다 |
 | TC-PDM-23 | FR-PDM-65·66 | Go: `allowedDirs` 가 든 설정 파일 읽기·PUT, 조회 응답 | 항목이 응답·파일에 없다. `lastSeen` 이 없다 |
 | TC-PDM-24 | FR-PDM-63·67·68 | Go: 엔벨로프 인용 시험, 안내문 시험, 오류 카탈로그 시험 | PEER 표지·원격 절·지운 코드가 없다 |
 | TC-PDM-25 | FR-PDM-70 | Go: 짝맞춤 시험을 새 경로·초대 머리로 | 통과. 옛 경로는 404 |
 | TC-PDM-26 | FR-PDM-71 | Go: `peers.json` 만 있음 / 둘 다 있음 / 둘 다 없음, 옛 `node-*.pem` 있음 | 옮김 / `edges.json` 사용·옛 파일 유지 / 빈 설정, 옛 신원 파일 지움·`edge-*.pem` 생성 |
-| TC-PDM-27 | FR-PDM-72 | Go(서버·dmctl): `/api/runs/team`, `dmctl run team`, 옛 경로·옛 하위 명령, 프리앰블 | 새 이름으로 동작, 옛 이름은 404·실패, 프리앰블이 `dmctl run team` 을 안내 |
+| TC-PDM-27 | FR-PDM-72 | Go(서버·otterctl): `/api/runs/team`, `otterctl run team`, 옛 경로·옛 하위 명령, 프리앰블 | 새 이름으로 동작, 옛 이름은 404·실패, 프리앰블이 `otterctl run team` 을 안내 |
 | TC-PDM-4 | FR-PDM-20~22·2 | Go: 노드 둘(서버 통로+데몬 노드 쌍 둘)로 짝맞춤 전 과정 | PEER_NETWORK 짝맞춤 시험 기대와 같다 |
-| TC-PDM-7 | FR-PDM-30·31·33 | Go + dmctl: 로컬 API 전부를 데몬 경유로 | 응답 모양이 직접 모드와 같다 |
+| TC-PDM-7 | FR-PDM-30·31·33 | Go + otterctl: 로컬 API 전부를 데몬 경유로 | 응답 모양이 직접 모드와 같다 |
 | TC-PDM-9 | FR-PDM-27 | Go: 짝맞춤 중 push `edges` | 서버가 `edges_changed` 를 같은 본문으로 방송한다 |
 | TC-PDM-10 | FR-PDM-50·51 | Go: `edge` 기능 없는 가짜 데몬 | 노드 포트 닫힘, 로컬 API 409 `edge_daemon_restart` |
 | TC-PDM-11 | FR-PDM-52 | Go: 직접 모드로 짝맞춤 시험 | 모두 통과 |
@@ -370,7 +370,7 @@ D-PDM-13 으로 다음 요구를 지운다. 번호는 다시 쓰지 않는다.
 |---|---|---|
 | 노드 코드를 고칠 때마다 데몬을 다시 띄워야 하고, 그때 모든 터미널 세션이 끊긴다 | MEDIUM | 사용자가 받아들인 대가(D-PDM-1). 단계마다 보고에 적는다(NFR-PDM-5) |
 | 서버가 꺼져 있는 동안 노드에 닿을 수 없다 | LOW | D-PDM-2·6 의 결과. 데몬의 상태는 남으므로 서버가 돌아오면 바로 이어진다 |
-| Run 동료 명부 이름이 바뀌어 이미 떠 있는 에이전트가 옛 `dmctl run peers` 를 부른다 | LOW | FR-PDM-72. 새 Run 부터 프리앰블이 `dmctl run team` 을 안내한다. 옛 명령은 모르는 하위 명령으로 바로 실패한다 |
+| Run 동료 명부 이름이 바뀌어 이미 떠 있는 에이전트가 옛 `otterctl run peers` 를 부른다 | LOW | FR-PDM-72. 새 Run 부터 프리앰블이 `otterctl run team` 을 안내한다. 옛 명령은 모르는 하위 명령으로 바로 실패한다 |
 | 승인 확인(confirm)을 놓친 쪽이 대기로 남는다 | LOW | §4.1. 만료 뒤 다시 짝맺는다. 화면은 지금처럼 대기 상태를 보인다 |
 | 같은 사용자의 다른 프로세스가 `node.sock` 에 붙어 프리앰블의 출발지 주소를 꾸민다 | LOW | 프리앰블은 주소 기본값에만 쓴다. 신원 판정은 TLS 클라이언트 인증서로만 한다 |
 | 같은 사용자의 다른 프로세스가 `dial.sock` 으로 임의 TCP 연결을 연다 | LOW | 그 프로세스가 스스로 열 수 있는 연결과 같다. 권한이 늘지 않는다 |

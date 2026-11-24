@@ -109,7 +109,7 @@ impl AutoEnv {
 }
 
 fn rfc3339(unix: i64) -> String {
-    dm_gocompat::time::format_rfc3339(time::OffsetDateTime::from_unix_timestamp(unix).unwrap())
+    otter_gocompat::time::format_rfc3339(time::OffsetDateTime::from_unix_timestamp(unix).unwrap())
 }
 
 #[tokio::test]
@@ -326,10 +326,11 @@ async fn auto_proactive_switches_and_records() {
     let al = x.alerts.lock().unwrap().clone();
     assert!(al.len() == 1 && al[0].kind == ALERT_AUTOSWITCH && al[0].trigger == TRIGGER_PROACTIVE);
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal(&al[0]).unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal(&al[0]).unwrap()).unwrap(),
         r#"{"kind":"autoswitch","from":"c***@","to":"a***@","trigger":"proactive"}"#
     );
-    let v = String::from_utf8(dm_gocompat::json::marshal(&x.auto.view().state).unwrap()).unwrap();
+    let v =
+        String::from_utf8(otter_gocompat::json::marshal(&x.auto.view().state).unwrap()).unwrap();
     assert_eq!(
         v,
         format!(
@@ -551,7 +552,7 @@ async fn auto_ranges_source_of_validate() {
             );
         }
     }
-    let out = String::from_utf8(dm_gocompat::json::marshal(&x.auto.view()).unwrap()).unwrap();
+    let out = String::from_utf8(otter_gocompat::json::marshal(&x.auto.view()).unwrap()).unwrap();
     assert!(out.contains(r#""ranges":{"cooldownSeconds":{"min":0,"max":86400},"hysteresisPct":{"min":0,"max":50},"intervalSeconds":{"min":15,"max":3600},"threshold":{"min":50,"max":100},"unhealthyTicks":{"min":1,"max":100},"weeklyThreshold":{"min":50,"max":100}}"#), "{out}");
 }
 
@@ -905,7 +906,7 @@ async fn alert_bodies_carry_no_email_or_id() {
     x.tick().await;
     let al = x.alerts.lock().unwrap().clone();
     assert!(al.len() >= 2, "{:?}", x.kinds());
-    let b = String::from_utf8(dm_gocompat::json::marshal(&al).unwrap()).unwrap();
+    let b = String::from_utf8(otter_gocompat::json::marshal(&al).unwrap()).unwrap();
     for bad in ["@x.com", "id1", "id2", "id3", "at-", "rt-"] {
         assert!(!b.contains(bad), "{bad} in {b}");
     }
@@ -977,7 +978,7 @@ fn alert_text() {
 // Go `time.Unix(sec, 0).Format("2006-01-02")` 를 Local 시간대로 본다.
 #[test]
 fn local_day_matches_go_layout() {
-    use dm_gocompat::time::Zone;
+    use otter_gocompat::time::Zone;
     let at = 1_795_446_000; // 2026-11-23T15:00:00Z
     assert_eq!(crate::alerts::local_day_in(at, &Zone::utc()), "2026-11-23");
     assert_eq!(

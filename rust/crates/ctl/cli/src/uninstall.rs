@@ -1,15 +1,15 @@
-//! `dongminal uninstall` — 무엇을 지울지 보이고, `--yes` 가 있을 때만 지운다 (G3-4).
+//! `otterminal uninstall` — 무엇을 지울지 보이고, `--yes` 가 있을 때만 지운다 (G3-4).
 
 use std::io::Write;
 
-use dm_gocompat::filepath;
-use dm_gocompat::oserr::{go_error_string, path_error};
+use otter_gocompat::filepath;
+use otter_gocompat::oserr::{go_error_string, path_error};
 
 use crate::env::Env;
 use crate::homelayout::{HomeEntry, home_layout};
 use crate::options::{Common, ParseError, unknown_flag};
 
-/// `dongminal uninstall` 의 옵션이다.
+/// `otterminal uninstall` 의 옵션이다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct UninstallOpts {
     pub common: Common,
@@ -94,7 +94,10 @@ pub(crate) fn run_uninstall_in(
             stderr,
             "\n지우려면 --yes 를 함께 주세요. 되돌릴 수 없습니다."
         );
-        let _ = writeln!(stderr, "먼저 백업하려면: dongminal backup --out <파일.zip>");
+        let _ = writeln!(
+            stderr,
+            "먼저 백업하려면: otterminal backup --out <파일.zip>"
+        );
         return 1;
     }
 

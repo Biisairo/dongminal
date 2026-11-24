@@ -7,10 +7,10 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Condvar, Mutex, MutexGuard};
 
-use dm_gocompat::json;
-use dm_gocompat::oserr::{go_error_string, path_error};
-use dm_gocompat::strconv::quote;
-use dm_shared_pollwait::{Changed, Signal};
+use otter_gocompat::json;
+use otter_gocompat::oserr::{go_error_string, path_error};
+use otter_gocompat::strconv::quote;
+use otter_shared_pollwait::{Changed, Signal};
 use serde::{Deserialize, Serialize};
 
 use crate::assign::Assignment;
@@ -20,7 +20,7 @@ use crate::{
 };
 
 const SCHEMA_VERSION: i64 = 1;
-const FILE_NAME: &str = dm_shared_runfile::FILE_NAME;
+const FILE_NAME: &str = otter_shared_runfile::FILE_NAME;
 const FILE_PERM: u32 = 0o644;
 
 /// Run 하나에 남기는 메시지 메타데이터의 상한.
@@ -125,8 +125,8 @@ impl Store {
         Self {
             dir: dir.into(),
             now: Box::new(time_now),
-            new_id: Box::new(dm_shared_uuid::new_string),
-            write: Box::new(dm_shared_platform::write_state_file),
+            new_id: Box::new(otter_shared_uuid::new_string),
+            write: Box::new(otter_shared_platform::write_state_file),
             inner: Mutex::new(Inner {
                 runs: Vec::new(),
                 save_gen: 0,
@@ -189,7 +189,7 @@ impl Store {
             Err(e) => {
                 if e.kind() != io::ErrorKind::NotFound {
                     let e = go_error_string(&path_error("open", &path.to_string_lossy(), e));
-                    dm_shared_dmlog::errorf!(
+                    otter_shared_otterlog::errorf!(
                         None,
                         "[run] runs.json 읽기 실패 — 빈 상태로 시작한다: {e}"
                     );
@@ -205,7 +205,7 @@ impl Store {
                 *self.persisted() = blob;
             }
             Err(e) => {
-                dm_shared_dmlog::errorf!(
+                otter_shared_otterlog::errorf!(
                     None,
                     "[run] runs.json 파싱 실패 — 빈 상태로 시작한다: {e}"
                 );
@@ -356,7 +356,7 @@ impl Store {
         {
             return Err(Error::invalid("role·agent·toolId 는 모두 필요하다"));
         }
-        if let Err(e) = dm_shared_agentadapter::get(spec.agent.trim()) {
+        if let Err(e) = otter_shared_agentadapter::get(spec.agent.trim()) {
             return Err(Error::invalid(e.to_string()));
         }
         let mut g = self.lock();
@@ -619,7 +619,7 @@ fn rollback_runs(persisted: &[u8], current: Vec<Record>) -> Vec<Record> {
     match json::unmarshal::<FileIn>(persisted) {
         Ok(b) => b.runs,
         Err(e) => {
-            dm_shared_dmlog::errorf!(
+            otter_shared_otterlog::errorf!(
                 None,
                 "[run] 되돌림 스냅샷 해석 실패 — 메모리를 그대로 둔다: {e}"
             );
@@ -734,5 +734,5 @@ pub fn path_slug(id: &str) -> String {
 
 /// headless 도구 id 들 (runs.json 에서 바로 읽는다).
 pub fn headless_tool_ids(dir: &Path) -> HashSet<String> {
-    dm_shared_runfile::headless_tool_ids(dir)
+    otter_shared_runfile::headless_tool_ids(dir)
 }

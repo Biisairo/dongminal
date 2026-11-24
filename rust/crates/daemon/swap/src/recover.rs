@@ -7,10 +7,10 @@ use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::Path;
 
-use dm_gocompat::json;
-use dm_gocompat::oserr::go_error_string;
-use dm_shared_dmlog::{errorf, infof, warnf};
-use dm_shared_toolhub::{DEFAULT_COLS, DEFAULT_ROWS, HandoverTool, ToolManager, ToolState};
+use otter_gocompat::json;
+use otter_gocompat::oserr::go_error_string;
+use otter_shared_otterlog::{errorf, infof, warnf};
+use otter_shared_toolhub::{DEFAULT_COLS, DEFAULT_ROWS, HandoverTool, ToolManager, ToolState};
 
 /// 인계 상태 없이 찾은 셸 하나다.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -21,11 +21,12 @@ pub struct Orphan {
 
 /// 이 프로세스가 쥔 PTY 마스터 fd 중 claimed 에 없는 것을 직계 자식 셸과 짝짓는다 (FR-DSK-27 1·2).
 pub fn find_orphans(claimed: &HashSet<usize>) -> io::Result<Vec<Orphan>> {
-    let masters = dm_shared_platform::pty_masters(claimed)?;
+    let masters = otter_shared_platform::pty_masters(claimed)?;
     if masters.is_empty() {
         return Ok(Vec::new());
     }
-    let children = dm_shared_platform::child_ttys(i32::try_from(std::process::id()).unwrap_or(0))?;
+    let children =
+        otter_shared_platform::child_ttys(i32::try_from(std::process::id()).unwrap_or(0))?;
     let mut out = Vec::new();
     let mut taken = HashSet::new();
     for c in children {
@@ -71,8 +72,8 @@ pub fn recover(
                 true
             }
             _ => {
-                ht.id = dm_shared_uuid::new_string();
-                ht.name = dm_shared_platform::command_name(o.pid);
+                ht.id = otter_shared_uuid::new_string();
+                ht.name = otter_shared_platform::command_name(o.pid);
                 ht.background = true;
                 false
             }
@@ -104,7 +105,7 @@ pub fn recover(
 
 /// tools.json 의 도구들이다. 읽지 못하면 빈 목록이다.
 fn tool_states(home: &Path) -> Vec<ToolState> {
-    let Ok(blob) = std::fs::read(home.join(dm_shared_dmenv::TOOLS_FILE)) else {
+    let Ok(blob) = std::fs::read(home.join(otter_shared_otterenv::TOOLS_FILE)) else {
         return Vec::new();
     };
     json::unmarshal::<Option<Vec<ToolState>>>(&blob)
@@ -116,5 +117,5 @@ fn tool_states(home: &Path) -> Vec<ToolState> {
 /// paths 에 묶인 유닉스 소켓 fd 를 모두 닫고 그 수를 돌려준다 (FR-DSK-26). exec 로 넘어왔으나
 /// 쓰지 못한 리스너가 대상이다.
 pub fn close_inherited_sockets(paths: &[&str]) -> usize {
-    dm_shared_platform::close_sockets_bound_to(paths)
+    otter_shared_platform::close_sockets_bound_to(paths)
 }

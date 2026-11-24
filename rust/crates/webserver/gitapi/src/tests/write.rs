@@ -5,10 +5,10 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use dm_webserver_domain_git_core::{self as core, Ctx, Output, WriteSpec};
-use dm_webserver_domain_git_jobs::{Exclusion, JobRunner, Keys, StartOptions};
-use dm_webserver_domain_git_store::{Store, StoreOptions};
 use http::Method;
+use otter_webserver_domain_git_core::{self as core, Ctx, Output, WriteSpec};
+use otter_webserver_domain_git_jobs::{Exclusion, JobRunner, Keys, StartOptions};
+use otter_webserver_domain_git_store::{Store, StoreOptions};
 use serde_json::json;
 
 use super::harness::*;
@@ -375,7 +375,7 @@ async fn lock_remove_busy_and_job() {
 #[test]
 fn write_locks_cover_post_routes() {
     for rt in crate::routes::ROUTES.iter().filter(|r| r.method == "POST") {
-        let dm_webserver_httproute::Matcher::Exact(p) = rt.matcher else {
+        let otter_webserver_httproute::Matcher::Exact(p) = rt.matcher else {
             panic!("POST 종단은 정확 일치다");
         };
         assert!(crate::lock::write_lease(&Method::POST, p).is_some(), "{p}");
@@ -385,7 +385,7 @@ fn write_locks_cover_post_routes() {
     for (p, _) in crate::lock::WRITE_LOCKS {
         let routed = crate::routes::ROUTES.iter().any(|r| {
             r.method == "POST"
-                && matches!(r.matcher, dm_webserver_httproute::Matcher::Exact(e) if e == *p)
+                && matches!(r.matcher, otter_webserver_httproute::Matcher::Exact(e) if e == *p)
         });
         assert!(routed, "잠금 표에만 있는 경로: {p}");
     }

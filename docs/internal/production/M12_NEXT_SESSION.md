@@ -26,7 +26,7 @@
   FR-M12-18  **Ctrl+B** — 도는 작업을 백그라운드로
   FR-M12-19  **bg·서브에이전트를 모아 보인다** (원본처럼)
   FR-M12-20  **todo 목록을 보인다**
-  FR-M12-21  **GUI 에이전트가 플러그인을 못 든다** — `/dongminal:*` 이 안 보인다
+  FR-M12-21  **GUI 에이전트가 플러그인을 못 든다** — `/otterminal:*` 이 안 보인다
   FR-M12-22  `Cmd/Alt+Shift+좌우` 로 **고르기**
   FR-M12-23  **멈춘 것을 오류로 적는다** — 턴 12개 중 7개가 거짓 오류였다
 
@@ -91,7 +91,7 @@
 - **로컬 전량은 8샤드.** `run_in_background` 는 세션 경계에서 죽는다 — `nohup` 으로:
 
       nohup env PW_WORKERS=1 sh -c 'seq 1 8 | xargs -P 4 -I{} scripts/e2e-shard-run.sh {} 8' \
-        > /tmp/dm-e2e.log 2>&1 &
+        > /tmp/otter-e2e.log 2>&1 &
 
 - **판정은 `unexpected 0`.** flaky 는 **같은 샤드를 혼자** 돌려 통과하면 부하다
 - **RED 를 실제로 보아라.** 화면으로 가를 수 없으면 **나가는 요청**을 재라
@@ -101,11 +101,11 @@
 - 새 API 라우트를 더하면 `docs/external/api.md` 에도 (`make gates` 가 잡는다)
 - 커밋 메시지에 AI 서명 금지 · 커밋은 **사용자 확인 후에만**
 - **운영 인스턴스는 사용자가 `start --foreground` 로 띄운다** — 직접 죽이지 말고 요청하라
-- `dmctl` 은 `DONGMINAL_PORT` 를 본다 (`PORT` 가 아니다)
+- `otterctl` 은 `OTTERMINAL_PORT` 를 본다 (`PORT` 가 아니다)
 
 ## 4. 이 세션이 GUI 라면 — 주의
 
-**FR-M12-21 이 고쳐지기 전에는 `/dongminal:migration` 을 쓸 수 없다.** GUI 에이전트는
+**FR-M12-21 이 고쳐지기 전에는 `/otterminal:migration` 을 쓸 수 없다.** GUI 에이전트는
 `--plugin-dir` 없이 뜨므로 그 명령이 목록에 없다. 다음 인계가 필요하면:
 
   1. FR-M12-21 을 먼저 고치고 **서버를 다시 띄워 달라고 사용자에게 요청**하거나
@@ -127,5 +127,5 @@
 
   1. 문서 갱신 — 진행 문서 · 스펙 §8 · **이 파일을 다음 착수 프롬프트로 다시 쓴다**
   2. `make gates` 초록 · 전량 e2e `unexpected 0` 뒤 **커밋** (사용자 확인 후)
-  3. 인수인계 — `/dongminal:migration` (§4 의 주의를 먼저 읽어라)
+  3. 인수인계 — `/otterminal:migration` (§4 의 주의를 먼저 읽어라)
 ```

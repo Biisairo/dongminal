@@ -18,7 +18,7 @@ let ROOT = '';
 const j = (...p: string[]) => path.join(...p);
 
 test.beforeAll(() => {
-  ROOT = realPath(fs.mkdtempSync(j(TMP, 'dm-rtb-')));
+  ROOT = realPath(fs.mkdtempSync(j(TMP, 'otter-rtb-')));
   for (const n of ['a', 'b', 'c', 'd']) fs.writeFileSync(j(ROOT, n + '.txt'), n + '\n');
 });
 test.afterAll(() => rmTree(ROOT));

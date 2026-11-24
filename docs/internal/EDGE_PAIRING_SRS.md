@@ -19,7 +19,7 @@
 | P | 맺기: 초대, 등록, 다시 시도 |
 | D | 지우기: 알림, 나중에 맞추기 |
 | N | 이름과 식별: 지문으로 찾기, 표시 이름 |
-| S | 표면: 노드 포트·로컬 API·dmctl·화면·`edges.json` |
+| S | 표면: 노드 포트·로컬 API·otterctl·화면·`edges.json` |
 
 ### 1.3 정의
 
@@ -33,10 +33,10 @@
 
 ## 2. 현황 (Identified Issue)
 
-조사: 2026-11-17 (`internal/shared/edge`, `internal/shared/edgenode`, `httpapi/edge_api.go`, `runtimebin/dmctl_edge.go`, `web/js/core/app-settings-edges.js`).
+조사: 2026-11-17 (`internal/shared/edge`, `internal/shared/edgenode`, `httpapi/edge_api.go`, `runtimebin/otterctl_edge.go`, `web/js/core/app-settings-edges.js`).
 
 - 맺기는 다섯 걸음이다: B 초대 → A 붙여 넣기(+이름) → B 승인 대기 → B 사람이 승인(+이름) → B 가 A 에 `confirm` 통지. A 는 B 의 통지를 받으려고 노드 포트를 열어 두어야 한다.
-- 승인은 토큰이 이미 한 확인을 되풀이한다. `dmctl edge approve` 는 같은 OS 계정의 에이전트도 부를 수 있어 사람 확인이 되지 않는다.
+- 승인은 토큰이 이미 한 확인을 되풀이한다. `otterctl edge approve` 는 같은 OS 계정의 에이전트도 부를 수 있어 사람 확인이 되지 않는다.
 - 간선 항목의 이름(`Edge.Name`)은 지우기·주소 고치기의 대상 찾기에만 쓰인다. 이름이 하나뿐이어야 해서 409 `edge_name_taken`, `-2` 붙이기, 이름 입력 칸이 생겼다. 출입 판정·채팅은 이미 지문으로 찾는다.
 - 지우기는 자기 쪽만 지운다(FR-PNW-31). 상대는 지운 노드를 계속 간선으로 알고, 채팅 연결을 계속 다시 건다.
 - 노드 포트는 간선이 아닌 클라이언트 인증서를 TLS 단계에서 끊는다(FR-PNW-41). 그래서 지운 쪽이 "간선이 아니다"를 상대에게 말할 길이 없다.
@@ -66,7 +66,7 @@
 
 - **FR-EPR-30** 간선은 지문으로만 찾는다. 지우기·주소 고치기는 지문 전체나 지문 앞자리(8자리 이상, 간선 목록에서 하나로 정해질 때)를 받는다. 둘 이상에 맞으면 400 `edge_ambiguous`, 없으면 404 `edge_not_found` 다.
 - **FR-EPR-31** 간선 항목의 이름은 상대가 알린 표시 이름이다. 사용자가 정하지 않고, 겹쳐도 된다. 이름 입력(`--name`, 이름 칸)과 이름 충돌 처리(409 `edge_name_taken`, `-2` 붙이기)는 없앤다.
-- **FR-EPR-32** 화면·dmctl 은 간선을 `표시 이름 · 지문 앞 16자리 · 주소:포트` 로 보인다.
+- **FR-EPR-32** 화면·otterctl 은 간선을 `표시 이름 · 지문 앞 16자리 · 주소:포트` 로 보인다.
 - **FR-EPR-33** 노드 자기 이름(`edges.json` 의 `name`)은 남긴다. 기본값은 호스트 이름이고, 설정 ▸ Edges 의 "이 노드"에서 바꾼다. 맺을 때 상대에게 알리고, 채팅의 표시 이름(`<노드 이름>/<탭>`)에 쓴다.
 
 ### 3.4 묶음 S — 표면
@@ -84,9 +84,9 @@
 - **FR-EPR-53** `GET /api/edges/pending`, `POST /api/edges/approve`, `POST /api/edges/reject` 는 없앤다(404).
 - **FR-EPR-54** 오류 코드: `edge_name_taken`·`edge_pending_not_found` 는 없애고 `edge_not_edge`(403)·`edge_ambiguous`(400)를 더한다. **더함 2026-11-22**: 간선이 64개(`edge.MaxEdges`)인 노드에 새 지문을 맺으면 맺는 쪽·받는 쪽 모두 `bad_request`(400)로 거절한다(`ATTIC_FIX_SRS` FR-ATF-80). 이미 맺은 지문을 다시 맺는 것은 막지 않는다.
 
-dmctl
+otterctl
 
-- **FR-EPR-60** `dmctl edges`(목록), `dmctl edge invite [--addr]`, `dmctl edge add <코드>`, `dmctl edge remove <지문 앞자리>`. `approve`·`reject`·`--name` 은 없앤다. 목록 줄은 `edge     fp=<앞 16자리>  name=<표시 이름>  addr=<주소:포트>` 다(필드 사이는 `node` 줄과 같이 공백 둘, 주소를 모르면 `addr=-`). 승인 대기 줄은 없다.
+- **FR-EPR-60** `otterctl edges`(목록), `otterctl edge invite [--addr]`, `otterctl edge add <코드>`, `otterctl edge remove <지문 앞자리>`. `approve`·`reject`·`--name` 은 없앤다. 목록 줄은 `edge     fp=<앞 16자리>  name=<표시 이름>  addr=<주소:포트>` 다(필드 사이는 `node` 줄과 같이 공백 둘, 주소를 모르면 `addr=-`). 승인 대기 줄은 없다.
 
 화면 (설정 ▸ Edges)
 
@@ -138,7 +138,7 @@ dmctl
 | TC-EPR-6 | FR-EPR-30 | 지문 전체·앞자리·겹치는 앞자리·없는 지문으로 지우기·주소 고치기 | 성공 / 400 `edge_ambiguous` / 404 |
 | TC-EPR-7 | FR-EPR-41 | 간선이 아닌 인증서로 `chat`·`unpair`, 초대 없이 `pair` | 403 `edge_not_edge` / `edge_no_invite` |
 | TC-EPR-8 | FR-EPR-80 | 옛 `edges.json`(paired + pending-out + 같은 이름 둘) 읽기 | paired 만 남고 둘 다 받는다 |
-| TC-EPR-9 | FR-EPR-50~54·60 | httpapi·dmctl: 새 경로·인자, 없앤 경로 404, 없앤 명령은 모르는 명령 | 표대로 |
+| TC-EPR-9 | FR-EPR-50~54·60 | httpapi·otterctl: 새 경로·인자, 없앤 경로 404, 없앤 명령은 모르는 명령 | 표대로 |
 | TC-EPR-10 | FR-EPR-70·71 | JS 단위: 간선 줄 모양, 끊기 문구, 승인 대기 구역 없음, `paired`·`removed` 알림 | 표대로. e2e `edges-settings.spec.ts` 는 고치되 돌리는 것은 사용자 몫 |
 
 ## 6. 비목표 (Non-goals)
@@ -160,7 +160,7 @@ dmctl
 
 | 단계 | 내용 |
 |---|---|
-| E1 | `edge`·`edgenode`: 저장(이름·상태 제거, 이관), 맺기·다시 시도, `unpair`, 출입 판정, 지문 찾기, 오류 코드. httpapi·IPC·dmctl |
+| E1 | `edge`·`edgenode`: 저장(이름·상태 제거, 이관), 맺기·다시 시도, `unpair`, 출입 판정, 지문 찾기, 오류 코드. httpapi·IPC·otterctl |
 | E2 | 채팅: `edge_not_edge` 를 받으면 간선 지우기 |
 | E3 | 화면: 설정 ▸ Edges, 알림 |
 | E4 | 문서: `edges.md`·`api.md`·`errors.md`·`commands.md`, `PEER_NETWORK_SRS` 대체 표시, CHANGELOG |

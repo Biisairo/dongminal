@@ -22,7 +22,7 @@ const DEEP = 'd059/sub/t.txt';
 const LAST = 'zz/last.txt';
 
 test.beforeAll(() => {
-  const d = realPath(fs.mkdtempSync(j(TMP, 'dm-fhlr-')));
+  const d = realPath(fs.mkdtempSync(j(TMP, 'otter-fhlr-')));
   git(d, 'init', '-q', '-b', 'main', '.');
   git(d, 'config', 'user.name', 'Fixture');
   git(d, 'config', 'user.email', 'fixture@example.invalid');

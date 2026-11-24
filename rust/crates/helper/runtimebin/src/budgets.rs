@@ -1,10 +1,10 @@
-//! 헬퍼(dmctl·셈·훅)가 서버·데몬을 부를 때 쓰는 시간 예산 전부다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-41).
+//! 헬퍼(otterctl·셈·훅)가 서버·데몬을 부를 때 쓰는 시간 예산 전부다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-41).
 
 #![allow(dead_code)]
 
 use std::time::Duration;
 
-use dm_shared_runwait::{ACTIVITY_WAIT_DEFAULT, EXIT_SETTLE, PREAMBLE_WAIT};
+use otter_shared_runwait::{ACTIVITY_WAIT_DEFAULT, EXIT_SETTLE, PREAMBLE_WAIT};
 
 /// 예산을 따로 주지 않은 요청의 상한이다.
 pub(crate) const HTTP_DEFAULT_BUDGET: Duration = Duration::from_secs(10);

@@ -27,7 +27,7 @@ const ALLOW = new Set([
   'no-verify', 'a', 'reflog', 'date', 'author-date', 'topo', 'ours', 'theirs', 'continue', 'skip',
   'abort', 'stage', 'unstage', 'hunk', 'lines', 'init', 'update', 'sync', 'am', 'bisect', 'cwd',
   // 표에 없던 것: git reset 의 `--mixed` 와 이 제품의 CLI 이름
-  'mixed', 'dmctl',
+  'mixed', 'otterctl',
   // 실행 단위 (D-12)
   'run',
   // 키 이름·기호

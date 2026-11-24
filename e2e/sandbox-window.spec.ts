@@ -33,7 +33,7 @@ function runtimeReady(): boolean {
 
 function sandboxContainers(): string[] {
   try {
-    return execSync('docker ps -aq --filter name=dongminal-sbx-', { encoding: 'utf8' })
+    return execSync('docker ps -aq --filter name=otterminal-sbx-', { encoding: 'utf8' })
       .split('\n')
       .filter(Boolean);
   } catch {
@@ -103,7 +103,7 @@ test.describe('샌드박스 창', () => {
   // 컨테이너 안에는 남아 있어야 하고(이어져 있지 않다는 증거), `/work` 아래에
   // 원본 폴더 이름의 한 겹이 더 생기지 않아야 한다 (`cp <src>/.` 의 요점).
   test('scratch 는 작업 폴더를 복사로 받는다 (마운트가 아니다)', async ({ page }) => {
-    const dir = mkdtempSync(join(TMP, 'dm-sbxcopy-'));
+    const dir = mkdtempSync(join(TMP, 'otter-sbxcopy-'));
     writeFileSync(join(dir, 'marker.txt'), 'copied-not-mounted\n');
 
     await page.context().addInitScript(() => {

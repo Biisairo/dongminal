@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/domain/claudeacct` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/domain/claudeacct` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! Claude 다중 계정의 도메인이다 (CLAUDE_ACCOUNTS_SRS). 계정마다 자격증명을 백업하고, Claude Code
 //! 가 읽는 활성 저장소를 바꿔 끼워 계정을 전환한다. 토큰 값은 이 crate 밖으로 나가지 않는다

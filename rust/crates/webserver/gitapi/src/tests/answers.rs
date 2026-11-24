@@ -15,13 +15,13 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use dm_webserver_action::{self as action, Answer};
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::Ctx;
-use dm_webserver_domain_git_jobs::{Keys, SLOT_COMMON, SLOT_INDEX};
-use dm_webserver_domain_git_query::{self as query, FileEntry, Status};
-use dm_webserver_domain_git_store::{Store, StoreOptions};
-use dm_webserver_domain_git_write as write;
+use otter_webserver_action::{self as action, Answer};
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::Ctx;
+use otter_webserver_domain_git_jobs::{Keys, SLOT_COMMON, SLOT_INDEX};
+use otter_webserver_domain_git_query::{self as query, FileEntry, Status};
+use otter_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_domain_git_write as write;
 use serde_json::{Value, json};
 
 use super::harness::{FakeBroker, FakePaneHub, FakeWorkspace, abs, qe, req};
@@ -75,7 +75,7 @@ pub(super) struct BEnv {
 pub(super) fn branch_server(edit: impl FnOnce(&mut GitServer)) -> BEnv {
     let f = WriteFake::new();
     let (r, w) = (f.clone(), f.clone());
-    let svc = dm_webserver_domain_git_core::Service::builder()
+    let svc = otter_webserver_domain_git_core::Service::builder()
         .runner(Arc::new(move |_, dir: String, args: Vec<String>| {
             let r = r.clone();
             Box::pin(async move {

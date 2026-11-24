@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 use std::process::ExitCode;
 
-use dm_gocompat::oserr::{go_error_string, path_error};
+use otter_gocompat::oserr::{go_error_string, path_error};
 
 const LOCALES: [&str; 2] = ["ko", "en"];
 
@@ -24,8 +24,8 @@ fn main() -> ExitCode {
             }
         }
     }
-    let catalog = dm_webserver_action::catalog();
-    let missing = dm_webserver_action::missing_phrases(&catalog, &src);
+    let catalog = otter_webserver_action::catalog();
+    let missing = otter_webserver_action::missing_phrases(&catalog, &src);
     if !missing.is_empty() {
         eprintln!("사유 코드에 문구가 없습니다 — web/js/i18n/<로케일>.js 에 더하세요:");
         for m in missing {

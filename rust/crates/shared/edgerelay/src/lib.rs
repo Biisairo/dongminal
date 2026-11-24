@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/edgerelay` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/edgerelay` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 서버(노드 포트·발신 소켓)와 데몬(노드 소켓) 사이의 중계다 (PEER_DAEMON_SRS FR-PDM-10~13·22).
 //! 서버는 바이트만 옮기고, TLS 는 데몬이 끝낸다.
@@ -10,10 +10,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, mpsc};
 use std::time::{Duration, Instant};
 
-use dm_gocompat::oserr::{go_error_string, syscall_error};
-use dm_shared_dmlog as dmlog;
-use dm_shared_edge::{Acceptor, BoxFuture, BoxStream, DIAL_TIMEOUT, Dial, REQUEST_TIMEOUT, Status};
-use dm_shared_platform::{IpcListener, IpcStream};
+use otter_gocompat::oserr::{go_error_string, syscall_error};
+use otter_shared_edge::{
+    Acceptor, BoxFuture, BoxStream, DIAL_TIMEOUT, Dial, REQUEST_TIMEOUT, Status,
+};
+use otter_shared_otterlog as otterlog;
+use otter_shared_platform::{IpcListener, IpcStream};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::runtime::Handle;
@@ -43,16 +45,16 @@ const ERR_SOCKET_BUSY: &str = "다른 프로세스가 이 소켓을 듣고 있�
 
 /// home 의 노드 소켓 경로다. 데몬 IPC 종단과 같은 폴더(0700)에 둔다.
 pub fn node_socket_path(home: &Path) -> PathBuf {
-    dm_shared_platform::sibling_socket(home, NODE_SOCKET_FILE)
+    otter_shared_platform::sibling_socket(home, NODE_SOCKET_FILE)
 }
 
 /// home 의 발신 소켓 경로다.
 pub fn dial_socket_path(home: &Path) -> PathBuf {
-    dm_shared_platform::sibling_socket(home, DIAL_SOCKET_FILE)
+    otter_shared_platform::sibling_socket(home, DIAL_SOCKET_FILE)
 }
 
-fn ipc() -> &'static dyn dm_shared_platform::Ipc {
-    dm_shared_platform::current().ipc
+fn ipc() -> &'static dyn otter_shared_platform::Ipc {
+    otter_shared_platform::current().ipc
 }
 
 fn preamble(addr: &str) -> String {
@@ -268,7 +270,7 @@ struct PortState {
 }
 
 /// 서버의 노드 포트다. 받은 연결을 노드 소켓으로 넘긴다 (FR-PDM-10). 생명주기는
-/// [`dm_shared_edge::Listener`] 와 같다 (FR-PNW-4·8·9).
+/// [`otter_shared_edge::Listener`] 와 같다 (FR-PNW-4·8·9).
 pub struct Port {
     node_sock: PathBuf,
     state: Mutex<PortState>,
@@ -309,7 +311,7 @@ impl Port {
             Ok(l) => l,
             Err(e) => {
                 let msg = e.to_string();
-                dmlog::info(None, &format!("edge relay port: {msg}"), &[]);
+                otterlog::info(None, &format!("edge relay port: {msg}"), &[]);
                 st.status = Status {
                     err: msg,
                     ..Status::default()
@@ -328,7 +330,7 @@ impl Port {
             generation: st.opened,
         };
         tokio::spawn(serve_port(ln, self.node_sock.clone(), rx));
-        dmlog::info(None, &format!("edge relay port on {addr}"), &[]);
+        otterlog::info(None, &format!("edge relay port on {addr}"), &[]);
     }
 
     /// 지금 상태의 사본이다.
@@ -374,7 +376,7 @@ fn listen_tcp(bind: &str, port: i64) -> io::Result<TcpListener> {
             ),
         )
     };
-    let std = dm_shared_platform::listen_tcp(&hp).map_err(go)?;
+    let std = otter_shared_platform::listen_tcp(&hp).map_err(go)?;
     std.set_nonblocking(true).map_err(go)?;
     TcpListener::from_std(std).map_err(go)
 }

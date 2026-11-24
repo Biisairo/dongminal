@@ -5,12 +5,12 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use dm_daemon_chat::{self as chat, Service};
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_chatwire::{self as chatwire, Frame, Scanner};
-use dm_shared_edge::load_or_create_identity;
-use dm_shared_edgemesh::Mesh;
-use dm_shared_platform::IpcStream;
+use otter_daemon_chat::{self as chat, Service};
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_chatwire::{self as chatwire, Frame, Scanner};
+use otter_shared_edge::load_or_create_identity;
+use otter_shared_edgemesh::Mesh;
+use otter_shared_platform::IpcStream;
 use serde::Serialize;
 use tempfile::TempDir;
 
@@ -65,9 +65,12 @@ pub(crate) fn new_harness(f: impl FnOnce(&mut Options)) -> Harness {
     let _g = rt.enter();
     let idir = TempDir::new().unwrap();
     let id = load_or_create_identity(idir.path()).unwrap();
-    let sdir = tempfile::Builder::new().prefix("dmcs").tempdir().unwrap();
+    let sdir = tempfile::Builder::new()
+        .prefix("ottercs")
+        .tempdir()
+        .unwrap();
     let path = sdir.path().join("c.sock");
-    let mut mo = dm_shared_edgemesh::Options::new(id.clone());
+    let mut mo = otter_shared_edgemesh::Options::new(id.clone());
     mo.name = Some(Arc::new(|| "mac".to_string()));
     let mesh = Mesh::new(mo);
     let slot: Arc<Mutex<Option<Arc<Server>>>> = Arc::default();
@@ -113,7 +116,7 @@ pub(crate) struct Client {
 impl Harness {
     pub fn dial(&self) -> Client {
         let c = Arc::new(
-            dm_shared_platform::current()
+            otter_shared_platform::current()
                 .ipc
                 .dial(&self.path, Duration::from_secs(1))
                 .unwrap(),
@@ -425,7 +428,7 @@ fn rise_pastes_only_when_resting() {
     // 방 이름은 망에서 온 값이라 붙여 넣지 않는다.
     assert_eq!(
         ps,
-        ["rest|[dongminal chat] 새 글 2건. chat_read 로 확인한다."]
+        ["rest|[otterminal chat] 새 글 2건. chat_read 로 확인한다."]
     );
 }
 

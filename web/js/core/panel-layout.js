@@ -1,5 +1,5 @@
 /**
- * Dongminal — 패널 레이아웃: 탭별 상태와 저장 레이아웃 (PANEL_LAYOUT_SRS).
+ * Otterminal — 패널 레이아웃: 탭별 상태와 저장 레이아웃 (PANEL_LAYOUT_SRS).
  *
  * 패널 배치는 탭마다 따로다(`sessionStorage`). 사용자가 저장한 레이아웃(`localStorage`)은
  * 새 탭이 처음 열릴 때 한 번 탭 상태로 옮긴다(씨앗 넣기, FR-PLY-20). 폭은 비율로 저장한다.

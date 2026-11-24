@@ -35,8 +35,8 @@ const listName = (page: Page, root: string) =>
 
 test.describe('Git 창의 상단 이름', () => {
   test('상단 이름이 지금 보고 있는 리포다 — 목록과 같은 이름으로', async ({ page, request }) => {
-    const a = await pin(request, makeRepo('dm-gwn-a-'));
-    const b = await pin(request, makeRepo('dm-gwn-b-'));
+    const a = await pin(request, makeRepo('otter-gwn-a-'));
+    const b = await pin(request, makeRepo('otter-gwn-b-'));
     await waitForInit(page);
 
     await page.evaluate((p) => (window as any).app.git.openGitWindow(p), a);

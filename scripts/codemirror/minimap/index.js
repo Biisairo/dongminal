@@ -1,5 +1,5 @@
-// dongminal 포크 — 원본 @replit/codemirror-minimap 0.5.2 (dist/index.js). 고친 자리는 README.md 에 있다.
-// [dongminal] 표식이 붙은 곳이 고친 자리다.
+// otterminal 포크 — 원본 @replit/codemirror-minimap 0.5.2 (dist/index.js). 고친 자리는 README.md 에 있다.
+// [otterminal] 표식이 붙은 곳이 고친 자리다.
 import { Facet, combineConfig, StateField } from '@codemirror/state';
 import { EditorView, ViewPlugin } from '@codemirror/view';
 import crelt from 'crelt';
@@ -37,7 +37,7 @@ const Config = /*@__PURE__*/Facet.define({
             eventHandlers: {},
             showOverlay: "always",
             gutters: [],
-            // [dongminal] 뷰포트 표시의 자리(FR-CMR-61)와 줄 표식 층(FR-CMR-62·42).
+            // [otterminal] 뷰포트 표시의 자리(FR-CMR-61)와 줄 표식 층(FR-CMR-62·42).
             thumb: null,
             fromThumb: null,
             marks: null,
@@ -119,7 +119,7 @@ const OverlayView = /*@__PURE__*/ViewPlugin.fromClass(class {
         this.computeShowOverlay();
         this.schedulePlace();
     }
-    // [dongminal] FR-ELS-62: 슬라이더 자리는 레이아웃을 읽으므로 측정 단계에서 정한다. 미니맵의 자체 배치가 있으면 그것을,
+    // [otterminal] FR-ELS-62: 슬라이더 자리는 레이아웃을 읽으므로 측정 단계에서 정한다. 미니맵의 자체 배치가 있으면 그것을,
     // 없으면(첫 그리기 전) thumb 좌표를 쓴다.
     schedulePlace() {
         if (!this._placeMeasure) {
@@ -144,7 +144,7 @@ const OverlayView = /*@__PURE__*/ViewPlugin.fromClass(class {
         const t = thumb(this.view);
         return { top: t.top, height: t.height, fromThumb: true };
     }
-    // [dongminal] FR-ELS-63: 슬라이더 top(CSS px) → scrollTop. 자체 배치가 없으면 thumb 의 역이다.
+    // [otterminal] FR-ELS-63: 슬라이더 top(CSS px) → scrollTop. 자체 배치가 없으면 thumb 의 역이다.
     scrollFor(top) {
         const mm = this.view.plugin(minimapClass);
         const v = mm && mm.ownFromSlider(top);
@@ -212,7 +212,7 @@ const OverlayView = /*@__PURE__*/ViewPlugin.fromClass(class {
             this.container.classList.add("cm-minimap-overlay-active");
             return;
         }
-        // [dongminal] FR-ELS-63: 누른 자리가 슬라이더 가운데가 되게 스크롤한다.
+        // [otterminal] FR-ELS-63: 누른 자리가 슬라이더 가운데가 되게 스크롤한다.
         const slider = this.placement();
         if (slider) {
             const y = clientY - target.getBoundingClientRect().top;
@@ -253,7 +253,7 @@ const OverlayView = /*@__PURE__*/ViewPlugin.fromClass(class {
             return;
         }
         const deltaY = event.clientY - this._dragStartY;
-        // [dongminal] FR-ELS-63: 끈 만큼 슬라이더를 옮긴 자리로 스크롤한다.
+        // [otterminal] FR-ELS-63: 끈 만큼 슬라이더를 옮긴 자리로 스크롤한다.
         const slider = this.placement();
         if (slider) {
             const st = this.scrollFor(slider.top + deltaY);
@@ -805,7 +805,7 @@ class TextState extends LineBasedState {
                 });
                 this.updateMapImpl(state, highlights);
                 this._highlightingCallbackId = undefined;
-                // [dongminal] 스크롤로 다시 그리지 않으므로 강조가 끝나면 그린다 (FR-ELS-54).
+                // [otterminal] 스크롤로 다시 그리지 않으므로 강조가 끝나면 그린다 (FR-ELS-54).
                 if (this.onHighlighted) this.onHighlighted();
             }
         };
@@ -987,9 +987,9 @@ function text(view) {
 }
 
 const GUTTER_WIDTH = 4;
-// [dongminal] EDITOR_LINK_LSP_SRS FR-ELS-60: 동아시아 넓은 글자 — 2칸으로 센다.
+// [otterminal] EDITOR_LINK_LSP_SRS FR-ELS-60: 동아시아 넓은 글자 — 2칸으로 센다.
 const WIDE_CHAR = /[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6\u{1F300}-\u{1FAFF}\u{20000}-\u{3FFFD}]/u;
-/** [dongminal] FR-ELS-60: 줄마다의 칸 수 — 넓은 글자 2칸, 탭은 다음 멈춤까지, 접힌 구간 1칸. */
+/** [otterminal] FR-ELS-60: 줄마다의 칸 수 — 넓은 글자 2칸, 탭은 다음 멈춤까지, 접힌 구간 1칸. */
 function lineColumns(state, lines) {
     const tab = state.tabSize;
     const out = new Int32Array(lines.length);
@@ -1009,7 +1009,7 @@ function lineColumns(state, lines) {
     }
     return out;
 }
-/** [dongminal] FR-ELS-60: 화면 줄 수의 누적 — `acc[i]` 는 줄 i 앞까지의 화면 줄 수다. */
+/** [otterminal] FR-ELS-60: 화면 줄 수의 누적 — `acc[i]` 는 줄 i 앞까지의 화면 줄 수다. */
 function visualAccum(cols, wrapCols) {
     const acc = new Float64Array(cols.length + 1);
     for (let i = 0; i < cols.length; i++) {
@@ -1017,7 +1017,7 @@ function visualAccum(cols, wrapCols) {
     }
     return acc;
 }
-/** [dongminal] 누적에서 화면 줄 `v` 를 품은 줄 번호 (0 부터). */
+/** [otterminal] 누적에서 화면 줄 `v` 를 품은 줄 번호 (0 부터). */
 function accLineAt(acc, v) {
     let lo = 0, hi = acc.length - 2;
     if (hi < 0) return 0;
@@ -1029,7 +1029,7 @@ function accLineAt(acc, v) {
     return lo;
 }
 
-/** [dongminal] `pos` 를 품은 줄(LinesState)의 번호 — 첫 span 의 from 이 `pos` 이하인 마지막 줄. */
+/** [otterminal] `pos` 를 품은 줄(LinesState)의 번호 — 첫 span 의 from 이 `pos` 이하인 마지막 줄. */
 function lineIndexAt(lines, pos) {
     let lo = 0, hi = lines.length - 1;
     while (lo < hi) {
@@ -1117,7 +1117,7 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
                 this.dom.addEventListener(key, (e) => handler(e, this.view));
             }
         }
-        // [dongminal] FR-ELS-58: 처음 설 때 곧바로 그린다 — 스크롤 같은 다음 갱신을 기다리지 않는다.
+        // [otterminal] FR-ELS-58: 처음 설 때 곧바로 그린다 — 스크롤 같은 다음 갱신을 기다리지 않는다.
         this.scheduleRender();
     }
     remove() {
@@ -1139,7 +1139,7 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
             this.text.update(update);
             this.selection.update(update);
             this.diagnostic.update(update);
-            // [dongminal] FR-ELS-54: 스크롤만 한 갱신은 내용을 다시 그리지 않는다. 그리기는 줄 블록의 자리를
+            // [otterminal] FR-ELS-54: 스크롤만 한 갱신은 내용을 다시 그리지 않는다. 그리기는 줄 블록의 자리를
             // 읽으므로 갱신 안이 아니라 측정 단계에서 한다.
             if (!prev || update.docChanged || update.selectionSet || update.geometryChanged || update.heightChanged
                 || update.transactions.length) {
@@ -1159,7 +1159,7 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
         return Scale.MaxWidth;
     }
     /**
-     * [dongminal] EDITOR_LINK_LSP_SRS FR-ELS-60·65: 미니맵 자체 배치 — 문서 내용과 편집기 폭으로만 정한다. 칸 수는 문서(LinesState)가
+     * [otterminal] EDITOR_LINK_LSP_SRS FR-ELS-60·65: 미니맵 자체 배치 — 문서 내용과 편집기 폭으로만 정한다. 칸 수는 문서(LinesState)가
      * 바뀔 때만, 누적은 칸 수 · 한 줄 칸 수가 바뀔 때만 다시 센다. 레이아웃을 읽으므로 측정의 read 단계에서 부른다.
      */
     ownLayout() {
@@ -1195,7 +1195,7 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
         };
     }
     /**
-     * [dongminal] FR-ELS-62: 슬라이더 — 보이는 첫 줄 · 끝 줄(CM 이 실측했다)을 자체 배치의 같은 줄 · 같은 비율 자리에 놓는다.
+     * [otterminal] FR-ELS-62: 슬라이더 — 보이는 첫 줄 · 끝 줄(CM 이 실측했다)을 자체 배치의 같은 줄 · 같은 비율 자리에 놓는다.
      * CSS px `{top, height}`. 자체 배치가 아직 없으면 null 이다. 업데이트 안에서 부르지 않는다.
      */
     ownSlider(min) {
@@ -1221,7 +1221,7 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
         }
         return { top, height };
     }
-    /** [dongminal] FR-ELS-63: 슬라이더 top(CSS px) → scrollTop. FR-ELS-62 의 역이다. */
+    /** [otterminal] FR-ELS-63: 슬라이더 top(CSS px) → scrollTop. FR-ELS-62 의 역이다. */
     ownFromSlider(topCss) {
         const own = this._own;
         const view = this.view;
@@ -1234,7 +1234,7 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
         return own.pTop + b.top + f * b.height;
     }
     /**
-     * [dongminal] EDITOR_LINK_LSP_SRS FR-ELS-50~53: 그릴 줄의 자리(장치 px). 문서 전체를 스크롤 높이 비율로 놓는다 —
+     * [otterminal] EDITOR_LINK_LSP_SRS FR-ELS-50~53: 그릴 줄의 자리(장치 px). 문서 전체를 스크롤 높이 비율로 놓는다 —
      * 스크롤바 thumb 와 같은 비율이므로 슬라이더의 양 끝이 곧 보이는 영역이다. 한 픽셀 행에는 그 행의 첫 줄만 둔다.
      * 줄 블록을 읽으므로 측정의 read 단계에서 부른다.
      */
@@ -1267,7 +1267,7 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
             if (m.line >= 1 && m.line <= lines.length && !boxes.has(m.line)) boxes.set(m.line, boxOf(m.line - 1));
         }
         this._own = own;
-        // [dongminal] FR-ELS-54: 그릴 결과의 지문. 지난번과 같으면 그리지 않는다 — 스크롤로 새 줄이 들어오면 CM 이
+        // [otterminal] FR-ELS-54: 그릴 결과의 지문. 지난번과 같으면 그리지 않는다 — 스크롤로 새 줄이 들어오면 CM 이
         // 높이가 그대로여도 geometry·height 신호를 내므로, 신호가 아니라 결과로 판정한다.
         const sig = JSON.stringify([
             rows.map((r) => [r.i, Math.round(r.y * 8), Math.round(r.h * 8)]),
@@ -1292,7 +1292,7 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
         this.dom.style.width = this.getWidth() + "px";
         this.canvas.style.maxWidth = this.getWidth() + "px";
         this.canvas.width = this.getWidth() * Scale.PixelMultiplier;
-        // [dongminal] 높이는 스크롤 영역의 것이다. 편집기 상자(소수 높이)를 쓰면 문서 끝에서 sticky 가 덜 붙어
+        // [otterminal] 높이는 스크롤 영역의 것이다. 편집기 상자(소수 높이)를 쓰면 문서 끝에서 sticky 가 덜 붙어
         // 뷰포트 표시가 스크롤바 thumb 보다 반 픽셀 위에 선다.
         const domHeight = this.view.scrollDOM.clientHeight;
         this.inner.style.minHeight = domHeight + "px";
@@ -1305,7 +1305,7 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
         context.clearRect(0, 0, this.canvas.width, this.canvas.height);
         /* We need to get the correct font dimensions before this to measure characters */
         const { charWidth, lineHeight } = this.text.measure(context);
-        // [dongminal] 줄 표식 층. 받은 것 전부를 남긴다 — 화면 밖 줄도 스크롤하면 그려진다.
+        // [otterminal] 줄 표식 층. 받은 것 전부를 남긴다 — 화면 밖 줄도 스크롤하면 그려진다.
         const cfg = this.view.state.facet(Config);
         const css = getComputedStyle(this.view.dom);
         const color = (c) => (c && c.startsWith("--") ? css.getPropertyValue(c).trim() : c);
@@ -1372,7 +1372,7 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
     }
 }, {
     eventHandlers: {
-        // [dongminal] FR-ELS-54: 미니맵 내용은 스크롤되지 않는다 — 가로 그림자만 고친다.
+        // [otterminal] FR-ELS-54: 미니맵 내용은 스크롤되지 않는다 — 가로 그림자만 고친다.
         scroll() {
             requestAnimationFrame(() => this.updateBoxShadow());
         },
@@ -1410,7 +1410,7 @@ const showMinimap = /*@__PURE__*/Facet.define({
 });
 
 /**
- * [dongminal] 미니맵이 받은 줄 표식과 그린 줄의 자리 — `{marks, gutter, rows}` (rows 는 CSS px, FR-ELS-56).
+ * [otterminal] 미니맵이 받은 줄 표식과 그린 줄의 자리 — `{marks, gutter, rows}` (rows 는 CSS px, FR-ELS-56).
  * 미니맵이 없으면 `null` 이다.
  */
 function minimapDrawn(view) {
@@ -1422,7 +1422,7 @@ function minimapDrawn(view) {
 }
 
 /**
- * [dongminal] EDITOR_LINK_LSP_SRS FR-ELS-64: 미니맵 배치(FR-ELS-60)의 좌표 — 편집기 스크롤바가 같은 좌표를 쓴다.
+ * [otterminal] EDITOR_LINK_LSP_SRS FR-ELS-64: 미니맵 배치(FR-ELS-60)의 좌표 — 편집기 스크롤바가 같은 좌표를 쓴다.
  * 미니맵이 없거나 꺼져 있거나 줄이 없으면 `null` 이다. 레이아웃을 읽으므로 측정의 read 단계나 이벤트 처리에서 부른다.
  *
  *   slider()        FR-ELS-62 의 슬라이더 `{top, height}` (CSS px, 스크롤 영역 기준)

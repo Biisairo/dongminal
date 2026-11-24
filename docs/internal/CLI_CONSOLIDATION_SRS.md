@@ -6,7 +6,7 @@
 
 ### 1.1 목적 (Purpose)
 
-`scripts/` 에 흩어진 운영 진입점 8개를 `dongminal` 바이너리의 액션 4개로 통합하고,
+`scripts/` 에 흩어진 운영 진입점 8개를 `otterminal` 바이너리의 액션 4개로 통합하고,
 `scripts/` 에는 **단순 빌드 스크립트 하나만** 남긴다.
 
 근본 문제는 하나다 — **운영 동작의 진짜 구현이 바이너리와 셸 스크립트 두 곳에
@@ -27,7 +27,7 @@
 | B | 액션 `start` / `stop` / `migrate` / `health` 신설·이관. 각 액션의 옵션은 현행 스크립트와 동등 |
 | C | `start` 신규 옵션 — `--isolated`(격리 실행), `--open`(frameless window), `--foreground` |
 | D | `scripts/` 정리 — 운영 스크립트 5개·셸 테스트 3개 삭제, `git_fixture.sh` 를 `e2e/` 로 이동, `scripts/build.sh` 신설 |
-| E | 참조처 갱신 — e2e 스펙 13개, 문서 9개, `cmd/dongminal/main.go` 안내문, `internal/migrate` 오류 문구 |
+| E | 참조처 갱신 — e2e 스펙 13개, 문서 9개, `cmd/otterminal/main.go` 안내문, `internal/migrate` 오류 문구 |
 
 **미포함:** §5 비목표 참조.
 
@@ -35,16 +35,16 @@
 
 | 용어 | 정의 |
 |------|------|
-| **액션 (action)** | `dongminal <action>` 의 첫 위치 인자. `start` `stop` `migrate` `health` 4개 |
-| **격리 실행 (isolated)** | 운영 인스턴스(`~/.dongminal`, 포트 58146)를 건드리지 않도록 **임시 홈 + 비어 있는 포트**로 서버를 띄우는 것. 이 저장소가 수동 검증에 써 온 관례(`GIT_REMAINING.md` §1, `NEXT_SESSION_PROMPT.md`)의 자동화 |
+| **액션 (action)** | `otterminal <action>` 의 첫 위치 인자. `start` `stop` `migrate` `health` 4개 |
+| **격리 실행 (isolated)** | 운영 인스턴스(`~/.otterminal`, 포트 58146)를 건드리지 않도록 **임시 홈 + 비어 있는 포트**로 서버를 띄우는 것. 이 저장소가 수동 검증에 써 온 관례(`GIT_REMAINING.md` §1, `NEXT_SESSION_PROMPT.md`)의 자동화 |
 | **frameless window** | Chrome/Chromium 의 `--app=<url>` 로 여는 크롬리스 창. 현행 `scripts/open_frameless_window.sh` |
 | **배경 모드** | `start` 기본값. 서버를 detach 로 띄우고 준비를 확인한 뒤 프롬프트를 돌려준다 |
 | **포그라운드 모드** | `start --foreground`. 서버가 이 프로세스로 실행되어 터미널을 점유한다. 배경 모드가 자식을 띄울 때 쓰는 형태이기도 하다 |
-| **helper multi-call** | `argv[0]` basename 이 `dmctl`/`edit`/`download`/`detach` 면 그 helper 로 동작하는 기존 경로 (`internal/runtimebin.Dispatch`) |
+| **helper multi-call** | `argv[0]` basename 이 `otterctl`/`edit`/`download`/`detach` 면 그 helper 로 동작하는 기존 경로 (`internal/runtimebin.Dispatch`) |
 
 ### 1.4 참고 (References)
 
-- `cmd/dongminal/main.go` — `main()`, `runMigrate()`, `runDaemon()`, `startDaemon()`
+- `cmd/otterminal/main.go` — `main()`, `runMigrate()`, `runDaemon()`, `startDaemon()`
 - `internal/runtimebin/dispatch.go` — helper multi-call
 - `internal/migrate/apply.go:16` — `ErrDaemonRunning` 문구
 - `scripts/{start,stop,health,migrate,open_frameless_window}.sh` — 이관 대상 원본
@@ -71,7 +71,7 @@
 | `scripts/start.sh` | 121 | .env 로드 · 플래그 · 기존 서버 kill · 데몬 정리 · **빌드** · 기동 · 준비대기 · 상태출력 | 셸 |
 | `scripts/stop.sh` | 116 | .env 로드 · 플래그 · 포트 kill · 데몬 kill | 셸 |
 | `scripts/health.sh` | 76 | .env 로드 · HTTP ping · 소켓/pid 확인 | 셸 |
-| `scripts/migrate.sh` | 93 | .env 로드(+호출자 우선 보정) · 서버 실행중 거부 · **빌드** · `exec ./dongminal migrate` | 셸 → Go 위임 |
+| `scripts/migrate.sh` | 93 | .env 로드(+호출자 우선 보정) · 서버 실행중 거부 · **빌드** · `exec ./otterminal migrate` | 셸 → Go 위임 |
 | `scripts/open_frameless_window.sh` | 55 | .env 로드 · ping · OS 판별 후 브라우저 실행 | 셸 |
 | `scripts/test_start.sh` | 90 | `start.sh` 계약 검증 | 셸 |
 | `scripts/test_stop.sh` | 55 | `stop.sh` 계약 검증 | 셸 |
@@ -87,9 +87,9 @@
 
 ```
 PORT=58146          ← main.go 기본값과 동일
-BINARY=dongminal    ← 스크립트 전용 개념
-LOG=/tmp/dongminal.log  ← 스크립트 전용 개념
-DONGMINAL_HOME=~/.dongminal ← main.go 기본값과 동일
+BINARY=otterminal    ← 스크립트 전용 개념
+LOG=/tmp/otterminal.log  ← 스크립트 전용 개념
+OTTERMINAL_HOME=~/.otterminal ← main.go 기본값과 동일
 ```
 
 즉 `.env` 는 **기본값을 다시 적어 놓은 파일**이며, 그것을 읽기 위해 5중 복제된
@@ -106,7 +106,7 @@ DONGMINAL_HOME=~/.dongminal ← main.go 기본값과 동일
 
 ### 2.4 무인자 실행
 
-현재 `dongminal` 은 인자 없이 실행하면 웹 서버로 부팅한다
+현재 `otterminal` 은 인자 없이 실행하면 웹 서버로 부팅한다
 (`main.go` `main()` 의 마지막 경로). `-h`/`--help` 도 인식하지 않고 동일하게
 부팅한다.
 
@@ -127,7 +127,7 @@ DONGMINAL_HOME=~/.dongminal ← main.go 기본값과 동일
 **FR-CLI-2** 첫 인자가 `-h` 또는 `--help` 면 FR-CLI-1 과 동일하게 동작한다.
 
 **FR-CLI-3** help 는 액션 4개(`start` `stop` `migrate` `health`)와 각 한 줄
-설명, 그리고 액션별 help 를 보는 방법(`dongminal <action> --help`)을 포함한다.
+설명, 그리고 액션별 help 를 보는 방법(`otterminal <action> --help`)을 포함한다.
 
 **FR-CLI-4** 첫 인자가 액션 4개 중 하나면 그 액션을 실행한다. 나머지 인자는
 액션의 옵션 파서에 넘긴다.
@@ -143,21 +143,21 @@ DONGMINAL_HOME=~/.dongminal ← main.go 기본값과 동일
 
 **FR-CLI-8** 기존 내부 진입점은 그대로 유지한다 —
 ① helper multi-call (`runtimebin.Dispatch`, `argv[0]` basename 판별),
-② 데몬 모드 (`dongminal d`, 또는 `argv[0]` basename 이 `dongminald`).
+② 데몬 모드 (`otterminal d`, 또는 `argv[0]` basename 이 `otterminald`).
 `d` 는 내부 진입점이므로 help 목록에 넣지 않는다. `startDaemon()` 이 `exe d` 로
 자식을 띄우는 계약을 바꾸지 않는다.
 
 **FR-CLI-9** 액션 공통 옵션으로 `--port <n>` 과 `--home <path>` 를 받는다.
 우선순위는 **플래그 > 환경변수 > 기본값**이다. 기본값은 `58146` 과
-`$HOME/.dongminal`, 환경변수는 `PORT` 와 `DONGMINAL_HOME` 이다.
+`$HOME/.otterminal`, 환경변수는 `PORT` 와 `OTTERMINAL_HOME` 이다.
 
 ### 3.2 묶음 B — 액션 이관
 
 #### start
 
-**FR-ACT-1** `dongminal start` 는 현행 `scripts/start.sh` 와 동등한 결과를 낸다:
+**FR-ACT-1** `otterminal start` 는 현행 `scripts/start.sh` 와 동등한 결과를 낸다:
 ① 대상 포트를 **LISTEN 으로** 점유한 프로세스를 종료(TERM → 1초 → KILL),
-② `--restart-daemon` 이면 `paned.pid` 로 dongminald 를 종료하고 `paned.pid`·
+② `--restart-daemon` 이면 `paned.pid` 로 otterminald 를 종료하고 `paned.pid`·
 `paned.sock` 을 제거, 아니면 소켓 존재 여부를 한 줄로 알린다,
 ③ 서버를 띄운다,
 ④ `/api/ping` 이 응답할 때까지 최대 5초 대기(0.5초 간격),
@@ -165,20 +165,20 @@ DONGMINAL_HOME=~/.dongminal ← main.go 기본값과 동일
 코드 1.
 
 **FR-ACT-2** `--expose` 는 바인드 주소를 `0.0.0.0` 으로 한다. 기본은 `127.0.0.1`
-이다. 환경변수 `DONGMINAL_HOST` 가 있으면 그 값이 기본을 대신하고, `--expose`
+이다. 환경변수 `OTTERMINAL_HOST` 가 있으면 그 값이 기본을 대신하고, `--expose`
 가 그보다 우선한다.
 
 > **개정 (2026-11-18, DAEMON_SESSION_KEEP_SRS FR-DSK-1~6)**: `--restart-daemon` 은 없어졌다. 플래그 없는 `start` 가 데몬을 세션 유지로 교체하고, 세션을 버리는 재시작은 `--refresh-daemon`, 서버만 다시 띄우는 것은 `--server-only` 다. 아래 FR-ACT-3·3a 의 `--restart-daemon` 은 지금의 `--refresh-daemon` 으로 읽는다.
 
 **FR-ACT-3** `--restart-daemon` 은 FR-ACT-1 ②의 데몬 재시작 경로를 켠다.
 
-**FR-ACT-3a** `--restart-daemon` 이 dongminal 도구 안에서 실행되면(환경변수
-`DONGMINAL_TOOL_ID` 가 있으면), FR-ACT-1 의 ①~⑤ 를 새 세션(`setsid`)의 대리
+**FR-ACT-3a** `--restart-daemon` 이 otterminal 도구 안에서 실행되면(환경변수
+`OTTERMINAL_TOOL_ID` 가 있으면), FR-ACT-1 의 ①~⑤ 를 새 세션(`setsid`)의 대리
 프로세스에 위임하고 즉시 종료 코드 0 으로 돌아온다. 대리는 같은 인자에
-`DONGMINAL_RESTART_RUNNER=1` 만 더해 자기 자신을 재실행한 것이며,
+`OTTERMINAL_RESTART_RUNNER=1` 만 더해 자기 자신을 재실행한 것이며,
 stdout/stderr 은 `<home>/restart.log` 다. 위임 사실과 로그 경로를 알린다.
 
-근거: 도구의 셸은 dongminald 의 자식이고 제어 터미널은 그 PTY 다
+근거: 도구의 셸은 otterminald 의 자식이고 제어 터미널은 그 PTY 다
 (`internal/shared/toolhub/tool.go` 의 `StartTool`). 데몬을 종료하면 PTY 마스터가
 닫혀 셸과 그 자식인 이 명령 자신이 SIGHUP 으로 죽고, ③ 서버 기동에 도달하지
 못한다 — 데몬만 내려간 상태로 끝나 복구에 외부 터미널이 필요해진다. 대리는
@@ -186,26 +186,26 @@ stdout/stderr 은 `<home>/restart.log` 다. 위임 사실과 로그 경로를 �
 `--foreground` 여부와 무관하게 위임한다 — 도구 안에서 데몬을 내리는 실행은
 어느 쪽이든 자기 종료로 끝나기 때문이다.
 
-**FR-ACT-3b** 대리 프로세스(`DONGMINAL_RESTART_RUNNER` 가 설정된 실행)는 다시
-위임하지 않는다. 도구 밖(`DONGMINAL_TOOL_ID` 없음)의 `--restart-daemon` 도
+**FR-ACT-3b** 대리 프로세스(`OTTERMINAL_RESTART_RUNNER` 가 설정된 실행)는 다시
+위임하지 않는다. 도구 밖(`OTTERMINAL_TOOL_ID` 없음)의 `--restart-daemon` 도
 위임하지 않고 그 자리에서 수행한다 — 자기 종료가 일어나지 않으므로 진행
 상황을 터미널에서 그대로 본다.
 
 **FR-ACT-3c** 대리 기동에 실패하면 데몬을 종료하지 않고 종료 코드 1 로 알린다.
 근거: 데몬을 먼저 내린 뒤 대리가 없으면 복구 수단까지 사라진다.
 
-**FR-ACT-3d** ③ 에서 detach 되는 서버에는 `DONGMINAL_RESTART_RUNNER` 와
-`DONGMINAL_TOOL_ID` 를 물려주지 않는다.
+**FR-ACT-3d** ③ 에서 detach 되는 서버에는 `OTTERMINAL_RESTART_RUNNER` 와
+`OTTERMINAL_TOOL_ID` 를 물려주지 않는다.
 
-근거: 서버는 dongminald 를, dongminald 는 도구 셸을 자식으로 낳는다
+근거: 서버는 otterminald 를, otterminald 는 도구 셸을 자식으로 낳는다
 (`StartTool`). 대리의 환경을 그대로 물려주면 이 두 값이 그 사슬을 타고 모든 도구
 셸에 심긴다. 그러면 다음 도구 안 `--restart-daemon` 이 FR-ACT-3b 의 "대리" 조건에
 걸려 위임을 건너뛰고, 그 자리에서 서버와 데몬을 내리다 자기 PTY 와 함께 죽는다 —
 서버도 데몬도 돌아오지 않는다. 즉 위임 재시작 1회가 그 다음 위임 재시작을
 무력화하므로, 증상은 "한 번씩 실패" 로 나타난다.
 
-`DONGMINAL_TOOL_ID` 는 도구 셸이 자기 값으로 덮어쓰므로 도구의 자기 식별을
-망가뜨리지는 않는다. 그래도 물려주지 않는다 — 서버와 dongminald 는 도구가
+`OTTERMINAL_TOOL_ID` 는 도구 셸이 자기 값으로 덮어쓰므로 도구의 자기 식별을
+망가뜨리지는 않는다. 그래도 물려주지 않는다 — 서버와 otterminald 는 도구가
 아니고, 그 env 를 물려받은 다른 자식(도구 셸이 아닌 경로)이 "도구 안" 으로
 오인되면 FR-ACT-3a 의 판정이 틀린다.
 
@@ -214,20 +214,20 @@ stdout/stderr 은 `<home>/restart.log` 다. 위임 사실과 로그 경로를 �
 
 #### stop
 
-**FR-ACT-5** `dongminal stop` 은 대상 포트를 점유한 프로세스를 종료한다
+**FR-ACT-5** `otterminal stop` 은 대상 포트를 점유한 프로세스를 종료한다
 (TERM → 1초 → KILL). 이미 정지되어 있으면 그 사실을 알리고 종료 코드 0.
 
-**FR-ACT-6** `--all` 이면 이어서 dongminald 를 `paned.pid` 로 종료하고
+**FR-ACT-6** `--all` 이면 이어서 otterminald 를 `paned.pid` 로 종료하고
 `paned.pid`·`paned.sock` 을 제거한다. stale pidfile 은 제거 후 성공으로 본다.
 
-**FR-ACT-7** `--all` 이 없으면 dongminald 는 살려 둔다. 살아 있으면 pid 와 함께
+**FR-ACT-7** `--all` 이 없으면 otterminald 는 살려 둔다. 살아 있으면 pid 와 함께
 "세션 유지" 를 알린다.
 
 **FR-ACT-8** 종료 코드는 대상 전부가 정지 상태로 끝나면 0, 아니면 1.
 
 #### health
 
-**FR-ACT-9** `dongminal health` 는 ① `http://localhost:<port>/` 가 3초 안에
+**FR-ACT-9** `otterminal health` 는 ① `http://localhost:<port>/` 가 3초 안에
 2xx/3xx 를 주는지, ② `paned.sock` 이 있고 `paned.pid` 의 pid 가 살아 있는지를
 확인해 각각 한 줄로 출력한다.
 
@@ -236,21 +236,21 @@ stdout/stderr 은 `<home>/restart.log` 다. 위임 사실과 로그 경로를 �
 
 #### migrate
 
-**FR-ACT-11** `dongminal migrate` 는 현행 `dongminal migrate` 서브커맨드의 동작
+**FR-ACT-11** `otterminal migrate` 는 현행 `otterminal migrate` 서브커맨드의 동작
 (`runMigrate`)을 유지한다. `--dry-run`/`-n` 을 받는다.
 
 **FR-ACT-12** dry-run 이 아니면, 변환 전에 `http://127.0.0.1:<port>/api/ping`
 을 2초 안에 확인하여 서버가 살아 있으면 **변환하지 않고** 종료 코드 1 로
-끝낸다 (현행 `migrate.sh` FR-MIG-6 의 이관). 안내는 `dongminal stop --all` 을
+끝낸다 (현행 `migrate.sh` FR-MIG-6 의 이관). 안내는 `otterminal stop --all` 을
 가리킨다.
 
 **FR-ACT-13** `internal/migrate.ErrDaemonRunning` 의 문구가 가리키는 명령을
-`./scripts/stop.sh --all` 에서 `dongminal stop --all` 로 고친다.
+`./scripts/stop.sh --all` 에서 `otterminal stop --all` 로 고친다.
 
 ### 3.3 묶음 C — start 신규 옵션
 
 **FR-ISO-1** `start --isolated` 는 운영 인스턴스를 건드리지 않는 인스턴스를
-띄운다. 홈은 `os.MkdirTemp` 로 만든 `dongminal-iso-*` 이고, 포트는 **listen 가능한
+띄운다. 홈은 `os.MkdirTemp` 로 만든 `otterminal-iso-*` 이고, 포트는 **listen 가능한
 빈 포트**를 커널에서 받아 쓴다.
 
 **FR-ISO-2** `--isolated` 는 FR-ACT-1 ①의 "기존 서버 종료" 를 건너뛴다. 빈 포트를
@@ -261,13 +261,13 @@ stdout/stderr 은 `<home>/restart.log` 다. 위임 사실과 로그 경로를 �
 값을 조용히 무시하지 않는다).
 
 **FR-ISO-4** `--isolated` 로 띄운 인스턴스는 종료 방법을 함께 출력한다 —
-`dongminal stop --port <n> --home <path>`.
+`otterminal stop --port <n> --home <path>`.
 
 **FR-ISO-5** 격리 홈은 자동으로 지우지 않는다. `start` 는 서버를 띄우고 끝나는
 명령이므로 정리 시점을 알 수 없다. 경로를 출력하는 것으로 갈음한다.
 
 > **폐기됨 (1.0.2).** `--open` 은 제거되고 같은 일이 독립 명령
-> `dongminal window` 로 옮겨졌다 — [`./WINDOW_COMMAND_SRS.md`](./WINDOW_COMMAND_SRS.md).
+> `otterminal window` 로 옮겨졌다 — [`./WINDOW_COMMAND_SRS.md`](./WINDOW_COMMAND_SRS.md).
 > 아래 FR-OPN-1~3 은 그 판 이전의 기록이다.
 
 **FR-OPN-1** `start --open` 은 준비 확인(FR-ACT-1 ④)이 성공한 뒤 frameless
@@ -286,19 +286,19 @@ macOS 는 `open -na "Google Chrome" --args --app=<url>`, Linux 는
 
 **FR-FG-2** `--foreground` 없이 실행하면(기본) 자기 자신을 `--foreground` 를
 붙여 재실행하고 detach 한다(`Setsid`). 자식의 표준출력·표준오류는 로그 파일로
-보낸다. 로그 경로는 환경변수 `DONGMINAL_LOG`, 없으면 `/tmp/dongminal.log`.
+보낸다. 로그 경로는 환경변수 `OTTERMINAL_LOG`, 없으면 `/tmp/otterminal.log`.
 
 **FR-FG-3** 재실행에 쓰는 실행 파일 경로는 `os.Executable()` 이다
 (`startDaemon()` 과 같은 방식).
 
-**FR-FG-4** 배경 모드의 자식에게는 해석이 끝난 `PORT`·`DONGMINAL_HOME`·
-`DONGMINAL_HOST` 를 환경변수로 넘긴다. 자식이 플래그를 다시 해석해 다른 값에
+**FR-FG-4** 배경 모드의 자식에게는 해석이 끝난 `PORT`·`OTTERMINAL_HOME`·
+`OTTERMINAL_HOST` 를 환경변수로 넘긴다. 자식이 플래그를 다시 해석해 다른 값에
 도달하는 일이 없어야 한다.
 
 ### 3.4 묶음 D — scripts/ 정리
 
-**FR-SCR-1** `scripts/build.sh` 를 신설한다. 내용은 `go build -o "${BINARY:-dongminal}"
-./cmd/dongminal` 과 그 결과 한 줄이다. `.env` 를 읽지 않는다.
+**FR-SCR-1** `scripts/build.sh` 를 신설한다. 내용은 `go build -o "${BINARY:-otterminal}"
+./cmd/otterminal` 과 그 결과 한 줄이다. `.env` 를 읽지 않는다.
 
 **FR-SCR-2** 다음을 삭제한다: `scripts/start.sh`, `scripts/stop.sh`,
 `scripts/health.sh`, `scripts/migrate.sh`, `scripts/open_frameless_window.sh`,
@@ -320,10 +320,10 @@ macOS 는 `open -na "Google Chrome" --args --app=<url>`, Linux 는
 `git-statusbar`, `git-ui-revision`.
 
 **FR-REF-2** `playwright.config.ts` 의 `webServer.command` 를
-`go run ./cmd/dongminal start --foreground` 로 고친다. 무인자 실행이 help 가
+`go run ./cmd/otterminal start --foreground` 로 고친다. 무인자 실행이 help 가
 되므로(FR-CLI-1) 그대로 두면 e2e 전량이 죽는다.
 
-**FR-REF-3** `cmd/dongminal/main.go` 의 스키마 미달 안내문 3줄이 가리키는 명령을
+**FR-REF-3** `cmd/otterminal/main.go` 의 스키마 미달 안내문 3줄이 가리키는 명령을
 새 CLI 로 고친다.
 
 **FR-REF-4** 다음 문서의 스크립트 호출 예시를 새 CLI 로 고친다: `README.md`,
@@ -350,21 +350,21 @@ macOS 는 `open -na "Google Chrome" --args --app=<url>`, Linux 는
 
 | ID | 요구사항 | 방법 | 기대 |
 |---|---|---|---|
-| TC-CLI-1 | FR-CLI-1/2 | `./dongminal`, `./dongminal -h`, `./dongminal --help` | help 출력, rc=0, 포트 미점유 |
+| TC-CLI-1 | FR-CLI-1/2 | `./otterminal`, `./otterminal -h`, `./otterminal --help` | help 출력, rc=0, 포트 미점유 |
 | TC-CLI-2 | FR-CLI-3 | help 출력 | `start`·`stop`·`migrate`·`health` 4개가 모두 보인다 |
-| TC-CLI-3 | FR-CLI-5 | `./dongminal bogus` | rc=2, stderr 에 오류 |
-| TC-CLI-4 | FR-CLI-6 | `./dongminal <action> --help` × 4 | rc=0, 부수효과 없음 |
-| TC-CLI-5 | FR-CLI-7 | `./dongminal stop --bogus` | rc=2, 서버 살아 있음 |
+| TC-CLI-3 | FR-CLI-5 | `./otterminal bogus` | rc=2, stderr 에 오류 |
+| TC-CLI-4 | FR-CLI-6 | `./otterminal <action> --help` × 4 | rc=0, 부수효과 없음 |
+| TC-CLI-5 | FR-CLI-7 | `./otterminal stop --bogus` | rc=2, 서버 살아 있음 |
 | TC-CLI-6 | FR-CLI-8 | `go test ./internal/runtimebin/...` | 기존 전량 통과 |
-| TC-CLI-7 | FR-CLI-9 | `PORT=1 ./dongminal health --port 58146` | 플래그가 이긴다 |
+| TC-CLI-7 | FR-CLI-9 | `PORT=1 ./otterminal health --port 58146` | 플래그가 이긴다 |
 | TC-ACT-1 | FR-ACT-1/5 | `start` → `health` → `stop` → `health` | 0 / 0 / 0 / 1 |
 | TC-ACT-2 | FR-ACT-2 | `start --expose` 후 `lsof -nP -iTCP:<port>` | `*:<port>` 바인드 |
 | TC-ACT-3 | FR-ACT-6/7 | `stop` 후 `paned.pid` 생존, `stop --all` 후 소멸 | 소켓·pid 제거 확인 |
 | TC-ACT-4 | FR-ACT-12 | 서버 기동 상태에서 `migrate` | rc=1, 파일 무변경 |
 | TC-ACT-5 | FR-ACT-11 | 격리 홈에 v1 픽스처 → `migrate --dry-run` → `migrate` | 계획 출력 후 무변경, 이어서 v2 + `*.v1.bak` |
 | TC-ACT-6 | FR-ACT-3a/3b | 위임 판정 — (도구 안/밖) × (대리/비대리) × (`--restart-daemon` 유/무) | 도구 안 · 비대리 · 플래그 있음 조합만 위임 (Go 단위) |
-| TC-ACT-6a | FR-ACT-3d | 위임 재시작을 연달아 2회 — 두 번째도 도구 탭에서 실행 | 2회 모두 `restart.log` 에 `✅ dongminal running`, 도구 셸 env 에 `DONGMINAL_RESTART_RUNNER` 없음 |
-| TC-ACT-7 | FR-ACT-3a | 도구 탭에서 `start --restart-daemon` | 탭은 끊긴다. 브라우저 새로고침 시 새 서버·새 데몬이 응답하고 `restart.log` 마지막 줄이 `✅ dongminal running` |
+| TC-ACT-6a | FR-ACT-3d | 위임 재시작을 연달아 2회 — 두 번째도 도구 탭에서 실행 | 2회 모두 `restart.log` 에 `✅ otterminal running`, 도구 셸 env 에 `OTTERMINAL_RESTART_RUNNER` 없음 |
+| TC-ACT-7 | FR-ACT-3a | 도구 탭에서 `start --restart-daemon` | 탭은 끊긴다. 브라우저 새로고침 시 새 서버·새 데몬이 응답하고 `restart.log` 마지막 줄이 `✅ otterminal running` |
 | TC-ISO-1 | FR-ISO-1/2 | 운영 서버 기동 중 `start --isolated` | 운영 서버 생존, 새 포트에 별도 인스턴스 |
 | TC-ISO-2 | FR-ISO-3 | `start --isolated --port 58200` | 58200 사용 |
 | TC-FG-1 | FR-FG-1 | `start --foreground` | 프롬프트 미반환, ping 응답, `^C` 로 정지 |
@@ -396,7 +396,7 @@ npx playwright test --retries=1
 - **액션 추가.** `fixture`·`build`·`daemon` 등을 액션으로 만들지 않는다. 액션은
   `start`/`stop`/`migrate`/`health` 4개다.
 - **`.env` 대체 설정 파일.** 환경변수 + 플래그로 충분하다 (§2.2).
-- **`d` 서브커맨드 개명.** `dongminald`·`paned.sock`·`paned.pid` 어휘는 실행 중
+- **`d` 서브커맨드 개명.** `otterminald`·`paned.sock`·`paned.pid` 어휘는 실행 중
   인스턴스와의 계약이다 (`ENTITY_MODEL_HANDOFF.md` 의 판단 유지).
 - **셸 테스트의 Go 재작성.** §8 결정 4.
 - **격리 홈 자동 정리(GC).** FR-ISO-5.
@@ -412,14 +412,14 @@ npx playwright test --retries=1
 |---|---|---|
 | 1 | `internal/cli` 패키지 신설 — 플래그 파싱·옵션 해석·help 텍스트 (순수 함수) | `internal/cli/*.go` + 단위 테스트 |
 | 2 | 액션 구현 — `start`/`stop`/`health`/`migrate` 의 부수효과 경로 | `internal/cli/*.go` |
-| 3 | `cmd/dongminal/main.go` 를 디스패처로 재배선. 서버 부팅 경로를 `--foreground` 아래로 이동 | `main.go` |
+| 3 | `cmd/otterminal/main.go` 를 디스패처로 재배선. 서버 부팅 경로를 `--foreground` 아래로 이동 | `main.go` |
 | 4 | `scripts/` 정리 + `git mv scripts/git_fixture.sh e2e/` | 묶음 D |
 | 5 | 참조처 갱신 — playwright.config.ts, e2e 13개, main.go 안내문, migrate 문구, 문서 9개 | 묶음 E |
 | 6 | 회귀 게이트 (§4.2) | — |
 
 **단계 3 의 함정**: `main()` 의 현재 서버 부팅 경로는
 `runtime.Install` → `dialOrStartDaemon` → `buildDeps*` → `srv.Run` 순이며 중간에
-`os.Setenv("DONGMINAL_PORT", port)` 로 helper multi-call 이 읽는 값을 심는다
+`os.Setenv("OTTERMINAL_PORT", port)` 로 helper multi-call 이 읽는 값을 심는다
 (`runtimebin/http.go`). 이 순서와 부작용을 그대로 옮겨야 한다.
 
 **단계 5 의 함정**: `playwright.config.ts` 를 먼저 고치지 않고 단계 3 을 끝내면
@@ -432,12 +432,12 @@ e2e 전량이 "서버가 안 뜬다" 로 죽는다. 원인이 제품이 아니�
 
 | # | 이전 | 이후 | 이유 |
 |---|---|---|---|
-| 1 | `dongminal` (무인자) → 웹 서버 부팅 | help 출력 후 rc=0 | FR-CLI-1. 사용자 요구 |
-| 2 | `dongminal -h` → 웹 서버 부팅 | help 출력 후 rc=0 | FR-CLI-2 |
+| 1 | `otterminal` (무인자) → 웹 서버 부팅 | help 출력 후 rc=0 | FR-CLI-1. 사용자 요구 |
+| 2 | `otterminal -h` → 웹 서버 부팅 | help 출력 후 rc=0 | FR-CLI-2 |
 | 3 | `./scripts/start.sh` 가 매번 `go build` | `start` 는 빌드하지 않음 | §2.3. 빌드는 `scripts/build.sh` |
 | 4 | `./scripts/migrate.sh` 가 매번 `go build` | 좌동 | 실행 중인 바이너리가 곧 구현이므로 낡은 바이너리 위험이 성립하지 않음 |
-| 5 | `.env` 를 5개 스크립트가 읽음 | 읽는 곳 없음. 환경변수만 | §2.2 — `.env` 값 4개가 전부 기본값과 동일하므로 실질 차이 없음. `PORT`/`DONGMINAL_HOME` 을 쉘 환경변수로 주면 그대로 동작 |
-| 6 | `LOG` 환경변수 | `DONGMINAL_LOG` | 다른 환경변수와 접두사를 맞춤. 기본값 `/tmp/dongminal.log` 동일 |
+| 5 | `.env` 를 5개 스크립트가 읽음 | 읽는 곳 없음. 환경변수만 | §2.2 — `.env` 값 4개가 전부 기본값과 동일하므로 실질 차이 없음. `PORT`/`OTTERMINAL_HOME` 을 쉘 환경변수로 주면 그대로 동작 |
+| 6 | `LOG` 환경변수 | `OTTERMINAL_LOG` | 다른 환경변수와 접두사를 맞춤. 기본값 `/tmp/otterminal.log` 동일 |
 | 7 | `BINARY` 환경변수가 실행 경로도 결정 | `scripts/build.sh` 의 출력 이름만 결정 | 실행은 실행된 바이너리 자신 |
 | 8 | `scripts/git_fixture.sh` | `e2e/git_fixture.sh` | FR-SCR-3 |
 | 9 | frameless window = 별도 스크립트 | `start --open` | 사용자 요구 |
@@ -445,7 +445,7 @@ e2e 전량이 "서버가 안 뜬다" 로 죽는다. 원인이 제품이 아니�
 
 **변경 1·2 의 파급**: 무인자 실행에 의존하던 곳은 두 군데뿐이다 —
 `playwright.config.ts` (FR-REF-2 로 처리) 와 문서의 수동 검증 예시
-(`PORT=58200 DONGMINAL_HOME=... /tmp/dm-manual-bin`, FR-REF-4 로 처리).
+(`PORT=58200 OTTERMINAL_HOME=... /tmp/otter-manual-bin`, FR-REF-4 로 처리).
 `startDaemon()` 은 `exe d` 를 쓰므로 영향 없다.
 
 ---
@@ -467,6 +467,6 @@ e2e 전량이 "서버가 안 뜬다" 로 죽는다. 원인이 제품이 아니�
 | 날짜 | 내용 |
 |---|---|
 | 2026-08-26 | 최초 작성 |
-| 2026-08-26 | **구현 완료.** 검증 결과 — Go `build`/`vet`/`test -race`/`gofmt` 전량 통과 (`internal/cli` 신규 테스트 27개 포함), Playwright 396 통과 + flaky 2 (재시도 통과, 기준선과 동일 성격). CLI 실측: TC-CLI-1..7 / TC-ACT-1·3·4·5 / TC-ISO-1·2 / TC-OPN 통과. **TC-ISO-1 은 운영 인스턴스(pid 28098, 포트 58146) 가 격리 실행 전후로 그대로 살아 있음을 확인해 반증했다.** TC-FG-1/2 는 Playwright `webServer`(`start --foreground`)와 배경 모드 실측으로 확인. §3 대비 추가 구현 1건 — `migrate` 의 실행중 거부 안내가 대상 인스턴스를 가리키도록 `--port`/`--home` 을 덧붙인다(기본값이 아닐 때만). 격리 인스턴스에 대해 `dongminal stop --all` 만 안내하면 그 명령이 운영 인스턴스를 향하기 때문이다 |
-| 2026-08-28 | **FR-ACT-3d 추가, FR-ACT-1① 정정** — 위임 재시작이 "한 번씩 실패" 하던 결함 2건. ① 대리의 env 를 서버에 그대로 물려줘 `DONGMINAL_RESTART_RUNNER` 가 dongminald → 도구 셸까지 심겼고, 다음 도구 안 재시작이 자신을 대리로 오인해 위임을 건너뛰었다(실행 중 서버·데몬·도구 셸 env 에서 실측). ② `lsof -ti :port` 가 그 포트에 접속한 클라이언트까지 잡아, 서버를 내리는 자리에서 대시보드를 띄운 브라우저 렌더러를 함께 KILL 했다(실측: Chrome Helper pid 가 대상에 포함). 클라이언트의 재접속 시도가 종료 확인에 걸리면 `❌ 포트를 비우지 못했습니다` 로 오판해 데몬 종료 전에 중단한다 |
+| 2026-08-26 | **구현 완료.** 검증 결과 — Go `build`/`vet`/`test -race`/`gofmt` 전량 통과 (`internal/cli` 신규 테스트 27개 포함), Playwright 396 통과 + flaky 2 (재시도 통과, 기준선과 동일 성격). CLI 실측: TC-CLI-1..7 / TC-ACT-1·3·4·5 / TC-ISO-1·2 / TC-OPN 통과. **TC-ISO-1 은 운영 인스턴스(pid 28098, 포트 58146) 가 격리 실행 전후로 그대로 살아 있음을 확인해 반증했다.** TC-FG-1/2 는 Playwright `webServer`(`start --foreground`)와 배경 모드 실측으로 확인. §3 대비 추가 구현 1건 — `migrate` 의 실행중 거부 안내가 대상 인스턴스를 가리키도록 `--port`/`--home` 을 덧붙인다(기본값이 아닐 때만). 격리 인스턴스에 대해 `otterminal stop --all` 만 안내하면 그 명령이 운영 인스턴스를 향하기 때문이다 |
+| 2026-08-28 | **FR-ACT-3d 추가, FR-ACT-1① 정정** — 위임 재시작이 "한 번씩 실패" 하던 결함 2건. ① 대리의 env 를 서버에 그대로 물려줘 `OTTERMINAL_RESTART_RUNNER` 가 otterminald → 도구 셸까지 심겼고, 다음 도구 안 재시작이 자신을 대리로 오인해 위임을 건너뛰었다(실행 중 서버·데몬·도구 셸 env 에서 실측). ② `lsof -ti :port` 가 그 포트에 접속한 클라이언트까지 잡아, 서버를 내리는 자리에서 대시보드를 띄운 브라우저 렌더러를 함께 KILL 했다(실측: Chrome Helper pid 가 대상에 포함). 클라이언트의 재접속 시도가 종료 확인에 걸리면 `❌ 포트를 비우지 못했습니다` 로 오판해 데몬 종료 전에 중단한다 |
 | 2026-08-27 | **FR-ACT-3a/3b/3c 추가** — 도구 안에서의 `--restart-daemon` 을 setsid 대리 프로세스에 위임한다. 데몬을 내리면 명령 자신이 함께 죽어 서버가 뜨지 않던 결함(§7 변경 10). 도구 밖 경로는 코드 경로가 바뀌지 않는다 |

@@ -5,8 +5,8 @@ use std::io;
 use std::path::Path;
 use std::time::{Duration, SystemTime};
 
-use dm_gocompat::oserr::path_error;
-use dm_shared_platform::{FileLock, LockError};
+use otter_gocompat::oserr::path_error;
+use otter_shared_platform::{FileLock, LockError};
 use tokio::runtime::{Handle, RuntimeFlavor};
 
 fn s(p: &Path) -> String {
@@ -26,7 +26,7 @@ pub(crate) fn mkdir(p: &Path, mode: u32) -> io::Result<()> {
 
 /// Go `os.MkdirAll(p, mode)`.
 pub(crate) fn mkdir_all(p: &Path, mode: u32) -> io::Result<()> {
-    dm_gocompat::oserr::mkdir_all(&s(p), mode)
+    otter_gocompat::oserr::mkdir_all(&s(p), mode)
 }
 
 /// Go `os.ReadFile(p)`.
@@ -83,7 +83,7 @@ pub(crate) fn off_worker<T>(f: impl FnOnce() -> T) -> T {
     }
 }
 
-/// 작업 스레드를 막지 않는 [`dm_shared_platform::lock_file`] 이다.
+/// 작업 스레드를 막지 않는 [`otter_shared_platform::lock_file`] 이다.
 pub(crate) fn lock_file(path: &Path, timeout: Duration) -> Result<FileLock, LockError> {
-    off_worker(|| dm_shared_platform::lock_file(path, timeout))
+    off_worker(|| otter_shared_platform::lock_file(path, timeout))
 }

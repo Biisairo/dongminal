@@ -1,8 +1,8 @@
 //! Go 노드와 짝 맺기·지우기·간선 연결이 서로 되는가 (FR-RSP-23). 진짜 Go 바이너리를 격리 홈에서 띄운다.
 //!
-//! `DM_PARITY_GO_BIN` 이 없으면 건너뛴다:
-//! `rust/scripts/hermetic.sh env DM_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh rust/target/go-ref/dongminal ./cmd/dongminal`
-//! `rust/scripts/hermetic.sh env DM_PARITY_GO_BIN=$PWD/rust/target/go-ref/dongminal cargo test -p dm-shared-edgenode --test go_interop`
+//! `OTTER_PARITY_GO_BIN` 이 없으면 건너뛴다:
+//! `rust/scripts/hermetic.sh env OTTER_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh rust/target/go-ref/otterminal ./cmd/otterminal`
+//! `rust/scripts/hermetic.sh env OTTER_PARITY_GO_BIN=$PWD/rust/target/go-ref/otterminal cargo test -p otter-shared-edgenode --test go_interop`
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -10,9 +10,9 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_edge::{Config, Listener};
-use dm_shared_edgenode::{Node, OpRequest, Options};
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_edge::{Config, Listener};
+use otter_shared_edgenode::{Node, OpRequest, Options};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_util::sync::CancellationToken;
 
@@ -103,7 +103,7 @@ impl Drop for GoNode {
 fn start_go(bin: &Path, home: &Path, ui_port: u16) -> GoNode {
     let log = std::fs::File::create(home.join("go-start.log")).unwrap();
     let mut cmd = Command::new(bin);
-    for (k, _) in std::env::vars().filter(|(k, _)| k.starts_with("DONGMINAL_")) {
+    for (k, _) in std::env::vars().filter(|(k, _)| k.starts_with("OTTERMINAL_")) {
         cmd.env_remove(k);
     }
     let child = cmd
@@ -116,7 +116,7 @@ fn start_go(bin: &Path, home: &Path, ui_port: u16) -> GoNode {
             &home.to_string_lossy(),
         ])
         .env("HOME", home)
-        .env("DONGMINAL_HOME", home)
+        .env("OTTERMINAL_HOME", home)
         .stdin(Stdio::null())
         .stdout(log.try_clone().unwrap())
         .stderr(log)
@@ -163,7 +163,7 @@ async fn go_edge(go: &GoNode, fp: &str) -> Option<BTreeMap<String, RawMessage>> 
     })
 }
 
-async fn rust_op(n: &Node, op: &str, args: &str) -> dm_shared_edgenode::OpResponse {
+async fn rust_op(n: &Node, op: &str, args: &str) -> otter_shared_edgenode::OpResponse {
     n.do_op(OpRequest {
         op: op.into(),
         args: args.as_bytes().to_vec(),
@@ -174,12 +174,12 @@ async fn rust_op(n: &Node, op: &str, args: &str) -> dm_shared_edgenode::OpRespon
 
 #[tokio::test(flavor = "multi_thread")]
 async fn rust_and_go_nodes_pair_and_link() {
-    let Some(bin) = std::env::var_os("DM_PARITY_GO_BIN").map(PathBuf::from) else {
-        eprintln!("DM_PARITY_GO_BIN 이 없어 건너뛴다");
+    let Some(bin) = std::env::var_os("OTTER_PARITY_GO_BIN").map(PathBuf::from) else {
+        eprintln!("OTTER_PARITY_GO_BIN 이 없어 건너뛴다");
         return;
     };
     let root = tempfile::Builder::new()
-        .prefix("dmn")
+        .prefix("ottern")
         .tempdir_in("/tmp")
         .unwrap();
     let (go_home, rust_home) = (root.path().join("g"), root.path().join("r"));
@@ -247,7 +247,7 @@ async fn rust_and_go_nodes_pair_and_link() {
         );
         tokio::time::sleep(Duration::from_millis(200)).await;
     }
-    let go_fp = dm_shared_edge::load_or_create_identity(&go_home)
+    let go_fp = otter_shared_edge::load_or_create_identity(&go_home)
         .unwrap()
         .fingerprint;
     let rust_fp = node.identity().fingerprint.clone();

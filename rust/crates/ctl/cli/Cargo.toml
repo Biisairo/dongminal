@@ -1,5 +1,5 @@
 [package]
-name = "dm-ctl-cli"
+name = "otter-ctl-cli"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,23 +10,23 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-ctl-migrate = { path = "../migrate" }
-dm-ctl-privhelper = { path = "../privhelper" }
-dm-shared-apipath = { path = "../../shared/apipath" }
-dm-shared-dmenv = { path = "../../shared/dmenv" }
-dm-shared-editorlimit = { path = "../../shared/editorlimit" }
-dm-shared-handover = { path = "../../shared/handover" }
-dm-shared-platform = { path = "../../shared/platform" }
-dm-shared-pollwait = { path = "../../shared/pollwait" }
-dm-shared-release = { path = "../../shared/release" }
-dm-shared-runfile = { path = "../../shared/runfile" }
-dm-shared-runtime = { path = "../../shared/runtime" }
-dm-shared-serverconf = { path = "../../shared/serverconf" }
-dm-shared-settingsschema = { path = "../../shared/settingsschema" }
-dm-shared-toolhub = { path = "../../shared/toolhub" }
-dm-shared-toolipc = { path = "../../shared/toolipc" }
-dm-webserver-domain-git-core = { path = "../../webserver/domain/git/core" }
-dm-gocompat = { path = "../../gocompat", features = ["reqwest"] }
+otter-ctl-migrate = { path = "../migrate" }
+otter-ctl-privhelper = { path = "../privhelper" }
+otter-shared-apipath = { path = "../../shared/apipath" }
+otter-shared-otterenv = { path = "../../shared/otterenv" }
+otter-shared-editorlimit = { path = "../../shared/editorlimit" }
+otter-shared-handover = { path = "../../shared/handover" }
+otter-shared-platform = { path = "../../shared/platform" }
+otter-shared-pollwait = { path = "../../shared/pollwait" }
+otter-shared-release = { path = "../../shared/release" }
+otter-shared-runfile = { path = "../../shared/runfile" }
+otter-shared-runtime = { path = "../../shared/runtime" }
+otter-shared-serverconf = { path = "../../shared/serverconf" }
+otter-shared-settingsschema = { path = "../../shared/settingsschema" }
+otter-shared-toolhub = { path = "../../shared/toolhub" }
+otter-shared-toolipc = { path = "../../shared/toolipc" }
+otter-webserver-domain-git-core = { path = "../../webserver/domain/git/core" }
+otter-gocompat = { path = "../../gocompat", features = ["reqwest"] }
 regex = { workspace = true }
 reqwest = { workspace = true }
 rustls = { workspace = true }
@@ -37,5 +37,5 @@ tokio = { workspace = true }
 zip = { workspace = true }
 
 [dev-dependencies]
-dm-shared-agentadapter = { path = "../../shared/agentadapter" }
+otter-shared-agentadapter = { path = "../../shared/agentadapter" }
 tempfile = { workspace = true }

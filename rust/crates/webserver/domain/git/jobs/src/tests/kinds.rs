@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use dm_webserver_domain_git_core::{self as core, Kind, Output, Service};
-use dm_webserver_domain_git_write as write;
+use otter_webserver_domain_git_core::{self as core, Kind, Output, Service};
+use otter_webserver_domain_git_write as write;
 
 use super::support::*;
 use crate::kinds::indicator_kind;
@@ -516,10 +516,10 @@ async fn job_index_locked_error_code() {
         )
         .unwrap();
     let fin = job_wait(&j, &jb.id, Duration::from_secs(2)).await;
-    let want = dm_gocompat::filepath::join(&[git_dir.as_str(), "index.lock"]);
+    let want = otter_gocompat::filepath::join(&[git_dir.as_str(), "index.lock"]);
     let lock = fin.lock.clone().expect("lock 정보");
     assert!(
-        fin.error_code == "index_locked" && dm_gocompat::filepath::clean(&lock.path) == want,
+        fin.error_code == "index_locked" && otter_gocompat::filepath::clean(&lock.path) == want,
         "= errorCode {:?} lock {lock:?}",
         fin.error_code
     );

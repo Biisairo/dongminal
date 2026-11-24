@@ -292,7 +292,7 @@ fn error_display_and_constants() {
     assert_eq!(Error::no_helper().to_string(), "helper: no_helper");
     assert_eq!(DEFAULT_TIMEOUT, std::time::Duration::from_secs(3));
     assert_eq!(MAX_LINE, 65536);
-    assert_eq!(SOCKET_PATH, "/var/run/com.dongminal.helper.sock");
+    assert_eq!(SOCKET_PATH, "/var/run/com.otterminal.helper.sock");
 }
 
 // ── 왕복 ──
@@ -416,7 +416,7 @@ fn fake_helper(
 ) -> (tempfile::TempDir, Client, std::thread::JoinHandle<Vec<u8>>) {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("h.sock");
-    let ln = dm_shared_platform::current().ipc.listen(&path).unwrap();
+    let ln = otter_shared_platform::current().ipc.listen(&path).unwrap();
     let h = std::thread::spawn(move || {
         let mut conn = ln.accept().unwrap();
         let mut got = Vec::new();
@@ -498,7 +498,7 @@ fn client_unreachable_is_no_helper() {
 fn client_deadline() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("h.sock");
-    let ln = dm_shared_platform::current().ipc.listen(&path).unwrap();
+    let ln = otter_shared_platform::current().ipc.listen(&path).unwrap();
     let h = std::thread::spawn(move || {
         let conn = ln.accept().unwrap();
         std::thread::sleep(std::time::Duration::from_millis(600));

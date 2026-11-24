@@ -4,14 +4,14 @@
 use std::collections::{BTreeMap, HashSet};
 use std::time::Duration;
 
-use dm_shared_agentadapter as agentadapter;
-use dm_shared_dmlog::{errorf, infof};
-use dm_shared_httpresp::Response;
-use dm_shared_pollwait as pollwait;
-use dm_shared_runwait as runwait;
-use dm_webserver_domain_run::{self as run, Member, Record};
-use dm_webserver_domain_worktree::RemoveResult;
 use http::StatusCode;
+use otter_shared_agentadapter as agentadapter;
+use otter_shared_httpresp::Response;
+use otter_shared_otterlog::{errorf, infof};
+use otter_shared_pollwait as pollwait;
+use otter_shared_runwait as runwait;
+use otter_webserver_domain_run::{self as run, Member, Record};
+use otter_webserver_domain_worktree::RemoveResult;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
@@ -86,7 +86,7 @@ fn keep_run_record(residue: i64, kept_tools: usize) -> bool {
 }
 
 /// 정리 결과 목록. 대상이 없으면 Go 의 nil 이다.
-fn trees_json(trees: &[RemoveResult]) -> dm_gocompat::json::RawMessage {
+fn trees_json(trees: &[RemoveResult]) -> otter_gocompat::json::RawMessage {
     if trees.is_empty() {
         return raw(&None::<()>);
     }

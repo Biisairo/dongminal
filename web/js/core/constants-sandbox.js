@@ -1,5 +1,5 @@
 /**
- * Dongminal — 샌드박스 창 상수 (REFACTOR3_FE_REST5_SRS FR-FR5-20).
+ * Otterminal — 샌드박스 창 상수 (REFACTOR3_FE_REST5_SRS FR-FR5-20).
  *
  * 작업 방식(마운트·복사) 문구와 컨테이너 런타임의 상태. `constants.js` 에서 절째로 옮겼다 — 값과 이름은 그대로다.
  * `constants-term.js` 뒤에 로드된다.

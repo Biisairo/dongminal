@@ -1,5 +1,5 @@
 {
-  "name": "dongminal-codemirror-bundle",
+  "name": "otterminal-codemirror-bundle",
   "private": true,
   "description": "CODEMIRROR_MIGRATION_SRS 묶음 V — web/vendor/codemirror 를 만드는 입력. scripts/build-codemirror.mjs 가 쓴다.",
   "dependencies": {

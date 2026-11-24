@@ -12,9 +12,9 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use dm_gocompat::json;
-use dm_shared_platform::{IpcListener, IpcStream};
-use dm_shared_toolipc::{METHOD_HELLO, PROTOCOL_VERSION, PanedRequest};
+use otter_gocompat::json;
+use otter_shared_platform::{IpcListener, IpcStream};
+use otter_shared_toolipc::{METHOD_HELLO, PROTOCOL_VERSION, PanedRequest};
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
@@ -29,7 +29,7 @@ pub(super) struct Sock {
 pub(super) fn listen() -> (Sock, IpcListener) {
     let dir = tempfile::Builder::new().prefix("tc").tempdir().unwrap();
     let path = dir.path().join("s");
-    let ln = dm_shared_platform::current().ipc.listen(&path).unwrap();
+    let ln = otter_shared_platform::current().ipc.listen(&path).unwrap();
     (Sock { path, _dir: dir }, ln)
 }
 

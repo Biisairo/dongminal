@@ -1,9 +1,9 @@
-//! Go `*os.PathError`·`*os.LinkError` 모양의 오류 (FR-RSP-35). `dm_gocompat::oserr` 에 경로를 넘긴다.
+//! Go `*os.PathError`·`*os.LinkError` 모양의 오류 (FR-RSP-35). `otter_gocompat::oserr` 에 경로를 넘긴다.
 
 use std::io;
 use std::path::Path;
 
-use dm_gocompat::oserr::{link_error, path_error};
+use otter_gocompat::oserr::{link_error, path_error};
 
 /// `op path: errno`.
 pub(crate) fn path_err(op: &str, path: &Path, e: io::Error) -> io::Error {

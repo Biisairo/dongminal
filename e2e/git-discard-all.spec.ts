@@ -17,7 +17,7 @@ import { tmpPath, cssPath } from './osenv';
 // 폭 시험(V-WBR-58 / NFR-WBR-10)은 여기 없다 — 규칙이 사는 `repo-tab` 묶음 N 의
 // N3 이고, 그 파일에 `setSideWidth`·`measure` 장치가 이미 있다.
 
-const FIXTURES = tmpPath('dm-git-fx-discardall-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-discardall-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

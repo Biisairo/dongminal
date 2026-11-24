@@ -13,7 +13,7 @@ import { TMP, tmpPath, realPath } from './osenv';
 // 잰다 — 목업 서버를 띄우지 않는다. 서버가 실제로 뜨면 라우트만 걷히고 같은
 // 코드가 그대로 돈다 (FR-EDT-120 이 그 사이를 메운다).
 
-const FIXTURES = tmpPath('dm-git-fx-edt-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-edt-' + process.pid);
 let HOME_DIR = '';
 let PROJ_DIR = '';
 let PROJ2_DIR = '';
@@ -21,7 +21,7 @@ let SOME_FILE = '';
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
-  const base = fs.mkdtempSync(path.join(TMP, 'dm-edt-'));
+  const base = fs.mkdtempSync(path.join(TMP, 'otter-edt-'));
   HOME_DIR = realPath(base);
   PROJ_DIR = path.join(HOME_DIR, 'proj');
   PROJ2_DIR = path.join(HOME_DIR, 'proj2');

@@ -1,6 +1,6 @@
-//! Go 기준선 `dongminal/internal/shared/runwait` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/shared/runwait` 의 Rust 포팅.
 //!
-//! Run 종단이 요청을 붙잡는 **상한**이다 (M8_UNIFIED_SRS D-A-1). 서버와 `dmctl` 이
+//! Run 종단이 요청을 붙잡는 **상한**이다 (M8_UNIFIED_SRS D-A-1). 서버와 `otterctl` 이
 //! 같은 수를 읽는다.
 
 use std::time::Duration;

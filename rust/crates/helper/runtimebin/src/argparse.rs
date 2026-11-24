@@ -1,4 +1,4 @@
-//! dmctl 하위 명령의 인자 표 (OPTIMIZE_REFACTOR_SRS FR-OPT-9-2). 값 플래그는 `--k v` 와
+//! otterctl 하위 명령의 인자 표 (OPTIMIZE_REFACTOR_SRS FR-OPT-9-2). 값 플래그는 `--k v` 와
 //! `--k=v` 를 모두 받는다. `-h`·`--help` 는 그 자리에서 멈춘다.
 
 use crate::ctx::{Ctx, errf, outf};

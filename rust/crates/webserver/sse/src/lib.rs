@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/sse` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/sse` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 서버가 내보내는 SSE 스트림의 작성기와 방송 본문의 봉투다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-1).
 //! 프레임을 버퍼에 모으고, 쌓인 것을 한 번에 쓴다.
@@ -14,10 +14,10 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use bytes::Bytes;
-use dm_shared_httpresp::{BoxError, Response};
 use http::{HeaderValue, StatusCode, header};
 use http_body_util::BodyExt;
 use hyper::body::{Body, Frame};
+use otter_shared_httpresp::{BoxError, Response};
 use tokio::sync::mpsc;
 
 mod payload;

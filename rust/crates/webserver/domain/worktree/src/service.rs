@@ -4,7 +4,7 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use dm_webserver_domain_git_core::Ctx;
+use otter_webserver_domain_git_core::Ctx;
 
 use crate::error::Error;
 use crate::manager::{ExecSpec, Manager, Repo, Spec};

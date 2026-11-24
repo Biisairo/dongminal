@@ -3,8 +3,8 @@
 
 use std::io::Write;
 
-use dm_gocompat::json;
-use dm_shared_apipath as apipath;
+use otter_gocompat::json;
+use otter_shared_apipath as apipath;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -76,11 +76,11 @@ fn open_here(ctx: &mut Ctx<'_>, target: &str) -> i32 {
 
 /// 이 컴퓨터의 기본 브라우저를 평범한 창으로 연다.
 fn system_open_url(_out: &mut dyn Write, target: &str) -> Result<(), String> {
-    let (name, args) = dm_shared_platform::current()
+    let (name, args) = otter_shared_platform::current()
         .opener
         .open_command(target)
-        .map_err(|e| dm_gocompat::oserr::go_error_string(&e))?;
-    let prog = dm_shared_platform::command_path(&name)?;
+        .map_err(|e| otter_gocompat::oserr::go_error_string(&e))?;
+    let prog = otter_shared_platform::command_path(&name)?;
     std::process::Command::new(&prog)
         .args(&args)
         .spawn()
@@ -88,7 +88,7 @@ fn system_open_url(_out: &mut dyn Write, target: &str) -> Result<(), String> {
         .map_err(|e| {
             format!(
                 "fork/exec {prog}: {}",
-                dm_gocompat::oserr::go_error_string(&e)
+                otter_gocompat::oserr::go_error_string(&e)
             )
         })
 }

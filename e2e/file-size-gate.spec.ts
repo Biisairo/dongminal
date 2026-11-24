@@ -20,7 +20,7 @@ import { TMP, realPath } from './osenv';
 let BASE = '';
 
 test.beforeAll(() => {
-  BASE = realPath(mkdtempSync(join(TMP, 'dm-fsz-')));
+  BASE = realPath(mkdtempSync(join(TMP, 'otter-fsz-')));
 });
 test.afterAll(() => { rmTree(BASE) });
 

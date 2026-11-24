@@ -17,7 +17,7 @@ import { tmpPath } from './osenv';
 //
 // 규칙은 하나다 — **화면에 있으면 갱신된다.** 포커스는 그 조건이 아니다.
 
-const FIXTURES = tmpPath('dm-git-fx-slr-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-slr-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
@@ -296,7 +296,7 @@ test.describe('묶음 R — 브랜치가 늘고 주는 것도 변화다', () => 
     await page.waitForSelector('.git-hist-row', { timeout: 20000 });
     expect(await badges(page), '전제: 그 배지는 아직 없다').not.toContain('r20');
 
-    // dongminal 자신의 쓰기 — `GitBranches._run` 이 `afterRefWrite` 를 부르는
+    // otterminal 자신의 쓰기 — `GitBranches._run` 이 `afterRefWrite` 를 부르는
     // 그 경로를 그대로 탄다 (다이얼로그만 건너뛴다).
     const ok = await page.evaluate(async () => {
       const p = (window as any).app.gitPanel;

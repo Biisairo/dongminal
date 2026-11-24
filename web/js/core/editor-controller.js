@@ -1,5 +1,5 @@
 /**
- * Dongminal — Editor 창의 **정체** (FE_MODULE_BOUNDARY_SRS FR-FMB-20).
+ * Otterminal — Editor 창의 **정체** (FE_MODULE_BOUNDARY_SRS FR-FMB-20).
  *
  * 무엇이 Editor 창이고(FR-EDT-40), 그 창의 루트가 어디이며, 그 아래 경로가
  * 무엇으로 불리는가(FR-EDT-19·20·29·120). 나머지 다섯이 전부 이것을 딛는다.

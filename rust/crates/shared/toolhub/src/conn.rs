@@ -32,8 +32,8 @@ pub const WS_BUFFER_SIZE: usize = 8192;
 
 use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
 
-use dm_shared_dmlog::infof;
 use futures_util::{Sink, SinkExt};
+use otter_shared_otterlog::infof;
 use tokio_tungstenite::tungstenite::{Error as WsError, Message};
 
 /// 브라우저 WebSocket 한 벌의 직렬화된 쓰기 창구다. 쓰기는 한 번에 하나이고 마감이 있다.

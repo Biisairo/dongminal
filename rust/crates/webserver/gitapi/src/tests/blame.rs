@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use dm_webserver_domain_git_core::Output;
+use otter_webserver_domain_git_core::Output;
 
 use super::harness::*;
 use crate::GitServer;

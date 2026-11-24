@@ -1,7 +1,7 @@
 //! 조달과 실행이 쓸 격리 환경 (FR-EXT-21). 여기서 빠지는 변수 하나가 곧 남의 기계에 남는 흔적
 //! 하나다.
 
-use dm_gocompat::filepath;
+use otter_gocompat::filepath;
 
 use crate::locate::{cache_dir, plugin_dir};
 use crate::manifest::Manifest;

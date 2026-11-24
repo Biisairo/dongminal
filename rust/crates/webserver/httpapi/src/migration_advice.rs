@@ -4,10 +4,10 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-use dm_gocompat::json;
-use dm_shared_httpresp::Response;
-use dm_shared_settingsschema::{self as settingsschema, Spec};
-use dm_shared_toolipc as toolipc;
+use otter_gocompat::json;
+use otter_shared_httpresp::Response;
+use otter_shared_settingsschema::{self as settingsschema, Spec};
+use otter_shared_toolipc as toolipc;
 use serde::Serialize;
 use serde_json::Value;
 

@@ -10,7 +10,7 @@ import { tmpPath, realPath } from './osenv';
 // REPO_FIX 01 §6.4 — 일반화된 잡 표시기. 느린 쓰기(commit·merge…)는 잡으로 돌고
 // 저장소의 index 칸 박스에 붙는다. 충돌·취소·index_locked·재부착을 본다.
 
-const FIXTURES = tmpPath('dm-git-fx-jobs-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-jobs-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

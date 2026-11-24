@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use dm_shared_dmenv as dmenv;
-use dm_shared_serverconf as serverconf;
+use otter_shared_otterenv as otterenv;
+use otter_shared_serverconf as serverconf;
 
 use super::{Vars, args, temp_home, with_env, write_server_json};
 use crate::options::unknown_flag;
@@ -188,7 +188,7 @@ fn resolve_home_priority() {
     with_env(&v, |env| {
         assert_eq!(
             Common::default().resolve_home_in(env).unwrap(),
-            dm_gocompat::filepath::join(&["/u", dmenv::DEFAULT_HOME_DIR])
+            otter_gocompat::filepath::join(&["/u", otterenv::DEFAULT_HOME_DIR])
         );
     });
 }
@@ -196,11 +196,11 @@ fn resolve_home_priority() {
 #[cfg(unix)]
 #[test]
 fn resolve_home_expands_tilde() {
-    let v = Vars::new(&[(ENV_HOME, "~/.dongminal-test"), ("HOME", "/u")]);
+    let v = Vars::new(&[(ENV_HOME, "~/.otterminal-test"), ("HOME", "/u")]);
     with_env(&v, |env| {
         assert_eq!(
             Common::default().resolve_home_in(env).unwrap(),
-            "/u/.dongminal-test"
+            "/u/.otterminal-test"
         );
     });
     let v = Vars::new(&[(ENV_HOME, "~"), ("HOME", "/u/")]);
@@ -234,11 +234,11 @@ fn default_log_file_follows_home() {
     let home = home.to_str().unwrap();
     assert_eq!(
         default_log_file(home),
-        dm_gocompat::filepath::join(&[home, "server.log"])
+        otter_gocompat::filepath::join(&[home, "server.log"])
     );
     assert_eq!(
         default_log_file(""),
-        dm_shared_platform::current()
+        otter_shared_platform::current()
             .paths
             .default_log_file()
             .to_string_lossy()
@@ -260,7 +260,7 @@ fn config_show_log_file_is_under_home() {
     });
     assert_eq!(
         conf.log_file.value,
-        dm_gocompat::filepath::join(&[hs, "server.log"])
+        otter_gocompat::filepath::join(&[hs, "server.log"])
     );
 }
 
@@ -268,8 +268,8 @@ fn config_show_log_file_is_under_home() {
 #[test]
 fn start_usage_describes_log_by_rule() {
     let u = usage_start();
-    assert!(u.contains("$DONGMINAL_HOME/server.log"));
-    assert!(!u.contains("/tmp/dongminal.log"));
+    assert!(u.contains("$OTTERMINAL_HOME/server.log"));
+    assert!(!u.contains("/tmp/otterminal.log"));
 }
 
 // ── ResolveTarget (TC-STR-6·7, FR-HRB-7) ──
@@ -295,7 +295,7 @@ fn resolve_target_matches_start() {
     let (_d, home) = temp_home();
     write_server_json(&home, r#"{"host":"0.0.0.0","port":"9000"}"#);
     let t = target(&home, &Common::default()).unwrap();
-    assert_eq!(t.url, dmenv::base_url("0.0.0.0", "9000"));
+    assert_eq!(t.url, otterenv::base_url("0.0.0.0", "9000"));
 }
 
 #[test]
@@ -315,7 +315,7 @@ fn resolve_target_ignores_env() {
     write_server_json(&home, r#"{"port":"9000"}"#);
     let mut v = Vars::home(&home);
     v.set("PORT", "8888");
-    v.set(dmenv::ENV_PORT, "8888");
+    v.set(otterenv::ENV_PORT, "8888");
     let t = with_env(&v, |env| Common::default().resolve_target_in(env)).unwrap();
     assert_eq!(t.port, "9000");
 }
@@ -345,7 +345,7 @@ fn resolve_target_order() {
     serverconf::write_addr(&home, "0.0.0.0:9300").unwrap();
     let t = target(&home, &Common::default()).unwrap();
     assert_eq!(t.port, "9300");
-    assert_eq!(t.host, dmenv::dial_host("0.0.0.0"));
+    assert_eq!(t.host, otterenv::dial_host("0.0.0.0"));
     let c = Common {
         port: "7777".into(),
         ..Default::default()

@@ -9,7 +9,7 @@ import { tmpPath, realPath, cssPath } from './osenv';
 // REPO_FIX 01 §7.2 — index.lock 은 자동으로 지우지 않는다. 쓰기가 409 index_locked
 // 로 막히면 안내 줄에 "남은 lock 지우기" 가 서고, 확인 뒤에만 지운다.
 
-const FIXTURES = tmpPath('dm-git-fx-lock-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-lock-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

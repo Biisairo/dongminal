@@ -6,7 +6,7 @@
 > **개정 2026-11-13 (9)**: 6단계 착수. 보관된 자격증명 API(FR-CAC-34a), 프로필 링크 경고의 전달(FR-CAC-88b), 설정 구역의 세부(FR-CAC-94a)를 적었다. e2e(TC-CAC-27)는 브라우저에서 계정 API 응답을 위조한다 — 실행 파일에 시험용 입구를 두지 않는다(D-CAC-32)
 > **개정 2026-11-13 (8)**: 5b 착수. 화면이 탭·폴더에 적용되는 계정을 셈하는 방법과 메뉴 모양을 적었다(FR-CAC-95a, D-CAC-30·31). `resolve` 응답에 `path`(cwd 를 서버가 정규화한 값)를 더했다(FR-CAC-88a)
 > **개정 2026-11-13 (7)**: 5a 구현. 프로필 토큰 회수를 고정 실행 중인 계정에만 하지 않고 프로필이 있는 모든 계정에 한다(FR-CAC-86, D-CAC-29). 전환의 "같은 계열" 백업은 백업보다 낡은 토큰으로 덮지 않는다(FR-CAC-32). 탭 지정 정리는 매핑을 읽는 때(GET mappings·resolve·launch) 도구 목록을 알면 한다(FR-CAC-81a). `resolve`·`launch` 응답에 `folder` 를, 매핑 PUT 의 모양을 적었다(FR-CAC-88a). FR-CAC-77 을 지웠다
-> **개정 2026-11-13 (6)**: 5단계 착수. 셸 함수 `claude()` 를 PATH shim 으로 바꾼다(FR-CAC-83, D-CAC-24). 이전: 세 셸이 `claude()` 함수로 훅 인자를 붙였다. 새: dongminal 폴더 안의 `claude` 실행 파일(shim)이 계정 환경 변수와 훅 인자를 넣고 진짜 claude 를 실행한다. 이유: 사용자나 다른 도구가 claude 를 함수·alias 로 래핑하면 셸 함수는 덮이거나 건너뛰어진다. 계정 지정을 적용하지 못하면 실행하지 않는다(D-CAC-25). 프로필 `.claude.json` 은 실행 때마다 기본 설정에서 계정 항목만 빼고 가져온다(FR-CAC-82, D-CAC-26). 탭을 닫으면 탭 지정을 지운다(FR-CAC-81a, D-CAC-27). FR-CAC-84(GUI 기동)는 해당 없음이다 — GUI 를 지웠다(`AGENT_GUI_REMOVAL_SRS` §6). `dmctl account env` 는 shim 이 대신하므로 두지 않는다
+> **개정 2026-11-13 (6)**: 5단계 착수. 셸 함수 `claude()` 를 PATH shim 으로 바꾼다(FR-CAC-83, D-CAC-24). 이전: 세 셸이 `claude()` 함수로 훅 인자를 붙였다. 새: otterminal 폴더 안의 `claude` 실행 파일(shim)이 계정 환경 변수와 훅 인자를 넣고 진짜 claude 를 실행한다. 이유: 사용자나 다른 도구가 claude 를 함수·alias 로 래핑하면 셸 함수는 덮이거나 건너뛰어진다. 계정 지정을 적용하지 못하면 실행하지 않는다(D-CAC-25). 프로필 `.claude.json` 은 실행 때마다 기본 설정에서 계정 항목만 빼고 가져온다(FR-CAC-82, D-CAC-26). 탭을 닫으면 탭 지정을 지운다(FR-CAC-81a, D-CAC-27). FR-CAC-84(GUI 기동)는 해당 없음이다 — GUI 를 지웠다(`AGENT_GUI_REMOVAL_SRS` §6). `otterctl account env` 는 shim 이 대신하므로 두지 않는다
 > **개정 2026-11-13 (5)**: statusLine 값을 계정별로 받는다(FR-CAC-78, D-CAC-21). 자동 전환·스마트 전환·알림의 판단은 창마다 OAuth 값과 statusLine 값 중 큰 값을 쓴다. 이전: OAuth 값만(최대 5분 늦음). 이유: statusLine 은 요청마다 갱신되는 실시간 값이라 한도를 놓치지 않는다. 문턱값 범위를 50~100 으로 넓혔다(D-CAC-23). statusLine 줄을 계정별로 보인다(FR-CAC-93, D-CAC-22, D-CAC-6 개정)
 > **개정 2026-11-13 (4)**: 4단계 착수. FR-CAC-31a·76·77·100a·110a, D-CAC-17~20 을 더했다. 스마트 전환은 값을 모르는 계정을 두 전략 모두 건너뛴다(D-CAC-17, cswap 은 `next-available` 에서 건너뛰지 않는다)
 > **입력**: 2026-11-13 대화. 사용자 요청 "cswap 을 참고하여 같은 방식으로 사용량을 가져오고, 다중 계정 등록·갱신 기간 확인·다중 계정 사용량·계정 전환·자동 전환을 그대로 가져온다". 정보보호팀 사전 승인 범위 = ① 계정별 OAuth 토큰 저장 ② 내부 API 자동 호출 ③ 계정 전환 ④ 자동 전환 (사용자 확인, 2026-11-13). 사용자 결정은 §4 에 적는다
@@ -18,12 +18,12 @@
 
 ### 1.1 목적 (Purpose)
 
-dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받는다. 이 값은 그 세션이 API 요청을 보낼 때만 갱신되고, 계정을 구분하지 못한다. 이 SRS 는 cswap(claude-swap v0.29.0, MIT) 의 핵심 동작을 dongminal 서버에 내장한다. 사용자는 Claude 구독 계정을 여럿 등록하고, 계정마다 사용량과 로그인 만료일을 보고, 계정을 손으로 또는 자동으로 전환하고, 탭이나 폴더마다 다른 계정으로 claude 를 실행한다.
+otterminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받는다. 이 값은 그 세션이 API 요청을 보낼 때만 갱신되고, 계정을 구분하지 못한다. 이 SRS 는 cswap(claude-swap v0.29.0, MIT) 의 핵심 동작을 otterminal 서버에 내장한다. 사용자는 Claude 구독 계정을 여럿 등록하고, 계정마다 사용량과 로그인 만료일을 보고, 계정을 손으로 또는 자동으로 전환하고, 탭이나 폴더마다 다른 계정으로 claude 를 실행한다.
 
 ### 1.2 범위 (Scope)
 
 - 서버: 계정 저장소, 자격증명 백업과 교체, OAuth 갱신, 사용량 조회기, 제한 초기화 조회와 사용, 자동 전환기, 계정 해석(탭·폴더), 전환 기록, 알림, HTTP API, SSE.
-- `dmctl`: `account` 하위 명령, 셸 래퍼의 계정 해석.
+- `otterctl`: `account` 하위 명령, 셸 래퍼의 계정 해석.
 - 클라이언트: Activity 하단(Usage foot) 계정 줄과 statusLine 줄, 설정의 "Claude 계정" 구역, 탭 배경 틴트, 사이드바 Repo 목록 칩, Explorer 폴더 칩과 우클릭 메뉴.
 - 운영체제: macOS, Linux, Windows.
 
@@ -33,11 +33,11 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 
 | 용어 | 정의 |
 |---|---|
-| **계정** | dongminal 에 등록된 Claude 구독 로그인 하나. 정체는 `(email, organizationUuid)` 쌍이다 (FR-CAC-10) |
-| **계정 ID** | dongminal 이 계정에 매기는 고정 식별자. 번호가 아니라 UUIDv7(`internal/shared/uuid`)이다. 순서와 무관하다 |
+| **계정** | otterminal 에 등록된 Claude 구독 로그인 하나. 정체는 `(email, organizationUuid)` 쌍이다 (FR-CAC-10) |
+| **계정 ID** | otterminal 이 계정에 매기는 고정 식별자. 번호가 아니라 UUIDv7(`internal/shared/uuid`)이다. 순서와 무관하다 |
 | **활성 저장소** | Claude Code 가 기본 설정 폴더(`~/.claude`)로 실행될 때 읽는 자격증명. macOS 는 키체인 `Claude Code-credentials`, 그 밖은 `~/.claude/.credentials.json` |
 | **활성 계정** | 활성 저장소의 자격증명이 속한 계정 |
-| **백업** | dongminal 이 계정마다 보관하는 자격증명 사본과 `oauthAccount` 사본 |
+| **백업** | otterminal 이 계정마다 보관하는 자격증명 사본과 `oauthAccount` 사본 |
 | **프로필** | 계정별 실행에 쓰는 계정 전용 설정 폴더. `CLAUDE_CONFIG_DIR` 로 넘긴다 (묶음 H) |
 | **고정** | 탭 지정 또는 폴더 매핑으로 특정 계정의 프로필로 실행되는 것 |
 | **창(window)** | 사용량 한도의 단위. `five_hour`, `seven_day`, 모델별 주간 한도(`scoped`) |
@@ -64,7 +64,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 
 ### 2.1 지금의 한도 경로
 
-- statusLine 프록시(`internal/helper/runtimebin/dmctl_statusline.go`)가 `rate_limits` 를 `/api/tools/usage` 로 보낸다. 서버는 `rateLimitStore` 에 **agent 단위**(`claude`)로 담는다 (`httpapi/handlers_limits.go`).
+- statusLine 프록시(`internal/helper/runtimebin/otterctl_statusline.go`)가 `rate_limits` 를 `/api/tools/usage` 로 보낸다. 서버는 `rateLimitStore` 에 **agent 단위**(`claude`)로 담는다 (`httpapi/handlers_limits.go`).
 - 클라이언트는 `/api/tools/activity` 를 `agentsPollMs`(기본 5초)마다 받아 `limits` 로 Usage foot 을 그린다 (`web/js/core/app-activity.js` `limitFootView`, `_actUsageFootEl`).
 - 계정 개념이 없다. 키체인·OAuth 코드도 없다.
 
@@ -84,7 +84,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 
 ### 3.A 저장소와 자격증명 계층
 
-- **FR-CAC-1** 계정 데이터는 `<home>/claude-accounts/` 아래에 둔다. 폴더는 0700, 파일은 0600 이다. `<home>` 은 `$DONGMINAL_HOME`(기본 `~/.dongminal`).
+- **FR-CAC-1** 계정 데이터는 `<home>/claude-accounts/` 아래에 둔다. 폴더는 0700, 파일은 0600 이다. `<home>` 은 `$OTTERMINAL_HOME`(기본 `~/.otterminal`).
   | 파일 | 내용 |
   |---|---|
   | `accounts.json` | 계정 목록·순서·활성 계정 ID·계정별 설정 (FR-CAC-11) |
@@ -101,7 +101,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 - **FR-CAC-3** 저장소 변경(`accounts.json`·`usage.json`·`autoswitch.json`·`mappings.json`)은 파일 락으로 직렬화한다. 락은 비재진입이고, 잡지 못하면 0.1초 간격으로 다시 시도하며 10초 뒤 실패한다. 운영체제별 락 구현은 `internal/shared/platform` 경계 뒤에 둔다.
 - **FR-CAC-4** 자격증명 계층은 운영체제별 구현을 `internal/shared/platform` 뒤에 둔다.
   - macOS 활성 저장소: 키체인 서비스 `Claude Code-credentials`, 계정명 `$USER`(없으면 홈 폴더 이름, 그것도 없으면 `claude-code-user`). `/usr/bin/security` 를 5초 제한으로 부른다. 읽기는 `find-generic-password -a <acct> -w -s <svc>`, 종료 코드 44 는 "없음" 이다. 쓰기는 `security -i` 의 표준 입력으로 `add-generic-password -U -a <acct> -s <svc> -X <hex>` 를 보낸다. 값이 명령줄에 드러나지 않는다. 줄이 4032 바이트를 넘으면 키체인에 쓰지 않고 실패로 돌린다. 그러면 호출하는 쪽이 권한 600 파일에 쓰고 키체인 항목을 지운다(FR-CAC-6). 값을 argv 로 넘기지 않는다 — 같은 컴퓨터의 다른 사용자가 `ps` 로 볼 수 있다 (D-CAC-16).
-  - macOS 백업: 키체인 서비스 `dongminal-claude-accounts`, 계정명 `account-<id>`. 실패하면 파일 백업(FR-CAC-1)으로 내려가고 그 키체인 항목을 지운다.
+  - macOS 백업: 키체인 서비스 `otterminal-claude-accounts`, 계정명 `account-<id>`. 실패하면 파일 백업(FR-CAC-1)으로 내려가고 그 키체인 항목을 지운다.
   - 그 밖의 운영체제: 활성 저장소는 `<claudeConfigDir>/.credentials.json`, 백업은 파일(FR-CAC-1).
 - **FR-CAC-5** 활성 저장소 읽기 순서는 ① 키체인(macOS, 0.3초 간격으로 두 번 시도) ② `.credentials.json` 이다. API 키 방식 로그인은 계정으로 다루지 않는다.
 - **FR-CAC-6** 활성 저장소 쓰기는 키체인에 쓴다(macOS). 성공하면, `.credentials.json` 이 이미 있을 때만 같은 바이트로 다시 써서 mtime 을 바꾼다. 실행 중인 세션이 다시 읽게 하기 위해서다. 없는 파일은 만들지 않는다. 키체인 쓰기가 실패하면 파일에 쓰고 키체인 항목을 지운다.
@@ -168,9 +168,9 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 - **FR-CAC-34a** **보관 경로** (6단계).
   - `GET /api/claude-accounts/unclaimed` → `{entries:[{name, at, fingerprint}]}`, 최신 먼저. `name` 은 파일 이름(`<unix 초>-<지문>.json`), `at` 은 보관 시각(unix 초), `fingerprint` 는 지문 12자리다. 내용(토큰)은 싣지 않는다. 폴더가 없으면 빈 목록이다. 이름이 형식에 맞지 않는 파일은 싣지 않는다.
   - `POST /api/claude-accounts/unclaimed/remove {name}` → 같은 모양의 목록. `name` 이 `^[0-9]+-[0-9a-f]{12}\.json$` 이 아니면 400 `claude_account_invalid`. 이미 없으면 그대로 성공이다. 바뀌면 SSE `claude_accounts_changed`.
-- **FR-CAC-34b** **활성 기록 맞추기**: `~/.claude.json` 의 `oauthAccount`(이메일·조직)가 등록된 계정인데 활성 기록과 다르면 활성 기록을 그 계정으로 고치고 `claude_accounts_changed` 를 민다 — dongminal 밖(Claude Code `/login`, cswap)에서 바꾼 경우다. 목록 응답(`GET /api/claude-accounts`) 전과 조회기 틱마다 확인한다. 등록되지 않은 계정이거나 읽지 못하면 고치지 않는다(자동 전환은 그대로 `unmanaged`, FR-CAC-72). 전환 기록(FR-CAC-110)은 남기지 않는다 — dongminal 이 한 전환이 아니다.
+- **FR-CAC-34b** **활성 기록 맞추기**: `~/.claude.json` 의 `oauthAccount`(이메일·조직)가 등록된 계정인데 활성 기록과 다르면 활성 기록을 그 계정으로 고치고 `claude_accounts_changed` 를 민다 — otterminal 밖(Claude Code `/login`, cswap)에서 바꾼 경우다. 목록 응답(`GET /api/claude-accounts`) 전과 조회기 틱마다 확인한다. 등록되지 않은 계정이거나 읽지 못하면 고치지 않는다(자동 전환은 그대로 `unmanaged`, FR-CAC-72). 전환 기록(FR-CAC-110)은 남기지 않는다 — otterminal 이 한 전환이 아니다.
 - **FR-CAC-35** 실행 중인 Claude Code 세션은 죽이거나 신호를 보내지 않는다. 전환 결과 안내에 "새로 시작하는 Claude Code 세션부터 새 계정을 씁니다. 실행 중인 세션은 건드리지 않습니다" 를 보인다. 실행 중인 세션이 언제 새 계정을 집는지는 Claude Code 동작이라 확인하지 않았으므로 약속하지 않는다. 고정된 세션(묶음 H)은 영향을 받지 않는다.
-- **FR-CAC-36** 활성 계정이 프로필로 고정 실행 중인 계정이면 전환 전에 경고한다. 그 프로필의 토큰이 백업보다 새것이면 먼저 백업으로 회수한다 (FR-CAC-86). 경고는 전환을 막지 않는다(D-CAC-28): 전환 응답에 `pinnedRunning:true` 를 싣고, 화면은 토스트로, dmctl 은 한 줄로 "이 계정은 고정 실행 중인 탭이 있습니다. 그 탭은 영향을 받지 않습니다" 를 알린다.
+- **FR-CAC-36** 활성 계정이 프로필로 고정 실행 중인 계정이면 전환 전에 경고한다. 그 프로필의 토큰이 백업보다 새것이면 먼저 백업으로 회수한다 (FR-CAC-86). 경고는 전환을 막지 않는다(D-CAC-28): 전환 응답에 `pinnedRunning:true` 를 싣고, 화면은 토스트로, otterctl 은 한 줄로 "이 계정은 고정 실행 중인 탭이 있습니다. 그 탭은 영향을 받지 않습니다" 를 알린다.
 
 ### 3.D OAuth 갱신과 로그인 만료
 
@@ -187,7 +187,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 ### 3.E 사용량 조회
 
 - **FR-CAC-50** 서버의 사용량 조회기는 등록된 계정이 1개 이상일 때만 돈다. 계정마다 `{lastGood, fetchedAt, lastAttemptAt, consecutiveFailures, lastError, backoffUntil, nextPollAt, pollIntervalS, last429At, authDead}` 를 `usage.json` 에 둔다.
-- **FR-CAC-51** 조회는 `GET https://api.anthropic.com/api/oauth/usage`, 헤더 `Authorization: Bearer <accessToken>`, `anthropic-beta: oauth-2025-04-20`, `User-Agent: dongminal/<버전>`, 5초 제한이다. 한 번에 여러 계정을 조회할 때는 0.25초 간격을 둔다.
+- **FR-CAC-51** 조회는 `GET https://api.anthropic.com/api/oauth/usage`, 헤더 `Authorization: Bearer <accessToken>`, `anthropic-beta: oauth-2025-04-20`, `User-Agent: otterminal/<버전>`, 5초 제한이다. 한 번에 여러 계정을 조회할 때는 0.25초 간격을 둔다.
 - **FR-CAC-52** 응답 해석.
   - `five_hour`, `seven_day`: `{utilization, resets_at}` → `{pct, resetsAt}`.
   - `limits[]` 중 `scope.model.display_name` 과 `percent` 가 있는 항목 → `scoped[]{name, pct, resetsAt}`.
@@ -247,7 +247,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
   - `POST /api/claude-accounts/reset` `{id, program, grantId?}` → `{result, …}`(FR-CAC-63). 결과는 언제나 200 이다. `program` 이 둘 중 하나가 아니거나, `cedar_ember` 에 `grantId` 가 없거나 형식이 틀리면 400 `claude_account_invalid`.
   - `POST /api/claude-accounts/refresh` `{id, resets:true}` 는 두 상태만 바로 조회한다. 마지막 상태 조회가 180초 안이면 409 `claude_too_soon`. 화면은 이것을 부르지 않는다(D-CAC-36).
   - 오버레이의 "제한 초기화" 칸: 머리에 마지막 상태 조회 시각을 "n분 전" 으로 붙인다. 조회한 적이 없으면 칸에 "새로 고침을 누르면 조회합니다" 만 보인다. 주간 5시간 초기화는 `eligible` 일 때 보인다. `available` 이면 "초기화 사용…", 아니고 `nextAvailableAt` 이 있으면 "다음 가능 <시각>". 티켓은 `eligible` 이고 `resetsLeft > 0` 인 것을 보인다. 이름, 남은 횟수(`resetsLeft/resetsTotal`), 기한(`endsAt`), `paused` 면 "멈춤". `usableNow` 면 "초기화 사용…".
-  - `dmctl account reset <계정> --program juniper_tide|cedar_ember [--grant <id>] [--yes]` 는 `--yes` 가 없으면 FR-CAC-62 의 내용을 보이고 `y` 를 받아야 보낸다. 결과가 `reset` 이 아니면 종료 코드 1 이다. `dmctl account usage` 는 쓸 수 있는 초기화가 있으면 그 줄을 보인다.
+  - `otterctl account reset <계정> --program juniper_tide|cedar_ember [--grant <id>] [--yes]` 는 `--yes` 가 없으면 FR-CAC-62 의 내용을 보이고 `y` 를 받아야 보낸다. 결과가 `reset` 이 아니면 종료 코드 1 이다. `otterctl account usage` 는 쓸 수 있는 초기화가 있으면 그 줄을 보인다.
 - **FR-CAC-64** 자동 전환은 제한 초기화를 쓰지 않는다. 모든 후보가 헤드룸 0 이하이고 어느 계정에 쓸 수 있는 초기화가 있으면 "초기화 가능" 알림을 보낸다 (FR-CAC-100).
 
 ### 3.G 자동 전환
@@ -301,9 +301,9 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
   - 설정이나 상태가 바뀌면 SSE `claude_accounts_changed` 를 보낸다.
   - 자동 전환기는 사용량 조회 엔진과 같은 서버 프로세스에서 돈다. 꺼져 있어도 알림 판정(FR-CAC-100a)은 같은 주기로 돈다 — 그때 판단은 전환을 하지 않는다.
 - **FR-CAC-78** **statusLine 값의 계정 귀속과 판단 값** (D-CAC-21).
-  - `dmctl statusline` 프록시는 보고에 `account:{email, organizationUuid}` 를 싣는다. 값은 그 세션의 설정 폴더에서 읽는다 — `CLAUDE_CONFIG_DIR` 이 있으면 `<CLAUDE_CONFIG_DIR>/.claude.json`, 없으면 `~/.claude.json` 의 `oauthAccount`. 읽지 못하면 `account` 를 싣지 않는다. 토큰은 싣지 않는다.
+  - `otterctl statusline` 프록시는 보고에 `account:{email, organizationUuid}` 를 싣는다. 값은 그 세션의 설정 폴더에서 읽는다 — `CLAUDE_CONFIG_DIR` 이 있으면 `<CLAUDE_CONFIG_DIR>/.claude.json`, 없으면 `~/.claude.json` 의 `oauthAccount`. 읽지 못하면 `account` 를 싣지 않는다. 토큰은 싣지 않는다.
   - 서버는 `account` 가 있는 보고를 `(email, organizationUuid)` 마다 마지막 값 하나로 둔다(서버 메모리, 5시간·주간 창). `account` 가 없는 보고만 기존 에이전트 단위 값(FR-ASV-20)으로 둔다. 데몬의 한도 기록도 같은 규칙이다.
-  - **판단 값**: 계정의 결정 값(FR-CAC-55)은 창마다 OAuth 값과 statusLine 값을 합친 것이다. 쓸 수 있는 statusLine 값 = 마지막 보고가 300초 이내이고, 그 보고가 마지막 전환(dongminal 이 한 전환) 뒤 60초 이후에 왔다 — 전환 직후에는 실행 중인 세션이 옛 토큰을 쓰기 때문이다. 창 하나의 합치기:
+  - **판단 값**: 계정의 결정 값(FR-CAC-55)은 창마다 OAuth 값과 statusLine 값을 합친 것이다. 쓸 수 있는 statusLine 값 = 마지막 보고가 300초 이내이고, 그 보고가 마지막 전환(otterminal 이 한 전환) 뒤 60초 이후에 왔다 — 전환 직후에는 실행 중인 세션이 옛 토큰을 쓰기 때문이다. 창 하나의 합치기:
     - 초기화 시각이 지난 값은 버린다.
     - 두 값의 초기화 시각이 모두 있고 300초 넘게 다르면 늦은 쪽(새 창)을 쓴다.
     - 그 밖에는 사용률이 큰 쪽을 쓴다. 한 창 안에서 사용률은 줄지 않으므로 큰 값이 더 새 값이다.
@@ -316,21 +316,21 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 
 - **FR-CAC-80** `mappings.json` 은 `{folders:{"<정규화한 절대경로>":{accountId}}, tabs:{"<toolId>":{accountId}}}` 이다. 경로는 심볼릭 링크를 풀고 끝의 구분자를 뗀다. Windows 는 대소문자를 구분하지 않는다.
 - **FR-CAC-81** **해석 순서**: ① 탭 지정 ② 현재 폴더(cwd)와 같거나 가장 가까운 상위의 폴더 매핑 ③ 없음(전역 활성 계정). 가리키는 계정이 삭제됐으면 그 매핑은 없는 것으로 본다.
-- **FR-CAC-81a** **탭 지정의 수명** (D-CAC-27): 탭 지정은 그 탭이 닫히면 지운다. 서버는 도구가 끝난 것을 보면 그 `toolId` 의 지정을 지운다. 도구 목록을 처음 알게 될 때 살아 있지 않은 `toolId` 의 지정도 지운다. 목록을 모르는 동안에는 지우지 않는다(TOOL_LIST_UNKNOWN_SRS 와 같은 규약). dongminal 을 다시 켜서 같은 `toolId` 로 되살아난 탭은 닫힌 것이 아니므로 지정이 남는다(도구 복원은 같은 `toolId` 를 쓴다 — `toolhub/persist.go`).
+- **FR-CAC-81a** **탭 지정의 수명** (D-CAC-27): 탭 지정은 그 탭이 닫히면 지운다. 서버는 도구가 끝난 것을 보면 그 `toolId` 의 지정을 지운다. 도구 목록을 처음 알게 될 때 살아 있지 않은 `toolId` 의 지정도 지운다. 목록을 모르는 동안에는 지우지 않는다(TOOL_LIST_UNKNOWN_SRS 와 같은 규약). otterminal 을 다시 켜서 같은 `toolId` 로 되살아난 탭은 닫힌 것이 아니므로 지정이 남는다(도구 복원은 같은 `toolId` 를 쓴다 — `toolhub/persist.go`).
   - 정리하는 때: 매핑을 읽는 API(`GET /mappings`·`/resolve`·`/launch`)가 불릴 때마다, 도구 목록을 알면 살아 있지 않은 `toolId` 의 지정을 지운다. 지정은 읽힐 때만 쓰이므로 결과는 "도구가 끝나면 지운다" 와 같다. 종료 콜백(데몬·직접 모드가 다름)에 잇지 않는다.
 - **FR-CAC-82** **프로필**: `profiles/<id>/` 를 계정의 `CLAUDE_CONFIG_DIR` 로 쓴다. 처음 만들 때와 실행할 때마다 아래를 맞춘다.
   - 자격증명: 프로필 저장소가 비었거나 백업보다 낡았으면 백업을 프로필 저장소에 쓴다. macOS 프로필 저장소는 키체인 서비스 `Claude Code-credentials-<sha256(NFC(CLAUDE_CONFIG_DIR 원문))의 앞 8자>` 다. 그 밖은 `profiles/<id>/.credentials.json`.
   - `.claude.json` (D-CAC-26): 실행할 때마다 기본 프로필의 설정 파일(`DefaultClaudePaths.GlobalConfig`)을 읽어 최상위 항목을 프로필의 `.claude.json` 에 덮어쓴다. 파일을 통째로 복사하지 않는다. **계정 항목**은 가져오지 않고 프로필의 값을 둔다: `oauthAccount`, `userID`, 이름에 `Cache` 가 들어가거나 `cached` 로 시작하는 항목, 그리고 `claudeCodeFirstTokenDate`·`passesLastSeenRemaining`·`penguinModeOrgEnabled`·`managedSettingsNoticeSeenOrg`. `oauthAccount` 는 그 계정의 사본(`configs/<id>.json`)으로 맞추고 `hasCompletedOnboarding` 은 `true` 로 둔다. 방향은 기본 → 프로필 한쪽뿐이다. 프로필 안에서 바뀐 값(폴더 신뢰, MCP 추가 등)은 다음 실행 때 덮인다. 쓰기는 프로필의 Claude 락(`lockClaude`) 아래에서 원자적으로 한다. 기본 설정 파일을 읽지 못하면 계정 항목만 맞추고 나머지는 그대로 둔다.
   - 공유 항목 `settings.json`, `keybindings.json`, `CLAUDE.md`, `skills`, `commands`, `agents`, `rules`, `plugins`, `projects`, `history.jsonl` 은 `~/.claude` 의 것에 심볼릭 링크로 잇는다. 링크를 만들 수 없으면(Windows 권한) 파일은 복사하고 폴더는 디렉터리 정션을 쓴다. 정션도 실패하면 그 항목은 잇지 않고 설정 화면에 경고를 보인다.
-- **FR-CAC-83** **claude shim** (D-CAC-24): dongminal 탭에서 `claude` 를 실행하면 shim 이 먼저 돈다. shim 은 dongminal 바이너리를 `claude` 라는 이름으로 부른 helper 다(`dmctl` 과 같은 multi-call 방식).
+- **FR-CAC-83** **claude shim** (D-CAC-24): otterminal 탭에서 `claude` 를 실행하면 shim 이 먼저 돈다. shim 은 otterminal 바이너리를 `claude` 라는 이름으로 부른 helper 다(`otterctl` 과 같은 multi-call 방식).
   - 자리: `<home>/bin/agent-shims/claude` (Windows 는 `claude.exe`). 설치는 기존 helper 설치와 같은 경로로 한다. 사용자 파일, 진짜 claude, `~/.claude` 는 건드리지 않는다.
-  - PATH: 세 셸 훅(zsh·bash·PowerShell)이 사용자 rc 를 읽은 **뒤에** `agent-shims` 를 PATH 맨 앞에 넣는다. 프롬프트를 그릴 때마다 맨 앞이 아니면 맨 앞으로 다시 옮긴다(중복 없이). 셸 함수 `claude()` 는 없앤다. dongminal 탭 밖의 셸에는 영향이 없다.
-  - 순서: ① PATH 에서 `agent-shims` 폴더를 뺀 나머지에서 진짜 claude 를 찾는다. 없으면 `claude 를 찾을 수 없습니다` 를 표준 오류에 쓰고 127 로 끝난다. ② `--settings`(`bin/agent-hooks/claude.json`)·`--plugin-dir`(`bin/agent-plugin`)를 있을 때만 붙인다(기존 래퍼와 같은 규칙). ③ 환경에 `CLAUDE_CONFIG_DIR` 이 이미 있으면 서버에 묻지 않고 그대로 실행한다. ④ 없으면 `POST /api/claude-accounts/launch {toolId: $DONGMINAL_TOOL_ID, cwd: 현재 폴더}` 를 3초 제한으로 부른다(FR-CAC-88). ⑤ 답에 `configDir` 가 있으면 그 실행에만 `CLAUDE_CONFIG_DIR` 로 넣고, 없으면 그대로 실행한다. ⑥ POSIX 는 `exec` 로 자기 자신을 진짜 claude 로 바꾼다(신호·종료 코드가 그대로 간다). Windows 는 자식으로 띄우고 종료 코드를 그대로 돌려준다.
-  - 실패 (D-CAC-25): 서버에 연결 자체가 되지 않으면(서버가 꺼짐) 기본 계정으로 조용히 실행한다. 서버가 오류로 답하거나 3초 안에 답하지 않으면 `dongminal: Claude 계정 지정을 적용하지 못했습니다 (<사유>)` 를 표준 오류에 쓰고 **실행하지 않는다**(종료 코드 1). 사유에 토큰·경로 밖의 비밀은 싣지 않는다.
+  - PATH: 세 셸 훅(zsh·bash·PowerShell)이 사용자 rc 를 읽은 **뒤에** `agent-shims` 를 PATH 맨 앞에 넣는다. 프롬프트를 그릴 때마다 맨 앞이 아니면 맨 앞으로 다시 옮긴다(중복 없이). 셸 함수 `claude()` 는 없앤다. otterminal 탭 밖의 셸에는 영향이 없다.
+  - 순서: ① PATH 에서 `agent-shims` 폴더를 뺀 나머지에서 진짜 claude 를 찾는다. 없으면 `claude 를 찾을 수 없습니다` 를 표준 오류에 쓰고 127 로 끝난다. ② `--settings`(`bin/agent-hooks/claude.json`)·`--plugin-dir`(`bin/agent-plugin`)를 있을 때만 붙인다(기존 래퍼와 같은 규칙). ③ 환경에 `CLAUDE_CONFIG_DIR` 이 이미 있으면 서버에 묻지 않고 그대로 실행한다. ④ 없으면 `POST /api/claude-accounts/launch {toolId: $OTTERMINAL_TOOL_ID, cwd: 현재 폴더}` 를 3초 제한으로 부른다(FR-CAC-88). ⑤ 답에 `configDir` 가 있으면 그 실행에만 `CLAUDE_CONFIG_DIR` 로 넣고, 없으면 그대로 실행한다. ⑥ POSIX 는 `exec` 로 자기 자신을 진짜 claude 로 바꾼다(신호·종료 코드가 그대로 간다). Windows 는 자식으로 띄우고 종료 코드를 그대로 돌려준다.
+  - 실패 (D-CAC-25): 서버에 연결 자체가 되지 않으면(서버가 꺼짐) 기본 계정으로 조용히 실행한다. 서버가 오류로 답하거나 3초 안에 답하지 않으면 `otterminal: Claude 계정 지정을 적용하지 못했습니다 (<사유>)` 를 표준 오류에 쓰고 **실행하지 않는다**(종료 코드 1). 사유에 토큰·경로 밖의 비밀은 싣지 않는다.
 - **FR-CAC-84** ~~GUI 기동~~ **해당 없음** (2026-11-13): 에이전트 GUI 와 그 기동 경로는 지워졌다(`AGENT_GUI_REMOVAL_SRS` §6, D-4). claude 는 늘 터미널 탭의 셸에서 뜨므로(원격 기동·issue-tree 포함) 셸 래퍼(FR-CAC-83)가 모든 기동을 맡는다.
 - **FR-CAC-85** 탭 지정은 탭 우클릭 메뉴 "Claude 계정" 에서 고르거나 푼다. 이미 실행 중인 claude 에는 적용되지 않고 다음 실행부터 적용된다. 메뉴에 그 사실을 적는다.
 - **FR-CAC-86** **프로필 토큰 회수** (D-CAC-29): 프로필에서 실행한 claude 가 토큰을 돌리면 백업이 낡는다. 조회기는 프로필이 있는 계정을 조회하기 전에 프로필 저장소를 읽고, 같은 계정(프로필 `.claude.json` 의 `oauthAccount` 가 그 계정)이고 백업보다 새것이면(expiresAt 이 더 늦음) 계정별 소비 락 아래에서 백업에 쓴다. 프로필 준비(FR-CAC-82)와 고정 실행 중인 계정에서의 전환(FR-CAC-36) 앞에서도 같은 회수를 한다.
-- **FR-CAC-88** **실행 준비 API**: `POST /api/claude-accounts/launch {toolId?, cwd}` 는 FR-CAC-81 로 계정을 정한다. 계정이 있으면 프로필을 맞추고(FR-CAC-82) `{accountId, source:"tab"|"folder", configDir}` 를 돌려준다. 계정이 없으면 `{source:"none"}` 이다. `cwd` 가 절대 경로가 아니면 400 `claude_account_invalid`. 프로필을 맞추지 못하면 500 이고 shim 은 실행하지 않는다. `GET /api/claude-accounts/resolve` 는 같은 해석이지만 프로필을 맞추지 않는다(화면·dmctl 용 읽기).
+- **FR-CAC-88** **실행 준비 API**: `POST /api/claude-accounts/launch {toolId?, cwd}` 는 FR-CAC-81 로 계정을 정한다. 계정이 있으면 프로필을 맞추고(FR-CAC-82) `{accountId, source:"tab"|"folder", configDir}` 를 돌려준다. 계정이 없으면 `{source:"none"}` 이다. `cwd` 가 절대 경로가 아니면 400 `claude_account_invalid`. 프로필을 맞추지 못하면 500 이고 shim 은 실행하지 않는다. `GET /api/claude-accounts/resolve` 는 같은 해석이지만 프로필을 맞추지 않는다(화면·otterctl 용 읽기).
 - **FR-CAC-88a** **경로 모양** (5a): `resolve`·`launch` 의 답은 `{accountId?, source, folder?, configDir?, path}` 다. `folder` 는 출처가 폴더 연결일 때 그 연결의 경로다. `path` 는 받은 `cwd` 를 FR-CAC-80 규칙으로 정규화한 값이다(5b — 화면이 매핑 키와 견줄 때 쓴다, D-CAC-30). `GET /mappings` 는 `mappings.json` 과 같은 모양이다. `PUT /mappings` 는 `{folder, accountId}` 또는 `{toolId, accountId}` 하나를 받고 `accountId` 가 비면 푼다. 둘 다 주거나 둘 다 없으면 400 `claude_account_invalid`, 없는 계정은 404 `claude_account_not_found` 다. 응답은 GET 과 같다. 링크하지 못한 공유 항목(FR-CAC-82)은 서버 로그에 남긴다 — 설정 화면의 경고는 6단계다.
 - **FR-CAC-88b** **링크 경고의 전달** (6단계): 서버는 계정마다 마지막 프로필 준비에서 잇지 못한 공유 항목 이름을 메모리에 둔다. 다음 준비가 모두 이으면 지운다. 계정을 지우면 지운다. `GET /api/claude-accounts` 의 계정마다 `profileWarnings?:[이름]` 으로 싣는다. 서버를 다시 켜면 다음 실행 때까지 비어 있다.
 - **FR-CAC-87** **고정 실행 중**: 프로필 폴더 아래 `sessions/<pid>.json` 이 있고 그 pid 가 살아 있으면 그 계정은 고정 실행 중이다. 고정 실행 중인 계정은 자동 전환의 대상이 아니다. 활성 계정이 고정 실행 중이어도 자동 전환은 활성 저장소만 바꾸므로 그 세션에는 영향이 없다.
@@ -349,7 +349,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
   - **요약 오버레이**: 색 바 밖의 칸 어디든 누르면 오버레이가 뜬다. 오버레이는 Activity 패널 바깥 옆(패널이 오른쪽이면 왼쪽, 왼쪽이면 오른쪽)에 뜨고, 세로 위치는 누른 칸에 맞추되 화면 안으로 당긴다. 옆에 자리가 없으면(모바일 등) 화면 폭에 맞춰 누른 칸 위쪽에 뜬다. Usage 의 칸을 덮거나 칸 사이 공간을 차지하지 않는다. 내용은 가는 선으로 나눈 구역 순서로 둔다: ① 머리(색 점·이름, 활성이면 오른쪽에 활성 표식, 아래에 이메일·조직과 상태 문구) ② 사용량(5시간·주간 막대, `scoped` 막대, 예측) ③ 기타(추가 사용량, 로그인 만료일 — 없으면 구역째 없음) ④ 제한 초기화(쓸 수 있으면 줄 오른쪽에 "초기화 사용…") ⑤ 동작(왼쪽 "새로 고침", 오른쪽 "이 계정으로 전환"). 오버레이 밖을 누르거나 Esc 를 누르면 닫힌다. 같은 칸을 다시 누르면 닫히고, 다른 칸을 누르면 그 계정으로 옮긴다. "이 계정으로 전환" 을 누르면 닫힌다. 오버레이는 한 번에 하나이고 기억하지 않는다. 열 때 서버에 묻지 않는다 — 제한 초기화 상태는 "새로 고침" 으로만 조회한다(FR-CAC-60, D-CAC-36).
   - 동작: "이 계정으로 전환"(활성 아닐 때), "새로 고침", 쓸 수 있는 제한 초기화가 있으면 "초기화 사용…".
 - **FR-CAC-92** foot 머리 줄에 "자동 전환 켜짐/꺼짐" 표식과 스마트 전환 메뉴(`next`, `next-available`, `best`)를 둔다. 2단계는 `next` 하나("다음 계정" 버튼, 계정이 둘 이상일 때)만 둔다. 표식과 나머지 둘은 자동 전환·사용량 판단과 함께 4단계에서 더한다.
-  - 4단계 모양: 머리 줄에 표식(`autoswitch.status` 문구, 켜짐이면 강조)과 "전환 ▾" 단추(계정이 둘 이상일 때)를 둔다. 전환 기록은 Activity 에 두지 않는다(FR-CAC-111). "전환 ▾" 는 세 항목 메뉴를 연다. 표식은 누를 수 없다 — 켜고 끄기는 `dmctl account auto` 와 6단계 설정 화면이 한다.
+  - 4단계 모양: 머리 줄에 표식(`autoswitch.status` 문구, 켜짐이면 강조)과 "전환 ▾" 단추(계정이 둘 이상일 때)를 둔다. 전환 기록은 Activity 에 두지 않는다(FR-CAC-111). "전환 ▾" 는 세 항목 메뉴를 연다. 표식은 누를 수 없다 — 켜고 끄기는 `otterctl account auto` 와 6단계 설정 화면이 한다.
   - `best` 가 전환하지 않으면 `reason` 문구(`cacct.reason.<reason>`)를 토스트로 알린다.
 - **FR-CAC-93** **statusLine 줄**: statusLine `rate_limits` 값을 계정마다 한 줄로 보인다 (D-CAC-22). 예: 머리 `statusLine` 아래 `● 업무  세션 34% · 주간 21%  2시간 10분 후 초기화`. 등급 색은 기존 규칙(70/90)을 쓴다. 계정 묶음의 막대(표시 값)와 별개로, statusLine 이 보고한 값 그대로 보인다.
   - 순서: 등록된 계정(계정 순서, 계정 색 점과 표시 이름) → 등록되지 않은 계정(표시 이름만, FR-CAC-101 규칙) → 계정을 모르는 보고(기존 한 줄, 이름 없이 `statusLine`).
@@ -411,32 +411,32 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
     | `autoswitch_stopped` | cswap 자동 전환을 감지해 자동 전환을 껐다 (FR-CAC-75) | 없음 |
   - 꺼진 자동 전환에서도 `near_limit` 의 후보 순위는 같은 규칙(트리거 `proactive`)으로 셈한다.
 
-### 3.K `dmctl account`
+### 3.K `otterctl account`
 
 - **FR-CAC-102** 하위 명령.
   | 명령 | 동작 |
   |---|---|
-  | `dmctl account list [--json]` | 계정·상태·사용량·만료일 |
-  | `dmctl account add` | 현재 계정 추가 (FR-CAC-10) |
-  | `dmctl account remove <id\|별칭\|이메일>` | 삭제 (`--yes` 없으면 확인을 묻는다) |
-  | `dmctl account switch <id\|별칭\|이메일>` | 지정 전환 |
-  | `dmctl account switch --strategy next\|next-available\|best` | 스마트 전환 |
-  | `dmctl account usage [<계정>] [--refresh]` | 사용량 |
-  | `dmctl account reset <계정> --program juniper_tide\|cedar_ember [--grant <id>] [--yes]` | 제한 초기화 (`--yes` 없으면 확인을 묻는다) |
-  | `dmctl account auto on\|off\|status [--json]` | 자동 전환 (FR-CAC-76 의 PUT·GET) |
-  | `dmctl account pin [--tab <toolId>] <계정>\|--clear` | 탭 지정 (기본은 자기 탭) |
-  | `dmctl account map <계정> [경로]` / `unmap [경로]` / `maps` | 폴더 매핑 |
-  | ~~`dmctl account env`~~ | 두지 않는다 — shim 이 서버에 직접 묻는다 (FR-CAC-83, D-CAC-24) |
-  | `dmctl account history [--limit N]` | 전환 기록 |
+  | `otterctl account list [--json]` | 계정·상태·사용량·만료일 |
+  | `otterctl account add` | 현재 계정 추가 (FR-CAC-10) |
+  | `otterctl account remove <id\|별칭\|이메일>` | 삭제 (`--yes` 없으면 확인을 묻는다) |
+  | `otterctl account switch <id\|별칭\|이메일>` | 지정 전환 |
+  | `otterctl account switch --strategy next\|next-available\|best` | 스마트 전환 |
+  | `otterctl account usage [<계정>] [--refresh]` | 사용량 |
+  | `otterctl account reset <계정> --program juniper_tide\|cedar_ember [--grant <id>] [--yes]` | 제한 초기화 (`--yes` 없으면 확인을 묻는다) |
+  | `otterctl account auto on\|off\|status [--json]` | 자동 전환 (FR-CAC-76 의 PUT·GET) |
+  | `otterctl account pin [--tab <toolId>] <계정>\|--clear` | 탭 지정 (기본은 자기 탭) |
+  | `otterctl account map <계정> [경로]` / `unmap [경로]` / `maps` | 폴더 매핑 |
+  | ~~`otterctl account env`~~ | 두지 않는다 — shim 이 서버에 직접 묻는다 (FR-CAC-83, D-CAC-24) |
+  | `otterctl account history [--limit N]` | 전환 기록 |
 - **FR-CAC-103** `--json` 출력에는 `schemaVersion` 을 둔다. 토큰은 없다.
 
 ### 3.L 전환 기록
 
-- **FR-CAC-110** 전환마다 `history.jsonl` 에 `{at, from, to, trigger(manual|next|next-available|best|proactive|at-limit|failover|consume-first|priority), headroomFrom, headroomTo, by(ui|dmctl|auto)}` 한 줄을 더한다. 1000줄을 넘으면 오래된 것부터 지운다.
+- **FR-CAC-110** 전환마다 `history.jsonl` 에 `{at, from, to, trigger(manual|next|next-available|best|proactive|at-limit|failover|consume-first|priority), headroomFrom, headroomTo, by(ui|otterctl|auto)}` 한 줄을 더한다. 1000줄을 넘으면 오래된 것부터 지운다.
 - **FR-CAC-110a** **기록의 값과 경로**.
   - 실제로 전환된 때만 적는다(`noop` 은 적지 않는다). `from`·`to` 는 계정 ID 다. `headroomFrom`·`headroomTo` 는 전환 직전의 신선한 헤드룸(FR-CAC-31a 의 `models` 규칙)이고, 모르면 `null` 이다.
   - `trigger`: `POST /switch {id}` 는 `manual`, `{strategy}` 는 전략 이름, 자동 전환은 FR-CAC-72 의 트리거다(`priority-consume-first` 는 `priority` 로 적는다).
-  - `by`: `POST /api/claude-accounts/switch` 본문에 `by` 를 받는다. 값은 `ui`·`dmctl` 이고 없으면 `ui` 다. 그 밖의 값(`auto` 포함)은 400 `claude_account_invalid` 다. `auto` 는 서버 안의 자동 전환기만 적는다 (D-CAC-18). `dmctl` 은 늘 `by:"dmctl"` 을 보낸다.
+  - `by`: `POST /api/claude-accounts/switch` 본문에 `by` 를 받는다. 값은 `ui`·`otterctl` 이고 없으면 `ui` 다. 그 밖의 값(`auto` 포함)은 400 `claude_account_invalid` 다. `auto` 는 서버 안의 자동 전환기만 적는다 (D-CAC-18). `otterctl` 은 늘 `by:"otterctl"` 을 보낸다.
   - 기록 쓰기가 실패해도 전환은 되돌리지 않는다. 로그만 남긴다.
   - `GET /api/claude-accounts/history?limit=N` → `{entries:[…]}`, 최신 먼저. `limit` 은 1~1000, 기본 50. 범위 밖이면 400. 계정 이름은 싣지 않는다 — 화면이 계정 목록으로 이름을 찾고, 지워진 계정은 "삭제된 계정" 으로 보인다.
 - **FR-CAC-111** 설정의 전환 기록 구역에서 "기록" 을 누르면 최근 50건을 대화상자로 띄운다. Activity 에는 전환 기록을 두지 않는다.
@@ -473,7 +473,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | ID | 결정 | 근거 |
 |---|---|---|
 | D-CAC-1 | 구독 OAuth 토큰을 저장하고 내부 API(`oauth/usage`, `oauth/profile`, `oauth/token`, `reset_rate_limits`)를 자동으로 호출한다 | 정보보호팀 사전 승인(①~④)을 사용자가 확인했다(2026-11-13). D-ACU-3·D-ASV-2 를 대체한다 |
-| D-CAC-2 | 저장소는 dongminal 자체 저장소만 쓴다. cswap 저장소를 읽거나 가져오지 않는다 | 사용자 결정. cswap 내부 형식이 바뀌어도 영향이 없다 |
+| D-CAC-2 | 저장소는 otterminal 자체 저장소만 쓴다. cswap 저장소를 읽거나 가져오지 않는다 | 사용자 결정. cswap 내부 형식이 바뀌어도 영향이 없다 |
 | D-CAC-3 | 등록은 "현재 로그인한 계정 추가" 하나만 둔다 | 사용자 결정. 격리 로그인·setup-token·자체 OAuth 로그인은 넣지 않는다(setup-token 은 추론 전용 스코프라 사용량 API 가 403 이다) |
 | D-CAC-4 | 제한 초기화는 수동 사용 + 확인 대화상자로만 쓴다. 자동 전환은 쓰지 않고 알림만 한다 | 사용자 결정. 한정된 자원을 되돌릴 수 없게 소모한다 |
 | D-CAC-5 | 모든 운영체제를 지원한다 | 사용자 결정. Linux·Windows 의 Claude Code 는 `.credentials.json` 파일을 쓰므로 같은 방식이 통한다 |
@@ -482,14 +482,14 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | D-CAC-8 | 폴더 매핑 전체는 설정의 "폴더 연결" 목록에서만 보이고, 화면 곳곳(사이드바 Repo·Explorer·탭)은 그 자리에 적용되는 계정만 보인다 | 사용자 결정. Repo Explorer 는 저장소마다 따로라 전체를 보일 수 없다 |
 | D-CAC-9 | 탭 표시는 배경 틴트다. 탭 지정은 진하게, 폴더 매핑은 옅게 | 사용자가 배경 틴트를 골랐다. 진하기 구분은 출처를 알리기 위한 기본값이다 |
 | D-CAC-10 | 계정 ID 는 UUIDv7(기존 `internal/shared/uuid`)이다. cswap 의 슬롯 번호를 쓰지 않는다 | 순서 바꾸기(FR-CAC-13)와 ID 가 엮이지 않는다. 매핑·기록이 순서 변경에 흔들리지 않는다 |
-| D-CAC-11 | **개정(D-CAC-24)**: shim 이 서버의 `launch` 를 직접 부른다. 원문: 셸 래퍼가 실행 때마다 `dmctl account env` 로 계정을 해석한다. 탭 셸의 환경 변수를 미리 넣지 않는다 | 탭 지정과 폴더 매핑을 바꾸면 이미 열린 셸에도 다음 실행부터 적용된다. cwd 기준 해석이 가능하다 |
+| D-CAC-11 | **개정(D-CAC-24)**: shim 이 서버의 `launch` 를 직접 부른다. 원문: 셸 래퍼가 실행 때마다 `otterctl account env` 로 계정을 해석한다. 탭 셸의 환경 변수를 미리 넣지 않는다 | 탭 지정과 폴더 매핑을 바꾸면 이미 열린 셸에도 다음 실행부터 적용된다. cwd 기준 해석이 가능하다 |
 | D-CAC-12 | cswap 과 자동 전환을 동시에 돌리지 않는다 (FR-CAC-75) | 두 도구가 활성 저장소를 서로 덮어쓴다 |
 | D-CAC-13 | "웹에서 열기"(등록 계정으로 claude.ai 열기)는 넣지 않는다 | 사용자가 포기했다. OAuth 토큰을 웹 세션으로 바꾸는 공식 경로가 없다 |
 | D-CAC-14 | 계정 색은 다크·라이트 두 벌의 고정 팔레트다. `applyThemeObj` 가 테마 모드로 벌을 골라 `--acct-1`~`--acct-8` 에 넣는다 | 사용자 결정(2026-11-13). 가장 밝은 다크 표면(휘도 0.065)에서 3:1 은 색 휘도 0.295 이상, 가장 어두운 라이트 표면(0.605)에서 3:1 은 0.168 이하라서 한 벌로는 둘 다 넘을 수 없다. `check-contrast.mjs` 가 54종 × 세 표면을 잰다 |
 | D-CAC-15 | 계정 창의 등급과 남은 시간은 서버가 셈한다. 등급 경계는 statusLine 한도와 한 벌(`claudeacct.UsageLevel`)이다 | D-ASV-10 과 같다 — 판정은 서버가 한다. 경계를 두 곳에 두면 갈라진다 |
 | D-CAC-17 | 스마트 전환(`next-available`·`best`)은 신선하지 않은 계정 중 조회할 수 있는 것을 먼저 조회하고, 그래도 값을 모르는 계정은 두 전략 모두 건너뛴다 (FR-CAC-31a) | 사용자 결정(2026-11-13). 값을 모르는 계정으로 옮겨 가서 바로 한도에 걸리는 일을 막는다. 물러나는 중인 계정은 요청 예산 때문에 다시 조회하지 않는다. cswap 은 `next-available` 에서 모르는 계정을 건너뛰지 않는다 |
 | D-CAC-18 | 전환 기록의 `by` 는 `POST /switch` 본문으로 받는다. `auto` 는 API 로 받지 않는다 (FR-CAC-110a) | 사용자 결정(2026-11-13) |
-| D-CAC-19 | 자동 전환 API 는 설정(`settings`)과 상태(`state`)를 나눠 싣고, 목록 응답에는 요약만 싣는다 (FR-CAC-76) | 사용자가 구현자 판단에 맡겼다(2026-11-13). `dmctl account auto status` 가 한 번의 호출로 설정과 상태를 본다 |
+| D-CAC-19 | 자동 전환 API 는 설정(`settings`)과 상태(`state`)를 나눠 싣고, 목록 응답에는 요약만 싣는다 (FR-CAC-76) | 사용자가 구현자 판단에 맡겼다(2026-11-13). `otterctl account auto status` 가 한 번의 호출로 설정과 상태를 본다 |
 | D-CAC-20 | 알림은 SSE `claude_account_alert` 하나로 보내고, 중복 억제 키를 `autoswitch.json` 에 둔다 (FR-CAC-100a) | 사용자가 구현자 판단에 맡겼다(2026-11-13). 서버를 다시 띄워도 같은 알림이 되풀이되지 않는다 |
 | D-CAC-21 | statusLine 보고에 그 세션의 계정(`email`, `organizationUuid`)을 싣고, 판단은 창마다 OAuth 값과 statusLine 값 중 큰 값을 쓴다 (FR-CAC-78) | 사용자 결정(2026-11-13). OAuth 조회는 최대 5분 늦어 그 사이 한도를 넘길 수 있다. statusLine 은 요청마다 갱신된다. 보고 때 계정을 읽어야 5단계의 탭·폴더별 계정에서도 섞이지 않는다 |
 | D-CAC-22 | statusLine 줄을 계정마다 한 줄로 보인다. 계정 묶음의 막대는 OAuth 값 그대로다 (FR-CAC-93) | 사용자 결정(2026-11-13) |
@@ -497,7 +497,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | D-CAC-36 | 사용량 API 호출 횟수를 cswap 수준으로 맞춘다: 초기화 상태는 자동으로 묻지 않고(새로 고침·초기화 사용 뒤만), 수동 조회의 최소 간격은 180초다 (FR-CAC-58·60·65) | 사용자 결정(2026-11-16). 이 API 는 계정마다 최근 60분에 약 28~30회만 받는다(cswap `poll_policy.py` 실측). 초기화 상태 조회(3번에 2회 추가)와 펼칠 때의 조회가 활성 계정을 한도 위로 밀어 429 가 이어졌다 |
 | D-CAC-37 | 좁은 카드와 statusLine 줄은 같은 한 줄 모양(이름 칸 + 세션·주간 고정 폭 칸, 칸 앞 작은 창 이름, 남은 시간은 가장 큰 단위 하나)이고, statusLine 구역은 점선·바탕·색 바 없음으로 나눈다 (FR-CAC-91·93) | 사용자 결정(2026-11-16). 패널 기본 폭 260px 에서 두 창의 사용률·남은 시간을 한 줄에 넣으려면 짧게 써야 하고, 같은 열로 맞춰야 카드와 statusLine 을 견주기 쉽다 |
 | D-CAC-23 | 문턱값(전역·주간·계정별) 범위를 50~100 으로 넓힌다 | 사용자 결정(2026-11-13). statusLine 값이 실시간이면 100 이어도 한도에 닿는 순간 전환한다. statusLine 보고가 없는 동안은 OAuth 값만 쓰므로 잠깐 한도에 걸릴 수 있다 |
-| D-CAC-24 | 계정 지정과 훅 인자는 셸 함수 대신 PATH shim(`<home>/bin/agent-shims/claude`)이 넣는다 (FR-CAC-83) | 사용자 결정(2026-11-13). 사용자나 다른 도구가 claude 를 함수·alias 로 래핑하면 셸 함수는 말없이 덮이거나 건너뛰어진다. shim 은 실행 파일이라 래핑이 무엇이든 진짜 claude 를 찾는 순간 지나간다. dongminal 폴더 안에만 놓이고 dongminal 탭 PATH 에만 보인다 |
+| D-CAC-24 | 계정 지정과 훅 인자는 셸 함수 대신 PATH shim(`<home>/bin/agent-shims/claude`)이 넣는다 (FR-CAC-83) | 사용자 결정(2026-11-13). 사용자나 다른 도구가 claude 를 함수·alias 로 래핑하면 셸 함수는 말없이 덮이거나 건너뛰어진다. shim 은 실행 파일이라 래핑이 무엇이든 진짜 claude 를 찾는 순간 지나간다. otterminal 폴더 안에만 놓이고 otterminal 탭 PATH 에만 보인다 |
 | D-CAC-25 | shim 이 계정 지정을 적용하지 못하면(서버 오류·3초 초과) 실행하지 않는다. 서버에 연결 자체가 안 되면 기본 계정으로 실행한다 (FR-CAC-83) | 사용자 결정(2026-11-13). 지정한 계정 대신 다른 계정의 한도를 말없이 쓰는 일을 막는다 |
 | D-CAC-26 | 프로필 `.claude.json` 은 실행 때마다 기본 설정에서 계정 항목만 빼고 모두 가져온다 (FR-CAC-82) | 사용자 결정(2026-11-13). 빈 파일에서 시작하면 MCP 서버가 사라지고 폴더 신뢰를 다시 묻는다. cswap 은 `mcpServers` 만 가져온다. 계정·조직 캐시를 섞으면 다른 계정의 모델 권한·한도 안내가 보인다 |
 | D-CAC-27 | 탭을 닫으면 그 탭 지정을 지운다 (FR-CAC-81a) | 사용자 결정(2026-11-13) |
@@ -506,7 +506,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | D-CAC-30 | 화면은 매핑과 계정 목록으로 계정을 스스로 셈하고, 경로만 서버가 정규화한 값으로 견준다 (FR-CAC-95a) | 구현자 판단(2026-11-13). 탭·Repo·Explorer 칩을 그릴 때마다 서버에 묻지 않는다. 문자열을 바로 견주면 심볼릭 링크(macOS `/var`↔`/private/var`)에서 어긋난다. 정규화는 경로마다 한 번만 묻는다 |
 | D-CAC-31 | 탭·Explorer 메뉴의 계정 고르기는 하위 메뉴 대신 같은 자리에 여는 두 번째 메뉴다. 못 하는 항목은 숨기지 않고 사유를 든다 (FR-CAC-95a) | 구현자 판단(2026-11-13). 메뉴 키트(`UIKit.menu`)에 하위 메뉴가 없다. 사유 표기는 CONTEXT_MENU_UNIFY_SRS FR-CMU-1 이다 |
 | D-CAC-32 | e2e(TC-CAC-27)는 브라우저에서 `/api/claude-accounts*` 응답을 위조해 화면만 잰다. 서버 동작은 Go 시험이 가짜 키체인·가짜 Anthropic 서버로 잰다 | 사용자 결정(2026-11-13). 실행 파일에 "토큰을 보낼 주소를 바꾸는" 시험용 입구를 두지 않는다 |
-| D-CAC-34 | 저절로 풀리는 조회 실패(`rate_limited`·`unavailable`·`token_expired`)는 카드 머리에 보이지 않는다. 값이 늦은 것은 "n분 전" 이 알린다 (FR-CAC-91) | 사용자 결정(2026-11-16). "요청 제한" 은 Claude 사용이 아니라 dongminal 의 사용량 조회가 거절됐다는 뜻이라 사용자가 오해했다 |
+| D-CAC-34 | 저절로 풀리는 조회 실패(`rate_limited`·`unavailable`·`token_expired`)는 카드 머리에 보이지 않는다. 값이 늦은 것은 "n분 전" 이 알린다 (FR-CAC-91) | 사용자 결정(2026-11-16). "요청 제한" 은 Claude 사용이 아니라 otterminal 의 사용량 조회가 거절됐다는 뜻이라 사용자가 오해했다 |
 | D-CAC-33 | 계정 묶음은 넓은/좁은 두 모양이고 기본값은 활성 계정만 넓게다. 나머지 정보와 동작은 이름을 누르면 뜨는 오버레이로 옮긴다 (FR-CAC-91) | 사용자 결정(2026-11-16) |
 | D-CAC-16 | 키체인 쓰기는 `security -i` 표준 입력으로만 한다. 줄이 길면 키체인 대신 권한 600 파일을 쓴다 | 사용자 결정(2026-11-13, 보안 검토 지적). argv 의 값은 같은 컴퓨터의 다른 사용자가 `ps` 로 본다. Claude Code 는 argv 로 넘기지만 그 노출을 따라 하지 않는다 |
 
@@ -540,7 +540,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | TC-CAC-21 | FR-CAC-90~93 | (JS 단위) foot 뷰 모델: 계정 묶음·statusLine 줄·계정 없음·오래된 값·예측 문구, 모양 기본값(활성만 넓게)·계정별 기억, 오버레이 열기·옮기기·바깥 누름과 Esc 로 닫기 |
 | TC-CAC-22 | FR-CAC-95~97·95a·85·36 | (JS 단위) 해석(탭 지정 우선·가장 가까운 상위·삭제된 계정 무시·Windows 소문자), 탭 틴트 출처·진하기·툴팁·전역이면 없음, Repo 칩(폴더 매핑만), Explorer 칩(직접 연결만), 칩 글자, 계정 메뉴 항목·사유, `pinnedRunning` 토스트. (Go) `resolve` 의 `path` |
 | TC-CAC-23 | FR-CAC-100·100a·101 | 알림 사건 여섯, 억제 키·재기동 뒤 억제·8일 정리, SSE 본문, Telegram 글 입구, 문구와 본문에 토큰·이메일 전체·계정 ID 없음 |
-| TC-CAC-24 | FR-CAC-102·103 | dmctl 명령 인자 해석, `--json` 스키마, 확인 질문 |
+| TC-CAC-24 | FR-CAC-102·103 | otterctl 명령 인자 해석, `--json` 스키마, 확인 질문 |
 | TC-CAC-25 | FR-CAC-110·110a·111 | 기록 형식, 1000줄 자르기, trigger·by 값, `by` 검증, noop 은 안 적음, history API 의 limit |
 | TC-CAC-30 | FR-CAC-34a·88b·94a | (Go) 보관 목록·삭제·이름 검증, 링크 경고의 기록·지움·목록 응답. (JS 단위) 설정 구역의 뷰 모델 — 계정 줄, 폴더 연결 트리·덮어씀, 자동 전환 칸 → PUT 본문, 보관 목록 |
 | TC-CAC-26 | FR-CAC-120~122 | 경로, 오류 코드, SSE 발송 |
@@ -569,7 +569,7 @@ dongminal 은 지금 Claude 계정 한도를 statusLine `rate_limits` 로만 받
 | 갱신 토큰이 돌면 다른 저장소의 옛 토큰이 무효가 된다 | HIGH | 갱신한 곳과 같은 범위의 저장소에 함께 쓴다 (FR-CAC-43). 프로필 토큰 회수 (FR-CAC-86) |
 | 전환 도중 실패로 활성 저장소가 반쯤 바뀐다 | MEDIUM | 단계 기록과 되돌림 (FR-CAC-30), 빈 값으로 백업을 덮지 않음 (FR-CAC-32) |
 | 전환 직후 실행 중인 세션이 약 30초 동안 옛 계정을 쓴다 | LOW | 안내 문구 (FR-CAC-35) |
-| 토큰 유출 범위가 dongminal 홈까지 넓어진다 | MEDIUM | macOS 는 키체인, 그 밖은 0600 파일과 0700 폴더. 토큰은 어디로도 나가지 않는다 (FR-CAC-9) |
+| 토큰 유출 범위가 otterminal 홈까지 넓어진다 | MEDIUM | macOS 는 키체인, 그 밖은 0600 파일과 0700 폴더. 토큰은 어디로도 나가지 않는다 (FR-CAC-9) |
 | Windows 에서 심볼릭 링크를 만들 수 없다 | LOW | 복사·정션 대안과 경고 (FR-CAC-82) |
 | cswap 과 함께 쓰면 활성 저장소를 서로 덮어쓴다 | MEDIUM | 자동 전환 동시 실행 차단 (FR-CAC-75). 수동 전환은 막지 않는다. 다음 조회 때 활성 계정을 다시 읽는다. cswap 메뉴 막대 앱 안의 자동 전환과 Windows 의 cswap 은 감지하지 못한다 — cswap 저장소를 읽지 않기로 했기 때문이다(D-CAC-2) |
 | 사용량 엔드포인트의 요청 예산(시간당 약 30회)을 넘는다 | MEDIUM | cswap 과 같은 주기·물러나기, 계정 간 0.25초 간격 (FR-CAC-51·53·54) |

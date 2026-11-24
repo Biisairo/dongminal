@@ -1,4 +1,4 @@
-﻿# dongminal 셸 훅 (Windows). POSIX 의 posix/bash-hook.sh · posix/zdotdir/.zshrc 와
+﻿# otterminal 셸 훅 (Windows). POSIX 의 posix/bash-hook.sh · posix/zdotdir/.zshrc 와
 # 같은 일을 한다 — cwd 통지, claude shim 폴더의 PATH 자리, codex·omp 래퍼.
 #
 # 모든 정의에 global: 을 붙인다. 이 파일은 `powershell -NoExit -File` 로 실행되고,
@@ -24,11 +24,11 @@ try {
 # 쓰며 그것을 옮기는 길은 이 옵션 하나다. 그래서 Windows 에서는 도구별 히스토리
 # 격리가 통째로 무효였고, 재기동 한 번에 모든 터미널의 기록이 합쳐졌다 (§2.5).
 #
-# 값은 서버가 정해 `DONGMINAL_HISTFILE` 로 심는다. 여기서는 **대입만 한다** —
+# 값은 서버가 정해 `OTTERMINAL_HISTFILE` 로 심는다. 여기서는 **대입만 한다** —
 # 경로 규칙이 셸 스크립트로 복제되면 두 벌이 된다 (FR-THI-20·D-7).
-if ($env:DONGMINAL_HISTFILE) {
+if ($env:OTTERMINAL_HISTFILE) {
     try {
-        Set-PSReadLineOption -HistorySavePath $env:DONGMINAL_HISTFILE -ErrorAction SilentlyContinue
+        Set-PSReadLineOption -HistorySavePath $env:OTTERMINAL_HISTFILE -ErrorAction SilentlyContinue
     } catch {
         # PSReadLine 이 없는 처지에서도 셸은 떠야 한다 (FR-HPR-15).
     }
@@ -40,11 +40,11 @@ if ($env:DONGMINAL_HISTFILE) {
 #
 # 기존 prompt 를 보존해 위임한다. oh-my-posh 같은 프롬프트 도구를 쓰는
 # 사용자의 화면을 빼앗지 않는다.
-if (-not $global:__dongminalPrompt) {
-    $global:__dongminalPrompt = $function:prompt
+if (-not $global:__otterminalPrompt) {
+    $global:__otterminalPrompt = $function:prompt
 }
 function global:prompt {
-    __dongminalShimFront
+    __otterminalShimFront
     try {
         $cwd = (Get-Location).ProviderPath
         if ($cwd) {
@@ -53,18 +53,18 @@ function global:prompt {
     } catch {
         # 통지 실패는 프롬프트를 막지 않는다.
     }
-    if ($global:__dongminalPrompt) { & $global:__dongminalPrompt } else { "PS $($executionContext.SessionState.Path.CurrentLocation)> " }
+    if ($global:__otterminalPrompt) { & $global:__otterminalPrompt } else { "PS $($executionContext.SessionState.Path.CurrentLocation)> " }
 }
 
 # ── 에이전트 래퍼 ─────────────────────────────────────
 # 에이전트 완료/대기 알림 훅(--settings)과 오케스트레이션 스킬(--plugin-dir)을
 # per-invocation 으로 주입한다. 에이전트의 설정 파일을 영구 수정하지 않으며
-# dongminal 이 띄운 도구 안에서만 적용된다.
+# otterminal 이 띄운 도구 안에서만 적용된다.
 #
 # 실행 파일은 Get-Command -CommandType Application 으로 찾는다. 같은 이름의
 # 함수(이 래퍼 자신)를 다시 부르지 않기 위해서다 — bash 의 `command claude`
 # 에 해당한다. npm 이 설치한 claude.cmd 처럼 .exe 가 아닌 경우도 이렇게 잡힌다.
-function global:__dongminalApp($name) {
+function global:__otterminalApp($name) {
     return Get-Command $name -CommandType Application -ErrorAction SilentlyContinue |
         Select-Object -First 1
 }
@@ -73,35 +73,35 @@ function global:__dongminalApp($name) {
 # 탭·폴더의 Claude 계정을 넣고 진짜 claude 를 실행한다. 사용자 프로필이 PATH 를 바꿀 수 있으므로
 # 프로필을 읽은 뒤(이 파일은 프로필 뒤에 돈다) 맨 앞에 넣고, 프롬프트마다 맨 앞이 아니면 다시 옮긴다.
 # -eq·-ne 는 대소문자를 가리지 않는다 — Windows 경로와 같다.
-function global:__dongminalShimFront {
-    if (-not $env:DONGMINAL_HOME) { return }
-    $d = Join-Path $env:DONGMINAL_HOME 'bin\agent-shims'
+function global:__otterminalShimFront {
+    if (-not $env:OTTERMINAL_HOME) { return }
+    $d = Join-Path $env:OTTERMINAL_HOME 'bin\agent-shims'
     $parts = @($env:PATH -split ';')
     if ($parts[0] -eq $d) { return }
     $rest = @($parts | Where-Object { $_ -and ($_ -ne $d) })
     $env:PATH = (@($d) + $rest) -join ';'
 }
-__dongminalShimFront
+__otterminalShimFront
 
 function global:codex {
-    $app = __dongminalApp 'codex'
+    $app = __otterminalApp 'codex'
     if (-not $app) { Write-Error 'codex 를 찾을 수 없습니다'; return }
-    if (-not $env:DONGMINAL_HOME) { & $app.Source @args; return }
-    $dmctl = Join-Path $env:DONGMINAL_HOME 'bin\dmctl.exe'
+    if (-not $env:OTTERMINAL_HOME) { & $app.Source @args; return }
+    $otterctl = Join-Path $env:OTTERMINAL_HOME 'bin\otterctl.exe'
     # notify 는 JSON 배열이다. 경로의 역슬래시는 JSON 에서 이스케이프해야 한다.
-    $json = ConvertTo-Json -Compress @($dmctl, 'notify', 'codex')
+    $json = ConvertTo-Json -Compress @($otterctl, 'notify', 'codex')
     & $app.Source -c "notify=$json" @args
 }
 
 # omp 의 훅은 in-process 모듈이므로 파일을 `--hook` 으로 붙인다 — claude 의
 # `--settings` 자리와 같은 뜻이다 (OMP_AGENT_SUPPORT_SRS FR-OMP-14).
 function global:omp {
-    $app = __dongminalApp 'omp'
+    $app = __otterminalApp 'omp'
     if (-not $app) { Write-Error 'omp 를 찾을 수 없습니다'; return }
     $extra = @()
-    if ($env:DONGMINAL_HOME) {
-        $shim = Join-Path $env:DONGMINAL_HOME 'bin\agent-hooks\omp-activity.mjs'
-        $plugin = Join-Path $env:DONGMINAL_HOME 'bin\agent-plugin'
+    if ($env:OTTERMINAL_HOME) {
+        $shim = Join-Path $env:OTTERMINAL_HOME 'bin\agent-hooks\omp-activity.mjs'
+        $plugin = Join-Path $env:OTTERMINAL_HOME 'bin\agent-plugin'
         if (Test-Path $shim) { $extra += @('--hook', $shim) }
         if (Test-Path $plugin) { $extra += @('--plugin-dir', $plugin) }
     }

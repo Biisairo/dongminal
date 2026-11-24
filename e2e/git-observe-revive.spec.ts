@@ -13,7 +13,7 @@ import { tmpPath, realPath } from './osenv';
 // (SRS §2.1). 그리고 폴링을 켤지 정하는 판정이 패널 하나의 것이라, 보이지 않는
 // 칸이 보이는 칸의 폴링을 껐다 (§2.3).
 
-const GITFX = tmpPath('dm-gor-' + process.pid);
+const GITFX = tmpPath('otter-gor-' + process.pid);
 const gfx = (name: string) => realPath(join(GITFX, name));
 
 test.beforeAll(() => { gitFixture(GITFX) });

@@ -71,7 +71,7 @@ M5 를 시작한다. **M0~M3 은 닫혔고 M4 는 수행하지 않는다.**
 
   ① `TLS-2` 노출 판정 — **가장 싸고 독립적이다.** 지금 판정이 **두 벌**이다:
      `start.go:154`·`:306`·`main.go:573` 은 `0.0.0.0`/`::` 만 노출로 보고
-     (→ `DONGMINAL_HOST=192.168.1.5` 가 `local-only` 로 **오표시**),
+     (→ `OTTERMINAL_HOST=192.168.1.5` 가 `local-only` 로 **오표시**),
      `start.go:53` 의 ACL 게이트는 `host != DefaultHost` 로 본다
      (→ `::1`·`localhost` 바인드가 **ACL 을 강제받는다**). **한 함수로 모은다.**
      표 기반 테스트로 고정: `127.0.0.1`·`::1`·`localhost` = 로컬 /
@@ -115,8 +115,8 @@ TLS 를 넣지 않으므로 **"HTTPS 로 접속하세요" 라는 해결 경로�
     새 종단을 만들기 전에 여기를 먼저 보라. 다만 **헬스와 메트릭은 다른 것**이다
     (`VERSION_HEALTH_SRS` §6-5 — 사람이 읽는 것과 기계가 읽는 것)
   · `WriteStateFile` — 상태 파일 세대 3. **`server.json` 도 이 자리를 쓴다**
-  · `dongminal rollback` — 상태 파일을 세대로 되돌린다
-  · `dongminal doctor --bundle` — 신고용 번들. **마스킹은 `SanitizeRemote` 한 벌**.
+  · `otterminal rollback` — 상태 파일을 세대로 되돌린다
+  · `otterminal doctor --bundle` — 신고용 번들. **마스킹은 `SanitizeRemote` 한 벌**.
     `G2-6` 크래시 마커·`G4-3` backup 이 이 번들과 겹치는지 먼저 보라
   · `apierr`·`inventory.go` 전수성 테스트 — `G6-1` 이 새 코드를 더하면
     **이 테스트가 자동으로 그것까지 덮는다**
@@ -169,7 +169,7 @@ M5 는 **절반이 문서**다. 그래서 다른 마일스톤에 없던 함정�
   그 사이에 그것을 구현했다. **문서를 근거로 코드를 단정하지 말고 코드를 봐라.**
 - **그래서 `G8-5`(상태 필드 강제)와 대조 스크립트가 이 마일스톤의 핵심이다.**
   문서를 고치는 것보다 **문서가 어긋나면 CI 가 잡게 만드는 것**이 오래 간다.
-  `commands.md`↔`dmctl.go` · `api.md`↔`routes.go` · `shortcuts.md`↔`helpers.js`
+  `commands.md`↔`otterctl.go` · `api.md`↔`routes.go` · `shortcuts.md`↔`helpers.js`
   **양방향 0 불일치**가 그 장치다
 - **상태 필드는 도입만으로 부족하다.** 지금 필드가 있는 7개 중
   `ICON_ASSETS_SRS` 는 **값이 틀렸다**(`승인 대기` 인데 구현 완료).

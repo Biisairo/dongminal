@@ -16,7 +16,7 @@ i="${1:?샤드 번호}"; n="${2:?샤드 수}"
 specs=$(node scripts/e2e-shard.mjs --list "$i/$n") || exit 1
 
 # 샤드마다 포트 뿌리와 산출물 자리를 옮긴다 (FR-EPL-14). 홈은 pid 로 이미 갈린다.
-# `DM_E2E_KEEP_PEERS=1` 이 청소를 자기 뿌리로 한정한다 — 없으면 setup/teardown 이
+# `OTTER_E2E_KEEP_PEERS=1` 이 청소를 자기 뿌리로 한정한다 — 없으면 setup/teardown 이
 # 아직 도는 다른 샤드의 바이너리를 지운다.
 #
 # JSON 리포트는 `make e2e-rebalance` 의 입력이다.
@@ -33,7 +33,7 @@ for prod in 58146 58147; do
     exit 2
   fi
 done
-DM_E2E_KEEP_PEERS=1 \
+OTTER_E2E_KEEP_PEERS=1 \
 E2E_PORT_BASE=$((root + (i - 1) * 10)) \
 PLAYWRIGHT_JSON_OUTPUT_NAME="test-results/s$i/report.json" \
   npx playwright test $specs \

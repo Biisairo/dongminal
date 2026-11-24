@@ -25,8 +25,8 @@
 테스트 안에서 `git init` + 여러 단계를 되풀이하지 말고 이것을 부른다 (2.3초).
 
 ```bash
-e2e/git_fixture.sh /tmp/dm-git-fixtures        # 만든다
-e2e/git_fixture.sh --clean /tmp/dm-git-fixtures # 지운다
+e2e/git_fixture.sh /tmp/otter-git-fixtures        # 만든다
+e2e/git_fixture.sh --clean /tmp/otter-git-fixtures # 지운다
 ```
 
 | 디렉터리 | 상태 | 쓸 곳 |

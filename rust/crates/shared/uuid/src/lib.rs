@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/uuid` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/shared/uuid` 의 Rust 포팅.
 //!
 //! UUID v7 (RFC 9562) 생성과 해석이다. 서버가 발급하는 식별자(toolId·reqId)가
 //! [`new_string`] 을 거친다 (FR-UNI-6).

@@ -1,5 +1,5 @@
 use super::*;
-use dm_gocompat::json;
+use otter_gocompat::json;
 
 fn at(secs: i64) -> OffsetDateTime {
     OffsetDateTime::from_unix_timestamp(secs).unwrap()
@@ -8,7 +8,7 @@ fn at(secs: i64) -> OffsetDateTime {
 #[test]
 fn socket_path_beside_daemon_socket() {
     let home = Path::new("x").join("home");
-    let ep = dm_shared_platform::current().ipc.endpoint(&home);
+    let ep = otter_shared_platform::current().ipc.endpoint(&home);
     assert_eq!(socket_path(&home), ep.parent().unwrap().join(SOCKET_FILE));
 }
 

@@ -3,13 +3,13 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use dm_webserver_domain_git_core::{self as core, Ctx, Output, Service, WriteSpec};
+use otter_webserver_domain_git_core::{self as core, Ctx, Output, Service, WriteSpec};
 use tokio::sync::Notify;
 
 use crate::{Emit, Job, JobRunner, Jobs, Keys, LINE_STDERR};
 
 pub(crate) fn abs(parts: &[&str]) -> String {
-    dm_shared_testpath::abs(parts)
+    otter_shared_testpath::abs(parts)
         .to_string_lossy()
         .into_owned()
 }

@@ -41,7 +41,7 @@ import { tmpPath, TMP, realPath } from './osenv';
 // 스냅샷을 `test-results/` 에 남기고 **무엇을 커밋하면 되는지 말하며** 진다 —
 // CI 는 실패 시 그 디렉터리를 아티팩트로 올린다.
 
-const FIXTURES = tmpPath('dm-lay-' + process.pid);
+const FIXTURES = tmpPath('otter-lay-' + process.pid);
 const PLATFORM = process.platform;
 const BASELINE = path.join(__dirname, 'baseline', `ui-layout.${PLATFORM}.json`);
 const WRITE = process.env.LAYOUT_BASELINE === 'write';
@@ -51,7 +51,7 @@ let PLAIN = '';
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
-  BASE = realPath(fs.mkdtempSync(path.join(TMP, 'dm-lay-ed-')));
+  BASE = realPath(fs.mkdtempSync(path.join(TMP, 'otter-lay-ed-')));
   PLAIN = path.join(BASE, 'plain');
   fs.mkdirSync(path.join(PLAIN, 'sub'), { recursive: true });
   fs.writeFileSync(path.join(PLAIN, 'sub', 'inner.txt'), 'x\n');

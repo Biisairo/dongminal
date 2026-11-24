@@ -33,8 +33,8 @@ RECONNECT_STORM_SRS 가 닫은 창은 **없는 도구를 향한** 재접속이�
 
 ### 2.1 관측 — 동시 종료 뒤에 오는 순차 재연결
 
-`/tmp/dongminal.log`, 2026-09-01. `~/.dongminal/daemon.log` 는 16:00:39.144 에
-`dongminald starting`, 16:00:39.159 에 `tools restored count=10` 을 적었다. 즉 데몬은
+`/tmp/otterminal.log`, 2026-09-01. `~/.otterminal/daemon.log` 는 16:00:39.144 에
+`otterminald starting`, 16:00:39.159 에 `tools restored count=10` 을 적었다. 즉 데몬은
 **0.02초 만에 도구 10개를 전부 되살렸다.** 그런데 브라우저는 그 뒤로 11초를 더 돌았다.
 
 ```

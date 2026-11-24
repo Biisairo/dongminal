@@ -4,10 +4,10 @@
 //! 패치는 서버가 만든다 (D6). 요청 구조체에 패치 문자열이 들어올 자리가 없다 — 클라이언트가
 //! 보내는 것은 좌표뿐이다: (경로, 축, hunk 번호, 줄 범위, 관측 식별자).
 
-use dm_shared_httpresp::Response;
-use dm_webserver_domain_git_query as query;
-use dm_webserver_domain_git_write::{self as write, PatchOpts};
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_domain_git_query as query;
+use otter_webserver_domain_git_write::{self as write, PatchOpts};
 use serde::{Deserialize, Serialize};
 
 use crate::GitServer;

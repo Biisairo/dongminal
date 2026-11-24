@@ -18,7 +18,7 @@ fn with_extra_thread<T>(f: impl FnOnce() -> T) -> T {
 }
 
 /// 자식 프로세스에서 이 시험 하나만 돌 때 켜진다.
-const CHILD_ENV: &str = "DM_PLATFORM_ENVSET_THREAD_CHILD";
+const CHILD_ENV: &str = "OTTER_PLATFORM_ENVSET_THREAD_CHILD";
 const CHILD_TEST: &str = "envset::tests::thread_count_sees_new_thread";
 
 // 셀 수 있는 OS 에서는 스레드를 하나 더 띄우면 수가 정확히 하나 는다. 같은 프로세스의 다른 시험
@@ -51,7 +51,7 @@ fn thread_count_sees_new_thread() {
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
 fn set_env_refuses_with_other_threads() {
-    const KEY: &str = "DM_PLATFORM_ENVSET_TEST";
+    const KEY: &str = "OTTER_PLATFORM_ENVSET_TEST";
     let res = with_extra_thread(|| set_env_before_threads(KEY, "x"));
     match res {
         Err(ThreadsRunning(n)) => assert!(n >= 2, "n={n}"),
@@ -66,7 +66,7 @@ fn set_env_refuses_with_other_threads() {
 #[cfg(windows)]
 #[test]
 fn set_env_writes_on_windows_with_other_threads() {
-    const KEY: &str = "DM_PLATFORM_ENVSET_WIN_TEST";
+    const KEY: &str = "OTTER_PLATFORM_ENVSET_WIN_TEST";
     let res = with_extra_thread(|| set_env_before_threads(KEY, "x"));
     assert_eq!(res, Ok::<(), ThreadsRunning>(()));
     assert_eq!(std::env::var(KEY).as_deref(), Ok("x"));

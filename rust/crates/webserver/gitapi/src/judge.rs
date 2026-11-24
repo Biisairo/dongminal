@@ -1,8 +1,8 @@
 //! 실행 종단이 판정 함수의 답으로 거절하는 자리 (Go `judge` · `judgeBranch` · `judgeFacts` ·
 //! `remoteBranchOf`). 답 종단과 같은 함수를 부른다 (SERVER_DRIVEN_ACTIONS_SRS D-SDA-6).
 
-use dm_webserver_action::{Answer, allow};
-use dm_webserver_domain_git_query::{self as query, Ref};
+use otter_webserver_action::{Answer, allow};
+use otter_webserver_domain_git_query::{self as query, Ref};
 
 use crate::answers::{BranchFacts, branch_answer, not_remote, split_remote_ref};
 use crate::reply::GitErr;

@@ -53,7 +53,7 @@ Reset 의 `no_head`(G-A8), amend 메시지 불변·preflight 막힘(G-A3), 홈 �
 
 ### 2.3 화면만 막는 것
 
-12건(G-A9·A10·A12 일부·A13, G-B2·B8, F-A6 일부·A8·A10, F-B1·B2). 화면을 거치지 않은 요청(`dmctl`·스크립트·다른 탭)은 통과한다. 그중 F-B1(이름의 `/`)은 서버가 받아 다른 폴더에 파일을 만든다.
+12건(G-A9·A10·A12 일부·A13, G-B2·B8, F-A6 일부·A8·A10, F-B1·B2). 화면을 거치지 않은 요청(`otterctl`·스크립트·다른 탭)은 통과한다. 그중 F-B1(이름의 `/`)은 서버가 받아 다른 폴더에 파일을 만든다.
 
 ### 2.4 상수 20건
 
@@ -73,7 +73,7 @@ K1~K20 은 주석으로만 묶여 있다. 맞추는 장치가 있는 것은 파�
 | FR-SDA-6 | 화면은 동작을 켜고 끄는 **규칙을 갖지 않는다.** 화면이 쓰는 것은 서버의 답과 "진행 중" 하나다. 답이 아직 없으면(첫 응답 전) 그 컨트롤은 꺼져 있고 사유는 `loading` 이다 | 필수 |
 | FR-SDA-7 | 진행 중: 사용자가 누른 컨트롤은 그 요청의 응답이 올 때까지 꺼지고, 응답이 오면 서버의 다음 답을 따른다 | 필수 |
 | FR-SDA-8 | 사유 코드마다 ko·en 문구가 있다. 코드에 문구가 없으면 게이트가 실패한다 | 필수 |
-| FR-SDA-9 | 화면을 거치지 않은 요청(`dmctl`·스크립트)도 FR-SDA-3 의 거절을 받는다. `dmctl` 은 그 `why` 코드를 오류로 보인다 | 필수 |
+| FR-SDA-9 | 화면을 거치지 않은 요청(`otterctl`·스크립트)도 FR-SDA-3 의 거절을 받는다. `otterctl` 은 그 `why` 코드를 오류로 보인다 | 필수 |
 
 #### 3.1a 묶음 M 설계 세부
 
@@ -91,7 +91,7 @@ K1~K20 은 주석으로만 묶여 있다. 맞추는 장치가 있는 것은 파�
 | M-8 화면 장치 | `web/js/core/action-answer.js` 의 `actionState(answer, pending)` → `{enabled, why}`. 진행 중이면 `{false, ''}`, 답이 없으면 `{false, t('why.loading')}`, 거짓이면 `{false, t('why.'+why, args)}`, 참이면 `{true, ''}`. 컨트롤을 켜고 끄는 규칙은 이 함수 밖에 두지 않는다 |
 | M-9 stash 만들기 대화상자 | 열 때와 `includeUntracked` 를 바꿀 때 M-5 로 묻는다. 묻는 동안의 사유는 `loading` 이다. 늦게 온 앞선 답은 세대로 버린다(브랜치 이름 검증과 같은 방식). 화면의 `_why` 계산과 `GIT_STASH_UNTRACKED_ONLY` 를 없앤다 |
 | M-10 실행 거절 문구 | git 패널의 `writeReason` 은 `GIT_WRITE_ERR` 에 없는 코드를 `why.<코드>` 문구(있으면)로 보인다. 그래서 답을 거치지 않은 거절도 같은 문구로 읽힌다 |
-| M-11 `dmctl`(FR-SDA-9) | 거절 본문의 `error` 가 사유 코드이므로 `dmctl run` 의 기존 오류 출력(`dmctl_run_http.go`)이 그대로 보인다. git 에는 `dmctl` 명령이 없다. TC-SDA-4 는 판정이 생기는 묶음 R 에서 잰다 |
+| M-11 `otterctl`(FR-SDA-9) | 거절 본문의 `error` 가 사유 코드이므로 `otterctl run` 의 기존 오류 출력(`otterctl_run_http.go`)이 그대로 보인다. git 에는 `otterctl` 명령이 없다. TC-SDA-4 는 판정이 생기는 묶음 R 에서 잰다 |
 
 ### 3.2 묶음 GR — git 저장소 단위 동작 (1층)
 
@@ -230,7 +230,7 @@ GV-c 동작 표:
 | F-k 인라인 입력(F-2) | 입력이 멈추면(디바운스) F-i 로 묻고, 거짓이면 입력 아래 오류 줄에 사유를 보인다. Enter 는 마지막 답이 거짓이면 보내지 않는다. 답을 기다리는 중이면 보내고 서버가 판정한다. 인라인 입력은 `GitDialog` 가 아니어서 `GitInputAnswer` 를 쓰지 않는다 — 세대로 늦은 답을 버리는 작은 장치를 트리에 둔다. 화면의 `/` 판정과 `EDITOR_NAME_INVALID` 를 없앤다 |
 | F-l 자기 하위 이동(F-2) | 화면의 `pathUnder` 거절과 `EDITOR_MOVE_INTO_SELF` 를 없앤다. 서버의 `fsCopyGuardSelf` 가 `into_self` 로 거절하고, 놓은 뒤 그 사유가 오류 줄에 보인다(D-SDA-7). 끄는 동안 화면은 판정하지 않는다. 대상이 출발지 아래면 낙관 반영만 하지 않는다 — 허용 판정이 아니라 되돌리기 어려운 그림을 미리 그리지 않는 것이다 |
 | F-m 편집기 루트 추가(F-3) | 판정은 `wsentry.CheckEditorPath` 하나(`EditorAdd` 의 앞부분을 꺼낸 것)이고, 답과 `POST /api/editors/add` 의 거절이 그것을 부른다. 사유(순서): `empty_path` → `path_must_be_absolute` → `not_found` → `not_a_directory`(새, 400) → `filesystem_root_protected`. 앞뒤 공백을 지운 뒤 본다. 파일시스템 루트는 지금 `ErrNotDir` 로 함께 나가므로 `ErrFilesystemRoot` 로 가른다. 종단 `POST /api/editors/validate {path}` → `{"actions": {"editor.add": 답}}`. 대화상자는 `GitInputAnswer` 로 묻는다 — 묻는 함수 `ask(params, stale)` 를 주입받도록 넓힌다(없으면 지금의 git 종단). 화면의 빈 경로 판정(`EDITOR_ADD_NEED_PATH`)을 없앤다 |
-| F-p 이름 길이(F-4) | 사용자 결정(2026-11-07): 서버는 **dmctl 길(`POST /api/commands`)에서만** 거절한다. 이름을 싣는 명령(`newWindow`·`newTab`·`openEditorTab`·`renameTab`·`renameWindow`·`newGroup`·`renameGroup`)의 `args.name` 이 상한을 넘으면 400 `name_too_long`(`args.max`) — 평문 방언이므로 코드는 헤더에, 본문은 영어 코드 서술이다. workspace 저장(`PUT /api/workspace`)은 막지 않는다 — 옛 데이터나 화면 결함의 긴 이름 하나가 저장 전체를 막으면 변경이 조용히 사라진다. 상한(64)은 서버 상수이고 단위는 UTF-16 코드 단위다(화면의 `slice` 와 같다). 화면은 새 `GET /api/meta` 의 `entityNameMax` 를 부팅 때 받아 `clampEntityName` 으로 자르고, 받기 전에는 자르지 않는다. `/api/meta` 는 묶음 K(FR-SDA-80)가 넓힌다 |
+| F-p 이름 길이(F-4) | 사용자 결정(2026-11-07): 서버는 **otterctl 길(`POST /api/commands`)에서만** 거절한다. 이름을 싣는 명령(`newWindow`·`newTab`·`openEditorTab`·`renameTab`·`renameWindow`·`newGroup`·`renameGroup`)의 `args.name` 이 상한을 넘으면 400 `name_too_long`(`args.max`) — 평문 방언이므로 코드는 헤더에, 본문은 영어 코드 서술이다. workspace 저장(`PUT /api/workspace`)은 막지 않는다 — 옛 데이터나 화면 결함의 긴 이름 하나가 저장 전체를 막으면 변경이 조용히 사라진다. 상한(64)은 서버 상수이고 단위는 UTF-16 코드 단위다(화면의 `slice` 와 같다). 화면은 새 `GET /api/meta` 의 `entityNameMax` 를 부팅 때 받아 `clampEntityName` 으로 자르고, 받기 전에는 자르지 않는다. `/api/meta` 는 묶음 K(FR-SDA-80)가 넓힌다 |
 | F-n 게이트 | 없앤 화면 이름을 단계마다 `check-server-driven.sh` 목록에 더한다: F-1 `edCountTree`·`EDITOR_DEL_COUNT_MAX` · F-2 `EDITOR_NAME_INVALID`·`EDITOR_MOVE_INTO_SELF` · F-3 `EDITOR_ADD_NEED_PATH` |
 | F-o 문구 | 새 사유 코드마다 `why.<code>` 를 ko·en 에 더한다(게이트 M-7) |
 
@@ -249,12 +249,12 @@ GV-c 동작 표:
 |---|---|
 | R-a 동작 | Run 마다 `run.close`(종료)·`run.delete`(지우기), 멤버마다 `run.member.detach`(떼기) |
 | R-b 싣는 자리 | `GET /api/runs`(목록·`?id=`)의 Run 과 멤버, `GET /api/runs/{id}/graph` 의 Run 과 멤버에 `actions` 를 싣는다(1층과 같은 모양). 멤버 생성 응답 등 다른 자리에는 싣지 않는다 |
-| R-c 종료 판정 | 사용자 결정 D-SDA-9: 종료 버튼은 `force` 를 보낸다. 그래서 `run.close` 는 force 의 판정이다 — 열린 Run 이면 참, 아니면 `run_closed`. 판정은 도메인 `run.CheckClose(rec, force)` 하나이고 `Store.Close` 도 그것을 부른다. 이미 끝난 Run 에 force 를 보내는 정리 재진입(FR-WKT-8a, dmctl 의 `run close --force`)은 종료가 아니라 따로 받는다 — 답의 대상이 아니다 |
+| R-c 종료 판정 | 사용자 결정 D-SDA-9: 종료 버튼은 `force` 를 보낸다. 그래서 `run.close` 는 force 의 판정이다 — 열린 Run 이면 참, 아니면 `run_closed`. 판정은 도메인 `run.CheckClose(rec, force)` 하나이고 `Store.Close` 도 그것을 부른다. 이미 끝난 Run 에 force 를 보내는 정리 재진입(FR-WKT-8a, otterctl 의 `run close --force`)은 종료가 아니라 따로 받는다 — 답의 대상이 아니다 |
 | R-d 미보고 수 | 확인 문구가 "보고하지 않은 멤버 N명" 을 말하도록 목록의 Run 에 `unreported`(수)를 싣는다. 참인 답은 `args` 를 싣지 않으므로(FR-SDA-1) 답 밖에 둔다(F-b 와 같다) |
 | R-e 지우기 | 서버는 있는 Run 을 언제나 지운다. 그래서 `run.delete` 는 늘 참이고, 사유 목록은 비어 있다 |
 | R-f 떼기 | `run.member.detach` 는 탭에 붙어 있지 않으면 `member_not_attached`. 실행 종단(`POST /api/runs/detach`)이 같은 함수로 거절한다 |
 | R-g 화면 | Run 목록의 종료·삭제 버튼과 대시보드의 떼기 버튼은 답이 참일 때만 선다. `rv.state==='open'`·`m.tabId` 로 고르던 조건을 없앤다 |
-| R-h dmctl(TC-SDA-4) | 거절 본문의 `error` 가 사유 코드이므로 `dmctl run` 의 기존 오류 출력이 그대로 보인다. 대표 둘: 종료 거절(`unreported_members`)·떼기 거절(`member_not_attached`) |
+| R-h otterctl(TC-SDA-4) | 거절 본문의 `error` 가 사유 코드이므로 `otterctl run` 의 기존 오류 출력이 그대로 보인다. 대표 둘: 종료 거절(`unreported_members`)·떼기 거절(`member_not_attached`) |
 
 ### 3.7 묶음 X — 그 밖
 
@@ -335,7 +335,7 @@ GV-c 동작 표:
 | D-SDA-6 | 답과 거절은 같은 판정 함수를 부른다 | 둘을 따로 쓰면 이 SRS 가 없애려는 두 벌이 서버 안에 다시 생긴다 |
 | D-SDA-7 | 끌어 놓기 중에는 화면이 판정하지 않는다. 놓은 뒤 서버 답을 보인다 | D-SDA-1 을 따른 결과다. 끄는 동안 금지 커서가 사라지는 변화는 §7 R-2 |
 | D-SDA-9 | Run 패널의 종료 버튼은 "지금 멈춘다"(`force`) 뜻을 유지하고, 서버가 그 뜻으로 판정한 답을 따른다(R-c) | 사용자 결정 2026-11-07. force 를 빼면 일하는 중인 Run 을 기록을 남기고 멈출 길이 화면에서 사라진다(FUI-04) |
-| D-SDA-8 | 창·탭·그룹 이름의 길이 상한은 dmctl 길(`/api/commands`)에서만 거절하고, workspace 저장은 막지 않는다(F-p) | 사용자 결정 2026-11-07. 저장 전체를 거절하면 긴 이름 하나로 그 뒤의 모든 변경이 저장되지 않는다 |
+| D-SDA-8 | 창·탭·그룹 이름의 길이 상한은 otterctl 길(`/api/commands`)에서만 거절하고, workspace 저장은 막지 않는다(F-p) | 사용자 결정 2026-11-07. 저장 전체를 거절하면 긴 이름 하나로 그 뒤의 모든 변경이 저장되지 않는다 |
 | D-SDA-11 | 화면이 값마다 갈라지는 식별자(K1·K2·K4·K15)는 두 벌을 게이트로 묶지 않고, 서버가 그 값의 뜻을 함께 보낸다(FR-SDA-84) | 사용자 결정 2026-11-07. 이름만 보내면 화면에 "이 이름이면 이것을 한다" 는 두 벌이 남는다. 뜻을 보내면 화면은 글자를 견주지 않는다 |
 | D-SDA-10 | UTF-8 변환은 저장 요청의 `convertFrom`(문서를 연 인코딩)으로 일반 저장과 가르고, 서버가 디스크 바이트를 그 인코딩으로 판정해 거절한다(X-e) | 사용자 결정 2026-11-07. 변환과 일반 저장의 요청이 같으면 서버는 그것이 변환인지도, 문서가 어느 인코딩으로 열렸는지도 모른다 — FR-SDA-73 의 "같은 판정으로 거절" 을 지킬 재료가 없다 |
 | D-SDA-12 | 샌드박스 프로파일 목록의 `onlyDefault` 는 응답 헤더 `X-Sandbox-Only-Default` 로 싣고, 배열 모양은 바꾸지 않는다(K-i ③) | 사용자 결정 2026-11-07. 응답이 맨 배열이라 목록에 필드를 붙일 자리가 없다. 객체로 바꾸면 공개 응답 모양이 깨진다. 헤더는 X-4 의 `X-File-Actions` 가 선례다 |
@@ -347,7 +347,7 @@ GV-c 동작 표:
 | TC-SDA-1 | FR-SDA-1~3 | Go: 동작마다 판정 함수의 표 시험(참·거짓·사유 코드). 같은 입력으로 답 종단과 실행 종단을 불러 **답이 거짓이면 실행이 같은 코드로 거절됨**을 확인한다 |
 | TC-SDA-2 | FR-SDA-6·7 | 단위(JS): 컨트롤이 답·진행 중만으로 켜지고 꺼진다. 답이 없으면 `loading` 이다 |
 | TC-SDA-3 | FR-SDA-8 | 게이트: 서버 판정 함수가 낼 수 있는 사유 코드 전부에 ko·en 문구가 있다 |
-| TC-SDA-4 | FR-SDA-9 | Go: `dmctl` 이 거절 코드를 오류로 보인다(대표 2건) |
+| TC-SDA-4 | FR-SDA-9 | Go: `otterctl` 이 거절 코드를 오류로 보인다(대표 2건) |
 | TC-SDA-5 | 묶음 GR | e2e: push 가 도는 동안 Fetch 가 꺼지고 Commit 은 켜져 있다. 끝나면 Fetch 가 켜진다. lock 지우기는 common 칸이 바빠도 꺼진다 |
 | TC-SDA-6 | 묶음 GT | e2e: HEAD 커밋의 메뉴에서 cherry-pick 이 사유와 함께 꺼진다. merge 진행 중이면 rebase 가 꺼진다 |
 | TC-SDA-7 | 묶음 GV·F | e2e: 새 파일 이름 `a/b` 가 대화상자에서 거절되고, 같은 요청을 HTTP 로 바로 보내도 400 이다 |
@@ -370,7 +370,7 @@ GV-c 동작 표:
 |---|---|---|---|
 | R-1 | 메뉴가 서버 왕복 뒤에 뜬다 | LOW | 로컬 서버. NFR-SDA-1 로 재고, 넘으면 `loading` 으로 먼저 그린다 |
 | R-2 | 끌어 놓는 동안 금지 표시가 사라진다(D-SDA-7) | MEDIUM | 놓은 뒤 사유를 오류 줄로 보인다. 사용자가 불편하면 별도 결정으로 끄는 중 묻기(throttle)를 연다 |
-| R-3 | 새 거절이 기존 `dmctl`·스크립트 사용을 깬다(D-SDA-3) | MEDIUM | 거절 코드와 사유를 `dmctl` 이 그대로 보인다. CHANGELOG 에 동작 변경으로 적는다 |
+| R-3 | 새 거절이 기존 `otterctl`·스크립트 사용을 깬다(D-SDA-3) | MEDIUM | 거절 코드와 사유를 `otterctl` 이 그대로 보인다. CHANGELOG 에 동작 변경으로 적는다 |
 | R-4 | 변경 범위가 git 패널 전체·파일 트리·설정에 걸친다 | HIGH | 묶음별로 Spec → Test(RED) → Code, 묶음마다 커밋. 묶음 M 이 먼저다 |
 | R-5 | 1층 답이 상태 갱신보다 늦으면 버튼이 잠깐 낡는다 | LOW | 실행 요청은 언제나 서버가 다시 판정한다(FR-SDA-3) |
 
@@ -390,7 +390,7 @@ GV-c 동작 표:
 | 2026-11-07 | X-2 구현. 동작 변경 둘. ① **이전**: 터미널 드롭은 화면이 `/api/cwd` 의 `source==='tool'` 로 판정하고 받은 cwd 를 `dir` 로 보냈다. `/api/upload` 는 아무 `dir` 이나 받았다 / **새**: `/api/cwd` 가 `actions["term.upload"]` 를 싣고, 화면은 그 답이 참이면 `/api/upload?tool=<id>` 로 보낸다. 서버는 그 순간의 도구 cwd 로 받고, 모르면 409 `upload_no_tool_cwd` 로 거절한다(`termUploadAnswer` 하나). `dir` 모양은 그대로다 / **이유**: FR-SDA-71·D-SDA-6. ② **이전**: cwd 조회와 업로드 사이에 셸이 폴더를 옮기면 옛 폴더에 놓였다 / **새**: 서버가 업로드하는 순간의 cwd 를 쓴다 / **이유**: 화면이 cwd 를 들지 않는다(X-c). 설계 중 정한 것: 거절 토스트는 기존 문구(`core.term_upload_no_cwd`)를 쓴다 — 사유가 하나이고 뜻이 같다. e2e 는 셸의 cwd 를 정할 수 없어, 업로드가 `tool` 모양인지 확인한 뒤 `dir` 로 바꿔 보낸다 |
 | 2026-11-07 | X-1 구현(설계 §3.7a). 사용자 결정 D-SDA-10(X-4 의 모양)을 함께 적었다. 동작 변경 둘. ① **이전**: `POST /api/sandbox/runtime/start` 는 상태를 보지 않았다 — linux 에서는 200 `{started:false, command}`, 미설치에서는 명령을 실행해 보고 실패를 200 으로 답했다 / **새**: 상태를 조회한 뒤 `sandboxStartAnswer` 로 판정해 409 `runtime_missing`·`runtime_start_manual` 로 거절하고, 아무것도 실행하지 않는다 / **이유**: FR-SDA-70·D-SDA-6. ② **이전**: 화면이 `!missing && startTryable` 로 시작 버튼을 골랐다 / **새**: `GET /api/sandbox/runtime` 의 `actions["sandbox.runtime.start"]` 가 버튼·안내 문장·명령 보이기를 정한다. 응답의 `startTryable` 은 공개 계약이라 남긴다 / **이유**: D-SDA-1 |
 | 2026-11-07 | 묶음 R 구현(설계 §3.6a). 사용자 결정 D-SDA-9 — FR-SDA-61 의 문구를 "종료 버튼은 force 뜻을 유지하고 서버가 그 뜻으로 판정한 답을 따른다" 로 고쳤다(이전 문구: "화면이 늘 force:true 를 보내던 것을 멈춘다"). 동작 변경 둘. ① **이전**: Run 패널은 `state==='open'` 으로 종료 버튼을, 대시보드는 `tabId` 로 분리 버튼을 스스로 골랐다 / **새**: 목록·그래프의 `actions` 답이 참일 때만 버튼이 선다. 종료 판정은 도메인 `run.CheckClose` 하나이고 `Store.Close` 도 부른다. 분리 거절도 같은 함수(`memberDetachAnswer`)다 / **이유**: FR-SDA-60·D-SDA-6. ② **이전**: 종료 확인 문구는 미보고 멤버를 말하지 않았다 / **새**: 목록의 `unreported` 로 그 수를 밝힌다 / **이유**: 종료가 그들을 기다리지 않는다는 사실을 누르기 전에 알린다(R-d). 설계 중 정한 것: Run 표면의 사유 코드는 sentinel 문자열의 참조(`apierr.CodeRunClosed` 등)로 두고, 카탈로그 시험은 `apierr.Runs` 표의 코드도 와이어 코드로 본다. TC-SDA-4 의 대표 둘(종료 거절·분리 거절)은 기존 출력 경로를 고정하는 시험이라 RED 가 없다 |
-| 2026-11-07 | F-4 구현 — 묶음 F 끝. 사용자 결정 D-SDA-8. 동작 변경 둘. ① **이전**: dmctl 명령의 이름은 서버가 보지 않았고, 받은 브라우저가 64자로 잘랐다 / **새**: `/api/commands` 의 이름을 싣는 명령은 상한을 넘으면 400 `name_too_long`(헤더 코드, 본문 `name_too_long: max 64`) / **이유**: FR-SDA-54·D-SDA-3. ② **이전**: 화면이 상한 64 를 상수로 들고 있었다 / **새**: `GET /api/meta` 의 `entityNameMax` 로 자르고, 받기 전에는 자르지 않는다 / **이유**: FR-SDA-54·D-SDA-4 |
+| 2026-11-07 | F-4 구현 — 묶음 F 끝. 사용자 결정 D-SDA-8. 동작 변경 둘. ① **이전**: otterctl 명령의 이름은 서버가 보지 않았고, 받은 브라우저가 64자로 잘랐다 / **새**: `/api/commands` 의 이름을 싣는 명령은 상한을 넘으면 400 `name_too_long`(헤더 코드, 본문 `name_too_long: max 64`) / **이유**: FR-SDA-54·D-SDA-3. ② **이전**: 화면이 상한 64 를 상수로 들고 있었다 / **새**: `GET /api/meta` 의 `entityNameMax` 로 자르고, 받기 전에는 자르지 않는다 / **이유**: FR-SDA-54·D-SDA-4 |
 | 2026-11-07 | F-3 구현. 동작 변경 둘. ① **이전**: 편집기 루트 추가(`/api/editors/add`)의 상대 경로·파일·파일시스템 루트는 모두 400 `bad_request`(한국어 `message`) / **새**: `empty_path`·`path_must_be_absolute`·`not_a_directory`·`filesystem_root_protected`, `message` 없음. 없는 경로는 404 `not_found` 그대로. 판정은 `wsentry.CheckEditorPath` 하나이고 앞뒤 공백을 지운 뒤 본다 / **이유**: FR-SDA-55·FR-SDA-2·D-SDA-5. ② **이전**: `+ Add` 대화상자는 빈 경로만 스스로 막았다 / **새**: `POST /api/editors/validate` 로 입력 중에 묻고 실행 전에 막는다. `GitInputAnswer` 는 묻는 함수 `ask` 를 주입받는다 / **이유**: D-SDA-1. 설계 중 정한 것: `why.not_found` 문구를 탐색기 전용("이미 옮겨졌거나 지워졌습니다")에서 일반 문구("찾을 수 없습니다")로 바꿨다 — 입력한 경로에도 쓰이기 때문이다 |
 | 2026-11-07 | F-2 구현. 동작 변경 셋. ① **이전**: 만들기·이름 바꾸기는 경로만 받아, 화면을 거치지 않은 `a/b` 를 폴더 `a` 안의 파일로 만들었다. 화면은 `/` 만 막았다 / **새**: `parent`+`name`(만들기)·`from`+`name`(이름 바꾸기)을 받고 `fsNameAnswer` 로 거절한다(`empty_name`·`name_has_separator`·`name_reserved`). 경로 모양(`path`·`to`)도 받는다 / **이유**: FR-SDA-53·D-SDA-3. ② **이전**: 자기 하위로 옮기기·복사의 거절은 400 `bad_request`(한국어 `message`) / **새**: 400 `into_self`, `message` 없음. 판정 함수는 `fsIntoSelfAnswer` 하나다 / **이유**: FR-SDA-2·D-SDA-5. ③ **이전**: 화면이 끌어 놓기·일괄 이동의 자기 하위를 `pathUnder` 로 먼저 막았다 / **새**: 요청을 보내고 서버의 사유를 오류 줄에 보인다. 대상이 출발지 아래면 낙관 반영만 하지 않는다 / **이유**: FR-SDA-52·D-SDA-7. 설계 중 정한 것: `empty_name` 의 fs 표면 상태는 400 이다(`apierr.FSStatus`) |
 | 2026-11-07 | F-1 구현(설계 §3.5a). 동작 변경 넷. ① **이전**: 이름 바꾸기·이동(`/api/fs/rename`)은 루트 보호를 보지 않았다 — 다른 Editor 루트나 홈을 옮길 수 있었다 / **새**: 삭제와 같은 보호로 거절한다(`fsMoveAnswer`) / **이유**: FR-SDA-51. ② **이전**: 루트·홈·파일시스템 루트 삭제 거절과 항목 수 초과는 400 `bad_request` 에 한국어 `message` / **새**: `editor_root_protected`·`home_protected`·`filesystem_root_protected`·`too_many_entries`(`args.max`), `message` 없음. 복사의 항목 수 초과도 같다 / **이유**: FR-SDA-2·D-SDA-5. ③ **이전**: 삭제 확인창의 수는 화면이 `list` 를 걸어 2000 까지 셌고("N개 이상"), 서버의 상한(10000)과 어긋났다 / **새**: `POST /api/fs/actions` 의 `count`(서버가 상한까지 정확히 센다). 답이 거짓이면 확인창이 사유를 보이고 삭제 버튼을 끈다 / **이유**: §2.1·FR-SDA-50. ④ **이전**: 탐색기 행 메뉴는 묻지 않고 그렸다 / **새**: 열 때 서버에 묻고, 이름 바꾸기·잘라내기·복사·복제·삭제가 답을 따른다. 묻는 장치는 `GitMenu.openAsked` 로 꺼내 git 메뉴와 함께 쓴다 / **이유**: FR-SDA-5. 설계 중 정한 것: 참인 답은 `args` 를 싣지 않으므로(FR-SDA-1) 항목 수는 답 밖의 `count` 에 싣는다. 새 코드의 상태는 `apierr.FSStatus` 표가 정한다(답과 거절이 한 표). 읽기 실패(`not_found`·`permission_denied`·`io_failed`)도 답의 사유다 |

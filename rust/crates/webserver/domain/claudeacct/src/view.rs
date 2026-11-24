@@ -2,9 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use dm_gocompat::json::is_empty;
-use dm_gocompat::time::GoTime;
-use dm_webserver_domain_run::{LEVEL_CRITICAL, LEVEL_WARN};
+use otter_gocompat::json::is_empty;
+use otter_gocompat::time::GoTime;
+use otter_webserver_domain_run::{LEVEL_CRITICAL, LEVEL_WARN};
 use serde::Serialize;
 
 use crate::engine::Row;

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::mpsc;
 use std::time::Duration;
 
-use dm_shared_toolipc as ipc;
+use otter_shared_toolipc as ipc;
 
 use super::fake::{fake_tools, get};
 use super::{curr, daemon, raw};

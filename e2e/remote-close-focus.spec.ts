@@ -3,7 +3,7 @@ import { test, expect, waitForInit } from './fixtures';
 /**
  * 사용자 보고(2026-11-10): 이슈 트리가 탭·window 를 닫을 때 포커스가 튄다.
  *
- * 이슈 트리는 `dmctl close-tab --at <탭> --force` 와 `dmctl close-window --at <탭> --force`
+ * 이슈 트리는 `otterctl close-tab --at <탭> --force` 와 `otterctl close-window --at <탭> --force`
  * 를 `-n` 없이 부른다(`commands/issue-tree.md`). 지목한 자리를 닫는 명령이므로 사용자가
  * 보던 window 와 칸은 그대로여야 한다.
  */

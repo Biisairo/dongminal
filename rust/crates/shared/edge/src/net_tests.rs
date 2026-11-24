@@ -51,13 +51,13 @@ fn enabled_at(port: i64) -> Config {
 fn handler<F, Fut>(f: F) -> Handler
 where
     F: Fn(Request<hyper::body::Incoming>) -> Fut + Send + Sync + 'static,
-    Fut: std::future::Future<Output = dm_shared_httpresp::Response> + Send + 'static,
+    Fut: std::future::Future<Output = otter_shared_httpresp::Response> + Send + 'static,
 {
     Arc::new(move |r| Box::pin(f(r)))
 }
 
-fn status_only(code: StatusCode) -> dm_shared_httpresp::Response {
-    let mut r = http::Response::new(dm_shared_httpresp::empty());
+fn status_only(code: StatusCode) -> otter_shared_httpresp::Response {
+    let mut r = http::Response::new(otter_shared_httpresp::empty());
     *r.status_mut() = code;
     r
 }
@@ -187,7 +187,7 @@ async fn listener_serves_edge() {
     .await;
     assert_eq!(code, Ok(204));
     assert_eq!(
-        dm_gocompat::json::marshal(&st).unwrap(),
+        otter_gocompat::json::marshal(&st).unwrap(),
         format!(r#"{{"listening":true,"addr":"{}"}}"#, st.addr).into_bytes()
     );
 }
@@ -302,7 +302,7 @@ async fn listener_port_busy_reports_reason() {
         format!("listen tcp 127.0.0.1:{port}: bind: address already in use")
     );
     assert_eq!(
-        dm_gocompat::json::marshal(&st).unwrap(),
+        otter_gocompat::json::marshal(&st).unwrap(),
         format!(r#"{{"listening":false,"error":"{}"}}"#, st.err).into_bytes()
     );
     f.ln.apply(&enabled_at(free_port()));
@@ -433,7 +433,7 @@ fn handshake_log_aggregates() {
         }
     }
     let buf = Buf::default();
-    dm_shared_dmlog::init(dm_shared_dmlog::Options {
+    otter_shared_otterlog::init(otter_shared_otterlog::Options {
         out: Some(Box::new(buf.clone())),
         ..Default::default()
     });
@@ -459,7 +459,7 @@ fn handshake_log_aggregates() {
     assert!(pending.lock().unwrap().is_some() && text().contains("10.0.0.8"));
     h.write("http: panic serving 1.2.3.4: boom\n");
     assert!(text().contains("edge listener: http: panic serving"));
-    dm_shared_dmlog::reset();
+    otter_shared_otterlog::reset();
 }
 
 // ---- client (Go client_test.go) ----
@@ -502,15 +502,15 @@ fn echo() -> Handler {
         let path = r.uri().path().to_string();
         let body = r.into_body().collect().await.unwrap().to_bytes();
         let mut m: BTreeMap<String, String> =
-            dm_gocompat::json::unmarshal(&body).unwrap_or_default();
+            otter_gocompat::json::unmarshal(&body).unwrap_or_default();
         m.insert("path".into(), path);
-        dm_shared_httpresp::json(StatusCode::OK, &m)
+        otter_shared_httpresp::json(StatusCode::OK, &m)
     })
 }
 
 fn fixed(code: StatusCode, body: &'static str) -> Handler {
     handler(move |_| async move {
-        let mut r = http::Response::new(dm_shared_httpresp::full(body));
+        let mut r = http::Response::new(otter_shared_httpresp::full(body));
         *r.status_mut() = code;
         r
     })

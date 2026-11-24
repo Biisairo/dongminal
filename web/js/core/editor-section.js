@@ -1,5 +1,5 @@
 /**
- * Dongminal — 사이드바의 **Editor 섹션** (FE_MODULE_BOUNDARY_SRS FR-FMB-20).
+ * Otterminal — 사이드바의 **Editor 섹션** (FE_MODULE_BOUNDARY_SRS FR-FMB-20).
  *
  * 편집기 목록을 더하고 · 빼고 · 재배열한다. 목록이 바뀌면 그 뒷일(`_edAfterChange`)이
  * 서버 저장과 화면 재조정을 함께 지나간다 — 그 자리가 하나여야 목록의 진실이 하나다.

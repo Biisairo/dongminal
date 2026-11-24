@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/domain/ext` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/domain/ext` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 언어 서버가 **플러그인으로 오는** 자리다 (LSP_PLUGIN_SRS). 서버 목록은 코드가 아니라
 //! 매니페스트에 있다 (FR-EXT-1). 이름이 `plugin` 이 아닌 것은 Claude Code 플러그인과 가르기

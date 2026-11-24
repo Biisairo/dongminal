@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
-use dm_webserver_domain_git_core::{self as core, Ctx};
+use otter_webserver_domain_git_core::{self as core, Ctx};
 use serde::Serialize;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
@@ -174,7 +174,7 @@ impl Exclusion {
                     JobsKind::RepoBusy,
                     format!(
                         "{key} 의 쓰기가 {} 안에 끝나지 않았다",
-                        dm_gocompat::time::format_std_duration(wait)
+                        otter_gocompat::time::format_std_duration(wait)
                     ),
                 ))
             }

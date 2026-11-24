@@ -106,8 +106,8 @@ JS 가 세우며, 보임은 `html.win-unfocused` 클래스가 정하고, 세기�
 
 접수한 물음("조정자 스스로의 context 사용량은 확인 못하나?")의 답이다.
 
-1. 훅은 조정자에게도 붙는다 — `dmctl activity` 가 `toolId` 와 함께 실측 토큰·모델을
-   `POST /api/runs/context` 로 보낸다 (`dmctl_activity.go:106`).
+1. 훅은 조정자에게도 붙는다 — `otterctl activity` 가 `toolId` 와 함께 실측 토큰·모델을
+   `POST /api/runs/context` 로 보낸다 (`otterctl_activity.go:106`).
 2. 서버는 그 `toolId` 를 **멤버 목록에서만** 찾는다 —
    `s.findByTool(toolID)`(`store_context.go:153`). 못 찾으면 `found=false` 로 **그대로
    버린다.**
@@ -294,7 +294,7 @@ JS 가 세우며, 보임은 `html.win-unfocused` 클래스가 정하고, 세기�
 | V-16 (FR-RCX-12) | 단위(Go): 아무에게도 속하지 않는 `toolId` 관측은 오류 없이 무시된다 |
 | V-18 (FR-SYN-2·7) | e2e: 탭 둘을 열고 한쪽에서 테마와 가장자리 세기를 바꾸면, 다른 탭의 `--bg` 와 `--ufe-alpha` 가 새로고침 없이 따라온다 |
 | V-19 (FR-SYN-3) | 단위(Go): `settings_changed` 페이로드에 설정 본문이 실리지 않는다 (카나리아) |
-| V-17 (NFR-5) | 기존 카나리아(`dmctl_activity_context_test.go`) 유지 — 페이로드에 transcript 내용이 없다 |
+| V-17 (NFR-5) | 기존 카나리아(`otterctl_activity_context_test.go`) 유지 — 페이로드에 transcript 내용이 없다 |
 
 ---
 

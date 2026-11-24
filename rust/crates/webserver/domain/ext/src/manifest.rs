@@ -3,8 +3,8 @@
 
 use std::collections::BTreeMap;
 
-use dm_gocompat::json::{self, is_empty};
-use dm_gocompat::{path, strconv::quote};
+use otter_gocompat::json::{self, is_empty};
+use otter_gocompat::{path, strconv::quote};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, errorf};
@@ -285,7 +285,7 @@ pub(crate) fn safe_rel(p: &str) -> Result<(), Error> {
     if p.trim().is_empty() {
         return Err(Error::new("비었습니다"));
     }
-    if dm_gocompat::filepath::is_abs(p) || p.starts_with('/') || p.starts_with('\\') {
+    if otter_gocompat::filepath::is_abs(p) || p.starts_with('/') || p.starts_with('\\') {
         return Err(errorf!("절대경로입니다: {}", quote(p)));
     }
     if p.len() >= 2 && p.as_bytes()[1] == b':' {
@@ -324,5 +324,5 @@ pub fn target_name(build_target: &str) -> String {
 
 /// 이 빌드의 타깃 이름.
 pub fn current_target() -> String {
-    target_name(dm_shared_platform::build_target())
+    target_name(otter_shared_platform::build_target())
 }

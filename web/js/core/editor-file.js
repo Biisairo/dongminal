@@ -1,5 +1,5 @@
 /**
- * Dongminal — Editor 의 **파일 조작** (FE_MODULE_BOUNDARY_SRS FR-FMB-20).
+ * Otterminal — Editor 의 **파일 조작** (FE_MODULE_BOUNDARY_SRS FR-FMB-20).
  *
  * 파일을 열고 · 오리고 · 옮기고 · 지운다. 삭제 확인이 여기 함께 있는 이유는
  * **되돌릴 수 없는 것을 묻는 자리**(`edFsActions`)와 그 수를 보여 주는 자리가
@@ -58,7 +58,7 @@ class EditorFile extends Controller {
     // 연 파일이 **탐색기에서도** 보이게 한다. 파일 검색·전체 검색으로 열면 그
     // 파일이 트리 어디에 있는지가 답의 일부인데, 탐색기를 그대로 두면 사용자가
     // 경로를 눈으로 따라가며 폴더를 하나씩 펼쳐야 한다. 여는 경로가 여럿이므로
-    // (검색 둘·git 변경파일·dmctl open) 각 부름터가 아니라 이 자리에 둔다.
+    // (검색 둘·git 변경파일·otterctl open) 각 부름터가 아니라 이 자리에 둔다.
     const tree=this.app.editor.open._edTreeFor(w);
     if(tree&&tree.selector) tree.selector.revealPath(filePath);
     /**
@@ -70,7 +70,7 @@ class EditorFile extends Controller {
      *             (`edTree` 는 그릴 때만 불린다) 경로를 적어 두고, 그 자리에
      *             갔을 때 드러낸다
      *   이유:     FR-DSP-1 로 기본이 Changes 가 되면서 **연 파일이 탐색기에서
-     *             드러나는 일이 통째로 사라졌다** — 검색·`dmctl open`·변경 클릭이
+     *             드러나는 일이 통째로 사라졌다** — 검색·`otterctl open`·변경 클릭이
      *             모두 이 자리를 지난다. e2e `editor-nested-root` N4 가 잡았다
      *
      * 창마다 하나다 — 마지막에 연 파일이 드러날 자리이며, 그 앞의 것은 이미
@@ -85,7 +85,7 @@ class EditorFile extends Controller {
   /**
    * FR-WBR-71: "무엇을 복사했는가" 는 **앱이 든다.**
    *
-   * dongminal 의 창은 브라우저 창이 아니라 화면 안의 레코드이므로, 여기 두면
+   * otterminal 의 창은 브라우저 창이 아니라 화면 안의 레코드이므로, 여기 두면
    * 모든 창·분할 칸·탐색기가 한 자리를 공유한다 — 왼쪽 탐색기에서 복사해
    * 오른쪽에 붙여넣는 것이 곧 이 선택이다.
    *

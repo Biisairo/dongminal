@@ -14,7 +14,7 @@ import { ED_SEL } from './editor';
 import { TMP, realPath } from './osenv';
 
 let BASE = '';
-test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'dm-sticky-'))) });
+test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'otter-sticky-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
 const BODY = Array.from({ length: 120 }, (_, i) => `      call${i}();`);

@@ -22,7 +22,7 @@ const git = (d: string, ...a: string[]) => execFileSync('git', ['-C', d, ...a], 
 const rev = (d: string, r: string) => execFileSync('git', ['-C', d, 'rev-parse', r], { encoding: 'utf8' }).trim();
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-ghf-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-ghf-')));
   const d = j(BASE, 'repo');
   fs.mkdirSync(d, { recursive: true });
   git(d, 'init', '-q', '-b', 'main', '.');

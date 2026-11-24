@@ -5,11 +5,11 @@ use std::sync::Arc;
 use std::sync::mpsc;
 use std::time::Duration;
 
-use dm_gocompat::json::RawMessage;
-use dm_shared_activity as activity;
-use dm_shared_agentrec as agentrec;
-use dm_shared_handover as handover;
-use dm_shared_toolhub::ToolManager;
+use otter_gocompat::json::RawMessage;
+use otter_shared_activity as activity;
+use otter_shared_agentrec as agentrec;
+use otter_shared_handover as handover;
+use otter_shared_toolhub::ToolManager;
 use serde_json::Value;
 
 use super::{daemon, raw, report_call};
@@ -72,7 +72,7 @@ async fn report_rejects_unknown_method_and_tool() {
 /// 활동을 함께 거둔다 (FR-ASV-12).
 #[tokio::test(flavor = "multi_thread")]
 async fn report_without_server_records_into_snapshot() {
-    let Some(agent) = dm_shared_agentadapter::status_line_reporter() else {
+    let Some(agent) = otter_shared_agentadapter::status_line_reporter() else {
         return;
     };
     let d = daemon("b");
@@ -103,7 +103,7 @@ async fn report_without_server_records_into_snapshot() {
         assert_eq!(report(&d.report, m, body), OK, "{m}");
     }
     let mut c = raw(&d.sock);
-    c.hello(&[dm_shared_toolipc::FEATURE_REPORTS]);
+    c.hello(&[otter_shared_toolipc::FEATURE_REPORTS]);
     let out: Value =
         serde_json::from_str(&c.call(r#"{"id":1,"method":"records","params":{}}"#)).unwrap();
     let res = &out["result"];
@@ -163,7 +163,7 @@ async fn report_with_server_pushes_report() {
     let d = daemon("b");
     let p = d.srv.inner.pm.adopt_detached("t1");
     let mut c = raw(&d.sock);
-    c.hello(&[dm_shared_toolipc::FEATURE_REPORTS]);
+    c.hello(&[otter_shared_toolipc::FEATURE_REPORTS]);
     assert_eq!(
         report(
             &d.report,
@@ -246,7 +246,7 @@ async fn report_socket_serves_concurrently() {
 /// 계정을 실은 사용량 보고는 에이전트 단위 한도 기록에 들어가지 않는다 (FR-CAC-78).
 #[tokio::test(flavor = "multi_thread")]
 async fn report_usage_with_account_skips_agent_limits() {
-    if dm_shared_agentadapter::status_line_reporter().is_none() {
+    if otter_shared_agentadapter::status_line_reporter().is_none() {
         return;
     }
     let d = daemon("b");
@@ -268,7 +268,7 @@ async fn report_usage_with_account_skips_agent_limits() {
 
 fn reload_body() -> String {
     format!(
-        r#"{{"method":"daemon.reload","body":{{"exe":"/x/dongminal","handover":{}}}}}"#,
+        r#"{{"method":"daemon.reload","body":{{"exe":"/x/otterminal","handover":{}}}}}"#,
         handover::VERSION
     )
 }
@@ -289,7 +289,7 @@ async fn control_reload_refusal_passes_reason() {
     );
     assert_eq!(
         rx.recv().unwrap(),
-        ("/x/dongminal".to_owned(), handover::VERSION)
+        ("/x/otterminal".to_owned(), handover::VERSION)
     );
 }
 
@@ -336,10 +336,10 @@ async fn control_reload_outlives_report_deadline() {
 async fn handover_listeners_survive() {
     use std::os::fd::IntoRawFd;
 
-    use dm_shared_platform::IpcListener;
+    use otter_shared_platform::IpcListener;
 
     let dir = tempfile::Builder::new().prefix("dsk").tempdir().unwrap();
-    let sock = dm_shared_platform::current().ipc.endpoint(dir.path());
+    let sock = otter_shared_platform::current().ipc.endpoint(dir.path());
     let rep = dir.path().join(agentrec::SOCKET_FILE);
     let pid = dir.path().join("paned.pid");
     let old = PanedServer::new(Arc::new(ToolManager::new("", None)), &sock, Some(&pid));

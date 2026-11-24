@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use dm_shared_toolhub::ToolInfo;
+use otter_shared_toolhub::ToolInfo;
 
 use super::FakeBroker;
 use crate::payloads::*;
@@ -99,7 +99,7 @@ async fn await_timeout_and_no_subscriber() {
 
 #[test]
 fn cmd_result_json_shape() {
-    let empty = dm_gocompat::json::marshal(&CmdResult::default()).unwrap();
+    let empty = otter_gocompat::json::marshal(&CmdResult::default()).unwrap();
     assert_eq!(
         empty,
         br#"{"newWindows":null,"newPanes":null,"newTabs":null}"#
@@ -120,11 +120,11 @@ fn cmd_result_json_shape() {
         error: "e".into(),
     };
     assert_eq!(
-        dm_gocompat::json::marshal(&full).unwrap(),
+        otter_gocompat::json::marshal(&full).unwrap(),
         br#"{"newWindows":["w"],"newPanes":[],"newTabs":[{"uuid":"u","toolId":"1"}],"newGroups":["g"],"position":{"container":"c","index":2,"count":3},"error":"e"}"#
     );
     let back: CmdResult =
-        dm_gocompat::json::unmarshal(&dm_gocompat::json::marshal(&full).unwrap()).unwrap();
+        otter_gocompat::json::unmarshal(&otter_gocompat::json::marshal(&full).unwrap()).unwrap();
     assert_eq!(back, full);
 }
 
@@ -280,7 +280,7 @@ struct FgSource {
 
 impl ForegroundSource for FgSource {
     fn has_feature(&self, name: &str) -> bool {
-        self.feature && name == dm_shared_toolipc::FEATURE_FOREGROUND_TICK
+        self.feature && name == otter_shared_toolipc::FEATURE_FOREGROUND_TICK
     }
     fn list(&self) -> Vec<ToolInfo> {
         *crate::lock(&self.lists) += 1;

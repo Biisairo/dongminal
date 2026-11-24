@@ -20,7 +20,7 @@ import { tmpPath, cssPath } from './osenv';
 //
 // 상태를 **바꾸는** 테스트이므로 픽스처를 복사해 쓴다 (git-staging.spec.ts 의 선례).
 
-const FIXTURES = tmpPath('dm-git-fx-hunk-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-hunk-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

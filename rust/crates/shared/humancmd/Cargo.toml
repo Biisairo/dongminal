@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-humancmd"
+name = "otter-shared-humancmd"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,8 +11,8 @@ workspace = true
 
 [dependencies]
 base64 = { workspace = true }
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-platform = { path = "../platform" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-platform = { path = "../platform" }
 ed25519-dalek = { workspace = true }
 hex = { workspace = true }
 rand = { workspace = true }

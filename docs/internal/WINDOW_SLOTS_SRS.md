@@ -168,13 +168,13 @@ WebSocket 하나 (`:8`) 를 소유한다. Map 접근은 코드 전역 30곳이�
 것" (FR-SBT-6) 이 이미 관행이다.
 
 한편 서버는 `activeWindow`+`focusedPane`+`activeTab` 으로 **활성 탭**을 판정하고
-(`manager.go:545`), `dmctl` 이 "지금 사용자가 보는 도구"를 찾는 근거로 쓴다.
+(`manager.go:545`), `otterctl` 이 "지금 사용자가 보는 도구"를 찾는 근거로 쓴다.
 
 **그런데 그 판정은 클라이언트의 현재 포커스를 따라오지 않는다.** `save()` 는 PUT
 본문에서 `activeWindow` 와 `focusedPane` 을 **벗겨낸다** (`app.js:293`) — 여러 창이
 같은 워크스페이스를 볼 때 한쪽의 시선이 다른 쪽의 화면을 끌고 가지 않도록 한
 것이다. 서버는 이 두 필드를 **읽기만 하고 쓰는 자리가 없다** (Go 전역에서
-`ActiveWindow` 는 `manager.go:496` 선언과 `:545`·`dmctl_listworkspace.go:309` 의 읽기
+`ActiveWindow` 는 `manager.go:496` 선언과 `:545`·`otterctl_listworkspace.go:309` 의 읽기
 뿐이다).
 
 이것은 슬롯 이전부터의 동작이며, 슬롯이 바꾸는 것도 아니다. 스펙 1차에서 이 사실을
@@ -511,7 +511,7 @@ id 는 `ds-slotdir` 이다. 누를 때마다 두 값이 뒤집히고, `data-v` �
 폐기해야 한다. 창을 통째로 담는 쪽은 그 부속을 **손대지 않는다**.
 
 **D-2. 슬롯 상태는 `sessionStorage` 다.**
-`workspace.json` 에 넣으면 서버가 슬롯 B 의 활성 탭까지 알게 되어 `dmctl` 이 슬롯을
+`workspace.json` 에 넣으면 서버가 슬롯 B 의 활성 탭까지 알게 되어 `otterctl` 이 슬롯을
 조작할 수 있게 되지만, `schemaVersion` 마이그레이션과 `manager.go:545` 의 활성 탭
 판정 개정이 따라오고, **무엇보다 데스크톱의 2칸 배치가 모바일 접속에 강제된다**.
 슬롯은 "보는 방식"이고 그것은 클라이언트의 것이다 (FR-SBT-6, `app.js:46`·`:54` 의
@@ -635,7 +635,7 @@ e2e 는 `e2e/window-slots.spec.ts` 에 둔다. 소유권 관련은 `focus-owner.
   것은 `window.layout` 의 분할 트리를 한 층 위에 다시 만드는 일이다.
 - **창 타입 불변식 변경.** Git 창은 여전히 탭을 더할 수 없고, Editor 창에는 편집기
   탭만 산다. 슬롯은 창을 담을 뿐이다.
-- **`dmctl` 의 슬롯 인식.** D-2 의 귀결이다. `dmctl` 은 지금처럼 포커스 슬롯의 창을
+- **`otterctl` 의 슬롯 인식.** D-2 의 귀결이다. `otterctl` 은 지금처럼 포커스 슬롯의 창을
   "활성" 으로 본다.
 - **슬롯별 사이드바·토프바.** 사이드바와 토프바는 하나이고 포커스 슬롯을 따른다.
 - **슬롯 배치의 프리셋 저장.** 프리셋은 창 안의 레이아웃을 다룬다 (`constants.js:167`).

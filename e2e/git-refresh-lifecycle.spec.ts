@@ -18,7 +18,7 @@ import { tmpPath, realPath } from './osenv';
  * 상태를 인위적으로 세우고 거기서 빠져나오는지 본다.
  */
 
-const FIXTURES = tmpPath('dm-git-fx-grf-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-grf-' + process.pid);
 
 test.beforeAll(() => { gitFixture(FIXTURES) });
 test.afterAll(() => { cleanGitFixture(FIXTURES) });

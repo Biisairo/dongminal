@@ -304,7 +304,7 @@ class DiagOverlay {
    * 재현되는 문제만 잡기 때문이다. 이 버튼은 그 쥔 것을 화면으로 옮길 뿐이다.
    */
   errs(){
-    const L=window.__dongminalErrors;
+    const L=window.__otterminalErrors;
     if(!L){this.put('ERR (기록 계층 없음)');return}
     const items=L.items();
     this.put('ERR total='+L.total()+' kept='+items.length);
@@ -336,7 +336,7 @@ class DiagOverlay {
     if(a==='pause'){this.paused=!this.paused;e.target.textContent=this.paused?t('diag.resume'):t('diag.pause');return}
     if(a==='send'){
       const body=this.lines.join('\n')+'\n';
-      const name='dongminal-diag-'+Date.now()+'.txt';
+      const name='otterminal-diag-'+Date.now()+'.txt';
       const fd=new FormData();
       fd.append('file',new Blob([body],{type:'text/plain'}),name);
       e.target.textContent='...';

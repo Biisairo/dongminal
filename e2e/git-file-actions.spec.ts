@@ -17,7 +17,7 @@ import { tmpPath, realPath } from './osenv';
 // 테스트 저장소는 e2e/git_fixture.sh 가 만든다 — 테스트 안에서 git init 을
 // 되풀이하지 않는다. 상태를 바꾸는 스펙은 **복사본**에서 돈다.
 
-const FIXTURES = tmpPath('dm-git-fx-fileact-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-fileact-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
@@ -419,7 +419,7 @@ test.describe('묶음 F — stash · 파일 · 미커밋 행', () => {
  * `TEST-7` 로 `git-ui-revision` 에서 옮겨 왔다 — 납품 묶음(“UI 개정”)이 아니라
  * **이 기능**이 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
  */
-const GURFX = tmpPath('dm-gur-git-file-actions-' + process.pid);
+const GURFX = tmpPath('otter-gur-git-file-actions-' + process.pid);
 test.beforeAll(() => { gitFixture(GURFX) });
 test.afterAll(() => { cleanGitFixture(GURFX) });
 const gurFx = (n: string) => realPath(join(GURFX, n));

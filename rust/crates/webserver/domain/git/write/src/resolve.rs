@@ -2,8 +2,8 @@
 
 use std::collections::{HashMap, HashSet};
 
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_git_core::{self as core, Ctx, Hint, Service};
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_git_core::{self as core, Ctx, Hint, Service};
 use serde::Serialize;
 
 use crate::commit::{argv, spec};

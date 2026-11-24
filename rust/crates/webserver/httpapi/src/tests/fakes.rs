@@ -5,17 +5,17 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use dm_shared_sandbox::{self as sandbox, ProfileInfo};
-use dm_shared_toolhub::{
+use otter_shared_sandbox::{self as sandbox, ProfileInfo};
+use otter_shared_toolhub::{
     BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolInfo, ToolSnapshot,
 };
-use dm_shared_workspace::{Error as WorkspaceError, TabEntry, WindowInfo};
-use dm_webserver_domain_sysstat::Snapshot;
+use otter_shared_workspace::{Error as WorkspaceError, TabEntry, WindowInfo};
+use otter_webserver_domain_sysstat::Snapshot;
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 
-use dm_webserver_hub::{CmdResult, CmdSub, CommandBroker};
 use futures_util::future::BoxFuture;
+use otter_webserver_hub::{CmdResult, CmdSub, CommandBroker};
 use std::sync::Arc;
 
 use crate::agent_render_env::agent_render_env;
@@ -235,7 +235,7 @@ impl FakeWork {
     }
 }
 
-impl dm_webserver_domain_wsentry::WorkspaceStore for FakeWork {
+impl otter_webserver_domain_wsentry::WorkspaceStore for FakeWork {
     fn snapshot(&self) -> (Arc<Vec<u8>>, u64) {
         (
             Arc::new(self.raw.lock().unwrap().clone()),
@@ -321,7 +321,7 @@ impl SettingsStore for FakeSettings {
     fn fg_tab_names(&self) -> bool {
         crate::settings::parse_fg_tab_names(&self.get())
     }
-    fn context_policy(&self) -> dm_webserver_domain_run::ContextPolicy {
+    fn context_policy(&self) -> otter_webserver_domain_run::ContextPolicy {
         crate::settings::parse_context_policy(&self.get())
     }
     fn migration(&self) -> crate::MigrationConf {
@@ -428,7 +428,7 @@ impl CommandBroker for FakeBroker {
 pub(crate) struct FakeUpdates {
     pub(crate) triggers: AtomicUsize,
     pub(crate) sets: AtomicUsize,
-    pub(crate) snap: Mutex<dm_shared_updatecheck::Snapshot>,
+    pub(crate) snap: Mutex<otter_shared_updatecheck::Snapshot>,
     pub(crate) set_err: Option<String>,
 }
 
@@ -436,7 +436,7 @@ impl UpdateService for FakeUpdates {
     fn trigger(&self) {
         self.triggers.fetch_add(1, Ordering::SeqCst);
     }
-    fn snapshot(&self) -> dm_shared_updatecheck::Snapshot {
+    fn snapshot(&self) -> otter_shared_updatecheck::Snapshot {
         self.snap.lock().unwrap().clone()
     }
     fn set_enabled(&self, on: bool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {

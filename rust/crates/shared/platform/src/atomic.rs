@@ -132,7 +132,7 @@ pub(crate) fn write_file_atomic_with(
     }
     // 이미 바뀐 뒤라 실패해도 쓰기는 성공이다 (FR-ATF-58).
     if let Err(e) = dir_sync(&parent_dir(path)) {
-        dm_shared_dmlog::warnf!(None, "WriteFileAtomic: 디렉터리 fsync: {e}");
+        otter_shared_otterlog::warnf!(None, "WriteFileAtomic: 디렉터리 fsync: {e}");
     }
     Ok(())
 }

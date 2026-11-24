@@ -42,7 +42,7 @@ fn dump(m: &str, p: &str, r: &Resp) -> String {
         "== {m} {p}\n{} {}\n{}\n",
         r.status,
         hs.join("|"),
-        dm_gocompat::strconv::quote(&mask(&r.body))
+        otter_gocompat::strconv::quote(&mask(&r.body))
     )
 }
 
@@ -221,7 +221,7 @@ async fn golden_553() {
     for b in env.cmds.published() {
         out.push_str(&format!(
             "== broadcast\n{}\n",
-            dm_gocompat::strconv::quote(&mask(&b))
+            otter_gocompat::strconv::quote(&mask(&b))
         ));
     }
     let want = include_str!("go_golden_553.txt");

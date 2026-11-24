@@ -251,8 +251,8 @@ async fn exec_git_environment() {
         .exec(&bg(), &repo.path, &["rev-parse", "--show-toplevel"])
         .await
         .unwrap();
-    let got = dm_gocompat::filepath::clean(o.stdout_str().trim());
-    assert_eq!(got, dm_gocompat::filepath::clean(&repo.path));
+    let got = otter_gocompat::filepath::clean(o.stdout_str().trim());
+    assert_eq!(got, otter_gocompat::filepath::clean(&repo.path));
     assert!(o.duration_ms >= 0);
 }
 
@@ -261,7 +261,7 @@ async fn exec_git_environment() {
 async fn exec_repo_missing() {
     let Some(bin) = git_path() else { return };
     let base = temp_dir();
-    let gone = dm_gocompat::filepath::join(&[base.path.as_str(), "gone"]);
+    let gone = otter_gocompat::filepath::join(&[base.path.as_str(), "gone"]);
     let err = Service::new()
         .exec(&bg(), &gone, &["rev-parse", "--show-toplevel"])
         .await
@@ -441,8 +441,8 @@ async fn look_git_cache_and_vanished_bin() {
     assert!(err.is(Kind::GitMissing), "{err}");
     let path = format!(
         "{}{}{}",
-        dm_gocompat::filepath::dir(&real),
-        dm_gocompat::filepath::LIST_SEPARATOR,
+        otter_gocompat::filepath::dir(&real),
+        otter_gocompat::filepath::LIST_SEPARATOR,
         c.path
     );
     exec_git(
@@ -613,7 +613,7 @@ async fn exec_git_err_dot() {
     let fake = Path::new(&bin.path).join("git");
     std::fs::write(&fake, b"#!/bin/sh\nexit 0\n").unwrap();
     std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let rel = dm_gocompat::filepath::rel(
+    let rel = otter_gocompat::filepath::rel(
         &std::env::current_dir().unwrap().to_string_lossy(),
         &bin.path,
     )

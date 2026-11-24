@@ -13,7 +13,7 @@ import { tmpPath, realPath } from './osenv';
 // 하는 스펙은 **복사본**에서 돈다 — 원본을 옮기면 뒤따르는 스펙이 다른 저장소를
 // 본다.
 
-const FIXTURES = tmpPath('dm-git-fx-br-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-br-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

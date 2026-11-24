@@ -28,7 +28,7 @@ impl Default for ServerLimits {
             fs_delete: FS_DELETE_MAX,
             fs_copy: FS_COPY_MAX,
             upload_max_bytes: FS_UPLOAD_MAX_BYTES,
-            file_read_max: dm_shared_editorlimit::FILE_MAX_BYTES,
+            file_read_max: otter_shared_editorlimit::FILE_MAX_BYTES,
         }
     }
 }

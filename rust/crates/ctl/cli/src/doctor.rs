@@ -1,4 +1,4 @@
-//! `dongminal doctor` — 플랫폼 계층을 **실제로 돌려 본다**. 서버가 쓰는 바로 그 코드 경로를 같은
+//! `otterminal doctor` — 플랫폼 계층을 **실제로 돌려 본다**. 서버가 쓰는 바로 그 코드 경로를 같은
 //! 순서로 밟으므로, 통과하면 그 계층은 이 호스트에서 동작하고 실패하면 실패 지점과 OS 오류가
 //! 그대로 나온다. "터미널이 안 뜬다" 는 셸 탐색·헬퍼 설치·의사 터미널·IPC 중 어디서든 날 수 있다.
 
@@ -6,14 +6,14 @@ use std::io::{self, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use dm_gocompat::filepath;
-use dm_gocompat::fmt::v_list;
-use dm_gocompat::oserr::go_error_string;
-use dm_gocompat::strconv::{quote, quote_bytes};
-use dm_shared_dmenv as dmenv;
-use dm_shared_platform::{Platform, ShellSpec, ShutdownSignal};
-use dm_shared_runtime as runtime;
-use dm_shared_toolhub::{Placement, ToolManager};
+use otter_gocompat::filepath;
+use otter_gocompat::fmt::v_list;
+use otter_gocompat::oserr::go_error_string;
+use otter_gocompat::strconv::{quote, quote_bytes};
+use otter_shared_otterenv as otterenv;
+use otter_shared_platform::{Platform, ShellSpec, ShutdownSignal};
+use otter_shared_runtime as runtime;
+use otter_shared_toolhub::{Placement, ToolManager};
 
 use crate::bundle::run_doctor_bundle;
 use crate::doctor_probe::{
@@ -48,7 +48,7 @@ pub(crate) fn run_doctor_in(
             return 1;
         }
     };
-    let p = dm_shared_platform::current();
+    let p = otter_shared_platform::current();
 
     // G2-3: 번들 모드는 진단을 대체하지 않고 따로 선다.
     if !o.bundle.is_empty() {
@@ -59,7 +59,7 @@ pub(crate) fn run_doctor_in(
         return run_pty_probe(&o.probe_pty, p, &home);
     }
 
-    let _ = writeln!(stdout, "dongminal doctor — platform={}", p.os);
+    let _ = writeln!(stdout, "otterminal doctor — platform={}", p.os);
 
     // FR-HLI-5: 운영 홈의 bin 에 설치하지 않는다. 임시 bin 을 못 만들면 오류로 끝낸다 — 운영 bin 으로
     // 대신하지 않는다 (FR-ATF-59, D-ATF-7).
@@ -71,8 +71,8 @@ pub(crate) fn run_doctor_in(
         }
     };
 
-    // Go 는 여기서 표준 로거를 가로채 실패 때만 `[서버 로그]` 로 보였다. 그러나 toolhub 는 dmlog 로
-    // 찍고, dmlog 는 기동이 세운 자기 핸들러(stderr)로 쓰므로 가로채기에 걸리는 줄이 없다 — 관측
+    // Go 는 여기서 표준 로거를 가로채 실패 때만 `[서버 로그]` 로 보였다. 그러나 toolhub 는 otterlog 로
+    // 찍고, otterlog 는 기동이 세운 자기 핸들러(stderr)로 쓰므로 가로채기에 걸리는 줄이 없다 — 관측
     // 동작대로 가로채지 않는다.
     let mut r = CheckReport::new(stdout);
     for c in doctor_checks(p, &home, &probe.bin) {
@@ -122,7 +122,7 @@ pub(crate) fn doctor_checks<'a>(
         c("환경", move |r| doctor_environment(r, p, home)),
         c("설치", move |r| doctor_install(r, p, probe_bin)),
         c("설치된 헬퍼", move |r| {
-            doctor_helpers(r, &filepath::join(&[home, dmenv::BIN_DIR]));
+            doctor_helpers(r, &filepath::join(&[home, otterenv::BIN_DIR]));
         }),
         c("셸", move |r| doctor_shell(r, p, probe_bin)),
         c("터미널", move |r| doctor_terminal(r, p, probe_bin, home)),
@@ -139,7 +139,7 @@ fn mkdir_all(path: &str) -> io::Result<()> {
 
 fn doctor_environment(r: &mut CheckReport<'_>, p: &Platform, home: &str) {
     r.section("환경");
-    r.info(format!("DONGMINAL_HOME = {home}"));
+    r.info(format!("OTTERMINAL_HOME = {home}"));
     // 홈을 아는 자리이므로 홈 아래를 답한다 (FR-STR-33).
     r.info(format!("로그 기본 경로  = {}", default_log_file(home)));
     r.info(format!("실행 확장자     = {}", quote(p.paths.exe_suffix())));
@@ -151,7 +151,7 @@ fn doctor_environment(r: &mut CheckReport<'_>, p: &Platform, home: &str) {
     match std::fs::metadata(home) {
         Err(e) => r.bad(format!(
             "홈을 읽을 수 없습니다: {}",
-            go_error_string(&dm_gocompat::oserr::path_error("stat", home, e))
+            go_error_string(&otter_gocompat::oserr::path_error("stat", home, e))
         )),
         Ok(m) if !m.is_dir() => r.bad(format!("홈이 디렉터리가 아닙니다: {home}")),
         Ok(_) => r.ok("홈 존재"),
@@ -171,8 +171,8 @@ impl Drop for ProbeBin {
 }
 
 pub(crate) fn doctor_probe_bin(tmp: &str) -> Result<ProbeBin, String> {
-    let root = mkdir_temp(tmp, "dongminal-doctor-")?;
-    let bin = filepath::join(&[root.as_str(), dmenv::BIN_DIR]);
+    let root = mkdir_temp(tmp, "otterminal-doctor-")?;
+    let bin = filepath::join(&[root.as_str(), otterenv::BIN_DIR]);
     Ok(ProbeBin { root, bin })
 }
 
@@ -221,7 +221,7 @@ fn doctor_install(r: &mut CheckReport<'_>, p: &Platform, bin_dir: &str) {
         match std::fs::metadata(&path) {
             Err(e) => r.bad(format!(
                 "셸이 참조할 훅이 없습니다: {path} ({})",
-                go_error_string(&dm_gocompat::oserr::path_error("stat", &path, e))
+                go_error_string(&otter_gocompat::oserr::path_error("stat", &path, e))
             )),
             Ok(_) => r.ok(format!("훅 존재: {path}")),
         }
@@ -237,7 +237,7 @@ fn doctor_install(r: &mut CheckReport<'_>, p: &Platform, bin_dir: &str) {
         match std::fs::metadata(v) {
             Err(e) => r.bad(format!(
                 "{k} 가 가리키는 곳이 없습니다: {v} ({})",
-                go_error_string(&dm_gocompat::oserr::path_error("stat", v, e))
+                go_error_string(&otter_gocompat::oserr::path_error("stat", v, e))
             )),
             Ok(_) => r.ok(format!("{k} = {v}")),
         }
@@ -270,7 +270,7 @@ fn doctor_shell(r: &mut CheckReport<'_>, p: &Platform, bin_dir: &str) {
     if let Err(e) = std::fs::metadata(&spec.path) {
         r.bad(format!(
             "셸이 그 경로에 없습니다: {}",
-            go_error_string(&dm_gocompat::oserr::path_error("stat", &spec.path, e))
+            go_error_string(&otter_gocompat::oserr::path_error("stat", &spec.path, e))
         ));
         return;
     }
@@ -426,7 +426,7 @@ fn doctor_process(r: &mut CheckReport<'_>, p: &Platform) {
 
     match p.info.parent_pid(me) {
         Some(pid) => r.ok(format!("부모 조회 ppid={pid}")),
-        None => r.bad("부모를 조회하지 못했습니다 — dmctl who-am-i 가 도구를 못 찾습니다"),
+        None => r.bad("부모를 조회하지 못했습니다 — otterctl who-am-i 가 도구를 못 찾습니다"),
     }
     match p.info.names(&[me]).get(&me).filter(|n| !n.is_empty()) {
         Some(n) => r.ok(format!("프로세스 이름 조회 = {n}")),
@@ -437,7 +437,7 @@ fn doctor_process(r: &mut CheckReport<'_>, p: &Platform) {
 /// **서버가 도구를 만들 때와 같은 경로**(ToolManager.create)를 밟는다. 생 PTY 위의 환경 조립·훅
 /// 주입·출력 스트림에서 깨지면 터미널 검사로는 잡지 못한다.
 ///
-/// Go 는 `os.Setenv(DONGMINAL_HOME, home)` 로 홈을 넘겼다. Rust 는 프로세스 환경을 바꾸지 않고
+/// Go 는 `os.Setenv(OTTERMINAL_HOME, home)` 로 홈을 넘겼다. Rust 는 프로세스 환경을 바꾸지 않고
 /// 도구 등록부의 환경 덮개로 넘긴다.
 fn doctor_tool(r: &mut CheckReport<'_>, home: &str) {
     r.section("도구 (toolhub)");
@@ -462,8 +462,8 @@ fn doctor_tool(r: &mut CheckReport<'_>, home: &str) {
         }
     }
     let m = ToolManager::new(&data_dir, None);
-    // StartTool 은 DONGMINAL_HOME 아래 bin 을 셸 환경에 심는다.
-    m.set_env_overlay(vec![(dmenv::ENV_HOME.to_owned(), home.to_owned())]);
+    // StartTool 은 OTTERMINAL_HOME 아래 bin 을 셸 환경에 심는다.
+    m.set_env_overlay(vec![(otterenv::ENV_HOME.to_owned(), home.to_owned())]);
     let mut guard = Cleanup(m.clone(), None, data_dir);
     let tool = match m.create(
         home,
@@ -481,7 +481,7 @@ fn doctor_tool(r: &mut CheckReport<'_>, home: &str) {
     r.ok(format!("도구 기동 pid={}", tool.cmd_process_pid()));
 
     let snap = || tool.stream().map(|s| s.snapshot().0).unwrap_or_default();
-    const MARKER: &str = "dongminal-tool-ok";
+    const MARKER: &str = "otterminal-tool-ok";
     // 셸이 프롬프트를 그릴 때까지 기다린다. 상한을 넘겨도 입력은 넣어 본다 — 판정은 아래 왕복이 한다.
     let mut screen = ChangeTracker::default();
     let _ = wait_quiet(

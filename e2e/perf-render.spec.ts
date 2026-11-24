@@ -29,16 +29,16 @@ import { test, expect, waitForInit } from './fixtures';
 async function renderEntries(page: Page, fn: () => Promise<void>) {
   await page.evaluate(() => {
     const w = window as any, r = w.app.renderer;
-    if (!w.__dmRenderPatched) {
-      w.__dmRenderPatched = true;
+    if (!w.__otterRenderPatched) {
+      w.__otterRenderPatched = true;
       const orig = r.render.bind(r);
-      w.__dmRender = 0;
-      r.render = (...a: any[]) => { w.__dmRender++; return orig(...a) };
+      w.__otterRender = 0;
+      r.render = (...a: any[]) => { w.__otterRender++; return orig(...a) };
     }
-    w.__dmRender = 0;
+    w.__otterRender = 0;
   });
   await fn();
-  return page.evaluate(() => (window as any).__dmRender as number);
+  return page.evaluate(() => (window as any).__otterRender as number);
 }
 
 /**
@@ -55,11 +55,11 @@ async function actionRenders(page: Page, action: 'tab' | 'slotAdd' | 'slotRemove
   await renderEntries(page, async () => {});
   return page.evaluate(async (act) => {
     const w = window as any, a = w.app;
-    w.__dmRender = 0;
+    w.__otterRender = 0;
     if (act === 'tab') await a.layout.tabAdd.addTab(a.focused, 'terminal');
     else if (act === 'slotAdd') a.slot.ops.slotAdd();
     else a.slot.ops.slotRemove(1);
-    return w.__dmRender as number;
+    return w.__otterRender as number;
   }, action);
 }
 

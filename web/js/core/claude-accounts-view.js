@@ -1,5 +1,5 @@
 /**
- * Dongminal — Claude 다중 계정의 화면 값 (CLAUDE_ACCOUNTS_SRS FR-CAC-90~92 · FR-CAC-122).
+ * Otterminal — Claude 다중 계정의 화면 값 (CLAUDE_ACCOUNTS_SRS FR-CAC-90~92 · FR-CAC-122).
  *
  * Activity 하단 묶음·팝오버·알림 줄이 그리는 값을 셈하는 순수 함수와 상수다. 그리는 일은
  * `ClaudeAccountsController`(`claude-accounts-controller.js`)가 한다 — REFACTOR3_FE_APPCTL_SRS 9b 에서 그 파일이

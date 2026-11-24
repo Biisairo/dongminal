@@ -1,17 +1,17 @@
-//! `dongminal update` — 최신 판이 있는지 확인한다 (G3-3).
+//! `otterminal update` — 최신 판이 있는지 확인한다 (G3-3).
 //!
 //! 자동 확인은 서버가 한다 (UPDATE_NOTICE_SRS). 이 명령은 사람이 직접 묻는 자리라, 자동 확인을 꺼
 //! 두었어도 즉시 확인한다 (FR-UPD-17). 내려받지 않는다 (D-UPD-5) — 무엇을 받을지 알려 주고 멈춘다.
 
 use std::io::Write;
 
-use dm_shared_release as release;
+use otter_shared_release as release;
 
 use crate::http::block_on;
 use crate::options::{ParseError, unknown_flag};
 use crate::version::VERSION;
 
-/// `dongminal update` 의 옵션이다. 공통 옵션을 받지 않는다.
+/// `otterminal update` 의 옵션이다. 공통 옵션을 받지 않는다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct UpdateOpts {
     pub check: bool,
@@ -43,7 +43,7 @@ pub(crate) fn run_update_with(
     stderr: &mut dyn Write,
 ) -> i32 {
     if !o.check {
-        let _ = writeln!(stdout, "지금 확인하려면: dongminal update --check");
+        let _ = writeln!(stdout, "지금 확인하려면: otterminal update --check");
         let _ = writeln!(stdout, "  (확인만 합니다 — 내려받거나 덮어쓰지 않습니다.)");
         let _ = writeln!(stdout, "서버의 자동 확인은 설정 화면에서 켜고 끕니다.");
         return 0;
@@ -78,9 +78,9 @@ pub(crate) fn run_update_with(
         }
         let _ = writeln!(
             stdout,
-            "  내려받은 뒤 dongminal stop --all 하고 바꿔 넣으세요."
+            "  내려받은 뒤 otterminal stop --all 하고 바꿔 넣으세요."
         );
-        let _ = writeln!(stdout, "  바꾸기 전에: dongminal backup --out <파일.zip>");
+        let _ = writeln!(stdout, "  바꾸기 전에: otterminal backup --out <파일.zip>");
         return 0;
     }
     let _ = writeln!(stdout, "\n최신입니다.");

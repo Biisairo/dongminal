@@ -3,8 +3,10 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use dm_webserver_hub::{AttnTracker, CommandBroker, CommandHub};
-use dm_webserver_seam_toolaccess::{Error, ToolInfo, ToolReader, WorkspaceEntry, WorkspaceReader};
+use otter_webserver_hub::{AttnTracker, CommandBroker, CommandHub};
+use otter_webserver_seam_toolaccess::{
+    Error, ToolInfo, ToolReader, WorkspaceEntry, WorkspaceReader,
+};
 
 use super::fakes::*;
 use super::support::*;
@@ -44,7 +46,7 @@ impl ToolReader for LiveIo {
 #[derive(Default)]
 pub(crate) struct IdIndex {
     pub(crate) resolve: HashMap<String, String>,
-    pub(crate) sig: dm_shared_pollwait::Signal,
+    pub(crate) sig: otter_shared_pollwait::Signal,
 }
 
 impl WorkspaceReader for IdIndex {
@@ -66,7 +68,7 @@ impl WorkspaceReader for IdIndex {
     fn is_known_tab_id(&self, _: &str) -> bool {
         false
     }
-    fn changes(&self) -> dm_shared_pollwait::Changed {
+    fn changes(&self) -> otter_shared_pollwait::Changed {
         self.sig.c()
     }
 }

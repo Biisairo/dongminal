@@ -142,7 +142,7 @@ test.describe('Terminal features', () => {
       return p && p.ws && p.ws.readyState === 1;
     }, { timeout: 10000 });
 
-    const before = await page.evaluate(() => (window as any).__dongminalDebug.sendDropCount());
+    const before = await page.evaluate(() => (window as any).__otterminalDebug.sendDropCount());
 
     await page.evaluate(() => {
       const a = (window as any).app;
@@ -153,7 +153,7 @@ test.describe('Terminal features', () => {
       p._send(new Uint8Array([1, 66]));
     });
 
-    const after = await page.evaluate(() => (window as any).__dongminalDebug.sendDropCount());
+    const after = await page.evaluate(() => (window as any).__otterminalDebug.sendDropCount());
     expect(after - before).toBeGreaterThanOrEqual(2);
   });
 

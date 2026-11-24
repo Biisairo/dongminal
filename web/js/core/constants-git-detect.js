@@ -1,5 +1,5 @@
 /**
- * Dongminal — **변경 감지 2계층**의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
+ * Otterminal — **변경 감지 2계층**의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
  *
  * 무엇을 얼마나 자주 묻는가 (GIT_SRS §3.3 / FR-GIT-18~24). 주기 상수와 그것을
  * 담는 가변 전역이 여기 함께 산다 — `POLL_SETTINGS` 가 `get/set` 으로만 닿으므로

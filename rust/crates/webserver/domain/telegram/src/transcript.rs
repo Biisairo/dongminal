@@ -3,7 +3,7 @@
 
 use std::io::{Read, Seek, SeekFrom};
 
-use dm_gocompat::json::{self, RawMessage};
+use otter_gocompat::json::{self, RawMessage};
 use serde::Deserialize;
 
 /// 끝에서 읽는 상한 (NFR-TGB-5).

@@ -1,5 +1,5 @@
 /**
- * Dongminal — 원격 작업 (GIT_SRS §3B.1 / FR-GIT-98~112)
+ * Otterminal — 원격 작업 (GIT_SRS §3B.1 / FR-GIT-98~112)
  *
  * Changes 탭 헤더의 Fetch / Pull / Push 를 살리고, 작업 하나의 수명을 화면에
  * 옮긴다. 뷰가 아니라 Changes 탭에 얹힌 조각이므로 자기 루트를 갖지 않는다 —

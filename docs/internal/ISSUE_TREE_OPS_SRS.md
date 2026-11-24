@@ -1,7 +1,7 @@
 # SRS: issue-tree 운영 — 배정·승계·트리 구조·맥락 migration·표시줄 탭 이름·편집기 단축키 — IEEE 29148
 
 > **문서 상태**: 승인·구현완료
-> **확인**: 사용자가 설치를 갱신하고 진행 중이던 트리를 재가동해 확인했다(2026-11-07). 맥락 훅의 additionalContext 전달과 `dmctl status` 의 사용량 줄은 실측했다.
+> **확인**: 사용자가 설치를 갱신하고 진행 중이던 트리를 재가동해 확인했다(2026-11-07). 맥락 훅의 additionalContext 전달과 `otterctl status` 의 사용량 줄은 실측했다.
 > **남은 것(막지 않음)**: 맥락 훅의 지연 측정(NFR-ITO-1) · mac 의 편집기 키 실측(e2e 브라우저는 Win32 였다) · git diff 보기의 키 차단(§3.6a 범위 밖) · 긴 brief 에서 트리 프리앰블 길이(R-1)
 > **입력**: `docs/internal/archive/ISSUE_TREE_OPS_FINDINGS.md`(요구 입력 1~14번, 사용자 결정 넷). 이 SRS 가 그 문서를 대신한다.
 > **개정 대상**: `ISSUE_AGENT_TREE_SRS.md` 의 FR-IAT-50~54·60~64·73, FR-ITD-2·6, D-IAT-19 (§8 변경 기록)
@@ -10,7 +10,7 @@
 
 ### 1.1 목적 (Purpose)
 
-`/dongminal:issue-tree` 를 실제 트리(`hancomins/common-chart-renderer-ts#32`)에 돌려 보니 운영 문제가 여럿 드러났다(입력 1~8번). 사용자는 그 뒤 요구 여섯을 더했다(9~14번). 별건으로 맥락 기준 migration 의 설정과 훅, 표시줄의 탭 이름도 요청했다. 이 SRS 는 이 요구들을 묶음으로 나누어 정한다.
+`/otterminal:issue-tree` 를 실제 트리(`hancomins/common-chart-renderer-ts#32`)에 돌려 보니 운영 문제가 여럿 드러났다(입력 1~8번). 사용자는 그 뒤 요구 여섯을 더했다(9~14번). 별건으로 맥락 기준 migration 의 설정과 훅, 표시줄의 탭 이름도 요청했다. 이 SRS 는 이 요구들을 묶음으로 나누어 정한다.
 
 ### 1.2 범위 (Scope)
 
@@ -22,7 +22,7 @@
 | **M** | 맥락 기준 migration | `FR-ITM-` | 별건 요구 1~5 | 설정 넷 · 맥락 훅 · 잎 노드의 안전 지점 |
 | **W** | 표시줄 탭 이름 | `FR-ITW-` | 별건 요구 | `_rWinTitle` 에 포커스 탭 이름 |
 | **E** | 편집기 단축키 | `FR-ITE-` | 10 | VS Code 기본 단축키와 같은 편집 키 |
-| **S** | 에이전트 정보 조회 | `FR-ITS-` | 11 | `dmctl status` 글자 출력의 사용량 줄 |
+| **S** | 에이전트 정보 조회 | `FR-ITS-` | 11 | `otterctl status` 글자 출력의 사용량 줄 |
 | — | GitHub 이슈 트리 그래프 | — | 9 | 조사 결과만 (§2.9). 구현하지 않는다 (D-ITO-9) |
 
 **미포함:** §6 비목표.
@@ -75,7 +75,7 @@
 
 ### 2.3 승계 장치는 있으나 쓰이지 않는다 (입력 1)
 
-- `dmctl run succeed --member <uuid> --at <탭>` 이 있다(FR-CBG-9, `store_context.go:369`). 새 멤버가 역할·brief·worktree 를 물려받고, 옛 멤버는 `succeeded` 가 된다. `succeeded` 는 `settled` 라서 `node_taken` 판정(`store_write.go:166-175`)에서 빠진다.
+- `otterctl run succeed --member <uuid> --at <탭>` 이 있다(FR-CBG-9, `store_context.go:369`). 새 멤버가 역할·brief·worktree 를 물려받고, 옛 멤버는 `succeeded` 가 된다. `succeeded` 는 `settled` 라서 `node_taken` 판정(`store_write.go:166-175`)에서 빠진다.
 - `migration.md` 와 `issue-tree.md` 는 이 명령을 부르지 않는다. 그래서 옛 멤버가 `lost` 로 남고, 새 세션의 `run member` 는 `node_taken` 으로 거절된다.
 - `run succeed` 는 옛 멤버의 도구에 인수인계를 청하고 요약이 올 때까지 기다린다(`handlers_runs_context.go:396-436`). 옛 세션이 스스로 부르면, 청하는 메시지가 Bash 를 실행 중인 자기에게 간다. 그래서 시한까지 기다리게 된다.
 
@@ -87,15 +87,15 @@
 
 ### 2.5 상태가 경로마다 다르다 (입력 5)
 
-- `dmctl status` 의 `state` 는 훅 상태를 그대로 낸다(`handlers_status.go:92-107`). 값은 working·waiting·done·idle 이다. `done` 은 Stop 훅, 곧 **한 턴의 끝**이다.
+- `otterctl status` 의 `state` 는 훅 상태를 그대로 낸다(`handlers_status.go:92-107`). 값은 working·waiting·done·idle 이다. `done` 은 Stop 훅, 곧 **한 턴의 끝**이다.
 - `run status`·`run tree` 의 멤버 상태는 `deriveMemberState`(`handlers_runs.go:61-78`)가 만든다. 이 함수는 훅의 idle 과 done 을 모두 `ready` 로 바꾼다. 기록의 `done` 은 `run report` 다.
 - 그래서 하위를 띄우고 쉬는 중간 노드가 `done`(status) · `ready`(run tree) · 다음 턴의 `working` 으로 갈린다. "하위를 기다린다" 는 상태는 어디에도 없다.
 
 ### 2.6 맥락 기준 migration (별건 요구)
 
 - 맥락 기준은 `issue-tree.md` 의 `--ctx`(기본 60)뿐이다. 설정에 자리가 없다. 중간 노드의 안전 지점만 이 값을 본다.
-- claude 훅은 9개 이벤트에 걸려 있고 모두 `dmctl activity claude` 를 부른다(`agentadapter/claude_install.go:27-37`). 이 명령은 stdout 에 아무것도 내지 않는다. additionalContext 를 내는 훅은 SessionStart 의 `dmctl agent-context` 하나다.
-- 맥락 사용률은 statusLine 프록시가 서버 메모리에 올린다(`handlers_usage.go:95-163`). 훅은 `DONGMINAL_TOOL_ID` 로 자기 도구를 지목할 수 있다.
+- claude 훅은 9개 이벤트에 걸려 있고 모두 `otterctl activity claude` 를 부른다(`agentadapter/claude_install.go:27-37`). 이 명령은 stdout 에 아무것도 내지 않는다. additionalContext 를 내는 훅은 SessionStart 의 `otterctl agent-context` 하나다.
+- 맥락 사용률은 statusLine 프록시가 서버 메모리에 올린다(`handlers_usage.go:95-163`). 훅은 `OTTERMINAL_TOOL_ID` 로 자기 도구를 지목할 수 있다.
 - `SETTINGS_SCHEMA`(`web/js/core/settings-schema.js`)에는 `orchestration.*` 항목이 없다. 키는 평평한 camelCase 다. 서버의 `orchestration.contextWarnRatio` 는 스키마 밖의 중첩 값이다. 브라우저는 스키마 키만 저장하므로, 손으로 넣은 중첩 값은 설정을 한 번 저장하면 사라진다.
 
 ### 2.7 표시줄에 탭 이름이 없다 (별건 요구)
@@ -130,10 +130,10 @@
 
 | ID | 요구 | 우선 |
 |---|---|---|
-| FR-ITA-1 | `dmctl run member` 는 트리 Run 의 멤버에게 배정을 받는다: `--issue <owner/repo#N>`(필수) · `--title <제목>` · `--parent <부모 member uuid>` · `--goal <번호 목록>` · `--parallel` · `--ctx <퍼센트>` · `--no-commit`. 사슬 이름은 지금처럼 `--role` 이다. 그룹은 Run 의 window 에서 얻으므로 받지 않는다 | 필수 |
+| FR-ITA-1 | `otterctl run member` 는 트리 Run 의 멤버에게 배정을 받는다: `--issue <owner/repo#N>`(필수) · `--title <제목>` · `--parent <부모 member uuid>` · `--goal <번호 목록>` · `--parallel` · `--ctx <퍼센트>` · `--no-commit`. 사슬 이름은 지금처럼 `--role` 이다. 그룹은 Run 의 window 에서 얻으므로 받지 않는다 | 필수 |
 | FR-ITA-2 | 서버는 배정을 멤버 기록의 `assign` 객체에 저장한다. 트리 표지가 없는 Run 의 멤버에 배정을 주면 `invalid_argument` 로 거절한다. 트리 Run 의 멤버에 `--issue` 가 없으면 거절한다 | 필수 |
 | FR-ITA-3 | `--parent` 는 같은 트리의 열린 Run 에 있는 멤버여야 한다. 없으면 `invalid_argument` 다. 루트 노드는 `--parent` 를 주지 않는다 | 필수 |
-| FR-ITA-4 | 배정은 승계로 그대로 물려받는다(FR-CBG-9 의 역할·brief 와 같다). 맥락 기준 정정처럼 배정이 바뀌면 `dmctl run assign --member <uuid> [필드…]` 로 고친다. 고칠 수 있는 것은 그 멤버의 세션 자신 또는 부모 멤버의 세션이다 | 필수 |
+| FR-ITA-4 | 배정은 승계로 그대로 물려받는다(FR-CBG-9 의 역할·brief 와 같다). 맥락 기준 정정처럼 배정이 바뀌면 `otterctl run assign --member <uuid> [필드…]` 로 고친다. 고칠 수 있는 것은 그 멤버의 세션 자신 또는 부모 멤버의 세션이다 | 필수 |
 
 #### 3.1.2 트리 멤버의 프리앰블
 
@@ -142,7 +142,7 @@
 | FR-ITA-10 | 트리 멤버의 프리앰블은 일반 프리앰블 대신 **트리 프리앰블**이다. 일반 Run 멤버의 프리앰블은 바꾸지 않는다 | 필수 |
 | FR-ITA-11 | 트리 프리앰블은 배정 전체를 `[ISSUE-TREE 배정]` 블록으로 싣는다: 노드(이슈·제목) · 사슬 이름 · 목표 경로 · 부모(toolId) · 그룹 uuid · Run · member · 병렬 가지 · 맥락 기준(실효값, FR-ITM-3) · 커밋. 기동줄에 배정이 들어가므로 따로 보내는 배정 엔벨로프는 없다 | 필수 |
 | FR-ITA-12 | 부모 toolId 는 **프리앰블을 만드는 순간** 부모 멤버의 지금 도구다. 부모가 승계됐으면 승계자의 도구다. 루트 노드는 `부모: 없음 — 사용자에게 직접 말한다` 다 | 필수 |
-| FR-ITA-13 | 트리 프리앰블은 절차 문서의 **절대 경로**를 싣는다. 경로는 설치된 플러그인의 `commands/issue-tree.md` 다(`$DONGMINAL_HOME/bin/agent-plugin/commands/issue-tree.md`) | 필수 |
+| FR-ITA-13 | 트리 프리앰블은 절차 문서의 **절대 경로**를 싣는다. 경로는 설치된 플러그인의 `commands/issue-tree.md` 다(`$OTTERMINAL_HOME/bin/agent-plugin/commands/issue-tree.md`) | 필수 |
 | FR-ITA-14 | 트리 프리앰블은 「조정자」 라는 말을 쓰지 않는다. 보고·완료·실패는 부모에게, 루트는 자기 탭의 사용자에게 한다 | 필수 |
 | FR-ITA-15 | 트리 프리앰블은 사용자에게 묻는 것을 막지 않는다. 판단이 필요한 질문은 자기 탭에서 사용자에게 묻는다(AskUserQuestion 을 써도 된다, FR-ITA-30) | 필수 |
 | FR-ITA-16 | 트리 프리앰블은 「자기 탭을 닫지 마라. 탭은 부모가 닫는다」 를 적는다. 예외는 자기 승계를 마친 뒤의 옛 세션이다(FR-ITB-5) | 필수 |
@@ -156,7 +156,7 @@
 | ID | 요구 | 우선 |
 |---|---|---|
 | FR-ITA-30 | 판단이 필요한 질문이 생기면 노드는 먼저 기존 결정을 찾는다: 프로젝트 문서 · 자기 이슈와 부모 이슈의 코멘트. 답이 있으면 그것을 따른다. 없으면 부모를 거치지 않고 **자기 탭에서** 사용자에게 묻는다 | 필수 |
-| FR-ITA-31 | 받은 결정은 GitHub 이슈 코멘트로 남긴다(결정 코멘트). 결정이 자기 이슈에만 걸리면 자기 이슈에, 형제 이슈에도 걸리면 부모 이슈에 남긴다. 첫 줄은 `결정:` 이다. dongminal 은 결정을 저장하지 않는다 | 필수 |
+| FR-ITA-31 | 받은 결정은 GitHub 이슈 코멘트로 남긴다(결정 코멘트). 결정이 자기 이슈에만 걸리면 자기 이슈에, 형제 이슈에도 걸리면 부모 이슈에 남긴다. 첫 줄은 `결정:` 이다. otterminal 은 결정을 저장하지 않는다 | 필수 |
 | FR-ITA-32 | 사실 질문(코드·문서로 답이 나오는 것)은 노드가 스스로 찾는다. 부모에게 `질문` 을 보내는 것은 부모 범위의 사실(형제 이슈의 상태·결과 등)이 필요할 때뿐이다 | 필수 |
 | FR-ITA-33 | 부모는 하위 하나가 끝나면(안전 지점) 그 하위 이슈의 결정 코멘트를 읽는다. 자기 범위의 다른 이슈·앞선 결정과 충돌하면 사용자에게 묻는다. 공유 문서로 옮길지는 프로젝트 규약을 따르고, 규약이 없으면 옮기지 않는다 | 필수 |
 | FR-ITA-34 | 이슈 본문과 하위 이슈 목록·순서는 그 이슈를 맡은 노드만 고친다. 하위 노드는 부모 이슈에 코멘트만 남긴다 — 병렬 형제가 같은 본문을 동시에 고치지 않게 한다 | 필수 |
@@ -177,7 +177,7 @@
 | ID | 요구 | 우선 |
 |---|---|---|
 | FR-ITA-50 | 발사대는 루트 노드를 `run member --issue … --goal …` 로 등록하고 `run launch` 로 띄운다. 배정 엔벨로프를 보내지 않는다. 띄운 뒤 `state=working` 을 확인하고 빠진다 | 필수 |
-| FR-ITA-51 | `issue-tree.md` 의 「스펙」 줄은 dongminal 저장소의 SRS 를 대상 저장소에서 읽으라고 하지 않는다. 노드가 따를 것은 이 문서뿐이라고 적는다 | 필수 |
+| FR-ITA-51 | `issue-tree.md` 의 「스펙」 줄은 otterminal 저장소의 SRS 를 대상 저장소에서 읽으라고 하지 않는다. 노드가 따를 것은 이 문서뿐이라고 적는다 | 필수 |
 
 #### 3.1.6 이슈 접근 — 권한 · 설정 (2026-11-11)
 
@@ -199,12 +199,12 @@
 
 | ID | 요구 | 우선 |
 |---|---|---|
-| FR-ITB-1 | `dmctl run succeed --self --at <새 탭 uuid> --summary <본문>\|-` 는 **자기 승계**다. 발신 도구가 그 멤버여야 한다. 서버는 인수인계를 청하지 않고 기다리지도 않는다. 받은 요약을 옛 멤버의 `handoffSummary` 로 적고 승계한다 | 필수 |
+| FR-ITB-1 | `otterctl run succeed --self --at <새 탭 uuid> --summary <본문>\|-` 는 **자기 승계**다. 발신 도구가 그 멤버여야 한다. 서버는 인수인계를 청하지 않고 기다리지도 않는다. 받은 요약을 옛 멤버의 `handoffSummary` 로 적고 승계한다 | 필수 |
 | FR-ITB-2 | 자기 승계도 기존 승계와 같은 결과를 낸다: 새 멤버가 역할·brief·worktree·배정을 물려받고, 옛 멤버는 `succeeded` 가 된다. 새 멤버의 프리앰블에 인수인계 절이 붙는다(FR-CBG-9) | 필수 |
 | FR-ITB-3 | 트리 멤버가 승계되면(자기 승계든 아니든) 서버가 부모 멤버의 도구와 **자식 멤버들**(배정의 부모가 옛 멤버인 열린 멤버)의 도구에 알린다. 알림은 서버 발신 엔벨로프이고 본문은 `[ISSUE-TREE 승계] <사슬 이름> 새 toolId=<…> member=<…>` 다. 자식의 배정 부모는 새 멤버로 바꾼다 | 필수 |
-| FR-ITB-4 | `node_taken` 은 지금처럼 `lost` 멤버도 맡은 것으로 본다. 거절 응답에 그 멤버의 id 와 상태를 싣고, 상태가 `lost` 면 `dmctl run succeed --member <id> --at <탭>` 으로 이어받으라는 안내를 싣는다 | 필수 |
-| FR-ITB-5 | `migration.md` 는 넘기는 세션이 Run 멤버인지 먼저 본다(`dmctl who-am-i --json` 의 `member`). 멤버이면 일반 절차 대신 **멤버 갈래**를 따른다: 새 탭 → `run succeed --self`(요약에 인계 문서 경로를 적는다 — 프리앰블의 인수인계 절로 간다) → `run launch --member <새 member>` 로 기동 → 준비 확인 → `working` 확인 → 자기 탭 닫기. 「문서를 읽어라」 엔벨로프는 보내지 않는다. 새 탭의 이름은 넘기는 탭과 같다 | 필수 |
-| FR-ITB-6 | `dmctl who-am-i --json` 은 그 도구가 열린 Run 의 멤버이면 `member: {id, runId, role, tree?}` 를 싣는다. 글자 출력에는 `member=<id>` 를 더한다 | 필수 |
+| FR-ITB-4 | `node_taken` 은 지금처럼 `lost` 멤버도 맡은 것으로 본다. 거절 응답에 그 멤버의 id 와 상태를 싣고, 상태가 `lost` 면 `otterctl run succeed --member <id> --at <탭>` 으로 이어받으라는 안내를 싣는다 | 필수 |
+| FR-ITB-5 | `migration.md` 는 넘기는 세션이 Run 멤버인지 먼저 본다(`otterctl who-am-i --json` 의 `member`). 멤버이면 일반 절차 대신 **멤버 갈래**를 따른다: 새 탭 → `run succeed --self`(요약에 인계 문서 경로를 적는다 — 프리앰블의 인수인계 절로 간다) → `run launch --member <새 member>` 로 기동 → 준비 확인 → `working` 확인 → 자기 탭 닫기. 「문서를 읽어라」 엔벨로프는 보내지 않는다. 새 탭의 이름은 넘기는 탭과 같다 | 필수 |
+| FR-ITB-6 | `otterctl who-am-i --json` 은 그 도구가 열린 Run 의 멤버이면 `member: {id, runId, role, tree?}` 를 싣는다. 글자 출력에는 `member=<id>` 를 더한다 | 필수 |
 | FR-ITB-7 | migration 은 **같은 이슈**를 이어 갈 때만 쓴다. `migration.md` 와 `issue-tree.md` 에 「다른 이슈로 넘어가는 수단이 아니다」 를 적는다(입력 13) | 필수 |
 
 ### 3.3 묶음 C — 트리 구조와 상태 (FR-ITC-\*)
@@ -215,7 +215,7 @@
 | FR-ITC-2 | 승계 사슬은 한 노드다. 트리 응답은 승계 사슬의 **마지막** 멤버를 그 노드로 낸다. 부모가 승계됐으면 자식은 승계자 아래에 선다 | 필수 |
 | FR-ITC-3 | `GET /api/runs/tree` 는 끝난 노드(`done`·`failed`·`released`)도 낸다. 노드마다 `issue` · `title` · `state` · `context` · `endedAt`(보고 시각) 을 싣는다. 노드는 깊이 우선으로 내고, 같은 부모의 자식은 노드가 선 순서(승계 사슬 첫 멤버의 등록 시각)로 낸다. `leaf` 는 열린 자식이 없는 열린 노드다 | 필수 |
 | FR-ITC-4 | 트리 멤버의 상태에 `waiting-children` 을 더한다. 훅 상태가 working·waiting 이 아니고, 열린 자식 멤버(끝나지 않은 배정 자식)가 하나 이상이면 `waiting-children` 이다. `run status` · `run peers` · `run graph` · `run tree` 가 같은 함수로 낸다 | 필수 |
-| FR-ITC-5 | `dmctl status` 의 대상이 Run 멤버이면 응답에 `member: {id, state}` 를 더한다. `state` 는 FR-ITC-4 와 같은 값이다. 글자 출력에는 `run_state=<값>` 을 더한다. 기존 `state`(훅 상태)는 바꾸지 않는다 | 필수 |
+| FR-ITC-5 | `otterctl status` 의 대상이 Run 멤버이면 응답에 `member: {id, state}` 를 더한다. `state` 는 FR-ITC-4 와 같은 값이다. 글자 출력에는 `run_state=<값>` 을 더한다. 기존 `state`(훅 상태)는 바꾸지 않는다 | 필수 |
 | FR-ITC-6 | 트리 표지가 있는 Run 의 대시보드는 **이슈 트리를 중심**에 그린다. 평평한 멤버 그래프(SVG) 자리에 트리를 둔다. 루트 → 중간 → 잎의 깊이를 위에서 아래로 내려가는 도형 다이어그램(노드 상자 + 연결선, SVG)으로 보이고, 병렬 가지(다른 Run)도 같은 트리 안에 보인다. 배치 규칙은 FR-ITC-10 이다 | 필수 |
 | FR-ITC-7 | 트리 노드마다 이슈 번호 · 제목 · 상태(`waiting-children` 포함) · 맥락 사용률을 보인다. 끝난 노드는 흐리게 남긴다. 노드를 누르면 그 탭으로 간다(FR-ITD-4) | 필수 |
 | FR-ITC-8 | 트리 Run 의 카드와 타임라인은 지금처럼 남긴다. 카드 순서는 트리 순서(깊이 우선)다 | 필수 |
@@ -245,10 +245,10 @@
 
 | ID | 요구 | 우선 |
 |---|---|---|
-| FR-ITM-10 | claude 의 `PostToolUse`·`UserPromptSubmit` 에 맥락 훅 `dmctl ctx-hook claude` 를 더한다. 훅은 서버에 자기 도구(`DONGMINAL_TOOL_ID`)의 판정을 묻는다: `GET /api/tools/migration-advice?id=<toolId>` | 필수 |
+| FR-ITM-10 | claude 의 `PostToolUse`·`UserPromptSubmit` 에 맥락 훅 `otterctl ctx-hook claude` 를 더한다. 훅은 서버에 자기 도구(`OTTERMINAL_TOOL_ID`)의 판정을 묻는다: `GET /api/tools/migration-advice?id=<toolId>` | 필수 |
 | FR-ITM-11 | 서버 판정: ① 도구가 트리 멤버이면 `skip` ② `migrationHook` 이 거짓이면 `skip` ③ 맥락 사용률을 모르면 `unknown` ④ 사용률 ≥ 상한(FR-ITM-16)이면 `must` ⑤ 사용률 ≥ 판단 시작점(`migrationHookCtxPct` × 0.8)이면 `advise` ⑥ 아니면 `ok`. 응답은 `{verdict, usedPct?, ctxPct, judgePct, capPct}` 다. `judgePct` 는 판단 시작점, `capPct` 는 상한이다 | 필수 |
-| FR-ITM-12 | `advise` 이면 훅은 additionalContext 로 알린다. 매 훅마다 알린다. 본문은 지금 사용률과 기준(「지금 맥락 57% · 기준 50%」)과 **맥락 판단**(FR-ITM-23)이다: 지금 하려는 일을 끝냈을 때의 맥락을 가늠해, 기준을 크게 넘거나 상한에 닿을 것 같으면 그 일을 시작하지 말고 지금 `/dongminal:migration` 으로 넘기고, 기준에서 크게 벗어나지 않으면 그 일을 끝내고 넘긴다. 판단을 한 줄로 사용자에게 알린다 | 필수 |
-| FR-ITM-16 | 상한은 **85% 고정**이다(기준과 무관). `must` 이면 훅은 판단 없이 지금 `/dongminal:migration` 으로 넘기라고 알린다. 상한은 자동 압축이 없는 세션이 100% 에 닿기 전에 넘길 여유(넘기는 일 자체가 맥락을 쓴다)를 남기려는 것이다 | 필수 |
+| FR-ITM-12 | `advise` 이면 훅은 additionalContext 로 알린다. 매 훅마다 알린다. 본문은 지금 사용률과 기준(「지금 맥락 57% · 기준 50%」)과 **맥락 판단**(FR-ITM-23)이다: 지금 하려는 일을 끝냈을 때의 맥락을 가늠해, 기준을 크게 넘거나 상한에 닿을 것 같으면 그 일을 시작하지 말고 지금 `/otterminal:migration` 으로 넘기고, 기준에서 크게 벗어나지 않으면 그 일을 끝내고 넘긴다. 판단을 한 줄로 사용자에게 알린다 | 필수 |
+| FR-ITM-16 | 상한은 **85% 고정**이다(기준과 무관). `must` 이면 훅은 판단 없이 지금 `/otterminal:migration` 으로 넘기라고 알린다. 상한은 자동 압축이 없는 세션이 100% 에 닿기 전에 넘길 여유(넘기는 일 자체가 맥락을 쓴다)를 남기려는 것이다 | 필수 |
 | FR-ITM-13 | `unknown` 은 그 도구에서 **한 번만** 알린다(「맥락 사용률을 읽을 수 없어 migration 기준을 적용하지 못한다」). 몇 번째인지는 서버가 도구마다 기억한다 | 필수 |
 | FR-ITM-14 | 훅은 `Stop` 을 막지 않는다. 훅의 실패·시간 초과는 에이전트를 막지 않고 조용히 끝난다(시한은 `hookBudget`) | 필수 |
 | FR-ITM-15 | 트리 멤버인지는 서버가 Run 기록으로 판정한다(D-ITO-5). 자기 승계로 선 새 세션도 트리 멤버이므로 따로 표시하지 않아도 된다 | 필수 |
@@ -258,7 +258,7 @@
 | ID | 요구 | 우선 |
 |---|---|---|
 | FR-ITM-20 | 중간 노드의 안전 지점은 지금과 같다: 하위 하나의 `완료` 를 처리한 뒤, 다음 하위를 열기 전 | 필수 |
-| FR-ITM-21 | 잎 노드의 안전 지점: 일의 한 단계(시험이 통과하는 단위)를 커밋한 뒤. 잎은 이 자리에서 `dmctl status --json` 의 `context.usedPct` 로 맥락 판단(FR-ITM-23)을 하고, 넘기기로 하면 `/dongminal:migration` 의 멤버 갈래(FR-ITB-5)로 넘긴다. 중간 노드도 안전 지점(FR-ITM-20)에서 같은 판단을 한다 | 필수 |
+| FR-ITM-21 | 잎 노드의 안전 지점: 일의 한 단계(시험이 통과하는 단위)를 커밋한 뒤. 잎은 이 자리에서 `otterctl status --json` 의 `context.usedPct` 로 맥락 판단(FR-ITM-23)을 하고, 넘기기로 하면 `/otterminal:migration` 의 멤버 갈래(FR-ITB-5)로 넘긴다. 중간 노드도 안전 지점(FR-ITM-20)에서 같은 판단을 한다 | 필수 |
 | FR-ITM-22 | 맥락 기준이 「끔」 이면 노드는 맥락 때문에 넘기지 않는다. 사용률을 읽지 못하면 넘기지 않고, 그 사실을 보고에 적는다(FR-IAT-64) | 필수 |
 | FR-ITM-23 | **맥락 판단**: 기준 n, 지금 x 라 할 때 ① x ≥ 85(상한)이면 판단 없이 지금 넘긴다 ② x < n × 0.8 이면 넘기지 않는다 ③ 그 사이(기준을 넘은 경우 포함)에서는 다음 일(노드는 다음 단계·다음 하위)을 끝냈을 때의 맥락을 가늠한다 — n 을 크게 넘거나 85 에 닿을 것 같으면 그 일을 시작하지 않고 지금 넘기고, n 에서 크게 벗어나지 않으면 그 일을 끝낸 뒤 넘긴다. 일반 훅(FR-ITM-12)과 issue-tree 노드(FR-ITM-20·21)가 같은 판단을 쓴다 | 필수 |
 
@@ -317,8 +317,8 @@
 
 | ID | 요구 | 우선 |
 |---|---|---|
-| FR-ITS-1 | `dmctl status --at <탭 uuid\|toolId>`(또는 `--member`)의 **글자 출력**에 statusLine 관측이 있으면 한 줄을 더한다: `model=<표시 이름> effort=<값> cost=$<총 비용> rate=<창 이름>:<사용률>%…`. `--json` 은 이미 `usage` 전부를 싣는다(FR-SLP-20) | 필수 |
-| FR-ITS-2 | `dmctl status` 도움말에 「다른 에이전트는 `--at <toolId>` 로 지목한다」 와 `usage` 필드 설명을 적는다 | 필수 |
+| FR-ITS-1 | `otterctl status --at <탭 uuid\|toolId>`(또는 `--member`)의 **글자 출력**에 statusLine 관측이 있으면 한 줄을 더한다: `model=<표시 이름> effort=<값> cost=$<총 비용> rate=<창 이름>:<사용률>%…`. `--json` 은 이미 `usage` 전부를 싣는다(FR-SLP-20) | 필수 |
+| FR-ITS-2 | `otterctl status` 도움말에 「다른 에이전트는 `--at <toolId>` 로 지목한다」 와 `usage` 필드 설명을 적는다 | 필수 |
 
 ### 3.8 비기능 요구사항 (Non-functional)
 
@@ -326,7 +326,7 @@
 |---|---|
 | NFR-ITO-1 | 맥락 훅(FR-ITM-10)이 도구 호출 하나에 더하는 시간은 서버 응답 포함 50ms 이하(로컬)다. 서버가 응답하지 않으면 `hookBudget` 안에 끝난다 |
 | NFR-ITO-2 | 배정 필드는 모두 omitempty 다. 배정 없는 옛 `runs.json` 은 그대로 읽힌다(마이그레이션 없음) |
-| NFR-ITO-3 | 트리 프리앰블과 일반 프리앰블은 같은 패키지의 함수 둘이다. 서버가 강제하는 계약(보고 1회·outcome 필수)은 두 함수가 같은 명령 줄(`dmctl run report --run --member --outcome`)로 적는다. 문장이 같은 규칙은 같은 상수를 쓴다. 일반 프리앰블은 바이트로 바뀌지 않는다 |
+| NFR-ITO-3 | 트리 프리앰블과 일반 프리앰블은 같은 패키지의 함수 둘이다. 서버가 강제하는 계약(보고 1회·outcome 필수)은 두 함수가 같은 명령 줄(`otterctl run report --run --member --outcome`)로 적는다. 문장이 같은 규칙은 같은 상수를 쓴다. 일반 프리앰블은 바이트로 바뀌지 않는다 |
 | NFR-ITO-4 | 바뀐 명령 문서(`issue-tree.md`·`migration.md`)는 스킬 계약 시험(`skills_contract_test.go`)을 통과한다 |
 
 ## 4. 결정 (Decisions)
@@ -345,11 +345,11 @@
 | D-ITO-10 | D-IAT-19(부모 필드를 두지 않는다)를 뒤집는다 | 입력 8 의 사용자 지시("부모·자식 관계를 Run 이 데이터로 가진다"). 사슬 이름은 끼어든 이슈·승계를 표현하지 못한다 |
 | D-ITO-11 | 맥락 설정은 평평한 키 넷이다(`migrationHook`·`migrationHookCtxPct`·`issueTreeMigration`·`issueTreeCtxPct`) | 사용자 결정은 「설정창이 저장하는 같은 파일, 이름은 기존 규약」 이다. 스키마의 규약은 평평한 camelCase 다. 중첩 `orchestration.*` 은 스키마 밖이라 브라우저 저장에서 사라진다(§2.6) |
 | D-ITO-12 | 편집기 단축키의 기준은 VS Code 기본 키맵이다 | 사용자 보고("기존 모나코 단축키들중 안먹히는게 많아"). 편집기 엔진을 CodeMirror 로 바꾸면서 사라진 키(이전 엔진은 VS Code 와 같은 키를 썼다)를 되돌리는 일이다 |
-| D-ITO-13 | 에이전트 정보 조회는 새 명령을 만들지 않고 `dmctl status` 를 쓴다 | `status --at <toolId> --json` 이 이미 statusLine 값 전부를 낸다(FR-SLP-20). 빠진 것은 글자 출력의 한 줄과 안내뿐이다 |
+| D-ITO-13 | 에이전트 정보 조회는 새 명령을 만들지 않고 `otterctl status` 를 쓴다 | `status --at <toolId> --json` 이 이미 statusLine 값 전부를 낸다(FR-SLP-20). 빠진 것은 글자 출력의 한 줄과 안내뿐이다 |
 | D-ITO-15 | migration 시점은 고정 문턱이 아니라 판단이다(FR-ITM-23). 판단은 기준의 80% 에서 시작하고, 85% 는 판단 없이 넘기는 고정 상한이다. 일반 훅과 issue-tree 노드가 같은 규칙을 쓴다 | 사용자 결정(2026-11-10). 「n% 를 넘으면 바로, n−1% 면 안 함」 은 다음 일의 크기를 보지 않는다 — 큰 일을 n 직전에 시작하면 크게 넘고, 기준을 막 넘긴 순간 곧 끝날 일을 끊는다. 시작점은 n 의 비율(사용자 선택), 상한은 자동 압축이 없는 세션도 100% 전에 넘길 여유를 남기는 값(사용자 선택 85%)이다 |
 | D-ITO-16 | 트리 다이어그램은 고정 높이(Run 화면의 50%) 영역 안에서 줌·패닝·미니맵으로 본다. 처음은 맞춤(상한 1.5배)이다. 줌은 ⌘/Ctrl+휠, 패닝은 끌기다 | 사용자 결정(2026-11-11). 폭 맞춤(FR-FIT)만으로는 깊고 넓은 트리가 읽을 수 없게 작아지거나 대시보드를 길게 밀어냈다. 수식키 없는 휠은 대시보드 세로 스크롤(FR-FIT-7)에 남긴다. 맞춤 상한 1.5 는 FR-FIT-3 과 같은 까닭이다 |
 | D-ITO-17 | 이슈 접근은 **권한**으로 판단한다. 시작할 때 계정·권한을 보이고 확인받으며, 노드는 저장소마다 권한을 보고 거절되면 멈추고 묻는다. 계정을 고정하지 않는다. 설정 기준은 프로젝트 규약 → 부모 이슈(라벨·마일스톤·프로젝트), 어사인은 그 일을 하는 사람이며, 정해지는 값은 고치고 정해지지 않으면 묻는다 | 사용자 결정(2026-11-11). 어떤 이슈를 할지는 사용자가 정한다 — 남의 이슈·어사인 없는 이슈도 다룬다. 그러니 중요한 것은 그 계정이 그 저장소에서 할 수 있는가다. 읽기만 되는 저장소에서 트리가 시작돼 중간에 멈추는 것을 막는다 |
-| D-ITO-14 | 세션 시작 점검의 보드 이름(`rnd-unit4` 등)과 필수 필드는 dongminal 에 적지 않고 프로젝트 지시 문서를 따른다 | 사용자 결정 (2026-11-10). 보드는 저장소마다 다르다. 이슈 운영 규약(FR-ITA-18)과 같은 자리다 |
+| D-ITO-14 | 세션 시작 점검의 보드 이름(`rnd-unit4` 등)과 필수 필드는 otterminal 에 적지 않고 프로젝트 지시 문서를 따른다 | 사용자 결정 (2026-11-10). 보드는 저장소마다 다르다. 이슈 운영 규약(FR-ITA-18)과 같은 자리다 |
 
 ## 5. 검증 (Verification)
 
@@ -364,7 +364,7 @@
 | TC-ITB-3 | FR-ITB-4 | Go: `node_taken` 응답에 멤버 id·상태, `lost` 면 안내 |
 | TC-ITB-4 | FR-ITB-6 | Go: `who-am-i` 응답의 `member` |
 | TC-ITC-1 | FR-ITC-1~3 | Go: 배정 부모로 트리를 만든다 · 옛 기록은 사슬 이름 · 승계 사슬은 마지막 멤버 · 끝난 노드 포함 · 자식 순서 |
-| TC-ITC-2 | FR-ITC-4·5 | Go: `waiting-children` 판정(훅 idle/done + 열린 자식) · 모든 Run 응답과 `dmctl status` 의 `member.state` 가 같다 |
+| TC-ITC-2 | FR-ITC-4·5 | Go: `waiting-children` 판정(훅 idle/done + 열린 자식) · 모든 Run 응답과 `otterctl status` 의 `member.state` 가 같다 |
 | TC-ITC-3 | FR-ITC-6~10 | e2e: 트리 Run 대시보드의 중심에 트리 다이어그램 · 깊이 · 연결선 · 병렬 가지 · 끝난 노드 흐림 · 누르면 탭 이동. 트리 아닌 Run 은 그래프 그대로 |
 | TC-ITC-5 | FR-ITC-12~16 | 단위(JS): 보기 계산 — 맞춤(큰 트리 축소·작은 트리 1.5배 상한·가운데) · 커서 기준 줌(커서 아래 점 유지) · 배율 범위와 하한(맞춤이 더 작을 때) · 패닝 · 가운데가 트리 밖으로 나가지 않음 · 미니맵 점 가운데 맞춤 |
 | TC-ITC-6 | FR-ITC-11~17 | e2e: 영역 높이 = Run 화면의 50% · 처음에 노드 전부가 영역 안 · Ctrl+휠 줌으로 게이지가 바뀌고 수식키 없는 휠은 줌하지 않음 · 끌기 패닝 뒤 노드 클릭이 탭으로 가지 않음 · 게이지 슬라이더·맞춤 버튼 · 미니맵 누름 · 데이터 갱신 뒤 보는 범위 유지 |
@@ -377,7 +377,7 @@
 
 ## 6. 비목표 (Non-goals)
 
-- GitHub 이슈 데이터를 dongminal 이 읽거나 저장하는 것(D-ITO-9)
+- GitHub 이슈 데이터를 otterminal 이 읽거나 저장하는 것(D-ITO-9)
 - 결정의 저장소·장부(D-ITO-3)
 - claude 가 아닌 에이전트(codex·omp)의 맥락 훅. additionalContext 를 받는 훅이 확인된 에이전트만 대상이다
 - 노드가 맡은 이슈를 바꾸는 명령(FR-ITA-44)
@@ -409,8 +409,8 @@
 | 2026-11-07 | 구현완료. 사용자 시범으로 확인 |
 | 2026-11-07 | 묶음 E 구현(§3.6a). 이전 동작: 편집기 본문의 수식키 조합은 capture 단계에서 브라우저 기본이 막혀 CodeMirror 키맵에 닿지 않았다. `Mod-d`·`Mod-Shift-l`·`Ctrl-g`·`Mod-l` 등 VS Code 키가 없었다. 새 동작: CodeMirror 가 먼저 판정하고 쓰지 않은 조합만 막는다. VS Code 키 다섯과 Alt+클릭 커서를 더했다. Win/Linux 에서 겹치는 기본 앱 키 다섯은 편집기 본문에서 편집 키가 이긴다(사용자가 녹음한 키는 앱 키). 이유: 입력 10 의 사용자 보고 |
 | 2026-11-07 | 묶음 W 구현. 이전 동작: 표시줄과 칸 머리글은 `<창 종류> · <창 이름>` 이었고, pane 포커스 이동과 전경 이름 갱신에는 다시 칠하지 않았다. 새 동작: 끝에 그 창의 포커스 탭 이름이 붙고(겹치면 생략), 포커스 이동·전경 이름 갱신에도 제목만 다시 칠하며(`_rPaintTitles`), 전체 문자열을 `title` 에 싣는다. 기존 e2e(`slot-title-boundary`·`git-window-name`)의 기댓값을 새 형식으로 고쳤다. 이유: 별건 요구(표시줄 탭 이름)와 사용자 결정(모든 자리에 붙인다) |
-| 2026-11-07 | 묶음 M 구현. 이전 동작: 맥락 기준은 `issue-tree.md` 의 `--ctx`(기본 60)뿐이었고 중간 노드만 봤다. 일반 세션에는 migration 제안이 없었다. 새 동작: 설정 넷(`migrationHook`·`migrationHookCtxPct`·`issueTreeMigration`·`issueTreeCtxPct`, 기본 켬·50). claude 의 PostToolUse·UserPromptSubmit 에 `dmctl ctx-hook` 이 서서 서버 판정(`GET /api/tools/migration-advice`)을 additionalContext 로 옮긴다. 트리 프리앰블의 맥락 기준은 `--ctx` > 설정 > 50, 설정이 끔이면 「끔」. 잎 노드도 단계를 커밋한 뒤 맥락을 본다. 이유: 별건 요구 1~5 와 사용자 결정 넷 |
-| 2026-11-07 | 묶음 C·S 구현. 이전 동작: 트리 응답은 열린 노드만, 부모는 사슬 이름에서 냈다. 하위를 기다리는 노드는 `ready`(Run)·`done`(훅)으로 갈렸다. 트리 Run 대시보드의 중심은 평평한 그래프였다. `dmctl status` 글자 출력에 모델·비용·한도가 없었다. 새 동작: 부모는 배정에서 얻고 승계 사슬은 마지막 멤버 하나다. 끝난 노드도 흔적으로 내고 깊이 우선으로 늘어놓는다. 열린 자식이 있는 쉬는 트리 노드는 `waiting-children` 이다. `GET /api/tools/activity/get` 은 Run 멤버이면 `member{id,state}` 를 싣는다. 트리 Run 대시보드는 그래프를 감추고 트리를 중심에 둔다(이슈 번호·제목, 끝난 노드는 흐림). 카드는 트리 순서다. `dmctl status` 는 `run_state=` 와 사용량 줄을 낸다. 이유: 입력 5·8·11 |
+| 2026-11-07 | 묶음 M 구현. 이전 동작: 맥락 기준은 `issue-tree.md` 의 `--ctx`(기본 60)뿐이었고 중간 노드만 봤다. 일반 세션에는 migration 제안이 없었다. 새 동작: 설정 넷(`migrationHook`·`migrationHookCtxPct`·`issueTreeMigration`·`issueTreeCtxPct`, 기본 켬·50). claude 의 PostToolUse·UserPromptSubmit 에 `otterctl ctx-hook` 이 서서 서버 판정(`GET /api/tools/migration-advice`)을 additionalContext 로 옮긴다. 트리 프리앰블의 맥락 기준은 `--ctx` > 설정 > 50, 설정이 끔이면 「끔」. 잎 노드도 단계를 커밋한 뒤 맥락을 본다. 이유: 별건 요구 1~5 와 사용자 결정 넷 |
+| 2026-11-07 | 묶음 C·S 구현. 이전 동작: 트리 응답은 열린 노드만, 부모는 사슬 이름에서 냈다. 하위를 기다리는 노드는 `ready`(Run)·`done`(훅)으로 갈렸다. 트리 Run 대시보드의 중심은 평평한 그래프였다. `otterctl status` 글자 출력에 모델·비용·한도가 없었다. 새 동작: 부모는 배정에서 얻고 승계 사슬은 마지막 멤버 하나다. 끝난 노드도 흔적으로 내고 깊이 우선으로 늘어놓는다. 열린 자식이 있는 쉬는 트리 노드는 `waiting-children` 이다. `GET /api/tools/activity/get` 은 Run 멤버이면 `member{id,state}` 를 싣는다. 트리 Run 대시보드는 그래프를 감추고 트리를 중심에 둔다(이슈 번호·제목, 끝난 노드는 흐림). 카드는 트리 순서다. `otterctl status` 는 `run_state=` 와 사용량 줄을 낸다. 이유: 입력 5·8·11 |
 | 2026-11-07 | 묶음 B 구현. 이전 동작: `run succeed` 는 언제나 옛 멤버에게 인수인계를 청하고 기다렸다. `node_taken` 은 코드만 냈다. migration 은 Run 멤버도 일반 절차로 넘겨 옛 멤버가 `lost` 로 남았다. 새 동작: `run succeed --self` 는 청하지 않고 요약을 싣는다. 트리 멤버의 승계는 부모·자식에게 알리고 자식의 배정 부모를 옮긴다. `node_taken` 은 쥔 멤버·상태와 lost 일 때 이어받기 안내를 싣는다. `who-am-i` 는 `member` 를 싣고, migration 은 멤버이면 자기 승계로 넘긴다. 이유: 입력 1·7 |
 | 2026-11-07 | 묶음 A 구현. 이전 동작: 트리 Run 의 멤버는 역할 이름만으로 등록됐고, 배정은 기동 뒤 엔벨로프로 따로 왔다. 새 동작: 트리 멤버는 `--issue` 배정이 있어야 등록되고(없으면 `invalid_argument`), 배정은 기록에 남아 트리 프리앰블에 실린다. 이유: 배정 전에 일을 시작하고 migration 이 배정을 빠뜨렸다(입력 3·7). 권한 거절은 새 코드를 만들지 않고 `sender_not_member` 를 쓴다 |
 | 2026-11-07 | 초안. 요구 입력 `ISSUE_TREE_OPS_FINDINGS.md` 1~14번과 별건 요구(맥락 migration·표시줄)를 묶음 A·B·C·M·W·E·S 로 옮겼다. 사용자 결정: 질문·결정 경로(D-ITO-3), 끼어든 이슈의 하던 일(D-ITO-4), 이슈 트리 그래프는 조사로 끝냄(D-ITO-9), 편집기 키의 기준(D-ITO-12). `ISSUE_AGENT_TREE_SRS` 개정: FR-IAT-51~54(질문 경로) → FR-ITA-30~34, FR-IAT-60(`--ctx` 기본 60) → FR-ITM-3·5(설정 기본 50), FR-IAT-63(migration) → FR-ITB-5, FR-IAT-73(잎이 자기 탭을 닫는다) → FR-ITA-41(부모가 닫는다), FR-ITD-2(사슬 이름) → FR-ITC-1, FR-ITD-6(열린 노드만) → FR-ITC-3, D-IAT-19 → D-ITO-10 |

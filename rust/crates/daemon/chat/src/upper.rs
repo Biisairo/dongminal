@@ -3,9 +3,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use dm_gocompat::json;
-use dm_shared_edgemesh::{Frame, Upper, encode, mark_expendable, parse_key, verify};
-use dm_shared_termtext as termtext;
+use otter_gocompat::json;
+use otter_shared_edgemesh::{Frame, Upper, encode, mark_expendable, parse_key, verify};
+use otter_shared_termtext as termtext;
 use time::OffsetDateTime;
 
 use crate::frame::{

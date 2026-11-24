@@ -208,7 +208,7 @@ test.describe('Layout & navigation', () => {
     const targetPaneId = await targetRg.getAttribute('data-paneid');
     expect(userPaneId).not.toBe(targetPaneId);
 
-    // dmctl/MCP 처럼 location 지정 keepFocus split: targetPane=B, 사용자 포커스 A.
+    // otterctl/MCP 처럼 location 지정 keepFocus split: targetPane=B, 사용자 포커스 A.
     const countBefore = await page.locator('#area .pn').count();
     await page.evaluate(async (targetRid) => {
       const app = (window as any).app;

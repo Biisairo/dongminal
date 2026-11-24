@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use dm_shared_sandbox::RunOutput;
+use otter_shared_sandbox::RunOutput;
 
 use super::*;
 
@@ -114,10 +114,10 @@ fn scratch_yields_container_spec_without_helper() {
     let spec = p.place(&pl("w1", "scratch", "", "")).unwrap();
     let got = spec.args.join(" ");
     assert!(
-        got.contains("exec -it") && got.contains("dongminal-sbx-w1"),
+        got.contains("exec -it") && got.contains("otterminal-sbx-w1"),
         "{got}"
     );
-    assert!(!got.contains("DONGMINAL_TOOL_ID"));
+    assert!(!got.contains("OTTERMINAL_TOOL_ID"));
 }
 
 #[test]
@@ -126,17 +126,17 @@ fn dev_mounts_helper_addr_and_carries_env() {
     let (p, d) = placer(&f, dev_profiles(), helper(true, None));
     let spec = p.place(&pl("w1", "dev", "/Users/me/app", "")).unwrap();
     let run = f.joined("run");
-    let addr_dir = dm_shared_serverconf::addr_path(d.path())
+    let addr_dir = otter_shared_serverconf::addr_path(d.path())
         .parent()
         .unwrap()
         .to_path_buf();
     for want in [
         "-v /Users/me/app:/work".to_string(),
         format!(
-            "-v {}:/usr/local/bin/dmctl:ro",
+            "-v {}:/usr/local/bin/otterctl:ro",
             sandbox::helper_cache_path("/h", "v1.0.0", "arm64")
         ),
-        format!("-v {}:/run/dongminal:ro", addr_dir.display()),
+        format!("-v {}:/run/otterminal:ro", addr_dir.display()),
         "-p 3000:3000".to_string(),
     ] {
         assert!(run.contains(&want), "{want}: {run}");
@@ -144,7 +144,7 @@ fn dev_mounts_helper_addr_and_carries_env() {
     assert!(addr_dir.is_dir());
     let got = spec.args.join(" ");
     assert!(
-        got.contains("DONGMINAL_PORT=58146") && got.contains("DONGMINAL_TOOL_ID=t1"),
+        got.contains("OTTERMINAL_PORT=58146") && got.contains("OTTERMINAL_TOOL_ID=t1"),
         "{got}"
     );
 
@@ -156,7 +156,7 @@ fn dev_mounts_helper_addr_and_carries_env() {
         d.path().to_str().unwrap(),
     );
     p.place(&pl("w2", "scratch", "", "")).unwrap();
-    assert!(!f.joined("run").contains("/run/dongminal"));
+    assert!(!f.joined("run").contains("/run/otterminal"));
 }
 
 #[test]
@@ -235,7 +235,7 @@ fn empty_workdir_mounts_nothing_and_work_override() {
     p.place(&pl("w1", "dev", d.path().to_str().unwrap(), "copy"))
         .unwrap();
     assert!(!f.joined("run").contains(":/work"));
-    assert!(f.joined("cp").ends_with("dongminal-sbx-w1:/work"));
+    assert!(f.joined("cp").ends_with("otterminal-sbx-w1:/work"));
 
     let f = Arc::new(FakeDocker::default());
     let (p, _d) = placer(&f, dev_profiles(), helper(true, None));
@@ -250,7 +250,7 @@ fn reap_rules() {
     p.reap(None);
     assert_eq!(f.count(), 0);
     p.reap(Some(&["w-live".to_string()]));
-    assert!(f.joined("ps").contains("label=dongminal.home=/h"));
+    assert!(f.joined("ps").contains("label=otterminal.home=/h"));
 }
 
 #[test]
@@ -281,10 +281,10 @@ fn save_config_validates_and_takes_effect() {
 fn startup_port_order() {
     let d = tempfile::tempdir().unwrap();
     let home = d.path().to_str().unwrap();
-    assert_eq!(startup_port(home, ""), dm_shared_dmenv::DEFAULT_PORT);
-    dm_shared_serverconf::set_bind(d.path(), "", "9600").unwrap();
+    assert_eq!(startup_port(home, ""), otter_shared_otterenv::DEFAULT_PORT);
+    otter_shared_serverconf::set_bind(d.path(), "", "9600").unwrap();
     assert_eq!(startup_port(home, ""), "9600");
-    dm_shared_serverconf::write_addr(d.path(), "127.0.0.1:9601").unwrap();
+    otter_shared_serverconf::write_addr(d.path(), "127.0.0.1:9601").unwrap();
     assert_eq!(startup_port(home, ""), "9601");
     assert_eq!(startup_port(home, "9602"), "9602");
 }

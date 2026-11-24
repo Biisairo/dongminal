@@ -39,10 +39,10 @@ Object.assign(TerminalTool.prototype, {
        *
        * 게이트를 여기서 다시 부르지 않는다. 그것은 보류 큐에 넣는 일이고, 이미
        * 넣은 키를 한 번 더 넣으면 재생 때 두 번 움직인다 (FR-IMK-2). 상태만 묻고
-       * 물러난다 — 보류분은 `_imeFlush` 가 되발행하며, 그 이벤트는 `__dmImeReplay`
+       * 물러난다 — 보류분은 `_imeFlush` 가 되발행하며, 그 이벤트는 `__otterImeReplay`
        * 를 달고 오므로 이 자리를 정상적으로 지난다.
        */
-      if(this._imeBusy()&&!e.__dmImeReplay) return;
+      if(this._imeBusy()&&!e.__otterImeReplay) return;
       // Cmd+←/→ → 줄 처음/끝, Alt+←/→ → 단어 이동 (TERM_KEY_MAP)
       const k=this._mappedKey(e);
       if(k){e.preventDefault();this._sendKey(k);return}
@@ -213,7 +213,7 @@ Object.assign(TerminalTool.prototype, {
    */
   _imeGate(e){
     if(e.type!=='keydown') return true;
-    if(e.__dmImeReplay) return true;
+    if(e.__otterImeReplay) return true;
     if(!this._imeBusy()) return true;
     const kc=e.keyCode;
     if(kc===229||kc===16||kc===17||kc===18) return true;
@@ -277,7 +277,7 @@ Object.assign(TerminalTool.prototype, {
       const ev=new KeyboardEvent('keydown',it.v);
       // 게이트가 다시 잡지 않게 표식을 단다 — 이 시점에는 조합이 닫혀 있지만,
       // 다음 조합이 열린 뒤에 흘려 보내는 경우가 남는다.
-      ev.__dmImeReplay=true;
+      ev.__otterImeReplay=true;
       ta.dispatchEvent(ev);
     }
   },

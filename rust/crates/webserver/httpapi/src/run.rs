@@ -4,10 +4,10 @@ use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_shared_dmlog::warnf;
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_shared_serverconf as serverconf;
 use http::{HeaderValue, Method, StatusCode, Version, header};
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::warnf;
+use otter_shared_serverconf as serverconf;
 use tokio_util::sync::CancellationToken;
 
 use crate::Server;
@@ -115,7 +115,7 @@ pub(crate) fn host_check<B>(req: &http::Request<B>) -> Option<Response> {
 pub(crate) fn bound_addr(addr: &str, ln: &std::net::TcpListener) -> String {
     let host = split_host_port(addr).map_or("", |(h, _)| h);
     match ln.local_addr() {
-        Ok(a) => dm_shared_dmenv::join_host_port(host, &a.port().to_string()),
+        Ok(a) => otter_shared_otterenv::join_host_port(host, &a.port().to_string()),
         Err(_) => addr.to_owned(),
     }
 }
@@ -147,7 +147,10 @@ impl Server {
         ctx.cancelled().await;
         b.stop(SHUTDOWN_GRACE).await;
         let st = b.lock();
-        serverconf::remove_addr(&home, &dm_shared_dmenv::join_host_port(&st.host, &st.port));
+        serverconf::remove_addr(
+            &home,
+            &otter_shared_otterenv::join_host_port(&st.host, &st.port),
+        );
         Ok(())
     }
 }

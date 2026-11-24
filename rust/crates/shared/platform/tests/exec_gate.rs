@@ -1,5 +1,5 @@
 //! 10.5b: 프로그램을 맨 이름으로 띄우면 std 가 PATH 를 직접 훑어 Go 의 ErrDot 거절을 건너뛴다.
-//! 맨 이름 리터럴은 `dm_shared_platform::command_path` 를 거쳐야 한다.
+//! 맨 이름 리터럴은 `otter_shared_platform::command_path` 를 거쳐야 한다.
 
 use std::path::Path;
 

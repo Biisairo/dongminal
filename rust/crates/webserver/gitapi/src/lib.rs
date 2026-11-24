@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/gitapi` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/gitapi` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! `/api/git/*` HTTP 핸들러다. 합성 루트가 [`GitServer`] 를 만들고 [`GitServer::handle`] 로
 //! 요청을 넘긴다. `None` 이면 이 표면의 요청이 아니다 — 호출자가 404 를 낸다.
@@ -42,13 +42,13 @@ mod write_ops;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use dm_webserver_domain_git_core::Service;
-use dm_webserver_domain_git_jobs::{Exclusion, JobRunner, Jobs};
-use dm_webserver_domain_git_store::{Observation, Store};
-use dm_webserver_domain_submodule::Manager as SubmoduleManager;
-use dm_webserver_domain_worktree::Service as WorktreeService;
+use otter_webserver_domain_git_core::Service;
+use otter_webserver_domain_git_jobs::{Exclusion, JobRunner, Jobs};
+use otter_webserver_domain_git_store::{Observation, Store};
+use otter_webserver_domain_submodule::Manager as SubmoduleManager;
+use otter_webserver_domain_worktree::Service as WorktreeService;
 
-pub use dm_webserver_domain_wsentry::{Broadcaster, WorkspaceStore};
+pub use otter_webserver_domain_wsentry::{Broadcaster, WorkspaceStore};
 pub use req::{BodyError, ReqBody};
 
 /// follow 대상 도구의 cwd 를 푸는 최소 표면이다.
@@ -107,7 +107,7 @@ impl GitServer {
             .get_or_init(|| {
                 Arc::new(
                     git.service()
-                        .sized(dm_shared_editorlimit::FILE_MAX_BYTES as usize),
+                        .sized(otter_shared_editorlimit::FILE_MAX_BYTES as usize),
                 )
             })
             .clone()

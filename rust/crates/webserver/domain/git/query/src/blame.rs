@@ -2,8 +2,8 @@
 
 use std::collections::BTreeMap;
 
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_git_core::{Ctx, Service, is_null_oid, is_oid};
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_git_core::{Ctx, Service, is_null_oid, is_oid};
 use serde::Serialize;
 
 use crate::diff::diff_rel_path;

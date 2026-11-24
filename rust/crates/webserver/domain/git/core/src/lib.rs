@@ -1,6 +1,6 @@
-//! Go 기준선 `dongminal/internal/webserver/domain/git/core` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/domain/git/core` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
-//! dongminal 의 모든 git 실행이 통과하는 단일 지점이다 (GIT_SRS FR-GIT-1~8). 읽기는
+//! otterminal 의 모든 git 실행이 통과하는 단일 지점이다 (GIT_SRS FR-GIT-1~8). 읽기는
 //! `Service::exec`, 저장소를 바꾸는 것은 `Service::exec_write` 이며, 두 허용 목록의 교집합은
 //! 비어 있어야 한다 (FR-GIT-95). 셸을 경유하지 않고 (FR-GIT-2), 실패를 빈 결과로 낮추지
 //! 않는다 (FR-GIT-8).

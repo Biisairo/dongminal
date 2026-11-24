@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::time::{Duration, SystemTime};
 
-use dm_gocompat::json;
+use otter_gocompat::json;
 use serde_json::Value;
 
 use super::*;
@@ -15,7 +15,7 @@ fn tmp() -> tempfile::TempDir {
 /// 덧없지 않은 자기 경로. 내용은 상관없다.
 fn fake_exe(dir: &Path) -> PathBuf {
     fs::create_dir_all(dir).unwrap();
-    let p = dir.join(format!("dongminal{}", exe_suffix()));
+    let p = dir.join(format!("otterminal{}", exe_suffix()));
     fs::write(&p, "#!/bin/sh\nexit 0\n").unwrap();
     #[cfg(unix)]
     {
@@ -86,7 +86,7 @@ fn install_writes_activity_hooks() {
     let (_r, bin, _) = installed();
     let blob = fs::read(bin.join("agent-hooks/claude.json")).unwrap();
     let want = InstallSpec {
-        dmctl: dmctl_path(&bin),
+        otterctl: otterctl_path(&bin),
         ..InstallSpec::default()
     }
     .hook_command(&["activity", "claude"]);
@@ -113,7 +113,8 @@ fn install_writes_activity_hooks() {
     for cmds in hooks.values() {
         for c in cmds {
             assert!(
-                c.starts_with(&format!("\"{}\"", dmctl_path(&bin))) && c.matches('"').count() == 2,
+                c.starts_with(&format!("\"{}\"", otterctl_path(&bin)))
+                    && c.matches('"').count() == 2,
                 "{c}"
             );
         }
@@ -124,18 +125,18 @@ fn install_writes_activity_hooks() {
 #[test]
 fn install_helper_symlinks_and_shims() {
     let (_r, bin, exe) = installed();
-    for n in dm_shared_dmenv::helper_names() {
+    for n in otter_shared_otterenv::helper_names() {
         assert_eq!(fs::read_link(helper_path(&bin, n)).unwrap(), exe, "{n}");
     }
-    let shim = dm_shared_dmenv::agent_shims_dir_in(&bin).join("claude");
+    let shim = otter_shared_otterenv::agent_shims_dir_in(&bin).join("claude");
     assert!(fs::metadata(&shim).unwrap().is_file());
     assert_eq!(fs::read_link(&shim).unwrap(), exe);
     assert_eq!(
         fs::read_to_string(bin.join(HELPER_MANIFEST)).unwrap(),
-        "detach\ndmctl\ndownload\nedit\nopen-url\n"
+        "detach\ndownload\nedit\nopen-url\notterctl\n"
     );
     assert_eq!(
-        fs::read_to_string(dm_shared_dmenv::agent_shims_dir_in(&bin).join(HELPER_MANIFEST))
+        fs::read_to_string(otter_shared_otterenv::agent_shims_dir_in(&bin).join(HELPER_MANIFEST))
             .unwrap(),
         "claude\n"
     );
@@ -175,16 +176,19 @@ fn install_modes_and_layout() {
     ] {
         assert_eq!(mode(&bin.join(d)), 0o755 & !umask(), "{d}");
     }
-    assert!(!bin.join(dm_shared_platform::POWERSHELL_HOOK_FILE).exists());
+    assert!(
+        !bin.join(otter_shared_platform::POWERSHELL_HOOK_FILE)
+            .exists()
+    );
     let entries: Vec<_> = fs::read_dir(agent_memory_dir(&bin)).unwrap().collect();
     assert_eq!(entries.len(), 1);
     let manifest: Value =
         json::unmarshal(&fs::read(bin.join("agent-plugin/.claude-plugin/plugin.json")).unwrap())
             .unwrap();
-    assert_eq!(manifest["name"], "dongminal");
+    assert_eq!(manifest["name"], "otterminal");
     let plugin = fs::read(bin.join("agent-plugin/hooks/hooks.json")).unwrap();
     let want = InstallSpec {
-        dmctl: dmctl_path(&bin),
+        otterctl: otterctl_path(&bin),
         ..InstallSpec::default()
     }
     .hook_command(&["agent-context", "claude"]);
@@ -234,7 +238,7 @@ fn install_overwrites_and_prunes_plugin_tree() {
     for rel in ["user-file.txt", "agent-hooks/claude.json"] {
         assert!(bin.join(rel).exists(), "{rel}");
     }
-    assert!(fs::symlink_metadata(helper_path(&bin, "dmctl")).is_ok());
+    assert!(fs::symlink_metadata(helper_path(&bin, "otterctl")).is_ok());
 }
 
 /// FR-OPT-5-5: 셸 훅·자산을 되풀이해 써도 같은 파일은 교체되지 않는다.
@@ -278,7 +282,7 @@ fn ensure_installed_skips_installs_and_repairs() {
     fs::remove_dir_all(agent_memory_dir(&bin)).unwrap();
     ensure_installed(&bin).unwrap();
     assert!(!agent_memory_dir(&bin).exists());
-    let victim = helper_path(&bin, dm_shared_dmenv::helper_names()[0]);
+    let victim = helper_path(&bin, otter_shared_otterenv::helper_names()[0]);
     fs::remove_file(&victim).unwrap();
     ensure_installed(&bin).unwrap();
     assert!(fs::symlink_metadata(&victim).is_ok());
@@ -301,7 +305,7 @@ fn ephemeral_self_is_copied_and_survives() {
     assert!(
         fs::read_to_string(bin.join(HELPER_MANIFEST))
             .unwrap()
-            .contains("dongminal-self\n")
+            .contains("otterminal-self\n")
     );
     // 덧없지 않은 다음 설치가 자기 복사본을 거둔다 (FR-ATF-60).
     install_with(&bin, &fake_exe(&root.path().join("opt"))).unwrap();
@@ -320,10 +324,12 @@ fn stable_self_is_not_copied() {
 fn is_ephemeral_exe_needs_both_conditions() {
     let tmp = resolve_path(&std::env::temp_dir().to_string_lossy());
     let t = Path::new(&tmp);
-    assert!(is_ephemeral_exe(&t.join("go-build123/b001/exe/dongminal")));
-    assert!(!is_ephemeral_exe(&t.join("dongminal-iso-9/bin/dongminal")));
-    assert!(!is_ephemeral_exe(Path::new("/opt/go-build/dongminal")));
-    assert!(!is_ephemeral_exe(Path::new("/usr/local/bin/dongminal")));
+    assert!(is_ephemeral_exe(&t.join("go-build123/b001/exe/otterminal")));
+    assert!(!is_ephemeral_exe(
+        &t.join("otterminal-iso-9/bin/otterminal")
+    ));
+    assert!(!is_ephemeral_exe(Path::new("/opt/go-build/otterminal")));
+    assert!(!is_ephemeral_exe(Path::new("/usr/local/bin/otterminal")));
 }
 
 #[cfg(unix)]
@@ -331,13 +337,13 @@ fn is_ephemeral_exe_needs_both_conditions() {
 fn inspect_finds_dangling_and_missing() {
     let d = tmp();
     let bin = d.path();
-    let names = dm_shared_dmenv::helper_names();
+    let names = otter_shared_otterenv::helper_names();
     let gone = tmp().path().join("사라진-바이너리");
     std::os::unix::fs::symlink(&gone, helper_path(bin, names[0])).unwrap();
     for n in &names[2..] {
         fs::write(helper_path(bin, n), "x").unwrap();
     }
-    let shims = dm_shared_dmenv::agent_shims_dir_in(bin);
+    let shims = otter_shared_otterenv::agent_shims_dir_in(bin);
     fs::create_dir_all(&shims).unwrap();
     fs::write(shims.join("claude"), "x").unwrap();
     let st = inspect_helpers(bin);
@@ -361,7 +367,7 @@ fn inspect_fresh_and_partial() {
     for bin in [d.path().join("bin"), d.path().to_path_buf()] {
         assert_eq!(inspect_helpers(&bin), HelperStatus::default());
     }
-    let names = dm_shared_dmenv::helper_names();
+    let names = otter_shared_otterenv::helper_names();
     fs::write(helper_path(d.path(), names[0]), "x").unwrap();
     let st = inspect_helpers(d.path());
     assert!(st.installed);
@@ -396,7 +402,7 @@ fn reaps_retired_and_dropped_names_but_not_unknown_or_paths() {
     fs::write(helper_path(&bin, "옛헬퍼"), "x").unwrap();
     blob.extend_from_slice("옛헬퍼\n".as_bytes());
     fs::write(bin.join(HELPER_MANIFEST), blob).unwrap();
-    let shims = dm_shared_dmenv::agent_shims_dir_in(&bin);
+    let shims = otter_shared_otterenv::agent_shims_dir_in(&bin);
     fs::write(helper_path(&shims, "옛shim"), "x").unwrap();
     let mut sblob = fs::read(shims.join(HELPER_MANIFEST)).unwrap();
     sblob.extend_from_slice("옛shim\n".as_bytes());
@@ -419,11 +425,11 @@ fn both_hook_roots_unpack() {
         (
             "posix",
             vec!["bash-hook.sh", "zdotdir/.zshrc"],
-            dm_shared_platform::POWERSHELL_HOOK_FILE,
+            otter_shared_platform::POWERSHELL_HOOK_FILE,
         ),
         (
             "windows",
-            vec![dm_shared_platform::POWERSHELL_HOOK_FILE],
+            vec![otter_shared_platform::POWERSHELL_HOOK_FILE],
             "bash-hook.sh",
         ),
     ] {
@@ -436,7 +442,7 @@ fn both_hook_roots_unpack() {
     }
     let d = tmp();
     unpack_embedded("shellhooks/windows", d.path()).unwrap();
-    let ps = fs::read(d.path().join(dm_shared_platform::POWERSHELL_HOOK_FILE)).unwrap();
+    let ps = fs::read(d.path().join(otter_shared_platform::POWERSHELL_HOOK_FILE)).unwrap();
     assert!(ps.starts_with(&[0xEF, 0xBB, 0xBF]));
     assert!(String::from_utf8_lossy(&ps).contains("HistorySavePath"));
 }
@@ -444,13 +450,15 @@ fn both_hook_roots_unpack() {
 #[test]
 fn omp_assets_and_member_line_point_at_install() {
     let (_r, bin, _) = installed();
-    let hooks = dm_shared_dmenv::agent_hooks_dir_in(&bin);
+    let hooks = otter_shared_otterenv::agent_hooks_dir_in(&bin);
     let shim = fs::read_to_string(hooks.join(agentadapter::OMP_SHIM_FILE)).unwrap();
     let js = format!(
         "\"{}\"",
-        dmctl_path(&bin).replace('\\', "\\\\").replace('"', "\\\"")
+        otterctl_path(&bin)
+            .replace('\\', "\\\\")
+            .replace('"', "\\\"")
     );
-    assert!(shim.contains(&format!("const DMCTL = {js};")));
+    assert!(shim.contains(&format!("const OTTERCTL = {js};")));
     assert!(shim.contains(r#""activity", "omp""#));
     let omp = agentadapter::get("omp").unwrap();
     let line = omp
@@ -468,14 +476,14 @@ fn hook_command_runs_under_posix_shells() {
     let d = tmp();
     let bin = d.path().join("My Tools").join("bin");
     fs::create_dir_all(&bin).unwrap();
-    let dmctl = bin.join("dmctl");
-    fs::write(&dmctl, "#!/bin/sh\necho \"CALLED args=$*\"\n").unwrap();
-    fs::set_permissions(&dmctl, fs::Permissions::from_mode(0o755)).unwrap();
+    let otterctl = bin.join("otterctl");
+    fs::write(&otterctl, "#!/bin/sh\necho \"CALLED args=$*\"\n").unwrap();
+    fs::set_permissions(&otterctl, fs::Permissions::from_mode(0o755)).unwrap();
     install_agent_assets(&bin).unwrap();
     let cmd =
         hook_commands(&fs::read(bin.join("agent-hooks/claude.json")).unwrap())["Stop"][0].clone();
     for sh in ["sh", "bash", "zsh"] {
-        let Some(sh) = dm_shared_platform::look_path(sh) else {
+        let Some(sh) = otter_shared_platform::look_path(sh) else {
             continue;
         };
         let out = std::process::Command::new(sh)
@@ -496,7 +504,7 @@ fn policy_injection_matches_shell_wrappers() {
     let (_r, bin, _) = installed();
     for rel in ["bash-hook.sh", "zdotdir/.zshrc"] {
         let s = fs::read_to_string(bin.join(rel)).unwrap();
-        assert!(s.contains("DONGMINAL_HOME"), "{rel}");
+        assert!(s.contains("OTTERMINAL_HOME"), "{rel}");
         for banned in [
             "$HOME/.claude",
             "~/.claude",
@@ -547,4 +555,21 @@ fn mkdir_all_matches_go() {
     let dot = format!("{}/new/.", d.path().display());
     mkdir_all(Path::new(&dot)).unwrap();
     assert!(d.path().join("new").is_dir());
+}
+
+// OTTERMINAL_RENAME_SRS FR-MIG-9: 옛 홈에서 넘어온 옛 제어 명령은 설치 기록이 없어도 지운다.
+#[test]
+fn reaps_legacy_control_helper() {
+    let root = tmp();
+    let exe = fake_exe(&root.path().join("opt"));
+    let bin = root.path().join("bin");
+    fs::create_dir_all(&bin).unwrap();
+    fs::write(
+        helper_path(&bin, otter_shared_otterenv::legacy::LEGACY_CONTROL_HELPER),
+        "x",
+    )
+    .unwrap();
+    install_with(&bin, &exe).unwrap();
+    assert!(!helper_path(&bin, otter_shared_otterenv::legacy::LEGACY_CONTROL_HELPER).exists());
+    assert!(helper_path(&bin, "otterctl").exists());
 }

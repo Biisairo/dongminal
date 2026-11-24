@@ -1,5 +1,5 @@
 /**
- * Dongminal — 보이는 디렉터리의 **서버 감시** (EDITOR_LIVE_RELOAD_SRS 묶음 C).
+ * Otterminal — 보이는 디렉터리의 **서버 감시** (EDITOR_LIVE_RELOAD_SRS 묶음 C).
  *
  * 등록(`edWatchSync`)과 반응(`_onFsChanged`)이 여기 있다. 폴링(`_edTick`)은 그대로
  * 돈다 — 감시는 체감 속도를, 폴링은 정확성의 안전망을 맡는다 (FR-ELR-61).

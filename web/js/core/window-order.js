@@ -65,7 +65,7 @@ function _woWriteBack(wins, seq){
 }
 
 /**
- * 최상위 목록. 그룹은 `{kind:'group',id,windows}` 하나, 빈 그룹은 끝. dmctl 의 Go `windowPositions` 와
+ * 최상위 목록. 그룹은 `{kind:'group',id,windows}` 하나, 빈 그룹은 끝. otterctl 의 Go `windowPositions` 와
  * 같은 규칙이다 — `internal/helper/runtimebin/testdata/window_order_vectors.json` 을 함께 시험한다.
  */
 function winOrderItems(windows, groups){

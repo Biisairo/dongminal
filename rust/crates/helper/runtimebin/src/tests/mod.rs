@@ -201,8 +201,8 @@ fn serve(conn: TcpStream, h: &Handler, reqs: &Mutex<Vec<Req>>) {
 
 /// home 을 대체 홈으로 삼고 그 주소 파일을 port 로 쓴 시험 환경이다 (Go `pointAt`).
 pub(crate) fn env_at(home: &Path, port: u16) -> Env {
-    dm_shared_serverconf::write_addr(home, &format!("127.0.0.1:{port}")).unwrap();
-    let mut env = Env::with_vars([(dm_shared_dmenv::ENV_TOOL_ID, "self-tool")]);
+    otter_shared_serverconf::write_addr(home, &format!("127.0.0.1:{port}")).unwrap();
+    let mut env = Env::with_vars([(otter_shared_otterenv::ENV_TOOL_ID, "self-tool")]);
     env.fallback_home = Some(home.to_path_buf());
     env.open_local = Some(|out, u| {
         let _ = writeln!(out, "OPEN {u}");
@@ -232,21 +232,21 @@ pub(crate) fn run_with(
     )
 }
 
-pub(crate) fn dm(env: &Env, args: &[&str]) -> (i32, String, String) {
-    run_with(env, crate::dmctl::run_dmctl, args, b"")
+pub(crate) fn ctl(env: &Env, args: &[&str]) -> (i32, String, String) {
+    run_with(env, crate::otterctl::run_otterctl, args, b"")
 }
 
 /// Go `%q` 로 찍은 문자열 목록 (`["a" "b"]`).
 pub(crate) fn q_list(args: &[&str]) -> String {
     let parts: Vec<String> = args
         .iter()
-        .map(|a| dm_gocompat::strconv::quote(a))
+        .map(|a| otter_gocompat::strconv::quote(a))
         .collect();
     format!("[{}]", parts.join(" "))
 }
 
 pub(crate) fn q(s: &str) -> String {
-    dm_gocompat::strconv::quote(s)
+    otter_gocompat::strconv::quote(s)
 }
 
 /// 골든을 블록(머리 줄 + 들여쓴 줄들)으로 나눈다.
@@ -263,12 +263,15 @@ pub(crate) fn blocks(text: &str) -> Vec<String> {
 }
 
 pub(crate) fn read_testdata(name: &str) -> String {
-    std::fs::read_to_string(
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("testdata")
-            .join(name),
+    // OTTERMINAL_RENAME_SRS FR-REN-10: Go 골든은 옛 이름으로 기록되어 있다.
+    otter_shared_otterenv::legacy::current_names(
+        &std::fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("testdata")
+                .join(name),
+        )
+        .unwrap(),
     )
-    .unwrap()
 }
 
 /// 줄 단위로 처음 다른 곳을 보이며 비교한다.

@@ -1,6 +1,6 @@
 //! 읽기 허용 목록과 인자 가드 (FR-GIT-2, 7).
 
-use dm_gocompat::{filepath, path, strconv::quote};
+use otter_gocompat::{filepath, path, strconv::quote};
 
 use crate::error::{Error, Kind, plain_list, quote_list};
 

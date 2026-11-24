@@ -4,9 +4,9 @@ use std::fs::OpenOptions;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
-use dm_gocompat::filepath;
-use dm_shared_dmenv as dmenv;
-use dm_shared_dmlog::infof;
+use otter_gocompat::filepath;
+use otter_shared_otterenv as otterenv;
+use otter_shared_otterlog::infof;
 
 /// 인스턴스 홈 아래에서 도구 히스토리가 사는 자리다 (D-4).
 pub(crate) const TOOL_HIST_DIR: &str = "tool-history";
@@ -50,19 +50,19 @@ fn user_home(g: Getenv) -> String {
     g(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
 }
 
-/// 도구 셸이 자기 홈으로 여길 곳이다. `DONGMINAL_TOOL_HOME` 이 우선한다.
+/// 도구 셸이 자기 홈으로 여길 곳이다. `OTTERMINAL_TOOL_HOME` 이 우선한다.
 pub(crate) fn tool_home(g: Getenv) -> String {
-    let v = g(dmenv::ENV_TOOL_HOME);
+    let v = g(otterenv::ENV_TOOL_HOME);
     if v.is_empty() { user_home(g) } else { v }
 }
 
-/// `$DONGMINAL_HOME/bin`. 홈을 모르면 "".
+/// `$OTTERMINAL_HOME/bin`. 홈을 모르면 "".
 pub(crate) fn tool_bin_dir(g: Getenv) -> String {
-    let home = g(dmenv::ENV_HOME);
+    let home = g(otterenv::ENV_HOME);
     if home.is_empty() {
         return String::new();
     }
-    filepath::join(&[home.as_str(), dmenv::BIN_DIR])
+    filepath::join(&[home.as_str(), otterenv::BIN_DIR])
 }
 
 pub(crate) fn tool_path(g: Getenv, bin_dir: &str) -> String {
@@ -75,7 +75,7 @@ pub(crate) fn tool_path(g: Getenv, bin_dir: &str) -> String {
 }
 
 fn exe_suffix() -> &'static str {
-    dm_shared_platform::current().paths.exe_suffix()
+    otter_shared_platform::current().paths.exe_suffix()
 }
 
 /// 도구 셸의 BROWSER 다 (VIEWER_URL_OPEN_SRS FR-VUO-13).
@@ -123,7 +123,7 @@ pub(crate) fn tool_env(
         "COLORTERM=truecolor".to_string(),
         format!("PATH={}", tool_path(g, bin_dir)),
         format!("HOME={}", tool_home(g)),
-        format!("{}={id}", dmenv::ENV_TOOL_ID),
+        format!("{}={id}", otterenv::ENV_TOOL_ID),
         tool_browser_env(bin_dir),
     ]);
     if let Some(u) = current_username(g) {
@@ -153,7 +153,7 @@ pub(crate) fn tool_hist_env(g: Getenv, id: &str, shell_path: &str) -> Vec<String
     if !safe_hist_name(id) {
         return Vec::new();
     }
-    let home = g(dmenv::ENV_HOME);
+    let home = g(otterenv::ENV_HOME);
     if home.is_empty() {
         return Vec::new();
     }
@@ -171,13 +171,13 @@ pub(crate) fn tool_hist_env(g: Getenv, id: &str, shell_path: &str) -> Vec<String
     seed_hist_file(Path::new(&path), user_hist_file(g, &shell).as_deref());
     vec![
         format!("HISTFILE={path}"),
-        format!("{}={path}", dmenv::ENV_HIST_FILE),
+        format!("{}={path}", otterenv::ENV_HIST_FILE),
     ]
 }
 
 /// Go `os.MkdirAll(dir, 0o700)`.
 fn mkdir_hist_dir(dir: &str) -> std::io::Result<()> {
-    dm_gocompat::oserr::mkdir_all(dir, HIST_DIR_PERM)
+    otter_gocompat::oserr::mkdir_all(dir, HIST_DIR_PERM)
 }
 
 /// 그 셸이 평소 쓰는 히스토리 자리다 (FR-HPR-16). PowerShell 은 PSReadLine 의 고정 자리다.
@@ -238,7 +238,7 @@ pub(crate) fn seed_hist_file(dst: &Path, src: Option<&Path>) {
             None,
             "history seed {}: {}",
             dst.display(),
-            dm_gocompat::oserr::path_error("write", &dst.to_string_lossy(), e)
+            otter_gocompat::oserr::path_error("write", &dst.to_string_lossy(), e)
         );
     }
 }

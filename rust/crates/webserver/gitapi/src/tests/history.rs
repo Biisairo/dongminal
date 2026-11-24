@@ -2,8 +2,8 @@
 
 use std::sync::{Arc, Mutex};
 
-use dm_webserver_domain_git_core::{self as core, Output, Service};
-use dm_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_domain_git_core::{self as core, Output, Service};
+use otter_webserver_domain_git_store::{Store, StoreOptions};
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
@@ -155,7 +155,7 @@ async fn routes_and_unavailable() {
     for ep in endpoints() {
         let path = ep.split('?').next().unwrap();
         assert!(
-            dm_webserver_httproute::dispatch(&crate::routes::ROUTES, "GET", path).is_some(),
+            otter_webserver_httproute::dispatch(&crate::routes::ROUTES, "GET", path).is_some(),
             "{path}"
         );
         let r = req(&s, "GET", &ep, "").await;

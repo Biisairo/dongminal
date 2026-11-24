@@ -7,7 +7,7 @@ mod check;
 
 use std::process::ExitCode;
 
-use dm_gocompat::oserr::{go_error_string, path_error};
+use otter_gocompat::oserr::{go_error_string, path_error};
 
 use check::{LOCALES, NEEDED, Sources, check};
 
@@ -23,7 +23,7 @@ fn read(path: &str) -> Result<String, ExitCode> {
 
 fn main() -> ExitCode {
     let mut s = Sources {
-        indicator_kinds: dm_webserver_domain_git_jobs::indicator_kinds(),
+        indicator_kinds: otter_webserver_domain_git_jobs::indicator_kinds(),
         ..Sources::default()
     };
     for p in NEEDED {

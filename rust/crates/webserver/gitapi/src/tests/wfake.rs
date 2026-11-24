@@ -4,9 +4,9 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime};
 
-use dm_webserver_domain_git_core::{self as core, Ctx, Output, Service};
-use dm_webserver_domain_git_jobs::{Job, JobRunner, LINE_STDERR};
-use dm_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_domain_git_core::{self as core, Ctx, Output, Service};
+use otter_webserver_domain_git_jobs::{Job, JobRunner, LINE_STDERR};
+use otter_webserver_domain_git_store::{Store, StoreOptions};
 use tempfile::TempDir;
 
 use super::harness::{FakeBroker, FakePaneHub, FakeWorkspace, Resp, req};
@@ -332,7 +332,7 @@ pub(crate) async fn req_await(
     let jb = job_done(s, &out).await;
     out["ok"] = serde_json::Value::Bool(crate::job::job_succeeded(&jb));
     if let Some(st) = jb.result.as_ref().and_then(|r| r.status.as_ref()) {
-        let raw = dm_gocompat::json::marshal(st).unwrap();
+        let raw = otter_gocompat::json::marshal(st).unwrap();
         out["status"] = serde_json::from_slice(&raw).unwrap();
     }
     (res.code, out)

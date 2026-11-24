@@ -7,9 +7,9 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
-use dm_gocompat::filepath;
-use dm_shared_httpresp::{self as httpresp, Response};
 use http::StatusCode;
+use otter_gocompat::filepath;
+use otter_shared_httpresp::{self as httpresp, Response};
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
@@ -286,7 +286,7 @@ pub(crate) fn grep_with_go(
         // 읽다 실패하면 그때까지 읽은 것이 그 파일의 전부다.
         let mut blob = Vec::new();
         let _ = file.read_to_end(&mut blob);
-        let head = &blob[..blob.len().min(dm_shared_editorlimit::BINARY_SNIFF_BYTES)];
+        let head = &blob[..blob.len().min(otter_shared_editorlimit::BINARY_SNIFF_BYTES)];
         if is_binary(head) {
             return true;
         }
@@ -438,7 +438,7 @@ pub(crate) fn parse_ripgrep_json(out: &[u8], root: &str, limit: usize) -> (Vec<G
         if let Some(l) = line.strip_suffix(b"\r") {
             line = l;
         }
-        let Ok(ev) = dm_gocompat::json::unmarshal::<RgEvent>(line) else {
+        let Ok(ev) = otter_gocompat::json::unmarshal::<RgEvent>(line) else {
             continue;
         };
         if ev.kind != "match" {

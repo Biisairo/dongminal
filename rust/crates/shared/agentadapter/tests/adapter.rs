@@ -5,13 +5,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
-use dm_gocompat::json;
-use dm_shared_agentadapter::*;
-use dm_shared_platform::{ShellProvider, ShellSpec};
+use otter_gocompat::json;
+use otter_shared_agentadapter::*;
+use otter_shared_platform::{ShellProvider, ShellSpec};
 use serde_json::Value;
 
 fn host_quote(s: &str) -> String {
-    dm_shared_platform::current().shell.quote(s)
+    otter_shared_platform::current().shell.quote(s)
 }
 
 fn parse(id: &str, payload: &str) -> Option<Report> {
@@ -95,16 +95,16 @@ fn installed_checks_agent_bin_dir_then_path() {
     fs::write(&exe, "#!/bin/sh\n").unwrap();
     fs::set_permissions(&exe, fs::Permissions::from_mode(0o755)).unwrap();
     let saved = std::env::var_os("PATH");
-    // SAFETY: 이 시험 바이너리에서 PATH·DONGMINAL_AGENT_BIN_DIR 을 읽고 쓰는 시험은 이것 하나다.
+    // SAFETY: 이 시험 바이너리에서 PATH·OTTERMINAL_AGENT_BIN_DIR 을 읽고 쓰는 시험은 이것 하나다.
     unsafe {
         std::env::set_var("PATH", empty.path());
-        std::env::set_var(dm_shared_dmenv::ENV_AGENT_BIN_DIR, "");
+        std::env::set_var(otter_shared_otterenv::ENV_AGENT_BIN_DIR, "");
     }
     assert!(!ad.installed());
-    unsafe { std::env::set_var(dm_shared_dmenv::ENV_AGENT_BIN_DIR, bin.path()) };
+    unsafe { std::env::set_var(otter_shared_otterenv::ENV_AGENT_BIN_DIR, bin.path()) };
     assert!(ad.installed());
     unsafe {
-        std::env::set_var(dm_shared_dmenv::ENV_AGENT_BIN_DIR, "");
+        std::env::set_var(otter_shared_otterenv::ENV_AGENT_BIN_DIR, "");
         std::env::set_var("PATH", bin.path());
     }
     assert!(ad.installed());
@@ -113,7 +113,7 @@ fn installed_checks_agent_bin_dir_then_path() {
             Some(p) => std::env::set_var("PATH", p),
             None => std::env::remove_var("PATH"),
         }
-        std::env::remove_var(dm_shared_dmenv::ENV_AGENT_BIN_DIR);
+        std::env::remove_var(otter_shared_otterenv::ENV_AGENT_BIN_DIR);
     }
 }
 
@@ -143,7 +143,7 @@ fn launch_line_argv_quoting_survives_metacharacters() {
         "claude --model {} {} {} -- {}",
         host_quote("sonnet"),
         host_quote("--allowedTools"),
-        host_quote("Bash(dmctl:*)"),
+        host_quote("Bash(otterctl:*)"),
         host_quote(prompt)
     );
     assert_eq!(line, want);
@@ -159,11 +159,16 @@ fn launch_line_delegates_quoting_to_the_shell() {
         .unwrap();
     assert_eq!(
         *sh.seen.lock().unwrap(),
-        ["sonnet", "--allowedTools", "Bash(dmctl:*)", "it's a prompt"]
+        [
+            "sonnet",
+            "--allowedTools",
+            "Bash(otterctl:*)",
+            "it's a prompt"
+        ]
     );
     assert_eq!(
         line,
-        "claude --model «sonnet» «--allowedTools» «Bash(dmctl:*)» -- «it's a prompt»"
+        "claude --model «sonnet» «--allowedTools» «Bash(otterctl:*)» -- «it's a prompt»"
     );
     for model in ["claude-opus-5[1m]", "a b; rm -rf x", "it's"] {
         let line = claude
@@ -222,7 +227,7 @@ fn codex_terminal_surface_is_measured() {
 fn omp_member_config_is_resolved_and_token_required() {
     let omp = get("omp").unwrap();
     let hooks = std::env::temp_dir()
-        .join("dm")
+        .join("otter")
         .join("bin")
         .join("agent-hooks");
     let hooks = hooks.to_str().unwrap();
@@ -241,7 +246,7 @@ fn omp_member_config_is_resolved_and_token_required() {
     let err = omp.launch_line("", "opus", "안녕").unwrap_err();
     assert_eq!(
         err.to_string(),
-        r#"omp: "{{dmHooks}}/omp-member.yml" 의 자리를 채울 경로가 없다"#
+        r#"omp: "{{otterHooks}}/omp-member.yml" 의 자리를 채울 경로가 없다"#
     );
     for id in ["claude", "codex"] {
         assert!(get(id).unwrap().launch_line("", "haiku", "안녕").is_ok());
@@ -266,7 +271,7 @@ fn resume_lines() {
     let claude = get("claude").unwrap();
     assert_eq!(
         claude.resume_line_in(&sh, "", "abc-123", true).unwrap(),
-        "claude «--resume» «abc-123» «--allowedTools» «Bash(dmctl:*)»"
+        "claude «--resume» «abc-123» «--allowedTools» «Bash(otterctl:*)»"
     );
     assert_eq!(
         claude.resume_line_in(&sh, "", "abc-123", false).unwrap(),
@@ -855,11 +860,11 @@ fn hook_commands(blob: &[u8]) -> Vec<(String, Vec<String>)> {
     out
 }
 
-fn install_claude(root: &Path, dmctl: &str) -> InstallSpec {
+fn install_claude(root: &Path, otterctl: &str) -> InstallSpec {
     let spec = InstallSpec {
         dir: root.join("hooks"),
         plugin_dir: root.join("plugin"),
-        dmctl: dmctl.to_owned(),
+        otterctl: otterctl.to_owned(),
     };
     fs::create_dir_all(&spec.dir).unwrap();
     (get("claude").unwrap().install_assets.unwrap())(&spec).unwrap();
@@ -869,23 +874,23 @@ fn install_claude(root: &Path, dmctl: &str) -> InstallSpec {
 #[test]
 fn claude_settings_hooks_statusline_and_ctx() {
     let root = tempfile::tempdir().unwrap();
-    let spec = install_claude(root.path(), "/opt/dm/bin/dmctl");
+    let spec = install_claude(root.path(), "/opt/otter/bin/otterctl");
     let blob = fs::read(spec.dir.join("claude.json")).unwrap();
     let v: Value = json::unmarshal(&blob).unwrap();
     assert_eq!(v["statusLine"]["type"], "command");
     assert_eq!(
         v["statusLine"]["command"],
-        r#""/opt/dm/bin/dmctl" statusline"#
+        r#""/opt/otter/bin/otterctl" statusline"#
     );
     assert_eq!(
         v["subagentStatusLine"]["command"],
-        r#""/opt/dm/bin/dmctl" subagent-statusline"#
+        r#""/opt/otter/bin/otterctl" subagent-statusline"#
     );
     let hooks = hook_commands(&blob);
     assert_eq!(hooks.len(), 14);
-    let ctx = r#""/opt/dm/bin/dmctl" ctx-hook claude"#;
+    let ctx = r#""/opt/otter/bin/otterctl" ctx-hook claude"#;
     for (ev, cmds) in &hooks {
-        assert_eq!(cmds[0], r#""/opt/dm/bin/dmctl" activity claude"#);
+        assert_eq!(cmds[0], r#""/opt/otter/bin/otterctl" activity claude"#);
         if ev == "PostToolUse" || ev == "UserPromptSubmit" {
             assert_eq!(cmds, &[cmds[0].clone(), ctx.to_owned()]);
         } else {
@@ -898,7 +903,7 @@ fn claude_settings_hooks_statusline_and_ctx() {
         hook_commands(&plugin),
         [(
             "SessionStart".to_owned(),
-            vec![r#""/opt/dm/bin/dmctl" agent-context claude"#.to_owned()]
+            vec![r#""/opt/otter/bin/otterctl" agent-context claude"#.to_owned()]
         )]
     );
 }
@@ -906,18 +911,18 @@ fn claude_settings_hooks_statusline_and_ctx() {
 #[test]
 fn hook_command_quotes_executable_only() {
     let s = InstallSpec {
-        dmctl: r"C:\Program Files\dm\dmctl.exe".into(),
+        otterctl: r"C:\Program Files\otter\otterctl.exe".into(),
         ..InstallSpec::default()
     };
     assert_eq!(
         s.hook_command(&["notify", "done"]),
-        r#""C:\Program Files\dm\dmctl.exe" notify done"#
+        r#""C:\Program Files\otter\otterctl.exe" notify done"#
     );
     let s = InstallSpec {
-        dmctl: "/home/u/.dongminal/bin/dmctl".into(),
+        otterctl: "/home/u/.otterminal/bin/otterctl".into(),
         ..InstallSpec::default()
     };
-    assert_eq!(s.hook_command(&[]), r#""/home/u/.dongminal/bin/dmctl""#);
+    assert_eq!(s.hook_command(&[]), r#""/home/u/.otterminal/bin/otterctl""#);
 }
 
 /// FR-OPT-5-5: 되풀이해 써도 같은 파일은 교체되지 않는다.
@@ -925,7 +930,7 @@ fn hook_command_quotes_executable_only() {
 fn install_assets_keeps_unchanged_files() {
     let root = tempfile::tempdir().unwrap();
     let install = || {
-        let spec = install_claude(root.path(), "/x/dmctl");
+        let spec = install_claude(root.path(), "/x/otterctl");
         (get("omp").unwrap().install_assets.unwrap())(&spec).unwrap();
     };
     install();
@@ -960,10 +965,13 @@ fn install_assets_keeps_unchanged_files() {
 #[test]
 fn omp_shim_and_overlay() {
     let root = tempfile::tempdir().unwrap();
-    let spec = install_claude(root.path(), r#"/x y/"q"\dmctl"#);
+    let spec = install_claude(root.path(), r#"/x y/"q"\otterctl"#);
     (get("omp").unwrap().install_assets.unwrap())(&spec).unwrap();
     let s = fs::read_to_string(spec.dir.join(OMP_SHIM_FILE)).unwrap();
-    assert!(s.contains(r#"const DMCTL = "/x y/\"q\"\\dmctl";"#), "{s}");
+    assert!(
+        s.contains(r#"const OTTERCTL = "/x y/\"q\"\\otterctl";"#),
+        "{s}"
+    );
     for ev in [
         "session_start",
         "session_shutdown",
@@ -978,6 +986,6 @@ fn omp_shim_and_overlay() {
         assert!(s.contains(&format!("event: \"{ev}\"")), "{ev}");
     }
     let o = fs::read_to_string(spec.dir.join(OMP_MEMBER_CONFIG_FILE)).unwrap();
-    assert!(o.contains("patterns") && o.contains("dmctl") && o.contains("allow"));
+    assert!(o.contains("patterns") && o.contains("otterctl") && o.contains("allow"));
     assert!(!o.contains("approvalMode"));
 }

@@ -51,7 +51,7 @@ async fn post_revert(e: &Env, body: &str) -> support::Resp {
 }
 
 fn raw(ws: &FakeWork) -> String {
-    use dm_webserver_domain_wsentry::WorkspaceStore;
+    use otter_webserver_domain_wsentry::WorkspaceStore;
     String::from_utf8(ws.snapshot().0.to_vec()).unwrap()
 }
 

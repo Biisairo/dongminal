@@ -3,8 +3,8 @@
 
 use std::fmt;
 
-use dm_webserver_domain_git_core as core;
-use dm_webserver_domain_git_query as query;
+use otter_webserver_domain_git_core as core;
+use otter_webserver_domain_git_query as query;
 
 use core::Output;
 use query::QueryKind;
@@ -186,7 +186,7 @@ impl Error {
             format!(
                 "{}: 로컬 브랜치 {} 가 이미 있다",
                 WriteKind::BranchExists,
-                dm_gocompat::strconv::quote(name)
+                otter_gocompat::strconv::quote(name)
             ),
         );
         e.0.branch_exists = Some(name.to_owned());

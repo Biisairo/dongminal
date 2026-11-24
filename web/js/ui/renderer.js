@@ -1,5 +1,5 @@
 /**
- * Dongminal — layout → DOM renderer (클래스 본문)
+ * Otterminal — layout → DOM renderer (클래스 본문)
  *
  * App 의 render / _rSidebar / _rTopbar / _rLayout / _buildNode / _buildPane
  * / _buildSp / _handle 책임을 분리. Renderer 내부 메서드 호출은 this.X 로,

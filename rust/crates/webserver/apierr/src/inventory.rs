@@ -1,10 +1,10 @@
 //! 판정 대상 sentinel 의 목록과, 표에 넣지 않은 것의 사유 (Go `inventory.go`).
 
-use dm_webserver_domain_git_core as core;
-use dm_webserver_domain_git_jobs::JobsKind;
-use dm_webserver_domain_git_query::QueryKind;
-use dm_webserver_domain_git_write::WriteKind;
-use dm_webserver_domain_worktree as worktree;
+use otter_webserver_domain_git_core as core;
+use otter_webserver_domain_git_jobs::JobsKind;
+use otter_webserver_domain_git_query::QueryKind;
+use otter_webserver_domain_git_write::WriteKind;
+use otter_webserver_domain_worktree as worktree;
 
 use crate::sentinel::{Sentinel, WsentryKind};
 

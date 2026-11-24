@@ -2,10 +2,10 @@
 //!
 //! 초기 브랜치 이름을 주지 않는다 — 사용자의 `init.defaultBranch` 를 따른다.
 
-use dm_shared_httpresp::Response;
-use dm_webserver_domain_git_core::{self as core, WriteSpec};
-use dm_webserver_domain_wsentry as wsentry;
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_domain_git_core::{self as core, WriteSpec};
+use otter_webserver_domain_wsentry as wsentry;
 
 use crate::GitServer;
 use crate::handlers_git::decode_abs_path;

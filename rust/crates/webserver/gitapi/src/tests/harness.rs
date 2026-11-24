@@ -5,20 +5,22 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 use bytes::Bytes;
-use dm_webserver_domain_git_core::{self as core, Output, Runner, Service};
-use dm_webserver_domain_git_store::{Store, StoreOptions};
 use http::{HeaderMap, Method};
 use http_body_util::{BodyExt, Full};
+use otter_webserver_domain_git_core::{self as core, Output, Runner, Service};
+use otter_webserver_domain_git_store::{Store, StoreOptions};
 use tempfile::TempDir;
 
 use crate::{Broadcaster, GitServer, ToolLocator, WorkspaceStore};
 
 pub(crate) fn abs(seg: &[&str]) -> String {
-    dm_shared_testpath::abs(seg).to_string_lossy().into_owned()
+    otter_shared_testpath::abs(seg)
+        .to_string_lossy()
+        .into_owned()
 }
 
 pub(crate) fn q(s: &str) -> String {
-    dm_shared_testpath::json_quote(s)
+    otter_shared_testpath::json_quote(s)
 }
 
 /// Go `url.QueryEscape`.
@@ -190,7 +192,7 @@ impl GitFake {
 
     pub(crate) fn service(&self) -> Service {
         let run = self.runner();
-        let write: dm_webserver_domain_git_core::WriteRunner =
+        let write: otter_webserver_domain_git_core::WriteRunner =
             Arc::new(move |ctx, dir, args, _stdin| run(ctx, dir, args));
         Service::builder()
             .runner(self.runner())
@@ -229,9 +231,9 @@ impl WorkspaceStore for FakeWorkspace {
             *self.rev.lock().unwrap(),
         )
     }
-    fn save(&self, blob: &[u8], _if_match: &str) -> Result<u64, dm_shared_workspace::Error> {
+    fn save(&self, blob: &[u8], _if_match: &str) -> Result<u64, otter_shared_workspace::Error> {
         if self.stale.load(Ordering::SeqCst) {
-            return Err(dm_shared_workspace::Error::Stale);
+            return Err(otter_shared_workspace::Error::Stale);
         }
         *self.raw.lock().unwrap() = blob.to_vec();
         let mut rev = self.rev.lock().unwrap();

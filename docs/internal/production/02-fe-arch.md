@@ -18,7 +18,7 @@
 
 ### [P0] 터미널 출력 → 상태바 innerHTML 로 스크립트 주입 (XSS)
 - 위치:
-  - 싱크: `web/js/core/app-statusbar.js:75-79` (`push('cwd', \`<span class="sb-item">📁 ${short}</span>\`)`), `:82` (hostname), `:66` (`title="dmctl 대상: ${loc}"`), 최종 삽입 `:119-122` (`t.innerHTML=i.html`).
+  - 싱크: `web/js/core/app-statusbar.js:75-79` (`push('cwd', \`<span class="sb-item">📁 ${short}</span>\`)`), `:82` (hostname), `:66` (`title="otterctl 대상: ${loc}"`), 최종 삽입 `:119-122` (`t.innerHTML=i.html`).
   - 소스 1: `web/js/ui/term-pane.js:665-686` — **모든 터미널 출력 청크**에서 `/\x1b\]777;(\w+);([^\x07]*)\x07/g` 를 찾아 `Cwd` 면 `_onCwd(val)` → `app.cwd=cwd; app.updateStatusBar()`.
   - 소스 2: `app-statusbar.js:340` `/api/cwd` 응답의 실제 디렉터리 이름.
   - 이 파일에 `escHtml` 호출 0건 (`grep -c escHtml core/app-statusbar.js` = 0). 기본값 on (`core/helpers.js:353 cwd:{def:true}`).
@@ -41,7 +41,7 @@
 
 ### [P1] 전역 스크립트 93개 · 암묵적 로드 순서 · ~1,600개 전역 바인딩
 - 위치: `web/index.html:470-594`; 최상위 선언 수 `constants-git.js` 445, `constants-git-actions.js` 211, `constants-editor.js` 184, `constants.js` 155, `helpers.js` 77 (grep `^(const|let|var|class|function)`). 가변 전역 `var/let` 27개 (`helpers.js` 16, `constants-git.js` 3, `constants.js` 2 …), 이들을 다른 파일이 직접 대입한다 (`app-polling.js:36-70` `set:v=>{agentsPollInterval=v}`, `app-settings.js:343-345`).
-- 현상: 모든 파일이 하나의 전역 렉시컬 스코프를 공유한다. 이름 충돌은 현재 0건(검사함)이지만 그것을 지키는 도구가 없다. `window.*` 명시 export 도 34개(대부분 `git/` 클래스: `GitHistory`, `GitBranches`… + `__dmReloading`, `__dongminalDebug`, `__dmAssetVersion`)로 관례가 두 벌이다 — 어떤 클래스는 `window.X=` 로, 어떤 것은 최상위 `class` 바인딩으로 노출.
+- 현상: 모든 파일이 하나의 전역 렉시컬 스코프를 공유한다. 이름 충돌은 현재 0건(검사함)이지만 그것을 지키는 도구가 없다. `window.*` 명시 export 도 34개(대부분 `git/` 클래스: `GitHistory`, `GitBranches`… + `__otterReloading`, `__otterminalDebug`, `__otterAssetVersion`)로 관례가 두 벌이다 — 어떤 클래스는 `window.X=` 로, 어떤 것은 최상위 `class` 바인딩으로 노출.
 - 왜 문제인가: 스크립트 한 줄을 옮기면 조용히 `ReferenceError`(런타임에만, 해당 경로가 실행될 때만). `FR-WBR-95` 가 기록한 "typeof 가드가 삼킨 결함" 이 바로 이 구조의 산물이다. 93개 순차 동기 스크립트는 첫 페인트도 늦춘다 (부팅 화면이 그것을 가리기 위해 존재한다, `index.html:83-106`).
 - 조치: 단기 — `scripts/check-timers.sh` 와 같은 형태로 **로드 순서 검사기**(각 파일이 참조하는 상위 식별자가 앞선 스크립트에서 선언됐는지) 또는 eslint `no-undef` + `globals` 파일. 중기 — `type="module"` 로 점진 전환(순수 함수 파일 `hunk-coords.js`, `lanes.js`, `repaint.js`, `api.js` 부터).
 - 규모: M (검사기) / L (모듈 전환).
@@ -100,7 +100,7 @@
 
 ### C. 하드코딩·상수 불일치 (5건)
 1. 사이드바 폭 상·하한 `100/400` 리터럴 3곳: `index.html:27`, `core/app.js:171`, `core/app-cmd.js:370`. 상수 없음.
-2. 저장소 키 리터럴: `'sidebarWidth'` 4곳(`index.html:27`, `ui/input-binding.js:110`, `core/app-cmd.js:372`, `core/app.js:173`) — `SIDEBAR_COLLAPSED_KEY` 는 상수인데 폭 키는 아니다; `sessionStorage.setItem('activeWindow', …)` 14곳; `index.html:34` 의 `'dm.themeVars'` 는 `constants.js:31 THEME_VARS_KEY` 와 손으로 동기 (주석으로만 고정).
+2. 저장소 키 리터럴: `'sidebarWidth'` 4곳(`index.html:27`, `ui/input-binding.js:110`, `core/app-cmd.js:372`, `core/app.js:173`) — `SIDEBAR_COLLAPSED_KEY` 는 상수인데 폭 키는 아니다; `sessionStorage.setItem('activeWindow', …)` 14곳; `index.html:34` 의 `'otter.themeVars'` 는 `constants.js:31 THEME_VARS_KEY` 와 손으로 동기 (주석으로만 고정).
 3. `document.getElementById('…')` 182회 전부 리터럴; `index.html` id 158개. JS 만 참조하는 id 4개(`bg-modal`, `mkb-tip`, `runs-modal`, `ui-size-hud`)는 동적 생성이라 정상.
 4. `core/app-statusbar.js:72` `cwd.replace(/^\/Users\/[^/]+/,'~')` — macOS 홈 경로만 축약. 프로젝트는 linux/windows 도 빌드 대상(`scripts/build.sh` TARGETS).
 5. `_fmtBytes` 두 벌: `ui/file-editor.js:294`, `core/app-statusbar.js:316` (+ `doc-render.js` 의 `docFmtBytes`). `ETag||Etag` 헤더 이중 조회 4곳(`app.js:138,422,518` …).

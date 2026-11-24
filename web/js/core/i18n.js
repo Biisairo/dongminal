@@ -1,5 +1,5 @@
 /**
- * Dongminal — 문구 카탈로그 (M8_UNIFIED_SRS 축 B, FR-B-1·2·4·5·7).
+ * Otterminal — 문구 카탈로그 (M8_UNIFIED_SRS 축 B, FR-B-1·2·4·5·7).
  *
  * 읽는 함수는 둘이다 — `t(key, params)` 와 `tn(key, n, params)`. 문장은
  * `web/js/i18n/<locale>.js` 가 `I18N.register` 로 싣는다. 이 파일은 **모든
@@ -9,12 +9,12 @@
  *
  * 로케일의 원천은 설정 키 `locale` 이지만 설정은 부팅 뒤에야 도착한다. 그래서
  * 설정을 얹는 쪽이 `localStorage` 에 비추고, 첫 페인트 전의 head 인라인 스크립트와
- * 이 파일이 그 거울을 읽는다 (`dm.themeVars` 와 같은 모양, BOOT_SCREEN D-4).
+ * 이 파일이 그 거울을 읽는다 (`otter.themeVars` 와 같은 모양, BOOT_SCREEN D-4).
  * `navigator.language` 는 보지 않는다 (FR-B-1).
  */
 const I18N_LOCALES=['ko','en'];
 const I18N_DEFAULT='ko';
-const I18N_STORAGE_KEY='dm.locale';
+const I18N_STORAGE_KEY='otter.locale';
 
 const I18N={
   _cat:{},

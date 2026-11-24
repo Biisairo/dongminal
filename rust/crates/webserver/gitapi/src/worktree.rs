@@ -7,17 +7,19 @@ use std::collections::BTreeMap;
 use std::io;
 use std::sync::{Arc, Mutex};
 
-use dm_gocompat::filepath;
-use dm_gocompat::oserr;
-use dm_shared_httpresp::Response;
-use dm_webserver_action::{self as action, Answer, deny};
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::{self as core, Ctx, PRE_PHASE_TIMEOUT};
-use dm_webserver_domain_git_jobs::{self as jobs, Job, JobResult, Keys, SLOT_COMMON, SLOT_INDEX};
-use dm_webserver_domain_worktree::{
+use http::StatusCode;
+use otter_gocompat::filepath;
+use otter_gocompat::oserr;
+use otter_shared_httpresp::Response;
+use otter_webserver_action::{self as action, Answer, deny};
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::{self as core, Ctx, PRE_PHASE_TIMEOUT};
+use otter_webserver_domain_git_jobs::{
+    self as jobs, Job, JobResult, Keys, SLOT_COMMON, SLOT_INDEX,
+};
+use otter_webserver_domain_worktree::{
     self as worktree, Entry, RemoveResult, RemoveSpec, RepoLock, Spec,
 };
-use http::StatusCode;
 use serde::{Deserialize, Serialize};
 
 use crate::GitServer;

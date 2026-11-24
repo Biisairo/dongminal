@@ -385,7 +385,7 @@ fn marshal_text(t: OffsetDateTime) -> Result<String, String> {
 
 crate::go_type!(GoTimeType = "time.Time");
 
-/// Go `time.Time` 필드: `#[serde(with = "dm_gocompat::time::json_time")]`.
+/// Go `time.Time` 필드: `#[serde(with = "otter_gocompat::time::json_time")]`.
 /// 인코딩은 RFC3339Nano(값의 오프셋 그대로), 디코딩은 `time.Parse(RFC3339)` 와 같고 `null` 은 0 시각이다.
 /// Go 는 `omitempty` 로 `time.Time` 을 빼지 않으므로 `skip_serializing_if` 를 달지 않는다.
 pub mod json_time {
@@ -411,7 +411,7 @@ pub mod json_time {
     }
 }
 
-/// Go `*time.Time` 필드: `Option<OffsetDateTime>` 에 `#[serde(with = "dm_gocompat::time::json_time_opt")]`.
+/// Go `*time.Time` 필드: `Option<OffsetDateTime>` 에 `#[serde(with = "otter_gocompat::time::json_time_opt")]`.
 /// `None` 은 `null`(빼려면 `skip_serializing_if = "Option::is_none"`).
 pub mod json_time_opt {
     use ::time::OffsetDateTime;

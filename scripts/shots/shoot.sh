@@ -9,9 +9,9 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 PORT=58199
-HOME_DIR=/tmp/dm-demo/home
-USER_HOME=/tmp/dm-demo/user
-BIN=./dongminal
+HOME_DIR=/tmp/otter-demo/home
+USER_HOME=/tmp/otter-demo/user
+BIN=./otterminal
 
 [[ -x "$BIN" ]] || { echo "먼저 빌드: scripts/build.sh" >&2; exit 1; }
 

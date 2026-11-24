@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use super::support::*;
 use crate::preflight::*;
 use crate::*;
-use dm_webserver_domain_git_core::Service;
+use otter_webserver_domain_git_core::Service;
 
 fn touch(dir: &str, rel: &str) {
     write_file(dir, rel, "");

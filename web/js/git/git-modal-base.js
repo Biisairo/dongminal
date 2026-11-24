@@ -1,5 +1,5 @@
 /**
- * Dongminal — Git 확인·다이얼로그의 공통 칠하기 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-2 · FEU-12)
+ * Otterminal — Git 확인·다이얼로그의 공통 칠하기 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-2 · FEU-12)
  *
  * 수명·키·실행 상태기계·앞으로 가져오기·복사는 `Dialog` 의 것이다(REFACTOR3_FE_DIALOG_SRS FR-FED-7). 여기
  * 남는 것은 git 문자열(`GIT_CONFIRM_*`)을 쓰는 조각뿐이다 — 오류 블록·실행 행·"바뀌었다" 알림.

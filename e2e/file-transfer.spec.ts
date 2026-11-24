@@ -36,7 +36,7 @@ function mkRoot(tag: string) {
   return realPath(d);
 }
 
-test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-ftr-'))) });
+test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-ftr-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
 async function addEditor(request: APIRequestContext, p: string) {

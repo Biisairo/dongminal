@@ -8,13 +8,13 @@ use std::pin::Pin;
 use std::sync::Mutex;
 
 use bytes::Bytes;
-use dm_gocompat::neturl::{self, Values};
-use dm_shared_dmlog::ReqCtx;
-use dm_shared_httpreq::{self as httpreq, DecodeError, Empty, ReadError};
-use dm_shared_httpresp::Response;
 use http::HeaderMap;
 use http_body_util::BodyExt;
 use http_body_util::combinators::UnsyncBoxBody;
+use otter_gocompat::neturl::{self, Values};
+use otter_shared_httpreq::{self as httpreq, DecodeError, Empty, ReadError};
+use otter_shared_httpresp::Response;
+use otter_shared_otterlog::ReqCtx;
 use serde::de::DeserializeOwned;
 use tokio_util::sync::CancellationToken;
 

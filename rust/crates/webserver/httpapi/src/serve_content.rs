@@ -4,9 +4,9 @@
 //! Go 에서도 판정하지 않으므로 옮기지 않았다.
 
 use bytes::Bytes;
-use dm_shared_httpresp::{self as httpresp, Response};
 use http::header::{self, HeaderName};
 use http::{HeaderMap, HeaderValue, Method, StatusCode};
+use otter_shared_httpresp::{self as httpresp, Response};
 
 pub(crate) use crate::mimetable::type_by_extension;
 use crate::req::Req;
@@ -332,10 +332,10 @@ pub(crate) fn serve_content(r: &Req, h: HeaderMap, name: &str, content: Bytes) -
     let ctype = match h.get(header::CONTENT_TYPE) {
         Some(v) => String::from_utf8_lossy(v.as_bytes()).into_owned(),
         None => {
-            let mut ct = type_by_extension(dm_gocompat::path::ext(name)).to_owned();
+            let mut ct = type_by_extension(otter_gocompat::path::ext(name)).to_owned();
             if ct.is_empty() {
-                let n = content.len().min(dm_shared_mimeprobe::SNIFF_LEN);
-                ct = dm_shared_mimeprobe::detect_content_type(&content[..n]).to_owned();
+                let n = content.len().min(otter_shared_mimeprobe::SNIFF_LEN);
+                ct = otter_shared_mimeprobe::detect_content_type(&content[..n]).to_owned();
             }
             set(&mut h, header::CONTENT_TYPE, &ct);
             ct

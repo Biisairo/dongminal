@@ -1,7 +1,7 @@
 //! Go `bridge*_test.go`·`client_test.go` (TELEGRAM_BRIDGE_SRS TC-TGB-2·10·11·40~49·80, ATTIC_FIX
 //! TC-ATF-40~43·76, REFACTOR3 TC-RD3-40·41, QUALITY_GO TC-QG-20) 를 옮겼다.
 //!
-//! Telegram 은 가짜 서버, dongminal 은 가짜 Host 다. 사건은 process 로 하나씩 처리한다.
+//! Telegram 은 가짜 서버, otterminal 은 가짜 Host 다. 사건은 process 로 하나씩 처리한다.
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Mutex as StdMutex;
@@ -17,7 +17,7 @@ use crate::testsrv::{self, Handler, Server};
 const ME: i64 = 42;
 const TAB_A: &str = "tool-A";
 const TEST_TOKEN: &str = "123456:SECRET-token-value";
-const LOC_A: &str = "<code>Server :</code> <b>macmini</b>\n<code>Window :</code> <b>dongminal</b>\n<code>Tab    :</code> <b>API 리팩터</b>";
+const LOC_A: &str = "<code>Server :</code> <b>macmini</b>\n<code>Window :</code> <b>otterminal</b>\n<code>Tab    :</code> <b>API 리팩터</b>";
 
 #[derive(Clone)]
 struct Call {
@@ -162,7 +162,7 @@ async fn rig() -> Rig {
         TAB_A.into(),
         Location {
             device: "macmini".into(),
-            window: "dongminal".into(),
+            window: "otterminal".into(),
             tab: "API 리팩터".into(),
         },
     );

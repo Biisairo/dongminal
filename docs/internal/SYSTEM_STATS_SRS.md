@@ -123,7 +123,7 @@ goroutine 이 무한 대기하고, 폴링이 계속되므로 goroutine 이 누�
 
 ```
 host_statistics64 원값: free=0.11 active=2.21 inactive=2.17 wired=0.77 comp=3.19 purge=0.04 GB
-현재 dongminal 식: used=32.08GB / total=34.36GB  (93.4%)
+현재 otterminal 식: used=32.08GB / total=34.36GB  (93.4%)
 정확한 식(wired+active+compressed): used=6.17GB / total=34.36GB  (18.0%)
 ```
 
@@ -402,9 +402,9 @@ syscall.Sysctl("hw.memsize")      // little-endian uint64 파싱
 
 ## 9. 부록 — 본 SRS 와 무관한 관측 (Appendix)
 
-조사 중 확인된 사항으로, dongminal 의 결함이 아니다. 혼동을 막기 위해 기록한다.
+조사 중 확인된 사항으로, otterminal 의 결함이 아니다. 혼동을 막기 위해 기록한다.
 
-체감 CPU 고갈의 실제 원인은 dongminal 이 아니었다. 다른 도구가 남긴 고아 busy-loop
+체감 CPU 고갈의 실제 원인은 otterminal 이 아니었다. 다른 도구가 남긴 고아 busy-loop
 프로세스 8개(PID 37233~37240, `ppid=1`)가 3시간 14분에 걸쳐 각 82~95% 를 점유하고
 있었다(합계 약 660%).
 
@@ -420,9 +420,9 @@ kill $LOADPIDS 2>/dev/null      # ← 실패
 않는다. `kill` 이 빈 인자로 실패하고 부모 셸이 종료되면서 8개가 고아가 됐다. 2026-08-24
 에 `kill -9` 로 정리했다(정리 후 생존 0 확인).
 
-또한 dongminal 이 만드는 페인 셸(`/bin/zsh -l`, `internal/server/tool.go:216`)은 페인당
+또한 otterminal 이 만드는 페인 셸(`/bin/zsh -l`, `internal/server/tool.go:216`)은 페인당
 1개로 설계대로이며 실측 점유율이 모두 0.0% 였다. Activity Monitor 에 보이는 zsh 수십
-개의 대부분은 VS Code 통합 터미널 세션(`ppid=884`)으로 dongminal 과 무관하다.
+개의 대부분은 VS Code 통합 터미널 세션(`ppid=884`)으로 otterminal 과 무관하다.
 
 ---
 

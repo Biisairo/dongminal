@@ -1,6 +1,6 @@
-use dm_gocompat::filepath;
-use dm_gocompat::fmt::v_value;
-use dm_gocompat::strconv::quote;
+use otter_gocompat::filepath;
+use otter_gocompat::fmt::v_value;
+use otter_gocompat::strconv::quote;
 
 use crate::{Error, HomeFn, PROFILES_FILE_NAME};
 

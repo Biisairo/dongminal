@@ -2,10 +2,10 @@
 
 use std::sync::{Arc, Mutex};
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_chatwire as chatwire;
-use dm_shared_humancmd::{self as humancmd, Body, Request, Signed};
 use ed25519_dalek::SigningKey;
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_chatwire as chatwire;
+use otter_shared_humancmd::{self as humancmd, Body, Request, Signed};
 use time::OffsetDateTime;
 
 use crate::tests::*;

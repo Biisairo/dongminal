@@ -23,7 +23,7 @@ pub trait Paths: Send + Sync {
     fn link_or_copy(&self, src: &Path, dst: &Path) -> io::Result<()>;
 }
 
-const LOG_BASE_NAME: &str = "dongminal.log";
+const LOG_BASE_NAME: &str = "otterminal.log";
 #[cfg_attr(not(windows), allow(dead_code))]
 const DEFAULT_PATH_EXT: &str = ".COM;.EXE;.BAT;.CMD";
 
@@ -162,7 +162,7 @@ impl Paths for WindowsPaths {
 fn windows_log_file(env: impl Fn(&str) -> String, temp_dir: impl Fn() -> PathBuf) -> PathBuf {
     let base = env("LOCALAPPDATA");
     if !base.is_empty() {
-        return Path::new(&base).join("dongminal").join(LOG_BASE_NAME);
+        return Path::new(&base).join("otterminal").join(LOG_BASE_NAME);
     }
     // 서비스 계정 등 LOCALAPPDATA 가 비는 환경이 있다.
     temp_dir().join(LOG_BASE_NAME)
@@ -287,7 +287,7 @@ fn file_uri(slash_path: &str, leading_slash: bool) -> String {
 fn parse_err(uri: &str, msg: &str) -> io::Error {
     io::Error::new(
         io::ErrorKind::InvalidInput,
-        format!("parse {}: {msg}", dm_gocompat::strconv::quote(uri)),
+        format!("parse {}: {msg}", otter_gocompat::strconv::quote(uri)),
     )
 }
 
@@ -310,7 +310,7 @@ fn unescape_path(uri: &str, s: &str) -> io::Result<String> {
                 }
                 _ => {
                     let bad = &s[i..s.len().min(i + 3)];
-                    let msg = format!("invalid URL escape {}", dm_gocompat::strconv::quote(bad));
+                    let msg = format!("invalid URL escape {}", otter_gocompat::strconv::quote(bad));
                     return Err(parse_err(uri, &msg));
                 }
             }

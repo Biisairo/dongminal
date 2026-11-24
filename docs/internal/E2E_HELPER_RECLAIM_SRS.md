@@ -82,7 +82,7 @@ toHaveCount(7)  28개 파일에 하드코딩 — GIT_VIEWS 의 길이
 
 | # | 제약 | 출처 |
 |---|---|---|
-| C-1 | `FIXTURES` 는 스펙마다 다르다 (`dm-git-fx-<태그>-<pid>`) — 격리를 위해서다. `copyFx` 를 회수하려면 그 값을 닫아야 한다 | 실측 32종 |
+| C-1 | `FIXTURES` 는 스펙마다 다르다 (`otter-git-fx-<태그>-<pid>`) — 격리를 위해서다. `copyFx` 를 회수하려면 그 값을 닫아야 한다 | 실측 32종 |
 | C-2 | 검증은 구현의 값을 읽지 않는다 | `fixtures.ts:plainWindows` |
 | C-3 | e2e 927 케이스가 전부 통과해야 한다. 개수도 같아야 한다 — 줄면 검사가 사라진 것이다 | 기준선 |
 | C-4 | JS 상수 제거는 `?v=` 와 `assets.lock` 을 함께 올린다 | `web/version_test.go` |
@@ -119,7 +119,7 @@ toHaveCount(7)  28개 파일에 하드코딩 — GIT_VIEWS 의 길이
 | `adapters/client.go:29` | staticcheck S1016 — 구조체 리터럴 대신 형 변환 |
 
 **FR-EHR-6a** `workspace/manager.go:21` 의 ST1005 는 **고치지 않는다.** 그
-문자열은 `dmctl` 이 사용자에게 내보내는 안내문이고("uuid 는 `dmctl
+문자열은 `otterctl` 이 사용자에게 내보내는 안내문이고("uuid 는 `otterctl
 list-workspace` 의 uuid= 컬럼 …에 있다."), 주석이 "메시지 자체가 진단의 마지막
 줄이다" 라고 적어 뒀다. 마침표를 빼면 **CLI 출력이 바뀐다** — 사용자가 변화를
 느끼지 못해야 한다는 조건에 걸린다.
@@ -186,7 +186,7 @@ list-workspace` 의 uuid= 컬럼 …에 있다."), 주석이 "메시지 자체�
 |---|---|
 | SA4000 × 2 (`toolline_test`·`testpath_test`) | `Render() != Render()` 는 **결정성 테스트**다. 같은 표현식을 두 번 부르는 것이 검사의 내용이다 |
 | U1000 × 5 (`windowsPaths`·`newLinuxProcInfo`) | **오탐.** `GOOS=windows` 로 돌리면 `posixPaths` 가 대신 unused 로 나온다 — 빌드 태그 없이 두고 어느 호스트에서든 검증하려는 의도된 설계다 |
-| ST1005 × 1 (`workspace/manager.go`) | 그 문자열은 `dmctl` 이 사용자에게 내보내는 안내문이다. 마침표를 빼면 **CLI 출력이 바뀐다** |
+| ST1005 × 1 (`workspace/manager.go`) | 그 문자열은 `otterctl` 이 사용자에게 내보내는 안내문이다. 마침표를 빼면 **CLI 출력이 바뀐다** |
 
 ### 7.4 실패 셋을 flaky 로 판정한 근거
 

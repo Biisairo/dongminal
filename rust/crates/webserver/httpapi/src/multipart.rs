@@ -9,8 +9,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use bytes::Bytes;
-use dm_gocompat::filepath;
 use http_body_util::BodyExt;
+use otter_gocompat::filepath;
 
 use crate::mediatype::parse_media_type;
 use crate::req::Req;
@@ -59,7 +59,7 @@ impl Drop for TempPath {
 }
 
 pub(crate) struct Form {
-    query: dm_gocompat::neturl::Values,
+    query: otter_gocompat::neturl::Values,
     values: Vec<(String, String)>,
     pub(crate) file: FormFile,
 }
@@ -560,7 +560,7 @@ fn trim_ws(b: &[u8]) -> &[u8] {
 /// Go `r.Body = http.MaxBytesReader(w, r.Body, limit)` 뒤의 `r.FormFile("file")`. 파일을 메모리나
 /// 임시 파일에 다 받은 뒤 돌려준다.
 pub(crate) async fn read_form(r: &Req, limit: i64) -> Result<Form, FormError> {
-    let (query, query_err) = dm_gocompat::neturl::parse_query(&r.raw_query);
+    let (query, query_err) = otter_gocompat::neturl::parse_query(&r.raw_query);
     let ct = r
         .headers
         .get(http::header::CONTENT_TYPE)

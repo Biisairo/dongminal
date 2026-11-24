@@ -17,7 +17,7 @@ const j = (...p: string[]) => path.join(...p);
 const git = (d: string, ...a: string[]) => execFileSync('git', ['-C', d, ...a], { stdio: 'ignore' });
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-gbf-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-gbf-')));
   const d = j(BASE, 'repo');
   fs.mkdirSync(d, { recursive: true });
   git(d, 'init', '-q', '-b', 'main', '.');

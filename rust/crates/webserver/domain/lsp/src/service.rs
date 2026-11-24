@@ -8,10 +8,10 @@ use std::sync::mpsc::{SyncSender, TrySendError, sync_channel};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime};
 
-use dm_gocompat::filepath;
-use dm_gocompat::json;
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_ext as ext;
+use otter_gocompat::filepath;
+use otter_gocompat::json;
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_ext as ext;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
@@ -23,7 +23,7 @@ pub const IDLE_AFTER: Duration = Duration::from_secs(20 * 60);
 /// 동시에 띄우는 서버 수의 상한.
 pub const MAX_SESSIONS: usize = 6;
 /// 서버가 다루는 텍스트의 상한 — 편집기 파일 상한과 같다.
-pub const MAX_TEXT_BYTES: i64 = dm_shared_editorlimit::FILE_MAX_BYTES;
+pub const MAX_TEXT_BYTES: i64 = otter_shared_editorlimit::FILE_MAX_BYTES;
 /// 유휴 정리의 주기.
 pub const SWEEP_EVERY: Duration = Duration::from_secs(2 * 60);
 /// 끼워 넣기(파일 변경 알림) 줄의 길이.
@@ -214,7 +214,7 @@ impl Service {
             Err(err) => {
                 return other(format!(
                     "lsp: {desc_id} 를 띄우지 못했습니다: {}",
-                    dm_gocompat::oserr::go_error_string(&err)
+                    otter_gocompat::oserr::go_error_string(&err)
                 ));
             }
         };
@@ -277,8 +277,8 @@ impl Service {
             Ok(r) => r,
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
             Err(e) => {
-                let e = dm_gocompat::oserr::path_error("open", file, e);
-                return Err(dm_gocompat::oserr::go_error_string(&e));
+                let e = otter_gocompat::oserr::path_error("open", file, e);
+                return Err(otter_gocompat::oserr::go_error_string(&e));
             }
         };
         let body: Option<PathsFileBody> =
@@ -286,7 +286,7 @@ impl Service {
         let mut paths = HashMap::new();
         for (k, v) in body.unwrap_or_default().paths {
             if !filepath::is_abs(&v) {
-                dm_shared_dmlog::warnf!(
+                otter_shared_otterlog::warnf!(
                     None,
                     "lsp: 경로 표 {file} 의 {} 값 {} 는 절대경로가 아니어서 무시한다",
                     quote(&k),
@@ -335,8 +335,12 @@ impl Service {
             let saved = json::marshal_indent(&body, "", "  ")
                 .map_err(|e| e.to_string())
                 .and_then(|data| {
-                    dm_shared_platform::write_state_file(std::path::Path::new(&file), &data, 0o644)
-                        .map_err(|e| dm_gocompat::oserr::go_error_string(&e))
+                    otter_shared_platform::write_state_file(
+                        std::path::Path::new(&file),
+                        &data,
+                        0o644,
+                    )
+                    .map_err(|e| otter_gocompat::oserr::go_error_string(&e))
                 });
             saved.map_err(PathsError::Save)?;
         }
@@ -439,10 +443,10 @@ impl LspTunnel {
                     None => Err(closed_pipe()),
                 };
                 if let Err(e) = r {
-                    dm_shared_dmlog::warnf!(
+                    otter_shared_otterlog::warnf!(
                         None,
                         "lsp: 끼워 넣기 실패 ({root}): {}",
-                        dm_gocompat::oserr::go_error_string(&e)
+                        otter_gocompat::oserr::go_error_string(&e)
                     );
                 }
             }

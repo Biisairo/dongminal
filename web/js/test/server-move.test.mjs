@@ -40,10 +40,10 @@ test('carry 가 있으면 받아서 localStorage 에 넣고 주소에서 지운�
   const h = hist();
   const asked = [];
   const did = ctx.serverCarryRestore(loc('http://127.0.0.1:9100/?x=1&carry=tok123#h'), st,
-    (p) => { asked.push(p); return { theme: 'dark', 'dm.locale': 'en' } }, h);
+    (p) => { asked.push(p); return { theme: 'dark', 'otter.locale': 'en' } }, h);
   assert.equal(did, true);
   assert.deepEqual(asked, ['/api/server/carry/tok123']);
-  assert.deepEqual(st.dump(), { keep: 'x', theme: 'dark', 'dm.locale': 'en' });
+  assert.deepEqual(st.dump(), { keep: 'x', theme: 'dark', 'otter.locale': 'en' });
   assert.equal(h.replaced, '/?x=1#h');
 });
 

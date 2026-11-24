@@ -6,12 +6,12 @@ use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
-use dm_gocompat::json;
-use dm_shared_edge::{
+use otter_gocompat::json;
+use otter_shared_edge::{
     BoxStream, CODE_NOT_EDGE, CallError, Edge, Handler, Identity, Target, accept_upgrade,
     client_fingerprint,
 };
-use dm_shared_termtext::{FP_SHORT, cut};
+use otter_shared_termtext::{FP_SHORT, cut};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
@@ -856,11 +856,11 @@ impl Inner {
             (dead, st.dead_after)
         };
         for l in dead {
-            dm_shared_dmlog::infof!(
+            otter_shared_otterlog::infof!(
                 None,
                 "edge link: {} 에서 {} 동안 받은 것이 없어 끊는다",
                 cut(&l.fp, FP_SHORT),
-                dm_gocompat::time::format_std_duration(dead_after)
+                otter_gocompat::time::format_std_duration(dead_after)
             );
             self.detach(&l);
         }
@@ -962,7 +962,7 @@ impl Inner {
             }
             Err(CallError::Remote(re)) if re.code == CODE_NOT_EDGE => {
                 // 지문을 고정한 상대의 서버가 낸 답이라 믿는다 (EDGE_PAIRING_SRS D-EPR-3).
-                dm_shared_dmlog::infof!(
+                otter_shared_otterlog::infof!(
                     None,
                     "edge link: {} 가 이 노드를 간선으로 알지 않는다 — 간선을 지운다",
                     cut(&e.fingerprint, FP_SHORT)

@@ -1,11 +1,11 @@
-# `/dongminal:migration` 명령 테스트 시나리오
+# `/otterminal:migration` 명령 테스트 시나리오
 
 사용자가 직접 돌려보고 실제 동작 여부를 검증하기 위한 프롬프트 모음. 각 시나리오는 **넘기는 쪽 세션이 돌고 있는 도구에서 사용자가 치는 메시지**다.
 
 대전제:
-- dongminal 서버 실행 중, 브라우저 열림, SSE 연결됨
+- otterminal 서버 실행 중, 브라우저 열림, SSE 연결됨
 - 넘기는 세션은 **한 도구** 에서 돈다. 받는 탭은 그 명령이 **그 pane 에** 새로 만든다
-- 검증의 1차 근거는 **`dmctl list-workspace` 와 `dmctl status --at <uuid>`** 다. 화면은 "왜 막혔는가" 를 볼 때만 읽는다
+- 검증의 1차 근거는 **`otterctl list-workspace` 와 `otterctl status --at <uuid>`** 다. 화면은 "왜 막혔는가" 를 볼 때만 읽는다
 
 ---
 
@@ -21,18 +21,18 @@
 - [ ] **기존 문서를 다시 쓴다.** 새 파일을 만들지 않는다 — 작업의 규약이 정한 그 파일이 다음 세션의 착수 문서가 된다
 - [ ] 문서에 **남은 일의 순서**와 **먼저 읽을 것**이 경로·절 번호까지 들어 있다
 - [ ] 문서에 이 세션이 **값을 치르고 배운 것**이 들어 있다 (다음 세션이 같은 조사를 되풀지 않는다)
-- [ ] **첫 명령이 `dmctl who-am-i` 다** — 자기 `uuid`·`toolId` 를 먼저 적는다
-- [ ] `dmctl new-tab -n --at <자기 탭 uuid>` — **`--at` 이 있다.** 빼면 포커스 칸에 선다 (FR-M9-42 ②)
+- [ ] **첫 명령이 `otterctl who-am-i` 다** — 자기 `uuid`·`toolId` 를 먼저 적는다
+- [ ] `otterctl new-tab -n --at <자기 탭 uuid>` — **`--at` 이 있다.** 빼면 포커스 칸에 선다 (FR-M9-42 ②)
 - [ ] 새 탭이 **넘기는 세션과 같은 칸**에 섰다 (`list-workspace` 로 확인). 넘기는 탭이 포커스가 아니었어도 그렇다
 - [ ] 응답의 `newTabs[0]` 를 그대로 쓴다 (`list-workspace` 재조회 없음)
-- [ ] `dmctl rename-tab` 으로 탭 이름이 **이어갈 일**을 말한다
-- [ ] `dmctl wait --for ready` **뒤에** `dmctl read-screen` 으로 **둘째 관문**을 지난다 — `ready` 하나로 보내지 않는다 (FR-M9-42 ③)
-- [ ] `dmctl wait`·`read-screen` **뒤에** `dmctl msg` 가 불린다 (순서가 뒤집히지 않는다)
+- [ ] `otterctl rename-tab` 으로 탭 이름이 **이어갈 일**을 말한다
+- [ ] `otterctl wait --for ready` **뒤에** `otterctl read-screen` 으로 **둘째 관문**을 지난다 — `ready` 하나로 보내지 않는다 (FR-M9-42 ③)
+- [ ] `otterctl wait`·`read-screen` **뒤에** `otterctl msg` 가 불린다 (순서가 뒤집히지 않는다)
 - [ ] 엔벨로프가 **짧다** — 문서 경로·직전 커밋 해시·시작 지점. 맥락 본문이 엔벨로프에 들어가지 않는다
-- [ ] `dmctl msg --to` 에 **toolId** 가 들어간다 (`W?.P?.T?` 라벨이 아니다)
-- [ ] `dmctl status --at <새 탭>` 이 `working` 을 준다 — **그것을 본 뒤에야** 닫기로 간다
-- [ ] 마지막 명령이 `dmctl close-tab --at <자기 uuid> --force` 이고, 그 uuid 가 **1에서 적은 값**과 같다 (새 탭의 uuid 가 아니다)
-- [ ] **사용자의 다른 창·탭이 바뀌지 않는다** — 전후로 `dmctl list-workspace` 를 비교해 새 탭 하나 외 차이 0
+- [ ] `otterctl msg --to` 에 **toolId** 가 들어간다 (`W?.P?.T?` 라벨이 아니다)
+- [ ] `otterctl status --at <새 탭>` 이 `working` 을 준다 — **그것을 본 뒤에야** 닫기로 간다
+- [ ] 마지막 명령이 `otterctl close-tab --at <자기 uuid> --force` 이고, 그 uuid 가 **1에서 적은 값**과 같다 (새 탭의 uuid 가 아니다)
+- [ ] **사용자의 다른 창·탭이 바뀌지 않는다** — 전후로 `otterctl list-workspace` 를 비교해 새 탭 하나 외 차이 0
 - [ ] **포커스가 그대로다** — `-n` 이므로 사용자가 보던 탭이 바뀌지 않는다
 
 ---
@@ -67,11 +67,11 @@
 
 ### 검증 포인트
 
-- [ ] `dmctl wait` 가 `rc=5` 로 돌아오면 **엔벨로프를 보내지 않는다**
-- [ ] `dmctl read-screen --at <새 탭>` 으로 **무엇을 묻는지 읽는다**
-- [ ] 답을 넣은 뒤 `dmctl wait` 를 **다시** 건다 — 화면 모양으로 준비완료를 판정하지 않는다
+- [ ] `otterctl wait` 가 `rc=5` 로 돌아오면 **엔벨로프를 보내지 않는다**
+- [ ] `otterctl read-screen --at <새 탭>` 으로 **무엇을 묻는지 읽는다**
+- [ ] 답을 넣은 뒤 `otterctl wait` 를 **다시** 건다 — 화면 모양으로 준비완료를 판정하지 않는다
 - [ ] 끝내 준비되지 않으면 **자기 탭을 닫지 않는다.** 사용자에게 무엇이 막혔는지 보고하고 멈춘다
-- [ ] 준비되지 않은 탭에 `dmctl msg` 를 보낸 흔적이 없다 (보냈다면 셸 입력줄에 문자열로 남아 있다)
+- [ ] 준비되지 않은 탭에 `otterctl msg` 를 보낸 흔적이 없다 (보냈다면 셸 입력줄에 문자열로 남아 있다)
 
 ---
 
@@ -87,10 +87,10 @@
 ### 검증 포인트
 
 - [ ] **묻지 않는다** — 사용자가 말한 것을 그대로 쓴다. 말하지 않은 쪽은 기본값이다
-- [ ] `gui` → `dmctl new-tab … --agent claude` 가 불리고, **`send-input` 으로 기동줄을 치지 않는다** (탭 자체가 에이전트다)
+- [ ] `gui` → `otterctl new-tab … --agent claude` 가 불리고, **`send-input` 으로 기동줄을 치지 않는다** (탭 자체가 에이전트다)
 - [ ] `gui` 로 연 탭이 **에이전트 도구**다 — 화면에 xterm 이 아니라 대화 뷰가 선다
 - [ ] `codex` → 기동줄이 `codex` 다. `claude` 를 치지 않는다
-- [ ] 어느 갈래든 `dmctl msg --to <toolId>` 는 같다 — 엔벨로프의 길은 표면에 따라 갈리지 않는다
+- [ ] 어느 갈래든 `otterctl msg --to <toolId>` 는 같다 — 엔벨로프의 길은 표면에 따라 갈리지 않는다
 
 ---
 
@@ -104,7 +104,7 @@
 
 ### 검증 포인트
 
-- [ ] `dmctl status` 가 끝내 `working` 을 주지 않으면 **`close-tab` 을 부르지 않는다**
+- [ ] `otterctl status` 가 끝내 `working` 을 주지 않으면 **`close-tab` 을 부르지 않는다**
 - [ ] 사용자에게 **무엇이 막혔는지** 말한다 — 어느 단계에서, 화면이 무엇을 보이는지
 - [ ] 재시도가 **무한이 아니다** (세 번)
 - [ ] 넘기는 세션이 **살아 있다** — `list-workspace` 에 그 탭이 그대로 있다

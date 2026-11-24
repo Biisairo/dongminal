@@ -68,7 +68,7 @@ async function firstTab(page) {
 /**
  * 서버가 보내는 renameTab 명령을 흉내낸다.
  *
- * **좌표를 넘긴다.** dmctl 은 uuid 를 보내지만 서버의 `translateLocationUUID`
+ * **좌표를 넘긴다.** otterctl 은 uuid 를 보내지만 서버의 `translateLocationUUID`
  * (Go 기준선 commands.go)가 그것을 좌표(`W1.P1.T1`)로 바꿔 SSE 에 싣는다 — 브라우저의
  * `_resolveLocation` 이 푸는 것은 좌표뿐이다. 여기서 uuid 를 그대로 넣으면
  * 서버 한 단계를 건너뛴 채 "대상 없음" 으로 조용히 끝난다.
@@ -144,7 +144,7 @@ test.describe('전경 프로세스 기반 탭 이름 (묶음 N)', () => {
     await expect(labelOf(page, tab.id)).toHaveText('Shell');
   });
 
-  // V-TAN-4: 에이전트가 준 이름(dmctl rename-tab)은 manual 이며 덮이지 않는다.
+  // V-TAN-4: 에이전트가 준 이름(otterctl rename-tab)은 manual 이며 덮이지 않는다.
   test('V-TAN-4 rename 후 프로세스가 떠도 이름이 유지된다', async ({ page }) => {
     await waitForInit(page);
     const tab = await firstTab(page);
@@ -204,7 +204,7 @@ test.describe('전경 프로세스 기반 탭 이름 (묶음 N)', () => {
   }
 
   // V-TAN-6 (에이전트 경로) — FR-TAN-22.
-  test('V-TAN-6 dmctl rename-tab --auto 가 같은 일을 한다', async ({ page }) => {
+  test('V-TAN-6 otterctl rename-tab --auto 가 같은 일을 한다', async ({ page }) => {
     await waitForInit(page);
     const tab = await firstTab(page);
     await renameRemote(page, FIRST_TAB_COORD, { name: '비평가' });
@@ -269,7 +269,7 @@ test.describe('전경 프로세스 기반 탭 이름 (묶음 N)', () => {
   });
 
   // V-TAN-15: 화면이 내는 이름과 상태가 같은 규칙에서 나온다 (FR-TAN-17).
-  // 탭 바 라벨과 `tabName()` 이 어긋나면 dmctl(FR-TAN-18)도 같이 어긋난다.
+  // 탭 바 라벨과 `tabName()` 이 어긋나면 otterctl(FR-TAN-18)도 같이 어긋난다.
   test('V-TAN-15 탭 바 라벨이 tabName 규칙과 일치한다', async ({ page }) => {
     await waitForInit(page);
     const tab = await firstTab(page);

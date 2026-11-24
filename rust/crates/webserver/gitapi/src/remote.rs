@@ -6,16 +6,16 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_gocompat::json::marshal;
-use dm_gocompat::strconv;
-use dm_shared_httpresp::Response;
-use dm_webserver_apierr::{self as apierr, Classify, Sentinel};
-use dm_webserver_domain_git_core::{Ctx, Hint, WriteSpec};
-use dm_webserver_domain_git_jobs::{self as jobs, Job, Jobs, Line, StartOptions};
-use dm_webserver_domain_git_query as query;
-use dm_webserver_domain_git_write::{self as write, FetchOpts, PullOpts, PushOpts, PushPlan};
-use dm_webserver_sse as sse;
 use http::StatusCode;
+use otter_gocompat::json::marshal;
+use otter_gocompat::strconv;
+use otter_shared_httpresp::Response;
+use otter_webserver_apierr::{self as apierr, Classify, Sentinel};
+use otter_webserver_domain_git_core::{Ctx, Hint, WriteSpec};
+use otter_webserver_domain_git_jobs::{self as jobs, Job, Jobs, Line, StartOptions};
+use otter_webserver_domain_git_query as query;
+use otter_webserver_domain_git_write::{self as write, FetchOpts, PullOpts, PushOpts, PushPlan};
+use otter_webserver_sse as sse;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 

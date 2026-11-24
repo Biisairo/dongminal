@@ -8,13 +8,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bytes::Bytes;
-use dm_gocompat::json;
-use dm_gocompat::neturl_err::UrlError;
-use dm_gocompat::oserr::{go_error_string, syscall_error};
 use http::{Request, StatusCode, header};
 use http_body_util::{BodyExt, Full};
 use hyper::body::Incoming;
 use hyper_util::rt::TokioIo;
+use otter_gocompat::json;
+use otter_gocompat::neturl_err::UrlError;
+use otter_gocompat::oserr::{go_error_string, syscall_error};
 use rustls::pki_types::ServerName;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -338,7 +338,7 @@ pub(crate) fn unreachable(url: Option<&str>, cause: &str) -> CallError {
 }
 
 /// TLS 오류를 가른다: 지문 불일치, 상대의 거절(경보 수신), 그 밖은 닿지 못함이다. 사유 문구는
-/// dm-gocompat `neturl_err` 와 같은 규칙(rustls 는 `tls: …`, 끊긴 응답은 `EOF`)이다.
+/// otter-gocompat `neturl_err` 와 같은 규칙(rustls 는 `tls: …`, 끊긴 응답은 `EOF`)이다.
 pub(crate) fn classify(url: Option<&str>, e: &(dyn std::error::Error + 'static)) -> CallError {
     if let Some(t) = find_tls_error(e) {
         if is_fingerprint_mismatch(t) {
@@ -373,7 +373,7 @@ pub(crate) async fn read_limited(mut body: Incoming) -> Result<Bytes, hyper::Err
 }
 
 fn clean_message(s: &str) -> String {
-    dm_shared_termtext::cut(&dm_shared_termtext::strip(s), REMOTE_MESSAGE_MAX).to_string()
+    otter_shared_termtext::cut(&otter_shared_termtext::strip(s), REMOTE_MESSAGE_MAX).to_string()
 }
 
 #[derive(serde::Deserialize, Default)]
@@ -396,8 +396,8 @@ pub(crate) fn remote_failure(status: StatusCode, raw: &[u8]) -> CallError {
         _ => CallError::Remote(RemoteError {
             status,
             code: String::new(),
-            message: dm_shared_termtext::cut(
-                &dm_shared_termtext::strip_bytes(raw),
+            message: otter_shared_termtext::cut(
+                &otter_shared_termtext::strip_bytes(raw),
                 REMOTE_MESSAGE_MAX,
             )
             .to_string(),

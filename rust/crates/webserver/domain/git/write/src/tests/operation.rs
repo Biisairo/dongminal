@@ -3,8 +3,8 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use dm_webserver_domain_git_core::{Output, Record, Service};
-use dm_webserver_domain_git_query as query;
+use otter_webserver_domain_git_core::{Output, Record, Service};
+use otter_webserver_domain_git_query as query;
 
 use super::support::*;
 use crate::*;

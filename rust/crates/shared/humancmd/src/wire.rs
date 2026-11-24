@@ -1,7 +1,7 @@
 use std::io::{ErrorKind, Read, Write};
 use std::time::Duration;
 
-use dm_gocompat::json;
+use otter_gocompat::json;
 
 use crate::{Error, Frame};
 

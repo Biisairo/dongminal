@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/edge` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/edge` 의 Rust 포팅. RUST_PORT_SRS 참고.
 
 mod addr;
 mod client;

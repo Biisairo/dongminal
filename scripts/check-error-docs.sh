@@ -12,4 +12,4 @@
 # 사용: scripts/check-error-docs.sh
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-exec cargo run -q --locked --manifest-path rust/Cargo.toml -p dm-scripts-gen-errors -- -check
+exec cargo run -q --locked --manifest-path rust/Cargo.toml -p otter-scripts-gen-errors -- -check

@@ -3,9 +3,9 @@
 use std::thread;
 use std::time::{Duration, Instant};
 
-use dm_gocompat::json;
-use dm_shared_toolhub::ShellState;
-use dm_shared_toolipc::{
+use otter_gocompat::json;
+use otter_shared_toolhub::ShellState;
+use otter_shared_toolipc::{
     BusyManyParams, CODE_INTERNAL, CODE_NOT_FOUND, CODE_SERVER, CODE_TOOL_CAP, FEATURE_BUSY_MANY,
     FEATURE_FOREGROUND_TICK, FEATURE_NOTIFY, FEATURE_SHELL_PROBE, FEATURE_SNAPSHOT_NOT_FOUND,
     IdParams, METHOD_BUSY, METHOD_BUSY_MANY, METHOD_CREATE, METHOD_HELLO, METHOD_KILL,
@@ -18,7 +18,7 @@ use super::{
     Peer, chan, dial, err_resp, fake, listen, next_line, no_line, ok_fake, raw_fake, resp, version,
 };
 use crate::{Error, ToolClient};
-use dm_shared_toolhub::Placement;
+use otter_shared_toolhub::Placement;
 
 #[test]
 fn hello_params_wire() {
@@ -478,7 +478,7 @@ fn hello_protocol_mismatch() {
     assert_eq!(
         err.to_string(),
         format!(
-            "dial dongminald: hello: protocol mismatch: daemon={} server={PROTOCOL_VERSION}",
+            "dial otterminald: hello: protocol mismatch: daemon={} server={PROTOCOL_VERSION}",
             PROTOCOL_VERSION + 1
         )
     );
@@ -508,7 +508,10 @@ fn hello_rpc_error_fails_dial() {
     let Err(err) = ToolClient::dial(&sock.path) else {
         panic!("hello 오류에도 연결이 성립했다");
     };
-    assert_eq!(err.to_string(), "dial dongminald: hello: paned error: boom");
+    assert_eq!(
+        err.to_string(),
+        "dial otterminald: hello: paned error: boom"
+    );
     assert_eq!(err.rpc().map(|r| r.code), Some(CODE_INTERNAL));
 }
 
@@ -519,7 +522,7 @@ fn dial_missing_socket_fails() {
         panic!("없는 소켓에 붙었다");
     };
     assert!(
-        err.to_string().starts_with("dial dongminald: dial unix "),
+        err.to_string().starts_with("dial otterminald: dial unix "),
         "{err}"
     );
 }
@@ -595,16 +598,16 @@ fn ext_request_wire() {
     let _ = pc.attend("t1", false);
     let _ = pc.attend_all();
     let _ = pc.report("notify", &json!({"toolId": "t1", "reason": "<done>"}));
-    let _ = pc.edge(&dm_shared_toolipc::EdgeParams {
+    let _ = pc.edge(&otter_shared_toolipc::EdgeParams {
         op: "list".into(),
         ..Default::default()
     });
-    let _ = pc.edge_port(&dm_shared_toolipc::EdgePortParams {
+    let _ = pc.edge_port(&otter_shared_toolipc::EdgePortParams {
         addr: "127.0.0.1:60200".into(),
         listening: true,
         ..Default::default()
     });
-    let _ = pc.chat(&dm_shared_toolipc::ChatParams {
+    let _ = pc.chat(&otter_shared_toolipc::ChatParams {
         op: "rooms".into(),
         ..Default::default()
     });

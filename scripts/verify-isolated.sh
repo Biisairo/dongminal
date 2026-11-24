@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# darwin 실동작 검증 — `dongminal verify` 를 부르는 껍데기다.
+# darwin 실동작 검증 — `otterminal verify` 를 부르는 껍데기다.
 #
 # **검사의 정의는 이 스크립트에 없다.** 한 벌(rust/crates/ctl/cli/src/verify.rs)에 있고,
 # CI 의 Linux·Windows 도 그 한 벌을 돈다 — 세 대상이 같은 목록을 검사한다
@@ -18,7 +18,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-BIN="$REPO_ROOT/dongminal"
+BIN="$REPO_ROOT/otterminal"
 # 빌드 줄과 `health --daemon` 은 버린다 — 이 스크립트의 출력은 verify 의 보고뿐이다.
 BINARY="$BIN" scripts/build.sh >/dev/null
 exec "$BIN" verify "$@"

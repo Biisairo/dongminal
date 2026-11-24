@@ -58,7 +58,7 @@ class StatusBarController extends Controller {
    *   이전 동작: 세 왕복이 **직렬**이었다 — ping → stats → git/jobs
    *   새  동작: ping 은 홀로 앞에 남고 **뒤의 둘이 겹친다** (회차당 3r → 2r).
    *             OPTIMIZE_REFACTOR_SRS FR-OPT-4-4 로 뒤의 둘이 요청 하나가 됐다
-   *   이유:     ②③이 서로를 기다릴 이유가 없다. 원격 접속(`dongminal start --expose`)에서
+   *   이유:     ②③이 서로를 기다릴 이유가 없다. 원격 접속(`otterminal start --expose`)에서
    *             RTT 80ms 면 회차가 240ms 이고, 주기를 하한(1초)으로 내린
    *             사용자에게는 주기의 **24%** 가 대기다
    *

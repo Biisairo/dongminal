@@ -14,7 +14,7 @@ pub fn mark(o: &Observation) -> String {
     };
     write(o.signature.value.as_bytes());
     write(b"|");
-    if let Ok(j) = dm_gocompat::json::Encoder::new().encode(&o.status) {
+    if let Ok(j) = otter_gocompat::json::Encoder::new().encode(&o.status) {
         write(&j);
     }
     base36(h)

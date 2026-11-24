@@ -26,7 +26,7 @@
 |---|---:|---|
 | 같은 textarea 복사 수법의 사본 | **4벌** (헬퍼가 이미 선 채로) | 비보안 컨텍스트에서 **복사 버튼이 조용히 아무 일도 안 한다** |
 | 서버를 겨누는 방법 | **5벌** · 4계층을 지키는 것 **3개** | `server.json` 에 포트를 적으면 `stop` 이 **엉뚱한 프로세스를 죽인다** |
-| `net.JoinHostPort` 사용 | **0곳** | 문서가 지원한다고 적은 `DONGMINAL_HOST=::1` 로 **서버가 안 뜬다** |
+| `net.JoinHostPort` 사용 | **0곳** | 문서가 지원한다고 적은 `OTTERMINAL_HOST=::1` 로 **서버가 안 뜬다** |
 | 기본 로그 경로의 답 | **3개** | `config show`·`doctor`·`--help` 가 **없는 파일**을 가리킨다 |
 | `homeLayout()` 이 모르는 홈 항목 | **11개** | `backup` 이 사용자 worktree 를 빠뜨리고 `uninstall --purge` 가 `ext/` 수백 MB 를 남긴다 |
 | 500줄 초과 파일 | **26** (기준선 22) · 최대 **1,586** (기준선 1,336) | — (개발자가 겪는 것) |
@@ -52,9 +52,9 @@
 | 용어 | 정의 |
 |---|---|
 | **패턴 A** | 단일 출처를 세운 뒤 호출부의 일부만 그리로 옮긴 상태 (`refactor/README.md` §2) |
-| **겨누는 명령** | 도는 서버의 host·port 를 정해 두드리는 CLI 액션 (`health`·`window`·`stop`·`migrate`·`dmctl`) |
+| **겨누는 명령** | 도는 서버의 host·port 를 정해 두드리는 CLI 액션 (`health`·`window`·`stop`·`migrate`·`otterctl`) |
 | **4계층** | 플래그 > 환경변수 > 파일(`server.json`) > 기본값 (`CONFIG_MANAGEMENT_SRS` FR-CFG-13) |
-| **홈** | `$DONGMINAL_HOME` (기본 `~/.dongminal`). `cfg.DataDir` 이 같은 자리다 |
+| **홈** | `$OTTERMINAL_HOME` (기본 `~/.otterminal`). `cfg.DataDir` 이 같은 자리다 |
 | **증강 분할** | 클래스 정의를 두고 `Object.assign(X.prototype, …)` 으로 멤버를 다른 파일에 두는 분할 (`FE_MODULE_BOUNDARY_SRS` 묶음 B·C) |
 | **구간 이동** | 코드 줄을 한 글자도 바꾸지 않고 자리만 옮기는 편집 (`SPLIT_REFACTOR_SRS`) |
 
@@ -95,7 +95,7 @@
 | ~~`.ui-scroll`·`UIKit.button()`·`.ui-btn`·`UIKit.dialogOpen`~~ | | B2 | — |
 | ~~`t()`~~ | | B4 | — |
 | `timer-hub` | 직접 `setTimeout` 하는 자리 | — | **아니다** (§6-4) |
-| `dmenv.DialHost` | `dmctl`·`health`·`doctor`·`window`·`stop`·`migrate` 가 각자 | — | **묶음 B** |
+| `otterenv.DialHost` | `otterctl`·`health`·`doctor`·`window`·`stop`·`migrate` 가 각자 | — | **묶음 B** |
 | `reconcileList` | `innerHTML=''` 전량 재생성 | — | **아니다** (D-STR-6) |
 | `homeLayout()` | `git-worktrees/`·`ext/`·`worktrees/` 누락 | — | **묶음 C** |
 
@@ -146,10 +146,10 @@
 | `config show` | `serverconf.Resolve` | `serverconf.Resolve` | ✅ |
 | `service install` | `serverconf.Resolve` | `serverconf.Resolve` | ✅ |
 | `window` | `DefaultHost` + `os.Getenv(EnvHost)` (`window.go:26`) | `o.ResolvePort()` | ❌ |
-| `health` | **`dmenv.DefaultHost` 고정** (`health.go:37`) | `o.ResolvePort()` | ❌ |
+| `health` | **`otterenv.DefaultHost` 고정** (`health.go:37`) | `o.ResolvePort()` | ❌ |
 | `stop` | — | `o.ResolvePort()` (`stop.go:15`) | ❌ |
 | `migrate` | — | `o.ResolvePort()` (`migrate.go:39`) | ❌ |
-| `dmctl`(헬퍼) | `envOr(EnvHost, DefaultHost)` | 동 | ❌ |
+| `otterctl`(헬퍼) | `envOr(EnvHost, DefaultHost)` | 동 | ❌ |
 
 `server.json` 에 `{"port":"9000"}` 한 줄을 적는 순간 갈라진다. **`stop` 이 가장 나쁘다** —
 `killPort` 는 대상을 가리지 않으므로 58146 을 쓰는 **남의 프로세스에 TERM→KILL 을 보낸다.**
@@ -166,15 +166,15 @@
 
 세는 방법: `grep -rn 'net\.JoinHostPort' --include='*.go'` → 0. 반대로
 `host+":"+port` 꼴과 `fmt.Sprintf("http://%s:%s"` 꼴을 센다 → 4자리
-(`cmd/dongminal/app.go:229` · `cli/start.go:359` · `helper/runtimebin/http.go:24` ·
+(`cmd/otterminal/app.go:229` · `cli/start.go:359` · `helper/runtimebin/http.go:24` ·
 `cli/health.go:37`).
 
-`DONGMINAL_HOST=::1` 은 **문서가 명시적으로 지원한다고 적은 값**이다
+`OTTERMINAL_HOST=::1` 은 **문서가 명시적으로 지원한다고 적은 값**이다
 (`docs/external/getting-started.md` — loopback 셋). 그 값으로 띄우면
 `serverconf.Resolve` 를 통과하고, 자식이 `net.Listen("tcp","::1:9911")` 에서
 *too many colons in address* 로 죽고, 부모는 5초 폴링 뒤 **"기동 실패" 만** 낸다.
 
-`dmenv.normalizeHost` 가 `[::1]` 의 대괄호를 **뗀다** — 판정에는 그것이 맞고
+`otterenv.normalizeHost` 가 `[::1]` 의 대괄호를 **뗀다** — 판정에는 그것이 맞고
 조립에는 붙이는 것이 맞는데, **둘이 한 함수의 출력을 공유한다.**
 
 ### 2.5 `homeLayout()` 이 모르는 홈 항목이 **11개**다
@@ -185,7 +185,7 @@
 
 | 항목 | 만드는 자리 | 성격 | 지금의 결과 |
 |---|---|---|---|
-| `worktrees/` | `cmd/dongminal/main.go:342` | Run 격리 worktree | `uninstall --purge` 가 남긴다 |
+| `worktrees/` | `cmd/otterminal/main.go:342` | Run 격리 worktree | `uninstall --purge` 가 남긴다 |
 | `git-worktrees/` | `main.go:348` | **사용자 콘텐츠** (FR-WKT-13) | **`backup` 이 담지 않는다** |
 | `ext/` | `main.go:365` | LSP 플러그인·언어 서버 | `--purge` 가 "전부 지웠습니다" 하고 수백 MB 를 남긴다 |
 | `paned.build` | `daemon/boot/boot.go:103` | 데몬 코드 지문 (FR-DFP-4) | 남는다 |
@@ -218,7 +218,7 @@
 | 답 | 자리 | 누가 읽는가 |
 |---|---|---|
 | `<home>/server.log` | `cli/start.go:316` — **실제로 쓰이는 값** | 배경 모드 기동 |
-| `/tmp/dongminal.log` | `platform/paths.go:65` → `cli/options.go:50` | `config show`·`doctor`·`start --help`·`service install` |
+| `/tmp/otterminal.log` | `platform/paths.go:65` → `cli/options.go:50` | `config show`·`doctor`·`start --help`·`service install` |
 | `%LOCALAPPDATA%\…` | 같은 자리의 Windows 분기 | 동 |
 
 04-secops P1-6 이 기본 로그를 옮겼는데 **그 이동이 `prepareServerCmd` 안에만 있다.**
@@ -292,13 +292,13 @@
 
 | ID | 요구 | 등급 |
 |---|---|---|
-| FR-STR-20 | `dmenv` 에 **조립 전용** 함수 둘이 선다. 판정용(`DialHost`·`IsExposedHost`)과 갈라 둔다 — 판정은 대괄호를 떼야 하고 조립은 붙여야 한다 (§2.4)<br>`ListenAddr(host,port)` = `net.JoinHostPort(host,port)`<br>`BaseURL(host,port)` = `"http://" + net.JoinHostPort(DialHost(host),port)` | 필수 |
-| FR-STR-21 | 문자열 접합 4자리가 그것을 지난다 — `cmd/dongminal/app.go:229` · `cli.ServerURL` · `helper/runtimebin` 의 base URL · `cli/health.go` | 필수 |
+| FR-STR-20 | `otterenv` 에 **조립 전용** 함수 둘이 선다. 판정용(`DialHost`·`IsExposedHost`)과 갈라 둔다 — 판정은 대괄호를 떼야 하고 조립은 붙여야 한다 (§2.4)<br>`ListenAddr(host,port)` = `net.JoinHostPort(host,port)`<br>`BaseURL(host,port)` = `"http://" + net.JoinHostPort(DialHost(host),port)` | 필수 |
+| FR-STR-21 | 문자열 접합 4자리가 그것을 지난다 — `cmd/otterminal/app.go:229` · `cli.ServerURL` · `helper/runtimebin` 의 base URL · `cli/health.go` | 필수 |
 | FR-STR-22 | `Common.ResolveTarget()` 이 선다. 계층은 `start` 와 같다 (FR-CFG-13 의 4계층). 돌려주는 것은 `Home`·`Host`(`DialHost` 를 지난 값)·`Port`·`URL` 과 **경고 목록**이다 — `serverconf.Resolve` 가 이미 내는 경고를 버리지 않는다 | 필수 |
 | FR-STR-23 | 겨누는 명령 넷이 그것을 지난다 — `health.go` · `window.go` · `stop.go` · `migrate.go`. `RunStart` 은 이미 같은 일을 하므로 **몸통을 옮기고** `--host` 플래그만 덧댄다 | 필수 |
 | FR-STR-24 | `health` 의 host 고정이 사라진다. `health.go:33-36` 의 주석이 적은 근거(*"`localhost` 가 `::1` 로 먼저 풀려 실패했다"*)는 **과교정**이며, `DialHost` 가 그 문제를 이미 푼다. 그 주석을 이전/새/이유로 고친다 | 필수 |
 | FR-STR-25 | **이것은 동작 변경이다.** `server.json` 에 포트를 적어 둔 사용자에게 `stop` 의 대상이 바뀐다 — **그것이 옳다.** 지금은 남의 프로세스를 죽인다 (§2.3) | 필수 |
-| FR-STR-26 | `dmctl`(`helper/runtimebin`)은 **`cli` 를 import 할 수 없다** (축 경계 — `check-pkg-axis.sh`). 그쪽은 `dmenv.BaseURL` 까지만 지나고 파일 계층은 **범위 밖**이다. 그 사실을 `runtimebin` 머리말에 사유로 적는다 (D-STR-3). **2026-11-22 갱신**: `serverconf` 가 `shared` 로 가서 `runtimebin` 도 파일 계층을 지난다 — `cli` import 금지는 그대로다 | 필수 |
+| FR-STR-26 | `otterctl`(`helper/runtimebin`)은 **`cli` 를 import 할 수 없다** (축 경계 — `check-pkg-axis.sh`). 그쪽은 `otterenv.BaseURL` 까지만 지나고 파일 계층은 **범위 밖**이다. 그 사실을 `runtimebin` 머리말에 사유로 적는다 (D-STR-3). **2026-11-22 갱신**: `serverconf` 가 `shared` 로 가서 `runtimebin` 도 파일 계층을 지난다 — `cli` import 금지는 그대로다 | 필수 |
 | FR-STR-27 | **게이트 2**: `scripts/check-server-target.sh` — ① `internal/**`·`cmd/**` 에 host+":"+port 꼴 접합이 없다 ② 겨누는 명령의 파일이 `ResolveTarget` 을 지난다. 물음은 하나다: *"겨누는 자리가 한 규칙을 지나는가"* | 필수 |
 
 ### 3.3 묶음 C — 홈
@@ -309,7 +309,7 @@
 | FR-STR-31 | `git-worktrees/` 는 **`Backup: true`** 다 (D-STR-4). 이 필드는 `uninstall` 에게 *"보존하는가"* 이기도 하므로, false 로 두면 **맨 `uninstall` 이 사용자의 worktree 를 지운다** | 필수 |
 | FR-STR-32 | **이것은 동작 변경이다.** `uninstall --purge` 가 더 많이 지운다 (`ext/`·`worktrees/`·`doctor-*`). 이전/새/이유를 적고 `--dry-run` 목록이 그것을 먼저 보여준다 | 필수 |
 | FR-STR-33 | 기본 로그 경로가 **한 함수**가 된다 — `defaultLogFile(home)`. 홈이 있으면 `<home>/server.log` 이고, 없을 때만 `platform` 의 자리로 물러선다. `prepareServerCmd` 도 그것을 쓴다 | 필수 |
-| FR-STR-34 | `usageStart()` 는 홈을 모르므로 문구를 **`$DONGMINAL_HOME/server.log`** 로 적는다 — 그 편이 실제로도 정확하다 | 필수 |
+| FR-STR-34 | `usageStart()` 는 홈을 모르므로 문구를 **`$OTTERMINAL_HOME/server.log`** 로 적는다 — 그 편이 실제로도 정확하다 | 필수 |
 | FR-STR-35 | `platform.Paths.DefaultLogFile()` 머리말의 *"종전 `cli.DefaultLog` 와 같은 값이다"* 를 고친다 — **그 문장이 지금 거짓이다** | 필수 |
 | FR-STR-36 | **게이트 3**: `scripts/check-home-layout.sh` — 코드가 홈 아래에 쓰는 **첫 조각**이 전부 `homeLayout()` 의 `Name` 에 있다. 물음은 하나다: *"홈의 목록이 전수인가"* | 필수 |
 | FR-STR-37 | 게이트는 **예외를 사유와 함께** 든다 (§6-예외표). 등록 대상: 홈이 아닌 경로에 쓰는 자리 · 테스트 픽스처 | 필수 |
@@ -344,8 +344,8 @@
 |---|---|---|
 | **D-STR-1** | 클립보드 헬퍼를 **새로 만들지 않고 `term-clipboard.js` 에서 꺼낸다** | 그 파일의 3단은 `EXPLORER_TRANSFER_IGNORE_SRS` 묶음 F 가 설계하고 D-12·D-13 이 근거를 적은 것이다. 새로 만들면 **여섯 번째 사본**이 되고, 이 문서가 고치려는 바로 그 모양이다 (D-CMP-4 와 같은 규약) |
 | **D-STR-2** | `TermClipboard` 라는 **이름을 남긴다** — OSC 52 어댑터로 | `window.TermClipboard` 를 e2e 와 `term-pane.js` 가 부른다. 이름을 지우면 계약이 바뀌고, 이 묶음은 **자리만 옮긴다** (FR-STR-1). 이름이 터미널을 말하는 것이 옳아진다 — 그 파일에 남는 것이 실제로 터미널의 일(OSC 52)이기 때문이다 |
-| **D-STR-3** | `dmctl` 의 **파일 계층은 범위 밖**이다 | `helper/runtimebin` 은 `ctl/cli` 를 import 할 수 없다 (프로세스 축 경계, `check-pkg-axis.sh`). 계층을 주려면 `serverconf` 를 `shared` 로 옮겨야 하고 그것은 패키지 구조 변경이다 — 이 묶음의 범위를 넘는다. **`dmenv.BaseURL` 까지는 지나게** 해서 주소 조립만이라도 한 벌로 만들고, 남은 결손을 머리말에 사유로 적는다. **(2026-11-22 갱신, PROD3 DOC-20)** 전제가 충족됐다 — `serverconf` 는 `internal/shared/serverconf` 에 있고, `runtimebin` 은 `shared/*`·`helper/toolline` 만 import 하면서 주소 파일·`server.json` 계층을 그것으로 지난다(`runtimebin/http.go`). 이 결정이 남긴 결손은 없어졌다 |
-| **D-STR-4** | `git-worktrees/` 는 `Backup: **true**` | **초안은 `false` 였고, 소비자를 읽자 뒤집혔다.** 초안의 근거는 *"worktree 의 `.git` 은 절대 경로라 다른 기계에서 풀면 깨진 것이 복원된다"* 였고 그 사실 자체는 옳다. 틀린 것은 **`Backup` 이 한 가지 뜻이라는 가정**이다 — `backup.go` 에게는 "zip 에 담는가" 이지만 `uninstall.go` 의 `uninstallPlan` 은 `e.Backup && !purge` 로 걸러서 **"보존하는가"** 로 읽는다. false 로 두면 맨 `dongminal uninstall` 이 사용자가 Git 창에서 만든 worktree 를 **커밋하지 않은 작업과 함께** 지운다.<br><br>뜻이 둘인 필드에서는 **되돌릴 수 없는 쪽**을 따른다. zip 의 대가는 bounded 다 — 같은 기계 복원은 그대로 되고, 다른 기계에서는 `.git` 파일이 가리키는 곳이 없는 디렉터리가 하나 생길 뿐 **조용한 손실이 아니다.**<br><br>감사는 이것을 *"사용자 결정 대상"* 으로 남겼는데, 물어야 할 것은 **목록에 넣을지**가 아니라 **worktree 백업을 제대로 만들지**이고 그것은 이 묶음이 아니다. 필드가 두 물음을 겸하는 것 자체도 결함이며, 가르는 일은 `uninstall`·`backup` 의 계약 변경이라 여기 넣지 않는다 (§6-10) |
+| **D-STR-3** | `otterctl` 의 **파일 계층은 범위 밖**이다 | `helper/runtimebin` 은 `ctl/cli` 를 import 할 수 없다 (프로세스 축 경계, `check-pkg-axis.sh`). 계층을 주려면 `serverconf` 를 `shared` 로 옮겨야 하고 그것은 패키지 구조 변경이다 — 이 묶음의 범위를 넘는다. **`otterenv.BaseURL` 까지는 지나게** 해서 주소 조립만이라도 한 벌로 만들고, 남은 결손을 머리말에 사유로 적는다. **(2026-11-22 갱신, PROD3 DOC-20)** 전제가 충족됐다 — `serverconf` 는 `internal/shared/serverconf` 에 있고, `runtimebin` 은 `shared/*`·`helper/toolline` 만 import 하면서 주소 파일·`server.json` 계층을 그것으로 지난다(`runtimebin/http.go`). 이 결정이 남긴 결손은 없어졌다 |
+| **D-STR-4** | `git-worktrees/` 는 `Backup: **true**` | **초안은 `false` 였고, 소비자를 읽자 뒤집혔다.** 초안의 근거는 *"worktree 의 `.git` 은 절대 경로라 다른 기계에서 풀면 깨진 것이 복원된다"* 였고 그 사실 자체는 옳다. 틀린 것은 **`Backup` 이 한 가지 뜻이라는 가정**이다 — `backup.go` 에게는 "zip 에 담는가" 이지만 `uninstall.go` 의 `uninstallPlan` 은 `e.Backup && !purge` 로 걸러서 **"보존하는가"** 로 읽는다. false 로 두면 맨 `otterminal uninstall` 이 사용자가 Git 창에서 만든 worktree 를 **커밋하지 않은 작업과 함께** 지운다.<br><br>뜻이 둘인 필드에서는 **되돌릴 수 없는 쪽**을 따른다. zip 의 대가는 bounded 다 — 같은 기계 복원은 그대로 되고, 다른 기계에서는 `.git` 파일이 가리키는 곳이 없는 디렉터리가 하나 생길 뿐 **조용한 손실이 아니다.**<br><br>감사는 이것을 *"사용자 결정 대상"* 으로 남겼는데, 물어야 할 것은 **목록에 넣을지**가 아니라 **worktree 백업을 제대로 만들지**이고 그것은 이 묶음이 아니다. 필드가 두 물음을 겸하는 것 자체도 결함이며, 가르는 일은 `uninstall`·`backup` 의 계약 변경이라 여기 넣지 않는다 (§6-10) |
 | **D-STR-5** | 모듈 크기 기준선을 **지금 값(26 / 1,586)으로 다시 잡고**, 같은 변경에서 최대 파일만 내린다 | 22 / 1,336 으로 되돌리려면 네 파일을 추가로 500 아래로 갈라야 하고 그것은 L 공수다. 감사 D2 가 권한 순서가 *"게이트를 먼저 세우고 기준선을 정하는 순서"* 이며, **재는 것이 없는 상태가 수치보다 나쁘다** — 9일 만에 되돌아온 것이 그 증거다. 게이트가 서면 다음 되돌림은 커밋에서 막힌다 |
 | **D-STR-6** | `reconcileList` 이주는 **B6 이다** | `refactor/README.md` §4.1 항목 6 이 그 이주를 **성능 항목으로 등록하고 측정 방법까지 못박았다**(`MutationObserver` 로 60초간 변이 수). 이주 없이는 측정할 수 없고 측정 없이 이주하면 §4 의 *"각 항목의 전후를 그 표의 측정 열로 잰다"* 가 깨진다 — **같은 변경이어야 한다.** 더구나 `innerHTML=''` 54자리 중 폴링 경로인 것을 가르는 일은 자리마다 판단이 필요해 파싱으로 파생되지 않는다 (FR-STR-2 를 만족하지 못한다). B5 는 이 행을 **열지 않는다** |
 | **D-STR-7** | 빈 상태의 **주동작은 넣지 않는다** | FR-CMP-62 가 버튼을 **선택**으로 두었으므로 미달이 아니다. 헬퍼가 섰으니 Runs 의 "팀 명령 복사" 는 이제 **가능해졌고**, 그것을 만드는 것은 컴포넌트 작업이 아니라 기능 작업이다 (D-CMP-3 과 같은 경계) |
@@ -361,7 +361,7 @@
 | TC-STR-2 | A | git 패널 경로 복사 · 확인창의 명령 복사 · 샌드박스 명령 복사가 **실제 화면에서** 통한다 | e2e |
 | TC-STR-3 | A | `execCommand('copy')`·`navigator.clipboard.writeText` 를 부르는 자리가 헬퍼 밖에 **0** | 단위 (게이트 1) |
 | TC-STR-4 | A | 게이트 1 이 `navigator.clipboard.readText`(붙여넣기)를 **잡지 않는다** | 탐침 |
-| TC-STR-5 | B | `dmenv.ListenAddr("::1","9911")` = `[::1]:9911` · `BaseURL("0.0.0.0","9911")` = `http://127.0.0.1:9911` | 단위 (Go) |
+| TC-STR-5 | B | `otterenv.ListenAddr("::1","9911")` = `[::1]:9911` · `BaseURL("0.0.0.0","9911")` = `http://127.0.0.1:9911` | 단위 (Go) |
 | TC-STR-6 | B | `server.json` 에 포트를 적으면 `health`·`window`·`stop`·`migrate` 가 **같은 포트**를 본다 | 단위 (Go, 한 표) |
 | TC-STR-7 | B | `--port` 플래그가 `server.json` 을 이긴다 (4계층 순서 회귀) | 단위 (Go) |
 | TC-STR-8 | B | host:port 문자열 접합이 `internal/**`·`cmd/**` 에 **0** | 게이트 2 |
@@ -447,6 +447,6 @@
 | 2026-09-21 | **묶음 B5 종료.** 게이트 **41종 → 45종**(`check-clipboard`·`check-server-target`·`check-home-layout`·`check-file-size`), 프론트 단위 **282 → 289**, Go 단위 **18건 신설**. **전량 e2e 1,745건 통과 · 실패 0 · flaky 0** (`make e2e` 8샤드, 샤드별 직접 셈). 네 게이트 전부 탐침으로 **잡는 것과 잡으면 안 되는 것**을 확인하고 지웠다 (규약 3-3) |
 | 2026-09-21 | **묶음 D 완료.** 모듈 크기 DoD 를 게이트로 세우고(`check-file-size.mjs`, 기준선은 `FE_MODULE_BOUNDARY_SRS §7.1a` 가 갖는다) `_rLayout`(168줄)을 넷으로, `renderer.js`(1,586)를 다섯으로 갈랐다. 최대 파일 **1,586 → 1,178**. 500줄 초과는 24 그대로 — 조각 하나가 아직 경계 위다. N3 을 같은 변경에서 개정했다 |
 | 2026-09-21 | **묶음 C 완료.** 게이트가 홈 누락 **열하나**를 찾았다 — 감사는 일곱, 이 문서의 초안은 여덟이었다. **D-STR-4 를 뒤집었다**: `Backup` 은 `uninstall` 에게 *"보존하는가"* 이기도 해서, false 로 두면 맨 `uninstall` 이 사용자의 worktree 를 지운다. 기본 로그 경로의 답 셋을 하나로 모았다 |
-| 2026-09-21 | **묶음 B 완료.** `ResolveTarget` 하나로 겨누는 명령 넷을 모으고 `dmenv.ListenAddr`·`BaseURL` 로 주소 조립 넷을 옮겼다. `DRIFT_RECLAIM_SRS` FR-DRC-12(과교정) · `WINDOW_COMMAND_SRS` FR-WIN-2(3계층) · `CONFIG_MANAGEMENT_SRS` FR-CFG-13(적용 범위)을 같은 변경에서 개정했다 |
+| 2026-09-21 | **묶음 B 완료.** `ResolveTarget` 하나로 겨누는 명령 넷을 모으고 `otterenv.ListenAddr`·`BaseURL` 로 주소 조립 넷을 옮겼다. `DRIFT_RECLAIM_SRS` FR-DRC-12(과교정) · `WINDOW_COMMAND_SRS` FR-WIN-2(3계층) · `CONFIG_MANAGEMENT_SRS` FR-CFG-13(적용 범위)을 같은 변경에서 개정했다 |
 | 2026-09-21 | **묶음 A 완료.** 3단 복사를 `ui/clipboard.js` 의 `ClipboardWriter` 로 꺼내고 사본 넷을 모았다. 전역 이름이 `Clipboard` 가 **아닌 것**은 그것이 브라우저 인터페이스 이름이기 때문이다. `app-tool.js` 의 조용한 실패가 이 묶음이 고친 실제 결함이다 |
 | 2026-09-21 | 초안. B4 인계서 §0 의 셋 중 **`reconcileList` 를 B6 으로 넘겼고**(D-STR-6) 대신 감사가 패턴 A 로 분류하지 않은 자리 셋(주소 조립 · 기본 로그 경로 · 클립보드의 실제 사본 수)을 파싱으로 찾아 넣었다. FR-CMP-63a 의 전제가 틀렸다는 것이 이 문서의 뿌리다 (§2.2) |

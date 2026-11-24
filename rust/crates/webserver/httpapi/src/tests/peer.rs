@@ -2,9 +2,9 @@
 
 use std::sync::{Arc, Mutex};
 
-use dm_gocompat::json::RawMessage;
-use dm_shared_chatwire as chatwire;
-use dm_shared_toolipc::{
+use otter_gocompat::json::RawMessage;
+use otter_shared_chatwire as chatwire;
+use otter_shared_toolipc::{
     CHAT_KIND_CHANGED, CHAT_KIND_MSG, ChatEvent, ChatParams, ChatResult, EdgeParams,
     EdgePortParams, EdgeRef, EdgeResult, EdgesEvent,
 };
@@ -264,9 +264,9 @@ async fn edge_api_without_daemon_is_unavailable() {
     }
     // 노드 신원 파일을 만들지 않는다.
     for f in [
-        dm_shared_dmenv::EDGE_KEY_FILE,
-        dm_shared_dmenv::EDGE_CERT_FILE,
-        dm_shared_dmenv::EDGES_FILE,
+        otter_shared_otterenv::EDGE_KEY_FILE,
+        otter_shared_otterenv::EDGE_CERT_FILE,
+        otter_shared_otterenv::EDGES_FILE,
     ] {
         assert!(!e.srv.config().data_dir.join(f).exists(), "{f}");
     }
@@ -415,7 +415,7 @@ async fn edge_push_broadcasts_and_invalidates_handle() {
     assert_eq!(p["args"]["removed"]["name"], "노트북");
     assert_eq!(
         p["args"]["removed"]["tag"],
-        dm_shared_edge::tag(&fp).as_str()
+        otter_shared_edge::tag(&fp).as_str()
     );
     assert_eq!(e.srv.profile_handle(), "집#1a2b");
     assert_eq!(

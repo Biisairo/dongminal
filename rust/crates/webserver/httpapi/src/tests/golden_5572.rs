@@ -9,7 +9,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use dm_webserver_domain_wsentry::{self as wsentry, normalize_path};
+use otter_webserver_domain_wsentry::{self as wsentry, normalize_path};
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
 
@@ -125,7 +125,7 @@ pub(crate) fn fixture(root: &str) {
         &["add", ".gitignore", "src"],
         &["commit", "-m", "init"],
     ] {
-        dm_shared_gittest::run(&repo, args);
+        otter_shared_gittest::run(&repo, args);
     }
 }
 
@@ -187,7 +187,7 @@ pub(crate) fn zip_canon(z: &[u8]) -> Vec<u8> {
 
 #[tokio::test]
 async fn search_ignore_watch_zip_match_go_golden() {
-    if dm_shared_gittest::path().is_none() {
+    if otter_shared_gittest::path().is_none() {
         return;
     }
     let b = tempfile::tempdir().unwrap();
@@ -269,7 +269,7 @@ async fn search_ignore_watch_zip_match_go_golden() {
                 m: Vec<crate::fs_search::GrepMatch>,
                 t: bool,
             }
-            dm_gocompat::json::marshal(&O { m, t }).unwrap()
+            otter_gocompat::json::marshal(&O { m, t }).unwrap()
         } else {
             let (fl, t) = find_files(&ctx, &root, &f.q, f.limit).unwrap();
             #[derive(serde::Serialize)]
@@ -277,7 +277,7 @@ async fn search_ignore_watch_zip_match_go_golden() {
                 f: Vec<crate::fs_search::FindHit>,
                 t: bool,
             }
-            dm_gocompat::json::marshal(&O { f: fl, t }).unwrap()
+            otter_gocompat::json::marshal(&O { f: fl, t }).unwrap()
         };
         assert_eq!(
             String::from_utf8_lossy(&got),

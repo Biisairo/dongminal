@@ -1,21 +1,21 @@
-//! `dongminal service install` — 감독자에게 넣을 정의를 써 준다 (M5 SEC-23).
+//! `otterminal service install` — 감독자에게 넣을 정의를 써 준다 (M5 SEC-23).
 //!
 //! 우리가 감독자를 만들지 않고, 설치하지도 않는다. 파일을 쓰고 다음 걸음을 안내한다.
 
 use std::io::Write;
 use std::path::Path;
 
-use dm_gocompat::filepath;
-use dm_gocompat::oserr::{go_error_string, mkdir_all, path_error};
-use dm_shared_dmenv as dmenv;
-use dm_shared_platform::OsKind;
-use dm_shared_serverconf as serverconf;
+use otter_gocompat::filepath;
+use otter_gocompat::oserr::{go_error_string, mkdir_all, path_error};
+use otter_shared_otterenv as otterenv;
+use otter_shared_platform::OsKind;
+use otter_shared_serverconf as serverconf;
 
 use crate::backup::flag_value;
 use crate::env::Env;
 use crate::options::{Common, ENV_PORT, ParseError, default_log_file, invalid, unknown_flag};
 
-/// `dongminal service` 의 옵션이다.
+/// `otterminal service` 의 옵션이다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ServiceOpts {
     pub common: Common,
@@ -71,7 +71,7 @@ pub(crate) fn run_service_in(
             return 1;
         }
     };
-    let kind = o.os_kind.unwrap_or(dm_shared_platform::current().os);
+    let kind = o.os_kind.unwrap_or(otter_shared_platform::current().os);
     let exe = if o.exe.is_empty() {
         match std::env::current_exe() {
             Ok(p) => p.to_string_lossy().into_owned(),
@@ -149,7 +149,7 @@ fn write_file(path: &str, data: &[u8]) -> std::io::Result<()> {
 }
 
 /// 감독자가 쓰는 이름이다.
-const SERVICE_LABEL: &str = "com.dongminal.server";
+const SERVICE_LABEL: &str = "com.otterminal.server";
 /// `--out` 상위 디렉터리의 권한 (Go `os.MkdirAll(filepath.Dir(o.Out), 0o755)`).
 const OUT_DIR_PERM: u32 = 0o755;
 
@@ -166,14 +166,14 @@ pub(crate) fn installed_service_files(env: &Env<'_>) -> Vec<String> {
             ".config",
             "systemd",
             "user",
-            "dongminal.service",
+            "otterminal.service",
         ]),
     ]
 }
 
 /// 예전 서비스 파일이 바인드를 넣던 모양이다.
 fn service_bind_env_marks() -> [String; 6] {
-    let (host, port) = (dmenv::ENV_HOST, dmenv::ENV_PORT);
+    let (host, port) = (otterenv::ENV_HOST, otterenv::ENV_PORT);
     [
         format!("<key>{host}</key>"),
         format!("<key>{port}</key>"),
@@ -201,7 +201,7 @@ pub(crate) fn service_bind_env_warning(paths: &[String]) -> String {
         return String::new();
     }
     format!(
-        "서비스 파일 {} 에 바인드 환경변수가 남아 있습니다 (무시됩니다) — dongminal service install 로 다시 만드세요",
+        "서비스 파일 {} 에 바인드 환경변수가 남아 있습니다 (무시됩니다) — otterminal service install 로 다시 만드세요",
         stale.join(", ")
     )
 }
@@ -214,12 +214,12 @@ pub(crate) fn launchd_plist(exe: &str, home: &str, log_level: &str, log_file: &s
         xml_esc(log_level),
         xml_esc(log_file),
     );
-    let (eh, el) = (dmenv::ENV_HOME, dmenv::ENV_LOG_LEVEL);
+    let (eh, el) = (otterenv::ENV_HOME, otterenv::ENV_LOG_LEVEL);
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- dongminal 웹서버 감독 (M5 SEC-23).
-     "dongminal service install" 이 만들었습니다. 경로·환경변수를 고쳤으면
+<!-- otterminal 웹서버 감독 (M5 SEC-23).
+     "otterminal service install" 이 만들었습니다. 경로·환경변수를 고쳤으면
      이 파일도 함께 고치세요 — 이 파일은 다시 생성되지 않습니다. -->
 <plist version="1.0">
 <dict>
@@ -248,17 +248,17 @@ pub(crate) fn launchd_plist(exe: &str, home: &str, log_level: &str, log_file: &s
 
 /// Linux·WSL 의 정의다. user unit 이다 — 이 제품은 사용자의 홈과 세션에 매여 있다.
 pub(crate) fn systemd_unit(exe: &str, home: &str, log_level: &str) -> String {
-    let (eh, el) = (dmenv::ENV_HOME, dmenv::ENV_LOG_LEVEL);
+    let (eh, el) = (otterenv::ENV_HOME, otterenv::ENV_LOG_LEVEL);
     format!(
-        r#"# dongminal 웹서버 감독 (M5 SEC-23).
-# "dongminal service install" 이 만들었습니다. 경로·환경변수를 고쳤으면
+        r#"# otterminal 웹서버 감독 (M5 SEC-23).
+# "otterminal service install" 이 만들었습니다. 경로·환경변수를 고쳤으면
 # 이 파일도 함께 고치세요 — 이 파일은 다시 생성되지 않습니다.
 #
 # **user unit 입니다.** 시스템 단위가 아닌 이유는 이 제품이 사용자의 홈과 세션에
 # 매여 있기 때문입니다 — 도구 셸이 사용자의 rc 를 읽고, 홈이 0700 이며, git
 # 자격증명이 그 사용자의 것입니다.
 [Unit]
-Description=dongminal — 브라우저에서 쓰는 터미널 워크스페이스
+Description=otterminal — 브라우저에서 쓰는 터미널 워크스페이스
 After=network-online.target
 Wants=network-online.target
 
@@ -304,7 +304,7 @@ fn darwin_hint(out: &str) -> String {
 
 fn linux_hint(out: &str) -> String {
     let target = if out.is_empty() {
-        "~/.config/systemd/user/dongminal.service"
+        "~/.config/systemd/user/otterminal.service"
     } else {
         out
     };
@@ -312,13 +312,13 @@ fn linux_hint(out: &str) -> String {
         r#"다음 걸음 (이 명령이 대신 하지 않습니다):
 
   mkdir -p ~/.config/systemd/user
-  cp {target} ~/.config/systemd/user/dongminal.service
+  cp {target} ~/.config/systemd/user/otterminal.service
   systemctl --user daemon-reload
-  systemctl --user enable --now dongminal
-  systemctl --user status dongminal
+  systemctl --user enable --now otterminal
+  systemctl --user status otterminal
 
   로그아웃해도 살아 있게 하려면: sudo loginctl enable-linger $USER
-  내리려면: systemctl --user disable --now dongminal
+  내리려면: systemctl --user disable --now otterminal
 
 확인: 서버를 강제로 죽인 뒤(kill -9) 몇 초 안에 되살아나는지 보세요.
 "#

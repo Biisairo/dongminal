@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-workspace"
+name = "otter-shared-workspace"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,10 +10,10 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-dmlog = { path = "../dmlog" }
-dm-shared-platform = { path = "../platform" }
-dm-shared-pollwait = { path = "../pollwait" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-otterlog = { path = "../otterlog" }
+otter-shared-platform = { path = "../platform" }
+otter-shared-pollwait = { path = "../pollwait" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 time = { workspace = true }

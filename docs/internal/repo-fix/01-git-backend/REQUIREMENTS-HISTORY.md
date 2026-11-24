@@ -27,7 +27,7 @@
 - R-1.1 모든 git 실행(core.execGit, ExecUnguarded — worktree·submodule·`httpapi/handlers_fs_ignored.go` 호출처 포함, jobs)은 **하나의 기동 헬퍼**를 쓴다. 헬퍼는 core(또는 그 하위)에 두고 jobs 가 그것을 쓴다.
 - R-1.2 POSIX: 자식은 **새 세션(Setsid, pgid=pid)** 으로 띄운다 — 제어 터미널에서 분리되어 SSH·gpg 프롬프트로 SIGTTIN 정지하지 않고, 그룹 kill 도 동작한다. Setpgid 와 Setsid 를 함께 세우지 않는다(darwin 에서 EPERM — 실측). `platform.Process` 에 새 메서드(또는 NewGroup 의 변형)로 추가하고, 기존 `TestPosixDetachPreservesExistingAttr` 류가 두 플래그 동시 설정을 정상으로 보는 부분을 바로잡는다. **프로세스를 실제로 Start 하는 테스트**를 인수 기준에 넣는다. Windows 는 기존 플랫폼 구현(프로세스 그룹/잡 오브젝트)을 유지한다.
 - R-1.3 취소·시한 시: 그룹 SIGTERM → `WaitDelay`(grace) → 그룹 SIGKILL → 파이프 회수 대기(grace). grace 는 기존 `JobKillGrace`(3s)를 core 로 옮겨 공유한다. **TERM→KILL 사이 유예 1회 + KILL 뒤 파이프 회수 대기 1회**이며, 반환 상한은 `시한 + 2×grace`(훅 자식이 파이프를 쥐어도). 정상 종료 경로를 포함한 신호 시퀀스는 §3B-9 가 확정한다.
-- R-1.4 index.lock 은 **자동 삭제하지 않는다**(사용자 결정). git 이 `Unable to create '…index.lock': File exists` 로 실패하면 409 **`index_locked`**(신규 코드 — "dongminal 쓰기 진행 중"을 뜻하는 `repo_busy`·`job_busy` 와 분리)로 분류하고 응답(잡이면 잡 결과)에 lock 경로(`git rev-parse --git-path index.lock` 기준 — 링크드 워크트리 대응)와 mtime 을 싣는다. 프런트는 **`index_locked` 일 때만** 사유와 함께 확인을 거친 **"남은 lock 지우기"** 버튼을 보인다(확인문: 터미널 등 다른 git 이 실행 중이면 지우지 말 것). 서버의 삭제 종단은 그 저장소에 dongminal 의 잡·쓰기가 진행 중이면 409 로 거절하고, 그 밖에는 서버가 다시 계산한 경로 하나만 지운다. 종단 계약은 §3B-4.
+- R-1.4 index.lock 은 **자동 삭제하지 않는다**(사용자 결정). git 이 `Unable to create '…index.lock': File exists` 로 실패하면 409 **`index_locked`**(신규 코드 — "otterminal 쓰기 진행 중"을 뜻하는 `repo_busy`·`job_busy` 와 분리)로 분류하고 응답(잡이면 잡 결과)에 lock 경로(`git rev-parse --git-path index.lock` 기준 — 링크드 워크트리 대응)와 mtime 을 싣는다. 프런트는 **`index_locked` 일 때만** 사유와 함께 확인을 거친 **"남은 lock 지우기"** 버튼을 보인다(확인문: 터미널 등 다른 git 이 실행 중이면 지우지 말 것). 서버의 삭제 종단은 그 저장소에 otterminal 의 잡·쓰기가 진행 중이면 409 로 거절하고, 그 밖에는 서버가 다시 계산한 경로 하나만 지운다. 종단 계약은 §3B-4.
 
 ### R-2 쓰기의 수명·배타 (#12, N6, 사용자 결정: "긴 상한 + 진행·취소 UI" → "잡으로 전환")
 - R-2.1 **느린 쓰기는 잡으로 전환한다**. 기준은 **"새 커밋을 만들거나 체크아웃으로 HEAD 를 옮기는 명령(과 그에 준하는 장시간 작업인 worktree add)"** 이다(§3C-1): commit, merge, rebase(drop 포함), cherry-pick, revert, checkout/switch(브랜치 생성+checkout 포함 — stash branch 는 예외로 동기, §3F-1), 진행 중 작업의 출구 전부, pull, worktree add. **훅을 도는지는 기준이 아니다** — 동기 쓰기도 훅(post-checkout·post-index-change·reference-transaction)을 돌 수 있으며 쓰기 단계 마감(30s)으로 끝난다. 기존 원격 잡 경로(즉시 응답 — 현행 코드는 **200 + `{job}`**, `handlers_git_remote.go:161-177` → 스트리밍 출력 → 취소 → 최종 결과 조회)를 그대로 쓴다. 분류 주체는 핸들러이며 **종단(+action) × {잡, 동기} 분류표는 §3B-1** 이 유일한 기준이다. 그 밖의 쓰기(stage/unstage/discard, stash push/apply/pop/drop, branch/tag 생성·삭제, reset 등)는 동기로 남는다.
@@ -83,7 +83,7 @@
 - **R-4.1 설정 중립화 수단**: 환경변수(`GIT_CONFIG_COUNT`) 대신 모든 git 호출 앞에 `-c log.showSignature=false` 전역 인자를 붙인다(사용자 `GIT_CONFIG_*` 를 덮어쓰지 않고, 오래된 git 에서도 동작). 붙이는 자리는 가드를 지난 뒤의 기동 헬퍼이므로 가드(`guard.go:108` 의 전역 옵션 거부)는 그대로 둔다(2차 정정).
 - **R-4.2 산출물**: 스펙에 "파싱하는 git 명령 × 출력에 영향을 주는 설정 키" 조사표를 싣는다. 판정 기준: 파싱 결과를 바꿀 수 있는 키는 이미 방어된 것(명시)을 빼고 모두 R-4.1 방식으로 중립화한다.
 - **R-5.2 Push 경우별**: upstream 이 원격 R 의 브랜치 B → `push R <local>:refs/heads/B` (R 이 기본 원격이 아니어도). upstream 원격이 `.`(로컬 브랜치) → 거절하고 사유 표시. upstream 이 gone(설정은 있으나 원격 브랜치 없음) → `push R <local>:refs/heads/B` 로 다시 만든다. upstream 이 있으면 `-u` 를 다시 설정하지 않는다. upstream 이 없으면 기존 동작 유지.
-- **R-6.1 stash oid**: oid 는 필수다(프런트를 같은 변경에서 갱신 — 누락 시 400). oid 확인과 실행은 **common-dir 잠금 + toplevel 뮤텍스** 안에서 한다(§3F-1 — worktree 들이 `refs/stash` 를 공유하므로). dongminal 밖(터미널)과의 경쟁 창, 그리고 §3F-1 의 autostash 한계만 허용하고 스펙에 명시한다. apply·pop·drop·branch 모두 대상이며 프런트 경로도 포함한다.
+- **R-6.1 stash oid**: oid 는 필수다(프런트를 같은 변경에서 갱신 — 누락 시 400). oid 확인과 실행은 **common-dir 잠금 + toplevel 뮤텍스** 안에서 한다(§3F-1 — worktree 들이 `refs/stash` 를 공유하므로). otterminal 밖(터미널)과의 경쟁 창, 그리고 §3F-1 의 autostash 한계만 허용하고 스펙에 명시한다. apply·pop·drop·branch 모두 대상이며 프런트 경로도 포함한다.
 - **R-7 충돌 해결 분기**: 선택한 쪽(S = ours|theirs, git 정의 그대로 — rebase 중 의미 반전은 기존 프런트 안내문이 담당, 서버는 git 의미를 따른다)의 stage 가 없으면 `git rm`, 양쪽 삭제(DD)는 `git rm`, 그 밖(AA 포함)은 `checkout --S` + `add`. 응답에 경로별 결과 배열(`path`, `ok`, `error`)을 싣고, 프런트는 실패 경로와 사유를 노트로 표시한다(최소 변경).
 - **R-8.3 수치**: 작업 트리 파일 본문 읽기 상한은 기존 diff 본문 상한(`query.DiffMaxBytes` = 1MiB, `diff.go:37`). 이미지 판별은 앞 512바이트만 읽는다(`http.DetectContentType` 규약). 이미지 미리보기 본문 상한은 §3B-12 에서 확정한다(그림 전용 Service 의 `MaxOutput()`).
 - **R-9.1 일반화**: 절단 시 마지막 불완전 레코드는 종류(1/2/u/?/!)와 무관하게 버린다.
@@ -194,8 +194,8 @@
 | 코드 | HTTP | 뜻 | "남은 lock 지우기" 버튼 |
 |------|------|----|------|
 | `index_locked` (신규) | 409 | git 이 index.lock 을 만들지 못했다 — 다른 git(터미널 등)이 실행 중이거나 남은 lock | **보인다** |
-| `repo_busy` (신규) | 409 | dongminal 의 동기 쓰기가 같은 저장소에서 진행 중이어서 대기 상한(5s)을 넘겼다 | 안 보인다 |
-| `job_busy` (현행) | 409 | dongminal 의 잡이 같은 칸(§3D-1)에서 진행 중 | 안 보인다 |
+| `repo_busy` (신규) | 409 | otterminal 의 동기 쓰기가 같은 저장소에서 진행 중이어서 대기 상한(5s)을 넘겼다 | 안 보인다 |
+| `job_busy` (현행) | 409 | otterminal 의 잡이 같은 칸(§3D-1)에서 진행 중 | 안 보인다 |
 
 판정:
 - sentinel `core.ErrIndexLocked` 신설. `core.classify`(errors.go:57)가 소문자 stderr 에 `unable to create '` 와 `index.lock': file exists` 가 **함께** 있으면 이것으로 분류하고 `kinds`(errors.go:29)에 더한다. 다른 `.lock`(HEAD.lock, refs/…lock, config.lock)은 본 문서 범위 밖 — 현행대로 `git_failed` + stderr tail.
@@ -312,7 +312,7 @@ B. 정상 종료 경로(t1 = 시한 전 리더 종료):
 
 ### §3B-12 그 밖의 확정 (m1·m6·m8·m9·m10·m11)
 - **m1 WriteSpec 시한**: 두지 않는다(R-2.2 정정). 상수 이동만 한다 — `jobs.RemoteOpCeiling` → core `JobCeiling`(10분), `jobs.JobKillGrace` → core `KillGrace`(3s). jobs 쪽 참조는 전부 교체(별칭 없음).
-- **m6 Setsid 동작 변경**: 데몬 모드는 이미 `Detach`(Setsid)로 떠 제어 터미널이 없다(cmd/dongminal/main.go:133, internal/ctl/cli/start.go:349) — 변화 없음. **포그라운드 모드만** 바뀐다. 이전: git 이 서버의 터미널을 물려받아 pinentry-tty/curses·ssh 암호 프롬프트가 그 터미널에 뜨거나 SIGTTIN 으로 정지 / 새: 터미널이 없어 그 프롬프트는 즉시 실패(서명 커밋·ssh 키 암호에는 GUI pinentry·ssh-agent 필요) / 이유: 정지·매달림 제거(R-1.2). 스펙에 이 기록을 싣는다.
+- **m6 Setsid 동작 변경**: 데몬 모드는 이미 `Detach`(Setsid)로 떠 제어 터미널이 없다(cmd/otterminal/main.go:133, internal/ctl/cli/start.go:349) — 변화 없음. **포그라운드 모드만** 바뀐다. 이전: git 이 서버의 터미널을 물려받아 pinentry-tty/curses·ssh 암호 프롬프트가 그 터미널에 뜨거나 SIGTTIN 으로 정지 / 새: 터미널이 없어 그 프롬프트는 즉시 실패(서명 커밋·ssh 키 암호에는 GUI pinentry·ssh-agent 필요) / 이유: 정지·매달림 제거(R-1.2). 스펙에 이 기록을 싣는다.
 - **m6 Windows 성능**: §3C-4 로 대체(두 분기 정의 + 스펙 단계 벤치 확정).
 - **m8 이미지 상한**: 작업 트리 쪽 이미지 본문 읽기(`SideBytes` 의 `os.ReadFile`, diff_image.go:103)는 그림 전용 Service 의 `img.MaxOutput()` 을 상한으로 쓴다 — 배선값 `httpapi.fileReadMaxBytes` = 10MiB(httpapi/file_boundary.go:30, server.go:275). 새 상수는 만들지 않는다. `Stat` 크기가 상한을 넘으면 읽지 않고 `ErrDiffTooLarge`(413). 판별(`ImageMimeOf`)은 작업 트리 쪽을 앞 512바이트만 읽는다.
 - **m9 R-8.2 적용 축**: gitlink 판정을 `diffBlobSide`(diff.go:139)에 둔다 → index(`:p`)·HEAD(`HEAD:p`)·커밋(`<oid>:p`) 쪽을 읽는 **모든 축**(worktree-index, worktree-head, index-head, commit-parent)에 적용된다. 판정은 **`cat-file -s` 가 실패하고 그 실패가 `diffAbsent` 가 아닐 때만** 1회 한다(정상 파일의 hot path 에 git 호출을 더하지 않는다 — 3차 정정). 인자: `diffBlobSide` 의 rev 를 `:<p>`(index) 또는 `<treeish>:<p>`(첫 `:` 에서 분리)로 나눈다. tree-ish 쪽은 `ls-tree <treeish> -- <p>`, index 쪽은 `ls-files -s -- <p>` 의 모드가 160000 이면 `Kind:"submodule"`, `Oid` = 그 항목 oid. `ls-tree` 를 읽기 허용 목록(guard.go:19)에 더한다(순수 읽기, 쓰기 목록과 교집합 없음). 작업 트리 쪽이 디렉터리이고 반대쪽이 submodule 이면 작업 트리 쪽도 `Kind:"submodule"`(Oid 비움). `DiffSide.Kind` 주석(diff.go:61)을 갱신한다. 한계: 상위 저장소 객체 저장소에 같은 커밋 객체가 있어 `cat-file` 이 성공하는 드문 경우는 현행 경로(스펙에 명시).
@@ -508,7 +508,7 @@ B. 정상 종료 경로(t1 = 시한 전 리더 종료):
   - 등록 전 실패면 두 잠금을 모두 반납한다.
 - **이전/새/이유**:
   - 이전: 확인 없이 `stash@{n}` 위치로 실행했다(stash.go:268 `StashBranchArgs(name, index int)`). 주 저장소와 링크드 worktree 의 두 탭이 같은 `refs/stash` 를 동시에 고칠 수 있었다.
-  - 새: dongminal 안의 경쟁이 없다. stash branch 잡이 도는 동안 같은 common dir 의 다른 stash 동작은 5s 뒤 409 `repo_busy` 다.
+  - 새: otterminal 안의 경쟁이 없다. stash branch 잡이 도는 동안 같은 common dir 의 다른 stash 동작은 5s 뒤 409 `repo_busy` 다.
   - 이유: `refs/stash` 와 그 reflog 는 `$GIT_COMMON_DIR` 에 있다.
 
 ### §3E-2 차지한 칸 표현과 `/api/git/jobs` (m1·m2)
@@ -529,12 +529,12 @@ B. 정상 종료 경로(t1 = 시한 전 리더 종료):
 - 인수: 심링크 경로로 연 주 저장소와 링크드 worktree 가 같은 키를 얻는다(macOS `/var` ↔ `/private/var` 표기 차이 재현 테스트).
 
 ### §3E-5 루트 ctx 주입·종료 단계 위치 (m6·m7)
-- **루트 ctx 만들기**: `serve`(cmd/dongminal/app.go)가 `buildApp` **앞**에서 `gitRoot, cancelGit := context.WithCancel(context.Background())` 를 만든다.
+- **루트 ctx 만들기**: `serve`(cmd/otterminal/app.go)가 `buildApp` **앞**에서 `gitRoot, cancelGit := context.WithCancel(context.Background())` 를 만든다.
 - **주입**: `buildApp` → `buildDeps`/`buildDepsWithHub`(main.go:216·268)의 인자로 넘기고, 거기서 GitServer 로 간다. Store flight 와 지연 생성되는 Jobs(`gitJobHolder.get`, handlers_git_remote.go:62-73)가 그것을 쓴다.
 - **신호 연결**: `signal.NotifyContext` 로 만든 ctx 가 생기면(app.go:320) `context.AfterFunc(sigCtx, cancelGit)` 로 잇는다. 신호가 오면 HTTP `Shutdown` 과 동시에 git 정리가 시작된다. 부팅 중 신호 처리는 현행 그대로다.
 - **대기 단계**: "git 잡·쓰기 대기" 단계는 **먼저 `cancelGit()` 을 부르고** 최대 7s 기다린다. `a.srv.Run` 이 신호 없이 오류로 돌아온 경우에도 잡·쓰기가 끊긴다.
 - **위치**: shutdownSteps 의 **인덱스 0 — "마커" 앞**이다(app.go:252). 마커는 "여기를 지났으면 정상 종료"라는 뜻이므로(FR-OBS-15), 잡이 끊길 수 있는 구간은 마커 전에 끝나야 한다. `a.shutdown()` 은 `a.run` 이 돌아온 뒤, 즉 HTTP 수신 중단 뒤에 돈다.
-- 단계 이름 순서 테스트(cmd/dongminal/app_test.go 의 `shutdownSteps` 검증)와 표 위 순서 주석(app.go:241-251)을 갱신 대상으로 명시한다.
+- 단계 이름 순서 테스트(cmd/otterminal/app_test.go 의 `shutdownSteps` 검증)와 표 위 순서 주석(app.go:241-251)을 갱신 대상으로 명시한다.
 
 ### §3E-6 worktree add 의 비-index 칸 제약 (m5 — 메인 결정: 수용)
 - 이전: worktree add 는 동기(`Manager.Create`)라 같은 common dir 에서 push·fetch·submodule update 가 도는 중에도 실행됐다.
@@ -564,11 +564,11 @@ B. 정상 종료 경로(t1 = 시한 전 리더 종료):
 
 ### §3F-1 stash 는 전부 동기, refs/stash 를 바꾸는 모든 동작은 common-dir 잠금 (지적 1·2·3·6)
 - 대상: stash **push·apply·pop·drop·branch**. 모두 동기 쓰기다. 순서: common-dir 잠금(≤5s) → toplevel 뮤텍스(≤5s) → (apply·pop·drop·branch 는) 목록 조회로 요청 oid 의 현재 위치 n 확인(목록에 없으면 409 `stash_moved` — §3G-2) → 실행 → 사후 단계 → 역순 반납. 최악 83s(§3E-3 계산 그대로) < 100s.
-- argv: apply 는 `stash apply <oid>`. pop·drop·branch 는 `stash@{n}`(git 이 stash ref 만 받거나 — pop·drop — ref 로 열어야 스스로 드롭하므로 — branch). n 은 같은 잠금 안에서 방금 확인한 값이다. **push 도 같은 잠금을 쥐므로** dongminal 안의 다른 stash 동작이 확인과 실행 사이에 위치를 밀 수 없다.
+- argv: apply 는 `stash apply <oid>`. pop·drop·branch 는 `stash@{n}`(git 이 stash ref 만 받거나 — pop·drop — ref 로 열어야 스스로 드롭하므로 — branch). n 은 같은 잠금 안에서 방금 확인한 값이다. **push 도 같은 잠금을 쥐므로** otterminal 안의 다른 stash 동작이 확인과 실행 사이에 위치를 밀 수 없다.
 - stash branch 가 동기인 이유(§3C-1 예외): 확인~실행이 한 잠금 안에서 원자적이어야 하고, 잡으로 보내면 등록과 실행 사이 창이 생긴다. HEAD 이동에 따르는 post-checkout 훅은 쓰기 단계 마감 30s(+6s)로 끝난다 — 동기 쓰기 일반 규칙(§3C-1)과 같다. 5차의 "oid 인자 + 완료 시 드롭 + 잠금 완료까지 보유"와 `result.stashDropSkipped` 는 **폐기**한다.
 - stash branch 충돌: `git stash branch` 는 적용이 충돌하면 브랜치를 만들고 체크아웃한 채 unmerged 항목을 남기며 stash 를 지우지 않는다(진행 중 표식 없음 — query/operation.go:58-72 로 판정되지 않음). 응답은 기존 동기 쓰기 실패 렌더링(FR-GIT-73 partial·changed + status)에 `stashKept:true` 를 싣고, 프런트는 stash pop 충돌과 같은 안내("브랜치는 만들어졌고 충돌이 남았다 — stash 는 보존됐다")를 보인다. status 의 unmerged 가 Changes 의 충돌 목록으로 이어진다.
 - **한계(스펙에 명시)**: 사용자가 `rebase.autoStash`·`merge.autoStash` 를 켠 상태에서 pull·merge·rebase 잡이 도는 동안, 다른 worktree 에서 stash pop·drop·branch 를 하면 잡의 autostash push/pop 이 위치를 밀 수 있다. 막으려면 index 잡 전체 동안 stash 를 잠가야 해 득보다 실이 크다. 확인은 실행 직전에 하므로 창은 좁다.
-- 이전/새/이유: 이전 — 확인 없이 `stash@{n}` 으로 실행했고 worktree 들이 같은 `refs/stash` 를 동시에 고칠 수 있었다 / 새 — dongminal 안의 stash 동작끼리는 경쟁이 없다(autostash 한계 제외) / 이유 — `refs/stash` 와 그 reflog 는 `$GIT_COMMON_DIR` 에 있다.
+- 이전/새/이유: 이전 — 확인 없이 `stash@{n}` 으로 실행했고 worktree 들이 같은 `refs/stash` 를 동시에 고칠 수 있었다 / 새 — otterminal 안의 stash 동작끼리는 경쟁이 없다(autostash 한계 제외) / 이유 — `refs/stash` 와 그 reflog 는 `$GIT_COMMON_DIR` 에 있다.
 
 ### §3F-4 worktree remove 잠금 순서 (지적 4) — **이력: §3I-4 로 대체됨**
 - 순서: ① common-dir 잠금(≤5s) → ② 요청 toplevel 뮤텍스(≤5s) → ③ 사전 단계: worktree 잡(같은 common dir) 확인 → `List` 로 대상 toplevel 확정 → 대상 index 칸 확인(진행 중이면 409 `job_busy`) → ④ 대상 toplevel 뮤텍스(요청과 같으면 생략, ≤5s, 실패 409 `repo_busy`) → ⑤ 대상 index 칸 재확인 → ⑥ 쓰기 단계: `repoLock`(≤5s) + `Remove`.

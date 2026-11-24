@@ -136,7 +136,7 @@ fn unmarshal_top_level_matches_go() {
         unmarshal::<serde_json::Value>(br#" {"z":[true,null,"s",1.5]} "#),
         &g,
     );
-    // 이름을 주지 않은 map 은 Go map[string]any 의 이름이다(dongminal config validate 의 실제 출력).
+    // 이름을 주지 않은 map 은 Go map[string]any 의 이름이다(otterminal config validate 의 실제 출력).
     let e = unmarshal::<HashMap<String, serde_json::Value>>(b"[1]").expect_err("type");
     assert_eq!(
         e.to_string(),

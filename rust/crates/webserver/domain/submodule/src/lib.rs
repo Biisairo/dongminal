@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/domain/submodule` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/domain/submodule` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 저장소 안에 등록된 서브모듈의 목록과 그 조작이다 (UX_BATCH5_SRS 묶음 D, FR-SUB-1~5). 별도
 //! 패키지인 이유는 화이트리스트의 판정 단위다 (D-9) — `submodule status`(읽기)와 `submodule
@@ -10,8 +10,8 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_git_core::{
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_git_core::{
     self as core, BoxFut, Ctx, MANAGER_WRITE_TIMEOUT, Service as GitService, unguarded_text_runner,
 };
 use serde::Serialize;
@@ -281,7 +281,7 @@ pub fn update_spec(repo: &str, path: &str, init: bool, recursive: bool) -> Resul
 }
 
 fn failed(f: &Failure) -> Error {
-    let msg = dm_shared_diagtail::of_str(&f.text, Some(&f.err.msg), FAIL_MAX);
+    let msg = otter_shared_diagtail::of_str(&f.text, Some(&f.err.msg), FAIL_MAX);
     Error {
         msg: format!("{}: {msg}", Kind::Failed),
         kind: Some(Kind::Failed),
@@ -301,7 +301,7 @@ fn path_op_args(repo: &str, path: &str, mut args: Vec<String>) -> Result<Vec<Str
 }
 
 fn check_repo(repo: &str) -> Result<(), Error> {
-    if repo.trim().is_empty() || !dm_gocompat::filepath::is_abs(repo) {
+    if repo.trim().is_empty() || !otter_gocompat::filepath::is_abs(repo) {
         return Err(Error::new(
             Kind::UnsafePath,
             format!("repo 는 절대경로여야 한다: {}", quote(repo)),

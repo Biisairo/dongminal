@@ -120,7 +120,7 @@ onActivate:app=>{const w=app.gitBackTarget();if(w)app.switchWindow(w.id)},
 > **개정 (2026-09-26, OPTIMIZE_REFACTOR_SRS FR-OPT-4-10 · FEU-9·M3).** 문언대로 **인사가 닿지
 > 못한 상태에서만** 묻는다 — 인사를 실어 온 구독이 살아 있으면(같은 연결 세대이고 닫히지
 > 않았다) 탭 복귀는 `index.html` 을 받지 않는다. 판정은 SSE 를 아는 `app-cmd.js` 가
-> `__dmAssetVersion(v, live)` 의 `live` 로 건넨다 (FR-RLC-24 의 이름 하나는 그대로다).
+> `__otterAssetVersion(v, live)` 의 `live` 로 건넨다 (FR-RLC-24 의 이름 하나는 그대로다).
 > - 이전 동작: 구독과 무관하게 탭이 보일 때마다 문서 전체를 no-store 로 받았다.
 > - 새 동작: 살아 있는 구독의 인사를 받았으면 건너뛴다. 끊겼거나 인사 전이면 묻는다.
 > - 이유: 자산이 바뀌면 프로세스가 바뀌고 구독이 끊긴다 — 살아 있는 구독의 인사가 곧 답이다.

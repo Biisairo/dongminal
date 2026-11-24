@@ -8,8 +8,8 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
-use dm_webserver_fswatch::{Change, Kind};
 use http_body_util::{BodyExt, Full};
+use otter_webserver_fswatch::{Change, Kind};
 use serde_json::{Value, json};
 use tokio_util::sync::CancellationToken;
 
@@ -353,8 +353,8 @@ fn find_files_reports_name() {
 
 // ── 무시 ──────────────────────────────────────────────────────────────────────────
 
-fn ignore_repo() -> Option<dm_shared_gittest::Repo> {
-    let r = dm_shared_gittest::init()?;
+fn ignore_repo() -> Option<otter_shared_gittest::Repo> {
+    let r = otter_shared_gittest::init()?;
     let dir = r.path().to_path_buf();
     for (rel, body) in [
         (".gitignore", "node_modules/\n*.log\ntracked.log\n"),
@@ -367,9 +367,9 @@ fn ignore_repo() -> Option<dm_shared_gittest::Repo> {
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
         std::fs::write(p, body).unwrap();
     }
-    dm_shared_gittest::run(&dir, &["add", "-f", "tracked.log"]);
-    dm_shared_gittest::run(&dir, &["add", ".gitignore", "src"]);
-    dm_shared_gittest::run(&dir, &["commit", "-m", "init"]);
+    otter_shared_gittest::run(&dir, &["add", "-f", "tracked.log"]);
+    otter_shared_gittest::run(&dir, &["add", ".gitignore", "src"]);
+    otter_shared_gittest::run(&dir, &["commit", "-m", "init"]);
     Some(r)
 }
 
@@ -440,7 +440,7 @@ async fn ignored_records_through_shared_service() {
         return;
     };
     let root = repo.path().to_string_lossy().into_owned();
-    let svc = Arc::new(dm_webserver_domain_git_core::Service::new());
+    let svc = Arc::new(otter_webserver_domain_git_core::Service::new());
     let e = fs_env_with(
         Deps {
             git_service: Some(svc.clone()),
@@ -460,7 +460,7 @@ async fn ignored_records_through_shared_service() {
 
 #[tokio::test]
 async fn ignored_not_repo_is_answer() {
-    if dm_shared_gittest::path().is_none() {
+    if otter_shared_gittest::path().is_none() {
         return;
     }
     let (_d, plain) = temp_dir();

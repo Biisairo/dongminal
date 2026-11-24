@@ -4,9 +4,9 @@
 
 use std::path::MAIN_SEPARATOR;
 
-use dm_gocompat::{filepath, oserr};
+use otter_gocompat::{filepath, oserr};
 
-use dm_shared_httpresp::Response;
+use otter_shared_httpresp::Response;
 use serde::Serialize;
 
 use crate::Server;

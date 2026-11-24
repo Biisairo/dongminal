@@ -2,7 +2,7 @@
 
 use std::path::MAIN_SEPARATOR_STR as SEP;
 
-use dm_shared_dmenv as dmenv;
+use otter_shared_otterenv as otterenv;
 
 use super::{Vars, args, with_env};
 use crate::options::{ParseError, parse_verify};
@@ -31,7 +31,7 @@ fn guard_accepts_isolated_target() {
 fn guard_rejects_dangerous_targets() {
     let user = abs(&["home", "u"]);
     let iso = abs(&["tmp", &format!("{ISOLATED_HOME_PREFIX}abc123")]);
-    let user_default = format!("{user}{SEP}{}", dmenv::DEFAULT_HOME_DIR);
+    let user_default = format!("{user}{SEP}{}", otterenv::DEFAULT_HOME_DIR);
     let cases = [
         ("빈 홈", String::new(), "51234", "격리 홈이 비어"),
         ("빈 포트", iso.clone(), "", "포트가 비어"),
@@ -47,7 +47,7 @@ fn guard_rejects_dangerous_targets() {
             "51234",
             "격리 홈이 아닙니다",
         ),
-        ("기본 포트", iso, dmenv::DEFAULT_PORT, "기본 포트"),
+        ("기본 포트", iso, otterenv::DEFAULT_PORT, "기본 포트"),
         (
             "접두사가 중간에만 있는 홈",
             abs(&["tmp", &format!("x-{ISOLATED_HOME_PREFIX}y")]),
@@ -80,10 +80,10 @@ fn guard_clean_user_default_home() {
 fn guard_unknown_user_home_keeps_other_clauses() {
     let iso = abs(&["tmp", &format!("{ISOLATED_HOME_PREFIX}abc")]);
     assert_eq!(
-        guard_isolated(&iso, dmenv::DEFAULT_PORT, ""),
+        guard_isolated(&iso, otterenv::DEFAULT_PORT, ""),
         Err(format!(
             "포트가 기본 포트 {} 입니다 — 운영 인스턴스일 수 있습니다",
-            dmenv::DEFAULT_PORT
+            otterenv::DEFAULT_PORT
         ))
     );
     assert!(guard_isolated(&abs(&["tmp", "plain"]), "51234", "").is_err());
@@ -136,7 +136,7 @@ fn action_is_listed() {
     assert!(crate::action_names().contains(&"verify"));
     let (code, out, _) = super::dispatch(&["verify", "--help"]);
     assert_eq!(code, 0);
-    assert!(out.contains("dongminal verify"), "{out}");
+    assert!(out.contains("otterminal verify"), "{out}");
 }
 
 // ── 검사 목록 (FR-E2K-1 · FR-E2I-6) — 골든이 자물쇠다 ──

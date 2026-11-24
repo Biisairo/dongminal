@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use dm_webserver_domain_git_core::{self as core, Output, Runner, Service};
-use dm_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_domain_git_core::{self as core, Output, Runner, Service};
+use otter_webserver_domain_git_store::{Store, StoreOptions};
 use tempfile::TempDir;
 
 use super::harness::*;
@@ -510,13 +510,13 @@ async fn diff_commit_axis_echoes_revisions() {
 // Go `handlers_git_diff_limit_test.go`: diff 본문은 편집기 상한(32 MiB)까지 낸다 (FR-OPT-15-1).
 // 실제 git 을 쓴다. file-head 갈래는 `carryover.rs` 에 있다.
 async fn limit_case(size: usize, change: bool) -> serde_json::Value {
-    let Some(repo) = dm_shared_gittest::repo() else {
+    let Some(repo) = otter_shared_gittest::repo() else {
         return serde_json::Value::Null;
     };
     let p = repo.path();
     std::fs::write(p.join("big.txt"), "a".repeat(size)).unwrap();
-    dm_shared_gittest::run(p, &["add", "big.txt"]);
-    dm_shared_gittest::run(p, &["commit", "-qm", "big.txt"]);
+    otter_shared_gittest::run(p, &["add", "big.txt"]);
+    otter_shared_gittest::run(p, &["commit", "-qm", "big.txt"]);
     if change {
         std::fs::write(p.join("big.txt"), "b".repeat(size)).unwrap();
     }
@@ -543,7 +543,7 @@ async fn limit_case(size: usize, change: bool) -> serde_json::Value {
 
 #[tokio::test]
 async fn diff_at_editor_limit() {
-    let max = dm_shared_editorlimit::FILE_MAX_BYTES as usize;
+    let max = otter_shared_editorlimit::FILE_MAX_BYTES as usize;
     let out = limit_case(max, true).await;
     if out.is_null() {
         return;
@@ -556,7 +556,7 @@ async fn diff_at_editor_limit() {
 
 #[tokio::test]
 async fn diff_over_editor_limit() {
-    let out = limit_case(dm_shared_editorlimit::FILE_MAX_BYTES as usize + 1, false).await;
+    let out = limit_case(otter_shared_editorlimit::FILE_MAX_BYTES as usize + 1, false).await;
     if out.is_null() {
         return;
     }

@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/httpapi` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/httpapi` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! HTTP·WS·SSE 표면이다. 합성 루트가 [`Server::new`] 로 세우고, 받은 요청마다 [`Server::serve`] 를
 //! 부른다. 하위 이슈(5.5.1~5.5.10)가 같은 crate 를 나눠 채운다 — 각 하위 이슈는 자기 모듈을
@@ -97,9 +97,9 @@ use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 use std::time::Instant;
 
-use dm_webserver_domain_wsentry as wsentry;
-use dm_webserver_hub::{AttnTracker, CommandBroker, CommandHub, FocusRegistry, ReplySeats};
-use dm_webserver_seam_toolaccess::{ToolReader, WorkspaceReader};
+use otter_webserver_domain_wsentry as wsentry;
+use otter_webserver_hub::{AttnTracker, CommandBroker, CommandHub, FocusRegistry, ReplySeats};
+use otter_webserver_seam_toolaccess::{ToolReader, WorkspaceReader};
 
 pub use access::DEFAULT_ACCESS_REFRESH;
 pub use agent_records::RecordSink;
@@ -153,13 +153,13 @@ pub struct Deps {
     /// `/api/git/*` 처리기다. 없으면 `new` 가 아래 git 자리들로 gitapi 를 세운다.
     pub git: Option<Arc<dyn GitHandler>>,
     /// 모든 git 조회가 지나는 지점이다 (Go `Deps.Git`). 없으면 /api/git/* 이 503 이다 (FR-GIT-60).
-    pub git_store: Option<Arc<dm_webserver_domain_git_store::Store>>,
+    pub git_store: Option<Arc<otter_webserver_domain_git_store::Store>>,
     /// 저장소 배타 상태다 — 쓰기·잡·Run 격리가 같은 것을 봐야 한다 (REPO_FIX 01 §5.4).
-    pub git_exclusion: Option<dm_webserver_domain_git_jobs::Exclusion>,
+    pub git_exclusion: Option<otter_webserver_domain_git_jobs::Exclusion>,
     /// 사용자 worktree 영역의 관리자다 (FR-WKT-13). 없으면 Worktrees 탭이 503 이다.
-    pub user_worktrees: Option<Arc<dyn dm_webserver_domain_worktree::Service>>,
+    pub user_worktrees: Option<Arc<dyn otter_webserver_domain_worktree::Service>>,
     /// Run 격리 영역의 관리자다 (Go `Deps.Worktrees`). gitapi 는 root 경로만 쓴다 (FR-GIT-240).
-    pub worktrees: Option<Arc<dyn dm_webserver_domain_worktree::Service>>,
+    pub worktrees: Option<Arc<dyn otter_webserver_domain_worktree::Service>>,
     /// workspace.json 저장소다 (Go `Deps.Work`). Editor 목록(`Server::entries`)도 읽고 쓴다.
     pub work: Option<Arc<dyn WorkspaceStore>>,
     pub updates: Option<Arc<dyn UpdateService>>,
@@ -187,16 +187,16 @@ pub struct Deps {
     pub claude: ClaudeHooks,
     /// 실행 기록을 공유할 git core 서비스다 (Go `Deps.Git.Service()`). 없어도 무시 판정은 돌고
     /// 기록만 빠진다 (FR-GXU-4·10).
-    pub git_service: Option<Arc<dm_webserver_domain_git_core::Service>>,
+    pub git_service: Option<Arc<otter_webserver_domain_git_core::Service>>,
     /// 호출자의 원격 주소를 그 셸의 도구로 푼다 (Go `Deps.WhoAmI`). 없으면 `/api/whoami` 가 500 이다.
-    pub who_am_i: Option<Arc<dyn dm_webserver_seam_toolaccess::ClientToolResolver>>,
+    pub who_am_i: Option<Arc<dyn otter_webserver_seam_toolaccess::ClientToolResolver>>,
     /// git 감시자가 `git_changed` 를 방송할 때 그 저장소로 불린다 (REPO_FIX 02 §3A-6).
-    pub on_git_changed: Option<dm_webserver_hub::RepoHook>,
+    pub on_git_changed: Option<otter_webserver_hub::RepoHook>,
     /// git 감시자가 저장소의 첫 표명을 기준선으로 삼을 때 불린다 (CODEMIRROR_MIGRATION_SRS §11.6 W).
-    pub on_git_baseline: Option<dm_webserver_hub::RepoHook>,
+    pub on_git_baseline: Option<otter_webserver_hub::RepoHook>,
     /// runs.json 저장소다 (Go `Deps.Runs`, RUN_ORCHESTRATION_SRS 묶음 R). 없으면 /api/runs* 가 503
     /// 이고 그 밖의 동작에는 영향이 없다 (NFR-RUN-1).
-    pub runs: Option<Arc<dm_webserver_domain_run::Store>>,
+    pub runs: Option<Arc<otter_webserver_domain_run::Store>>,
 }
 
 /// 연결 진단의 계수다 (Go `connStats` 중 이 하위 이슈가 쓰는 것).
@@ -249,12 +249,12 @@ pub struct Server {
     /// 지금 붙잡힌 활동 대기 수와 상한이다 (FR-STA-9).
     pub(crate) waits: status::StatusWaits,
     /// 활동 보고의 알림이다 — 활동 대기가 이것과 마감 시각에만 다시 본다 (FR-OPT-16-3).
-    pub(crate) activity_changed: dm_shared_pollwait::Signal,
+    pub(crate) activity_changed: otter_shared_pollwait::Signal,
     /// 실행 중 리바인드·이사 보관·연결 시한이다 (HOT_REBIND_SRS 묶음 R).
     pub(crate) rebind: rebind::RebindState,
     /// 저장소 signature 를 감시해 `git_changed` 를 방송한다 (GIT_PUSH_OBSERVE_SRS). 저장소 계층이
     /// 없으면 없다.
-    pub(crate) git_watch: Option<Arc<dm_webserver_hub::GitWatcher>>,
+    pub(crate) git_watch: Option<Arc<otter_webserver_hub::GitWatcher>>,
     /// 정적 자산 `/` 의 처리기와 자산의 판이다. 정적 자산이 없는 구성이면 없다.
     pub(crate) statics: Option<static_assets::StaticHandler>,
     /// Run 표면의 서버 쪽 보조 상태다 — 복구·통지 (Go `runAux`).
@@ -275,7 +275,7 @@ pub struct Server {
 #[derive(Default)]
 pub(crate) struct FsState {
     /// 보이는 디렉터리의 파일 감시다 (FR-ELR-51). `new` 가 언제나 세운다.
-    pub(crate) watch: Option<dm_webserver_fswatch::Manager>,
+    pub(crate) watch: Option<otter_webserver_fswatch::Manager>,
     /// 폴더 zip 내려받기의 상한과 지금 흐르는 수다 (FR-ETR-12·45).
     pub(crate) zip: fs_zip::ZipLimits,
     /// 편집기 저장의 표식 검사~쓰기를 경로마다 한 번에 하나로 묶는다 (REFACTOR3_DEFECTS_SRS FR-RD3-20).
@@ -318,11 +318,11 @@ impl Server {
         }
         // DataDir 이 비면 이름만 남는다 — 작업 디렉터리의 그 파일이다.
         if deps.settings.is_none() {
-            let path = cfg.data_dir.join(dm_shared_dmenv::SETTINGS_FILE);
+            let path = cfg.data_dir.join(otter_shared_otterenv::SETTINGS_FILE);
             deps.settings = Some(Arc::new(settings::FileSettings::new(path)));
         }
         let access = Arc::new(AccessStore::new(
-            cfg.data_dir.join(dm_shared_dmenv::ACCESS_FILE),
+            cfg.data_dir.join(otter_shared_otterenv::ACCESS_FILE),
         ));
         // 부팅 시 1회 — 자기 인터페이스 주소를 모른 채로 서면 자기 이름으로 붙는 첫 요청이 막힌다
         // (FR-ACL-5a).
@@ -361,7 +361,7 @@ impl Server {
             agents: usage::AgentStores::default(),
             attn_claims: attention::AttnClaims::default(),
             waits: status::StatusWaits::default(),
-            activity_changed: dm_shared_pollwait::Signal::default(),
+            activity_changed: otter_shared_pollwait::Signal::default(),
             rebind: rebind::RebindState::default(),
             git_watch,
             statics,
@@ -433,8 +433,8 @@ fn data_dir_layout(data_dir: &str) -> (String, String) {
         return (String::new(), String::new());
     }
     (
-        dm_gocompat::filepath::join(&[data_dir, dm_shared_dmenv::NOTES_DIR]),
-        dm_webserver_domain_ext::plugins_dir(&dm_webserver_domain_ext::root_in(data_dir)),
+        otter_gocompat::filepath::join(&[data_dir, otter_shared_otterenv::NOTES_DIR]),
+        otter_webserver_domain_ext::plugins_dir(&otter_webserver_domain_ext::root_in(data_dir)),
     )
 }
 

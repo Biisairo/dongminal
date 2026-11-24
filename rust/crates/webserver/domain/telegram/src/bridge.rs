@@ -8,9 +8,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use dm_gocompat::time::format_std_duration;
-use dm_shared_dmlog::{infof, warnf};
-use dm_shared_fanout::CancellationToken;
+use otter_gocompat::time::format_std_duration;
+use otter_shared_fanout::CancellationToken;
+use otter_shared_otterlog::{infof, warnf};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use time::OffsetDateTime;
@@ -44,7 +44,7 @@ pub struct Location {
     pub tab: String,
 }
 
-/// 브리지가 dongminal 에 닿는 자리. 서버가 채운다.
+/// 브리지가 otterminal 에 닿는 자리. 서버가 채운다.
 pub trait Host: Send + Sync {
     /// PC 브라우저에서 그 탭에 마지막으로 입력한 시각 (FR-TGB-57). 없으면 None.
     fn last_browser_input(&self, tool_id: &str) -> Option<OffsetDateTime>;
@@ -552,7 +552,7 @@ impl Bridge {
         let ids = self.lock().buttons.remove(tool_id).unwrap_or_default();
         let failed: Vec<AtomicBool> = ids.iter().map(|_| AtomicBool::new(false)).collect();
         let none = CancellationToken::new();
-        dm_shared_fanout::each(&none, CLEAR_BUTTONS_PARALLEL, ids.len(), |i| {
+        otter_shared_fanout::each(&none, CLEAR_BUTTONS_PARALLEL, ids.len(), |i| {
             let (id, failed) = (ids[i], &failed[i]);
             async move {
                 if self.drop_button(c, c.user_id, id).await.is_err() {

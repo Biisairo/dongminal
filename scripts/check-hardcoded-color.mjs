@@ -81,7 +81,6 @@ const ROOT_EXEMPT = {
   '--boot-brand': '브랜드 — 파비콘 타일과 **같은 값**이어야 부팅 화면과 탭 아이콘이 한 물건으로 보인다',
   '--boot-brand-dk': '브랜드 — 타일 그라데이션의 어두운 쪽',
   '--boot-brand-lit': '브랜드 — 진행 바 하이라이트',
-  '--boot-brand-ink': '브랜드 — 로고 획',
 };
 
 if (process.argv.includes('-h') || process.argv.includes('--help')) {

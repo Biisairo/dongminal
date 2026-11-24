@@ -16,7 +16,7 @@ import { TMP, tmpPath, realPath, cssPath } from './osenv';
 // 폭 시험(V-WBR-85 / NFR-WBR-11)은 여기 없다 — 규칙이 사는 `repo-tab` 묶음 N 의
 // N4 다.
 
-const FIXTURES = tmpPath('dm-git-fx-folderstage-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-folderstage-' + process.pid);
 let BASE = '';
 let TREE = '';
 
@@ -86,7 +86,7 @@ function mkConflictTree(tag: string) {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-gfs-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-gfs-')));
   TREE = mkTree('tree');
   gitFixture(FIXTURES);
 });

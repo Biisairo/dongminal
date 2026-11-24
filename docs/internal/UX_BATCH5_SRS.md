@@ -150,8 +150,8 @@ if(!list.length){
 실측 (서버 :58146, 2026-09-05):
 
 ```
-$ curl '/api/git/status?repo=/private/tmp/dm-baseline'      # 워크트리
-  → "repo":"/private/tmp/dm-baseline", "rootMatch":true, "detached":true
+$ curl '/api/git/status?repo=/private/tmp/otter-baseline'      # 워크트리
+  → "repo":"/private/tmp/otter-baseline", "rootMatch":true, "detached":true
 
 $ curl '/api/git/status?repo=<outer>/vendor/inner'          # 서브모듈
   → "repo":".../vendor/inner", "rootMatch":true, "branch":"main"
@@ -197,7 +197,7 @@ V151 이 `edRootOf(aw())` 로 단정하며 통과 중이다.
 ### 2.6 워크트리 `owner` 는 설계대로다 (결함 아님)
 
 실측에서 main worktree 를 포함한 두 항목이 모두 `"owner":"outside"` 로 왔다.
-`gitWorktreeOwner` 는 `$DONGMINAL_HOME/git-worktrees` 밖을 `outside` 로 세며
+`gitWorktreeOwner` 는 `$OTTERMINAL_HOME/git-worktrees` 밖을 `outside` 로 세며
 (`handlers_git_worktree.go:39`), 그 결과 제거 버튼이 붙지 않는 것은 FR-GIT-241 이
 요구한 바다. **본 SRS 는 이것을 바꾸지 않는다.**
 
@@ -309,7 +309,7 @@ FR-SRT-1 을 부른다. 상태별 결과:
   자기 것이 아닌 두 줄은 고를 것이 아니라 잡음이다
 - 그 명령의 **복사 버튼**
 - 공식 안내 주소 (텍스트로. 이 창은 바깥 링크를 열지 않는다)
-- **설치 뒤에는 dongminal 을 다시 시작해야 한다**는 문장 — `Wire()` 가 기동 때 한 번
+- **설치 뒤에는 otterminal 을 다시 시작해야 한다**는 문장 — `Wire()` 가 기동 때 한 번
   도는 것이 근거다 (§2.3). 이 문장이 없으면 사용자는 설치하고도 같은 모달을 본다
 
 | OS | 설치 명령 |
@@ -514,7 +514,7 @@ const GIT_DIR_ACTS=Object.fromEntries(
 만든다. 자리지킴은 D-1 의 파생과 같은 자리에서 계산된다.
 
 **D-3 (묶음 B)** 런타임 판정을 **서버에 둔다.** 화면이 `navigator.platform` 으로
-OS 를 재는 길도 있으나, 그것은 브라우저의 OS 이지 **dongminal 이 도는 호스트의
+OS 를 재는 길도 있으나, 그것은 브라우저의 OS 이지 **otterminal 이 도는 호스트의
 OS 가 아니다** — 원격에서 접속하면 둘이 다르다. docker 가 도는 곳은 서버 쪽이다.
 
 **D-4 (묶음 B)** `state` 를 셋으로 둔다. 넷째(`ok` 이지만 프로파일이 없음)를 만들지

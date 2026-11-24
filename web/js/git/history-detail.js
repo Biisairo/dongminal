@@ -1,5 +1,5 @@
 /**
- * Dongminal — History 의 **인라인 커밋 상세** (FE_MODULE_BOUNDARY_SRS FR-FMB-32).
+ * Otterminal — History 의 **인라인 커밋 상세** (FE_MODULE_BOUNDARY_SRS FR-FMB-32).
  *
  * 행을 펼치면 그 자리에서 열리는 상세 (FR-GIT-135~139) — 부모 선택 · 파일 목록 ·
  * 그 파일의 diff 로 가는 길. 별창이 아니라 **행의 일부**라서 행 높이 계산이

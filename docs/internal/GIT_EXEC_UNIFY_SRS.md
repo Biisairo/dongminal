@@ -221,7 +221,7 @@ cmd := exec.CommandContext(ctx, bin, args...)
 
 - **FR-GXU-10** 배선은 하나의 `*core.Service` 를 셋에 나눠 준다. 기록이 한 링에
   모여야 Console 이 전부를 본다.
-  - `cmd/dongminal/main.go` 에서 `core.New()` 를 `worktree.New` **앞으로** 옮긴다
+  - `cmd/otterminal/main.go` 에서 `core.New()` 를 `worktree.New` **앞으로** 옮긴다
     (지금은 341행, worktree 는 327·333행).
   - `submoduleManager(git *store.Store)` 는 이미 `Store` 를 받으므로
     `git.Service()` 로 닿는다. **배선 변경이 한 줄이다.**

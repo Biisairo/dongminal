@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# dongminal 빌드. 이 저장소의 유일한 빌드 스크립트다 — 나머지 운영 동작
+# otterminal 빌드. 이 저장소의 유일한 빌드 스크립트다 — 나머지 운영 동작
 # (start/stop/migrate/health)은 바이너리의 액션이다. 사용법은 `-h` 참조.
 set -e
 cd "$(dirname "$0")/.."
 ROOT="$(pwd -P)"
 
-BINARY="${BINARY:-dongminal}"
+BINARY="${BINARY:-otterminal}"
 DIST="${DIST:-dist}"
 
 # VERSION 은 바이너리에 새길 판이다. 비면 새기지 않고, 그때 값은 기본값 `dev` 다 —
@@ -20,7 +20,7 @@ TARGETS=(darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64)
 
 usage() {
   cat <<EOF
-dongminal 빌드
+otterminal 빌드
 
 사용법:
   scripts/build.sh                          호스트용 하나 → ./$BINARY
@@ -42,7 +42,7 @@ $(printf '  %s\n' "${TARGETS[@]}")
 예:
   scripts/build.sh --os windows              # 맥에서 윈도우용 빌드
   scripts/build.sh --os linux --arch arm64
-  BINARY=dm scripts/build.sh                 # 출력 이름 바꾸기
+  BINARY=otter scripts/build.sh                 # 출력 이름 바꾸기
   DIST=out scripts/build.sh --all            # 출력 위치 바꾸기
   VERSION=v1.0.0 scripts/build.sh --all      # 판을 새겨서 빌드 (릴리스가 쓰는 형태)
 
@@ -78,7 +78,7 @@ triple_for() {
 }
 
 # host_target 은 호스트의 "<os>/<arch> <triple>" 이다. 호스트 빌드는 rustc 의 호스트
-# 대상을 그대로 쓴다 — 개발 기계에 musl 대상이 없어도 ./dongminal 이 나와야 한다.
+# 대상을 그대로 쓴다 — 개발 기계에 musl 대상이 없어도 ./otterminal 이 나와야 한다.
 host_target() {
   local triple os arch
   triple="$(cd rust && rustc -vV | sed -n 's/^host: //p')"
@@ -104,7 +104,7 @@ host_target() {
 
 # ── 데몬 지문 ─────────────────────────────────────────
 #
-# 같은 바이너리가 두 프로세스로 돈다 — 웹서버와 `dongminald`. `start` 는 앞의
+# 같은 바이너리가 두 프로세스로 돈다 — 웹서버와 `otterminald`. `start` 는 앞의
 # 것을 죽이고 새 바이너리로 뜨고, 데몬은 세션을 유지하며 교체한다
 # (DAEMON_SESSION_KEEP_SRS). `--server-only` 나 교체를 모르는 옛 데몬이면 데몬은
 # **옛 바이너리 그대로** 돈다. 그래서 빌드마다 물음이 하나 선다: 이번 것은 데몬을
@@ -129,16 +129,16 @@ build_one() {
   if [[ "$triple" == *-linux-musl && -z "${!ccvar:-}" ]] && command -v musl-gcc >/dev/null; then
     env+=("$ccvar=musl-gcc")
   fi
-  [[ -n "$VERSION" ]] && env+=(DONGMINAL_BUILD_VERSION="$VERSION")
-  [[ -n "$fp" ]] && env+=(DONGMINAL_BUILD_DAEMON="$fp")
+  [[ -n "$VERSION" ]] && env+=(OTTERMINAL_BUILD_VERSION="$VERSION")
+  [[ -n "$fp" ]] && env+=(OTTERMINAL_BUILD_DAEMON="$fp")
   # 바깥 환경의 각인 변수는 쓰지 않는다 — 새기는 값은 VERSION 과 지문뿐이다 (FR-GRM-4).
-  (cd rust && env -u DONGMINAL_BUILD_VERSION -u DONGMINAL_BUILD_DAEMON "${env[@]}" \
-    cargo build --quiet --release --locked -p dongminal --target "$triple")
+  (cd rust && env -u OTTERMINAL_BUILD_VERSION -u OTTERMINAL_BUILD_DAEMON "${env[@]}" \
+    cargo build --quiet --release --locked -p otterminal --target "$triple")
   local tdir="${CARGO_TARGET_DIR:-target}"
   [[ "$tdir" == /* ]] || tdir="rust/$tdir"
   local ext=""
   [[ "$os" == "windows" ]] && ext=".exe"
-  cp "$tdir/$triple/release/dongminal$ext" "$out"
+  cp "$tdir/$triple/release/otterminal$ext" "$out"
   echo "  ✓ $out"
 }
 
@@ -148,8 +148,8 @@ distPath() {
   local os="$1" arch="$2"
   # 선언을 나누는 이유: bash 의 local 은 빌트인이라 **모든 우변이 실행 전에
   # 한꺼번에 전개**된다. 한 줄에 쓰면 out 이 아직 비어 있는 os·arch 로 만들어져
-  # dongminal--.exe 가 나온다.
-  local out="$DIST/dongminal-$os-$arch"
+  # otterminal--.exe 가 나온다.
+  local out="$DIST/otterminal-$os-$arch"
   [[ "$os" == "windows" ]] && out="$out.exe"
   echo "$out"
 }

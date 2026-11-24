@@ -7,17 +7,17 @@
 
 use std::sync::Arc;
 
-use dm_shared_httpresp::Response;
-use dm_webserver_action as action;
-use dm_webserver_apierr::{self as apierr, Classify, Sentinel};
-use dm_webserver_domain_git_core::{self as core, Ctx, Kind, WriteSpec};
-use dm_webserver_domain_git_query::{self as query, Ref, Status};
-use dm_webserver_domain_git_store::Store;
-use dm_webserver_domain_git_write::{
+use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_action as action;
+use otter_webserver_apierr::{self as apierr, Classify, Sentinel};
+use otter_webserver_domain_git_core::{self as core, Ctx, Kind, WriteSpec};
+use otter_webserver_domain_git_query::{self as query, Ref, Status};
+use otter_webserver_domain_git_store::Store;
+use otter_webserver_domain_git_write::{
     self as write, BranchCreateOpts, BranchDeleteOpts, BranchDeletePlan, BranchPushOpts,
     BranchRenameOpts, CheckoutOpts, MergeOpts, RebaseOpts, RemoteBranchOpts, UpstreamOpts,
 };
-use http::StatusCode;
 use serde::Deserialize;
 
 use crate::GitServer;

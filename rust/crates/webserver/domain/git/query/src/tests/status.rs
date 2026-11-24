@@ -1,7 +1,7 @@
 use super::support::*;
 use crate::status::drop_partial_record;
 use crate::*;
-use dm_webserver_domain_git_core::Kind;
+use otter_webserver_domain_git_core::Kind;
 
 fn nul(recs: &[&str]) -> String {
     recs.join("\0") + "\0"
@@ -234,7 +234,7 @@ async fn truncated_between_rename_and_orig_path() {
         format!("2 R. N... 100644 100644 100644 {a} {b} R100 new.txt"),
     ];
     let body = recs.join("\0") + "\0old.t";
-    let o = dm_webserver_domain_git_core::Output {
+    let o = otter_webserver_domain_git_core::Output {
         stdout_truncated: true,
         ..out(&body, "", 0)
     };
@@ -298,4 +298,4 @@ async fn status_real_git() {
     assert!(tr.untracked.is_empty());
 }
 
-use dm_webserver_domain_git_core::Service;
+use otter_webserver_domain_git_core::Service;

@@ -2,9 +2,9 @@
 #
 # 데몬 코드의 지문 (DAEMON_STALENESS_SRS FR-DFP-2).
 #
-# `dongminald` 프로세스가 실행하는 저장소 코드의 내용 해시다. `scripts/build.sh`
-# 가 이 값을 바이너리에 새기고(`DONGMINAL_BUILD_DAEMON`), 데몬이 기동하며 홈에
-# 남기고, `dongminal health --daemon` 이 둘을 견준다.
+# `otterminald` 프로세스가 실행하는 저장소 코드의 내용 해시다. `scripts/build.sh`
+# 가 이 값을 바이너리에 새기고(`OTTERMINAL_BUILD_DAEMON`), 데몬이 기동하며 홈에
+# 남기고, `otterminal health --daemon` 이 둘을 견준다.
 #
 # **왜 별도 스크립트인가**: 계산의 정의역이 한 자리에 있어야 검사할 수 있다.
 # `scripts/test/daemon-fingerprint.test.mjs` 가 여기를 부른다 — 정의역이 웹서버로
@@ -16,9 +16,9 @@ set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../rust" || exit 1
 
 # 데몬 프로세스의 진입점. 여기서 닿는 워크스페이스 crate 가 곧 데몬이 실행하는 것의
-# 전부다 — `dongminal`(cmd) 은 넣지 않는다 (D-2: main 은 웹서버 코드 전부를
+# 전부다 — `otterminal`(cmd) 은 넣지 않는다 (D-2: main 은 웹서버 코드 전부를
 # 의존하므로 넣으면 거의 모든 빌드가 불일치가 된다).
-ROOT_PKG=dm-daemon-boot
+ROOT_PKG=otter-daemon-boot
 
 OS=""
 ARCH=""
@@ -41,7 +41,7 @@ usage() {
 
 정의역:
   · crate — `cargo metadata --filter-platform <대상>` 의 의존 그래프에서
-            dm-daemon-boot 가 normal·build 의존으로 닿는 워크스페이스 crate
+            otter-daemon-boot 가 normal·build 의존으로 닿는 워크스페이스 crate
   · 파일   — 그 crate 디렉터리 아래의 파일 전부(src·assets·build.rs·Cargo.toml)
   · 대상   — 대상마다 따로 센다 (platform 이 OS 마다 다른 코드를 갖는다).
             crate 디렉터리는 모든 OS 의 파일을 담으므로 대상 이름도 해시에 넣는다

@@ -27,8 +27,8 @@ tag="$(echo "${PLATFORM[1]:-native}" | tr '/' '-')"
 # shellcheck disable=SC2016
 exec "$ENGINE" run --rm --init ${PLATFORM[@]+"${PLATFORM[@]}"} \
   -v "$PWD":/src:ro \
-  -v "dm-rust-target-$tag":/target \
-  -v "dm-rust-cargo-$tag":/usr/local/cargo/registry \
+  -v "otter-rust-target-$tag":/target \
+  -v "otter-rust-cargo-$tag":/usr/local/cargo/registry \
   -e CARGO_TARGET_DIR=/target -e CARGO_INCREMENTAL=0 -e CARGO_BUILD_JOBS=1 \
   -e CARGO_PROFILE_DEV_DEBUG=0 -e CARGO_PROFILE_TEST_DEBUG=0 -e TZ=Asia/Seoul \
   -w /src/rust "$IMAGE" bash -c '

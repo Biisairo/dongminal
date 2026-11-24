@@ -3,11 +3,11 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_gocompat::json::{self, ErrorKind, RawMessage};
-use dm_shared_agentrec as agentrec;
-use dm_shared_chatwire as chatwire;
-use dm_shared_toolhub::{AgentState, ManagerError, Placement};
-use dm_shared_toolipc::{self as ipc, PanedErrObj, PanedError, PanedRequest, PanedResponse};
+use otter_gocompat::json::{self, ErrorKind, RawMessage};
+use otter_shared_agentrec as agentrec;
+use otter_shared_chatwire as chatwire;
+use otter_shared_toolhub::{AgentState, ManagerError, Placement};
+use otter_shared_toolipc::{self as ipc, PanedErrObj, PanedError, PanedRequest, PanedResponse};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -424,7 +424,7 @@ pub(crate) fn report(c: &Arc<Conn>, req: &PanedRequest) -> Line {
         return err_msg(
             req.id,
             ipc::CODE_INVALID_PARAMS,
-            dm_shared_handover::OLD_DAEMON_UNKNOWN_METHOD,
+            otter_shared_handover::OLD_DAEMON_UNKNOWN_METHOD,
         );
     }
     let Some(srv) = c.srv.upgrade() else {
@@ -457,13 +457,13 @@ pub(crate) async fn edge_op(c: &Arc<Conn>, req: &PanedRequest) -> Line {
             req.id,
             &ipc::EdgeResult {
                 status: 503,
-                code: dm_shared_edge::CODE_UNAVAILABLE.to_owned(),
+                code: otter_shared_edge::CODE_UNAVAILABLE.to_owned(),
                 message: "edge layer unavailable".to_owned(),
                 ..ipc::EdgeResult::default()
             },
         );
     };
-    let r = dm_shared_edgenode::OpRequest {
+    let r = otter_shared_edgenode::OpRequest {
         op: p.op,
         args: p.args.0,
         if_match: p.if_match,

@@ -6,7 +6,7 @@ import { E2E_BIN, E2E_HOME, E2E_RUN_ENV } from '../playwright.config';
 import { stopDaemon, stopDaemonsUnder } from './daemon-cleanup';
 import { TMP, tmpPath } from './osenv';
 
-// 이전 실행이 남긴 `<임시>/dongminal-e2e-*` 를 정리한다 (`TMP` 는 osenv 가 정한다).
+// 이전 실행이 남긴 `<임시>/otterminal-e2e-*` 를 정리한다 (`TMP` 는 osenv 가 정한다).
 //
 // 이번 실행의 뿌리(E2E_HOME)는 건너뛴다 — 이름 접두사만 보고 지우면 우리 것까지
 // 지운다. (종전에는 `webServer` 가 globalSetup 보다 먼저 떠서 이 실수가 곧바로
@@ -21,7 +21,7 @@ function reapOldRuns() {
     return; // 임시 디렉터리 읽기 불가 — 정리 생략
   }
   for (const entry of entries) {
-    if (!entry.startsWith('dongminal-e2e-')) continue;
+    if (!entry.startsWith('otterminal-e2e-')) continue;
     if (entry === current) continue; // 이번 실행의 뿌리 — 보존
     if (keepPeers()) continue;       // 병렬 샤드의 이웃 — 남의 자리다
     const fullPath = tmpPath(entry);
@@ -46,16 +46,16 @@ function reapOldRuns() {
 /**
  * **병렬 샤드에서는 남의 자리를 치우지 않는다** (FR-EPL-14, 2026-09-11).
  *
- * 이 청소는 `dongminal-e2e-*` 를 통째로 훑는다. 혼자 돌 때는 "지난 실행의 찌꺼기"
+ * 이 청소는 `otterminal-e2e-*` 를 통째로 훑는다. 혼자 돌 때는 "지난 실행의 찌꺼기"
  * 라는 뜻이 맞지만, **로컬에서 샤드를 병렬로 돌리면 그 이웃이 지금 돌고 있는
  * 다른 샤드다** — 먼저 끝난 샤드가 아직 도는 샤드의 홈과 서버 바이너리를 지운다
- * (실측: `spawn … dongminal-e2e ENOENT` 950건).
+ * (실측: `spawn … otterminal-e2e ENOENT` 950건).
  *
- * `DM_E2E_KEEP_PEERS` 가 서 있으면 **자기 뿌리만** 다룬다. `make e2e` 가 그것을
+ * `OTTER_E2E_KEEP_PEERS` 가 서 있으면 **자기 뿌리만** 다룬다. `make e2e` 가 그것을
  * 세운다.
  */
 function keepPeers(): boolean {
-  return !!process.env.DM_E2E_KEEP_PEERS;
+  return !!process.env.OTTER_E2E_KEEP_PEERS;
 }
 
 /**
@@ -67,7 +67,7 @@ function keepPeers(): boolean {
 function buildServer() {
   mkdirSync(E2E_HOME, { recursive: true });
   // RUST_PORT_SRS FR-RSP-31: 미리 만든 바이너리(Rust 판)가 있으면 빌드하지 않고 그것을 쓴다.
-  const prebuilt = process.env.DM_E2E_PREBUILT_BIN;
+  const prebuilt = process.env.OTTER_E2E_PREBUILT_BIN;
   if (prebuilt) {
     copyFileSync(prebuilt, E2E_BIN);
     chmodSync(E2E_BIN, 0o755);
@@ -76,8 +76,8 @@ function buildServer() {
   // GO_REMOVAL_SRS FR-GRM-8: 샤드가 동시에 불러도 cargo 의 빌드 잠금이 직렬화하고, 뒤의 샤드는
   // 이미 최신인 산출물을 그대로 쓴다. 바깥의 각인 변수는 새기지 않는다(Go 판 `go build` 처럼 dev).
   const env = { ...process.env };
-  delete env.DONGMINAL_BUILD_VERSION;
-  delete env.DONGMINAL_BUILD_DAEMON;
+  delete env.OTTERMINAL_BUILD_VERSION;
+  delete env.OTTERMINAL_BUILD_DAEMON;
   // scripts/build.sh 의 호스트 빌드와 같은 대상·RUSTFLAGS·target 디렉터리를 쓴다 — 하나라도
   // 다르면 release 빌드가 두 벌 생긴다. bash 가 없으면 플래그 없이 빌드한다.
   const triple = /^host: (.+)$/m.exec(execFileSync('rustc', ['-vV'], { encoding: 'utf8' }))?.[1] ?? '';
@@ -87,13 +87,13 @@ function buildServer() {
     { encoding: 'utf8', env },
   );
   if (flags.status === 0) env.RUSTFLAGS = flags.stdout.trim();
-  execFileSync('cargo', ['build', '--quiet', '--release', '--locked', '-p', 'dongminal', '--target', triple], {
+  execFileSync('cargo', ['build', '--quiet', '--release', '--locked', '-p', 'otterminal', '--target', triple], {
     cwd: 'rust',
     stdio: ['ignore', 'ignore', 'inherit'],
     env,
   });
   const targetDir = env.CARGO_TARGET_DIR || 'target';
-  const exe = process.platform === 'win32' ? 'dongminal.exe' : 'dongminal';
+  const exe = process.platform === 'win32' ? 'otterminal.exe' : 'otterminal';
   copyFileSync(join(isAbsolute(targetDir) ? targetDir : join('rust', targetDir), triple, 'release', exe), E2E_BIN);
   chmodSync(E2E_BIN, 0o755);
 }

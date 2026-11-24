@@ -1,6 +1,6 @@
 //! 원격 목록 (FR-GIT-269). URL 의 자격증명은 저장 전에 지운다 (FR-GIT-104).
 
-use dm_webserver_domain_git_core::{Ctx, Service, sanitize_remote};
+use otter_webserver_domain_git_core::{Ctx, Service, sanitize_remote};
 use serde::Serialize;
 
 use crate::error::{Error, QueryKind};

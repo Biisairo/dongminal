@@ -1,19 +1,19 @@
 //! Go 노드와 TLS 로 서로 잇는가 (RUST_PORT_SRS FR-RSP-23). 진짜 Go 바이너리를 격리 홈에서 띄운다.
 //!
-//! `DM_PARITY_GO_BIN` 이 없으면 건너뛴다. 격리 실행으로 돌린다:
-//! `rust/scripts/hermetic.sh env DM_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh rust/target/go-ref/dongminal ./cmd/dongminal`
-//! `rust/scripts/hermetic.sh env DM_PARITY_GO_BIN=$PWD/rust/target/go-ref/dongminal cargo test -p dm-shared-edge --test go_interop`
+//! `OTTER_PARITY_GO_BIN` 이 없으면 건너뛴다. 격리 실행으로 돌린다:
+//! `rust/scripts/hermetic.sh env OTTER_GO_REF_SRC=<main 의 worktree> rust/scripts/go-ref.sh rust/target/go-ref/otterminal ./cmd/otterminal`
+//! `rust/scripts/hermetic.sh env OTTER_PARITY_GO_BIN=$PWD/rust/target/go-ref/otterminal cargo test -p otter-shared-edge --test go_interop`
 
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use dm_shared_edge::{
+use http::StatusCode;
+use otter_shared_edge::{
     CallError, Client, Config, Edge, Handler, Listener, Target, accept_upgrade, edges_only,
     load_or_create_identity,
 };
-use http::StatusCode;
 use tokio::io::AsyncReadExt;
 
 const PORT_MIN: u16 = 60147;
@@ -75,7 +75,7 @@ impl Drop for GoNode {
 fn start_go(bin: &Path, home: &Path, ui_port: u16) -> GoNode {
     let log = std::fs::File::create(home.join("go-start.log")).unwrap();
     let mut cmd = Command::new(bin);
-    for (k, _) in std::env::vars().filter(|(k, _)| k.starts_with("DONGMINAL_")) {
+    for (k, _) in std::env::vars().filter(|(k, _)| k.starts_with("OTTERMINAL_")) {
         cmd.env_remove(k);
     }
     let child = cmd
@@ -88,7 +88,7 @@ fn start_go(bin: &Path, home: &Path, ui_port: u16) -> GoNode {
             &home.to_string_lossy(),
         ])
         .env("HOME", home)
-        .env("DONGMINAL_HOME", home)
+        .env("OTTERMINAL_HOME", home)
         .stdin(Stdio::null())
         .stdout(log.try_clone().unwrap())
         .stderr(log)
@@ -125,13 +125,13 @@ struct Seen {
 
 #[tokio::test]
 async fn rust_and_go_nodes_connect_over_tls() {
-    let Some(bin) = std::env::var_os("DM_PARITY_GO_BIN").map(PathBuf::from) else {
-        eprintln!("DM_PARITY_GO_BIN 이 없어 건너뛴다");
+    let Some(bin) = std::env::var_os("OTTER_PARITY_GO_BIN").map(PathBuf::from) else {
+        eprintln!("OTTER_PARITY_GO_BIN 이 없어 건너뛴다");
         return;
     };
     // 소켓 경로 길이 상한 때문에 짧은 뿌리를 쓴다.
     let root = tempfile::Builder::new()
-        .prefix("dme")
+        .prefix("ottere")
         .tempdir_in("/tmp")
         .unwrap();
     let go_home = root.path().join("g");
@@ -164,7 +164,7 @@ async fn rust_and_go_nodes_connect_over_tls() {
     };
     std::fs::write(
         go_home.join("edges.json"),
-        dm_gocompat::json::marshal_indent(&edges, "", "  ").unwrap(),
+        otter_gocompat::json::marshal_indent(&edges, "", "  ").unwrap(),
     )
     .unwrap();
 
@@ -174,7 +174,7 @@ async fn rust_and_go_nodes_connect_over_tls() {
     let h: Handler = Arc::new(move |mut req| {
         let s = s.clone();
         Box::pin(async move {
-            let fp = dm_shared_edge::client_fingerprint(&req).to_string();
+            let fp = otter_shared_edge::client_fingerprint(&req).to_string();
             let path = req.uri().path().to_string();
             let (resp, pending) = accept_upgrade(&mut req, LINK_PROTO);
             s.lock().unwrap().push(Seen {

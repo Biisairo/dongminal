@@ -18,7 +18,7 @@
 
 ### 1.2 범위
 
-- 웹 서버(`cmd/dongminal`, `internal/webserver/**`)의 직접 모드 배선과 분기.
+- 웹 서버(`cmd/otterminal`, `internal/webserver/**`)의 직접 모드 배선과 분기.
 - 직접 모드를 표시하던 허브 표면(`toolhub.ToolHub.Daemon()`).
 - 직접 모드 전제의 오류 코드·문구·문서.
 - 서버 Go 시험의 배선 이전.
@@ -29,7 +29,7 @@
 
 | 용어 | 뜻 |
 |---|---|
-| 데몬 | `dongminald`. 도구(PTY)를 소유한다 |
+| 데몬 | `otterminald`. 도구(PTY)를 소유한다 |
 | 직접 모드 | 데몬 없이 웹 서버가 `ToolManager` 를 직접 들고 도구를 띄우던 배선. 이 문서로 없어진다 |
 | 허브 | 웹 서버가 도구에 닿는 표면 `toolhub.ToolHub`. 구현은 `toolclient.ToolClient`(데몬 IPC) 하나다 |
 
@@ -83,7 +83,7 @@
 
 | ID | 요구 | 방법 |
 |---|---|---|
-| TC-DMR-1 | FR-DMR-2 | Go `cmd/dongminal/daemon_required_test.go`: 띄우기 실패·준비 안 됨 둘 다 `dialOrStartDaemonWith` 가 `errDaemonUnavailable` 을 낸다. `buildApp` 이 그 오류를 그대로 돌려주고 `serve` 가 리스너를 열기 전에 1 로 끝나는 것은 시험하지 않는다 — 코드 검토로 확인한다(`app.go` 의 `serve` 는 `buildApp` 의 어떤 오류에서든 리스너 전에 1 을 돌려준다) |
+| TC-DMR-1 | FR-DMR-2 | Go `cmd/otterminal/daemon_required_test.go`: 띄우기 실패·준비 안 됨 둘 다 `dialOrStartDaemonWith` 가 `errDaemonUnavailable` 을 낸다. `buildApp` 이 그 오류를 그대로 돌려주고 `serve` 가 리스너를 열기 전에 1 로 끝나는 것은 시험하지 않는다 — 코드 검토로 확인한다(`app.go` 의 `serve` 는 `buildApp` 의 어떤 오류에서든 리스너 전에 1 을 돌려준다) |
 | TC-DMR-2 | FR-DMR-10·11 | 컴파일: `var _ toolhub.ToolHub = (*toolclient.ToolClient)(nil)` 이 서고, `*toolhub.ToolManager` 는 `ToolHub` 가 아니다. 서버 프로덕션 코드의 `*toolhub.ToolManager` 참조는 0 이다 |
 | TC-DMR-3 | FR-DMR-21 | Go `edge_node_test.go`: `EdgeDaemon` 없는 서버의 `GET /api/edges` 가 503 `edge_unavailable` |
 | TC-DMR-4 | FR-DMR-22 | Go `chat_api_test.go`: `ChatDaemon` 없는 서버의 `/api/chat` 이 409 `chat_daemon_restart` |
@@ -106,7 +106,7 @@
     동치, 직접 모드 Run 펜싱, 백그라운드 죽음 훅.
 - 2026-11-18 시험 이전의 독립 리뷰(앞 판단에 묶이지 않은 리뷰어에게 diff 와 코드만 주었다). 지운 시험 26개 가운데 21개는
   코드와 함께 지워졌거나 다른 시험이 지킨다. 보호가 빠진 8건을 메웠다. 메운 시험마다 지키는 코드를 지워 보아 실패를 확인했다.
-  - 도구 종료 push → 주의 버림·`tools_background_changed` 방송: `cmd/dongminal` `TestDaemonPushes_ExitForgetsAndBroadcastsBackground`
+  - 도구 종료 push → 주의 버림·`tools_background_changed` 방송: `cmd/otterminal` `TestDaemonPushes_ExitForgetsAndBroadcastsBackground`
     (`wireDaemonPushes` 를 실제 데몬·클라이언트 위에서 부른다).
   - 텔레그램 알람 관찰자 배선: `TestTelegramWire_AttentionObserver` 를 추적기 위로 되살렸다.
   - `/api/health` 의 `daemon.connected`·`mismatch`: `TestHealthShape` 단언 + `TestHealthMismatch` 표 시험.
@@ -126,7 +126,7 @@
   주석을 고쳤다(남은 것은 제거 기록 둘).
 - 2026-11-18 TC-DMR-1 의 서술을 실제 시험 범위에 맞췄다. 시험은 연결 함수의 반환만 보고, `serve` 의 종료 코드는 코드 검토로 확인한다.
 - 바꾼 로그 문구: 조립 실패의 기본 갈래 `buildDeps: …` → `buildApp: …` (`buildDeps` 는 지워졌다).
-- 바꾼 사용자 문구: `dongminal health` 의 소켓 부재 안내 `(direct mode 이거나 미기동)` → `(미기동)` (CLI_CONSOLIDATION_SRS FR-ACT-10 개정).
+- 바꾼 사용자 문구: `otterminal health` 의 소켓 부재 안내 `(direct mode 이거나 미기동)` → `(미기동)` (CLI_CONSOLIDATION_SRS FR-ACT-10 개정).
 
 ## 7. 범위 밖으로 남긴 것
 

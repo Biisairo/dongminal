@@ -1,5 +1,5 @@
 /**
- * Dongminal — 서버가 포트를 옮길 때 열린 화면의 **이사** (HOT_REBIND_SRS FR-HRB-26).
+ * Otterminal — 서버가 포트를 옮길 때 열린 화면의 **이사** (HOT_REBIND_SRS FR-HRB-26).
  *
  * 화면 설정 일부는 `localStorage` 에 있고, 그것은 출처(포트 포함)마다 따로다. 그래서 옮기기
  * 전에 서버에 맡기고(`POST /api/server/carry`), 새 주소에서 받아 되넣는다.

@@ -2,12 +2,12 @@
 
 use std::sync::Arc;
 
-use dm_gocompat::neturl::Values;
-use dm_shared_httpresp::Response;
-use dm_webserver_domain_git_core::Ctx;
-use dm_webserver_domain_git_query::{self as query, Commit, CommitRef, LogQuery};
-use dm_webserver_domain_git_store::Store;
 use http::StatusCode;
+use otter_gocompat::neturl::Values;
+use otter_shared_httpresp::Response;
+use otter_webserver_domain_git_core::Ctx;
+use otter_webserver_domain_git_query::{self as query, Commit, CommitRef, LogQuery};
+use otter_webserver_domain_git_store::Store;
 use serde::Serialize;
 
 use crate::GitServer;
@@ -109,7 +109,7 @@ fn bool_param(q: &Values, name: &str) -> Result<bool, Response> {
     if raw.is_empty() {
         return Ok(false);
     }
-    dm_gocompat::strconv::parse_bool(&raw).map_err(|_| {
+    otter_gocompat::strconv::parse_bool(&raw).map_err(|_| {
         git_fail(
             StatusCode::BAD_REQUEST,
             ERR_BAD_REQUEST,

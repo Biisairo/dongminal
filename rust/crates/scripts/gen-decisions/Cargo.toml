@@ -1,5 +1,5 @@
 [package]
-name = "dm-scripts-gen-decisions"
+name = "otter-scripts-gen-decisions"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,5 +14,5 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../gocompat" }
-dm-ctl-decidx = { path = "../../ctl/decidx" }
+otter-gocompat = { path = "../../gocompat" }
+otter-ctl-decidx = { path = "../../ctl/decidx" }

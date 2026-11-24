@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
 
-use dm_shared_activity as activity;
+use otter_shared_activity as activity;
 use serde::{Deserialize, Serialize};
 
 /// 에이전트 훅이 말한 턴의 상태다 (ATTENTION_FIRING_SRS 묶음 N). 데몬의 Tool 과 서버의

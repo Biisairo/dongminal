@@ -79,7 +79,7 @@ mod tests {
     #[test]
     fn icon_assets_embedded() {
         for n in [
-            "assets/favicon.svg",
+            "assets/brand/otter-15.svg",
             "assets/favicon-16.png",
             "assets/favicon-32.png",
             "assets/apple-touch-icon.png",

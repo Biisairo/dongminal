@@ -1,8 +1,8 @@
 use base64::Engine;
 use base64::alphabet;
 use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig, STANDARD};
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_edge::Identity;
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_edge::Identity;
 use p256::ecdsa::signature::hazmat::{PrehashSigner, PrehashVerifier};
 use p256::ecdsa::{DerSignature, Signature, SigningKey, VerifyingKey};
 use p256::pkcs8::{DecodePrivateKey, DecodePublicKey};

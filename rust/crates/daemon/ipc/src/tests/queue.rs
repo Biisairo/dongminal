@@ -6,7 +6,7 @@ use std::sync::mpsc;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
-use dm_shared_toolhub::Placement;
+use otter_shared_toolhub::Placement;
 
 use super::fake::{Hold, fake_tools, get};
 use super::{curr, daemon, raw};

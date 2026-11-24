@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_chatwire as chatwire;
-use dm_shared_toolhub::AgentState;
-use dm_shared_toolipc::{EdgeRef, PanedErrObj};
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_chatwire as chatwire;
+use otter_shared_toolhub::AgentState;
+use otter_shared_toolipc::{EdgeRef, PanedErrObj};
 use serde::{Deserialize, Serialize};
 
 /// 데몬이 보내는 줄 하나의 모든 모양이다 — 응답(id·result·error)과 push(event 와 그 필드).

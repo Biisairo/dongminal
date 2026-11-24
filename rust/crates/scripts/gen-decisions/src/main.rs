@@ -8,13 +8,13 @@
 use std::path::Path;
 use std::process::ExitCode;
 
-use dm_gocompat::flag::FlagSet;
-use dm_gocompat::oserr::{go_error_string, path_error};
+use otter_gocompat::flag::FlagSet;
+use otter_gocompat::oserr::{go_error_string, path_error};
 
 const SRC_DIR: &str = "docs/internal";
 const OUT: &str = "docs/internal/decisions.md";
 /// 생성물이 어긋났을 때 안내하는 명령이다.
-const REGEN: &str = dm_ctl_decidx::GENERATE;
+const REGEN: &str = otter_ctl_decidx::GENERATE;
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
@@ -25,14 +25,14 @@ fn main() -> ExitCode {
         return ExitCode::from(u8::try_from(code).unwrap_or(2));
     }
 
-    let entries = match dm_ctl_decidx::collect(Path::new(SRC_DIR)) {
+    let entries = match otter_ctl_decidx::collect(Path::new(SRC_DIR)) {
         Ok(e) => e,
         Err(e) => {
             eprintln!("{}", go_error_string(&e));
             return ExitCode::FAILURE;
         }
     };
-    let body = dm_ctl_decidx::render(&entries);
+    let body = otter_ctl_decidx::render(&entries);
 
     if fs.get(check) {
         let Ok(cur) = std::fs::read(OUT) else {

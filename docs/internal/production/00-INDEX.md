@@ -48,7 +48,7 @@ ID 규칙: `축약어-번호`. 원본에 명시된 순번이 아니라 이 문�
 | SEC-9 | P1 | Host 헤더 미검증 — DNS rebinding으로 Origin 방어 우회 가능 | (요청 헤더 검사 전무, `ACCESS_ALLOWLIST_SRS.md §5-3`) | 04-Sec | S |
 | TEST-4 | P1 | CI 단위테스트가 `./web/...`를 건너뜀 | `.github/workflows/verify.yml:53`; `release.yml:51` | 05-Test | S |
 | DOC-5 | P1 | LICENSE 파일과 README 라이선스 절이 모두 없음 | README.md 전문 검색 0건; LICENSE 파일 부재 | 06-Docs | S |
-| SEC-3 | P1 | `--expose`/`DONGMINAL_HOST`는 무인증·평문·ACL 기본꺼짐으로 PTY를 LAN에 염 | `ctl/cli/start.go:36-42`; `access.go:80-104` | 04-Sec | S/M |
+| SEC-3 | P1 | `--expose`/`OTTERMINAL_HOST`는 무인증·평문·ACL 기본꺼짐으로 PTY를 LAN에 염 | `ctl/cli/start.go:36-42`; `access.go:80-104` | 04-Sec | S/M |
 | GO-4 | P1 | 프로세스 축 의존 규칙 위반 — 문서와 실제 import 그래프 불일치 | `shared/runtime→helper/runtimebin`; `daemon/boot→webserver/domain/run` | 01-Go | M |
 | GO-6 | P1 | 데몬모드 `Get/IsLive/Has`가 매번 전체 `list` RPC — O(N) 왕복 | `toolclient/client.go:549-559,572-574` | 01-Go | M |
 | GO-9 | P1 | 패키지 전역 가변상태 + 전역뮤텍스가 네트워크 I/O를 감쌈 | `handlers_fs.go:391`; `handlers_runs_context.go:80` | 01-Go | M |
@@ -66,7 +66,7 @@ ID 규칙: `축약어-번호`. 원본에 명시된 순번이 아니라 이 문�
 | TEST-6 | P1 | e2e가 프론트 내부(private) 상태에 결합 — 리팩터 비용이 테스트로 전가 | `app._xxx` 533회/81파일 | 05-Test | M |
 | TEST-7 | P1 | 스펙이 기능이 아니라 납품 묶음 단위로 갈라짐 | `ux-batch6/8/9.spec.ts`; `git-ui-revision.spec.ts`(1,246줄) | 05-Test | M |
 | TEST-8 | P1 | Go 프로세스·PTY 테스트가 고정 `time.Sleep` 위에 있음 | `time.Sleep` 94회/25파일 | 05-Test | M |
-| DOC-2 | P1 | `commands.md`가 `dmctl` 서브커맨드 절반 가까이 미문서화 | `internal/helper/runtimebin/dmctl.go:36-57` | 06-Docs | M |
+| DOC-2 | P1 | `commands.md`가 `otterctl` 서브커맨드 절반 가까이 미문서화 | `internal/helper/runtimebin/otterctl.go:36-57` | 06-Docs | M |
 | FE-3 | P1 | 전역 스크립트 93개 · 암묵적 로드순서 · ~1,600개 전역 바인딩 | `index.html:470-594` | 02-FE | M(검사기)/L(모듈전환) |
 | FE-4 | P1 | 계층 역전 — ui/·git/이 App의 `_private`를 직접 파고듦 | `ui/renderer.js`(54개 `_xxx` 참조) | 02-FE | L |
 | UX-4 | P1 | 목록·탭·카드가 전부 `div` — Tab 순회·스크린리더 불가 | `sidebar-list.js:97`; `renderer.js:894` | 03-UX | L |
@@ -83,7 +83,7 @@ ID 규칙: `축약어-번호`. 원본에 명시된 순번이 아니라 이 문�
 | GO-14 | `handlers_fs.go` 775줄 — fs조작과 `/api/editors/*` 혼재 | `httpapi/handlers_fs.go:1-663,665-775` | 01-Go |
 | GO-15 | `tool.go` 774줄 — PTY 수명과 주의상태기 혼재 | `shared/toolhub/tool.go:245-376,398-603` | 01-Go |
 | GO-18 | `worktree.go` 701줄 — git실행·정리규칙·파서 혼재 | `domain/worktree/worktree.go`; `:600` | 01-Go |
-| GO-19 | runtimebin/ctl 거대함수 3건 | `dmctl_run.go:521`; `dmctl_listworkspace.go:16`; `migrate/identity.go:44` | 01-Go |
+| GO-19 | runtimebin/ctl 거대함수 3건 | `otterctl_run.go:521`; `otterctl_listworkspace.go:16`; `migrate/identity.go:44` | 01-Go |
 | GO-20 | `ctl/cli/doctor.go` 685줄 — 진단항목 11개 순차함수 | `ctl/cli/doctor.go` | 01-Go |
 | GO-21 | `toolclient/client.go` `handlePush` 86줄 switch | `toolclient/client.go:263-349` | 01-Go |
 | GO-22 | `paned.go` 핸들러 12개가 디코드+에러코드 중복 | `daemon/ipc/paned.go:184-364` | 01-Go |
@@ -127,7 +127,7 @@ ID 규칙: `축약어-번호`. 원본에 명시된 순번이 아니라 이 문�
 | UX-22 | 단축키 발견 가능성 낮음 — 진입점이 설정 하나뿐 | `index.html:220` | 03-UX |
 | UX-23 | 드래그 가능 요소에 사전 어포던스가 없음 | (`cursor:grab` 검색 0) | 03-UX |
 | UX-24 | 탭 줄 오버플로가 보이지 않음 | `style.css:410-415` | 03-UX |
-| SEC-10 | `DONGMINAL_HOST`로 조용한 노출(환경변수만으로 0.0.0.0) | `ctl/cli/start.go:37-39` | 04-Sec |
+| SEC-10 | `OTTERMINAL_HOST`로 조용한 노출(환경변수만으로 0.0.0.0) | `ctl/cli/start.go:37-39` | 04-Sec |
 | SEC-11 | ACL fail-open — `access.json` 깨지면 꺼진 채로 기동 | `access.go:88-99` | 04-Sec |
 | SEC-12 | 정적 UI에 보안 헤더 없음(CSP·X-Frame-Options) | `static.go:51-68` | 04-Sec |
 | SEC-14 | submodule/worktree `execGit`이 화이트리스트 초크포인트를 안 지남 | `server.go:392-402`; `submodule.go:268-283`; `worktree.go:160-175` | 04-Sec |
@@ -173,7 +173,7 @@ ID 규칙: `축약어-번호`. 원본에 명시된 순번이 아니라 이 문�
 
 | ID | 제목 | 주요 근거 위치 | 축 |
 |---|---|---|---|
-| GO-16 | `main.go` `serve` 158줄 + `buildDeps` 3벌 — 조립/기동/종료 미분리 | `cmd/dongminal/main.go:209-396,442-600` | 01-Go |
+| GO-16 | `main.go` `serve` 158줄 + `buildDeps` 3벌 — 조립/기동/종료 미분리 | `cmd/otterminal/main.go:209-396,442-600` | 01-Go |
 | GO-17 | `handlers_runs.go` 710줄 — workspace 조작 책임 혼재 | `httpapi/handlers_runs.go:223,428,560-710` | 01-Go |
 | GO-39 | git 실행기 4벌 — `core.Env()` 미공유(자격증명 프롬프트 매달림 위험) | `worktree.execGit:159-174`; `submodule.go:275`; `job.go:515` | 01-Go |
 | GO-42 | 패키지 변수 테스트훅이 전역(`t.Parallel` 방해) | `toolhub/tool.go:128`; `foreground.go:42` | 01-Go |
@@ -197,7 +197,7 @@ ID 규칙: `축약어-번호`. 원본에 명시된 순번이 아니라 이 문�
 | TEST-16 | 하드코딩 대기 224회/40파일(≈197s) | `waitForTimeout` 전수 | 05-Test |
 | TEST-20 | 파일 내 순서 의존이 병렬화를 막음 | `playwright.config.ts:83-93` | 05-Test |
 | DOC-1 | SRS 113개 중 106개(94%)에 구현상태 판별 필드 없음 | `docs/internal/*_SRS.md` | 06-Docs |
-| DOC-6 | git 히스토리에 옛 9MB 바이너리 반복커밋(팩 79.67MiB 팽창) | `remote-terminal`(29커밋); `bin/dongminal`(2커밋) | 06-Docs |
+| DOC-6 | git 히스토리에 옛 9MB 바이너리 반복커밋(팩 79.67MiB 팽창) | `remote-terminal`(29커밋); `bin/otterminal`(2커밋) | 06-Docs |
 
 **L (2건)**
 
@@ -300,7 +300,7 @@ ID 규칙: `축약어-번호`. 원본에 명시된 순번이 아니라 이 문�
 - **e2e 결과 unexpected 0**(expected 1,418 / flaky 4 / skipped 3, 135스펙·1,425테스트) — 05 §0.2
 - **git 파괴적 쓰기 테스트 양호**(`TestBranchDelete_DestructiveInRecord` 등, `check-gitwrite.sh` 게이트) — 05 §5, 단 `Merge`·`Replay` 0%는 별도 결함(TEST-24)
 - **fixtures 층(`fixtures.ts`, `osenv.ts`, `git_fixture.sh`) 응집도 양호** — 05 "P1 스펙이 납품묶음 단위" 판단부
-- **리포지토리 워킹트리 위생 양호** — `dongminal`·`dist/`·`playwright-report/`·`test-results/`·`.playwright-mcp/`는 git 미추적, `.gitignore`가 전부 커버 — 04 §0, 06 §4에서 재확인(단 git *히스토리*의 별도 경로 문제는 §6 참조)
+- **리포지토리 워킹트리 위생 양호** — `otterminal`·`dist/`·`playwright-report/`·`test-results/`·`.playwright-mcp/`는 git 미추적, `.gitignore`가 전부 커버 — 04 §0, 06 §4에서 재확인(단 git *히스토리*의 별도 경로 문제는 §6 참조)
 - **CHANGELOG 규약 준수** — Keep a Changelog + SemVer 선언대로, 13개 버전 헤더 전부 날짜까지 태그와 정확히 일치 — 06 §7
 - **`shortcuts.md`·`commands.md`·`api.md` 문서화된 내용은 전부 코드에 실재**(역방향 불일치 0건) — 06 §2-1,2-2,2-3, 문제는 반대방향(코드에는 있으나 문서에 없는 누락, DOC-2·DOC-4)
 - **go.mod 의존성 매우 가벼움**(직접 2 + 간접 1), **archive 이동 관행 일관** — 06 §6, §1
@@ -311,16 +311,16 @@ ID 규칙: `축약어-번호`. 원본에 명시된 순번이 아니라 이 문�
 
 ### 6.1 git 히스토리 대용량 blob — 04 vs 06 (재검증 진행/완료)
 
-- **04(secops)**: `dongminal`(루트)·`dist/`·`playwright-report/`·`test-results/`·`.playwright-mcp/` 5개 경로는 git에 미추적이며 **과거 커밋 이력도 없다**고 명시(§0: `git log --all --diff-filter=A -- dongminal dist` 결과 비어있음).
-- **06(docs-hygiene)**: 처음에는 이를 "요청에서 가정한 문제는 재현되지 않음"으로 정정했으나, 이후 team-lead 요청으로 04와의 정합성을 재검증하여 **"충돌 아님 — 서로 다른 경로"**로 자체 결론지었다: 04가 확인한 5개 경로는 06도 이력 0건으로 재확인했고, 06이 실제로 지적하는 것은 그와 **다른 두 경로** `remote-terminal`(27개 blob, 최대 9.1MB, 29커밋)과 `bin/dongminal`(1개 blob, 9.09MB, 2커밋)이다(DOC-6).
-- **본 인덱스의 판정**: 06 리포트 스스로는 "충돌 아님"이라 결론 내렸지만, 팀장 지시에 따라 **두 리포트가 같은 주제(git 데이터 크기)에 대해 서로 다른 경로·수치를 보고했다는 사실 자체는 여기 미확정/교차검증 필요 항목으로 남긴다.** 특히 (1) 04는 "과거 커밋 이력 없음"을 5개 경로에 한정해 말했을 뿐 저장소 전체 히스토리를 훑지 않았고, (2) 06의 `remote-terminal`·`bin/dongminal` 발견이 04의 감사범위(§1 의도된 보안모델·코드 read) 밖이었다는 점에서, **04 리포트를 "git 히스토리에 대용량 파일 없음"으로 일반화해 인용하면 안 된다.**
+- **04(secops)**: `otterminal`(루트)·`dist/`·`playwright-report/`·`test-results/`·`.playwright-mcp/` 5개 경로는 git에 미추적이며 **과거 커밋 이력도 없다**고 명시(§0: `git log --all --diff-filter=A -- otterminal dist` 결과 비어있음).
+- **06(docs-hygiene)**: 처음에는 이를 "요청에서 가정한 문제는 재현되지 않음"으로 정정했으나, 이후 team-lead 요청으로 04와의 정합성을 재검증하여 **"충돌 아님 — 서로 다른 경로"**로 자체 결론지었다: 04가 확인한 5개 경로는 06도 이력 0건으로 재확인했고, 06이 실제로 지적하는 것은 그와 **다른 두 경로** `remote-terminal`(27개 blob, 최대 9.1MB, 29커밋)과 `bin/otterminal`(1개 blob, 9.09MB, 2커밋)이다(DOC-6).
+- **본 인덱스의 판정**: 06 리포트 스스로는 "충돌 아님"이라 결론 내렸지만, 팀장 지시에 따라 **두 리포트가 같은 주제(git 데이터 크기)에 대해 서로 다른 경로·수치를 보고했다는 사실 자체는 여기 미확정/교차검증 필요 항목으로 남긴다.** 특히 (1) 04는 "과거 커밋 이력 없음"을 5개 경로에 한정해 말했을 뿐 저장소 전체 히스토리를 훑지 않았고, (2) 06의 `remote-terminal`·`bin/otterminal` 발견이 04의 감사범위(§1 의도된 보안모델·코드 read) 밖이었다는 점에서, **04 리포트를 "git 히스토리에 대용량 파일 없음"으로 일반화해 인용하면 안 된다.**
 
 ### 6.2 04(secops) §6 미확인 8건 (그대로 이관)
 
 1. `submodule.Manager`가 `ExecGit`에 넘기는 인자 조립 전체 — 사용자 입력(경로·URL·브랜치)이 `-` 접두/옵션으로 해석될 여지가 있는지 (`domain/submodule/submodule.go` 앞부분 미열람)
 2. `ext.Installer`가 실행하는 `name/args`가 매니페스트(사용자 편집 가능 파일)에서 오는지, 아니면 동봉 선언(`builtin.go:35`)에서만 오는지
 3. `daemon.log`에 크기 상한이 적용되는지 — `WatchLogSize` 호출부(`main.go:553`)가 넘기는 경로가 서버 로그 하나로 보이나 `logcap.go` 나머지를 다 읽지 않음
-4. `dongminald` ↔ 서버의 버전 불일치 감지(hello 교환에 판이 실리는지) — `toolclient/client.go`·`daemon/ipc/paned.go`의 handshake 미열람
+4. `otterminald` ↔ 서버의 버전 불일치 감지(hello 교환에 판이 실리는지) — `toolclient/client.go`·`daemon/ipc/paned.go`의 handshake 미열람
 5. `web/vendor` 라이브러리들의 정확한 버전과 알려진 취약점 여부
 6. `workspace.SchemaVersion > 2` 파일을 만났을 때의 동작(`manager.go:541`은 `<`만 봄 — 상위판 처리 분기가 다른 곳에 있을 수 있음)
 7. 샌드박스 `mounts` 정의(`sandbox/config.go`)가 `/`·`~/.ssh` 같은 민감 호스트 경로 마운트를 거부하는지

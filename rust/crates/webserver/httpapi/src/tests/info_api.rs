@@ -7,10 +7,10 @@
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
-use dm_shared_toolhub::{DaemonInfo, ToolInfo};
-use dm_shared_updatecheck::Snapshot;
-use dm_shared_workspace::TabEntry;
-use dm_webserver_seam_toolaccess::{ClientToolResolver, Error as SeamError};
+use otter_shared_toolhub::{DaemonInfo, ToolInfo};
+use otter_shared_updatecheck::Snapshot;
+use otter_shared_workspace::TabEntry;
+use otter_webserver_seam_toolaccess::{ClientToolResolver, Error as SeamError};
 
 use super::fakes::{FakeHub, FakeUpdates, FakeWork};
 use super::support::*;
@@ -455,15 +455,15 @@ async fn snapshot_carries_update_part() {
 // TC-ITB-4 (FR-ITB-6): who-am-i 가 Run 멤버이면 member 를 싣는다. 멤버가 아니면 키가 없다.
 #[tokio::test]
 async fn whoami_carries_member() {
-    use dm_webserver_domain_run::{MemberSpec, StartOptions, Store as RunStore};
+    use otter_webserver_domain_run::{MemberSpec, StartOptions, Store as RunStore};
     let d = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(d.path().join("runs")).unwrap();
     let runs = Arc::new(RunStore::new(d.path().join("runs")));
     let rec = runs
         .start(StartOptions {
             objective: "o".to_owned(),
-            projection: dm_webserver_domain_run::BACKGROUND.to_owned(),
-            isolation: dm_webserver_domain_run::ISOLATION_NONE.to_owned(),
+            projection: otter_webserver_domain_run::BACKGROUND.to_owned(),
+            isolation: otter_webserver_domain_run::ISOLATION_NONE.to_owned(),
             tree: "o/r#32".to_owned(),
             ..StartOptions::default()
         })
@@ -475,7 +475,7 @@ async fn whoami_carries_member() {
                 role: "ccr#32›33".to_owned(),
                 agent: "claude".to_owned(),
                 tool_id: "tool-n".to_owned(),
-                assign: Some(dm_webserver_domain_run::Assignment {
+                assign: Some(otter_webserver_domain_run::Assignment {
                     issue: "33".to_owned(),
                     ..Default::default()
                 }),

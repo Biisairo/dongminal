@@ -71,11 +71,11 @@ fn parse_command_lines_cases() {
 
 #[test]
 fn exec_missing_binary_is_go_exec_error() {
-    let out = exec_run("dm-no-such-binary-7f3c", &[]);
+    let out = exec_run("otter-no-such-binary-7f3c", &[]);
     assert!(!out.ok);
     assert_eq!(
         out.err,
-        "exec: \"dm-no-such-binary-7f3c\": executable file not found in $PATH"
+        "exec: \"otter-no-such-binary-7f3c\": executable file not found in $PATH"
     );
 }
 

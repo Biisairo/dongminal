@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-runfile"
+name = "otter-shared-runfile"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,7 +10,7 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../gocompat" }
+otter-gocompat = { path = "../../gocompat" }
 serde = { workspace = true }
 
 [dev-dependencies]

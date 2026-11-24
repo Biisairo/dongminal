@@ -1,11 +1,11 @@
 //! 노드 포트 위의 HTTP Upgrade (PEER_CHAT_SRS FR-PCH-8). 채팅·간선 연결이 쓴다.
 
 use bytes::Bytes;
-use dm_gocompat::strconv::quote;
 use http::{HeaderMap, Method, Request, StatusCode, header};
 use http_body_util::Empty;
 use hyper::upgrade::OnUpgrade;
 use hyper_util::rt::TokioIo;
+use otter_gocompat::strconv::quote;
 
 use crate::client::{
     CallError, Client, REQUEST_TIMEOUT, Target, classify, host_port, read_limited, remote_failure,
@@ -97,14 +97,14 @@ impl PendingUpgrade {
 pub fn accept_upgrade<B>(
     req: &mut Request<B>,
     proto: &str,
-) -> (dm_shared_httpresp::Response, Option<PendingUpgrade>) {
+) -> (otter_shared_httpresp::Response, Option<PendingUpgrade>) {
     let value = header::HeaderValue::from_str(proto).ok();
     let Some(value) = value.filter(|_| {
         req.method() == Method::GET
             && header_has_token(req.headers(), header::CONNECTION, "upgrade")
             && equal_fold(&header_str(req.headers(), header::UPGRADE), proto)
     }) else {
-        let mut resp = dm_shared_httpresp::fail_code(
+        let mut resp = otter_shared_httpresp::fail_code(
             StatusCode::BAD_REQUEST,
             "bad_request",
             "upgrade required",
@@ -116,7 +116,7 @@ pub fn accept_upgrade<B>(
         return (resp, None);
     };
     let on = hyper::upgrade::on(&mut *req);
-    let mut resp = http::Response::new(dm_shared_httpresp::empty());
+    let mut resp = http::Response::new(otter_shared_httpresp::empty());
     *resp.status_mut() = StatusCode::SWITCHING_PROTOCOLS;
     resp.headers_mut().insert(
         header::CONNECTION,

@@ -1,5 +1,5 @@
 [package]
-name = "dm-webserver-domain-git-query"
+name = "otter-webserver-domain-git-query"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,11 +10,11 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../../../gocompat" }
-dm-shared-editorlimit = { path = "../../../../shared/editorlimit" }
-dm-shared-mimeprobe = { path = "../../../../shared/mimeprobe" }
-dm-shared-textenc = { path = "../../../../shared/textenc" }
-dm-webserver-domain-git-core = { path = "../core" }
+otter-gocompat = { path = "../../../../gocompat" }
+otter-shared-editorlimit = { path = "../../../../shared/editorlimit" }
+otter-shared-mimeprobe = { path = "../../../../shared/mimeprobe" }
+otter-shared-textenc = { path = "../../../../shared/textenc" }
+otter-webserver-domain-git-core = { path = "../core" }
 regex = { workspace = true }
 serde = { workspace = true }
 sha2 = { workspace = true }
@@ -23,4 +23,4 @@ hex = { workspace = true }
 [dev-dependencies]
 tempfile = { workspace = true }
 tokio = { workspace = true }
-dm-shared-platform = { path = "../../../../shared/platform" }
+otter-shared-platform = { path = "../../../../shared/platform" }

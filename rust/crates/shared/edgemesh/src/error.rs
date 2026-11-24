@@ -1,6 +1,6 @@
 use std::fmt;
 
-use dm_shared_edge::CallError;
+use otter_shared_edge::CallError;
 
 /// 간선 계층의 오류 종류다. 노드가 오류 코드로 옮긴다 (FR-EGM-26·60).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

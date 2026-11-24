@@ -34,7 +34,7 @@ fn sh(script: &str) -> Command {
 }
 
 fn alive(pid: i32) -> bool {
-    dm_shared_platform::current().process.alive(pid)
+    otter_shared_platform::current().process.alive(pid)
 }
 
 fn read_pid(path: &std::path::Path) -> i32 {

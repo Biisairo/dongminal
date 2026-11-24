@@ -1,5 +1,5 @@
 import { test, expect, waitForInit, waitShellReady } from './fixtures';
-import { chain, dmctl, echoCmd, sleepCmd } from './osenv';
+import { chain, otterctl, echoCmd, sleepCmd } from './osenv';
 
 // PANE_ATTENTION_NOTIFY_SRS e2e: terminal-monitoring attention.
 // Covers TC-PAN-15 (background tab highlight, distinct from focus),
@@ -14,23 +14,23 @@ import { chain, dmctl, echoCmd, sleepCmd } from './osenv';
 // 정하므로 조각을 `osenv` 에서 받는다 (CI_E2E_MATRIX_SRS FR-CEM-9).
 const HOOK_JSON = '{"hook_event_name":"UserPromptSubmit","prompt":"e2e"}';
 const NOTIFY_DONE = chain(
-  `${echoCmd(HOOK_JSON)} | ${dmctl('activity', 'claude')}`,
+  `${echoCmd(HOOK_JSON)} | ${otterctl('activity', 'claude')}`,
   sleepCmd(2),
-  dmctl('notify', 'done'),
+  otterctl('notify', 'done'),
 );
 
 test.describe('Pane attention', () => {
   test('background pane attention: highlight, center, jump-to-clear', async ({ page }) => {
     await waitForInit(page);
 
-    // In the focused pane, run a foreground command that fires `dmctl notify`
+    // In the focused pane, run a foreground command that fires `otterctl notify`
     // (the real agent-facing primitive) after a delay. Foreground mirrors how a
     // real agent hook runs (the agent owns the pane's foreground), while we
     // switch away so the signalling pane is in the background — not the
     // focused-active tab, which would be suppressed.
     await waitShellReady(page);
-    // Absolute path: a stale dmctl earlier in PATH would not understand `notify`
-    // (the real wrappers also call dmctl by absolute path for this reason).
+    // Absolute path: a stale otterctl earlier in PATH would not understand `notify`
+    // (the real wrappers also call otterctl by absolute path for this reason).
     await page.keyboard.type(NOTIFY_DONE);
     await page.keyboard.press('Enter');
 

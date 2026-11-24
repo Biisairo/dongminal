@@ -7,8 +7,8 @@
      rows 를 왕복시킨다(실측 17회, 33↔13). rows 가 늘어날 때 xterm 은
      스크롤백을 화면으로 흡수하므로 스크롤할 내용 자체가 사라졌다. -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-visual">
-  <title>Dongminal</title>
-  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <title>Otterminal</title>
+  <link rel="icon" href="assets/brand/otter-15.svg" type="image/svg+xml">
   <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
   <link rel="icon" href="assets/favicon-16.png" sizes="16x16" type="image/png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -55,6 +55,8 @@
   <!-- HOT_REBIND_SRS FR-HRB-26: 서버가 포트를 옮긴 뒤의 첫 페이지면 맡긴 localStorage 를 되넣는다.
        localStorage 를 읽는 아래 머리 스크립트(테마·언어)보다 먼저 돌아야 한다. -->
   <script src="js/core/server-move.js?v=__ASSETV__"></script>
+  <!-- OTTERMINAL_RENAME_SRS FR-MIG-10: 옛 저장소 키(`dm.*`)를 새 키로 옮긴다. 아래 머리 스크립트(테마·언어)보다 먼저 돈다. -->
+  <script src="js/core/storage-rename.js?v=__ASSETV__"></script>
   <!-- PANEL_LAYOUT_SRS FR-PLY-22: 저장 레이아웃의 씨앗을 이 탭에 넣는다. 아래 줄보다 먼저
        돌아야 한다 — 아래 줄이 그 값(폭·접힘)을 읽는다. 접힘도 이 탭의 것이다 (FR-PLY-1). -->
   <script src="js/core/panel-layout.js?v=__ASSETV__"></script>
@@ -66,14 +68,14 @@
        캐시가 없거나 깨졌으면 아무것도 세우지 않는다: 그때의 첫 페인트는
        style.css 의 `:root` 기본값이다 (D-2).
 
-       SYSTEM_THEME_FOLLOW_SRS FR-STF-5 / D-STF-2: 추종(`dm.themeFollow`)이 켜져
+       SYSTEM_THEME_FOLLOW_SRS FR-STF-5 / D-STF-2: 추종(`otter.themeFollow`)이 켜져
        있으면 맵이 둘(`.dark`·`.light`)이고 시스템 모드가 하나를 고른다 — 고르기만
        하고 계산하지 않는다. 키 문자열은 `THEME_FOLLOW_KEY` 와 같다. -->
-  <script>try{var tk='dm.themeVars';if(localStorage.getItem('dm.themeFollow')==='1'){tk+=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'.dark':'.light'}var tv=JSON.parse(localStorage.getItem(tk)||'null');if(tv&&typeof tv==='object'){var ds=document.documentElement.style;for(var k in tv)if(k.slice(0,2)==='--')ds.setProperty(k,tv[k])}}catch(e){}</script>
+  <script>try{var tk='otter.themeVars';if(localStorage.getItem('otter.themeFollow')==='1'){tk+=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'.dark':'.light'}var tv=JSON.parse(localStorage.getItem(tk)||'null');if(tv&&typeof tv==='object'){var ds=document.documentElement.style;for(var k in tv)if(k.slice(0,2)==='--')ds.setProperty(k,tv[k])}}catch(e){}</script>
   <!-- M8_UNIFIED_SRS FR-B-5 / D-B-1: `<html lang>` 을 첫 페인트 전에 활성 로케일로 세운다.
        키 문자열과 지원 로케일은 `i18n.js` 의 `I18N_STORAGE_KEY`·`I18N_LOCALES` 와 같아야
        한다 — 이 스크립트가 그것보다 먼저 돈다 (테마 캐시와 같은 모양). -->
-  <script>try{var lc=localStorage.getItem('dm.locale');document.documentElement.lang=lc==='en'?'en':'ko'}catch(e){}</script>
+  <script>try{var lc=localStorage.getItem('otter.locale');document.documentElement.lang=lc==='en'?'en':'ko'}catch(e){}</script>
 </head>
 <body>
 <!-- UI_KIT_SRS FR-GLY-1 · ICON_SET_SRS FR-ICN-1~11: UI 아이콘 스프라이트.
@@ -162,20 +164,9 @@
      보는 것이 이 문장이다. -->
 <div id="boot">
   <div class="boot-inner">
-    <svg class="boot-logo" viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
-      <defs>
-        <linearGradient id="boot-tile" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="64" y2="64">
-          <!-- FR-WRD-35: 값은 `:root` 의 브랜드 토큰이 갖는다. 인라인 SVG 는 CSS
-               변수를 상속받고 이 `<svg>` 는 `<body>` 안이므로 그 토큰이 닿는다. -->
-          <stop offset="0" stop-color="var(--boot-brand)"/>
-          <stop offset="1" stop-color="var(--boot-brand-dk)"/>
-        </linearGradient>
-      </defs>
-      <rect width="64" height="64" rx="15" fill="url(#boot-tile)"/>
-      <path d="M16.5 13 H34 A17 17 0 0 1 51 32 A17 17 0 0 1 34 51 H16.5 A3.5 3.5 0 0 1 13 47.5 V16.5 A3.5 3.5 0 0 1 16.5 13 Z" fill="none" stroke="var(--boot-brand-ink)" stroke-width="7.5"/>
-      <path d="M24 26.5 L29.5 32 L24 37.5" fill="none" stroke="var(--boot-brand-ink)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <div class="boot-name" lang="en">Dongminal</div>
+    <!-- OTTERMINAL_RENAME_SRS FR-AST-2: 부팅 로고는 터미널을 든 수달(otter-04)이다. -->
+    <img class="boot-logo" src="assets/brand/otter-04.svg" width="84" height="84" alt="" aria-hidden="true">
+    <div class="boot-name" lang="en">Otterminal</div>
     <!-- 진행 바는 **얼마나 남았는지 모른다**. 부팅의 두 걸음(설정·워크스페이스)은
          각자 네트워크에 달려 있어 비율로 말할 수 없다 — 그래서 채우는 대신 흐른다. -->
     <div class="boot-bar"><i></i></div>
@@ -376,7 +367,7 @@
       <button class="ui-tab mtab" data-tab="server" title="Server port and expose" data-i18n="html.mtab_server">Server</button>
       <!-- ACCESS_ALLOWLIST_SRS FR-ACL-22: --expose 뒤의 유일한 문. -->
       <button class="ui-tab mtab" data-tab="access" title="Network access allowlist" data-i18n="html.mtab_access">Access</button>
-      <!-- PEER_NETWORK_SRS FR-PNW-80, PEER_DAEMON_SRS FR-PDM-70: 다른 dongminal 과의 간선. -->
+      <!-- PEER_NETWORK_SRS FR-PNW-80, PEER_DAEMON_SRS FR-PDM-70: 다른 otterminal 과의 간선. -->
       <button class="ui-tab mtab" data-tab="edges" title="Edges to other nodes" data-i18n="html.mtab_edges">Edges</button>
       <div class="mtab-grp" aria-hidden="true" data-i18n="html.tabgrp_agents"></div>
       <!-- CLAUDE_ACCOUNTS_SRS FR-CAC-94: 계정·자동 전환·폴더 연결·보관 목록·기록. -->
@@ -548,6 +539,12 @@
           </div>
           <div class="ds-hint" data-i18n="html.attn_edge_hint"></div>
           <div class="ds-hint" data-i18n="html.focus_edge_hint"></div>
+          <!-- OTTERMINAL_RENAME_SRS FR-FAV-1~3 -->
+          <div class="ds-row">
+            <span data-i18n="html.attn_favicon"></span>
+            <input type="checkbox" class="ui-switch" id="ds-attnfavicon">
+          </div>
+          <div class="ds-hint" data-i18n="html.attn_favicon_hint"></div>
         </div>
       </div>
       <!-- EDITOR_LSP_SRS 묶음 A — 언어 서버의 관측과 받기 (FR-LSP-46) -->
@@ -868,7 +865,7 @@
           </div>
           <div class="bk-msg" id="bk-msg"></div>
 
-          <!-- M5 `G4-7`: 워크스페이스 되돌리기. `dongminal rollback` 의 화면 쪽
+          <!-- M5 `G4-7`: 워크스페이스 되돌리기. `otterminal rollback` 의 화면 쪽
                짝이며, 그 명령과 달리 **서버가 돌고 있어도** 쓸 수 있다. -->
           <div class="ds-sep"></div>
           <div class="ds-row">
@@ -1246,6 +1243,7 @@
 <script src="js/core/focus-controller.js?v=__ASSETV__"></script>
 <script src="js/core/focus-highlight.js?v=__ASSETV__"></script>
 <script src="js/core/focus-owner.js?v=__ASSETV__"></script>
+<script src="js/core/attn-favicon.js?v=__ASSETV__"></script>
 <script src="js/core/attn-controller.js?v=__ASSETV__"></script>
 <!-- 주의 센터 팝오버 (FR-ACT-8). `AttnController` 의 부품이다 (REFACTOR3_FE_APPCTL_SRS 9b). -->
 <script src="js/core/attn-center.js?v=__ASSETV__"></script>

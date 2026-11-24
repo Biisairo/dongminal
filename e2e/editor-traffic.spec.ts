@@ -30,7 +30,7 @@ let REPO = '';
 const git = (d: string, ...a: string[]) => execFileSync('git', ['-C', d, ...a], { stdio: 'ignore' });
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(path.join(TMP, 'dm-o4a-')));
+  BASE = realPath(fs.mkdtempSync(path.join(TMP, 'otter-o4a-')));
   REPO = path.join(BASE, 'repo');
   fs.mkdirSync(REPO);
   git(REPO, 'init', '-q', '-b', 'main', '.');

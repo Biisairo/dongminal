@@ -2,10 +2,10 @@
 
 use std::collections::BTreeMap;
 
-use dm_shared_httpresp::Response;
-use dm_webserver_action::{self as action, Answer};
-use dm_webserver_apierr as apierr;
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_action::{self as action, Answer};
+use otter_webserver_apierr as apierr;
 use serde::Deserialize;
 
 use crate::httperr::http_err;
@@ -48,7 +48,7 @@ pub(crate) fn command_name_answer(act: &str, args: Option<&[u8]>) -> Answer {
     if !ENTITY_NAME_COMMANDS.contains(&act) {
         return action::allow();
     }
-    match dm_gocompat::json::unmarshal::<NameArg>(args) {
+    match otter_gocompat::json::unmarshal::<NameArg>(args) {
         Ok(a) => entity_name_answer(&a.name),
         Err(_) => action::allow(),
     }

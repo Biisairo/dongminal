@@ -97,7 +97,7 @@ impl Terminal for PidTerm {
     fn kill(&self) -> io::Result<()> {
         Ok(())
     }
-    fn handover(&self) -> Option<&dyn dm_shared_platform::Handover> {
+    fn handover(&self) -> Option<&dyn otter_shared_platform::Handover> {
         None
     }
 }
@@ -190,8 +190,8 @@ fn derived_and_tab_names() {
         (home, "~"),
         ("/home/u/", "~"),
         ("/", "/"),
-        ("/home/u/work/dongminal", "dongminal"),
-        ("/home/u/work/dongminal/", "dongminal"),
+        ("/home/u/work/otterminal", "otterminal"),
+        ("/home/u/work/otterminal/", "otterminal"),
         ("/x/abcdefghijklmnopqrst", "abcdefghijklmnop"),
         ("", ""),
     ] {
@@ -877,13 +877,13 @@ fn env_overlay_reaches_tool_shell() {
     let inst_s = inst.path().to_str().unwrap().to_string();
     let m = ToolManager::new(data.path().to_str().unwrap(), None);
     m.set_env_overlay(vec![(
-        dm_shared_dmenv::ENV_HOME.to_string(),
+        otter_shared_otterenv::ENV_HOME.to_string(),
         inst_s.clone(),
     )]);
     let t = m
         .create(inst.path().to_str().unwrap(), 80, 24, Placement::default())
         .expect("create");
-    t.write(b"echo \"M=[$DONGMINAL_HOME]\"; echo \"P=[$PATH]\"\r")
+    t.write(b"echo \"M=[$OTTERMINAL_HOME]\"; echo \"P=[$PATH]\"\r")
         .unwrap();
     let want_home = format!("M=[{inst_s}]");
     let want_bin = format!("{inst_s}/bin]");

@@ -1,6 +1,6 @@
-//! Go 기준선 `dongminal/internal/shared/humancmd` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/humancmd` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
-//! 사람 명령(강제 삭제·강퇴)의 와이어다 (PEER_CHAT_SRS §3.12). 도우미(`dongminal otp run`)와
+//! 사람 명령(강제 삭제·강퇴)의 와이어다 (PEER_CHAT_SRS §3.12). 도우미(`otterminal otp run`)와
 //! 데몬이 같은 한 벌을 쓴다: 도우미 소켓의 프레임, 도우미가 서명하는 명령 본문, 그 서명의 확인.
 //!
 //! 도우미 소켓 클라이언트는 [`Client`] 다. 왕복 한 번의 규칙은 [`round_trip`] 이 스트림을 받아 수행한다.
@@ -16,8 +16,8 @@ use std::fmt;
 use base64::Engine as _;
 use base64::alphabet::STANDARD as STD_ALPHABET;
 use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig, STANDARD};
-use dm_gocompat::json::{self, RawMessage};
 use ed25519_dalek::{Signature, Signer as _, SigningKey, Verifier as _, VerifyingKey};
+use otter_gocompat::json::{self, RawMessage};
 use serde::{Deserialize, Serialize};
 
 /// 명령 종류다 (FR-PCH-70).
@@ -29,7 +29,7 @@ pub const MAX_TARGETS: usize = 64;
 
 /// 도우미 소켓이다. root 가 만들고 설치한 사용자에게 넘긴다. home 에서 파생하지 않는다 —
 /// root 만 쓰는 `/var/run` 이어야 서명 경계가 선다 (REFACTOR3_GO_STRUCT_SRS FR-RGS-42).
-pub const SOCKET_PATH: &str = "/var/run/com.dongminal.helper.sock";
+pub const SOCKET_PATH: &str = "/var/run/com.otterminal.helper.sock";
 
 const SIGN_DOMAIN: &str = "dmhuman1";
 const MAX_ID: usize = 128;

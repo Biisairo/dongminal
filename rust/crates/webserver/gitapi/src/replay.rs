@@ -3,11 +3,11 @@
 //! 클라이언트는 seq 만 보내고 argv 는 서버가 자기 기록에서 꺼낸다 — 문자열을 받아 실행하면
 //! 임의 명령 표면이 된다. 쓰기 기록이면 확인과 잠금을 요구한다.
 
-use dm_shared_httpresp::Response;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::Record;
-use dm_webserver_domain_git_write as write;
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::Record;
+use otter_webserver_domain_git_write as write;
 use serde::Deserialize;
 
 use crate::GitServer;

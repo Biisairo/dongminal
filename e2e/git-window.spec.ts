@@ -6,7 +6,7 @@ import {
   test, expect, plainWindows, waitForInit, gitFixture, cleanGitFixture, JSON_HDR, openGit, makeCopyFx, GIT_VIEW_TABS, SPLIT_H, SPLIT_V, clickGitView } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
-const FIXTURES = tmpPath('dm-git-fx-gitwin-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-gitwin-' + process.pid);
 test.beforeAll(() => {
   gitFixture(FIXTURES);
 });
@@ -200,7 +200,7 @@ test.describe('묶음 D — Repo 창 골격', () => {
  * `TEST-7` 로 `git-ui-revision` 에서 옮겨 왔다 — 납품 묶음(“UI 개정”)이 아니라
  * **이 기능**이 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
  */
-const GURFX = tmpPath('dm-gur-git-window-' + process.pid);
+const GURFX = tmpPath('otter-gur-git-window-' + process.pid);
 test.beforeAll(() => { gitFixture(GURFX) });
 test.afterAll(() => { cleanGitFixture(GURFX) });
 const gurFx = (n: string) => realPath(join(GURFX, n));

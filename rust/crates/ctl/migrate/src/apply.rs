@@ -4,8 +4,10 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use dm_gocompat::oserr::{go_error_string, path_error};
-use dm_shared_dmenv::{PANED_PID_FILE, PANES_FILE, SETTINGS_FILE, TOOLS_FILE, WORKSPACE_FILE};
+use otter_gocompat::oserr::{go_error_string, path_error};
+use otter_shared_otterenv::{
+    PANED_PID_FILE, PANES_FILE, SETTINGS_FILE, TOOLS_FILE, WORKSPACE_FILE,
+};
 
 use crate::{Error, Report, rewrite_identifiers, run, settings};
 
@@ -103,7 +105,7 @@ fn daemon_alive(home: &Path) -> Option<i64> {
         return None;
     }
     let p32 = i32::try_from(pid).ok()?;
-    dm_shared_platform::current()
+    otter_shared_platform::current()
         .process
         .alive(p32)
         .then_some(pid)

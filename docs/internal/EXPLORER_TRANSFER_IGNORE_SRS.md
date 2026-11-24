@@ -145,7 +145,7 @@ return (d&&d.cwd)||'';
 ```
 
 `/api/cwd` 는 FR-FTR-7 이 넣은 `source` 를 이미 싣는다 (실측:
-`{"cwd":"…/dongminal","source":"server"}`). **판단 근거가 응답에 있는데 소비자가
+`{"cwd":"…/otterminal","source":"server"}`). **판단 근거가 응답에 있는데 소비자가
 읽지 않는다.** `repo-at` 에는 그 필드가 아예 없다.
 
 **폴백을 타는 계기**는 `focusedTerminal`(`app-search.js:33`)이다. 활성 창의 포커스된

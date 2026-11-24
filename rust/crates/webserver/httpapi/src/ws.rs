@@ -8,18 +8,18 @@ use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use base64::Engine;
-use dm_shared_dmlog::{errorf, infof, warnf};
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_shared_toolhub::{
-    self as th, OP_ERROR, OP_EXIT, OP_INPUT, OP_OUTPUT, OP_RESIZE, OP_SEQ, OP_SIZE, OP_TOOL_ID,
-    OutChunk, Placement, SafeConn, TermModes,
-};
-use dm_webserver_apierr as apierr;
-use dm_webserver_hub::SeatConn;
 use futures_util::StreamExt;
 use futures_util::stream::{SplitSink, SplitStream};
 use http::{HeaderValue, Method, StatusCode, header};
 use hyper_util::rt::TokioIo;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::{errorf, infof, warnf};
+use otter_shared_toolhub::{
+    self as th, OP_ERROR, OP_EXIT, OP_INPUT, OP_OUTPUT, OP_RESIZE, OP_SEQ, OP_SIZE, OP_TOOL_ID,
+    OutChunk, Placement, SafeConn, TermModes,
+};
+use otter_webserver_apierr as apierr;
+use otter_webserver_hub::SeatConn;
 use regex::bytes::Regex;
 use tokio::sync::mpsc;
 use tokio_tungstenite::WebSocketStream;
@@ -386,7 +386,7 @@ impl Server {
         self.conn.last_ws.store(unix_nanos(), Ordering::Relaxed);
         infof!(None, "ws connected addr={} tool={tool_id}", s.remote);
         let (cols, rows) = th::parse_size(s.cols.as_deref(), s.rows.as_deref());
-        let snap_judges = hub.has_feature(dm_shared_toolipc::FEATURE_SNAPSHOT_NOT_FOUND);
+        let snap_judges = hub.has_feature(otter_shared_toolipc::FEATURE_SNAPSHOT_NOT_FOUND);
         if !tool_id.is_empty() && !snap_judges {
             let (h, id) = (hub.clone(), tool_id.clone());
             let found = tokio::task::spawn_blocking(move || h.get(&id))

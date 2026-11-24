@@ -63,7 +63,7 @@
   - 가짜 지문 MAX_MARKS 개를 reached 로 채운 뒤, 정한 수명이 지나거나(시계 주입) 몫을 넘기면 새 노드를 받는다.
   - reached 번호가 수명 안에 있으면, 그 노드의 옛 epoch·seq 상태와 글을 다시 받지 않는다(기존 DIFF-19·21 시험 유지).
   - 두 crate 에 같은 시험이 있다. 시험은 실제 시간에 기대지 않는다.
-- **예상 crate**: `dm-daemon-chat`, `dm-shared-edgemesh`
+- **예상 crate**: `otter-daemon-chat`, `otter-shared-edgemesh`
 
 ### FR-RDF-2 Claude 계정 전환 경로가 tokio 작업 스레드를 최대 9초 막는다 — MEDIUM
 
@@ -75,7 +75,7 @@
 - **수락 시험**:
   - 디렉터리 락을 다른 쪽이 쥔 상태에서 `/api/claude-accounts/switch` 를 부르는 동안, 작업 스레드 1개짜리 런타임에서 다른 요청(예: `/api/health`)이 락 대기 시간보다 훨씬 짧게 답한다.
   - 기존 claudeacct·httpapi 시험이 모두 통과한다.
-- **예상 crate**: `dm-webserver-domain-claudeacct`, `dm-webserver-httpapi`
+- **예상 crate**: `otter-webserver-domain-claudeacct`, `otter-webserver-httpapi`
 
 ### FR-RDF-3 데몬의 간선 요청에 전체 시한 30초가 없다 — LOW
 
@@ -83,7 +83,7 @@
 - **근거**: 이슈 3.2 "남은 위험 — edge 호출에 Go 는 ctx 30초 시한을 주지만 Rust 는 시한이 없다". 코드: `rust/crates/daemon/ipc/src/handlers.rs:445-468`, Go `internal/daemon/ipc/paned_edge.go:18`·`:86`.
 - **요구 동작(Go 와 같게)**: op 하나가 30초를 넘으면 기다리기를 그만두고 Go 가 그때 내는 것과 같은 `EdgeResult`(상태·코드·문구)를 답한다. 상수 이름은 `EDGE_CALL_TIMEOUT` 이다. 시한 초과 때의 Go 응답 모양은 하위 이슈가 Go 코드(`edgenode.Do` 의 ctx 오류 갈래)에서 확인한다.
 - **수락 시험**: 응답하지 않는 가짜 상대에게 op 를 보내고 시한을 낮춰(시험 전용 주입) 정한 응답이 오는지 본다. 시험은 실제 30초를 기다리지 않는다.
-- **예상 crate**: `dm-daemon-ipc` (필요하면 `dm-shared-edgenode`)
+- **예상 crate**: `otter-daemon-ipc` (필요하면 `otter-shared-edgenode`)
 
 ### FR-RDF-4 git 작업 이벤트 SSE 가 클라이언트 끊김을 바로 알지 못한다 — LOW
 
@@ -91,7 +91,7 @@
 - **근거**: 이슈 8.1 "남은 위험 — gitapi `remote.rs` 의 진행 스트림은 끊김 감지를 살펴보지 않았다". 코드: `rust/crates/webserver/gitapi/src/remote.rs:285-313`, Go `internal/webserver/gitapi/handlers_git_remote.go:360-361`, 고친 예 `4688c7f7`(commands.rs).
 - **요구 동작(Go 와 같게)**: 클라이언트가 끊으면 다음 쓰기를 기다리지 않고 루프를 끝내고 구독을 놓는다.
 - **수락 시험**: 작업을 구독한 SSE 를 닫은 뒤 1초 안에 구독 수가 0 이 된다(8.1 의 `sse_close_releases_ownership_without_waiting_for_hello` 와 같은 꼴).
-- **예상 crate**: `dm-webserver-gitapi`
+- **예상 crate**: `otter-webserver-gitapi`
 
 ### FR-RDF-5 유지보수가 끝난 chrono 를 직접 쓴다 — LOW
 
@@ -100,9 +100,9 @@
 - **요구 동작(Go 와 같게)**:
   1. 세 자리에서 chrono 를 걷어 내고, 워크스페이스 의존과 `deny.toml` 의 ignore 를 지운다.
   2. 격리 파일 이름·알림 날짜의 바이트는 바뀌지 않는다.
-  3. 로컬 시각은 `dm_gocompat::time` 으로 얻는다. unix 는 이미 zoneinfo 를 읽는다(`zone.rs:584`). Windows 로컬 시간대를 unsafe 없이 얻을 수단이 없으면, 하위 이슈가 AGENT_RULES 4절(unsafe 허용 자리) 확장을 조정자에게 묻는다. gocompat 은 platform 에 의존할 수 없다(platform 이 gocompat 에 의존한다).
+  3. 로컬 시각은 `otter_gocompat::time` 으로 얻는다. unix 는 이미 zoneinfo 를 읽는다(`zone.rs:584`). Windows 로컬 시간대를 unsafe 없이 얻을 수단이 없으면, 하위 이슈가 AGENT_RULES 4절(unsafe 허용 자리) 확장을 조정자에게 묻는다. gocompat 은 platform 에 의존할 수 없다(platform 이 gocompat 에 의존한다).
 - **수락 시험**: `cargo deny check`·`cargo audit` 가 ignore 없이 통과한다. 세 자리의 기존 바이트 시험(격리 파일 이름, 알림 문구)이 통과한다. 다섯 대상 clippy 가 통과한다.
-- **예상 crate**: `dm-gocompat`, `dm-shared-workspace`, `dm-webserver-domain-claudeacct`
+- **예상 crate**: `otter-gocompat`, `otter-shared-workspace`, `otter-webserver-domain-claudeacct`
 
 ### FR-RDF-6 e2e V-LAY-1 이 기준선과 달라 늘 실패한다 — MEDIUM
 
@@ -128,27 +128,27 @@
 - **결함**: 이 시험은 실제 시간 3초(`EVENTUALLY`) 안에 망 변화가 퍼지기를 기다린다. 세 crate 를 함께 돌린 부하에서 한 번 시한을 넘겼다.
 - **근거**: 이슈 3.1 "시험 `reachability_follows_links`(chat) 가 세 crate 를 함께 돌린 부하에서 한 번 3초 안에 끝나지 않았다". 코드: `rust/crates/daemon/chat/src/tests.rs:797`, 도우미 `:55`.
 - **요구 동작**: 시험이 벽시계 시한 대신 결정론적 진행(시계 주입, tokio 시간 정지, 또는 사건 통지)을 쓴다. 제품 코드의 시간 상수는 바꾸지 않는다.
-- **수락 시험**: CPU 부하(예: `yes` ×3) 아래에서 `cargo test -p dm-daemon-chat` 20회 연속 통과(5.3 이 쓴 방법과 같다).
-- **예상 crate**: `dm-daemon-chat`
+- **수락 시험**: CPU 부하(예: `yes` ×3) 아래에서 `cargo test -p otter-daemon-chat` 20회 연속 통과(5.3 이 쓴 방법과 같다).
+- **예상 crate**: `otter-daemon-chat`
 
 ### FR-RDF-9 디렉터리 생성 실패 문구가 Go `os.MkdirAll` 과 다르다 — LOW
 
-- **결함**: 여러 crate 가 `DirBuilder::recursive` 로 `MkdirAll` 을 흉내 낸다. 조상이 파일이면 Go 는 그 조상 경로와 `not a directory` 를 내지만, Rust 는 요청 경로 전체와 `file exists` 등을 낸다. 이 문구는 HTTP 응답 detail 과 CLI stderr 에 나간다. `dm-ctl-cli` 의 `start::mkdir_all` 만 Go 알고리즘으로 고쳤다(6.1.2).
+- **결함**: 여러 crate 가 `DirBuilder::recursive` 로 `MkdirAll` 을 흉내 낸다. 조상이 파일이면 Go 는 그 조상 경로와 `not a directory` 를 내지만, Rust 는 요청 경로 전체와 `file exists` 등을 낸다. 이 문구는 HTTP 응답 detail 과 CLI stderr 에 나간다. `otter-ctl-cli` 의 `start::mkdir_all` 만 Go 알고리즘으로 고쳤다(6.1.2).
 - **근거**: 이슈 1.5 "mkdir 오류 문구의 경로가 Go 와 다를 수 있다", 이슈 4.3 "LOW: worktree create 의 디렉터리 생성 실패 문구", 이슈 6.1.2 "`mkdir_all` 오류 문구". 코드: `rust/crates/shared/serverconf/src/fsx.rs:23-35`, `rust/crates/webserver/domain/worktree/src/manager.rs:266`, `rust/crates/webserver/gitapi/src/worktree.rs:135`, `rust/crates/webserver/gitapi/src/ignore.rs:91`, `rust/crates/webserver/httpapi/src/fs_transfer.rs:112`. Go 알고리즘 판: `rust/crates/ctl/cli/src/start.rs:257-259`.
 - **요구 동작(Go 와 같게)**:
-  1. Go `os.MkdirAll` 의 알고리즘과 오류 문구를 `dm_gocompat::oserr`(또는 조정자가 정한 gocompat 모듈)에 하나로 둔다.
+  1. Go `os.MkdirAll` 의 알고리즘과 오류 문구를 `otter_gocompat::oserr`(또는 조정자가 정한 gocompat 모듈)에 하나로 둔다.
   2. 위 다섯 자리와 `start::mkdir_all` 이 그것을 쓴다.
-  3. 같은 흉내를 쓰는 나머지 자리(`dm-shared-runtime`, `dm-shared-agentadapter`, `dm-shared-toolhub`, `crates/cmd/dongminal`, `dm-ctl-cli` doctor)도 문구가 밖으로 나가면 같이 바꾼다.
+  3. 같은 흉내를 쓰는 나머지 자리(`otter-shared-runtime`, `otter-shared-agentadapter`, `otter-shared-toolhub`, `crates/cmd/otterminal`, `otter-ctl-cli` doctor)도 문구가 밖으로 나가면 같이 바꾼다.
 - **수락 시험**: 조상이 파일인 경로, 끝 경로가 파일인 경로, 권한 없는 조상에서 go1.27.2 실측 문구와 바이트가 같다(시험 기대값은 실측으로 고정). 고친 자리마다 오류 문구 시험이 하나 있다.
-- **예상 crate**: `dm-gocompat`, `dm-shared-serverconf`, `dm-webserver-domain-worktree`, `dm-webserver-gitapi`, `dm-webserver-httpapi`, `dm-ctl-cli`
+- **예상 crate**: `otter-gocompat`, `otter-shared-serverconf`, `otter-webserver-domain-worktree`, `otter-webserver-gitapi`, `otter-webserver-httpapi`, `otter-ctl-cli`
 
 ### FR-RDF-10 gen-decisions 의 파일 읽기 오류에 경로가 빠진다 — LOW
 
 - **결함**: `decidx::collect` 가 `std::fs::read(&path)?` 의 `io::Error` 를 그대로 돌려준다. 그래서 stderr 에 `permission denied` 만 나간다. Go 는 `open <경로>: permission denied` 다.
 - **근거**: 이슈 1.2 "남은 위험 — decidx 의 collect 는 파일 읽기 오류를 std::io::Error 로 돌려준다". 코드: `rust/crates/ctl/decidx/src/lib.rs:73`, 출력 `rust/crates/scripts/gen-decisions/src/main.rs:28-32`.
-- **요구 동작(Go 와 같게)**: 읽기 오류를 `dm_gocompat::oserr::path_error("open", 경로, e)` 로 감싼다.
+- **요구 동작(Go 와 같게)**: 읽기 오류를 `otter_gocompat::oserr::path_error("open", 경로, e)` 로 감싼다.
 - **수락 시험**: 읽을 수 없는 결정 파일을 둔 디렉터리에서 `collect` 오류 문구가 `open <경로>: permission denied` 다.
-- **예상 crate**: `dm-ctl-decidx`
+- **예상 crate**: `otter-ctl-decidx`
 
 ### FR-RDF-11 현재 디렉터리에서만 찾은 실행 파일의 문구가 Go 와 다르다 — LOW
 
@@ -156,7 +156,7 @@
 - **근거**: 이슈 1.4.6 "남은 위험 3". 코드: `rust/crates/shared/platform/src/shell/lookpath.rs:4`·`:100`.
 - **요구 동작(Go 와 같게)**: `look_path` 가 "없음"과 "ErrDot"을 가려 돌려주고, 문구를 만드는 호출자가 Go 와 같은 문구를 낸다. ErrDot 인 실행 파일을 실행하지 않는 동작은 그대로다.
 - **수락 시험**: PATH 에 `.` 만 있고 그 자리에 실행 파일이 있을 때, 오류 문구가 go1.27.2 실측과 같다(unix·Windows 갈래 각각).
-- **예상 crate**: `dm-shared-platform` (문구를 만드는 호출자 crate)
+- **예상 crate**: `otter-shared-platform` (문구를 만드는 호출자 crate)
 
 ### FR-RDF-12 진단 번들 가림이 비밀 이름 뒤의 JSON 비문자열 값을 놓친다 — LOW
 
@@ -164,7 +164,7 @@
 - **근거**: 이슈 6.1.3 "남은 위험 — 비밀 이름 뒤의 JSON 비문자열 값은 전과 같이 가리지 않는다". 코드: `rust/crates/ctl/cli/src/redact.rs:53`(`JSON_KEY` 가 `"` 로 시작하는 값만 맞춘다)·`:134`·`:198`.
 - **요구 동작(더 안전하게)**: 비밀 이름 뒤의 JSON 숫자 값도 `***` 로 가린다(JSON 형식이 깨지지 않게 `"***"` 로 바꾼다). `true`·`false`·`null` 은 비밀이 아니므로 그대로 둔다. 비밀이 없는 입력의 번들은 지금처럼 Go 와 바이트가 같다. SRS 3.7 DIFF-22 의 Rust 판 칸을 고친다.
 - **수락 시험**: 숫자 비밀 카나리가 번들에 남지 않는다. 기존 `no_secret_is_unchanged` 와 가림 시험이 통과한다.
-- **예상 crate**: `dm-ctl-cli`
+- **예상 crate**: `otter-ctl-cli`
 
 ## 4. 검증
 
@@ -175,7 +175,7 @@
 
 ## 5. 미해결 질문 (하위 이슈가 조정자에게 묻는다)
 
-> 조정자 결정(2026-11-24): ① FR-RDF-1 은 **수명 방식**이다 — reached 번호도 일정 시간 다시 닿지 않으면 밀어낼 수 있게 된다. 값은 잊은 시각(Mark.at)부터 3 × REDIAL_MAX = 180초다(Go·Rust 모두 주기 재알림이 없어 재알림 주기를 쓸 수 없다 — 10.1 보고). 거절된 재전송으로는 at 을 갱신하지 않는다. 밀어내기는 칸이 찼을 때만 일어나며, 수명 안의 reached 는 밀려나지 않음을 시험으로 고정한다. 간선별 몫은 정상 중계 망을 깎을 수 있어 쓰지 않는다. ② FR-RDF-5 Windows 로컬 시간대는 Go zoneinfo_windows.go 와 같게 GetTimeZoneInformation 으로 얻고(go1.27.2 가 부르는 것), unsafe 는 dm-gocompat 의 Windows 전용 시간대 모듈 하나로 허용한다(RUST_PORT_SRS C-RSP-4 에 FormatMessageW 와 같은 예외로 덧붙인다). ③ e2e 는 10.7 이 hermetic 규칙(운영 홈 금지·60147 이상 포트·전후 prod-pids)대로 돌려도 된다.
+> 조정자 결정(2026-11-24): ① FR-RDF-1 은 **수명 방식**이다 — reached 번호도 일정 시간 다시 닿지 않으면 밀어낼 수 있게 된다. 값은 잊은 시각(Mark.at)부터 3 × REDIAL_MAX = 180초다(Go·Rust 모두 주기 재알림이 없어 재알림 주기를 쓸 수 없다 — 10.1 보고). 거절된 재전송으로는 at 을 갱신하지 않는다. 밀어내기는 칸이 찼을 때만 일어나며, 수명 안의 reached 는 밀려나지 않음을 시험으로 고정한다. 간선별 몫은 정상 중계 망을 깎을 수 있어 쓰지 않는다. ② FR-RDF-5 Windows 로컬 시간대는 Go zoneinfo_windows.go 와 같게 GetTimeZoneInformation 으로 얻고(go1.27.2 가 부르는 것), unsafe 는 otter-gocompat 의 Windows 전용 시간대 모듈 하나로 허용한다(RUST_PORT_SRS C-RSP-4 에 FormatMessageW 와 같은 예외로 덧붙인다). ③ e2e 는 10.7 이 hermetic 규칙(운영 홈 금지·60147 이상 포트·전후 prod-pids)대로 돌려도 된다.
 
 1. FR-RDF-1: reached 번호의 수명 방식과 간선 상대별 몫 방식 가운데 무엇을 쓰고, 값은 얼마로 할지.
 2. FR-RDF-5: Windows 로컬 시간대를 얻으려고 gocompat 에 Windows 시간대 API(unsafe)를 허용할지.
@@ -198,10 +198,10 @@
 | X-9 | release 전송 오류 문구(1.3 ⑥) | 1.6 의 `neturl_err::UrlError` 사용 |
 | X-10 | statusline 에 Deserialize 없음(2.1) | `statusline/src/lib.rs:46` |
 | X-11 | humancmd Client 미구현(1.5) | `a31ae0ff` |
-| X-12 | doctor 홈 주입·tool_home·dmlog init(6.1.2) | `ctl/cli/src/doctor.rs:465` `set_env_overlay`, `cmd/dongminal/src/daemon.rs:68`, `main.rs:27` |
+| X-12 | doctor 홈 주입·tool_home·otterlog init(6.1.2) | `ctl/cli/src/doctor.rs:465` `set_env_overlay`, `cmd/otterminal/src/daemon.rs:68`, `main.rs:27` |
 | X-13 | git core 정적 게이트 시험 2건 실패(5.5.7.2) | STATUS: 워크스페이스 3,825 통과·실패 0 |
 | X-14 | verify 종단간 미실행(6.1.3) | STATUS: verify 26/26 |
-| X-15 | 릴리스 바이너리의 `CARGO_MANIFEST_DIR` 경로(7.4) | `sandbox/src/helper.rs:245` `cfg(dongminal_trimpath)`, 재현 빌드 통과 |
+| X-15 | 릴리스 바이너리의 `CARGO_MANIFEST_DIR` 경로(7.4) | `sandbox/src/helper.rs:245` `cfg(otterminal_trimpath)`, 재현 빌드 통과 |
 | X-16 | build.sh `DIST` 절대 경로 오류(8.2) | `rust/scripts/build.sh:103-106` |
 | X-17 | HTTP 서버 연결 시한(1.3 ③, slowloris) | `httpapi/src/rebind_conns.rs:125`·`:158`(헤더 10초·유휴 120초) |
 
@@ -229,8 +229,8 @@
 
 | # | 항목 | 사유 |
 |---|---|---|
-| X-28 | claude 셈 `--allowedTools=mcp__dongminal` 사전 허용 | 이슈 10 범위 규칙이 뺀다 |
-| X-29 | omp 멤버 오버레이 `match: "dmctl *"` 가 복합 명령을 허용할 수 있음(2.1 보안 검토) | X-28 과 같은 종류(에이전트 사전 허용 설계). 원 SRS(OMP_AGENT_SUPPORT_SRS)에서 다룬다 |
+| X-28 | claude 셈 `--allowedTools=mcp__otterminal` 사전 허용 | 이슈 10 범위 규칙이 뺀다 |
+| X-29 | omp 멤버 오버레이 `match: "otterctl *"` 가 복합 명령을 허용할 수 있음(2.1 보안 검토) | X-28 과 같은 종류(에이전트 사전 허용 설계). 원 SRS(OMP_AGENT_SUPPORT_SRS)에서 다룬다 |
 | X-30 | `version` 셋째 칸 go1.27.2, 릴리즈 go 판 | 사용자 결정 대기(STATUS) |
 | X-31 | Go 쪽 결함(check-home-layout.sh 소켓 4개, daemon-fingerprint `xargs sum`) | Go 는 고치지 않는다(C-RSP-2) |
 
@@ -246,7 +246,7 @@
 | X-35 | 글자 단위 소문자화(Go `strings.ToLower` 와 İ 등)(5.5.1, 5.5.6, 5.5.7.1, 6.3.1 ④, 6.2) | 특수 글자에서만. 정상 이름은 ASCII |
 | X-36 | 호스트명 해석 실패 문구(5.5.1), IPv6 zone 이름(2.4.1·2.3) | OS 해석기·std 주소 타입 한계 |
 | X-37 | hyper 101 응답의 Date 머리, 세션 재개 끔 등 간선 구현 결정(2.3) | 관측 결과는 같다고 확인 |
-| X-38 | 서버 자식 프로세스의 `DONGMINAL_HOME` 상속(7.3) | `start --foreground --home X` 를 환경 변수 없이 부를 때만. 읽는 관측 자리 없음 |
+| X-38 | 서버 자식 프로세스의 `OTTERMINAL_HOME` 상속(7.3) | `start --foreground --home X` 를 환경 변수 없이 부를 때만. 읽는 관측 자리 없음 |
 | X-39 | CLI·헬퍼 HTTP 가 `HTTP_PROXY` 를 따르지 않음(6.1.1·6.3.1 ①) | 로컬 제어 요청(토큰 포함)을 프록시로 보내지 않는 쪽이 더 안전하다. 보안 강화 DIFF 로 올리기를 제안 |
 | X-40 | open-url 로컬 실행 실패 문구 근사(6.3.1 ②) | 드문 실패 갈래. OS 오류 원문 한계 |
 
@@ -276,12 +276,12 @@
 
 | 하위 이슈 | 요구사항 | crate·대상 | 결함 종류 | 병렬 |
 |---|---|---|---|---|
-| 10.1 | FR-RDF-1, FR-RDF-8 | dm-daemon-chat, dm-shared-edgemesh | 재전송 막기·흔들리는 시험 | 가능 (미해결 질문 1 먼저) |
-| 10.2 | FR-RDF-2 | dm-webserver-domain-claudeacct, dm-webserver-httpapi | async 블로킹 | 가능 |
-| 10.3 | FR-RDF-5 | dm-gocompat(time), dm-shared-workspace, dm-webserver-domain-claudeacct(alerts.rs) | 공급망 | 가능. 10.2 와 claudeacct 를 함께 고치지만 파일이 다르다(병합 순서만 맞춘다). 미해결 질문 2 먼저 |
-| 10.4 | FR-RDF-3, FR-RDF-4 | dm-daemon-ipc, dm-webserver-gitapi | 시한·끊김 감지 | 가능 |
-| 10.5 | FR-RDF-9, FR-RDF-10, FR-RDF-11 | dm-gocompat(oserr), serverconf, worktree, gitapi, httpapi, ctl-cli, decidx, platform | Go 오류 문구 | 10.3 과 gocompat 을 함께 고치지만 모듈이 다르다(oserr·time). 10.4 와 gitapi 파일이 다르다(worktree.rs·ignore.rs 와 remote.rs). 병합 순서만 맞추면 가능 |
-| 10.6 | FR-RDF-12 | dm-ctl-cli(redact.rs) | 보안 가림 | 가능. 10.5 와 ctl-cli 를 함께 고치지만 파일이 다르다 |
+| 10.1 | FR-RDF-1, FR-RDF-8 | otter-daemon-chat, otter-shared-edgemesh | 재전송 막기·흔들리는 시험 | 가능 (미해결 질문 1 먼저) |
+| 10.2 | FR-RDF-2 | otter-webserver-domain-claudeacct, otter-webserver-httpapi | async 블로킹 | 가능 |
+| 10.3 | FR-RDF-5 | otter-gocompat(time), otter-shared-workspace, otter-webserver-domain-claudeacct(alerts.rs) | 공급망 | 가능. 10.2 와 claudeacct 를 함께 고치지만 파일이 다르다(병합 순서만 맞춘다). 미해결 질문 2 먼저 |
+| 10.4 | FR-RDF-3, FR-RDF-4 | otter-daemon-ipc, otter-webserver-gitapi | 시한·끊김 감지 | 가능 |
+| 10.5 | FR-RDF-9, FR-RDF-10, FR-RDF-11 | otter-gocompat(oserr), serverconf, worktree, gitapi, httpapi, ctl-cli, decidx, platform | Go 오류 문구 | 10.3 과 gocompat 을 함께 고치지만 모듈이 다르다(oserr·time). 10.4 와 gitapi 파일이 다르다(worktree.rs·ignore.rs 와 remote.rs). 병합 순서만 맞추면 가능 |
+| 10.6 | FR-RDF-12 | otter-ctl-cli(redact.rs) | 보안 가림 | 가능. 10.5 와 ctl-cli 를 함께 고치지만 파일이 다르다 |
 | 10.7 | FR-RDF-6, FR-RDF-7 | e2e, web | e2e 실패·흔들림 | 가능. 미해결 질문 3(e2e 실행 허락) 먼저 |
 
 - 크기: 10.1·10.2·10.5 가 중간, 나머지는 작다. 10.4 와 10.6 은 한 에이전트가 이어서 맡아도 된다.

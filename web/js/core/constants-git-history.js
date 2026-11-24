@@ -1,5 +1,5 @@
 /**
- * Dongminal — **History 탭**의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
+ * Otterminal — **History 탭**의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
  *
  * 가상 목록·레인·refs 바·커밋 상세, 그리고 컨텍스트 메뉴 프레임워크. 메뉴가
  * 여기 있는 이유는 History 가 그것을 세운 첫 자리이고 Branches·Stash 가 그

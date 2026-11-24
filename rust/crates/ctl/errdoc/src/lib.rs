@@ -1,16 +1,17 @@
-//! Go 기준선 `dongminal/internal/ctl/errdoc` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/ctl/errdoc` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 오류 코드 문서(`docs/errors.md` 꼴)를 apierr 의 코드 목록과 안내에서 만든다.
 
-use dm_webserver_apierr as apierr;
+use otter_webserver_apierr as apierr;
 
 /// 문서의 머리말이다. 코드 표는 이 뒤에 붙는다.
 /// 저장소 뿌리에서 문서를 다시 만드는 명령이다.
-pub const GENERATE: &str = "cargo run -q --manifest-path rust/Cargo.toml -p dm-scripts-gen-errors";
+pub const GENERATE: &str =
+    "cargo run -q --manifest-path rust/Cargo.toml -p otter-scripts-gen-errors";
 
 pub const HEADER: &str = r#"<!-- 이 파일은 생성물입니다. 직접 고치지 마세요.
      원천: rust/crates/webserver/apierr/src/codes.rs
-     생성: dongminal 저장소에서 `cargo run -q --manifest-path rust/Cargo.toml -p dm-scripts-gen-errors`
+     생성: otterminal 저장소에서 `cargo run -q --manifest-path rust/Cargo.toml -p otter-scripts-gen-errors`
      검사: scripts/check-error-docs.sh (CI) -->
 
 # 오류 코드

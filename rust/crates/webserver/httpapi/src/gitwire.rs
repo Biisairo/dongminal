@@ -7,14 +7,14 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use dm_shared_httpresp::Response;
-use dm_webserver_domain_git_core::Service;
-use dm_webserver_domain_git_jobs::Job;
-use dm_webserver_domain_git_store::{Observation, Store};
-use dm_webserver_domain_submodule as submodule;
-use dm_webserver_domain_wsentry as wsentry;
-use dm_webserver_gitapi::{GitServer, RepoWatcher, ToolLocator};
-use dm_webserver_hub::{GitObserver, GitWatcher};
+use otter_shared_httpresp::Response;
+use otter_webserver_domain_git_core::Service;
+use otter_webserver_domain_git_jobs::Job;
+use otter_webserver_domain_git_store::{Observation, Store};
+use otter_webserver_domain_submodule as submodule;
+use otter_webserver_domain_wsentry as wsentry;
+use otter_webserver_gitapi::{GitServer, RepoWatcher, ToolLocator};
+use otter_webserver_hub::{GitObserver, GitWatcher};
 use tokio_util::sync::CancellationToken;
 
 use crate::deps::SettingsStore;
@@ -142,7 +142,7 @@ impl Server {
     /// 부른다. 감시자가 없으면(저장소 계층이 없는 배선) 아무 일도 하지 않는다.
     pub fn start_git_watch(&self, stop: CancellationToken) {
         if let Some(w) = &self.git_watch {
-            dm_webserver_hub::start_git_watch(w.clone(), stop);
+            otter_webserver_hub::start_git_watch(w.clone(), stop);
         }
     }
 }

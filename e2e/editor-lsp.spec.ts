@@ -26,7 +26,7 @@ type Server = {
 const ORIGIN_LABEL: Record<string, string> = {
   config: '설정에 적은 경로',
   path: 'PATH',
-  managed: 'dongminal 이 받은 것',
+  managed: 'otterminal 이 받은 것',
 };
 
 // 한 팩과 그 팩이 내는 서버들. 순서는 서버가 준 순서다 — 화면의 `head`(첫 서버)와

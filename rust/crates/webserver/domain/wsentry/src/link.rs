@@ -1,7 +1,7 @@
 //! 연동 4규칙 (FR-EDT-31~34). 전부 순수 함수이며 서로를 호출하지 않는다 (FR-EDT-36) — 부르는
 //! 순간 사용자 조작 한 번에 규칙이 두 겹 적용된다. home 은 root 행이 이미 대표한다.
 
-use dm_shared_listorder::{Missing, move_item};
+use otter_shared_listorder::{Missing, move_item};
 
 use crate::Lists;
 

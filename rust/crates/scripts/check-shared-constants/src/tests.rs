@@ -14,7 +14,7 @@ fn repo_root() -> PathBuf {
 fn repo_sources() -> Sources {
     let root = repo_root();
     let mut s = Sources {
-        indicator_kinds: dm_webserver_domain_git_jobs::indicator_kinds(),
+        indicator_kinds: otter_webserver_domain_git_jobs::indicator_kinds(),
         ..Sources::default()
     };
     for p in NEEDED {

@@ -1,5 +1,5 @@
 /**
- * Dongminal — Git 목록 탭의 공통 골격 (DRIFT_RECLAIM_SRS FR-DRC-7)
+ * Otterminal — Git 목록 탭의 공통 골격 (DRIFT_RECLAIM_SRS FR-DRC-7)
  *
  * Worktrees 와 Submodules 는 같은 모양이다: 머리에 동작, 그 아래 안내 줄, 그 아래
  * `reconcileList` 로 그리는 목록, 비었을 때의 한 줄. `submodules.js` 의 머리

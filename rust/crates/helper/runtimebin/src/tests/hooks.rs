@@ -1,15 +1,15 @@
 //! 에이전트 훅(activity·agent-context·ctx-hook)과 statusLine 프록시의 시험. Go
-//! `dmctl_activity*_test.go`·`dmctl_ctxhook_test.go`·`dmctl_statusline*_test.go`·
-//! `dmctl_subagent_statusline_test.go`·`report_socket_test.go`·`hook_budget_test.go` 를 옮겼다.
+//! `otterctl_activity*_test.go`·`otterctl_ctxhook_test.go`·`otterctl_statusline*_test.go`·
+//! `otterctl_subagent_statusline_test.go`·`report_socket_test.go`·`hook_budget_test.go` 를 옮겼다.
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use dm_shared_agentrec as agentrec;
-use dm_shared_apipath as apipath;
-use dm_shared_dmenv as dmenv;
+use otter_shared_agentrec as agentrec;
+use otter_shared_apipath as apipath;
+use otter_shared_otterenv as otterenv;
 use serde_json::{Value, json};
 
 #[cfg(unix)]
@@ -17,14 +17,14 @@ use super::Req;
 use super::{TestServer, run_with};
 use crate::budgets::HOOK_BUDGET;
 use crate::ctx::{Ctx, Env};
-use crate::dmctl::hooks::{
-    USAGE_TAIL_MAX, run_dmctl_activity, run_dmctl_agent_context, run_dmctl_ctx_hook,
+use crate::otterctl::hooks::{
+    USAGE_TAIL_MAX, run_otterctl_activity, run_otterctl_agent_context, run_otterctl_ctx_hook,
     transcript_size, transcript_usage,
 };
-use crate::dmctl::notify::report_notify_activity;
-use crate::dmctl::statusline::{
-    STATUS_LINE_KEY, SUBAGENT_STATUS_LINE_KEY, SlEnv, run_dmctl_statusline,
-    run_dmctl_subagent_statusline, statusline_account, statusline_downstream,
+use crate::otterctl::notify::report_notify_activity;
+use crate::otterctl::statusline::{
+    STATUS_LINE_KEY, SUBAGENT_STATUS_LINE_KEY, SlEnv, run_otterctl_statusline,
+    run_otterctl_subagent_statusline, statusline_account, statusline_downstream,
     statusline_project_dir,
 };
 
@@ -42,7 +42,7 @@ impl Capture {
         let home = tempfile::tempdir().unwrap();
         let srv = TestServer::fixed(200, r#"{"ok":true}"#);
         let mut env = srv.env(home.path());
-        env.set(dmenv::ENV_TOOL_ID, tool);
+        env.set(otterenv::ENV_TOOL_ID, tool);
         Self {
             srv,
             env,
@@ -82,7 +82,7 @@ impl Capture {
             .collect()
     }
     fn activity_hook(&self, agent: &str, stdin: &str) -> (i32, String, String) {
-        run_with(&self.env, run_dmctl_activity, &[agent], stdin.as_bytes())
+        run_with(&self.env, run_otterctl_activity, &[agent], stdin.as_bytes())
     }
 }
 
@@ -104,21 +104,21 @@ fn assistant_line(model: &str, i: i64, w: i64, r: i64, o: i64, body: &str) -> St
     )
 }
 
-fn claude() -> &'static dm_shared_agentadapter::Adapter {
-    dm_shared_agentadapter::get("claude").unwrap()
+fn claude() -> &'static otter_shared_agentadapter::Adapter {
+    otter_shared_agentadapter::get("claude").unwrap()
 }
 
 // ---- activity ----
 
 #[test]
 fn activity_is_non_fatal() {
-    let env = Env::with_vars([(dmenv::ENV_TOOL_ID, "")]);
+    let env = Env::with_vars([(otterenv::ENV_TOOL_ID, "")]);
     for (args, stdin) in [
         (&["claude"][..], r#"{"hook_event_name":"Stop"}"#),
         (&["claude"][..], "garbage"),
         (&[][..], ""),
     ] {
-        let (code, out, _) = run_with(&env, run_dmctl_activity, args, stdin.as_bytes());
+        let (code, out, _) = run_with(&env, run_otterctl_activity, args, stdin.as_bytes());
         assert_eq!((code, out.as_str()), (0, ""));
     }
 }
@@ -131,19 +131,19 @@ fn activity_unknown_agent_says_so_and_exits_zero() {
     assert_eq!(out, "");
     assert_eq!(
         err,
-        "dmctl activity: unknown_agent: \"nope\" (알려진 것: claude, codex, omp)\n"
+        "otterctl activity: unknown_agent: \"nope\" (알려진 것: claude, codex, omp)\n"
     );
     assert!(cap.srv.requests().is_empty());
 }
 
 #[test]
 fn activity_help_is_derived_from_registry() {
-    let env = Env::with_vars([(dmenv::ENV_TOOL_ID, "")]);
-    let (code, out, _) = run_with(&env, run_dmctl_activity, &["claude", "-h"], b"");
+    let env = Env::with_vars([(otterenv::ENV_TOOL_ID, "")]);
+    let (code, out, _) = run_with(&env, run_otterctl_activity, &["claude", "-h"], b"");
     assert_eq!(code, 0);
-    assert!(out.starts_with("dmctl activity <agent>\n"), "{out}");
+    assert!(out.starts_with("otterctl activity <agent>\n"), "{out}");
     assert!(
-        out.contains("  <agent>: claude | codex | omp. DONGMINAL_TOOL_ID"),
+        out.contains("  <agent>: claude | codex | omp. OTTERMINAL_TOOL_ID"),
         "{out}"
     );
 }
@@ -489,7 +489,7 @@ fn main_hook_has_no_agent_id() {
 fn agent_context(cap: &Capture, stdin: &str) -> (i32, String) {
     let (code, out, _) = run_with(
         &cap.env,
-        run_dmctl_agent_context,
+        run_otterctl_agent_context,
         &["claude"],
         stdin.as_bytes(),
     );
@@ -498,17 +498,17 @@ fn agent_context(cap: &Capture, stdin: &str) -> (i32, String) {
 
 #[test]
 fn agent_context_output_matches_go_bytes() {
-    let env = Env::with_vars([(dmenv::ENV_TOOL_ID, "")]);
-    let (code, out, _) = run_with(&env, run_dmctl_agent_context, &[], b"");
+    let env = Env::with_vars([(otterenv::ENV_TOOL_ID, "")]);
+    let (code, out, _) = run_with(&env, run_otterctl_agent_context, &[], b"");
     assert_eq!(code, 0);
     assert!(
         out.starts_with(
-            r#"{"hookSpecificOutput":{"additionalContext":"이 세션은 dongminal 워크스페이스의 도구(터미널 탭) 안에서 실행 중이다.\n\n- 자기 식별: `dmctl who-am-i`"#
+            r#"{"hookSpecificOutput":{"additionalContext":"이 세션은 otterminal 워크스페이스의 도구(터미널 탭) 안에서 실행 중이다.\n\n- 자기 식별: `otterctl who-am-i`"#
         ),
         "{out}"
     );
     assert!(
-        out.contains(r#"[DONGMINAL-AGENT-MSG from=\u003c발신자 uuid\u003e to=\u003c수신자 uuid\u003e ts=\u003c시각\u003e]"#),
+        out.contains(r#"[OTTERMINAL-AGENT-MSG from=\u003c발신자 uuid\u003e to=\u003c수신자 uuid\u003e ts=\u003c시각\u003e]"#),
         "{out}"
     );
     assert!(
@@ -580,8 +580,8 @@ fn ctx_hook_run(verdict: &str, stdin: &str) -> (String, i32) {
     let v = verdict.as_bytes().to_vec();
     let srv = TestServer::new(move |_| (200, v.clone()));
     let mut env = srv.env(home.path());
-    env.set(dmenv::ENV_TOOL_ID, "tool-1");
-    let (rc, out, _) = run_with(&env, run_dmctl_ctx_hook, &["claude"], stdin.as_bytes());
+    env.set(otterenv::ENV_TOOL_ID, "tool-1");
+    let (rc, out, _) = run_with(&env, run_otterctl_ctx_hook, &["claude"], stdin.as_bytes());
     let reqs = srv.requests();
     assert_eq!(reqs.len(), 1);
     assert_eq!(reqs[0].target, "/api/tools/migration-advice?id=tool-1");
@@ -605,9 +605,9 @@ fn ctx_hook_advise_carries_pct_and_event() {
         .unwrap();
     assert_eq!(
         text,
-        "[dongminal] 지금 맥락 57% · 기준 50% (판단은 40% 부터, 85% 이상이면 무조건 넘긴다).\n\
+        "[otterminal] 지금 맥락 57% · 기준 50% (판단은 40% 부터, 85% 이상이면 무조건 넘긴다).\n\
          기준쯤에서 넘기는 것이 좋다. 지금 하려는 일(또는 하던 일)을 끝냈을 때 맥락이 어디쯤일지 가늠하라.\n\
-         - 기준을 크게 넘거나 85% 에 닿을 것 같으면: 그 일을 시작하지 말고 지금 넘겨라 — /dongminal:migration.\n\
+         - 기준을 크게 넘거나 85% 에 닿을 것 같으면: 그 일을 시작하지 말고 지금 넘겨라 — /otterminal:migration.\n\
          - 기준에서 크게 벗어나지 않을 것 같으면: 그 일을 끝내고 넘겨라. 끝냈을 때 아직 기준보다 한참 아래면 다음 일에서 다시 판단한다.\n\
          어느 쪽인지 지금 맥락·기준·예상치를 넣어 사용자에게 한 줄로 알려라."
     );
@@ -624,7 +624,7 @@ fn ctx_hook_must_says_now_without_judgement() {
         "지금 맥락 86%",
         "상한 85%",
         "판단하지 말고",
-        "/dongminal:migration",
+        "/otterminal:migration",
         "UserPromptSubmit",
         "100% 에 닿으면",
     ] {
@@ -640,7 +640,7 @@ fn ctx_hook_unknown_once_and_quiet_otherwise() {
     );
     assert_eq!(
         out,
-        "{\"hookSpecificOutput\":{\"additionalContext\":\"[dongminal] 맥락 사용률을 읽을 수 없어 migration 기준을 적용하지 못한다. 이 알림은 한 번만 나온다.\",\"hookEventName\":\"UserPromptSubmit\"}}\n"
+        "{\"hookSpecificOutput\":{\"additionalContext\":\"[otterminal] 맥락 사용률을 읽을 수 없어 migration 기준을 적용하지 못한다. 이 알림은 한 번만 나온다.\",\"hookEventName\":\"UserPromptSubmit\"}}\n"
     );
     for v in [
         r#"{"verdict":"ok","usedPct":10,"ctxPct":50}"#,
@@ -658,23 +658,23 @@ fn ctx_hook_silent_on_failure() {
     let home = tempfile::tempdir().unwrap();
     let srv = TestServer::fixed(500, "");
     let mut env = srv.env(home.path());
-    env.set(dmenv::ENV_TOOL_ID, "tool-1");
+    env.set(otterenv::ENV_TOOL_ID, "tool-1");
     assert_eq!(
         run_with(
             &env,
-            run_dmctl_ctx_hook,
+            run_otterctl_ctx_hook,
             &["claude"],
             br#"{"hook_event_name":"X"}"#
         ),
         (0, String::new(), String::new())
     );
     assert_eq!(
-        run_with(&env, run_dmctl_ctx_hook, &["claude"], b"{}"),
+        run_with(&env, run_otterctl_ctx_hook, &["claude"], b"{}"),
         (0, String::new(), String::new())
     );
-    env.set(dmenv::ENV_TOOL_ID, "");
+    env.set(otterenv::ENV_TOOL_ID, "");
     assert_eq!(
-        run_with(&env, run_dmctl_ctx_hook, &["claude"], b"{}"),
+        run_with(&env, run_otterctl_ctx_hook, &["claude"], b"{}"),
         (0, String::new(), String::new())
     );
 }
@@ -701,9 +701,9 @@ fn ctx_hook_old_server_without_judge_cap() {
 #[test]
 fn ctx_hook_carries_chat_unread() {
     let home = tempfile::Builder::new().tempdir_in("/tmp").unwrap();
-    let sock = dm_shared_chatwire::socket_path(home.path());
+    let sock = otter_shared_chatwire::socket_path(home.path());
     std::fs::create_dir_all(sock.parent().unwrap()).unwrap();
-    let ln = dm_shared_platform::current().ipc.listen(&sock).unwrap();
+    let ln = otter_shared_platform::current().ipc.listen(&sock).unwrap();
     let got = std::thread::spawn(move || {
         let mut c = ln.accept().unwrap();
         let mut line = String::new();
@@ -713,10 +713,10 @@ fn ctx_hook_carries_chat_unread() {
     });
     let srv = TestServer::fixed(200, r#"{"verdict":"ok"}"#);
     let mut env = srv.env(home.path());
-    env.set(dmenv::ENV_HOME, home.path().to_str().unwrap());
+    env.set(otterenv::ENV_HOME, home.path().to_str().unwrap());
     let (rc, out, _) = run_with(
         &env,
-        run_dmctl_ctx_hook,
+        run_otterctl_ctx_hook,
         &["claude"],
         br#"{"hook_event_name":"PostToolUse","session_id":"s9"}"#,
     );
@@ -727,7 +727,7 @@ fn ctx_hook_carries_chat_unread() {
     );
     assert_eq!(
         out,
-        "{\"hookSpecificOutput\":{\"additionalContext\":\"[dongminal chat] 읽지 않은 글 3건. 하던 일을 마친 뒤 chat_read 로 확인한다.\",\"hookEventName\":\"PostToolUse\"}}\n"
+        "{\"hookSpecificOutput\":{\"additionalContext\":\"[otterminal chat] 읽지 않은 글 3건. 하던 일을 마친 뒤 chat_read 로 확인한다.\",\"hookEventName\":\"PostToolUse\"}}\n"
     );
 }
 
@@ -791,7 +791,7 @@ fn statusline_downstream_precedence() {
     write_setting(
         &proj.path().join(".claude/settings.local.json"),
         k,
-        "dmctl statusline",
+        "otterctl statusline",
     );
     assert_eq!(statusline_downstream(projs, &env, k), "proj-cmd");
 }
@@ -844,7 +844,7 @@ fn subagent_statusline_downstream() {
     write_setting(
         &local,
         SUBAGENT_STATUS_LINE_KEY,
-        "\"/x/dmctl\" subagent-statusline",
+        "\"/x/otterctl\" subagent-statusline",
     );
     assert_eq!(
         statusline_downstream(projs, &env, SUBAGENT_STATUS_LINE_KEY),
@@ -881,7 +881,7 @@ fn sl_run(
     let state = tempfile::tempdir().unwrap();
     let mut env = srv.env(state.path());
     env.set("HOME", home.to_str().unwrap());
-    env.set(dmenv::ENV_TOOL_ID, tool);
+    env.set(otterenv::ENV_TOOL_ID, tool);
     run_with(&env, f, &[], stdin.as_bytes())
 }
 
@@ -890,7 +890,7 @@ fn statusline_proxy_no_downstream_empty() {
     let srv = TestServer::fixed(200, "{}");
     let home = tempfile::tempdir().unwrap();
     assert_eq!(
-        sl_run(run_dmctl_statusline, &srv, home.path(), "", "{}"),
+        sl_run(run_otterctl_statusline, &srv, home.path(), "", "{}"),
         (0, String::new(), String::new())
     );
 }
@@ -910,7 +910,7 @@ fn statusline_proxy_pass_through() {
     let orig = std::fs::read(&settings).unwrap();
     let srv = TestServer::fixed(200, r#"{"ok":true}"#);
     let input = SL_SAMPLE.replace("PROJ", proj.path().to_str().unwrap());
-    let (rc, out, err) = sl_run(run_dmctl_statusline, &srv, home.path(), "tool-1", &input);
+    let (rc, out, err) = sl_run(run_otterctl_statusline, &srv, home.path(), "tool-1", &input);
     assert_eq!((rc, out.as_str()), (0, "LINE-OUT"), "{err}");
     assert_eq!(std::fs::read_to_string(&got).unwrap(), input);
     assert_eq!(std::fs::read(&settings).unwrap(), orig);
@@ -937,7 +937,7 @@ fn statusline_proxy_server_hang_does_not_block() {
         "printf OK",
     );
     let start = Instant::now();
-    let (rc, out, _) = sl_run(run_dmctl_statusline, &srv, home.path(), "t", SL_SAMPLE);
+    let (rc, out, _) = sl_run(run_otterctl_statusline, &srv, home.path(), "t", SL_SAMPLE);
     assert_eq!((rc, out.as_str()), (0, "OK"));
     let el = start.elapsed();
     assert!(
@@ -962,7 +962,7 @@ fn subagent_statusline_proxy_pass_through() {
     );
     let srv = TestServer::fixed(200, r#"{"ok":true}"#);
     let (rc, out, err) = sl_run(
-        run_dmctl_subagent_statusline,
+        run_otterctl_subagent_statusline,
         &srv,
         home.path(),
         "p1",
@@ -981,7 +981,7 @@ fn subagent_statusline_reports() {
     let srv = TestServer::fixed(200, r#"{"ok":true}"#);
     let home = tempfile::tempdir().unwrap();
     let (rc, out, _) = sl_run(
-        run_dmctl_subagent_statusline,
+        run_otterctl_subagent_statusline,
         &srv,
         home.path(),
         "p1",
@@ -1005,7 +1005,7 @@ fn subagent_statusline_reports_empty() {
     let srv = TestServer::fixed(200, r#"{"ok":true}"#);
     let home = tempfile::tempdir().unwrap();
     sl_run(
-        run_dmctl_subagent_statusline,
+        run_otterctl_subagent_statusline,
         &srv,
         home.path(),
         "p1",
@@ -1023,14 +1023,14 @@ fn subagent_statusline_no_report() {
     let srv = TestServer::fixed(200, r#"{"ok":true}"#);
     let home = tempfile::tempdir().unwrap();
     sl_run(
-        run_dmctl_subagent_statusline,
+        run_otterctl_subagent_statusline,
         &srv,
         home.path(),
         "",
         SSL_SAMPLE,
     );
     sl_run(
-        run_dmctl_subagent_statusline,
+        run_otterctl_subagent_statusline,
         &srv,
         home.path(),
         "p1",
@@ -1081,7 +1081,7 @@ fn statusline_report_carries_account_first() {
         home.path(),
         r#"{"oauthAccount":{"emailAddress":"a@x.com","organizationUuid":"org-a"}}"#,
     );
-    sl_run(run_dmctl_statusline, &srv, home.path(), "t1", SL_SAMPLE);
+    sl_run(run_otterctl_statusline, &srv, home.path(), "t1", SL_SAMPLE);
     let body = String::from_utf8_lossy(&srv.requests()[0].body).into_owned();
     assert!(
         body.starts_with(
@@ -1103,7 +1103,7 @@ fn start_report_sock(reply: Option<&'static str>) -> FakeReportSock {
     let home = tempfile::Builder::new().tempdir_in("/tmp").unwrap();
     let sock = agentrec::socket_path(home.path());
     std::fs::create_dir_all(sock.parent().unwrap()).unwrap();
-    let ln = dm_shared_platform::current().ipc.listen(&sock).unwrap();
+    let ln = otter_shared_platform::current().ipc.listen(&sock).unwrap();
     let reqs = Arc::new(Mutex::new(Vec::new()));
     let r2 = reqs.clone();
     std::thread::spawn(move || {
@@ -1114,7 +1114,7 @@ fn start_report_sock(reply: Option<&'static str>) -> FakeReportSock {
                 if BufReader::new(&mut c).read_until(b'\n', &mut line).is_err() {
                     return;
                 }
-                if let Ok(req) = dm_gocompat::json::unmarshal::<agentrec::Request>(&line) {
+                if let Ok(req) = otter_gocompat::json::unmarshal::<agentrec::Request>(&line) {
                     r3.lock().unwrap().push(req);
                 }
                 match reply {
@@ -1135,8 +1135,8 @@ impl FakeReportSock {
     }
     fn env(&self, srv: &TestServer, tool: &str) -> Env {
         let mut env = srv.env(self.home.path());
-        env.set(dmenv::ENV_HOME, self.home.path().to_str().unwrap());
-        env.set(dmenv::ENV_TOOL_ID, tool);
+        env.set(otterenv::ENV_HOME, self.home.path().to_str().unwrap());
+        env.set(otterenv::ENV_TOOL_ID, tool);
         env
     }
 }
@@ -1183,7 +1183,7 @@ fn activity_via_socket_keeps_context_on_http() {
     let env = sock.env(&srv, "t1");
     let (code, _, _) = run_with(
         &env,
-        run_dmctl_activity,
+        run_otterctl_activity,
         &["claude"],
         br#"{"hook_event_name":"UserPromptSubmit","session_id":"s1"}"#,
     );
@@ -1202,10 +1202,10 @@ fn statusline_via_socket() {
     let mut env = sock.env(&srv, "t1");
     let home = tempfile::tempdir().unwrap();
     env.set("HOME", home.path().to_str().unwrap());
-    run_with(&env, run_dmctl_statusline, &[], SL_SAMPLE.as_bytes());
+    run_with(&env, run_otterctl_statusline, &[], SL_SAMPLE.as_bytes());
     run_with(
         &env,
-        run_dmctl_subagent_statusline,
+        run_otterctl_subagent_statusline,
         &[],
         SSL_SAMPLE.as_bytes(),
     );

@@ -1,5 +1,5 @@
 [package]
-name = "dm-scripts-check-action-reasons"
+name = "otter-scripts-check-action-reasons"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,5 +14,5 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../gocompat" }
-dm-webserver-action = { path = "../../webserver/action" }
+otter-gocompat = { path = "../../gocompat" }
+otter-webserver-action = { path = "../../webserver/action" }

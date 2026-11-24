@@ -1,5 +1,5 @@
 /**
- * Dongminal — Repo 창의 **미리보기 탭** (UX_BATCH12_SRS §3.5f FR-RTB, REPO_TAB_UNIFY_SRS FR-RTU-40~45).
+ * Otterminal — Repo 창의 **미리보기 탭** (UX_BATCH12_SRS §3.5f FR-RTB, REPO_TAB_UNIFY_SRS FR-RTU-40~45).
  *
  * 미리보기는 칸마다 하나이고, 지금 칸의 것만 갈아 끼운다. 탭을 만드는 자리
  * (`_addEditorTab`)는 `layout-tab-add.js` 에 있고, 여기는 찾기·대체·고정이다.

@@ -1,6 +1,6 @@
 set -e
-rm -rf /tmp/dm-demo/notes-app && mkdir -p /tmp/dm-demo/notes-app
-cd /tmp/dm-demo/notes-app
+rm -rf /tmp/otter-demo/notes-app && mkdir -p /tmp/otter-demo/notes-app
+cd /tmp/otter-demo/notes-app
 git init -q -b main
 git config user.email demo@example.com; git config user.name Demo
 printf 'export function add(a, b) {\n  return a + b\n}\n' > math.js

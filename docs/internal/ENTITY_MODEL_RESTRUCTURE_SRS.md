@@ -6,7 +6,7 @@
 
 ### 1.1 목적 (Purpose)
 
-dongminal 의 공간 계층 어휘를 사용자 통념과 일치시키고, 탭 안에 탑재되는 **도구(Tool)** 를 1급 엔티티로 분리한다. 그 위에 "탭을 닫아도 도구는 백그라운드에서 계속 돈다"를 명시적 사용자 동작으로 제공한다.
+otterminal 의 공간 계층 어휘를 사용자 통념과 일치시키고, 탭 안에 탑재되는 **도구(Tool)** 를 1급 엔티티로 분리한다. 그 위에 "탭을 닫아도 도구는 백그라운드에서 계속 돈다"를 명시적 사용자 동작으로 제공한다.
 
 ### 1.2 범위 (Scope)
 
@@ -16,7 +16,7 @@ dongminal 의 공간 계층 어휘를 사용자 통념과 일치시키고, 탭 �
 - 도구 1급화 — 별도 컬렉션 + 탭의 참조. `tab.paneId` 필드 흡수 해소
 - 백그라운드 — `detach` 명령, busy 확인창 버튼, 상태바 배지, 복귀 경로
 - 참조 무결성 — 부팅 시 고아 도구 폐기
-- 외부 계약 개명 — MCP 툴 3개, dmctl 서브커맨드, HTTP 경로, SSE 이벤트명 (구 이름 alias 미제공)
+- 외부 계약 개명 — MCP 툴 3개, otterctl 서브커맨드, HTTP 경로, SSE 이벤트명 (구 이름 alias 미제공)
 - Run 접합 필드 정의 (필드·enum 만. 런타임 없음)
 - 1회성 데이터 마이그레이션 스크립트
 
@@ -58,7 +58,7 @@ dongminal 의 공간 계층 어휘를 사용자 통념과 일치시키고, 탭 �
 
 통념(tmux)과 `README.md`("분할 Pane")에서 pane 은 *분할 칸*이지만, 코드의 `paneId` 는 *PTY 프로세스*이고 분할 칸은 `region` 이다. 레이어별 사용 빈도도 어긋난다 — Go `pane` 350회 / `region` 1회, `web/js` `pane` 51회 / `region` 55회.
 
-좌표계의 `P` 는 **이미 통념 편에 서 있다.** `internal/workspace/manager.go:403` 이 `fmt.Sprintf("S%d.P%d.T%d", si+1, pi+1, ti+1)` 를 만들 때 `pi` 는 region 인덱스다. 즉 외부 계약(`dmctl focus S1.P2.T1`, MCP `location`)은 이미 P 를 분할된 공간에 쓰고 있다. 어긋난 것은 `paneId`(PTY)와 좌표계 접두사 `S`(session) 두 개다.
+좌표계의 `P` 는 **이미 통념 편에 서 있다.** `internal/workspace/manager.go:403` 이 `fmt.Sprintf("S%d.P%d.T%d", si+1, pi+1, ti+1)` 를 만들 때 `pi` 는 region 인덱스다. 즉 외부 계약(`otterctl focus S1.P2.T1`, MCP `location`)은 이미 P 를 분할된 공간에 쓰고 있다. 어긋난 것은 `paneId`(PTY)와 좌표계 접두사 `S`(session) 두 개다.
 
 ### 2.2 `session` 어휘가 관례와 충돌한다
 
@@ -74,7 +74,7 @@ dongminal 의 공간 계층 어휘를 사용자 통념과 일치시키고, 탭 �
 
 ### 2.4 도구 참조 무결성이 없다 — 고아율 50%
 
-`~/.dongminal/panes.json` 이 실은 도구의 별도 컬렉션(`[{id,name,cwd}]`)인데, `workspace.json` 참조와 대조하는 코드가 없다. 실측:
+`~/.otterminal/panes.json` 이 실은 도구의 별도 컬렉션(`[{id,name,cwd}]`)인데, `workspace.json` 참조와 대조하는 코드가 없다. 실측:
 
 ```
 workspace.json 이 참조하는 도구 : 10
@@ -89,11 +89,11 @@ agentsOrder: ["350"]            → panes.json 에도 없는 유령 참조
 
 ### 2.5 백그라운드 의도를 기록할 곳이 없다
 
-PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:126`, `pane.go:257`) "백그라운드에서 돈다"는 이미 100% 참이다. 부족한 것은 실행이 아니라 **의도의 표현과 제어**다. 그 결과 "탭 없는 도구"가 의도된 백그라운드인지 누수인지 구분할 데이터가 없어, 어떤 회수 정책도 세울 수 없다.
+PTY 와 출력 버퍼는 이미 `otterminald` 데몬이 소유하므로(`main.go:126`, `pane.go:257`) "백그라운드에서 돈다"는 이미 100% 참이다. 부족한 것은 실행이 아니라 **의도의 표현과 제어**다. 그 결과 "탭 없는 도구"가 의도된 백그라운드인지 누수인지 구분할 데이터가 없어, 어떤 회수 정책도 세울 수 없다.
 
 ### 2.6 오케스트레이션이 공간 계층을 침범한다
 
-`skills/dongminal-team` 은 팀을 별도 공간에 만들지 않고 팀장의 Pane 을 쪼개 팀 영역을 확보한다(`references/layout.md`). 그 결과 침범 방어가 스킬의 4대 절대원칙 중 2개("사용자 포커스 금지", 모든 호출에 `keepFocus=true`)와 `layout.md` 의 절반을 차지한다. 근본 원인은 오케스트레이션을 담을 축이 없어 공간 계층에 밀어넣고 있는 것이다.
+`skills/otterminal-team` 은 팀을 별도 공간에 만들지 않고 팀장의 Pane 을 쪼개 팀 영역을 확보한다(`references/layout.md`). 그 결과 침범 방어가 스킬의 4대 절대원칙 중 2개("사용자 포커스 금지", 모든 호출에 `keepFocus=true`)와 `layout.md` 의 절반을 차지한다. 근본 원인은 오케스트레이션을 담을 축이 없어 공간 계층에 밀어넣고 있는 것이다.
 
 ---
 
@@ -122,7 +122,7 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 
 **FR-EM-3** 좌표계를 `S{n}.P{n}.T{n}` → `W{n}.P{n}.T{n}` 으로 개명한다. `W`→Window, `P`→Pane, `T`→Tab. 성분 수는 3개를 유지하며 **Split 성분을 추가하지 않는다** — Split 은 계층 레벨이 아니므로 좌표에 자리가 없다(FR-EM-1). `P` 의 의미와 산출 규칙(`Split` 트리 in-order 순회 위치)은 변경하지 않는다. 구 접두사 `S` 는 인식하지 않는다(NFR-EM-1).
 
-개명 대상: `internal/workspace/manager.go:403`(라벨 생성), `CoordinateOf`, `labelToID`/`labels` 인덱스, 브라우저 command pipeline 의 좌표 파서, `dmctl`/MCP 의 `location` 인자 문서, `paneline.Render` 출력.
+개명 대상: `internal/workspace/manager.go:403`(라벨 생성), `CoordinateOf`, `labelToID`/`labels` 인덱스, 브라우저 command pipeline 의 좌표 파서, `otterctl`/MCP 의 `location` 인자 문서, `paneline.Render` 출력.
 
 **FR-EM-4** MCP 툴을 개명한다. 도구를 지칭하는 명사를 툴명에서 제거하여 MCP 프로토콜의 `tools/list` 와의 어휘 추돌을 회피한다 — 대상은 `id` 파라미터로 지정된다.
 
@@ -133,7 +133,7 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 | `read_pane_screen` | `read_screen` |
 | `send_input`, `send_agent_message`, `who_am_i`, `workspace_command` | 변경 없음 |
 
-**FR-EM-5** dmctl 서브커맨드를 개명한다.
+**FR-EM-5** otterctl 서브커맨드를 개명한다.
 
 | 구 | 신 |
 |----|-----|
@@ -206,7 +206,7 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 | Window 닫기 — busy 도구 없음 | 확인 없이 제거. 전원 종료 (FR-BG-1 대칭) |
 | Window 닫기 — busy 도구 있음 | 확인창(`app.js:1052`, `delSession`) 3버튼: `닫기` / `실행 중인 것만 백그라운드로` / `취소` |
 | 마지막 탭 닫힘에 의한 Window 소멸 (`app.js:1192`) | 탭 단위 결정(FR-BG-1/2/3)이 이미 적용된 상태. 추가 확인·전환을 하지 않는다 |
-| 원격 `closeWindow` (`dmctl close-window`, `workspace_command`) | 현행 유지 — UI 와 동일 경로(`closeSessionActive`→`delSession`)를 거치므로 확인창이 표시된다. 무인 전환 인자는 도입하지 않는다(§5) |
+| 원격 `closeWindow` (`otterctl close-window`, `workspace_command`) | 현행 유지 — UI 와 동일 경로(`closeSessionActive`→`delSession`)를 거치므로 확인창이 표시된다. 무인 전환 인자는 도입하지 않는다(§5) |
 
 **FR-BG-4a** 일괄 전환 대상은 **busy 인 `backgroundCapable` 도구만**이다. 한가한 도구는 종료한다. 근거: 확인창이 뜨는 사유가 "실행 중인 프로세스"이고, 한가하면 그냥 종료한다는 FR-BG-1 의 기본과 일관되어야 한다. 명시적 지목(FR-BG-2 `detach`)과 일괄 처리는 판단 기준이 달라야 하며, 한가한 셸까지 일괄 보존하면 백그라운드가 쓰레기로 채워진다.
 
@@ -278,7 +278,7 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 | TC-EM-2b | FR-EM-3, NFR-EM-1 | `focus S1.P2.T1` | 해석 실패 오류 |
 | TC-EM-2c | FR-EM-3, DC-EM-1 | Split 중첩 3단 Window 의 라벨 생성 | 3성분 유지. Split 성분 없음. `P` 는 in-order 위치 |
 | TC-EM-3 | FR-EM-4, NFR-EM-1 | `list_panes` 호출 | 미존재 툴 오류 |
-| TC-EM-4 | FR-EM-5, NFR-EM-1 | `dmctl new-session` | `unknown command` + exit 2 |
+| TC-EM-4 | FR-EM-5, NFR-EM-1 | `otterctl new-session` | `unknown command` + exit 2 |
 | TC-EM-5 | FR-EM-7 | `/api/panes/1/busy` | 404 |
 | TC-EM-6 | FR-EM-11 | 도구 참조 없는 탭 생성 | 유효 상태로 영속·렌더 |
 | TC-EM-7 | FR-EM-14 | `tools.json` 에 미참조 항목 3개 + 부팅 | 3개 미복원. 셸 미생성 |
@@ -286,7 +286,7 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 | TC-EM-9 | FR-EM-16 | `agentsOrder` 에 유령 id | 부팅 후 제거 |
 | TC-BG-1 | FR-BG-1 | 한가한 탭 닫기 | 확인 없이 닫힘. 도구 종료 |
 | TC-BG-2 | FR-BG-2 | 탭에서 `detach` | 탭 닫힘. 도구 생존. 목록에 출현 |
-| TC-BG-3 | FR-BG-2 | 셸에서 `bg` 입력 | 셸 빌트인으로 동작. dongminal 미개입 |
+| TC-BG-3 | FR-BG-2 | 셸에서 `bg` 입력 | 셸 빌트인으로 동작. otterminal 미개입 |
 | TC-BG-4 | FR-BG-3 | busy 탭 닫기 → `백그라운드로` | 탭 닫힘. 프로세스 계속 실행 |
 | TC-BG-5 | FR-BG-3 | busy 탭 닫기 → `닫기` | 도구 종료 |
 | TC-BG-6 | FR-BG-3 | busy 탭 닫기 → `취소` | 탭 유지 |
@@ -312,7 +312,7 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 - `grep -rn '세션' web/js/ web/index.html` 이 0
 - 기존 Go·Playwright 테스트 전부 통과 (NFR-EM-3)
 - 실 데이터 마이그레이션 후 부팅 시 생성 셸 수 = 탭 참조 도구 수
-- `docs/external/*`, `docs/internal/architecture.md`, `README.md`, `skills/dongminal-team`, `skills/dongminal-workflow` 의 어휘 갱신
+- `docs/external/*`, `docs/internal/architecture.md`, `README.md`, `skills/otterminal-team`, `skills/otterminal-workflow` 의 어휘 갱신
 - 새 코드에 TODO 없음. 미사용 import 없음
 
 ---
@@ -322,7 +322,7 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 | 항목 | 이유 |
 |------|------|
 | Run 런타임·API·스킬 재작성 | 요구 3번. 접합면만 정의(FR-EM-17) |
-| Client↔Window attach 서버 등록, visibility 서버 파생 | 1번 완료에 불필요. `dmctl` 이 "누가 보고 있나"를 답하려면 필요하지만 별도 SRS |
+| Client↔Window attach 서버 등록, visibility 서버 파생 | 1번 완료에 불필요. `otterctl` 이 "누가 보고 있나"를 답하려면 필요하지만 별도 SRS |
 | 최상위 Session 컨테이너 | DC-EM-3. 백그라운드 정책이 두 레벨로 갈려 요구 2번을 복잡화 |
 | "새 터미널"의 기본 동작 정의 (새 Window/Tab/분할 중 무엇) | 구조·네이밍 재정비 범위 밖. 현 동작(각각 별도 명령·단축키) 유지 |
 | 비터미널 도구의 백그라운드 | FR-BG-11. `backgroundCapable=false` |
@@ -339,10 +339,10 @@ PTY 와 출력 버퍼는 이미 `dongminald` 데몬이 소유하므로(`main.go:
 
 | Phase | 내용 | 검증 |
 |-------|------|------|
-| **P1** | 마이그레이션 도구 — 순수 변환 함수 + `dongminal migrate` (NFR-EM-2) | TC-EM-11 |
+| **P1** | 마이그레이션 도구 — 순수 변환 함수 + `otterminal migrate` (NFR-EM-2) | TC-EM-11 |
 | **P2** | 스키마 전환 (원자적) — `workspace.json` 스키마, Go 파서, 브라우저, 좌표계 `S`→`W` (FR-EM-2/2a/3) | TC-EM-1, TC-EM-2/2b/2c |
 | **P3** | 공간 계층 어휘 심볼 (`workspace`·`paneline`·JS) + 한국어 UI + `_killBg` (FR-EM-8/9) | 기존 테스트 |
-| **P4** | 외부 계약 개명 — MCP·dmctl·`workspace_command`·HTTP·SSE + 단축키 id·`settings.json` 마이그레이션 (FR-EM-4~7, 6a) | TC-EM-3/4/5 |
+| **P4** | 외부 계약 개명 — MCP·otterctl·`workspace_command`·HTTP·SSE + 단축키 id·`settings.json` 마이그레이션 (FR-EM-4~7, 6a) | TC-EM-3/4/5 |
 | **P5** | 도구 1급화 + 참조 무결성 + PTY 계층 심볼 개명 (FR-EM-10~16) | TC-EM-6~9 |
 | **P6** | 백그라운드 (FR-BG-1~11) | TC-BG-1~10 및 6b~6h |
 | **P7** | Run 접합 필드 (FR-EM-17/18) | TC-EM-10 |
@@ -364,9 +364,9 @@ P4 는 재기동을 요구한다(alias 미제공). P5 는 P2 에 의존한다. P
 
 **후속:**
 
-- `RUN_ORCHESTRATION_SRS` (요구 3번) — Run 런타임, 투영 정책 구현, `dongminal-team`/`dongminal-workflow` 재작성, 활동 패널의 Run별 그룹화. 참조 대상인 Orca(ADE)와의 대비는 아래 표. 본 SRS 의 `Tool.runId` / `Window.ownerRunId` / `RunProjection`(FR-EM-17)이 그 접합면이다.
+- `RUN_ORCHESTRATION_SRS` (요구 3번) — Run 런타임, 투영 정책 구현, `otterminal-team`/`otterminal-workflow` 재작성, 활동 패널의 Run별 그룹화. 참조 대상인 Orca(ADE)와의 대비는 아래 표. 본 SRS 의 `Tool.runId` / `Window.ownerRunId` / `RunProjection`(FR-EM-17)이 그 접합면이다.
 
-| 축 | Orca | dongminal 현재 |
+| 축 | Orca | otterminal 현재 |
 |----|------|----------------|
 | 격리 | agent 당 git worktree — 파일시스템 수준 | Pane 분할 — UI 수준만. **같은 워킹트리 공유** (repo 에 worktree 개념 0건) |
 | 에이전트 간 통신 | 없음. fan-out → 비교 → 병합 | `send_agent_message` 신뢰 채널 + 토폴로지 협업 — **Orca 에 없는 차별점** |
@@ -382,7 +382,7 @@ P4 는 재기동을 요구한다(alias 미제공). P5 는 P2 에 의존한다. P
 > 시작했다** — "읽는 동작을 추가하지 않는다"는 그 단계에서 해제됐고, "없어도 정상"은
 > NFR-RUN-3 으로 유지된다.
 
-후속 SRS 는 **Orca 의 장점을 최대한 도입한다.** 동작 명세뿐 아니라 **Orca 의 실제 구현(MIT 라이선스 공개 소스)을 읽어 구현 패턴을 참고한다** — worktree 생성·정리, 에이전트 프로세스 감독, diff 주석의 에이전트 왕복, 다중 에이전트 상태 표현. 도입 대상 — worktree 격리, fan-out→비교→병합, diff 인라인 주석 리뷰, 태스크 연동, Run 의 실행 실체. dongminal 의 신뢰 채널 기반 협업 토폴로지는 Orca 에 없는 축이므로 제거하지 않고 병존시킨다.
+후속 SRS 는 **Orca 의 장점을 최대한 도입한다.** 동작 명세뿐 아니라 **Orca 의 실제 구현(MIT 라이선스 공개 소스)을 읽어 구현 패턴을 참고한다** — worktree 생성·정리, 에이전트 프로세스 감독, diff 주석의 에이전트 왕복, 다중 에이전트 상태 표현. 도입 대상 — worktree 격리, fan-out→비교→병합, diff 인라인 주석 리뷰, 태스크 연동, Run 의 실행 실체. otterminal 의 신뢰 채널 기반 협업 토폴로지는 Orca 에 없는 축이므로 제거하지 않고 병존시킨다.
 
-도입 시 해소해야 할 결정: worktree 격리는 팀원 간 파일 공유를 차단하므로, **격리 여부를 Run 단위로 선택**하게 할지(공유 협업과 격리 fan-out 이 모두 가능) 아니면 **항상 격리하고 통신 채널만으로 협업**하게 할지. 전자는 두 실행 모드를 유지해야 하고, 후자는 기존 `dongminal-team` 의 일부 토폴로지가 성립하지 않게 된다.
+도입 시 해소해야 할 결정: worktree 격리는 팀원 간 파일 공유를 차단하므로, **격리 여부를 Run 단위로 선택**하게 할지(공유 협업과 격리 fan-out 이 모두 가능) 아니면 **항상 격리하고 통신 채널만으로 협업**하게 할지. 전자는 두 실행 모드를 유지해야 하고, 후자는 기존 `otterminal-team` 의 일부 토폴로지가 성립하지 않게 된다.
 - `CLIENT_ATTACH_SRS` — Client↔Window attach 서버 등록, visibility 파생, 다중 창 포커스 소유권 정리

@@ -10,12 +10,12 @@
 
 ## 0. 이번 단계가 할 일 — 사용자가 지정한 넷
 
-**1. `/dongminal:migration` — 인수인계가 확인되면 탭을 묻지 않고 닫는다**
+**1. `/otterminal:migration` — 인수인계가 확인되면 탭을 묻지 않고 닫는다**
 
 지금은 마지막에 사용자에게 확인을 구한다. 새 세션이 `working` 임을 **이미 확인한
-경우**에는 그 물음이 군더더기다 — 확인의 근거가 화면이 아니라 **훅 상태**(`dmctl wait
---for ready` · `dmctl status`)이므로, 그 판정이 섰으면 닫아도 된다.
-스킬은 `~/.dongminal/bin/agent-plugin/skills/migration` 에 있다.
+경우**에는 그 물음이 군더더기다 — 확인의 근거가 화면이 아니라 **훅 상태**(`otterctl wait
+--for ready` · `otterctl status`)이므로, 그 판정이 섰으면 닫아도 된다.
+스킬은 `~/.otterminal/bin/agent-plugin/skills/migration` 에 있다.
 
 **2. 에이전트 어댑터 강화 — 모든 에이전트가 GUI 에서 같게 동작한다**
 
@@ -96,11 +96,11 @@
 
 **원본 TUI 를 재려면:**
 
-    dmctl new-tab -n --name "probe"        # -n 이 포커스를 뺏지 않는다
-    dmctl send-input --at <uuid> --execute "cd <폴더> && claude"
-    dmctl read-screen --at <uuid> --bytes 30000
+    otterctl new-tab -n --name "probe"        # -n 이 포커스를 뺏지 않는다
+    otterctl send-input --at <uuid> --execute "cd <폴더> && claude"
+    otterctl read-screen --at <uuid> --bytes 30000
 
-`dmctl send-input` 은 **제어키를 보내지 못한다**(bracketed paste). 화살표가 필요한
+`otterctl send-input` 은 **제어키를 보내지 못한다**(bracketed paste). 화살표가 필요한
 실측은 사용자에게 눌러 달라고 하라. 신뢰 대화상자는 `~/.claude.json` 의
 `projects.<경로>.hasTrustDialogAccepted` 를 미리 `true` 로 두면 건너뛴다 — **쓰고 나면
 그 항목을 지워라** (사용자의 파일이다).
@@ -122,7 +122,7 @@
 - **로컬 전량은 8샤드.** `run_in_background` 는 세션 경계에서 죽는다 — `nohup` 으로:
 
       nohup env PW_WORKERS=1 sh -c 'seq 1 8 | xargs -P 4 -I{} scripts/e2e-shard-run.sh {} 8' \
-        > /tmp/dm-e2e.log 2>&1 &
+        > /tmp/otter-e2e.log 2>&1 &
 
 - **판정은 `unexpected 0`.** flaky·부하성은 **사유로** 가른다 — **같은 샤드를 혼자**
   돌려 통과하면 부하다 (`PW_WORKERS=1 scripts/e2e-shard-run.sh <N> 8`)
@@ -133,7 +133,7 @@
 - 스펙에 `D-…` 를 더하면 `go run ./scripts/gen-decisions`
 - 커밋 메시지에 AI 서명 금지 · 커밋은 **사용자 확인 후에만**
 - **운영 인스턴스는 사용자가 `start --foreground` 로 띄운다** — 직접 죽이지 말고 요청하라
-- `dmctl` 은 `DONGMINAL_PORT` 를 본다 (`PORT` 가 아니다)
+- `otterctl` 은 `OTTERMINAL_PORT` 를 본다 (`PORT` 가 아니다)
 
 ## 6. 열려 있는 것
 
@@ -149,7 +149,7 @@ DoD 가 서고 전량 e2e 가 `unexpected 0` 이면, 같은 세션 안에서 순
 
   1. 문서 갱신 — 진행 문서 · 스펙 §8 · **이 파일을 다음 단계의 착수 프롬프트로 다시 쓴다**
   2. `make gates` 초록 확인 뒤 **커밋** (사용자 확인 후)
-  3. 인수인계 — **`/dongminal:migration`**
+  3. 인수인계 — **`/otterminal:migration`**
   4. **자기 탭을 닫는다** — 단, 새 세션이 `working` 임을 확인한 뒤에만
      (위 §0 의 1 번이 이 절차 자체를 고치는 일이다)
 ```

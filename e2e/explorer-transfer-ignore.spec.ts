@@ -31,7 +31,7 @@ let BASE = '';
 const j = (...p: string[]) => path.join(...p);
 const w = (p: string, s: string) => fs.writeFileSync(p, s);
 
-test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-etr-'))) });
+test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-etr-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
 function git(dir: string, ...args: string[]) {

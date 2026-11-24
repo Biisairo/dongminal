@@ -2,9 +2,9 @@
 //! 종단은 주제별 파일에 있다 — 업로드·다운로드·cwd(`files_transfer`)·표식(`files_stamp`)·
 //! 읽기·쓰기(`files_rw`).
 
-use dm_gocompat::filepath;
-use dm_shared_httpresp::Response;
 use http::StatusCode;
+use otter_gocompat::filepath;
+use otter_shared_httpresp::Response;
 
 use crate::httperr::http_err;
 
@@ -63,7 +63,7 @@ impl Fail {
         match self {
             // 본문에 서버 경로를 싣지 않는다 (FR-FTR-3). 코드는 헤더로 간다 (FR-ERR-4).
             Fail::Text => http_err(msg, status, code),
-            Fail::Json => dm_shared_httpresp::fail_code(status, code, msg),
+            Fail::Json => otter_shared_httpresp::fail_code(status, code, msg),
         }
     }
 }

@@ -15,10 +15,10 @@
 패키지에 섞여 있어서 "이게 데몬인지 서버인지"를 디렉터리로 표현할 방법 자체가
 없다는 것**이다.
 
-`dongminald` 가 `internal/server` 에서 실제로 쓰는 심볼은 둘뿐이다:
+`otterminald` 가 `internal/server` 에서 실제로 쓰는 심볼은 둘뿐이다:
 
 ```go
-// cmd/dongminal/main.go:163,171
+// cmd/otterminal/main.go:163,171
 pm := server.NewToolManager(home, nil)      // internal/server/tool.go   1,140줄
 ps := server.NewPanedServer(pm, sock, pid)  // internal/server/paned.go    483줄
 ```
@@ -49,9 +49,9 @@ ps := server.NewPanedServer(pm, sock, pid)  // internal/server/paned.go    483�
 | 용어 | 정의 |
 |------|------|
 | **프로세스 역할** | 단일 바이너리가 `main()` 의 분기로 취하는 네 가지 실행 형태. `main.go:317-335` |
-| **① helper CLI** | `argv[0]` basename 이 `dmctl`/`edit`/`download`/`detach`. `runtimebin.Dispatch` |
-| **② 데몬** | `dongminal d` 또는 `argv[0]=="dongminald"`. `runDaemon()`. PTY 소유 + Unix socket |
-| **③ 웹 서버** | `dongminal start --foreground`. `serve()`. HTTP/WS/SSE |
+| **① helper CLI** | `argv[0]` basename 이 `otterctl`/`edit`/`download`/`detach`. `runtimebin.Dispatch` |
+| **② 데몬** | `otterminal d` 또는 `argv[0]=="otterminald"`. `runDaemon()`. PTY 소유 + Unix socket |
+| **③ 웹 서버** | `otterminal start --foreground`. `serve()`. HTTP/WS/SSE |
 | **④ 제어 CLI** | `start`/`stop`/`health`/`migrate`. `cli.Dispatch` |
 | **공유 (shared)** | **둘 이상의 프로세스 역할이 실제로 실행**하는 코드. 단일 바이너리이므로 링크 클로저는 전부 동일하다 — 링크 여부가 아니라 실행 여부로 판정한다 |
 | **메서드-패키지 제약** | Go 는 타입 `T` 의 메서드를 `T` 를 선언한 패키지에만 둘 수 있다. 이 제약이 묶음 H·I 의 형태를 결정한다 |
@@ -61,7 +61,7 @@ ps := server.NewPanedServer(pm, sock, pid)  // internal/server/paned.go    483�
 
 ### 1.4 참고 (References)
 
-- `cmd/dongminal/main.go` — `main()`, `runDaemon()`, `serve()`, `buildDeps()`, `buildDepsWithHub()`
+- `cmd/otterminal/main.go` — `main()`, `runDaemon()`, `serve()`, `buildDeps()`, `buildDepsWithHub()`
 - `internal/server/` — `tool.go`, `paned.go`, `tool_client.go`, `attention.go`, `deps.go`, `server.go`
 - `internal/git/` — `exec.go`(Exec), `write.go`(ExecWrite), `store.go`, `job.go`
 - `web/index.html:158-177` — `<script>` 로드 순서
@@ -101,8 +101,8 @@ ps := server.NewPanedServer(pm, sock, pid)  // internal/server/paned.go    483�
 ³ `runtime/install.go:34` 가 `HelperNames()` 로 심링크 이름만 받는다 — 코드 실행 아님
 
 **근거:**
-- `workspace` ① — `runtimebin/dmctl_listworkspace.go` / ② — `main.go:145` `ReferencedToolIDs`
-- `agentadapter` ① — `dmctl_activity.go`, `dmctl_run.go` / ③ — `handlers_status.go`
+- `workspace` ① — `runtimebin/otterctl_listworkspace.go` / ② — `main.go:145` `ReferencedToolIDs`
+- `agentadapter` ① — `otterctl_activity.go`, `otterctl_run.go` / ③ — `handlers_status.go`
 - `runtime` ② — `main.go:157` / ③ — `main.go:365`
 - `outbuf` — `server/tool.go` 단일 사용처 · `clientpid` — `adapters/client.go` 단일 사용처
 
@@ -233,13 +233,13 @@ commands.go:252,301,382   handleCommandSSE, handleCommandPost, handleCommandResu
 
 ### 2.5 npm 사용 현황 (묶음 G 근거)
 
-`package.json` 의 name 은 `dongminal-e2e`, devDependencies 는 `@playwright/test`
+`package.json` 의 name 은 `otterminal-e2e`, devDependencies 는 `@playwright/test`
 하나다. 프론트엔드는 번들러가 없고 `web/vendor/xterm.js` 는 저장소에 커밋되어
 있으므로 **빌드에 npm 이 필요 없다** — `scripts/build.sh` 의 `go build` 단독 구성은
 옳다.
 
 결손은 다른 데 있다: **e2e 실행 절차가 `README.md`·`docs/` 어디에도 없다.**
-`playwright.config.ts` 의 `webServer.command` 는 `go run ./cmd/dongminal start
+`playwright.config.ts` 의 `webServer.command` 는 `go run ./cmd/otterminal start
 --foreground` 라 빌드 산출물조차 쓰지 않는다.
 
 ---
@@ -280,11 +280,11 @@ WS), `attention.go` 탐지부(현 1~155행).
 
 ```
 internal/
-├── helper/                 ① dmctl/edit/download/detach 프로세스
+├── helper/                 ① otterctl/edit/download/detach 프로세스
 │   ├── runtimebin/         ← internal/runtimebin
 │   └── toolline/           ← internal/toolline
 │
-├── daemon/                 ② dongminald 프로세스
+├── daemon/                 ② otterminald 프로세스
 │   ├── boot/               ← main.go 의 runDaemon()            (묶음 D)
 │   └── ipc/                ← server/paned.go 서버측            (FR-SPL-3)
 │
@@ -510,7 +510,7 @@ export 승격: `gitEnv`→`Env`, `guardWriteArgs`→`GuardWriteArgs`, `sanitizeA
 | TC-EXP-1 | FR-EXP-3 | `go test ./...` | 기준선과 동일한 통과/실패 집합 |
 | TC-DIR-1 | FR-DIR-1 | `go list ./...` | 목표 트리와 경로 일치 |
 | TC-DIR-2 | FR-DIR-2 | `git log --follow` | 이동 파일 이력 연속 |
-| TC-BOOT-1 | 묶음 D | `dongminal start` → `pgrep -f dongminald` | 데몬 기동, `paned.sock` 생성 |
+| TC-BOOT-1 | 묶음 D | `otterminal start` → `pgrep -f otterminald` | 데몬 기동, `paned.sock` 생성 |
 | TC-SRV-1 | FR-SRV-5 | `handlers_git*_test.go` 16파일 | 전량 통과 |
 | TC-SRV-2 | FR-SRV-7 | `go list` 의존 방향 검사 | 역방향 import 0건 |
 | TC-GIT-1 | FR-GIT-8 | `grep -rn "execGit(" ./internal/webserver/domain/git/{query,write,store,jobs}` | 0건 |
@@ -551,7 +551,7 @@ export 승격: `gitEnv`→`Env`, `guardWriteArgs`→`GuardWriteArgs`, `sanitizeA
 | 7 | **`*Service` 메서드 47개 자유 함수 전환 중 초크포인트 우회** | **HIGH** | FR-GIT-8 + TC-GIT-1(`execGit` grep 0건). `execGit` 을 `core` 밖으로 내보내지 않으면 우회가 구조적으로 불가능하다 |
 | 8 | `query`↔`write` 순환 의존 발생 | MEDIUM | FR-GIT-9 — 공통부를 `core` 로 올린다. `PushSpec`·`StashPopChecked` 등 복합 메서드가 후보다 |
 | 9 | 프로토타입 증강으로 접근자 유실 | LOW | §2.4 로 접근자 11개 특정 완료. FR-APP-1/4 로 본체 유지 |
-| 10 | 실행 중인 `dongminald` 가 옛 바이너리라 프로토콜 불일치 | LOW | 와이어 포맷 불변. 검증 시 `dongminal stop --all` 선행 |
+| 10 | 실행 중인 `otterminald` 가 옛 바이너리라 프로토콜 불일치 | LOW | 와이어 포맷 불변. 검증 시 `otterminal stop --all` 선행 |
 
 ---
 
@@ -653,7 +653,7 @@ export 승격: `gitEnv`→`Env`, `guardWriteArgs`→`GuardWriteArgs`, `sanitizeA
 ### 8.4 D-3: `webserver/ipc` → `webserver/toolclient`
 
 **FR-SPL-4 를 수정한다.** `daemon/ipc` 와 `webserver/ipc` 는 둘 다
-`package ipc` 가 되어, 양쪽을 함께 import 하는 `cmd/dongminal/main.go` 에서
+`package ipc` 가 되어, 양쪽을 함께 import 하는 `cmd/otterminal/main.go` 에서
 alias 가 필요해진다 — FR-DIR-3(alias 불필요)과 충돌한다. 클라측을
 `internal/webserver/toolclient`(`package toolclient`)로 둔다.
 
@@ -875,7 +875,7 @@ jobs  ← core
 **격리 검증 도구**: `stop` 을 쓰지 않는다. `start --isolated`(임시 홈 + 빈 포트,
 `internal/ctl/cli/start.go:45` 가 격리 모드에서 `killPort` 를 건너뛴다)로 띄우고,
 정리는 `start` 가 출력한 PID 와 격리 홈의 `paned.pid` 만 직접 kill 한다. 운영
-인스턴스를 대상으로 삼지 않는 가드(URL 이 58146 이거나 홈이 `~/.dongminal` 이면
+인스턴스를 대상으로 삼지 않는 가드(URL 이 58146 이거나 홈이 `~/.otterminal` 이면
 중단)를 넣었다. 이 재구성 내내 운영 인스턴스 PID 는 변하지 않았다.
 
 ### 8.11 단계 15: `internal/server` → `internal/webserver/httpapi`
@@ -889,7 +889,7 @@ jobs  ← core
 `httpapi` 는 그 대안이다 (FR-DIR-3).
 
 **범위가 좁았던 이유.** 묶음 H 가 이미 의존 방향을 단방향으로 정리해 둔 덕에,
-`dongminal/internal/server` 를 import 하는 곳은 `cmd/dongminal/main.go` **하나뿐**이었다
+`otterminal/internal/server` 를 import 하는 곳은 `cmd/otterminal/main.go` **하나뿐**이었다
 (`Deps`·`Config`·`New` 참조 7곳). 나머지는 디렉터리 이동과 `package` 선언 46개 개명이다.
 
 **컴파일러가 잡지 못한 것 3건.** 디렉터리가 한 단계 깊어지는 이동이라 경로 문자열이
@@ -916,7 +916,7 @@ jobs  ← core
 |---|---|
 | `go build ./...` | 통과 |
 | `go vet ./...` | 통과 |
-| `go test ./...` | 25패키지 전량 통과 (`dongminal/internal/webserver/httpapi` 34.1s) |
+| `go test ./...` | 25패키지 전량 통과 (`otterminal/internal/webserver/httpapi` 34.1s) |
 | `gofmt -l internal/ cmd/ web/` | 무변경 |
 | `npx playwright test` | **398 통과 / 0 실패** — 기준선과 동일 |
 

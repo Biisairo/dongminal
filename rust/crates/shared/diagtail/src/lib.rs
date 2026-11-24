@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/diagtail` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/shared/diagtail` 의 Rust 포팅.
 //!
 //! 실행 진단 문자열을 사람이 읽을 만큼만 남긴다 (FR-DRC-9).
 //!

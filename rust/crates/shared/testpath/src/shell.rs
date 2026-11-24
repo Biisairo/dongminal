@@ -21,7 +21,7 @@ fn shell_path(name: &str) -> Option<PathBuf> {
 }
 
 /// 테스트가 띄우는 셸로 고정할 `$SHELL` 값이다 (M8 D-A-21). Windows 는 `None` 이다 —
-/// 그쪽의 셸은 `DONGMINAL_SHELL` 이고 `$SHELL` 을 보지 않는다.
+/// 그쪽의 셸은 `OTTERMINAL_SHELL` 이고 `$SHELL` 을 보지 않는다.
 pub fn pinned_shell() -> Option<PathBuf> {
     PINNED_SHELLS.iter().find_map(|n| shell_path(n))
 }

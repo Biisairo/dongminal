@@ -50,17 +50,17 @@
 
 | 자리 | 근거 코드 | terminal | git | editor |
 |---|---|---|---|---|
-| 토프바 `#window-name` | `_rWinName(w)` — `renderer.js:79` | `og` | `dongminal` | `~` |
+| 토프바 `#window-name` | `_rWinName(w)` — `renderer.js:79` | `og` | `otterminal` | `~` |
 | 슬롯 머리글 `.slot-head` | `win.name` 원본 — `renderer.js:183` | `og` | **`Git`** | `~` |
-| 사이드바 목록 | 탭별 서술자 — `sidebar-tabs.js` | `og` | `dongminal` | `~` |
+| 사이드바 목록 | 탭별 서술자 — `sidebar-tabs.js` | `og` | `otterminal` | `~` |
 
 **결함 A.** `.slot-head` 만 `_rWinName` 을 거치지 않는다. Git 창은 저장된 이름이
 `Git` 고정이고 리포명 파생이 `_rWinName` 안에만 있으므로, **같은 창을 토프바는
-`dongminal` 로, 머리글은 `Git` 으로 부른다.** `_rWinName` 의 주석은 "여기서 경로를
+`otterminal` 로, 머리글은 `Git` 으로 부른다.** `_rWinName` 의 주석은 "여기서 경로를
 따로 잘라 쓰면 목록과 상단이 같은 리포를 다른 이름으로 부를 수 있다" 며 출처를 한
 자리에 모았는데, 나중에 선 머리글(FR-WSL-35)이 그 규칙 밖에 남았다.
 
-**결함 B.** 어느 자리도 **창 타입을 말하지 않는다.** `dongminal` 이라는 제목은 Git
+**결함 B.** 어느 자리도 **창 타입을 말하지 않는다.** `otterminal` 이라는 제목은 Git
 창일 수도 Editor 창일 수도 있다 — 실제로 이 워크스페이스에는 그 이름의 창이 둘
 있다. `~` 는 어느 것인지 더더욱 말하지 않는다.
 
@@ -123,7 +123,7 @@ FR-WSL-35 는 "칸 사이는 손잡이가 가른다" 로 이 문제를 이미 �
 <타입 라벨> · <창 이름>
 ```
 
-예: `Windows · og` / `Git · dongminal` / `Editor · dongminal` / `Editor · ~`
+예: `Windows · og` / `Git · otterminal` / `Editor · otterminal` / `Editor · ~`
 
 > **UX_AUDIT_FIX_SRS FR-UXF-1 로 개정 (2026-11-19)**: 이전 `<타입 라벨> · <창 이름>`(+ 포커스 탭) / 지금 `<창 이름> · <탭 이름>` —
 > 라벨은 창 이름이 빌 때만 이름 자리에 선다. 구분점은 흐린 글자(`.tt-sep`)다 / 이유 라벨은 사이드바 탭 이름이라 제목에서 정보가 없다(진단 D1).
@@ -285,7 +285,7 @@ FR-STB-11 과 같은 규칙이다.
 
 | 줄 | 현행 기대 | 개정 후 |
 |---|---|---|
-| `toHaveText(wantA)` | `dongminal` | `Git · dongminal` |
+| `toHaveText(wantA)` | `otterminal` | `Git · otterminal` |
 | `not.toHaveText('Git')` | — | 유지 (여전히 `Git` 단독이면 안 된다) |
 | `toHaveText('Git')` | 리포 없는 Git 창 | 유지 — TC-STB-3 |
 | `toHaveText(name)` | 터미널 창 이름 | `Windows · <이름>` |

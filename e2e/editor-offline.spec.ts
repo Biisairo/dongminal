@@ -18,7 +18,7 @@ import { tmpPath, realPath } from './osenv';
 // 서버 밖의 모든 요청을 **거절**하고, 그 상태에서 편집기가 뜨는지 본다.
 // 벤더링이 되돌려지면(상수가 다시 CDN 을 가리키면) 이 스펙이 먼저 실패한다.
 
-const ROOT = tmpPath('dm-editor-offline-' + process.pid);
+const ROOT = tmpPath('otter-editor-offline-' + process.pid);
 
 test.beforeAll(() => { mkdirSync(ROOT, { recursive: true }) });
 test.afterAll(() => { rmTree(ROOT) });

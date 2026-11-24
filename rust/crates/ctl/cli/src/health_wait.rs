@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use dm_shared_apipath as apipath;
+use otter_shared_apipath as apipath;
 use serde::Deserialize;
 
 use crate::http::{ALIVE_PROBE_TIMEOUT, get};
@@ -38,7 +38,7 @@ fn fetch_health(url: &str, timeout: Duration) -> Option<HealthState> {
     if r.status != 200 {
         return None;
     }
-    let b: Body = dm_gocompat::json::unmarshal(&r.body).ok()?;
+    let b: Body = otter_gocompat::json::unmarshal(&r.body).ok()?;
     Some(HealthState {
         daemon_connected: b.daemon.connected,
         daemon_build: b.daemon.build,

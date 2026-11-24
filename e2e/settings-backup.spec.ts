@@ -66,7 +66,7 @@ test.describe('Settings export/import', () => {
     await openBackupTab(page);
 
     const { envelope, name } = await exportEnvelope(page);
-    expect(envelope.kind).toBe('dongminal-settings');
+    expect(envelope.kind).toBe('otterminal-settings');
     expect(envelope.version).toBe(1);
     expect(typeof envelope.exportedAt).toBe('string');
     expect(envelope.server).toBeTruthy();
@@ -74,7 +74,7 @@ test.describe('Settings export/import', () => {
     expect(envelope.session).toBeTruthy();
 
     // FR-SPT-6: 이름에 시각이 박힌다.
-    expect(name).toMatch(/^dongminal-settings-\d{8}-\d{6}\.json$/);
+    expect(name).toMatch(/^otterminal-settings-\d{8}-\d{6}\.json$/);
 
     const blob = await (await request.get('/api/settings')).json();
     expect(envelope.server).toEqual(blob);
@@ -157,7 +157,7 @@ test.describe('Settings export/import', () => {
     const before = await (await request.get('/api/settings')).json();
     await importFile(page, { kind: 'something-else', version: 1, server: { themeName: 'x' } });
 
-    await expect(page.locator('#bk-msg')).toContainText('dongminal 설정 파일이 아닙니다');
+    await expect(page.locator('#bk-msg')).toContainText('otterminal 설정 파일이 아닙니다');
     await expect(page.locator('#bk-apply')).toBeHidden();
 
     const after = await (await request.get('/api/settings')).json();
@@ -176,7 +176,7 @@ test.describe('Settings export/import', () => {
   test('a newer envelope version is rejected', async ({ page }) => {
     await waitForInit(page);
     await openBackupTab(page);
-    await importFile(page, { kind: 'dongminal-settings', version: 99, server: {} });
+    await importFile(page, { kind: 'otterminal-settings', version: 99, server: {} });
     await expect(page.locator('#bk-msg')).toContainText('더 새로운 판');
     await expect(page.locator('#bk-apply')).toBeHidden();
   });
@@ -185,7 +185,7 @@ test.describe('Settings export/import', () => {
   test('an envelope without a server object is rejected', async ({ page }) => {
     await waitForInit(page);
     await openBackupTab(page);
-    await importFile(page, { kind: 'dongminal-settings', version: 1 });
+    await importFile(page, { kind: 'otterminal-settings', version: 1 });
     await expect(page.locator('#bk-msg')).toContainText('설정 내용이 없습니다');
     await expect(page.locator('#bk-apply')).toBeHidden();
   });

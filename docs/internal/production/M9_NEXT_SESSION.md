@@ -139,7 +139,7 @@ stream-json 과 **형식이 겹친다** — `claudeDecode` 의 조각을 재사�
 - 새 문구는 `t('ns.key')` — ko·en 둘 다 (`check-i18n.mjs`)
 - 설정 키는 `SETTINGS_SCHEMA`·`SETTINGS_ACCESS` + `helpers.js` + `index.html` + ko·en
 - 오류 코드는 `apierr/codes_core.go`·`codes_doc.go` → `go run ./scripts/gen-errors` · 프론트 문장은 `err.<code>`
-- 스펙에 D-… 를 더하면 `go run ./scripts/gen-decisions` · dmctl 명령을 바꾸면 `commands.md`(check-commands-docs)
+- 스펙에 D-… 를 더하면 `go run ./scripts/gen-decisions` · otterctl 명령을 바꾸면 `commands.md`(check-commands-docs)
 - e2e 의 고정 대기에는 **`TEST-16` 표식과 사유**가 필요하다 (`make gates` 가 잡는다).
   "일어나지 않음" 을 재는 관측 창만 예외다
 - **e2e 는 `app.testing.<이름>` 만 쓴다** (`check-e2e-internals`). **주석도 걸린다** — P3 가
@@ -148,7 +148,7 @@ stream-json 과 **형식이 겹친다** — `claudeDecode` 의 조각을 재사�
 - z-index 는 층 토큰에서 온다 — 숫자 리터럴 금지 (`check-z-index.mjs`)
 - 하네스를 복사하지 마라 · 에이전트 이름을 등록부 밖에 적지 마라(`check-agent-names`)
 - 커밋 메시지에 AI 서명 금지
-- dmctl 주의: `new-tab`/`close-tab` 은 `--help` 를 받지 않는다. `close-tab` 에는 `--force` 가 있다
+- otterctl 주의: `new-tab`/`close-tab` 은 `--help` 를 받지 않는다. `close-tab` 에는 `--force` 가 있다
 - **격리 인스턴스를 멈출 때 `--port` 와 `--home` 을 함께 줘라.** 한쪽만 주면 나머지는
   환경변수가 채우고 이 워크스페이스의 환경은 언제나 **운영**을 가리킨다 (§2-11)
 - **운영 인스턴스는 사용자가 `start --foreground` 로 띄운다.** 재시작이 필요하면 직접
@@ -161,16 +161,16 @@ stream-json 과 **형식이 겹친다** — `claudeDecode` 의 조각을 재사�
   1. 문서 갱신 — `M9_PROGRESS.md` · 스펙 §10 · 로드맵 M9 절 · **이 파일을 다음 단계의 착수
      프롬프트로 다시 쓴다** (이 절을 그대로 옮긴다)
   2. `make gates` 초록 확인 뒤 **커밋** (단계 종료 커밋 하나 — 이 지시가 그 확인이다)
-  3. 인수인계 — **`/dongminal:migration` 스킬을 쓴다** (P3 에서 만들었다). 스킬이 담고 있는
+  3. 인수인계 — **`/otterminal:migration` 스킬을 쓴다** (P3 에서 만들었다). 스킬이 담고 있는
      절차가 이것이다:
-       `dmctl new-tab -n` (`--at` 없이) → `newTabs[0]` 의 uuid·toolId
-       `dmctl rename-tab --at <탭> "M9-P<n+1>"`
-       `dmctl send-input --at <탭> --execute "cd '$PWD' && <이 세션을 띄운 에이전트 명령>"`
-       `dmctl wait --at <탭> --for ready --timeout-ms 180000`
-       (rc=5 면 `dmctl read-screen --at <탭>` 으로 무엇을 묻는지 보고 처리)
-       `dmctl msg --to <toolId> -` 로 `[HANDOFF M9 P<n> → P<n+1>]` 엔벨로프 — 이 파일을 읽고
+       `otterctl new-tab -n` (`--at` 없이) → `newTabs[0]` 의 uuid·toolId
+       `otterctl rename-tab --at <탭> "M9-P<n+1>"`
+       `otterctl send-input --at <탭> --execute "cd '$PWD' && <이 세션을 띄운 에이전트 명령>"`
+       `otterctl wait --at <탭> --for ready --timeout-ms 180000`
+       (rc=5 면 `otterctl read-screen --at <탭>` 으로 무엇을 묻는지 보고 처리)
+       `otterctl msg --to <toolId> -` 로 `[HANDOFF M9 P<n> → P<n+1>]` 엔벨로프 — 이 파일을 읽고
        진행하라는 한 문단 + 커밋 해시
-       `dmctl status --at <탭>` 로 `working` 확인 (idle 이면 `send-input --execute ""`)
-  4. **자기 탭을 닫는다** — `dmctl close-tab --at <자기 탭 uuid> --force` (`dmctl who-am-i` 의
+       `otterctl status --at <탭>` 로 `working` 확인 (idle 이면 `send-input --execute ""`)
+  4. **자기 탭을 닫는다** — `otterctl close-tab --at <자기 탭 uuid> --force` (`otterctl who-am-i` 의
      `uuid=`). 세션의 마지막 명령이다
 ```

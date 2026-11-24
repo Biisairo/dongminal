@@ -1179,7 +1179,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn eval_symlinks_resolves_prefix_and_reports_go_errors() {
-        let root = std::env::temp_dir().join(format!("dm-gocompat-fp-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("otter-gocompat-fp-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("real/sub")).unwrap();
         std::os::unix::fs::symlink(root.join("real"), root.join("link")).unwrap();

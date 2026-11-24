@@ -76,7 +76,7 @@ class VersionWatch {
     // 세션을 잃는 것을 막는 장치다. 앱이 스스로 여는 새로고침은 그 대상이 아니며,
     // 물으면 자동이 아니게 된다 — 사용자가 화면을 보고 있지 않으면 대화만 떠 있고
     // 갱신은 영영 오지 않는다. 가드 자체는 남는다 (그쪽이 이 값을 읽는다).
-    window.__dmReloading=true;
+    window.__otterReloading=true;
     // BOOT_SCREEN_REUSE_SRS FR-BTR-10 / D-BTR-7: 다시 열리는 문서의 `#boot` 와
     // 이어 붙인다. 이 표시가 없으면 요청부터 새 문서의 첫 페인트까지 옛 화면이
     // 아무 말 없이 남는다.
@@ -154,7 +154,7 @@ class VersionWatch {
     // 서로의 안을 들여다보지 않는다. 두 번째 인자 `live` 는 **그 인사를 실어 온 구독이
     // 아직 살아 있는가** 를 답하는 함수다 — 판정은 SSE 를 아는 쪽이 한다.
     // 그 판도 함께 둔다 — dirty 로 미룬 목표를 탭 복귀가 묻지 않고 이어 간다 (FR-RLC-1 D-2).
-    window.__dmAssetVersion=(next,live)=>{
+    window.__otterAssetVersion=(next,live)=>{
       this.greeted=typeof live==='function'?{v:next,live}:null;
       this.saw(next);
     };

@@ -10,10 +10,10 @@ use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime};
 
-use dm_webserver_domain_git_core::Ctx;
-use dm_webserver_domain_git_query::{Error, Signature};
-use dm_webserver_domain_git_store::{Observation, Store};
 use futures_util::future::BoxFuture;
+use otter_webserver_domain_git_core::Ctx;
+use otter_webserver_domain_git_query::{Error, Signature};
+use otter_webserver_domain_git_store::{Observation, Store};
 
 use crate::CommandBroker;
 use crate::payloads::git_changed_payload;
@@ -86,7 +86,7 @@ impl GitObserver for Arc<Store> {
 
 /// 관측 식별자다. 정의는 `store::mark` 한 벌이다 (REPO_FIX 04 §3A-0 X5).
 fn obs_mark(o: &Observation) -> String {
-    dm_webserver_domain_git_store::mark(o)
+    otter_webserver_domain_git_store::mark(o)
 }
 
 /// 지연 실행. 돌려준 함수는 아직 돌지 않았으면 멈춘다 (Go `time.AfterFunc(...).Stop`).

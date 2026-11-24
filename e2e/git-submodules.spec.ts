@@ -73,7 +73,7 @@ function mkTree(tag: string) {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-gsub-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-gsub-')));
 });
 test.afterAll(() => {
   rmTree(BASE);

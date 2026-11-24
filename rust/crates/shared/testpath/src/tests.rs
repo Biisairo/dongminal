@@ -52,4 +52,4 @@ fn tool_home_is_removed_on_drop() {
     assert!(!p.exists());
 }
 
-const ENV_TOOL_HOME_NAME: &str = "DONGMINAL_TOOL_HOME";
+const ENV_TOOL_HOME_NAME: &str = "OTTERMINAL_TOOL_HOME";

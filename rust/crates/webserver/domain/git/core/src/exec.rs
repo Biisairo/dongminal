@@ -7,7 +7,7 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use dm_gocompat::{filepath, strconv::quote};
+use otter_gocompat::{filepath, strconv::quote};
 
 use crate::ctx::{Ctx, CtxError};
 use crate::error::{Error, ExecError, Kind, classify};
@@ -369,7 +369,7 @@ pub(crate) async fn exec_git(
             if out.exit_code > 0 {
                 return Ok(out);
             }
-            dm_gocompat::oserr::go_error_string(&err)
+            otter_gocompat::oserr::go_error_string(&err)
         }
         Err(e @ SpawnError::Start { .. }) => {
             // 캐시된 bin 이 사라졌으면 캐시를 버리고 부재로 답한다 (FR-OPT-7-1).
@@ -444,8 +444,8 @@ pub(crate) fn look_git(path_env: Option<&str>) -> Result<String, String> {
     {
         return Ok(bin.clone());
     }
-    let bin = dm_shared_platform::try_look_path_in("git", &path)
-        .map_err(|e| dm_shared_platform::exec_error("git", e))?;
+    let bin = otter_shared_platform::try_look_path_in("git", &path)
+        .map_err(|e| otter_shared_platform::exec_error("git", e))?;
     *cache = Some((path, bin.clone()));
     Ok(bin)
 }

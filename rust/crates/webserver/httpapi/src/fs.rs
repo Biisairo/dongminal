@@ -3,13 +3,13 @@
 
 use std::fmt::Display;
 
-use dm_gocompat::filepath;
-use dm_shared_dmlog::infof;
-use dm_shared_httpreq::{self as httpreq, DecodeError, Empty};
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr::{self as apierr, Classify};
-use dm_webserver_domain_wsentry::normalize_path;
 use http::StatusCode;
+use otter_gocompat::filepath;
+use otter_shared_httpreq::{self as httpreq, DecodeError, Empty};
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::infof;
+use otter_webserver_apierr::{self as apierr, Classify};
+use otter_webserver_domain_wsentry::normalize_path;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -84,7 +84,7 @@ pub(crate) fn fs_from_io(err: &std::io::Error) -> FsError {
     } else {
         apierr::FS.lookup(err).map_or(FS_ERR_IO, |(_, c)| c)
     };
-    fs_cause(code, &dm_gocompat::oserr::go_error_string(err))
+    fs_cause(code, &otter_gocompat::oserr::go_error_string(err))
 }
 
 /// Go `fsCause`: 아래 계층의 오류를 코드의 문구로 바꾸고 전문을 로그로 보낸다.
@@ -207,7 +207,7 @@ pub(crate) fn fs_target_in(root: &str, p: &str) -> Result<String, Response> {
 
 /// Go `fsResolveErr`: 권한과 부재를 가른다 (FR-EDT-117).
 pub(crate) fn fs_resolve_err(err: &std::io::Error) -> FsError {
-    let msg = dm_gocompat::oserr::go_error_string(err);
+    let msg = otter_gocompat::oserr::go_error_string(err);
     if err.kind() == std::io::ErrorKind::PermissionDenied {
         return fs_cause(FS_ERR_PERMISSION, &msg);
     }

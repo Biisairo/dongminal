@@ -1,5 +1,5 @@
 /**
- * Console 탭 — dongminal 이 사용자를 대신해 실행한 git 명령의 기록
+ * Console 탭 — otterminal 이 사용자를 대신해 실행한 git 명령의 기록
  * (GIT_UI_REVISION_SRS FR-GIT-218, 검증 V95).
  *
  * **터미널이 아니다.** 이 명령들은 서버 프로세스 안에서 돌아 사용자의 터미널에는

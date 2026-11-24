@@ -15,8 +15,8 @@
 Windows CI 가 드러낸 것은 검사의 문제가 아니라 **제품의 구멍**이다.
 
 ```
-Expected: "C:\Users\runneradmin\AppData\Local\Temp\dm-git-fx-uxr-844\basic"
-Received: "D:\a\dongminal\dongminal"          ← 서버 자신의 cwd
+Expected: "C:\Users\runneradmin\AppData\Local\Temp\otter-git-fx-uxr-844\basic"
+Received: "D:\a\otterminal\otterminal"          ← 서버 자신의 cwd
 ```
 
 `GET /api/cwd?tool=<id>` 가 20초를 기다려도 **서버의 cwd** 를 답한다. 그 도구는

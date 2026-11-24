@@ -137,7 +137,7 @@ class LayoutTabOps extends Controller {
     // UX_BATCH6_SRS FR-RUN-6: `force` 는 **이미 물었다**는 뜻이다. Run 정리가
     // 그 길로 온다 — 서버가 에이전트에게 종료를 청하고 셸로 돌아오기를 기다린
     // 뒤이며, 그러고도 도는 프로세스에 확인창을 띄우면 무인 정리가 그 자리에서
-    // 막힌다. 사용자의 결정은 `dmctl run close` 를 부른 순간에 이미 있었다.
+    // 막힌다. 사용자의 결정은 `otterctl run close` 를 부른 순간에 이미 있었다.
     if(!tab.toolId || opts.keepTool || opts.force) return opts;
     return (async()=>{
       if(!await this.app.tool._isToolBusy(tab.toolId)) return opts;

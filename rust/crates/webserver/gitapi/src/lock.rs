@@ -3,10 +3,10 @@
 use std::sync::Mutex;
 use std::time::Duration;
 
-use dm_webserver_domain_git_core::{self as core, Ctx};
-use dm_webserver_domain_git_jobs::{Exclusion, Keys, Release};
-use dm_webserver_domain_git_query as query;
-use dm_webserver_domain_git_store::Store;
+use otter_webserver_domain_git_core::{self as core, Ctx};
+use otter_webserver_domain_git_jobs::{Exclusion, Keys, Release};
+use otter_webserver_domain_git_query as query;
+use otter_webserver_domain_git_store::Store;
 
 use crate::GitServer;
 

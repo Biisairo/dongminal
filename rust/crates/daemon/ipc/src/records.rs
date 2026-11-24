@@ -3,10 +3,10 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_dmlog::warnf;
-use dm_shared_toolhub::{ManagerError, ToolManager};
-use dm_shared_toolipc as ipc;
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_otterlog::warnf;
+use otter_shared_toolhub::{ManagerError, ToolManager};
+use otter_shared_toolipc as ipc;
 use serde::Serialize;
 
 use crate::conn::lock;

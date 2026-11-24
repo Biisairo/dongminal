@@ -3,8 +3,8 @@
 
 use std::sync::Arc;
 
-use dm_webserver_action::{self as action};
-use dm_webserver_apierr as apierr;
+use otter_webserver_action::{self as action};
+use otter_webserver_apierr as apierr;
 use serde_json::json;
 
 use super::fsenv::{
@@ -285,7 +285,7 @@ fn safe_resolve_root_base_imposes_no_limit() {
     for base in ["/", "//"] {
         for p in ["/x/y.txt", "/tmp", "/", "/a/../b"] {
             let got = safe_resolve(base, p).unwrap();
-            assert_eq!(got, dm_gocompat::filepath::clean(p), "{base} {p}");
+            assert_eq!(got, otter_gocompat::filepath::clean(p), "{base} {p}");
         }
     }
     assert!(is_filesystem_root("/"));

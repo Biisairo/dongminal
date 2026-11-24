@@ -226,7 +226,7 @@ func (st *Store) Service() *Service
     "cwd": "/abs/cwd",
     "isRepo": true,
     "path": "/abs/root",
-    "name": "dongminal",
+    "name": "otterminal",
     "reason": "",
     "badge": {"total": 3, "branch": "git", "detached": false, "observedAtUnixMs": 1756...}
   },
@@ -312,7 +312,7 @@ func (s *Server) gitPinsMutate(fn func([]string) []string) ([]string, error)
 
 - `Deps` 와 `Server` 에 `Git *git.Store` 를 더한다. 주석으로 nil 의 뜻을 남긴다
   (기존 `Runs`·`Worktrees` 주석의 밀도에 맞춘다).
-- `cmd/dongminal` 에서 `git.NewStore(git.New())` 를 만들어 주입한다.
+- `cmd/otterminal` 에서 `git.NewStore(git.New())` 를 만들어 주입한다.
 - `apiRoutes` 에 5개 라우트를 등록한다. 등록 위치는 `/api/stats` 앞이며 묶음 주석을
   붙인다.
 

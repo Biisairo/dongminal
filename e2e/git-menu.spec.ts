@@ -13,7 +13,7 @@ import { tmpPath, realPath } from './osenv';
 // 그래서 이 스펙은 GIT_MENUS 에 테스트용 kind 를 얹고 프레임워크만 시험한다 —
 // 실제 항목의 동작은 커밋 메뉴(FR-GIT-142~144)로 따로 본다.
 
-const FIXTURES = tmpPath('dm-git-fx-menu-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-menu-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

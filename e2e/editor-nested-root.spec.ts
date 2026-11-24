@@ -30,7 +30,7 @@ let INNER = '';
 const j = (...p: string[]) => path.join(...p);
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-nest-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-nest-')));
   OUTER = j(BASE, 'outer');
   INNER = j(OUTER, 'pkg', 'inner');
   fs.mkdirSync(j(INNER, 'deep'), { recursive: true });

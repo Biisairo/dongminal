@@ -5,16 +5,16 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
 use bytes::Bytes;
-use dm_gocompat::neturl::{self, Values};
-use dm_shared_dmlog::ReqCtx;
-use dm_shared_httpreq::{self as httpreq, BoxError, DecodeError, Empty};
-use dm_shared_httpresp::Response;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::Ctx;
 use http::StatusCode;
 use http_body_util::BodyExt;
 use http_body_util::combinators::UnsyncBoxBody;
 use hyper::body::Body;
+use otter_gocompat::neturl::{self, Values};
+use otter_shared_httpreq::{self as httpreq, BoxError, DecodeError, Empty};
+use otter_shared_httpresp::Response;
+use otter_shared_otterlog::ReqCtx;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::Ctx;
 use serde::de::DeserializeOwned;
 
 use crate::GitServer;
@@ -165,7 +165,7 @@ impl GitServer {
         if !path.starts_with("/api/git/") {
             return None;
         }
-        let handler = *dm_webserver_httproute::dispatch(&ROUTES, req.method().as_str(), &path)?;
+        let handler = *otter_webserver_httproute::dispatch(&ROUTES, req.method().as_str(), &path)?;
         let query = neturl::parse_query(req.uri().query().unwrap_or("")).0;
         let lease = write_lease(req.method(), &path).map(Arc::new);
         let (parts, body) = req.into_parts();

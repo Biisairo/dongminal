@@ -10,8 +10,8 @@ use std::sync::mpsc::{Receiver, channel};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use dm_gocompat::filepath;
-use dm_webserver_domain_ext as ext;
+use otter_gocompat::filepath;
+use otter_webserver_domain_ext as ext;
 
 use crate::process::{Conn, Starter};
 use crate::service::Service;

@@ -6,8 +6,8 @@
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use dm_shared_textenc::{self as textenc, Encoded};
-use dm_webserver_domain_wsentry::{self as wsentry, normalize_path};
+use otter_shared_textenc::{self as textenc, Encoded};
+use otter_webserver_domain_wsentry::{self as wsentry, normalize_path};
 use serde::Deserialize;
 
 use super::fsenv::{FakeHub, FakeWork, req, set_home};

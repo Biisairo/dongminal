@@ -61,7 +61,7 @@
 
 ### 2.1 되뿌리기는 연결마다 일어난다
 
-`~/.dongminal/server.log` (2026-09-12 실측):
+`~/.otterminal/server.log` (2026-09-12 실측):
 
 ```
 07:10:41.823 ws connected  tool=01a090f6-…

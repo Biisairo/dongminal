@@ -9,7 +9,7 @@
 
 ### 1.1 목적 (Purpose)
 
-`/dongminal:issue-tree` 로 연 트리를 **안전하게 끝내는 길**을 정한다. 지금은 루트 노드가 정상 완료 때만 자기 Run 을 닫고 그룹을 지운다. 이 절차는 실제로 끝까지 돌지 않는다(§2.1). 도중에 끝내는 길은 아예 없다(§2.3).
+`/otterminal:issue-tree` 로 연 트리를 **안전하게 끝내는 길**을 정한다. 지금은 루트 노드가 정상 완료 때만 자기 Run 을 닫고 그룹을 지운다. 이 절차는 실제로 끝까지 돌지 않는다(§2.1). 도중에 끝내는 길은 아예 없다(§2.3).
 
 ### 1.2 범위 (Scope)
 
@@ -56,7 +56,7 @@
 
 ### 2.2 window 가 남는다
 
-`delete-group` 은 window 를 닫지 않고 그룹에서 풀기만 한다 (`dmctl_order.go:23`). 루트 window 와 그 안의 탭이 화면에 남는다.
+`delete-group` 은 window 를 닫지 않고 그룹에서 풀기만 한다 (`otterctl_order.go:23`). 루트 window 와 그 안의 탭이 화면에 남는다.
 
 ### 2.3 도중에 끝내는 길이 없다
 
@@ -87,13 +87,13 @@
 | FR-ITX-4 | 조율이 받은 루트의 `완료` 는 정상 완료의 트리 종료를 시작한다 (FR-ITX-30) | 필수 |
 | FR-ITX-5 | 모든 트리 프리앰블에 다음 한 줄을 싣는다: 사용자가 트리를 닫자고 하면 스스로 정리하지 않고 부모에게 `종료 요청` 을 보낸다 | 필수 |
 | FR-ITX-6 | 조율은 트리의 탭을 닫거나 window 를 만들지 않는다. 트리 종료(§3.3)만 예외다 | 필수 |
-| FR-ITX-7 | **조율 승계.** `dmctl run coordinate --to <toolId>` 는 호출한 도구가 조율인 열린 Run 전부의 `coordinatorToolId` 를 대상 도구로 옮긴다. 대상은 살아 있어야 하고 호출자와 달라야 한다. 아니면 `invalid_argument` 다. 옮길 Run 이 없으면 빈 목록으로 답한다 | 필수 |
+| FR-ITX-7 | **조율 승계.** `otterctl run coordinate --to <toolId>` 는 호출한 도구가 조율인 열린 Run 전부의 `coordinatorToolId` 를 대상 도구로 옮긴다. 대상은 살아 있어야 하고 호출자와 달라야 한다. 아니면 `invalid_argument` 다. 옮길 Run 이 없으면 빈 목록으로 답한다 | 필수 |
 | FR-ITX-8 | 옮긴 Run 이 트리 Run 이면 서버는 그 Run 의 루트 노드(배정 부모가 없고 보고하지 않은 트리 멤버)의 지금 도구에 `[ISSUE-TREE 승계] 조율 새 toolId=<id>` 를 신뢰 엔벨로프로 보낸다. 루트의 다음 프리앰블(승계)은 새 조율을 부모로 싣는다(FR-ITX-2) | 필수 |
-| FR-ITX-9 | `/dongminal:migration` 은 일반 절차와 멤버 갈래 모두 자기 탭을 닫기 직전에 `dmctl run coordinate --to <새 탭 toolId>` 를 부른다(중간 노드는 자기가 연 가지 Run 의 조율이다). 조율하는 Run 이 없으면 아무 일도 하지 않는다 | 필수 |
+| FR-ITX-9 | `/otterminal:migration` 은 일반 절차와 멤버 갈래 모두 자기 탭을 닫기 직전에 `otterctl run coordinate --to <새 탭 toolId>` 를 부른다(중간 노드는 자기가 연 가지 Run 의 조율이다). 조율하는 Run 이 없으면 아무 일도 하지 않는다 | 필수 |
 
 ### 3.2 묶음 P — 종료 요청과 준비 (FR-ITX-10~29)
 
-메시지는 `dmctl msg` 의 엔벨로프로 보낸다. 본문 첫 줄이 종류다.
+메시지는 `otterctl msg` 의 엔벨로프로 보낸다. 본문 첫 줄이 종류다.
 
 | 종류 | 방향 | 본문 |
 |---|---|---|
@@ -107,10 +107,10 @@
 |---|---|---|
 | FR-ITX-10 | 사용자가 어느 노드에서든 트리를 닫자고 하면, 그 노드는 정리하지 않고 부모에게 `종료 요청` 을 보낸다. 하던 일은 멈춘다(커밋·되돌리기는 하지 않는다) | 필수 |
 | FR-ITX-11 | `종료 요청` 을 받은 노드는 자기 판단을 더하지 않고 부모에게 그대로 넘긴다. 루트는 조율에게 넘긴다 | 필수 |
-| FR-ITX-12 | 조율은 `종료 요청` 을 받으면 `dmctl run tree --ref <트리>` 로 미완료 노드를 찾는다. 사용자에게 트리 종료를 확인받는다. 이때 미완료 노드마다 **보존**(WIP 커밋 · 브랜치 보존) 또는 **버림**(커밋하지 않은 변경 버림) 중 하나를 고르게 한다. 판단에 필요하면 그 노드 worktree 의 `git status --short` 를 보여 준다 | 필수 |
+| FR-ITX-12 | 조율은 `종료 요청` 을 받으면 `otterctl run tree --ref <트리>` 로 미완료 노드를 찾는다. 사용자에게 트리 종료를 확인받는다. 이때 미완료 노드마다 **보존**(WIP 커밋 · 브랜치 보존) 또는 **버림**(커밋하지 않은 변경 버림) 중 하나를 고르게 한다. 판단에 필요하면 그 노드 worktree 의 `git status --short` 를 보여 준다 | 필수 |
 | FR-ITX-13 | 사용자가 확인하지 않으면 조율은 요청한 노드에 `종료 취소` 를 보내고 아무것도 닫지 않는다. 받은 노드는 사용자에게 알리고 기다린다 | 필수 |
 | FR-ITX-14 | 확인을 받으면 조율은 루트에 `종료 준비` 를 보낸다. 각 노드는 그것을 일하는 하위 전부(사슬의 자식 · 병렬 가지)에 그대로 내려보낸다 | 필수 |
-| FR-ITX-15 | 하위가 없는 노드(또는 하위가 모두 `준비됨` 을 보낸 노드)는 `종료 준비` 를 받으면 자기 일을 이렇게 정리한다: 미완료이고 보존이면 `wip(#<번호>): <한 줄>` 커밋(커밋 금지 배정이면 `git stash push -m "issue-tree #<번호>"`)과 이슈 진행 메모를 남긴다. 미완료이고 버림이면 **자기 worktree 의** 커밋하지 않은 변경만 버린다. 그 뒤 `dmctl run report --outcome failed --summary "트리 종료로 중단: …"` 을 한다. 이미 보고한 노드는 다시 보고하지 않는다 | 필수 |
+| FR-ITX-15 | 하위가 없는 노드(또는 하위가 모두 `준비됨` 을 보낸 노드)는 `종료 준비` 를 받으면 자기 일을 이렇게 정리한다: 미완료이고 보존이면 `wip(#<번호>): <한 줄>` 커밋(커밋 금지 배정이면 `git stash push -m "issue-tree #<번호>"`)과 이슈 진행 메모를 남긴다. 미완료이고 버림이면 **자기 worktree 의** 커밋하지 않은 변경만 버린다. 그 뒤 `otterctl run report --outcome failed --summary "트리 종료로 중단: …"` 을 한다. 이미 보고한 노드는 다시 보고하지 않는다 | 필수 |
 | FR-ITX-16 | 중간 노드는 하위가 모두 `준비됨` 을 보낸 뒤 병렬 가지를 처리한다. 그 가지의 이슈가 닫혔으면 브랜치를 자기 브랜치에 병합한다. 닫히지 않았으면 병합하지 않고 「남긴 브랜치」 에 적는다. 병합 충돌은 스스로 풀고, 풀 수 없으면 `막힘` 이다 | 필수 |
 | FR-ITX-17 | 노드는 자기 worktree 가 깨끗할 때만(`git status --porcelain` 이 비었을 때) 부모에게 `준비됨` 을 보낸다. 깨끗하지 않으면 `막힘` 이다 | 필수 |
 | FR-ITX-18 | `막힘` 을 받은 노드는 그것을 그대로 부모에게 올린다. 조율은 `막힘` 을 받으면 **아무것도 닫지 않고** 무엇이 막혔는지 사용자에게 알린다. 사용자가 풀면 조율이 `종료 준비` 를 다시 보낸다 | 필수 |
@@ -122,12 +122,12 @@
 |---|---|---|
 | FR-ITX-30 | 조율은 루트의 `준비됨`(중간 종료) 또는 `완료`(정상 완료)를 받으면 정리를 시작한다 | 필수 |
 | FR-ITX-31 | 조율은 루트 Run 브랜치의 처리를 사용자에게 묻는다: 사용자 브랜치에 병합 · push · PR · 브랜치만 남김. **답을 받기 전에는 하지 않는다** (FR-IAT-34 유지). 병합 충돌은 조율이 사용자 작업 트리에서 풀지 않고 사용자에게 알린다 | 필수 |
-| FR-ITX-32 | 조율은 트리의 열린 Run 을 **가지 Run 부터** 닫는다(깊은 가지가 먼저, 루트 Run 이 마지막). `dmctl run close --run <id>` 이고 `--force` 를 쓰지 않는다. 보고하지 않은 멤버 때문에 거절되면, 그 멤버가 모두 `lost` 일 때만 사용자 확인 뒤 `--force` 로 닫는다. 살아 있는 멤버가 있으면 멈추고 알린다 | 필수 |
+| FR-ITX-32 | 조율은 트리의 열린 Run 을 **가지 Run 부터** 닫는다(깊은 가지가 먼저, 루트 Run 이 마지막). `otterctl run close --run <id>` 이고 `--force` 를 쓰지 않는다. 보고하지 않은 멤버 때문에 거절되면, 그 멤버가 모두 `lost` 일 때만 사용자 확인 뒤 `--force` 로 닫는다. 살아 있는 멤버가 있으면 멈추고 알린다 | 필수 |
 | FR-ITX-32a | 미완료 노드가 보존을 골랐어도 커밋할 변경이 없으면(사슬의 하위가 같은 worktree 를 이미 커밋했다) 커밋하지 않는다 | 필수 |
-| FR-ITX-33 | 조율은 그룹에 남은 window 를 모두 닫고(`dmctl close-window --at <그 window 의 탭 uuid> --force`) 그룹을 지운다(`dmctl delete-group`). 남은 window 는 `list-workspace --json` 의 `groupUuid` 로 찾는다(`list-groups` 는 개수만 준다) | 필수 |
+| FR-ITX-33 | 조율은 그룹에 남은 window 를 모두 닫고(`otterctl close-window --at <그 window 의 탭 uuid> --force`) 그룹을 지운다(`otterctl delete-group`). 남은 window 는 `list-workspace --json` 의 `groupUuid` 로 찾는다(`list-groups` 는 개수만 준다) | 필수 |
 | FR-ITX-34 | 조율은 자기 탭에 최종 보고를 남긴다: 닫은 이슈 · 남긴 브랜치 · worktree 잔여물(`run close` 응답의 `residue` 와 사유) · 병합/push 결과. 조율은 자기 탭을 닫지 않는다 | 필수 |
 | FR-ITX-35 | 정상 완료(FR-ITX-4)에서는 FR-ITX-12~19 를 건너뛰고 FR-ITX-31 부터 한다 | 필수 |
-| FR-ITX-36 | **대신 조율.** 조율이 없으면 루트가 조율의 일(FR-ITX-12~18 · 31~34)을 자기 탭에서 맡는다. 조율이 없다는 것은 셋 중 하나다: 프리앰블이 「부모: 없음」 · 조율에게 보낸 `msg` 가 전송되지 않음 · `dmctl status --at <조율>` 이 `live=false` 이거나 `state=unknown`(에이전트가 끝나면 활동 기록이 지워진다). 루트는 조율에게 보내기 전에 늘 `status` 를 본다 | 필수 |
+| FR-ITX-36 | **대신 조율.** 조율이 없으면 루트가 조율의 일(FR-ITX-12~18 · 31~34)을 자기 탭에서 맡는다. 조율이 없다는 것은 셋 중 하나다: 프리앰블이 「부모: 없음」 · 조율에게 보낸 `msg` 가 전송되지 않음 · `otterctl status --at <조율>` 이 `live=false` 이거나 `state=unknown`(에이전트가 끝나면 활동 기록이 지워진다). 루트는 조율에게 보내기 전에 늘 `status` 를 본다 | 필수 |
 | FR-ITX-37 | 대신 조율하는 루트는 ① `종료 준비` 를 자기에게 보내지 않고 바로 하위에 내린다 ② 가지 Run 을 닫은 뒤 자기 window 의 다른 노드 탭을 `close-tab --force` 로 닫는다(`--keep-tools` 는 탭을 하나도 닫지 않는다) ③ 자기 window 는 닫지 않고 그룹을 지운다 ④ 자기 `run report` 뒤 루트 Run 을 `--keep-tools` 로 **맨 마지막 명령**으로 닫는다(자기 worktree 가 지워질 수 있다) ⑤ 최종 보고에 「이 탭과 window 는 직접 닫는다」 를 적는다 | 필수 |
 
 ### 3.4 묶음 G — 서버 가드 (FR-ITX-40~49)
@@ -144,8 +144,8 @@
 | FR-ITX-48 | 정리할 때 기록의 `repo` 경로가 없으면(옛 가지 Run 의 기록이 지워진 부모 worktree 를 가리킨다) 대상 worktree 에서 메인 worktree 경로를 구해 쓴다 | 필수 |
 | FR-ITX-49 | worktree 경로가 이미 없고 브랜치도 없으면 병합 판정을 하지 않고 「정리됨」(`removed`)으로 본다(등록만 남았으면 prune 한다). 경로만 없고 브랜치가 남아 있으면 FR-ITX-41 의 판정을 그대로 한다 — 잃을 커밋이 있을 수 있다 | 필수 |
 | FR-ITX-50 | `run close` 의 정리(멤버 탭 닫기 · worktree 제거)는 요청 연결과 무관하게 끝까지 한다. 클라이언트가 끊겨도 제거가 중간에 멈추지 않는다. 각 git 명령의 시한은 그대로다 | 필수 |
-| FR-ITX-51 | `dmctl run close` 의 시한은 서버 정리를 기다릴 만큼 길다(5분 20초). 그래도 넘기면 날것의 오류 대신 「서버는 정리를 계속한다 — `dmctl run status --run <id>` 로 결과를 본다」를 낸다(종료 코드 1) | 필수 |
-| FR-ITX-46 | `unmerged` 잔여물이 있으면 Run 기록은 지우지 않는다(FR-DEL-9a 와 같다). 나중에 병합한 뒤 `dmctl run close --run <id> --force`(정리 전용 진입, FR-WKT-8a)를 부르면 다시 판정한다 | 필수 |
+| FR-ITX-51 | `otterctl run close` 의 시한은 서버 정리를 기다릴 만큼 길다(5분 20초). 그래도 넘기면 날것의 오류 대신 「서버는 정리를 계속한다 — `otterctl run status --run <id>` 로 결과를 본다」를 낸다(종료 코드 1) | 필수 |
+| FR-ITX-46 | `unmerged` 잔여물이 있으면 Run 기록은 지우지 않는다(FR-DEL-9a 와 같다). 나중에 병합한 뒤 `otterctl run close --run <id> --force`(정리 전용 진입, FR-WKT-8a)를 부르면 다시 판정한다 | 필수 |
 
 ### 3.5 비기능 요구사항 (Non-functional)
 
@@ -176,9 +176,9 @@
 | TC-ITX-4 | FR-ITX-40 · NFR-ITX-2 | Go: 격리 Run 시작이 `mergeInto` 에 현재 브랜치를 남긴다 · 분리된 HEAD 면 비운다 · `mergeInto` 가 없는 옛 기록을 읽는다 |
 | TC-ITX-5 | FR-ITX-41~43 · 46 | Go(실제 git 저장소): 트리 Run close — ① 병합된 브랜치는 worktree 와 브랜치를 지운다(메인 HEAD 에 병합되지 않았어도) ② 병합되지 않은 브랜치는 `unmerged` 로 남고 기록이 남는다 ③ `mergeInto` 가 비었으면 `unmerged` ④ 병합한 뒤 `--force` 재진입은 지운다 ⑤ dirty 는 지금처럼 `dirty` |
 | TC-ITX-7 | FR-ITX-7·8 | Go: 조율 승계가 호출자가 조율인 열린 Run 만 옮긴다 · 닫힌 Run · 남의 Run 은 그대로 · 죽은 대상 · 자기 자신 거절 · 트리 Run 의 루트 노드에 알림 · 루트 프리앰블의 부모가 새 조율 |
-| TC-ITX-8 | FR-ITX-9 | Go(문서 대조): `migration.md` 에 `dmctl run coordinate --to` |
+| TC-ITX-8 | FR-ITX-9 | Go(문서 대조): `migration.md` 에 `otterctl run coordinate --to` |
 | TC-ITX-9 | FR-ITX-47·48 | Go(실제 git): 연결된 worktree 를 cwd 로 연 Run 의 `repo` 가 메인 경로이고 `mergeInto` 가 그 worktree 의 브랜치다 · 기록의 `repo` 가 없어도 정리가 메인 경로로 돈다 |
-| TC-ITX-10 | FR-ITX-49~51 | Go(실제 git): 경로·브랜치를 손으로 지운 뒤 `RequireMerged` 정리가 `removed` · 경로만 없고 병합 안 된 브랜치가 남으면 `unmerged`. close 요청 ctx 가 이미 취소돼도 worktree 가 지워진다. dmctl close 가 시한을 넘기면 `run status` 안내를 낸다 |
+| TC-ITX-10 | FR-ITX-49~51 | Go(실제 git): 경로·브랜치를 손으로 지운 뒤 `RequireMerged` 정리가 `removed` · 경로만 없고 병합 안 된 브랜치가 남으면 `unmerged`. close 요청 ctx 가 이미 취소돼도 worktree 가 지워진다. otterctl close 가 시한을 넘기면 `run status` 안내를 낸다 |
 | TC-ITX-6 | FR-ITX-44 · 45 | Go: 트리가 아닌 Run 의 close 결과가 변경 전과 같다. 정리 중 실행된 git 명령에 merge · rebase · reset 이 없다 |
 
 ## 6. 비목표 (Non-goals)
@@ -192,7 +192,7 @@
 
 | ID | 위험 | 등급 | 대응 |
 |---|---|---|---|
-| R-1 | 메시지 사슬 중 한 노드가 응답하지 않아 종료가 멈춘다 | MEDIUM | 조율은 `dmctl run tree` 로 어느 노드가 남았는지 보고 사용자에게 알린다. 정리는 하지 않는다(멈추는 쪽이 안전하다) |
+| R-1 | 메시지 사슬 중 한 노드가 응답하지 않아 종료가 멈춘다 | MEDIUM | 조율은 `otterctl run tree` 로 어느 노드가 남았는지 보고 사용자에게 알린다. 정리는 하지 않는다(멈추는 쪽이 안전하다) |
 | R-2 | 조율 탭이 트리가 도는 동안 닫혀 대신 조율로 간다 | LOW | 정해진 길이 있다(FR-ITX-36·37). 남는 것은 루트의 탭과 window 뿐이다 |
 | R-3 | `branch -D` 가 판정 뒤 바뀐 브랜치를 지운다 | LOW | 판정과 제거를 같은 저장소 잠금 안에서 한다(FR-ITX-43). 트리 브랜치는 그 시점에 쓰는 세션이 없다(노드가 모두 멈췄다) |
 | R-4 | 조율이 사용자 브랜치에 병합하다 충돌이 난다 | MEDIUM | 조율은 사용자 작업 트리에서 충돌을 풀지 않고 알린다(FR-ITX-31). 루트 Run 의 worktree 는 `unmerged` 로 남아 작업이 사라지지 않는다 |
@@ -203,7 +203,7 @@
 
 | 날짜 | 내용 |
 |---|---|
-| 2026-11-11 | FR-ITX-49~51 · TC-ITX-10 추가. 이전 동작: ① 경로·브랜치를 이미 지운 worktree 도 병합 판정이 실패해 `unmerged` 로 남아, `--force` 재진입으로도 기록을 지우지 못했다 ② close 의 탭 닫기·worktree 제거가 요청 ctx 에 묶여, dmctl 이 60초에 끊으면 `git worktree remove` 가 중간에 죽고 반쯤 지운 worktree 가 `remove-failed` 로 남았다 ③ dmctl 은 60초 뒤 날것의 시한 오류를 냈다. 새 동작: ① 경로와 브랜치가 모두 없으면 `removed` ② 정리는 연결과 무관하게 끝까지 한다 ③ dmctl 시한 5분 20초, 넘기면 `run status` 안내. 이유: 실사용 결함 보고(이슈 트리 Run 이 닫힌 뒤에도 목록에 남음) |
+| 2026-11-11 | FR-ITX-49~51 · TC-ITX-10 추가. 이전 동작: ① 경로·브랜치를 이미 지운 worktree 도 병합 판정이 실패해 `unmerged` 로 남아, `--force` 재진입으로도 기록을 지우지 못했다 ② close 의 탭 닫기·worktree 제거가 요청 ctx 에 묶여, otterctl 이 60초에 끊으면 `git worktree remove` 가 중간에 죽고 반쯤 지운 worktree 가 `remove-failed` 로 남았다 ③ otterctl 은 60초 뒤 날것의 시한 오류를 냈다. 새 동작: ① 경로와 브랜치가 모두 없으면 `removed` ② 정리는 연결과 무관하게 끝까지 한다 ③ otterctl 시한 5분 20초, 넘기면 `run status` 안내. 이유: 실사용 결함 보고(이슈 트리 Run 이 닫힌 뒤에도 목록에 남음) |
 | 2026-11-08 | 보완. ① 조율 승계(FR-ITX-7~9): 이전 — 조율이 migration 하면 루트가 옛 주소로 보내다 대신 조율로 갔다. 새 — 옛 세션이 `run coordinate --to` 로 조율 자리를 넘기고 루트에 새 주소를 알린다. ② 저장소 경로(FR-ITX-47·48): 이전 — 가지 Run 의 `repo` 는 부모 worktree 경로였고, 부모 worktree 가 지워지면 남은 가지 worktree 를 정리하지 못했다. 새 — 메인 worktree 경로를 기록하고, 옛 기록은 정리할 때 대상 worktree 에서 구한다. ③ 정리 3단계는 `list-workspace --json` 으로 그룹의 window 를 찾는다(`list-groups` 는 개수만 준다). 이유: 구현 뒤 점검 |
 | 2026-11-08 | 구현. ① 서버 가드: 이전 동작 — `run close` 는 깨끗한 worktree 를 병합 여부와 관계없이 지우고 브랜치는 `-d` 로 지웠다. 새 동작 — 격리 Run 은 시작할 때 cwd 의 현재 브랜치를 `mergeInto` 로 기록하고, 트리 Run 의 worktree 는 그 브랜치에 병합됐을 때만 지운다(브랜치는 `-D`). 아니면 `unmerged` 잔여물로 남긴다. 트리가 아닌 Run 은 그대로다. ② 프리앰블: 이전 — 루트는 언제나 「부모: 없음」. 새 — 조율이 살아 있고 루트 자신이 아니면 「부모: <조율> — 조율 에이전트」. 모든 트리 프리앰블에 `종료 요청` 줄. ③ `issue-tree.md`: 「보고하고 빠진다」 → 「보고하고 조율로 남는다」, 「루트 노드의 끝」 → 「트리 종료」(요청 · 확인 · 준비 · 정리 · 대신 조율). 이유: §2.1~2.5 |
 | 2026-11-08 | 초안. 사용자 결정: 조율 에이전트가 정리(D-ITX-1), 미완료 노드는 노드마다 묻는다(D-ITX-3), 조율이 없으면 루트가 대신(D-ITX-4), 병합 확인 뒤에만 worktree 제거(D-ITX-5). `ISSUE_AGENT_TREE_SRS` 개정: FR-IAT-71(루트가 병합을 묻는다) → FR-ITX-31(조율이 묻는다), FR-IAT-74(루트가 Run 을 닫고 그룹을 지운다) → FR-ITX-32·33 |

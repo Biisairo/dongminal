@@ -17,7 +17,7 @@
 /*
  * SERVER_DRIVEN_ACTIONS_SRS F-4 (FR-SDA-54): 상한의 주인은 **서버**다. 부팅 때
  * `GET /api/meta` 의 `entityNameMax` 를 받아 여기 둔다(`applyServerMeta`). 받기 전(0)에는
- * 자르지 않는다 — 화면이 상한을 지어내지 않는다. dmctl 은 서버가 같은 상한으로 거절한다.
+ * 자르지 않는다 — 화면이 상한을 지어내지 않는다. otterctl 은 서버가 같은 상한으로 거절한다.
  *	이전 동작: 화면이 64 를 따로 들고 있었고 서버는 길이를 보지 않았다
  */
 let ENTITY_NAME_MAX=0;

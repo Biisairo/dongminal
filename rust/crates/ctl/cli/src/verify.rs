@@ -1,4 +1,4 @@
-//! `dongminal verify` — **종단간** 검증이다 (E2E_UNIFICATION_SRS). 서버를 격리 인스턴스로 띄우고 그
+//! `otterminal verify` — **종단간** 검증이다 (E2E_UNIFICATION_SRS). 서버를 격리 인스턴스로 띄우고 그
 //! 위의 HTTP 표면을 실제로 두드린다. doctor 는 서버 없이 플랫폼 계층을 보고, verify 는 프로세스
 //! 경계를 넘은 뒤를 본다. 세 대상이 **같은 목록**을 돈다 — 대상별 갈래가 하나도 없다 (FR-E2S-0/2).
 
@@ -7,14 +7,14 @@ use std::path::Path;
 use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
-use dm_gocompat::filepath;
-use dm_gocompat::oserr::{go_error_string, path_error};
-use dm_gocompat::strconv::quote;
-use dm_shared_apipath as apipath;
-use dm_shared_dmenv as dmenv;
-use dm_shared_editorlimit::FILE_MAX_BYTES;
-use dm_shared_platform::Process;
-use dm_webserver_domain_git_core::{Ctx, Kind, Service};
+use otter_gocompat::filepath;
+use otter_gocompat::oserr::{go_error_string, path_error};
+use otter_gocompat::strconv::quote;
+use otter_shared_apipath as apipath;
+use otter_shared_editorlimit::FILE_MAX_BYTES;
+use otter_shared_otterenv as otterenv;
+use otter_shared_platform::Process;
+use otter_webserver_domain_git_core::{Ctx, Kind, Service};
 use regex::Regex;
 
 use crate::env::Env;
@@ -33,7 +33,7 @@ const VERIFY_HTTP_TIMEOUT: Duration = Duration::from_secs(15);
 const VERIFY_COLS: u16 = 120;
 const VERIFY_ROWS: u16 = 40;
 /// 왕복 검사가 셸에 시키고 되받을 표시다. 현행 CI 와 같은 값을 승계한다 (D-5).
-const VERIFY_MARKER: &str = "dongminal-e2e-ok";
+const VERIFY_MARKER: &str = "otterminal-e2e-ok";
 /// 셸이 프롬프트를 그리기를 기다리는 상한이다 (판정은 `wait_quiet`).
 const VERIFY_SHELL_WAIT: Duration = Duration::from_secs(20);
 const VERIFY_POLL_EVERY: Duration = Duration::from_millis(100);
@@ -59,11 +59,11 @@ pub(crate) fn guard_isolated(home: &str, port: &str, user_home: &str) -> Result<
         return Err(format!("홈이 격리 홈이 아닙니다: {home}"));
     }
     if !user_home.is_empty()
-        && filepath::clean(home) == filepath::join(&[user_home, dmenv::DEFAULT_HOME_DIR])
+        && filepath::clean(home) == filepath::join(&[user_home, otterenv::DEFAULT_HOME_DIR])
     {
         return Err(format!("홈이 사용자 기본 홈입니다: {home}"));
     }
-    if port == dmenv::DEFAULT_PORT {
+    if port == otterenv::DEFAULT_PORT {
         return Err(format!(
             "포트가 기본 포트 {port} 입니다 — 운영 인스턴스일 수 있습니다"
         ));
@@ -182,7 +182,7 @@ pub(crate) fn verify_checks() -> Vec<VerifyCheck> {
             "서버 프로세스 생존",
             None,
             Box::new(|s| {
-                if !dm_shared_platform::current().process.alive(s.pid) {
+                if !otter_shared_platform::current().process.alive(s.pid) {
                     return Err(format!("pid {} 가 살아 있지 않다", s.pid));
                 }
                 Ok(String::new())
@@ -649,18 +649,18 @@ pub(crate) fn run_verify_in(
     let mut r = CheckReport::new(stdout);
     let _ = writeln!(
         r.out(),
-        "dongminal verify — platform={}",
-        dm_shared_platform::current().os
+        "otterminal verify — platform={}",
+        otter_shared_platform::current().os
     );
     r.section("격리 인스턴스 기동");
-    let host = dmenv::DEFAULT_HOST;
+    let host = otterenv::DEFAULT_HOST;
     // 자식은 바인드를 격리 홈의 `server.json` 에서 읽는다 (FR-HRB-4·5).
-    if let Err(e) = dm_shared_serverconf::set_bind(Path::new(&home), host, &port) {
+    if let Err(e) = otter_shared_serverconf::set_bind(Path::new(&home), host, &port) {
         let _ = writeln!(stderr, "{e}");
         return 1;
     }
     // 서버 로그도 격리 홈 안에 둔다.
-    let log = filepath::join(&[home.as_str(), dmenv::SERVER_LOG_FILE]);
+    let log = filepath::join(&[home.as_str(), otterenv::SERVER_LOG_FILE]);
     let mut sc = match prepare_server_cmd(&home, &log, env) {
         Ok(c) => c,
         Err(e) => {
@@ -676,7 +676,7 @@ pub(crate) fn run_verify_in(
         }
     };
     let mut s = VerifySession {
-        base: dmenv::base_url(host, &port),
+        base: otterenv::base_url(host, &port),
         home: home.clone(),
         caps: probe_caps(&repo),
         repo,
@@ -753,7 +753,7 @@ pub(crate) fn verify_summary(
     for b in &bads {
         let _ = writeln!(out, "  ❌ {b}");
     }
-    let daemon_log = filepath::join(&[home, dmenv::DAEMON_LOG_FILE]);
+    let daemon_log = filepath::join(&[home, otterenv::DAEMON_LOG_FILE]);
     for (name, path) in [
         ("데몬 로그", daemon_log.as_str()),
         ("서버 로그", server_log),
@@ -775,7 +775,7 @@ fn cleanup_verify(
     user_home: &str,
     r: &mut CheckReport<'_>,
 ) {
-    let proc = dm_shared_platform::current().process;
+    let proc = otter_shared_platform::current().process;
     stop_verify_pid(proc, server_pid);
     let (dpid, alive) = daemon_pid(home, proc);
     if alive {

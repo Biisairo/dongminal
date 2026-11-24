@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-gittest"
+name = "otter-shared-gittest"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,4 +10,4 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-shared-platform = { path = "../platform" }
+otter-shared-platform = { path = "../platform" }

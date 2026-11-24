@@ -41,7 +41,7 @@ const editorsList = (page: Page) =>
 test.describe('묶음 L — git 핀 ↔ Editor 행 연동 (실서버)', () => {
   test('L1 (V-EDT-17 / FR-EDT-31·39): 리포를 핀하면 새로고침 없이 Editor 행과 창이 생긴다', async ({ page, request }) => {
     await waitForInit(page);
-    const repo = makeRepo('dm-ed-link-');
+    const repo = makeRepo('otter-ed-link-');
 
     const before = await edRoots(page);
     const r = await request.post('/api/git/repos/pin', { data: { path: repo } });
@@ -57,7 +57,7 @@ test.describe('묶음 L — git 핀 ↔ Editor 행 연동 (실서버)', () => {
 
   test('L2 (V-EDT-18 / FR-EDT-32): 핀을 지우면 Editor 행과 창이 함께 사라진다', async ({ page, request }) => {
     await waitForInit(page);
-    const repo = makeRepo('dm-ed-link2-');
+    const repo = makeRepo('otter-ed-link2-');
     const root = (await (await request.post('/api/git/repos/pin', { data: { path: repo } })).json()).root as string;
     await expect.poll(() => edRoots(page), { timeout: 10000 }).toContain(root);
 
@@ -71,7 +71,7 @@ test.describe('묶음 L — git 핀 ↔ Editor 행 연동 (실서버)', () => {
 
   test('L3 (V-EDT-19·21 / FR-EDT-33·34): Editor 를 더하면 핀이 함께 생기고, 지우면 함께 사라진다', async ({ page, request }) => {
     await waitForInit(page);
-    const repo = makeRepo('dm-ed-link3-');
+    const repo = makeRepo('otter-ed-link3-');
 
     const add = await request.post('/api/editors/add', { data: { path: repo } });
     expect(add.ok(), await add.text()).toBeTruthy();
@@ -90,7 +90,7 @@ test.describe('묶음 L — git 핀 ↔ Editor 행 연동 (실서버)', () => {
 
   test('L4 (FR-EDT-97): 핀 직후의 Git Open File 이 root 가 아니라 리포의 Editor 로 간다', async ({ page, request }) => {
     await waitForInit(page);
-    const repo = makeRepo('dm-ed-link4-');
+    const repo = makeRepo('otter-ed-link4-');
     const root = (await (await request.post('/api/git/repos/pin', { data: { path: repo } })).json()).root as string;
     await expect.poll(() => edRoots(page), { timeout: 10000 }).toContain(root);
 
@@ -117,7 +117,7 @@ test.describe('묶음 L — git 핀 ↔ Editor 행 연동 (실서버)', () => {
     });
 
     // 그 상태에서 핀을 건다. 연동으로 Editor 행도 함께 생긴다 (FR-EDT-31).
-    const repo = makeRepo('dm-ed-link5-');
+    const repo = makeRepo('otter-ed-link5-');
     const root = (await (await request.post('/api/git/repos/pin', { data: { path: repo } })).json()).root as string;
 
     // 이제 브라우저가 처음 붙는다. 창이 없으므로 `_mkWindow()` 와 재조정이
@@ -143,7 +143,7 @@ test.describe('묶음 L — git 핀 ↔ Editor 행 연동 (실서버)', () => {
   test('L6: 보고 있던 리포의 핀을 지우면 그 창이 사라지고 다른 창으로 간다',
     async ({ page, request }) => {
       await waitForInit(page);
-      const repo = makeRepo('dm-ed-link6-');
+      const repo = makeRepo('otter-ed-link6-');
       const root = (await (await request.post('/api/git/repos/pin', { data: { path: repo } })).json()).root as string;
       await expect.poll(() => edRoots(page), { timeout: 10000 }).toContain(root);
 

@@ -38,7 +38,7 @@ function makeRepo(base: string) {
 }
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-gdd-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-gdd-')));
   REPO = makeRepo(BASE);
 });
 test.afterAll(() => { rmTree(BASE) });

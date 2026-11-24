@@ -24,7 +24,7 @@ function git(dir: string, ...args: string[]) {
 // 충돌하는 머지를 만들어 **멈춘 채로** 남긴다. 같은 파일의 같은 줄을 두 갈래가
 // 다르게 고치므로 git 이 반드시 멈춘다.
 function repoWithConflictedMerge(tag: string) {
-  const dir = realPath(mkdtempSync(join(TMP, 'dm-git-op-' + tag + '-')));
+  const dir = realPath(mkdtempSync(join(TMP, 'otter-git-op-' + tag + '-')));
   git(dir, 'init', '-q', '-b', 'main', '.');
   git(dir, 'config', 'user.name', 'Fixture');
   git(dir, 'config', 'user.email', 'fixture@example.invalid');

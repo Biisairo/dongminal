@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/serverconf` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/serverconf` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 서버 기동값을 네 계층에서 정한다 (CONFIG_MANAGEMENT_SRS 묶음 F·P).
 //!
@@ -22,10 +22,10 @@ use std::fmt;
 use std::io;
 use std::path::Path;
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_gocompat::oserr::go_error_string;
-use dm_gocompat::strconv::quote;
-use dm_shared_dmenv::{
+use otter_gocompat::json::{self, RawMessage};
+use otter_gocompat::oserr::go_error_string;
+use otter_gocompat::strconv::quote;
+use otter_shared_otterenv::{
     DEFAULT_HOST, DEFAULT_PORT, ENV_HOST, ENV_LOG_FILE, ENV_LOG_LEVEL, ENV_PORT,
 };
 use serde::{Deserialize, Serialize, Serializer};
@@ -39,7 +39,7 @@ pub const DEFAULT_LOG_LEVEL: &str = "info";
 /// 서버의 자동 판 확인 기본값이다 (UPDATE_NOTICE_SRS FR-UPD-12).
 pub const DEFAULT_UPDATE_CHECK: bool = true;
 
-/// DONGMINAL_ 접두어가 붙기 전부터 읽던 포트 변수다. 이제 바인드를 정하지 않는다 (FR-HRB-1).
+/// OTTERMINAL_ 접두어가 붙기 전부터 읽던 포트 변수다. 이제 바인드를 정하지 않는다 (FR-HRB-1).
 pub const ENV_PORT_LEGACY: &str = "PORT";
 
 /// 예전에 바인드를 정하던 환경변수다. 이제 경고만 한다 (FR-HRB-8).
@@ -189,7 +189,7 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::NoHome => f.write_str("DONGMINAL_HOME 이 없습니다"),
+            Error::NoHome => f.write_str("OTTERMINAL_HOME 이 없습니다"),
             Error::Io(e) => f.write_str(&go_error_string(e)),
         }
     }
@@ -404,7 +404,7 @@ fn set_keys(home: &Path, kv: &[(&str, RawMessage)]) -> Result<(), Error> {
     let mut out = json::marshal_indent(&m, "", "  ").map_err(io::Error::other)?;
     out.push(b'\n');
     fsx::mkdir_all(home, 0o700)?;
-    dm_shared_platform::write_file_atomic(&path, &out, 0o600)?;
+    otter_shared_platform::write_file_atomic(&path, &out, 0o600)?;
     Ok(())
 }
 

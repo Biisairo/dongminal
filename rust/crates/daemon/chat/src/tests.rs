@@ -4,9 +4,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
-use dm_gocompat::json::RawMessage;
-use dm_shared_edge::{Identity, load_or_create_identity};
-use dm_shared_edgemesh::{self as edgemesh, Conn, FRAME_NET, Frame, Mesh, encode, sign_frame};
+use otter_gocompat::json::RawMessage;
+use otter_shared_edge::{Identity, load_or_create_identity};
+use otter_shared_edgemesh::{self as edgemesh, Conn, FRAME_NET, Frame, Mesh, encode, sign_frame};
 use serde::Serialize;
 use tempfile::TempDir;
 use time::OffsetDateTime;
@@ -1495,7 +1495,7 @@ fn state_body_wire_matches_go() {
         ..StateBody::default()
     };
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal(&body).unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal(&body).unwrap()).unwrap(),
         "{\"node\":\"n\",\"key\":\"k\",\"epoch\":1,\"seq\":2,\"parts\":[{\"id\":\"p\",\"label\":\"a\\u003cb\\u003e\",\"kind\":\"agent\"}]}"
     );
 }

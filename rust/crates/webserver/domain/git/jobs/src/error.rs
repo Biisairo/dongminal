@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use dm_webserver_domain_git_core as core;
+use otter_webserver_domain_git_core as core;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum JobsKind {

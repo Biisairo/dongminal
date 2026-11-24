@@ -4,7 +4,7 @@
 
 use std::time::{Duration, Instant, SystemTime};
 
-use dm_shared_toolhub::{OP_ERROR, OP_EXIT, OP_OUTPUT, OP_SEQ, OP_TOOL_ID, OutChunk, TermSize};
+use otter_shared_toolhub::{OP_ERROR, OP_EXIT, OP_OUTPUT, OP_SEQ, OP_TOOL_ID, OutChunk, TermSize};
 
 use crate::ws::{
     BrowserInputs, MISS_REPEAT_WINDOW, MissTracker, TERM_HARD_CLEAR, TERM_RESET, TRS_ALIGN_SCAN,

@@ -21,7 +21,7 @@
 ## 2. 현재 상태 (2026-09-15 실측)
 
 측정 환경: `c521255` 의 바이너리 · 격리 인스턴스
-(`DONGMINAL_HOST=127.0.0.1 dongminal start --isolated --port 39331`) ·
+(`OTTERMINAL_HOST=127.0.0.1 otterminal start --isolated --port 39331`) ·
 Playwright 두 탭(데스크톱 1440×900 = 151열 · 모바일 390×844 = 44열)이 같은 셸 도구를 연다.
 회귀 비교는 `git worktree` 로 세운 두 판 — `b2095a4`(FR-M9-3 직전) · `ba14d1a`(FR-TRS 직전).
 
@@ -288,17 +288,17 @@ SRS 153개의 상태 필드·조항·검증을 전수 대조하고, 결과를 �
 
 **FR-M10-6 — `migration` 은 skill 이 아니라 command 다.** (D-M10-8)
 `agentplugin/skills/migration/SKILL.md` 를 `agentplugin/commands/migration.md` 로 옮긴다.
-**호출 형태는 바뀌지 않는다** — 플러그인 command 도 `/dongminal:migration` 으로 노출되므로
+**호출 형태는 바뀌지 않는다** — 플러그인 command 도 `/otterminal:migration` 으로 노출되므로
 (`claude-dashboard:check-usage` 가 그 예) 저장소의 호출 문장을 고칠 필요가 없다.
 - 옵션 둘(에이전트·표면)은 자연어 해석 대신 **인자**로 받는다(`argument-hint`). 인자가
   없으면 종전대로 `claude` · `cli` 이고 되묻지 않는다
 - `evals/` 는 **함께 옮길 수 없다** — `commands/` 안의 모든 `.md` 가 슬래시 명령이 되므로
-  `/dongminal:test-scenarios` 가 생긴다. 저장소 문서로 옮긴다
+  `/otterminal:test-scenarios` 가 생긴다. 저장소 문서로 옮긴다
 - **검사 셋이 함께 간다** (`skills_contract_test.go` 의 V-M9-6·42·43). 경로를 하드코딩하고
   있고, 그중 하나는 `"문서의 경로는 이 스킬이 정하지 않는다"` 로 **낱말까지** 센다
 - 이전 동작: skill — 모델이 의도를 읽어 **스스로 발동**할 수 있다
 - 새  동작: command — 사용자가 불러야 돈다. 절차와 문구는 그대로다
-- DoD: `/dongminal:migration` 이 종전과 같이 동작한다 · `skills/migration/` 이 없다 ·
+- DoD: `/otterminal:migration` 이 종전과 같이 동작한다 · `skills/migration/` 이 없다 ·
   `commands/` 에 command 아닌 `.md` 가 없다 · 검사 셋이 새 경로에서 초록
 - 검증: V-M10-10 · V-M10-11
 
@@ -431,7 +431,7 @@ M5 의 `DOC-1` 이 세운 상태 필드 게이트는 **enum 안에 있는가만*
 1. **되돌릴 수 없다.** 이 절차의 마지막은 자기 탭을 닫는 것이고, 문서가 스스로 적었다 —
    *"닫힌 뒤에는 고칠 사람이 없다."* skill 의 본질은 모델이 의도를 읽어 발동하는 것인데,
    그 계약은 이 일에 맞지 않는다
-2. **이미 명시 호출로만 쓰인다.** 저장소의 호출 자리가 전부 `/dongminal:migration` 이다
+2. **이미 명시 호출로만 쓰인다.** 저장소의 호출 자리가 전부 `/otterminal:migration` 이다
    (M9·M10 단계 종료 절차 3). 자동 발동이 값을 낸 기록이 없다
 3. **skill 의 이점을 쓰지 않는다.** `team`·`workflow` 는 `references/`·`scripts/` 를 두고
    점진적으로 읽지만 `migration` 은 읽을 것이 한 장뿐이다
@@ -490,7 +490,7 @@ M5 의 `DOC-1` 이 세운 상태 필드 게이트는 **enum 안에 있는가만*
 | 2026-09-15 | **P1 구현.** FR-M10-1 은 `_ownCols`·`_ownRows` 와 `ptySize()` 로, FR-M10-2 는 `_refreshForWidth()` 로 선다. `resendWindowSizes` 가 `term.cols` 대신 pane 이 답하는 자기 크기를 보낸다. 검증 V-M10-1~5 초록(단위 13건 · e2e 2건), **RED 를 stash 로 실제 확인**했다. 진행 기록은 `production/M10_PROGRESS.md` |
 | 2026-09-15 | **P3 전수조사.** SRS 153개를 대조해 **코드가 없는 것 1건**(`DOCLANG_LSP` 묶음 C·D)만 남고 나머지는 **폐기 결정 3**(`FR-GIT-283`·`284`·`285`, `GIT_ACTIONS` D11) · **의도적 보류 1**(FR-STA-4 2단계) · **문서만 낡은 것 9** 임을 확정했다. 상태 7건을 근거와 함께 올리고, 로드맵 머리말의 *"미결정 1건(결정 2)"* 을 정정했다(결정 2 는 2026-09-12 확정). **신호의 자세는 §2.5** — FR ID 대조는 위양성이 압도했고, SRS 의 §2 "현황" 은 거의 언제나 과거형이다 |
 | 2026-09-15 | **P4 flaky.** 동시 워커가 `E2E_JOBS(4) × E2E_WORKERS(2)` = **8** 이었다 — 두 값이 다른 파일에 있어 **곱을 아무도 보지 않았고**, `D-6` 이 기각한 5워커보다 위였다. 곱을 `Makefile` 한 자리로 모으고 상한(`⌈코어/3⌉`)을 넘으면 시작하지 않게 했다. 검증 회차: **flaky 0** · expected 1703 · 15.2분. 함께 고친 것 — `V-M10-6` 이 **전량 재생 전에** 가짜 줄을 넣어 `hard clear` 에 지워지고 있었다(`301 → 121`) |
-| 2026-09-15 | **P5 `migration` 을 command 로.** `skills/migration/SKILL.md` → `commands/migration.md` (11,770 → 11,397 바이트 — 줄인 것은 트리거 설명뿐이다). **호출 형태 불변** — 저장소의 `/dongminal:migration` 문장을 한 줄도 고치지 않았다. 옵션 둘은 `argument-hint` 로 받는다. `evals/` 는 `commands/` 에 둘 수 없어 `docs/internal/migration-eval.md` 로 옮겼고, **그 규칙을 V-M10-11 이 지킨다**(하위 디렉터리·frontmatter 없는 `.md` 를 잡는다 — 프로브로 확인). 검사 셋(V-M9-6·42·43)이 새 경로에서 초록 |
+| 2026-09-15 | **P5 `migration` 을 command 로.** `skills/migration/SKILL.md` → `commands/migration.md` (11,770 → 11,397 바이트 — 줄인 것은 트리거 설명뿐이다). **호출 형태 불변** — 저장소의 `/otterminal:migration` 문장을 한 줄도 고치지 않았다. 옵션 둘은 `argument-hint` 로 받는다. `evals/` 는 `commands/` 에 둘 수 없어 `docs/internal/migration-eval.md` 로 옮겼고, **그 규칙을 V-M10-11 이 지킨다**(하위 디렉터리·frontmatter 없는 `.md` 를 잡는다 — 프로브로 확인). 검사 셋(V-M9-6·42·43)이 새 경로에서 초록 |
 | 2026-09-15 | **`DOCLANG_LSP` 폐기** (사용자 결정, FR-M10-7 · D-M10-9). 남아 있던 것은 묶음 C(언어 목록 정리)와 D(문서 심볼)뿐이었고 묶음 A·B 는 `LSP_PLUGIN_SRS` 가 이미 덮었다. **이로써 저장소에 코드가 없는 요구가 0 이 되고 로드맵 §4-3-D 의 백로그가 비었다** — 남은 것은 의도적 회피(M4)와 의도적 보류(FR-STA-4 2단계)뿐이며 둘 다 근거가 적혀 있다 |
 | 2026-09-15 | **P4 판정 정정.** `V-M10-8` 을 *"부하성 flaky 0"* 으로 적었으나 **둘째 회차가 그것을 반증했다** — `git-history` H15 가 60.9초로 걸렸다. 실측은 **5 → 0~1** 이며 0 은 보증하지 못한다. 남은 자리는 `openGit` 의 첫 관측 하나이고(§2.7) **다음 일로 이름을 붙여 넘긴다** — 상한을 또 늘리는 길은 D-M10-6 이 막는다 |
 | 2026-09-15 | **P6 — 남은 셋.** ① `openGit` 첫 관측: 단독 82ms 이고 픽스처 크기와 무관함을 재어 **주석의 진단 둘이 틀렸음을 확정**했다. 730배는 경합이 아니라 **서지 않는 것**이므로 실패 시 진단을 남긴다(FR-M10-8). ② `tool-list-unknown` 의 논리 경합을 닫았다 — 표를 붙일 때 소켓이 없던 pane 이 교체로 세어지고 있었다(FR-M10-9). ③ `V-GDT-5`·`V-GDT-6` 검사를 세웠다(FR-M10-10). **`ScreenPatterns` 는 손대지 않았다 — 이미 같은 검사가 있었다**(`TestReadiness_NoUnconsumedScreenPatterns`) |

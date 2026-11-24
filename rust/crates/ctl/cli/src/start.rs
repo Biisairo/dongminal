@@ -1,4 +1,4 @@
-//! `dongminal start` (FR-ACT-1..4, FR-ISO-*, FR-FG-*). 창을 여는 일은 `window` 가 한다.
+//! `otterminal start` (FR-ACT-1..4, FR-ISO-*, FR-FG-*). 창을 여는 일은 `window` 가 한다.
 
 use std::fs::{File, OpenOptions};
 use std::hash::{BuildHasher, Hasher};
@@ -7,12 +7,12 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use dm_gocompat::filepath;
-pub(crate) use dm_gocompat::oserr::mkdir_all;
-use dm_gocompat::oserr::{go_error_string, path_error};
-use dm_shared_apipath as apipath;
-use dm_shared_dmenv as dmenv;
-use dm_shared_serverconf as serverconf;
+use otter_gocompat::filepath;
+pub(crate) use otter_gocompat::oserr::mkdir_all;
+use otter_gocompat::oserr::{go_error_string, path_error};
+use otter_shared_apipath as apipath;
+use otter_shared_otterenv as otterenv;
+use otter_shared_serverconf as serverconf;
 
 use crate::actions::{Serve, ServeTarget};
 use crate::env::Env;
@@ -39,7 +39,7 @@ const DAEMON_READY_TRIES: u32 = 10;
 const ALIVE_POLL_TIMEOUT: Duration = Duration::from_secs(1);
 
 /// 격리 홈의 표지다. verify 의 가드가 같은 접두사로 격리를 확인한다 (FR-E2G-1).
-pub(crate) const ISOLATED_HOME_PREFIX: &str = "dongminal-iso-";
+pub(crate) const ISOLATED_HOME_PREFIX: &str = "otterminal-iso-";
 
 pub fn run_start(
     o: &StartOpts,
@@ -118,7 +118,7 @@ pub(crate) fn run_start_in(
 
     // 04-secops P1-6: 홈은 0700 이다.
     if let Err(e) = mkdir_all(&home, 0o700) {
-        let _ = writeln!(stderr, "DONGMINAL_HOME 생성 실패: {}", go_error_string(&e));
+        let _ = writeln!(stderr, "OTTERMINAL_HOME 생성 실패: {}", go_error_string(&e));
         return 1;
     }
 
@@ -133,7 +133,7 @@ pub(crate) fn run_start_in(
         return code;
     }
     // 격리 실행은 기존 서버를 건드리지 않는다 (FR-ISO-2).
-    if !o.isolated && !kill_port(port, stdout, "기존 dongminal", procs) {
+    if !o.isolated && !kill_port(port, stdout, "기존 otterminal", procs) {
         let _ = writeln!(stderr, "❌ 포트 {port} 를 비우지 못했습니다");
         return 1;
     }
@@ -186,7 +186,7 @@ fn announce_isolated(stdout: &mut dyn Write, home: &str, port: &str, foreground:
     }
     let _ = writeln!(
         stdout,
-        "정지: dongminal stop --all --port {port} --home {home}"
+        "정지: otterminal stop --all --port {port} --home {home}"
     );
 }
 
@@ -262,7 +262,7 @@ pub(crate) struct ServerCmd {
 }
 
 /// 자기 자신을 `start --foreground` 로 끊어 띄울 명령을 만든다 (FR-E2C-7). log_path 가 비면
-/// $DONGMINAL_LOG, 그것도 비면 홈 아래 기본 자리다 (P1-6).
+/// $OTTERMINAL_LOG, 그것도 비면 홈 아래 기본 자리다 (P1-6).
 pub(crate) fn prepare_server_cmd(
     home: &str,
     log_path: &str,
@@ -301,7 +301,7 @@ pub(crate) fn prepare_server_cmd(
         .stderr(stdio(&log)?);
     let th = ensure_isolated_tool_home(home);
     if !th.is_empty() {
-        cmd.env(dmenv::ENV_TOOL_HOME, th);
+        cmd.env(otterenv::ENV_TOOL_HOME, th);
     }
     // 대리 표식·도구 식별자가 사슬을 타고 도구 셸까지 흘러가면 다음 재시작이 위임을 건너뛴다
     // (FR-ACT-3a/3b). 바인드 환경변수도 끊는다 (FR-HRB-8).
@@ -309,12 +309,12 @@ pub(crate) fn prepare_server_cmd(
         ENV_RESTART_RUNNER,
         ENV_TOOL_ID,
         ENV_PORT,
-        dmenv::ENV_PORT,
+        otterenv::ENV_PORT,
         ENV_HOST,
     ] {
         cmd.env_remove(k);
     }
-    dm_shared_platform::current().process.detach(&mut cmd);
+    otter_shared_platform::current().process.detach(&mut cmd);
     Ok(ServerCmd { cmd, log_path })
 }
 
@@ -344,7 +344,7 @@ fn start_detached(
             return 1;
         }
     };
-    let _ = writeln!(stdout, "dongminal 기동 중 {host}:{port}...");
+    let _ = writeln!(stdout, "otterminal 기동 중 {host}:{port}...");
     let child = match cmd.spawn() {
         Ok(c) => c,
         Err(e) => {
@@ -357,9 +357,9 @@ fn start_detached(
             return 1;
         }
     };
-    let _ = writeln!(stdout, "dongminal PID: {}", child.id());
+    let _ = writeln!(stdout, "otterminal PID: {}", child.id());
 
-    let url = dmenv::base_url(host, port);
+    let url = otterenv::base_url(host, port);
     if !wait_ready(&url) {
         let _ = writeln!(stderr, "❌ 기동 실패. 로그: {log_path}");
         let t = tail(&log_path, 20);
@@ -370,23 +370,23 @@ fn start_detached(
     }
 
     // 표시도 같은 판정을 딛는다 (TLS-2).
-    let exposure = if dmenv::is_exposed_host(host) {
+    let exposure = if otterenv::is_exposed_host(host) {
         "LAN 노출"
     } else {
         "local-only"
     };
-    let _ = writeln!(stdout, "✅ dongminal running on {url} ({exposure})");
+    let _ = writeln!(stdout, "✅ otterminal running on {url} ({exposure})");
     // FR-VHL-20: 데몬 연결까지 잠시 더 기다린다. 붙지 않아도 기동을 막지 않는다.
     let (st, connected) = wait_daemon_connected(&url, DAEMON_READY_TRIES, READY_INTERVAL);
     if connected {
         let _ = writeln!(
             stdout,
-            "✅ dongminald connected at {home}/{DAEMON_SOCK_FILE}"
+            "✅ otterminald connected at {home}/{DAEMON_SOCK_FILE}"
         );
     } else if socket_exists(home) {
         let _ = writeln!(
             stdout,
-            "ℹ️  dongminald 소켓은 있으나 아직 연결되지 않았습니다"
+            "ℹ️  otterminald 소켓은 있으나 아직 연결되지 않았습니다"
         );
     }
     // FR-VHL-21: 빌드 판이 어긋나면 알린다. 자동으로 재시작하지 않는다.

@@ -44,16 +44,16 @@
 
 ### 1.2 확정 전제 (사용자 결정 — 변경 대상 아님)
 
-1. **원격 접속이 이 제품의 핵심 목적이고 기본 사용 형태다.** 사용자 원문: "`--expose` 는 필수인게 원격 작업을 위한 프로젝트임." `--expose`/`DONGMINAL_HOST` 는 부수 기능이 아니라 제품이 존재하는 이유다. "로컬 전용이니 괜찮다" 논리는 이 문서 어디에도 쓰지 않았고, "노출은 예외적 사용" 이라는 서술도 쓰지 않는다.
+1. **원격 접속이 이 제품의 핵심 목적이고 기본 사용 형태다.** 사용자 원문: "`--expose` 는 필수인게 원격 작업을 위한 프로젝트임." `--expose`/`OTTERMINAL_HOST` 는 부수 기능이 아니라 제품이 존재하는 이유다. "로컬 전용이니 괜찮다" 논리는 이 문서 어디에도 쓰지 않았고, "노출은 예외적 사용" 이라는 서술도 쓰지 않는다.
 2. 노출 시 **인증 필수** — 위 1 에 의해 이것은 조건부 요구가 아니라 **제품 성립 요건**이다.
 3. **단일 사용자 전용 제품이다.** 사용자 원문: "멀티유저는 필요없음, 나 혼자 사용함." 한 인스턴스를 한 사람이 쓴다. 멀티유저 호스트는 지원하지 않는다.
 4. 목표는 결함 수정이 아니라 **프로덕션 레벨 품질 확보**.
 
-> **전제 1 의 파급**: 기본 바인드가 `127.0.0.1`(`dmenv.go:45-46`)인 것은 유지한다 — 개발·초기 기동의 안전장치로서 여전히 옳고 감사도 양호로 판정했다. 다만 **실사용 형태는 노출**이므로, "기본이 안전하니 노출 경로의 결함은 낮은 등급" 이라는 추론을 하지 않는다. 이 전제로 재판정한 항목은 §1.6 에 모았다.
+> **전제 1 의 파급**: 기본 바인드가 `127.0.0.1`(`otterenv.go:45-46`)인 것은 유지한다 — 개발·초기 기동의 안전장치로서 여전히 옳고 감사도 양호로 판정했다. 다만 **실사용 형태는 노출**이므로, "기본이 안전하니 노출 경로의 결함은 낮은 등급" 이라는 추론을 하지 않는다. 이 전제로 재판정한 항목은 §1.6 에 모았다.
 
 ### 1.3 확정 사실
 
-- **git 히스토리 대용량 blob은 실재한다.** 1MB 초과 blob 28개(`remote-terminal` 27개·최대 9,105,986 bytes + `bin/dongminal` 1개·9,086,770 bytes), 합계 **249,218,200 bytes**, pack 79.67MiB(`06 §4` 실측). `04-secops` 의 "과거 커밋 이력 없음" 진술은 **다른 5개 경로**(`dongminal`·`dist/`·`playwright-report/`·`test-results/`·`.playwright-mcp/`)에 한정된 것으로 양립한다. 현재 워킹트리와 `.gitignore` 는 정상이다. `00-INDEX §6.1` 이 미확정으로 남긴 항목이지만 **이 문서는 확정 사실로 다룬다.**
+- **git 히스토리 대용량 blob은 실재한다.** 1MB 초과 blob 28개(`remote-terminal` 27개·최대 9,105,986 bytes + `bin/otterminal` 1개·9,086,770 bytes), 합계 **249,218,200 bytes**, pack 79.67MiB(`06 §4` 실측). `04-secops` 의 "과거 커밋 이력 없음" 진술은 **다른 5개 경로**(`otterminal`·`dist/`·`playwright-report/`·`test-results/`·`.playwright-mcp/`)에 한정된 것으로 양립한다. 현재 워킹트리와 `.gitignore` 는 정상이다. `00-INDEX §6.1` 이 미확정으로 남긴 항목이지만 **이 문서는 확정 사실로 다룬다.**
 - **`07 §0` 요약표 정정**: 갭 합계가 55(필수 13·권장 30·선택 12)로 적혔으나 개별 ID 를 전수하면 **56건**이다 — §4 데이터 안전의 권장이 4가 아니라 5(`G4-3`~`G4-7`). 이 문서의 모든 수치는 **56 기준**이다(임의 조정이 아니라 ID 전수 결과).
 - **원본 요약 수치와 ID 전수의 불일치 3건**(같은 원칙으로 ID 전수를 따른다):
   - `09 §6` 머리말이 "미구현·부분구현 (6건)" 이라 적었으나 그 아래 표는 **7행**이다(P2 5 · P3 2). → **7 기준**.
@@ -104,7 +104,7 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 
 | 항목 | 원본 | 재판정 | 근거 |
 |---|---|---|---|
-| **`SEC-3`**(`--expose`/`DONGMINAL_HOST` 가 무인증·평문·ACL 기본꺼짐으로 PTY 를 LAN 에 염) | `04 §3` **P1**(P1-1) | **P0 로 상향** | `04 §1.2` 가 P0 두 건을 P0 로 올린 기준은 **전제의 성립성**이었다("기본 설정 127.0.0.1 에서도 성립한다"). `SEC-3` 이 P1 에 머문 유일한 이유는 전제가 "사용자가 `--expose` 를 쓴다" 였는데, 전제 1 로 그 전제가 **항상 성립**한다. 영향은 무인증 사용자 권한 RCE 로 `SEC-1`·`SEC-2` 와 동급이다(`04 P1-1`: "같은 Wi-Fi 의 누구나 `http://<ip>:58146` 에서 셸을 얻는다"). 요약표의 수치는 감사 원본(P0 8건) 기준을 유지하고 여기에만 병기한다 |
+| **`SEC-3`**(`--expose`/`OTTERMINAL_HOST` 가 무인증·평문·ACL 기본꺼짐으로 PTY 를 LAN 에 염) | `04 §3` **P1**(P1-1) | **P0 로 상향** | `04 §1.2` 가 P0 두 건을 P0 로 올린 기준은 **전제의 성립성**이었다("기본 설정 127.0.0.1 에서도 성립한다"). `SEC-3` 이 P1 에 머문 유일한 이유는 전제가 "사용자가 `--expose` 를 쓴다" 였는데, 전제 1 로 그 전제가 **항상 성립**한다. 영향은 무인증 사용자 권한 RCE 로 `SEC-1`·`SEC-2` 와 동급이다(`04 P1-1`: "같은 Wi-Fi 의 누구나 `http://<ip>:58146` 에서 셸을 얻는다"). 요약표의 수치는 감사 원본(P0 8건) 기준을 유지하고 여기에만 병기한다 |
 | **M4 의 성격** | "노출 유지 결정의 이행" | **"제품 성립 요건"** | 인증이 "노출을 쓸 때만 필요한 옵션" 이 아니다. M4 가 끝나기 전까지 제품의 기본 사용 형태가 무인증 상태다 |
 | **M4 위치(순서 제약 3)** | M3 뒤 | **유지 — 근거가 오히려 강해졌다** | §3-A 제약 3 의 재검토 결과 참조 |
 | **결정 6(버전 정책)의 차단 시점** | M3 **착수** 전 | **M3 완료 전으로 완화** | 아래 및 §3-B |
@@ -115,7 +115,7 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 | **`FUI-01`**(재열기가 미저장 편집을 덮음) | `12` **P1** | **P0 로 상향** | `FE-2`(워크스페이스 빈 판 덮어쓰기)를 P0 로 판정한 기준은 "복구 불가능한 사용자 상태 손실이며 발생 조건이 흔하다" 였다. `FUI-01` 은 같은 유형이고 전제가 더 약하다 — **"목록에서 파일을 다시 클릭한다" 하나**다(`app-layout.js:469-480` → `file-editor.js:585-611` 이 `_dirty` 를 보지 않고 `setValue`). 손실 범위는 파일 하나로 작지만 발생 빈도가 훨씬 높다. `FUI-02`(동시 편집)·`FUI-03`(자산 판 새로고침)은 각각 "두 클라이언트"·"서버 재빌드" 라는 전제가 필요하므로 **P1 유지** |
 | **`G1-5`**(노출 모드 TLS) 규모 | `07` **M** → `13` 2판 **M/L** | **S 로 확정**(결정 8) | 2판의 상향은 **앱 내장 로컬 CA 를 전제**한 것이다(CA 생성기 M + `tls init` CLI S/M + SAN 자동 구성 S). 로컬 CA 를 보류하면 남는 것은 `ListenAndServeTLS` 분기 + 플래그 2개 = **S**(`13 §6-1` 표의 첫 행 그대로) |
 | **평문 원격의 알림 결손** | 1차 7축에 발견 없음 | **신규 `TLS-1` P1** | `13 §1`. `app.js:314` 에서 `attnDesktop` 기본값이 `true` 인데 `http://<사설IP>` 는 secure context 가 아니라 `Notification` **API 자체가 없다**(`app-attn.js:363` 의 `typeof Notification==='undefined'` 가드에서 즉시 `return`). 토글은 켜진 채 남고(`:421` 이 조건 밖) 백업·복원까지 된다(`app-backup.js:19`). **어디에도 "이 환경에서는 동작하지 않는다" 는 표시가 없다 — 조용한 실패다.** 그리고 **로컬(`localhost`)에서는 secure context 라 정상 동작해 개발 중에는 절대 드러나지 않는다** |
-| **노출 판정** | 1차 7축에 발견 없음 | **신규 `TLS-2` P1**(원본 등급 미표기 → 로드맵 판정) | `13 §2-2`. `start.go:133`·`:248` 이 `0.0.0.0`/`::` 만 노출로 본다 → **`DONGMINAL_HOST=192.168.1.5` 가 `local-only` 로 오표시된다.** P1 근거: **M4 의 인증 강제 조건이 이 판정에 걸리므로** 고치지 않으면 "노출인데 인증을 요구하지 않는" 구멍이 남는다 — M4 의 전제다 |
+| **노출 판정** | 1차 7축에 발견 없음 | **신규 `TLS-2` P1**(원본 등급 미표기 → 로드맵 판정) | `13 §2-2`. `start.go:133`·`:248` 이 `0.0.0.0`/`::` 만 노출로 본다 → **`OTTERMINAL_HOST=192.168.1.5` 가 `local-only` 로 오표시된다.** P1 근거: **M4 의 인증 강제 조건이 이 판정에 걸리므로** 고치지 않으면 "노출인데 인증을 요구하지 않는" 구멍이 남는다 — M4 의 전제다 |
 | **git 갱신 계층의 성격** | M6 = "렌더 파이프라인 + e2e 계통 결함" | **"git 갱신 계층 재설계" 로 확장** | `11` 전체. 사용자 진단("1초마다 git 을 돌린다")이 **정확했고**(`GP-7`: `gitwatch.go:242` 가 `ReadSignature` 가 아니라 `Store.Status()` = 실제 `git status` 프로세스를 1초마다 띄운다), 해법만 갈렸다(fsnotify 가 아니라 signature 2단 게이트). §3-A-3 참조 |
 
 **결정 6 근거의 변화**: 기존 근거는 `07 §1` 의 "기존 `--expose` 사용자는 다음 기동이 거부된다 — 파괴적 변경" 이었고, 그 무게는 "이행 안내가 필요한 사용자 집단" 에 있었다. 결정 7(단일 사용자 전용)로 그 집단은 **인스턴스마다 한 명**이 됐고, 이 저장소의 주 사용자는 로드맵을 아는 본인이다. 따라서 ① **파괴적 변경 판정 자체는 유지된다** — 공개 저장소이고 GitHub Releases 로 13판이 나갔으므로 다른 인스턴스 보유자가 있을 수 있고, 각자에게 기동 거부는 동일한 파괴다. ② 그러나 **폐기 예고 릴리스(M3)의 실익은 낮아진다** — 예고를 받을 사람이 이미 계획을 아는 본인이다. ③ 남는 근거는 **선언한 규약의 준수**다: `CHANGELOG.md:1-4` 가 SemVer 를 선언했고 13개 태그가 규약과 일치하는 것이 감사 양호 판정이므로, 기동을 거부하는 변경을 minor 로 내면 그 판정이 무너진다. → **권장안 (a) major 는 유지되고 근거가 "사용자 보호" 에서 "규약 준수" 로 옮겨간다. 선택지 (b)(minor + 유예 릴리스)의 매력은 떨어진다.**
@@ -140,7 +140,7 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 
 - `LICENSE` 가 저장소 루트에 존재하고 `README.md` 에 라이선스 절이 있다(현재 README 전문 검색 0건).
 - `.editorconfig` 존재. `.github/ISSUE_TEMPLATE/` 와 `.github/PULL_REQUEST_TEMPLATE.md` 존재(현재 `.github/` 하위는 `workflows/` 만).
-- `.gitignore` 에 `remote-terminal` 규칙이 추가된다 — 현재 `git check-ignore -v remote-terminal` 은 매칭 규칙이 없고 `.gitignore` 는 `/dongminal` 만 안다(`06 §4`).
+- `.gitignore` 에 `remote-terminal` 규칙이 추가된다 — 현재 `git check-ignore -v remote-terminal` 은 매칭 규칙이 없고 `.gitignore` 는 `/otterminal` 만 안다(`06 §4`).
 - `git count-objects -vH` 출력(현재 `count 4775 · size 26.40 MiB · in-pack 11258 · packs 31 · size-pack 79.67 MiB`)을 문서에 기록해 이후 관찰 기준선으로 남긴다. **재작성은 하지 않는다**(§4-3).
 - `v1` 태그는 조치 불요 — 기록용으로 남기고 필요하면 태그 설명에 각주(`06 §7`: "실무 영향은 낮음").
 
@@ -190,7 +190,7 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 **Definition of Done**
 
 - `golangci-lint run` 이 `verify.yml` 잡으로 존재하고 위반 0. `gofmt -l .` 출력 0줄(현재 1건).
-- `verify.yml`·`release.yml` 의 테스트 경로가 `./...` 이고 CI 로그에 `web/embed_test.go`·`web/version_test.go` 실행 흔적이 있다(현재 `dongminal/web 100.0%` 는 로컬에서만).
+- `verify.yml`·`release.yml` 의 테스트 경로가 `./...` 이고 CI 로그에 `web/embed_test.go`·`web/version_test.go` 실행 흔적이 있다(현재 `otterminal/web 100.0%` 는 로컬에서만).
 - `npx tsc --noEmit -p e2e` 가 CI 잡으로 통과.
 - `node --test` 로 `hunk-coords.js`·`timer-hub.js`·`lanes.js` 테스트가 CI 에서 돌고, 의도적으로 깨뜨린 커밋에서 잡이 빨개짐을 1회 확인.
 - `govulncheck ./...` 잡 + dependabot(gomod·github-actions·npm).
@@ -253,7 +253,7 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 
 **Definition of Done**
 
-- `Origin: https://evil.example` 로 `ws://127.0.0.1:58146/ws` 를 열면 403, `Origin` 헤더 없는 업그레이드(dmctl)는 200 — 두 경우가 `handlers_ws_test.go` 에 고정.
+- `Origin: https://evil.example` 로 `ws://127.0.0.1:58146/ws` 를 열면 403, `Origin` 헤더 없는 업그레이드(otterctl)는 200 — 두 경우가 `handlers_ws_test.go` 에 고정.
 - `POST /api/tools/headless` 를 `Content-Type: text/plain` 으로 보내면 4xx, `application/json` + same-origin 이면 200. `Sec-Fetch-Site: cross-site` 는 거부. `Host: evil.example` 요청이 400 또는 421.
 - `handlers_files_test.go` 에 5종 테스트: 정상 쓰기+`ok`/ETag · 상대경로 400 · 빈 path 400 · 쓰기 실패 500 · **루트 밖 절대경로 403**. `/api/file/write` 함수 커버리지가 0.0%(`cov-func.txt`)에서 상승.
 - e2e 회귀 스펙: 터미널에 `printf '\e]777;Cwd;<img src=x onerror=…>\a'` 를 쏘고 상태바가 문자열을 그대로 표시하며 스크립트가 실행되지 않음을 단정.
@@ -262,14 +262,14 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 - `srv` 에 `ReadHeaderTimeout`·`IdleTimeout`, 종료 경로가 `Shutdown(ctx)` → `Close()`.
 - `io.ReadAll(r.Body)` 직접 호출 grep 0곳(현재 10곳) — 전부 `readJSON(w,r,limit,into)` 경유이고 그 안에서 Content-Type·`MaxBytesReader` 검사. `settings.json` 은 `json.Valid` 실패 시 400.
 - `ToolManager.Create` 상한 초과 시 429, `CommandHub.Add` 구독자 상한, `wait` 동시 수 상한. `diag` 스냅샷의 `tools=`·`ws=` 에 임계 경고.
-- `$DONGMINAL_HOME` 0700, `paned.sock` 0600, 로그 0600, 기본 서버 로그가 `/tmp/dongminal.log` → `$DONGMINAL_HOME/server.log`(`platform/paths.go:65`).
+- `$OTTERMINAL_HOME` 0700, `paned.sock` 0600, 로그 0600, 기본 서버 로그가 `/tmp/otterminal.log` → `$OTTERMINAL_HOME/server.log`(`platform/paths.go:65`).
 - `http.Error(w, err.Error(), …)` 가 이 마일스톤 범위 표면에서 grep 0곳. 500 본문에 절대경로·명령 문자열이 없음을 테스트로 단정. 에러 분류는 `errors.Is`(`net.ErrClosed`·`syscall.EIO`·`*http.MaxBytesError`)만, `strings.Contains(err.Error(), …)` 0곳.
 - 헤드리스 명령 로그가 전문 대신 길이·해시(`handlers_toolio.go:110-111` 의 `textLen` 규약).
 - `worktree.execGit`·`submodule` 실행기가 `core.Env()` 를 공유(`GIT_TERMINAL_PROMPT=0`·`GIT_ASKPASS=` 부착 테스트).
-- `--expose`/`DONGMINAL_HOST` 이면서 ACL 이 꺼져 있으면 기동 거부 또는 명시 플래그. 노출 모드에서 `access.json` 손상은 fail-closed(loopback 만).
+- `--expose`/`OTTERMINAL_HOST` 이면서 ACL 이 꺼져 있으면 기동 거부 또는 명시 플래그. 노출 모드에서 `access.json` 손상은 fail-closed(loopback 만).
 - `_confirmClose` 가 `GitConfirm`/`UIKit.modal` 규약(초기 포커스 취소·Enter≠실행·`textContent`)으로 재작성되고 e2e 가 "Enter 로는 프로세스가 죽지 않는다" 단정.
 - `core/api.js`(`apiGet`/`apiPost`: 타임아웃·JSON·`{ok,data,status}`)가 존재하고 core/ui 의 손수 `fetch` 51곳이 경유. `catch{r=null}` 23건·`catch{d=null}` 25건 감소.
-- 위 전부에 `dongminal verify` 항목이 추가되어 3 OS CI 통과.
+- 위 전부에 `otterminal verify` 항목이 추가되어 3 OS CI 통과.
 - `submodule.ExecGit` 이 `core.Env()` 를 쓰고 `r.Context()` 를 받는다 — 인증이 필요한 서브모듈에서 180초를 다 채우지 않고 즉시 실패하며, 요청을 끊으면 git 프로세스가 종료됨을 테스트로 확인.
 - 편집기가 `probe.size` 상한을 넘는 텍스트 파일을 옛 편집기 엔진에 올리지 않고 "너무 큽니다 — 터미널에서 여세요" + 다운로드 경로를 보인다(서버 `SEC-19` 상한과 같은 값을 쓴다).
 - 샌드박스 컨테이너가 cpu·memory·pids 상한을 받고 뜬다. 상한값이 `features.md` 용량 표(M5 `G9-1`)에 실린다.
@@ -281,7 +281,7 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 3. **기본 허용목록을 "서버 자신이 도달 가능한 주소" 에서 자동 유도하라** — `localhost` ∪ `127.0.0.1`/`::1` ∪ 실제 바인드 주소 ∪ **`access.go:73` 의 `s.self`(인터페이스 주소 전부)** ∪ 시스템 호스트명. **새 수집 코드가 필요 없고**, `--expose 0.0.0.0` 기본 경로에서 사용자가 어느 로컬 IP 로 접속하든 자동 통과한다.
 4. `*.ts.net` 접미사는 **기본이 아니라 옵션**(`--allowed-host '*.ts.net'`). 와일드카드 접미사 문법은 지원해야 한다.
 5. `--allowed-host` 로 명시 확장(반복 지정 또는 쉼표 구분) — 공인 도메인·CNAME 사용자의 유일한 입구.
-6. **`Origin` 부재는 거부가 아니다** — 비브라우저(`dmctl`·`curl`·e2e `page.request`)는 보내지 않는다. 부재 = 통과, 존재하면 대조. **어기면 M4 의 `dmctl` Bearer 경로 17곳/9파일이 전부 막힌다.**
+6. **`Origin` 부재는 거부가 아니다** — 비브라우저(`otterctl`·`curl`·e2e `page.request`)는 보내지 않는다. 부재 = 통과, 존재하면 대조. **어기면 M4 의 `otterctl` Bearer 경로 17곳/9파일이 전부 막힌다.**
 7. **`Host` 는 존재하면 항상 대조** — DNS 리바인딩 방어의 본체.
 8. **`X-Forwarded-*` 를 읽지 않는다** — `FR-ACL-6` 승계. 리버스 프록시 미지원 결정(§4-3-E)으로 신뢰 옵트인 설계 자체가 범위 밖이라 판정 함수가 단순해진다.
 9. 거부는 로그에 남고 본문에 허용목록을 노출하지 않는다(`FR-ACL-13` 형식).
@@ -335,19 +335,19 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 - 상태 파일 7곳 저장 시 N세대 회전 파일이 생김을 파일 목록으로 확인. 회전 후에도 fsync+rename 원자성 유지.
 - `schemaVersion: 3` 인 `workspace.json` 을 두면 서버가 **거부**하고(현재 `manager.go:541` 은 `<` 만) 백업 복원 안내를 낸다.
 - 데몬 판 ≠ 서버 판을 인위로 만들면 `start` 가 "데몬 재시작 필요(세션 손실)" 를 안내하고 `/api/health` 에 mismatch 가 실린다. `paned.go:179` 의 `"version": 1`(프로토콜 상수)과 `cli.Version` 이 분리되어 둘 다 hello 에 실림.
-- `dongminal verify` 에 "서버 재기동 뒤 `/api/state` 에 같은 도구 id 가 남고 입출력이 왕복한다" 항목 추가 → 3 OS CI 통과. `persist_test.go` 가 `LoadAll` 의 미참조 도구 거르기와 `Restore` 호출을 가짜 PTY 로 검증(현재 둘 다 0%).
+- `otterminal verify` 에 "서버 재기동 뒤 `/api/state` 에 같은 도구 id 가 남고 입출력이 왕복한다" 항목 추가 → 3 OS CI 통과. `persist_test.go` 가 `LoadAll` 의 미참조 도구 거르기와 `Restore` 호출을 가짜 PTY 로 검증(현재 둘 다 0%).
 - `proc.go` 의 `pidsOnPort`/`signalPIDs` 가 인터페이스로 분리되고 표 기반 테스트 4종(포트 매칭·기본 포트 거부·격리 홈 아님 거부·SIGTERM→SIGKILL 순서). `internal/ctl/cli` 커버리지가 31.5% 에서 상승하고 `stop.go`·`killPort` 가 0% 를 벗어남.
 - `daemon.log`·`restart.log` 가 상한 초과 시 회전됨을 파일 크기로 확인(`WatchLogSize` 호출부 1 → 3).
 - `GET /api/health` 가 `{version, uptime, daemon:{connected,pid}, workspace:{rev,lastPersistErr}, tools, ws}` 를 반환하고 `start` 의 `waitReady`(`start.go:236-244`)가 **데몬 연결까지** 기다린다.
 - 디스크 쓰기를 실패시키면 `PUT /api/settings`·`PUT /api/access`·workspace PUT 이 500 을 반환하고 `Close()` 가 flush 오류를 반환해 `serve` 가 비0 종료.
-- `dongminal doctor --bundle out.zip` 이 버전·OS·홈 파일 목록·로그 tail 3종·마스킹된 설정/ACL·진단 스냅샷을 담고, `grep` 으로 자격증명·URL userinfo 미검출(`core/remote.go:22-30` 마스킹 재사용).
+- `otterminal doctor --bundle out.zip` 이 버전·OS·홈 파일 목록·로그 tail 3종·마스킹된 설정/ACL·진단 스냅샷을 담고, `grep` 으로 자격증명·URL userinfo 미검출(`core/remote.go:22-30` 마스킹 재사용).
 - 편집기 저장이 mtime/ETag 불일치에 412 를 반환하고 UI 가 충돌을 표시.
 - `saveSettings` 가 `res.ok` 를 검사하고 실패를 사용자에게 보이며, `main.js:14-21` 의 설정 로드 실패가 부팅 화면 문구로 노출(빈 `catch{}` 122건 중 세 자리 해소).
 - 데몬 `write`/`resize` 가 실패를 `PanedError{-32000}` 로 돌려주고 `ToolManager.Write` 가 없는 도구에 `ErrToolNotFound` 를 반환. `ToolHub.Delete` 가 `error` 반환.
 - **미저장 편집 불변식**이 e2e 로 고정된다: ① dirty 상태에서 같은 파일을 다시 열면 내용이 보존되고 `●` 가 유지된다 ② 두 브라우저에서 같은 파일을 저장하면 뒤쪽이 409/412 를 받고 "덮어쓰기 / 다시 읽기 / 비교" 를 묻는다 ③ dirty 상태에서 자산 판이 바뀌면 자동 새로고침이 배너로 물러난다(`edAnyDirty()` 검사).
 - `POST /api/file/write` 가 `ifMtime`(또는 ETag)을 받고 불일치 시 412. `GET /api/file/read` 응답에 그 값이 실린다. `FR-EDT-101`("그 탭으로 이동하고 새로 읽는다")이 "dirty 가 아닐 때만 새로 읽는다" 로 개정된다.
 - 저장 실패 시 서버가 본문에 실은 사유(`handlers_files.go:387`)가 편집기 `note()` 에 표시된다.
-- **`FBE-03` 검증**: `run start` → `run member --headless` → `dongminal stop && dongminal start`(데몬 보존) 후 15초 이상 기다려도 `dmctl run status` 가 Run 을 찾고 `detach --list` 에 도구가 남는다. 펜싱 기준이 "웹서버 기동" 이 아니라 **"멤버의 도구가 실제로 살아 있는가"**(`HeadlessToolIDs` 대조)임을 테스트로 고정.
+- **`FBE-03` 검증**: `run start` → `run member --headless` → `otterminal stop && otterminal start`(데몬 보존) 후 15초 이상 기다려도 `otterctl run status` 가 Run 을 찾고 `detach --list` 에 도구가 남는다. 펜싱 기준이 "웹서버 기동" 이 아니라 **"멤버의 도구가 실제로 살아 있는가"**(`HeadlessToolIDs` 대조)임을 테스트로 고정.
 - **`FBE-07` 검증**: 소켓 dial 성공 시에만 pid 를 신뢰하거나(`paned.go:431-436` `Listen` 이 이미 쓰는 판정) pidfile 이 기동 시각·소켓 경로를 함께 담고 대조한다. 죽은 pid 를 재사용한 무관한 프로세스에 SIGTERM 이 가지 않음을 표 테스트로 확인 — `TEST-3` 과 한 묶음.
 - `run.Store` 의 저장 실패가 메모리와 `runs.json` 을 갈라 놓지 않는다. `runs.json` 디렉터리를 읽기 전용으로 만들고 `run member --headless` 로 확인.
 - **[미결정 6 종속 — 완료 전]** 버전 정책이 (a) major 로 확정되고 폐기 예고를 내기로 하면 이 마일스톤의 릴리스에 `--expose` 무인증 **폐기 예고**(`G10-4` 해당 항목)를 실어 발행한다. **결정 7(단일 사용자 전용) 확정으로 이 항목의 차단 시점이 "착수 전" 에서 "완료 전" 으로 완화됐다** — 예고를 받을 사용자 집단이 인스턴스마다 한 명이고 이 저장소의 주 사용자는 계획을 아는 본인이므로, 예고 릴리스의 실익이 낮아졌기 때문이다(§1.6). 착수해서 다른 항목을 진행하는 동안 확정하면 된다.
@@ -395,7 +395,7 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 > |---|---|---|
 > | `G10-1` | 보안 경계 문서 | 문서가 산출물이고 M5 가 문서 마일스톤이다. **범위가 바뀐다** — "인증이 있는 제품의 위협 모델" 이 아니라 **"인증을 지원하지 않는 제품의 경계 선언"** 이다 |
 > | README 정정 | `README.md:86-98` 의 *"아직 인증이 없습니다 … 인증은 준비 중이고"* | 결정 9 로 **거짓이 됐다.** 최소 정정은 이 커밋에서 했고, 전면 대체는 `G10-1` 과 함께 M5 다 |
-> | `TLS-2` | 노출 판정 오표시 | 인증과 무관한 순수 결함이다. `DONGMINAL_HOST=192.168.1.5` 가 `local-only` 로 표시된다 |
+> | `TLS-2` | 노출 판정 오표시 | 인증과 무관한 순수 결함이다. `OTTERMINAL_HOST=192.168.1.5` 가 `local-only` 로 표시된다 |
 > | `G5-3` | 서버 설정 파일 | M5 의 `G5-1`·`G5-2`(설정 관리)와 같은 자리다 |
 > | `TLS-1` | 평문 원격의 알림 결손 | **조치가 바뀐다** — TLS 를 넣지 않으므로 "HTTPS 로 접속하라" 는 해결 경로를 제시할 수 없다. 남는 조치는 **"이 환경에서는 동작하지 않는다" 를 표시하는 것**과 대체 수단(알림음·탭 제목 배지)의 안내다. 탭 제목 배지는 `PAGE_TITLE_SRS` FR-PGT-8 로 **이미 구현됐다** |
 > | `G1-5` | TLS 두 플래그 | **영구 제외** — *"tls 인증은 하지 않을거야"*(사용자 재확인). 백로그가 아니다. **`crypto/tls` 를 부르는 코드를 저장소에 넣지 않는다** — 평문이 이 제품의 확정된 전송 형태이고, 기밀성은 **오버레이 망(Tailscale·WireGuard)이 맡는다** |
@@ -418,7 +418,7 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 
 **성격(전제 1 재판정)**: 이 마일스톤은 "노출을 쓰는 사람을 위한 옵션" 이 아니다. 원격 접속이 제품의 존재 이유이므로 **M4 가 끝나기 전까지 제품의 기본 사용 형태가 무인증 상태다.** `SEC-3` 을 §1.6 에서 P0 로 재판정한 이유가 이것이고, M2 DoD 에 M2~M4 구간 운영 안내를 넣은 이유도 이것이다.
 
-**끝나면 보장되는 것**: `--expose`/`DONGMINAL_HOST`(그리고 **모든 비 loopback 바인드**)로 뜬 인스턴스에 자격증명 없이 접근할 수 없다. 특권 작업이 일반 세션과 분리된다. 원격 사용자가 알림을 받거나, 못 받는다면 **그 사실을 화면에서 안다.** README 의 "인증이 없으므로" 문장이 사실과 맞는 문서로 대체된다.
+**끝나면 보장되는 것**: `--expose`/`OTTERMINAL_HOST`(그리고 **모든 비 loopback 바인드**)로 뜬 인스턴스에 자격증명 없이 접근할 수 없다. 특권 작업이 일반 세션과 분리된다. 원격 사용자가 알림을 받거나, 못 받는다면 **그 사실을 화면에서 안다.** README 의 "인증이 없으므로" 문장이 사실과 맞는 문서로 대체된다.
 
 **TLS 범위 — 결정 8 확정(축소안)**
 
@@ -441,18 +441,18 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 5. 셋(① 토글 비활성화+사유 ② 알림음 기본 켜짐 ③ 탭 제목 미확인 수)은 **한 시나리오를 함께 성립시킨다.** ①만 하면 "알림 없는 제품" 이 되고, ②만 하면 사용자가 왜 소리가 켜졌는지 모르며, ③만 하면 탭을 봐야 한다. 나누면 각각이 불완전하다.
 6. 단 **③(탭 제목)은 secure context 가 필요 없고 지금 아예 없는 기능이며 수 줄**이다(`web/js/` 전체에서 `document.title` 대입 0곳). TLS 와 독립적으로 이득이 있으므로 **이 마일스톤 착수를 기다리지 않고 앞당겨도 된다** — 앞당긴다면 M3(프론트 알림 경로를 이미 손대는 자리).
 
-**방식 확정(결정 5)**: 브라우저는 비밀번호 로그인 + `HttpOnly; SameSite=Strict` 세션 쿠키, 비브라우저(`dmctl`·제어 CLI)는 `Authorization: Bearer`. 근거는 `07 §1` — "쿠키 방식이면 코드 수정 0(브라우저가 자동으로 싣는다)", "WebSocket·EventSource 는 쿠키를 자동으로 싣으므로 URL 토큰이 필요 없다", e2e 는 "`page.request` 가 쿠키를 공유하므로 대부분 그대로".
+**방식 확정(결정 5)**: 브라우저는 비밀번호 로그인 + `HttpOnly; SameSite=Strict` 세션 쿠키, 비브라우저(`otterctl`·제어 CLI)는 `Authorization: Bearer`. 근거는 `07 §1` — "쿠키 방식이면 코드 수정 0(브라우저가 자동으로 싣는다)", "WebSocket·EventSource 는 쿠키를 자동으로 싣으므로 URL 토큰이 필요 없다", e2e 는 "`page.request` 가 쿠키를 공유하므로 대부분 그대로".
 
 | 구분 | ID | 내용 | 규모 |
 |---|---|---|---|
-| P1→**P0**(§1.6 재판정) | SEC-3 | `--expose`/`DONGMINAL_HOST` 가 무인증·평문·ACL 기본꺼짐으로 PTY 를 LAN 에 염 — 원본 `04 §3` 은 P1, 전제 1(원격이 기본 사용 형태)로 전제가 항상 성립하므로 로드맵은 P0 로 본다 | S/M |
+| P1→**P0**(§1.6 재판정) | SEC-3 | `--expose`/`OTTERMINAL_HOST` 가 무인증·평문·ACL 기본꺼짐으로 PTY 를 LAN 에 염 — 원본 `04 §3` 은 P1, 전제 1(원격이 기본 사용 형태)로 전제가 항상 성립하므로 로드맵은 P0 로 본다 | S/M |
 | 갭 | G1-1 | **필수** 인증 자체가 없다("누구" 를 판정하는 코드 0줄) | L |
 | 갭 | G1-2 | **필수** 자격증명 발급·저장·회전 CLI + 저장 규약(0600) | M |
 | 갭 | G1-3 | **필수** 세션 수명·로그아웃·활성 세션 목록/폐기 | M |
 | 갭 | G1-4 | **필수** 무차별 대입 방어(백오프·잠금·상수시간 비교) | S |
 | 갭 | G1-5 | **필수→축소** 노출 모드 TLS — **결정 8 로 `--tls-cert/--tls-key` 두 플래그만.** 앱이 인증서를 만들지 않는다(로컬 CA 보류). 기본은 평문 + 경고이고 **TLS 미설정은 기동 거부 사유가 아니다** | **S**(M/L→S) |
 | **P1** | **TLS-1** | 평문 원격에서 데스크톱 알림이 **조용히 죽어 있다** — 기본값이 켜짐인데 `Notification` API 가 없다. **TLS 채택 여부와 무관한 별도 개선**(§2 M4 의 배치 근거 참조) | S/M |
-| **P1** | **TLS-2** | 노출 판정이 `0.0.0.0`/`::` 만 봐서 `DONGMINAL_HOST=192.168.x` 가 `local-only` 로 오표시 — **인증 강제 조건이 이 판정에 걸리므로 이 마일스톤의 전제** | S |
+| **P1** | **TLS-2** | 노출 판정이 `0.0.0.0`/`::` 만 봐서 `OTTERMINAL_HOST=192.168.x` 가 `local-only` 로 오표시 — **인증 강제 조건이 이 판정에 걸리므로 이 마일스톤의 전제** | S |
 | 갭 | G1-6 | 권장 특권 작업 분리 | M |
 | 갭 | G1-7 | 권장 데몬 IPC 인증 — **결정 7 확정으로 포함 유지**(미지원 선언이 심층 방어 포기를 뜻하지 않는다) | S |
 | 갭 | G5-3 | 권장 서버 설정 파일 — 인증·TLS·로그 레벨 도입 시 필요 | M |
@@ -462,24 +462,24 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 
 **Definition of Done**
 
-- 인증 미설정 상태에서 `--expose`/`DONGMINAL_HOST` 로 기동하면 **거부**되고 사유와 해결 명령(`dongminal auth init`)이 출력된다.
-- `dongminal auth init` 이 `$DONGMINAL_HOME/auth.json`(0600, 스키마 버전 포함)을 만들고 비밀을 한 번만 출력. `auth rotate` 후 기존 세션 전부 401. `auth show` 는 loopback 전용.
-- 무인증 `GET /api/settings`·`PUT /api/access`·`GET /ws` 가 401 — **loopback 출발지에서도**(`07 §1`: FR-ACL-5 의 loopham 무조건 통과는 인증에 적용하지 않는다, SEC-P0 의 공격이 정확히 loopback 출발지이므로). 예외 경로만 통과: `/`, 정적 자산, `/login`, `/api/ping`. `dongminal verify` 에 "무인증 요청이 401" 항목 추가 → 3 OS CI 통과.
+- 인증 미설정 상태에서 `--expose`/`OTTERMINAL_HOST` 로 기동하면 **거부**되고 사유와 해결 명령(`otterminal auth init`)이 출력된다.
+- `otterminal auth init` 이 `$OTTERMINAL_HOME/auth.json`(0600, 스키마 버전 포함)을 만들고 비밀을 한 번만 출력. `auth rotate` 후 기존 세션 전부 401. `auth show` 는 loopback 전용.
+- 무인증 `GET /api/settings`·`PUT /api/access`·`GET /ws` 가 401 — **loopback 출발지에서도**(`07 §1`: FR-ACL-5 의 loopham 무조건 통과는 인증에 적용하지 않는다, SEC-P0 의 공격이 정확히 loopback 출발지이므로). 예외 경로만 통과: `/`, 정적 자산, `/login`, `/api/ping`. `otterminal verify` 에 "무인증 요청이 401" 항목 추가 → 3 OS CI 통과.
 - 로그인 성공 시 `HttpOnly; SameSite=Strict` 쿠키가 내려오고 노출+TLS 에서는 `Secure` 가 붙는다. WebSocket·EventSource 가 쿠키만으로 붙는다 — **프론트 fetch/WS/SSE 호출부 수정 0** 확인(`term-pane.js:504,587`·`event-bus.js:171,273` 무변경).
 - 세션 절대·유휴 수명 만료 시 401. `GET /api/auth/sessions` 나열, `DELETE` 로 개별 폐기.
 - 로그인 실패가 출발지별 지수 백오프·잠금을 받고, 비밀 비교가 `crypto/subtle` 상수시간이며, 실패가 `FR-ACL-13` 형식으로 로그에 남는다.
-- `dmctl`·`edit`·`detach`·`open-url` 이 도구 셸 환경의 `DONGMINAL_TOKEN`(`shared/dmenv` 상수 + `toolhub/tool.go` `StartTool` 주입)으로 통과하고 토큰을 지우면 401. `runtimebin/http.go:40-70` 두 클라이언트만 고쳐 호출부 17곳/9파일이 자동 통과함을 확인.
+- `otterctl`·`edit`·`detach`·`open-url` 이 도구 셸 환경의 `OTTERMINAL_TOKEN`(`shared/otterenv` 상수 + `toolhub/tool.go` `StartTool` 주입)으로 통과하고 토큰을 지우면 401. `runtimebin/http.go:40-70` 두 클라이언트만 고쳐 호출부 17곳/9파일이 자동 통과함을 확인.
 - `verify.go:254,264,283,323` 4곳이 토큰 파일을 읽어 헤더를 붙인다. `ping`·`waitReady`·`health`·`migrate`·`window` 는 `/api/ping` 예외로 무변경.
 - 특권 종단(`PUT /api/access`, `POST /api/auth/rotate`, 설정 전체 교체, `PUT /api/sandbox/config`)이 loopback 세션 또는 재인증을 요구하고 원격 세션에서 403.
 - 프론트: `/api/settings`·`/api/state` 401 을 부팅 화면이 받아 로그인 화면으로 분기. 세션 만료 재로그인 유도가 `core/api.js` 한 자리에서(M2 의 FE-8 결과).
 - e2e: fixture 가 로그인 쿠키를 `storageState` 로 주입하거나 `--isolated` 에서만 `--auth=off` 허용. 직접 HTTP 303곳/63파일이 대부분 무변경 통과.
 - `server.json`(또는 동등물)이 존재하고 우선순위가 **플래그 > 환경변수 > 파일 > 기본값** 임을 테스트로 확인.
 - 문서: `README.md:77-79` 의 "인증이 없으므로 신뢰하는 망에서만" 제거. `SECURITY.md` 에 위협 모델·지원 배포 형태별 보증. `getting-started.md §노출`·`api.md` 인증 절 갱신. `ACCESS_ALLOWLIST_SRS §5` 의 비목표 6개 중 해소된 항목 개정.
-- **TLS(축소안)**: `--tls-cert`/`--tls-key` 를 주면 `ListenAndServeTLS` 로 뜨고, **한쪽만 주면 기동 거부**한다. 주지 않으면 평문으로 뜨고 기동 로그에 경고 한 줄이 남는다(거부하지 않는다). `Secure` 쿠키가 자체 TLS 에서 붙고 평문에서 안 붙는다. `dongminal verify` 에 "TLS 켜짐이면 인증서 SAN 이 현재 바인드 주소를 덮는가 / 만료 임박 아닌가"(`13` TLS-4) 추가.
-- **`TLS-2` 노출 판정 확장**: `start.go:133`·`:248` 이 **비 loopback 바인드 전체**를 노출로 본다. `DONGMINAL_HOST=192.168.1.5` 로 띄우면 `local-only` 가 아니라 노출로 표시되고 **인증 강제가 걸린다**(현재는 오표시로 빠져나간다). `pingHost` 연동 주의. 표 기반 테스트로 고정: `127.0.0.1`·`::1`·`localhost` = 로컬, `0.0.0.0`·`::`·`192.168.x`·`10.x`·`100.64.x` = 노출.
-- **`TLS-1` 알림 결손 해소** — 셋 다 확인한다: ① `window.isSecureContext===false` 면 데스크톱 알림 토글이 **비활성화되고 사유와 해결 경로가 표시된다**("HTTPS 로 접속해야 사용할 수 있습니다 — `--tls-cert/--tls-key`"). ② 같은 조건에서 **알림음이 기본 켜짐**으로 전환된다(`app.js:316` 의 기본 꺼짐이 환경에 따라 갈린다는 점을 주석에 근거와 함께 남긴다. 사용자가 끄면 그 선택이 우선). ③ **탭 제목에 미확인 attn 수가 붙는다**(`(2) dongminal`) — secure context 불요. 검증: `http://<사설IP>` 로 접속해 토글이 비활성이고 사유가 보이며, attn 이 발생하면 소리가 나고 탭 제목이 바뀐다.
+- **TLS(축소안)**: `--tls-cert`/`--tls-key` 를 주면 `ListenAndServeTLS` 로 뜨고, **한쪽만 주면 기동 거부**한다. 주지 않으면 평문으로 뜨고 기동 로그에 경고 한 줄이 남는다(거부하지 않는다). `Secure` 쿠키가 자체 TLS 에서 붙고 평문에서 안 붙는다. `otterminal verify` 에 "TLS 켜짐이면 인증서 SAN 이 현재 바인드 주소를 덮는가 / 만료 임박 아닌가"(`13` TLS-4) 추가.
+- **`TLS-2` 노출 판정 확장**: `start.go:133`·`:248` 이 **비 loopback 바인드 전체**를 노출로 본다. `OTTERMINAL_HOST=192.168.1.5` 로 띄우면 `local-only` 가 아니라 노출로 표시되고 **인증 강제가 걸린다**(현재는 오표시로 빠져나간다). `pingHost` 연동 주의. 표 기반 테스트로 고정: `127.0.0.1`·`::1`·`localhost` = 로컬, `0.0.0.0`·`::`·`192.168.x`·`10.x`·`100.64.x` = 노출.
+- **`TLS-1` 알림 결손 해소** — 셋 다 확인한다: ① `window.isSecureContext===false` 면 데스크톱 알림 토글이 **비활성화되고 사유와 해결 경로가 표시된다**("HTTPS 로 접속해야 사용할 수 있습니다 — `--tls-cert/--tls-key`"). ② 같은 조건에서 **알림음이 기본 켜짐**으로 전환된다(`app.js:316` 의 기본 꺼짐이 환경에 따라 갈린다는 점을 주석에 근거와 함께 남긴다. 사용자가 끄면 그 선택이 우선). ③ **탭 제목에 미확인 attn 수가 붙는다**(`(2) otterminal`) — secure context 불요. 검증: `http://<사설IP>` 로 접속해 토글이 비활성이고 사유가 보이며, attn 이 발생하면 소리가 나고 탭 제목이 바뀐다.
 - **리버스 프록시 미지원 선언**이 `G10-1` 에 있고, **"불가능해지는 것이 아니라 보증하지 않는 것"** 이라는 차이가 명시된다 — 앱을 `127.0.0.1` 에 두고 프록시를 붙이는 것은 지금도 동작하며 그때는 ACL 을 끄면 된다. `X-Forwarded-*` 를 읽는 코드를 **넣지 않는다**(`FR-ACL-6` 승계).
-- **첫 경험**: 인증 미설정 + 비 loopback 바인드에서 기동을 거부할 때 **`dongminal auth init` 을 함께 출력**한다. 거부만 하면 사용자가 막힌다. `--isolated` 는 **강제에서 제외**한다(e2e·개발 격리 실행이 매번 인증을 요구하면 테스트가 무너진다).
+- **첫 경험**: 인증 미설정 + 비 loopback 바인드에서 기동을 거부할 때 **`otterminal auth init` 을 함께 출력**한다. 거부만 하면 사용자가 막힌다. `--isolated` 는 **강제에서 제외**한다(e2e·개발 격리 실행이 매번 인증을 요구하면 테스트가 무너진다).
 - **`G10-1` 이 다음을 모두 담는다(전제 1 로 범위 재정의)**: ① 위협 모델 — 주 시나리오가 "로컬 도구가 실수로 노출되는 경우"가 아니라 **"인터넷 또는 사설망에 상시 노출된 원격 작업 도구"**다. 공격면은 도달 가능한 PTY·파일 읽기/쓰기·git 쓰기·명령 실행 종단 전부. ② 지원 배포 형태를 **권장 순서**로: Tailscale·WireGuard 등 오버레이 망 뒤(권장) → 리버스 프록시 + TLS → LAN + 인증 + TLS → loopback 전용(개발용). 각 형태의 보증 수준을 적는다. ③ **명시 선언: 단일 사용자 전용 · 멀티유저 호스트 미지원**(결정 7 확정). ④ **배포 형태별 보증표에 `13 §4` 의 경로를 그대로 싣는다** — P4(사용자 제공 인증서)·P5(공인 도메인)·P7(SSH 포트포워딩)·P9(Tailscale `cert`)·**P10(평문 = 명시적 열등 등급: 데스크톱 알림 미동작·`Secure` 쿠키 불가)**. **리버스 프록시·funnel·멀티유저는 미지원 선언** — 리버스 프록시는 "불가능해지는 것이 아니라 보증하지 않는 것" 임을 명시하고, 쓰려면 앱을 `127.0.0.1` 에 두고 프록시를 붙이며 그때 ACL 을 끄라는 한 줄을 적는다 ⑤ 상시 노출 전제에서 추가되는 운영 권고 — 자격증명 회전 주기, 인증 실패 로그·잠금(`G1-4`)의 확인 방법, **노출 상태의 가시화**(상태바 또는 `/api/health` 에 "노출 중" 표시). ⑥ `README.md:77-79` 대체와 M2 의 임시 안내 절 회수. ⑦ **ACL 의 기여와 한계**: `--expose` 기본 배치에는 프록시가 없어 `RemoteAddr` 이 진짜 출발지이므로 **ACL 은 정상 작동한다**(`13 §2-3`). 켜면 LAN 의 임의 기기가 로그인 화면에도 도달하지 못해 `G1-4` 무차별 대입 표면이 줄어드는 **의미 있는 심층 방어**다. 다만 **기본 꺼짐**(`access.go:288`)이고 IP 기반이라 DHCP 에서 스스로 잠길 수 있어 **단독 방어선이 될 수 없다** — 이것이 `accessGate → authGate` 직렬 배치의 근거다.
 - **[미결정 6 종속]** `CHANGELOG.md` 의 파괴적 변경 명시와 버전 번호.
 
@@ -514,7 +514,7 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 
 | 구분 | ID | 내용 | 규모 |
 |---|---|---|---|
-| P1 | DOC-2 | `commands.md` 가 `dmctl` 서브커맨드 절반 가까이 미문서화 | M |
+| P1 | DOC-2 | `commands.md` 가 `otterctl` 서브커맨드 절반 가까이 미문서화 | M |
 | P1 | DOC-4 | `api.md` 가 실제 HTTP 표면 절반 이상 누락(Git 60+·Run 13) | L |
 | P2 | DOC-1 | SRS 113개 중 106개(94%)에 구현상태 필드 없음 | M |
 | P2 | DOC-3 | `shortcuts.md` 에 `sidebarToggle`·`edSave` 누락 | S |
@@ -534,7 +534,7 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 | P3 | **`09` FR-ICON-4** | `icon-192/512` 자산 참조 0건 | S |
 | P2 | **FUI-24** | 설정 전체를 기본값으로 되돌리는 길이 없다 | S |
 | **M4 이월** | **G10-1** | **보안 경계 문서** — 범위 재정의: "인증을 지원하지 않는 제품의 경계 선언". README 전면 대체를 포함한다 | S |
-| **M4 이월** | **TLS-2** | 노출 판정이 `0.0.0.0`/`::` 만 봐서 `DONGMINAL_HOST=192.168.x` 가 `local-only` 로 오표시 — 인증과 무관한 순수 결함 | S |
+| **M4 이월** | **TLS-2** | 노출 판정이 `0.0.0.0`/`::` 만 봐서 `OTTERMINAL_HOST=192.168.x` 가 `local-only` 로 오표시 — 인증과 무관한 순수 결함 | S |
 | **M4 이월** | **G5-3** | 서버 설정 파일 — `G5-1`·`G5-2` 와 한 벌로 설계한다 | M |
 | **M4 이월** | **TLS-1** | 평문 원격에서 데스크톱 알림이 조용히 죽어 있다 — **조치 변경**: 표시와 대체 수단만(TLS 미도입) | S/M |
 
@@ -542,18 +542,18 @@ P2 국제화 → P3 프로토콜(claude) → P4·P5·P6 → P7**.
 
 **Definition of Done**
 
-- `log/slog` 전환 + `DONGMINAL_LOG_LEVEL`. `log.Printf` 146곳 감소, 새 코드의 `log.Printf` 금지 grep 게이트. **의존성 추가 0**(표준 라이브러리).
+- `log/slog` 전환 + `OTTERMINAL_LOG_LEVEL`. `log.Printf` 146곳 감소, 새 코드의 `log.Printf` 금지 grep 게이트. **의존성 추가 0**(표준 라이브러리).
 - 요청 ID 미들웨어 — 한 요청의 접근 로그·핸들러 로그·데몬 RPC 로그가 같은 ID(로그 3줄 매칭 테스트).
 - `GET /api/diag` 가 `tools/ws/goroutines/allocMB` + 영속 실패·**게이트 거절 수**(`accessGate`·`requestGate` 별)·재연결 수를 JSON 으로. **"인증 뒤" 라는 원래 단서는 사라졌다**(결정 9) — 인증이 없으므로 이 종단도 ACL·출처 게이트 뒤에 있을 뿐이다. 그러므로 **개별 식별 정보를 싣지 않는다**(집계 수치만).
 - 기동 시 `.lastexit` 마커로 마지막 비정상 종료 판정. 프론트에 `window.onerror`·`unhandledrejection` 훅(현재 grep 0건).
 - `http.Error(w, …)` 가 저장소 전체 grep 0곳(현재 63곳). 모든 오류 응답이 코드를 갖고 `codes.go` 에 등록되며 `apierr` 전수성 테스트(`inventory.go`)가 새 코드까지 덮는다. **기존 4방언 유지**(`architecture.md:141-176` 공개 계약 결정 존중 — §4-3).
 - `errors.md`(또는 `api.md` 절)가 `codes.go` 에서 생성되고 코드 40여 개 전부에 의미·복구 안내(현재 문서화 7개). 생성물과 코드 목록의 불일치를 CI 가 잡는다.
 - 오류 응답 본문에 요청 ID 가 실리고 사용자가 그 ID 로 로그를 찾을 수 있다.
-- 설정 키·타입·범위·기본값의 단일 원천 + `dongminal config show/validate`. `saveSettings` 의 24키 나열(`app-settings.js:15`)이 서술자 표에서 파생됨을 확인.
-- 환경변수 13개 전부 문서화(상수 9 + 흩어진 4: `DONGMINAL_ATTENTION_IDLE_MS`·`_BELL`·`DONGMINAL_CMD_RESULT_TIMEOUT_MS`·`DONGMINAL_URL_OPEN`). `PORT` 비숫자 값이 `net.Listen` 전에 명확한 오류로 거부.
-- `dongminal update --check`(옵트인) · `uninstall --dry-run`(15항목 목록 출력) · `backup --out`/`restore <zip>`(소켓·pid·로그 제외 확인).
+- 설정 키·타입·범위·기본값의 단일 원천 + `otterminal config show/validate`. `saveSettings` 의 24키 나열(`app-settings.js:15`)이 서술자 표에서 파생됨을 확인.
+- 환경변수 13개 전부 문서화(상수 9 + 흩어진 4: `OTTERMINAL_ATTENTION_IDLE_MS`·`_BELL`·`OTTERMINAL_CMD_RESULT_TIMEOUT_MS`·`OTTERMINAL_URL_OPEN`). `PORT` 비숫자 값이 `net.Listen` 전에 명확한 오류로 거부.
+- `otterminal update --check`(옵트인) · `uninstall --dry-run`(15항목 목록 출력) · `backup --out`/`restore <zip>`(소켓·pid·로그 제외 확인).
 - `POST /api/workspace/revert` 로 최근 N rev 되돌리기 + UI 진입점.
-- `commands.md` ↔ `dmctl.go:36-57`, `api.md` ↔ `gitapi/routes.go:16-88`·`handlers_api.go:91-178`, `shortcuts.md` ↔ `helpers.js` 키 표 — 세 대조 스크립트가 CI 에서 **0 불일치**(양방향). `06 §2` 의 "역방향 불일치 0건" 양호 판정 유지 확인.
+- `commands.md` ↔ `otterctl.go:36-57`, `api.md` ↔ `gitapi/routes.go:16-88`·`handlers_api.go:91-178`, `shortcuts.md` ↔ `helpers.js` 키 표 — 세 대조 스크립트가 CI 에서 **0 불일치**(양방향). `06 §2` 의 "역방향 불일치 0건" 양호 판정 유지 확인.
 - `docs/internal/decisions.md` 가 SRS 58개의 `D-n` 을 제목·근거 1줄·SRS 링크·상태(제안/채택/폐기/대체)로 색인. SRS 템플릿에 상태·결정 요약 절 강제(스크립트 1개) → 상태 필드 부재율 94% 하락.
 - **상태 필드에는 갱신 규약이 함께 온다.** 필드 도입만으로는 부족하다 — 현재 필드가 있는 7개 중 **`ICON_ASSETS_SRS` 는 값이 틀렸다**(`승인 대기` 인데 실제로는 구현 완료, `09 §1` 확인). 규약: ① 값은 enum(`초안|승인대기|승인·구현중|승인·구현완료|폐기|대체`) ② 구현 완료 커밋이 그 SRS 의 상태를 함께 고친다 ③ 린트가 enum 밖 값과 부재를 잡는다 ④ **보류 항목은 "제거" 또는 "가드 테스트로 봉인" 중 하나를 택한다**.
 - **`09` 상호 모순 5건이 해소된다**: `EDITOR_TAB §6-3`·`FILE_TRANSFER §6` 에 `~~취소선~~ + (철회, <대체 SRS FR>)` 표기(같은 저장소가 이미 쓰는 관행 — `GIT_SIDEBAR_TABS_SRS.md:309`), **`GIT_ACTIONS:490` 의 `269~271 ✅` 를 `269 ✅ / 270·271 ⊘ 삭제(GIT_CHANGES_CONTROLS FR-GCC-2·4)` 로 정정**하고 `:308`·`:310` 에 철회 표기, `EDITOR_TAB:845,1098` 의 dangling 인용 제거와 D-7 근거 재작성, `DEEPENING_REFACTOR`·`SPLIT_REFACTOR` §7.5 에 "`CODE_AUDIT_FIXES` FR-CAF-1 이 닫음" 표기. **`GIT_ACTIONS` 는 Git 표면의 색인 문서라 사용자 영향이 가장 크다** — 삭제된 기능 둘을 제공된다고 말하고 있다(`09 §2-C`).
@@ -820,13 +820,13 @@ unexpected 0 · 게이트 · **훅 표면 불변**(V-11). **규모 합**: **XL**
 
 **사용자 결정 (2026-09-14, 일곱)**: ① 노출 게이트를 없앤다 (D-M9-1 — **대가 기록**: 인증이
 없는 동안 허용 목록을 켜지 않고 노출하면 같은 망의 누구나 셸에 닿는다) ② 크기는 언제나
-소유자를 따른다 (D-M9-3) ③ dmctl `--force`/`--background`, 기본은 팝업 (D-M9-4) ④ diff 미니맵은
+소유자를 따른다 (D-M9-3) ③ otterctl `--force`/`--background`, 기본은 팝업 (D-M9-4) ④ diff 미니맵은
 끈 채 본문 폭 확보 (D-M9-5) ⑤ 인계는 문서+엔벨로프 두 벌 (D-M9-6) ⑥ 키바는 가려짐 표식만
-(D-M9-7) ⑦ 고아 탭은 "다른 기기·dmctl 로 지운 것이 내 화면에 남는 것".
+(D-M9-7) ⑦ 고아 탭은 "다른 기기·otterctl 로 지운 것이 내 화면에 남는 것".
 
 | 단계 | 내용 | 진입 조건 | 규모 |
 |---|---|---|---|
-| **P1** ✅ | 재감사 · 스펙 확정 · 작은 확정 건 일곱 (expose 게이트 · 격리 호스트 · dmctl 닫기 플래그 · diff 폭 · 모바일 둘 · 찾기 장식 · TC-BGK-12 · GO-42 결정) — **완료 2026-09-14** (`M9_PROGRESS.md` §1) | M8 | M |
+| **P1** ✅ | 재감사 · 스펙 확정 · 작은 확정 건 일곱 (expose 게이트 · 격리 호스트 · otterctl 닫기 플래그 · diff 폭 · 모바일 둘 · 찾기 장식 · TC-BGK-12 · GO-42 결정) — **완료 2026-09-14** (`M9_PROGRESS.md` §1) | M8 | M |
 | **P2** ✅ | `OpSize` 크기 통보(FR-M9-3) · 재연결 워크스페이스 재수신(FR-M9-10) · B2 추적 — **완료 2026-09-14** (`M9_PROGRESS.md` §1-4·§1-5). 크기 통보는 direct·daemon 양쪽에 나가고 두 클라이언트가 같은 좌표계에 선다(실측 `44x35` 수렴, 버퍼 문자 단위 일치). 재수신은 **보장으로** 못박았다 — 증상은 부수 경로가 이미 가리고 있었다(§2-12). **B2 는 사용자 `?diag=1` 로그로 기전이 확정됐고**(복원이 돌면서 틀린 자리로 복원한다) 오염 구간의 원인만 남아 계측을 심어 두었다 | P1 | M~L |
 | **P3** ✅ | `migration` 스킬(FR-M9-6) · 고정 대기(FR-M9-13·14) · §5-5 flaky 군집(FR-M9-16) — **완료 2026-09-14** (`M9_PROGRESS.md` §1-7·§1-8·§1-9). **군집은 군집이 아니었다** — 여덟 달을 "`git-*` 관측 주기 대기" 한 이름으로 묶여 있던 넷이 각자 다른 결함이었고(워치독 문턱 둘 중 하나 · 기준값을 목록 전에 읽음 · 넷 중 하나만 기다림 · 떨어진 요소), 전량 회차의 `report.json` 이 넷의 실패 줄과 값으로 그것을 가렸다(§2-14). Go `time.Sleep` 은 **셋이 아니라 넷**으로 갈렸고 ① 열 곳을 옮겼다 — 그중 하나가 **이름과 다른 사실**을 지키고 있었다(§2-15). `sandboxplace` 는 실제 컨테이너로 실측했다 | P1 | M |
 | **P4** | 500줄 초과 20 → 10 이하(FR-M9-15) · GO-44(FR-M9-17) | P2 · P3 | M |
@@ -871,13 +871,13 @@ unexpected 0 · 게이트 · **훅 표면 불변**(V-11). **규모 합**: **XL**
 
 원래 근거는 "기존 `--expose` 사용자의 기동이 거부되는 파괴적 변경이므로 이행 안내와 롤백이 먼저" 였고, 그 무게가 **이행 안내를 받을 사용자 집단**에 있었다. 결정 7 로 그 집단이 인스턴스마다 한 명이 되면서 이 근거만 약해졌다. 그러나 나머지가 남고, 재프레이밍으로 오히려 커진다.
 
-1. **판 불일치(`G3-1`)는 사용자 수와 무관하고, 단독 사용자에게 더 확실히 일어난다.** 업그레이드 실제 절차는 "바이너리 덮어쓰기 → `dongminal start`" 인데 `start` 는 데몬이 살아 있으면 그대로 둔다(`start.go:66-70` "dongminald 실행 중 (세션 보존)"). 즉 **인증을 요구하는 새 서버 + 인증을 모르는 옛 데몬**이 정확히 이 경로로 공존한다. 감지가 없다는 것은 `07 §3` 이 코드로 확정했다. 이것은 다른 사용자의 문제가 아니라 **업그레이드하는 본인에게 일어나는 일**이다.
+1. **판 불일치(`G3-1`)는 사용자 수와 무관하고, 단독 사용자에게 더 확실히 일어난다.** 업그레이드 실제 절차는 "바이너리 덮어쓰기 → `otterminal start`" 인데 `start` 는 데몬이 살아 있으면 그대로 둔다(`start.go:66-70` "otterminald 실행 중 (세션 보존)"). 즉 **인증을 요구하는 새 서버 + 인증을 모르는 옛 데몬**이 정확히 이 경로로 공존한다. 감지가 없다는 것은 `07 §3` 이 코드로 확정했다. 이것은 다른 사용자의 문제가 아니라 **업그레이드하는 본인에게 일어나는 일**이다.
 2. **인증 401 이 `FE-2`(빈 판 덮어쓰기)의 새 트리거다.** `07 §1` 프론트 부팅 행: "401 → 로그인 화면 분기. 정적 HTML 은 인증 없이 나가되 `/api/settings`·`/api/state` 401 을 부팅 화면이 받아야 한다(현재 `main.js:14-21` 은 설정 실패를 `catch{}` 로 삼킨다)". 로그인 분기를 만들기 전 상태에서 401 이 오면 `_fetchStateKnown` 실패 → `_mkWindow` → If-Match 없는 PUT → 워크스페이스가 빈 판으로 덮인다. **인증 도입이 스스로 데이터 손실 경로를 하나 새로 연다.** `G4-2`+`FE-2`(M3)가 먼저 닫혀 있어야 한다.
 3. **전제 1 이 롤백의 가치를 키운다.** 원격 접속이 기본 사용 형태이므로 "되돌릴 수 없는 상태" 는 곧 **원격에서 작업을 못 하는 상태**다. 그리고 결정 7(단독 사용자)이라 대신 고쳐 줄 사람이 없다. 백업 세대(`G4-1`)·롤백 경로(`G3-2`)·진단 번들(`G2-3`)이 M4 앞에 있어야 할 이유가 커진다.
 
 **대신 한 것**: ① M3 의 **내부 순서**를 인증 전제 항목(`G3-1`·`G2-2` → `G4-1`·`G4-2`·`FE-2`) 우선으로 명시했다. ② M2 의 노출 게이트(`SEC-3`·`SEC-10`·`SEC-11`)를 그 마일스톤의 필수 완료 항목으로 두고, **M2~M4 구간의 운영 안내**를 M2 DoD 에 추가했다. ③ `SEC-3` 을 §1.6 에서 P0 로 재판정해 M4 의 시급성을 문서에 남겼다.
 
-**하지 않은 것**: `04 P0-1` 제안 2("기동 시 난수 세션 토큰을 `index.html` 에 심고 `$DONGMINAL_HOME/token` 을 `dmctl` 이 읽는다 — `P1-1` 의 `--expose` 안전장치를 겸한다")를 M2 에 앞당겨 넣는 것. 그렇게 하면 M4 의 쿠키 세션(결정 5)과 자격증명 체계가 두 벌이 되고, 두 번째가 첫 번째를 걷어내야 한다. M2 의 노출 게이트(인증 미설정 시 ACL 강제)가 그 구간의 방어를 맡는다.
+**하지 않은 것**: `04 P0-1` 제안 2("기동 시 난수 세션 토큰을 `index.html` 에 심고 `$OTTERMINAL_HOME/token` 을 `otterctl` 이 읽는다 — `P1-1` 의 `--expose` 안전장치를 겸한다")를 M2 에 앞당겨 넣는 것. 그렇게 하면 M4 의 쿠키 세션(결정 5)과 자격증명 체계가 두 벌이 되고, 두 번째가 첫 번째를 걷어내야 한다. M2 의 노출 게이트(인증 미설정 시 ACL 강제)가 그 구간의 방어를 맡는다.
 
 #### 3-A-3. fsnotify 판정 — 도입하지 않는다, 그리고 사용자 진단은 옳았다
 
@@ -985,7 +985,7 @@ unexpected 0 · 게이트 · **훅 표면 불변**(V-11). **규모 합**: **XL**
 | **git 실행 초크포인트** `domain/git/core` (`exec.go:200-224`, `guard.go:19-31,98-119,102,157-191`, 30초 마감·1MiB 상한) | `01` 서두 강점, `04 §5` | **M2 DoD**: worktree·submodule 이 `core.Env()` 를 공유하는지만 테스트(B5), 초크포인트 자체 변경 0. **M8 DoD**: `check-gitwrite.sh` 통과 |
 | **외부 명령 실행 안전성** (셸 경유 헤드리스 1곳, `exec.Command*` 17곳 인자배열) | `01 "외부 명령 실행" 확인완료` | 재감사 없음. 헤드리스 1곳은 SEC-13 으로 SEC-2 게이트에 흡수 |
 | **git 자격증명 취급** (URL userinfo 마스킹 `core/remote.go:22-30`, 추적 시크릿 0) | `04 §4.3` | **M3 DoD**: 진단 번들에서 `grep` 으로 자격증명·userinfo 미검출 — 이 마스킹 규칙을 재사용 |
-| **기본값 안전성** (127.0.0.1 `dmenv.go:45-46`, 포트범위 `options.go:88-92`, `--isolated` 구조 보호 `start.go:56-64`) | `04 §4.6` | **M2 DoD**: 노출 게이트가 기본값을 바꾸지 않고 노출 시 조건만 더함. **단 전제 1 주의** — 기본값 127.0.0.1 은 개발·초기 기동의 안전장치이고 실사용 형태는 노출이다. "기본이 안전하니 노출 경로는 낮은 등급" 이라는 추론을 하지 않는다(§1.6 `SEC-3` 재판정) |
+| **기본값 안전성** (127.0.0.1 `otterenv.go:45-46`, 포트범위 `options.go:88-92`, `--isolated` 구조 보호 `start.go:56-64`) | `04 §4.6` | **M2 DoD**: 노출 게이트가 기본값을 바꾸지 않고 노출 시 조건만 더함. **단 전제 1 주의** — 기본값 127.0.0.1 은 개발·초기 기동의 안전장치이고 실사용 형태는 노출이다. "기본이 안전하니 노출 경로는 낮은 등급" 이라는 추론을 하지 않는다(§1.6 `SEC-3` 재판정) |
 | **ACL 설계** (`RemoteAddr` 만 신뢰·프록시 헤더 무시 `access.go:332-349`, 403 본문에 목록 미노출, DNS 해석을 요청 경로 밖) | `04 §5` | **M4 DoD**: 인증이 ACL 의 대체가 아니라 직렬 추가임을 체인 순서(`accessGate → authGate`)로 확인 |
 | **`/api/fs/*` 경로 가드** (`EvalSymlinks:143`, 조각 단위 경계, `O_EXCL`·`os.Link`) | `04 §5` | **M2 DoD**: SEC-7/B2 는 가드가 *없는* `/api/file/*` 계층에만 적용됨을 테스트 범위로 고정 |
 | **업로드 MaxBytesReader · 패닉 그물(SSE/WS 구분) · 재연결 폭주·미스홀드 상한** | `04 §5`(`handlers_files.go:109-130`, `server.go:262-280,328-353`, `ws_miss.go`) | **M2 DoD**: `readJSON` 도입이 업로드 경로의 기존 상한을 우회하지 않음 |
@@ -1055,7 +1055,7 @@ unexpected 0 · 게이트 · **훅 표면 불변**(V-11). **규모 합**: **XL**
 
 **C. 작업 방식 제외 (결정 1)**
 
-- **git 히스토리 재작성**: 하지 않는다. 13개 릴리스 태그를 포함한 모든 커밋 해시가 바뀌어 `06 §7` 의 "CHANGELOG 13헤더가 태그와 날짜까지 일치" 를 재수립해야 하고 기존 clone·fork 를 무효화하는데, 얻는 것은 pack 79.67MiB 의 감소분 하나다. 재발 경로도 없다 — `bin/dongminal` 은 `.gitignore:5:/bin` 에 걸리고 `remote-terminal` 은 개명 전 이름이다. **M0 은 `.gitignore` 보강과 `git count-objects` 기준선 기록으로 대체한다.**
+- **git 히스토리 재작성**: 하지 않는다. 13개 릴리스 태그를 포함한 모든 커밋 해시가 바뀌어 `06 §7` 의 "CHANGELOG 13헤더가 태그와 날짜까지 일치" 를 재수립해야 하고 기존 clone·fork 를 무효화하는데, 얻는 것은 pack 79.67MiB 의 감소분 하나다. 재발 경로도 없다 — `bin/otterminal` 은 `.gitignore:5:/bin` 에 걸리고 `remote-terminal` 은 개명 전 이름이다. **M0 은 `.gitignore` 보강과 `git count-objects` 기준선 기록으로 대체한다.**
 
 ### 4-4. 미확인 항목의 취급
 

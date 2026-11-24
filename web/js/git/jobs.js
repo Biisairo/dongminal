@@ -1,5 +1,5 @@
 /**
- * Dongminal — 잡 표시기 묶음 (REPO_FIX 01 §6.4)
+ * Otterminal — 잡 표시기 묶음 (REPO_FIX 01 §6.4)
  *
  * 저장소마다 잡 칸이 둘이다 — index(작업 트리·HEAD 를 바꾸는 잡)와 common(원격 ref·
  * worktree 들이 공유하는 것을 바꾸는 잡). push 중에도 commit 을 할 수 있어야 하므로

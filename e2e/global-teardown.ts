@@ -19,12 +19,12 @@ async function globalTeardown() {
   }
   // **병렬 샤드에서는 자기 뿌리만 치운다** (FR-EPL-14). 이웃이 지금 돌고 있는 다른
   // 샤드일 수 있고, 그 홈을 지우면 그쪽의 서버 바이너리가 사라진다 — 실측으로
-  // `spawn … dongminal-e2e ENOENT` 가 950건 났다.
+  // `spawn … otterminal-e2e ENOENT` 가 950건 났다.
   const mine = process.env[E2E_RUN_ENV] || '';
   for (const entry of entries) {
-    if (!entry.startsWith('dongminal-e2e-')) continue;
+    if (!entry.startsWith('otterminal-e2e-')) continue;
     const fullPath = tmpPath(entry);
-    if (process.env.DM_E2E_KEEP_PEERS && mine && fullPath !== mine) continue;
+    if (process.env.OTTER_E2E_KEEP_PEERS && mine && fullPath !== mine) continue;
     try {
       if (!statSync(fullPath).isDirectory()) continue;
     } catch {
@@ -33,8 +33,8 @@ async function globalTeardown() {
     stopDaemon(fullPath);
     stopDaemonsUnder(fullPath);
     // RUST_DEFECT_FIX_SRS 10.7b: 실패를 가릴 때는 홈(워커의 `server.log` 포함)을 남긴다. 데몬은 위에서 세웠다.
-    if (process.env.DM_E2E_KEEP_HOME) {
-      console.log(`DM_E2E_KEEP_HOME: 홈을 남겼다 — ${fullPath}`);
+    if (process.env.OTTER_E2E_KEEP_HOME) {
+      console.log(`OTTER_E2E_KEEP_HOME: 홈을 남겼다 — ${fullPath}`);
       continue;
     }
     try {

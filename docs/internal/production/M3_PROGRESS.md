@@ -52,8 +52,8 @@
 | `GO-8` | IPC 경계가 실패를 성공으로 응답 | `ErrToolNotFound` · write/resize/delete 가 `-32000` |
 | `FBE-17` | `run.Store` 롤백 없음 | **저장 한 자리**에서 되돌린다 (변경 지점 10곳을 고치지 않는다) |
 | M3 DoD | `PUT /api/settings` 가 쓰기 실패에 200 | 500 으로. `FE-7` 의 서버 쪽 짝 |
-| `G3-2` | 롤백 경로 없음 | `dongminal rollback` |
-| `G2-3` | 진단 번들 없음 | `dongminal doctor --bundle` |
+| `G3-2` | 롤백 경로 없음 | `otterminal rollback` |
+| `G2-3` | 진단 번들 없음 | `otterminal doctor --bundle` |
 | `G4-4` | 가져오기 전 스냅샷 | 스냅샷은 이미 있었다(`G4-1`) — **되돌릴 길**을 넓혔다 |
 | `G4-6` | 보존 정책 | `RetainQuarantined` 로 **결정을 코드에 고정** |
 | `TEST-2` | 복원 경로 미검증 | `LoadAllWith` 이음매 · 신규 4 |

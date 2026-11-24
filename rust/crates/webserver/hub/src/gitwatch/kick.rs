@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_webserver_domain_git_core::Ctx;
+use otter_webserver_domain_git_core::Ctx;
 
 use super::{GIT_WATCH_ROUND_TIMEOUT, GitWatcher};
 

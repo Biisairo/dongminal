@@ -1,5 +1,5 @@
 [package]
-name = "dm-webserver-fswatch"
+name = "otter-webserver-fswatch"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,8 +10,8 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-dmlog = { path = "../../shared/dmlog" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-otterlog = { path = "../../shared/otterlog" }
 notify = { workspace = true, features = ["macos_kqueue"] }
 icu_normalizer = { workspace = true }
 

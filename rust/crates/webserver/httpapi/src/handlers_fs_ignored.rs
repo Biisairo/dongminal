@@ -6,10 +6,10 @@
 
 use std::time::Duration;
 
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::{self as core, Ctx, Kind, UnguardedSpec, exec_unguarded};
 use http::StatusCode;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::{self as core, Ctx, Kind, UnguardedSpec, exec_unguarded};
 use serde::{Deserialize, Serialize};
 
 use crate::Server;

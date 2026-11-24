@@ -1,8 +1,8 @@
 //! 브랜치 조작 (FR-GIT-155·158·253~257). `*_args` 는 실행하지 않는 순수 함수다.
 
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_git_core::{self as core, Ctx, Hint, Output, Service, WriteSpec};
-use dm_webserver_domain_git_query as query;
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_git_core::{self as core, Ctx, Hint, Output, Service, WriteSpec};
+use otter_webserver_domain_git_query as query;
 use serde::{Deserialize, Serialize};
 
 use crate::commit::{argv, spec};

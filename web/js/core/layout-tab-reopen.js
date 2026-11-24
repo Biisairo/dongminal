@@ -1,5 +1,5 @@
 /**
- * Dongminal — 닫은 탭 다시 열기 (UX_BATCH12_SRS §3.5g FR-RTR-1~7).
+ * Otterminal — 닫은 탭 다시 열기 (UX_BATCH12_SRS §3.5g FR-RTR-1~7).
  *
  * Repo 창의 탭(편집기·Diff·git 뷰)을 닫으면 그 자리·레코드·커서·스크롤을 목록에 적는다.
  * 목록은 브라우저 메모리에만 있다 (FR-RTR-2). 뒤로·앞으로가 닫힌 자리를 만나면 이 목록으로

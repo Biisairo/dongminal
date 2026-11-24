@@ -277,7 +277,7 @@ class FocusController extends Controller {
   //  Transport (FR-XDF-5/6): the server owns the map. Claims go out as
   //  POST /api/focus/claim; every change comes back over the existing command
   //  SSE as a `window_focus` event carrying the FULL map. The previous
-  //  BroadcastChannel('dongminal-focus') path is gone — it was same-browser
+  //  BroadcastChannel('otterminal-focus') path is gone — it was same-browser
   //  same-origin only, so it never reached another device, and under --expose
   //  even localhost:PORT and <host-ip>:PORT were isolated (SRS §2.7).
   //

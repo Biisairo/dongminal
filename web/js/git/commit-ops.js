@@ -1,5 +1,5 @@
 /**
- * Dongminal — 커밋 하나를 대상으로 하는 동작 (GIT_ACTIONS_SRS §3.4 / FR-GIT-263~267)
+ * Otterminal — 커밋 하나를 대상으로 하는 동작 (GIT_ACTIONS_SRS §3.4 / FR-GIT-263~267)
  *
  * History 의 커밋 우클릭이 여는 것들이다: Cherry-pick · Revert · Reset to here ·
  * Drop · Compare with. `GIT_MENUS.commit` 이 항목을 **선언**하고 실행은 여기 있다 —

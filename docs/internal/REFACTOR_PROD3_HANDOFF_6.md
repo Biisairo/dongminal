@@ -33,7 +33,7 @@
 
 ## 3. 알려진 흔들림 · 환경 (보고에 쓴다)
 
-- **macOS 첫 실행 보안 검사**: 새로 만든 실행 파일의 첫 실행이 12초까지 걸린다(`syspolicyd`·`XprotectService`). 그래서 전체 Go 실행에서 `cmd/dongminal` `TestSessionKeep_RealReload`·`internal/daemon/swap` `TestPreflight` 가 가끔 시한을 넘긴다 — 따로 돌리면 통과, 2026-11-19 이후 안 바뀜. git 계수 시험은 `ccbe7d47` 로 고쳤다
+- **macOS 첫 실행 보안 검사**: 새로 만든 실행 파일의 첫 실행이 12초까지 걸린다(`syspolicyd`·`XprotectService`). 그래서 전체 Go 실행에서 `cmd/otterminal` `TestSessionKeep_RealReload`·`internal/daemon/swap` `TestPreflight` 가 가끔 시한을 넘긴다 — 따로 돌리면 통과, 2026-11-19 이후 안 바뀜. git 계수 시험은 `ccbe7d47` 로 고쳤다
 - e2e 흔들림: `claude-accounts` TC-CAC-27 · `editor-ops` O7(오늘도 재시도 통과). 그 밖 HANDOFF_5 §4 의 재현 못 한 7건
 - e2e 를 기다릴 때 `pgrep -f "[p]laywright test"`. zsh 는 따옴표 없는 변수를 낱말로 가르지 않는다 — 목록은 파일로 `xargs`
 

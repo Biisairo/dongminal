@@ -3,10 +3,10 @@
 //! **경계는 없다** (2026-09-20, 사용자 결정). 남은 것은 입력 형식 검사뿐이다 — 빈 경로와
 //! 상대경로는 이 종단이 해석할 수 없는 입력이므로 400 이다.
 
-use dm_gocompat::filepath;
-use dm_shared_httpresp::Response;
-use dm_webserver_apierr as apierr;
 use http::StatusCode;
+use otter_gocompat::filepath;
+use otter_shared_httpresp::Response;
+use otter_webserver_apierr as apierr;
 
 use crate::Server;
 use crate::httperr::http_err;

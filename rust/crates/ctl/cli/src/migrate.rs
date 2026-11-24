@@ -1,10 +1,10 @@
-//! `dongminal migrate` — 워크스페이스 데이터를 최신 스키마로 변환한다 (1회성).
+//! `otterminal migrate` — 워크스페이스 데이터를 최신 스키마로 변환한다 (1회성).
 
 use std::io::Write;
 use std::path::Path;
 
-use dm_gocompat::fmt::v_list;
-use dm_shared_apipath as apipath;
+use otter_gocompat::fmt::v_list;
+use otter_shared_apipath as apipath;
 
 use crate::env::Env;
 use crate::http::{ALIVE_PROBE_TIMEOUT, ping};
@@ -51,18 +51,18 @@ pub(crate) fn run_migrate_in(
     {
         let _ = writeln!(
             stderr,
-            "❌ dongminal 이 포트 {port} 에서 실행 중입니다 — 변환하지 않았습니다."
+            "❌ otterminal 이 포트 {port} 에서 실행 중입니다 — 변환하지 않았습니다."
         );
         let _ = writeln!(stderr, "   서버와 데몬을 완전히 정지한 뒤 다시 실행하세요:");
         let _ = writeln!(
             stderr,
-            "     dongminal stop --all{}",
+            "     otterminal stop --all{}",
             target_flags(&o.common, env, port, home)
         );
         return 1;
     }
 
-    let rep = match dm_ctl_migrate::apply(Path::new(home), o.dry_run) {
+    let rep = match otter_ctl_migrate::apply(Path::new(home), o.dry_run) {
         Ok(r) => r,
         Err(e) => {
             let _ = writeln!(stderr, "마이그레이션 실패: {e}\n변경된 파일 없음.");

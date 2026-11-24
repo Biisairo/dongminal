@@ -35,7 +35,7 @@
 |------|------|
 | **떠남 확인** | `beforeunload` 에서 `preventDefault()` 했을 때 브라우저가 띄우는 확인 대화 |
 | **가드** | `web/js/core/main.js` 의 `beforeunload` 리스너 |
-| **자기 새로고침** | 앱이 새 판을 받으려 스스로 여는 재적재. `__dmReloading` 로 표시된다 (FR-RLC-5a) |
+| **자기 새로고침** | 앱이 새 판을 받으려 스스로 여는 재적재. `__otterReloading` 로 표시된다 (FR-RLC-5a) |
 | **설정 블롭** | `/api/settings` 가 주고받는 JSON. 서버는 해석하지 않는다 |
 
 ### 1.4 참조 (References)
@@ -58,7 +58,7 @@
 
 ```js
 window.addEventListener('beforeunload',e=>{
-  if(window.__dmReloading) return;
+  if(window.__otterReloading) return;
   if(app.tools.size>0) e.preventDefault();
 });
 ```
@@ -67,7 +67,7 @@ window.addEventListener('beforeunload',e=>{
 
 ### 2.2 자기 새로고침은 이미 예외다
 
-`__dmReloading` 가 그 표시이며 근거는 FR-RLC-5a 다. 이번 작업은 그 예외를 건드리지
+`__otterReloading` 가 그 표시이며 근거는 FR-RLC-5a 다. 이번 작업은 그 예외를 건드리지
 않는다 — 조건을 하나 **더** 얹는 것이지 기존 조건을 바꾸는 것이 아니다.
 
 ### 2.3 설정 블롭은 서버가 해석하지 않는다
@@ -165,7 +165,7 @@ window.addEventListener('beforeunload',e=>{
 | **V-LVC-3** | 켠 뒤 새로고침해도 켜진 채이고 가드가 그대로 듣는다 (FR-LVC-4) | e2e |
 | **V-LVC-4** | 다시 끄면 그 즉시 취소되지 않는다 — 재적재 없이 듣는다 (FR-LVC-10) | e2e |
 | **V-LVC-5** | 다른 설정(테마)을 바꿔도 이 값이 살아남는다 (§2.4) | e2e |
-| **V-LVC-6** | 켠 상태에서 자기 새로고침(`__dmReloading`)은 여전히 묻지 않는다 (FR-LVC-8) | e2e |
+| **V-LVC-6** | 켠 상태에서 자기 새로고침(`__otterReloading`)은 여전히 묻지 않는다 (FR-LVC-8) | e2e |
 | **V-LVC-7** | 문서가 판을 손으로 적지 않았다 (§2.8) | `go test ./web` |
 | **V-LVC-8** | TC-RLC-10·10b·11 이 스위치를 켠 상태로 재고 통과한다 (FR-LVC-11) | e2e |
 

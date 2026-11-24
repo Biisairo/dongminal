@@ -1,4 +1,4 @@
-//! `dongminal config` — 설정을 보고 대조하는 자리 (CONFIG_MANAGEMENT_SRS 묶음 C).
+//! `otterminal config` — 설정을 보고 대조하는 자리 (CONFIG_MANAGEMENT_SRS 묶음 C).
 //!
 //! 서버는 settings.json 을 런타임에 해석하지 않는다(D-CFG-1). 여기서 읽는 것은 사람이 부를 때만
 //! 도는 진단이다.
@@ -6,20 +6,20 @@
 use std::io::{self, Read, Write};
 use std::path::Path;
 
-use dm_gocompat::filepath;
-use dm_gocompat::json::{self, Encoder};
-use dm_gocompat::oserr::{go_error_string, path_error};
-use dm_gocompat::strconv::quote;
-use dm_shared_dmenv as dmenv;
-use dm_shared_serverconf as serverconf;
-use dm_shared_settingsschema as settingsschema;
+use otter_gocompat::filepath;
+use otter_gocompat::json::{self, Encoder};
+use otter_gocompat::oserr::{go_error_string, path_error};
+use otter_gocompat::strconv::quote;
+use otter_shared_otterenv as otterenv;
+use otter_shared_serverconf as serverconf;
+use otter_shared_settingsschema as settingsschema;
 use serde::Serialize;
 
 use crate::config_bind::{check_config_set, run_config_get, run_config_set};
 use crate::env::Env;
 use crate::options::{Common, ParseError, default_log_file, invalid, unknown_flag};
 
-/// `dongminal config` 의 옵션이다.
+/// `otterminal config` 의 옵션이다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ConfigOpts {
     pub common: Common,
@@ -91,7 +91,7 @@ struct ConfigReport {
     errors: Vec<String>,
 }
 
-/// `dongminal config` 다.
+/// `otterminal config` 다.
 pub fn run_config(o: &ConfigOpts, stdout: &mut dyn Write, stderr: &mut dyn Write) -> i32 {
     run_config_in(o, &Env::process(), stdout, stderr)
 }
@@ -137,7 +137,7 @@ pub(crate) fn run_config_in(
         // 표를 읽지 못하면 블롭을 댈 기준이 없다. 사용자의 설정이 아니라 빌드의 결함이므로 오류다.
         Err(e) => rep.errors.push(e.to_string()),
         Ok(specs) => {
-            let path = filepath::join(&[rep.home.as_str(), dmenv::SETTINGS_FILE]);
+            let path = filepath::join(&[rep.home.as_str(), otterenv::SETTINGS_FILE]);
             match read_file(&path) {
                 Ok(blob) => match settingsschema::validate(&specs, &blob) {
                     Ok((probs, unknown)) => {

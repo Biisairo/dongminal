@@ -1,7 +1,7 @@
 //! codex 선언. best-effort 다 (FR-ADP-4 / D-D). 표준 notify 는 `agent-turn-complete` 하나뿐이다.
 
-use dm_gocompat::json;
-use dm_shared_activity as activity;
+use otter_gocompat::json;
+use otter_shared_activity as activity;
 use serde::Deserialize;
 
 use crate::{Adapter, PolicyInjection, PromptInjection, Readiness, Report, Signals};

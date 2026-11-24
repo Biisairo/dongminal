@@ -1,9 +1,9 @@
-//! `dongminal window` — 돌고 있는 서버에 frameless window 를 연다 (FR-WIN-1..7).
+//! `otterminal window` — 돌고 있는 서버에 frameless window 를 연다 (FR-WIN-1..7).
 //! 서버를 띄우지 않는다.
 
 use std::io::Write;
 
-use dm_shared_apipath as apipath;
+use otter_shared_apipath as apipath;
 
 use crate::env::Env;
 use crate::http::{ALIVE_PROBE_TIMEOUT, ping};
@@ -45,7 +45,7 @@ pub(crate) fn run_window_in(
             stderr,
             "❌ {url} 에서 응답이 없습니다 — 서버가 떠 있지 않습니다"
         );
-        let _ = writeln!(stderr, "   먼저 띄웁니다: dongminal start");
+        let _ = writeln!(stderr, "   먼저 띄웁니다: otterminal start");
         return 1;
     }
 

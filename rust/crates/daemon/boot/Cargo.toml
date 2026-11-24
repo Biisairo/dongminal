@@ -1,5 +1,5 @@
 [package]
-name = "dm-daemon-boot"
+name = "otter-daemon-boot"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -15,27 +15,27 @@ path = "tests/daemon.rs"
 harness = false
 
 [dependencies]
-dm-daemon-chat = { path = "../chat" }
-dm-daemon-chatsock = { path = "../chatsock" }
-dm-daemon-ipc = { path = "../ipc" }
-dm-daemon-swap = { path = "../swap" }
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-activity = { path = "../../shared/activity" }
-dm-shared-agentrec = { path = "../../shared/agentrec" }
-dm-shared-chatwire = { path = "../../shared/chatwire" }
-dm-shared-dmenv = { path = "../../shared/dmenv" }
-dm-shared-dmlog = { path = "../../shared/dmlog" }
-dm-shared-edge = { path = "../../shared/edge" }
-dm-shared-edgenode = { path = "../../shared/edgenode" }
-dm-shared-edgerelay = { path = "../../shared/edgerelay" }
-dm-shared-humancmd = { path = "../../shared/humancmd" }
-dm-shared-platform = { path = "../../shared/platform" }
-dm-shared-runfile = { path = "../../shared/runfile" }
-dm-shared-runtime = { path = "../../shared/runtime" }
-dm-shared-sandboxplace = { path = "../../shared/sandboxplace" }
-dm-shared-toolhub = { path = "../../shared/toolhub" }
-dm-shared-toolipc = { path = "../../shared/toolipc" }
-dm-shared-workspace = { path = "../../shared/workspace" }
+otter-daemon-chat = { path = "../chat" }
+otter-daemon-chatsock = { path = "../chatsock" }
+otter-daemon-ipc = { path = "../ipc" }
+otter-daemon-swap = { path = "../swap" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-activity = { path = "../../shared/activity" }
+otter-shared-agentrec = { path = "../../shared/agentrec" }
+otter-shared-chatwire = { path = "../../shared/chatwire" }
+otter-shared-otterenv = { path = "../../shared/otterenv" }
+otter-shared-otterlog = { path = "../../shared/otterlog" }
+otter-shared-edge = { path = "../../shared/edge" }
+otter-shared-edgenode = { path = "../../shared/edgenode" }
+otter-shared-edgerelay = { path = "../../shared/edgerelay" }
+otter-shared-humancmd = { path = "../../shared/humancmd" }
+otter-shared-platform = { path = "../../shared/platform" }
+otter-shared-runfile = { path = "../../shared/runfile" }
+otter-shared-runtime = { path = "../../shared/runtime" }
+otter-shared-sandboxplace = { path = "../../shared/sandboxplace" }
+otter-shared-toolhub = { path = "../../shared/toolhub" }
+otter-shared-toolipc = { path = "../../shared/toolipc" }
+otter-shared-workspace = { path = "../../shared/workspace" }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 
@@ -44,6 +44,6 @@ libc = { workspace = true }
 nix = { workspace = true }
 
 [dev-dependencies]
-dm-shared-handover = { path = "../../shared/handover" }
-dm-webserver-toolclient = { path = "../../webserver/toolclient" }
+otter-shared-handover = { path = "../../shared/handover" }
+otter-webserver-toolclient = { path = "../../webserver/toolclient" }
 tempfile = { workspace = true }

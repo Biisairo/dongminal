@@ -72,7 +72,7 @@ $ curl -s localhost:58146/api/sandbox/profiles
 [{"name":"scratch","image":"debian:stable-slim","isolated":true,"helper":false,"workspace":false}]
 ```
 
-`~/.dongminal/sandbox.json` 이 없으면 `LoadProfiles` 가 `scratch` 하나만 낸다
+`~/.otterminal/sandbox.json` 이 없으면 `LoadProfiles` 가 `scratch` 하나만 낸다
 (`profiles.go:44-46`, FR-SBX-4). 그 하나는 `Workspace=false` 다 (`sandbox.go:71-73`).
 **따라서 `mustAsk` 는 거짓이고 선택창은 뜨지 않는다** — `▣ Box` 를 누르면 아무것도
 묻지 않고 창이 열린다.

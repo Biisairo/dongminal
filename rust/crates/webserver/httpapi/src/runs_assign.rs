@@ -1,9 +1,9 @@
 //! 이슈 트리 배정과 멤버 프리앰블 (Go `handlers_runs_assign.go`, ISSUE_TREE_OPS_SRS FR-ITA-*).
 
-use dm_gocompat::filepath;
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_httpresp::Response;
-use dm_webserver_domain_run::{self as run, Member, Record, TreeContext};
+use otter_gocompat::filepath;
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_httpresp::Response;
+use otter_webserver_domain_run::{self as run, Member, Record, TreeContext};
 use serde::Deserialize;
 
 use crate::Server;
@@ -47,13 +47,13 @@ struct WsGroupTree {
     root: RawMessage,
 }
 
-/// Go `issueTreeDocPath`: 홈이 없으면 빈다. Go 는 서버가 `DONGMINAL_HOME` 에 심은 홈을 읽었다 —
+/// Go `issueTreeDocPath`: 홈이 없으면 빈다. Go 는 서버가 `OTTERMINAL_HOME` 에 심은 홈을 읽었다 —
 /// 그 값은 서버의 데이터 디렉터리와 같으므로 환경 대신 그것을 받는다.
 fn issue_tree_doc_path(home: &str) -> String {
     if home.is_empty() {
         return String::new();
     }
-    let mut parts = vec![home, dm_shared_dmenv::BIN_DIR];
+    let mut parts = vec![home, otter_shared_otterenv::BIN_DIR];
     parts.extend(ISSUE_TREE_DOC);
     filepath::join(&parts)
 }
@@ -188,9 +188,9 @@ mod doc_path_tests {
     #[test]
     fn doc_path_follows_given_home() {
         assert_eq!(issue_tree_doc_path(""), "");
-        let want = dm_gocompat::filepath::join(&[
+        let want = otter_gocompat::filepath::join(&[
             "/h",
-            dm_shared_dmenv::BIN_DIR,
+            otter_shared_otterenv::BIN_DIR,
             "agent-plugin",
             "commands",
             "issue-tree.md",

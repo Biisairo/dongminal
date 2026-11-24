@@ -138,7 +138,7 @@ P1 회차(flaky 1: `git-live-triggers` TC-GLW-4)와도 겹치지 않는다. **V-
 | 본문 | `skills/migration/SKILL.md` → `commands/migration.md` · 11,770 → **11,397 바이트** |
 | 줄인 것 | **트리거 설명뿐** — "언제 쓰나" 절과 description 의 의도 문구 나열 |
 | 더한 것 | `argument-hint: "[에이전트=claude] [cli|gui]"` · `allowed-tools: Bash` · `$ARGUMENTS` 해석 |
-| 호출 형태 | **불변** (`/dongminal:migration`) — 저장소의 호출 문장을 한 줄도 고치지 않았다 |
+| 호출 형태 | **불변** (`/otterminal:migration`) — 저장소의 호출 문장을 한 줄도 고치지 않았다 |
 | evals | `commands/` 에 둘 수 없어 `docs/internal/migration-eval.md` 로 |
 | 검사 | V-M9-6·42·43 이 새 경로에서 초록 · **V-M10-11 신설** |
 
@@ -304,7 +304,7 @@ M5 의 `DOC-1` 게이트는 **enum 안에 있는가만** 본다. 그 값이 참�
 
 skill 은 `SKILL.md` 하나가 본체이고 곁에 `references/`·`evals/` 를 둘 수 있다. command 는
 다르다 — **그 디렉터리의 `.md` 가 하나씩 명령이 된다.** `evals/test-scenarios.md` 를 그대로
-옮겼다면 `/dongminal:test-scenarios` 가 생기고, 사용자는 그것이 명령인 줄 알고 부른다.
+옮겼다면 `/otterminal:test-scenarios` 가 생기고, 사용자는 그것이 명령인 줄 알고 부른다.
 
 그래서 eval 은 저장소 문서로 갔고, **그 규칙을 검사가 지킨다**(V-M10-11). 규칙을 문서에만
 적으면 다음 사람이 참조 파일을 그 옆에 둔다 — 그리고 아무것도 빨개지지 않는다.
@@ -365,8 +365,8 @@ DoD 로 적으면 문서가 참이 아닌 것을 주장하게 된다 — `M9_PRO
 
 ```
 git worktree add --detach /tmp/dm-<sha> <sha>
-cd /tmp/dm-<sha> && go build -o /tmp/dm-<이름> ./cmd/dongminal
-DONGMINAL_HOST=127.0.0.1 /tmp/dm-<이름> start --isolated --port <다른 포트>
+cd /tmp/dm-<sha> && go build -o /tmp/dm-<이름> ./cmd/otterminal
+OTTERMINAL_HOST=127.0.0.1 /tmp/dm-<이름> start --isolated --port <다른 포트>
 ```
 
 **포트를 판마다 다르게** 준다 — 같은 포트로 갈아타면 브라우저 탭이 어느 판을 보는지 흐려진다.

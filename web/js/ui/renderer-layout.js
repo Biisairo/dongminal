@@ -1,5 +1,5 @@
 /**
- * Dongminal — 렌더러의 칸과 창 (`Renderer.prototype` 증강)
+ * Otterminal — 렌더러의 칸과 창 (`Renderer.prototype` 증강)
  *
  * `renderer.js` 에서 **구간 이동**했다 (STRUCTURE_CLEANUP_SRS FR-STR-44).
  *

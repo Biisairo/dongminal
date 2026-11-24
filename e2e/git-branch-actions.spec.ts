@@ -17,7 +17,7 @@ import { TMP, tmpPath, realPath } from './osenv';
 // 남는 것이 목적이므로 픽스처를 공유하지 않고 테스트마다 자기 것을 만든다
 // (git-operation.spec.ts 의 repoWithConflictedMerge 와 같은 근거).
 
-const FIXTURES = tmpPath('dm-git-fx-bra-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-bra-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
@@ -43,7 +43,7 @@ function runHint(repo: string, cmd: string) {
 
 // 충돌하는 머지를 만들어 **멈춘 채로** 남긴다 (git-operation.spec.ts 와 같은 방식).
 function repoWithConflictedMerge(tag: string) {
-  const dir = realPath(mkdtempSync(join(TMP, 'dm-git-bra-' + tag + '-')));
+  const dir = realPath(mkdtempSync(join(TMP, 'otter-git-bra-' + tag + '-')));
   git(dir, 'init', '-q', '-b', 'main', '.');
   git(dir, 'config', 'user.name', 'Fixture');
   git(dir, 'config', 'user.email', 'fixture@example.invalid');
@@ -67,7 +67,7 @@ function repoWithConflictedMerge(tag: string) {
 
 // 충돌 **직전** 까지만 만든 저장소. 같은 줄이 갈라져 있으므로 머지하면 반드시 멈춘다.
 function repoWithDivergedSide(tag: string) {
-  const dir = realPath(mkdtempSync(join(TMP, 'dm-git-bra-' + tag + '-')));
+  const dir = realPath(mkdtempSync(join(TMP, 'otter-git-bra-' + tag + '-')));
   git(dir, 'init', '-q', '-b', 'main', '.');
   git(dir, 'config', 'user.name', 'Fixture');
   git(dir, 'config', 'user.email', 'fixture@example.invalid');

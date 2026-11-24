@@ -1,5 +1,5 @@
 /**
- * Dongminal — git 창의 **골격** 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
+ * Otterminal — git 창의 **골격** 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
  *
  * 창 하나 · 고정 탭 여덟 · 뷰 필드 · 진입점, 그리고 좌측 GIT 섹션
  * (GIT_SRS §3.2 / FR-GIT-9~17). 어느 탭에도

@@ -26,7 +26,7 @@ mod sys {
         // SAFETY: buf 는 BUF_LEN 바이트의 쓰기 가능한 지역 배열이고, 길이를 그대로 넘긴다.
         let r = unsafe { libc::gethostname(buf.as_mut_ptr().cast(), buf.len()) };
         if r != 0 {
-            return Err(dm_gocompat::oserr::syscall_error(
+            return Err(otter_gocompat::oserr::syscall_error(
                 SYSCALL,
                 io::Error::last_os_error(),
             ));
@@ -66,7 +66,7 @@ mod sys {
             }
             let err = io::Error::last_os_error();
             if err.raw_os_error() != Some(ERROR_MORE_DATA as i32) || n <= cap {
-                return Err(dm_gocompat::oserr::syscall_error(SYSCALL, err));
+                return Err(otter_gocompat::oserr::syscall_error(SYSCALL, err));
             }
         }
     }

@@ -1,5 +1,5 @@
 /**
- * Dongminal — 설정의 **단일 경로** (FE_MODULE_BOUNDARY_SRS FR-FMB-10).
+ * Otterminal — 설정의 **단일 경로** (FE_MODULE_BOUNDARY_SRS FR-FMB-10).
  *
  * 설정 하나를 **읽고 얹는 방법**의 서술자 표다. 그 표를 도는 셋 — 저장(PUT) · 적용 · 복원 — 은
  * `settings-apply.js` 의 `SettingsApply` 가 진다(REFACTOR3_FE_APPCTL_SRS 9a).
@@ -75,6 +75,11 @@ const SETTINGS_ACCESS={
     if(this.settings.apply._edApplyMinimap) this.settings.apply._edApplyMinimap();
   }},
   // FR-TBW-8: 같은 근거로 곧바로 얹는다. 클래스와 변수 하나뿐이라 다시 그리지 않는다.
+  // OTTERMINAL_RENAME_SRS FR-FAV-3: 바꾸면 곧바로 아이콘을 다시 고른다.
+  attnFavicon:{get:()=>attnFavicon,set(v){
+    attnFavicon=v;
+    this.settings.apply._applyPageTitle();
+  }},
   tabFixedWidth:{get:()=>tabFixedWidth,set(v){
     tabFixedWidth=v;
     applyTabWidth();

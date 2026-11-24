@@ -6,13 +6,13 @@
 
 use std::sync::{Arc, Mutex, PoisonError};
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_dmlog::infof;
-use dm_shared_edgerelay as edgerelay;
-use dm_shared_httpresp::Response;
-use dm_shared_toolipc::{EdgeParams, EdgePortParams, EdgeRef, EdgeResult, EdgesEvent};
-use dm_webserver_apierr as apierr;
 use http::{HeaderValue, StatusCode};
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_edgerelay as edgerelay;
+use otter_shared_httpresp::Response;
+use otter_shared_otterlog::infof;
+use otter_shared_toolipc::{EdgeParams, EdgePortParams, EdgeRef, EdgeResult, EdgesEvent};
+use otter_webserver_apierr as apierr;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -80,7 +80,7 @@ fn tagged(r: &Ref) -> TaggedRef {
     TaggedRef {
         fp: r.fp.clone(),
         name: r.name.clone(),
-        tag: dm_shared_edge::tag(&r.fp),
+        tag: otter_shared_edge::tag(&r.fp),
     }
 }
 
@@ -157,7 +157,7 @@ impl Server {
             paired: c.paired.as_ref().map(tagged),
             removed: c.removed.as_ref().map(tagged),
         };
-        cmds.broadcast(&dm_webserver_sse::payload("edges_changed", Some(&args)));
+        cmds.broadcast(&otter_webserver_sse::payload("edges_changed", Some(&args)));
     }
 
     /// Go `edgeDo`: 연산 op 하나를 처리한다. with_body 면 요청 본문을 Args 로 넘긴다.
@@ -192,7 +192,7 @@ impl Server {
                     return mark(
                         &e,
                         code_fail(
-                            dm_shared_httpreq::status(&e),
+                            otter_shared_httpreq::status(&e),
                             apierr::body_read_code(&e),
                             "read body",
                         ),

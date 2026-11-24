@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use dm_gocompat::json::{self, RawMessage};
+use otter_gocompat::json::{self, RawMessage};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 

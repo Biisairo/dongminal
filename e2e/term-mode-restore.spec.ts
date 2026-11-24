@@ -69,8 +69,8 @@ const BRACKET_EMPTY = '\x1b[200~\x1b[201~';
  * 그 전부를 그려야 해서 검사가 무겁고 부하에서 흔들린다. 1KB 줄 1400 개면 같은
  * 양을 1/150 의 줄 수로 넘긴다.
  */
-const FLOOD = `node -e "process.stdout.write('\\x1b[?2004h');const L='x'.repeat(1000);for(let i=0;i<1400;i++)console.log(L);console.log('DM_DONE');setInterval(()=>{},1000)"`;
-const FLOOD_MARK = 'DM_DONE';
+const FLOOD = `node -e "process.stdout.write('\\x1b[?2004h');const L='x'.repeat(1000);for(let i=0;i<1400;i++)console.log(L);console.log('OTTER_DONE');setInterval(()=>{},1000)"`;
+const FLOOD_MARK = 'OTTER_DONE';
 
 /**
  * 마우스 모드를 켜고, **링버퍼를 넘긴 뒤**, 살아 있는 앱.
@@ -79,7 +79,7 @@ const FLOOD_MARK = 'DM_DONE';
  * **복원을 통째로 들어내도 재생이 대신 실어 나른다** — 그러면 이 검사는 복원을
  * 특정하지 못한다 (실측: 들어낸 채로 통과했다).
  */
-const MOUSE_ON = `node -e "process.stdout.write('\\x1b[?1002h\\x1b[?1006h');const L='x'.repeat(1000);for(let i=0;i<1400;i++)console.log(L);console.log('DM_DONE');setInterval(()=>{},1000)"`;
+const MOUSE_ON = `node -e "process.stdout.write('\\x1b[?1002h\\x1b[?1006h');const L='x'.repeat(1000);for(let i=0;i<1400;i++)console.log(L);console.log('OTTER_DONE');setInterval(()=>{},1000)"`;
 
 /** 켰다가 **끄고** 끝나는 앱. 복원이 켜면 안 되는 상태를 만든다. */
 const MOUSE_ON_OFF = `node -e "process.stdout.write('\\x1b[?1002h');process.stdout.write('\\x1b[?1002l')"`;

@@ -7,11 +7,11 @@ use std::collections::BTreeMap;
 use std::fs::Metadata;
 use std::time::SystemTime;
 
-use dm_gocompat::json;
-use dm_shared_httpreq::{self as httpreq, DecodeError};
-use dm_shared_httpresp::Response;
-use dm_webserver_apierr as apierr;
 use http::StatusCode;
+use otter_gocompat::json;
+use otter_shared_httpreq::{self as httpreq, DecodeError};
+use otter_shared_httpresp::Response;
+use otter_webserver_apierr as apierr;
 use serde::{Deserialize, Serialize};
 
 use crate::Server;

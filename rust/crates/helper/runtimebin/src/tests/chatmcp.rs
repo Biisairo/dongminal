@@ -1,4 +1,4 @@
-//! PEER_CHAT_SRS §3.10 — MCP 서버 `dmctl chat-mcp` (TC-PCH-12 MCP 쪽). Go dmctl_chatmcp_test.go.
+//! PEER_CHAT_SRS §3.10 — MCP 서버 `otterctl chat-mcp` (TC-PCH-12 MCP 쪽). Go otterctl_chatmcp_test.go.
 #![cfg(unix)]
 
 use std::io::{BufRead, BufReader, PipeReader, PipeWriter, Write};
@@ -9,11 +9,11 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use dm_gocompat::json;
-use dm_shared_chatwire as chatwire;
+use otter_gocompat::json;
+use otter_shared_chatwire as chatwire;
 use serde_json::{Value, json};
 
-use crate::dmctl::chatmcp::{ChatLink, ChatMcp, INBOX_MAX};
+use crate::otterctl::chatmcp::{ChatLink, ChatMcp, INBOX_MAX};
 
 struct FakeDaemon {
     c: UnixStream,
@@ -275,13 +275,13 @@ fn chat_mcp_wire_bytes() {
     let init = h.recv_raw();
     assert!(
         init.starts_with(
-            "{\"id\":2,\"jsonrpc\":\"2.0\",\"result\":{\"capabilities\":{\"tools\":{}},\"instructions\":\"dongminal 노드 망 채팅이다."
+            "{\"id\":2,\"jsonrpc\":\"2.0\",\"result\":{\"capabilities\":{\"tools\":{}},\"instructions\":\"otterminal 노드 망 채팅이다."
         ),
         "{init}"
     );
     assert!(
         init.ends_with(
-            "\",\"protocolVersion\":\"2025-06-18\",\"serverInfo\":{\"name\":\"dongminal-chat\",\"version\":\"1\"}}}\n"
+            "\",\"protocolVersion\":\"2025-06-18\",\"serverInfo\":{\"name\":\"otterminal-chat\",\"version\":\"1\"}}}\n"
         ),
         "{init}"
     );

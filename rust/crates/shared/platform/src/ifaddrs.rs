@@ -26,7 +26,7 @@ mod sys {
         // SAFETY: head 는 지역 포인터이고, 성공하면 커널이 할당한 목록의 머리를 받는다. 아래에서
         // freeifaddrs 로 한 번만 놓는다.
         if unsafe { libc::getifaddrs(&mut head) } != 0 {
-            return Err(dm_gocompat::oserr::syscall_error(
+            return Err(otter_gocompat::oserr::syscall_error(
                 SYSCALL,
                 io::Error::last_os_error(),
             ));
@@ -145,7 +145,7 @@ mod sys {
                 break buf;
             }
             if r != ERROR_BUFFER_OVERFLOW {
-                return Err(dm_gocompat::oserr::syscall_error(
+                return Err(otter_gocompat::oserr::syscall_error(
                     SYSCALL,
                     io::Error::from_raw_os_error(r as i32),
                 ));

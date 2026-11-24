@@ -2,9 +2,9 @@
 
 use std::time::Duration;
 
-use dm_gocompat::json;
-use dm_shared_edge::{self as edge, CallError, Config, Edge, Error as EdgeError, Target};
 use http::StatusCode;
+use otter_gocompat::json;
+use otter_shared_edge::{self as edge, CallError, Config, Edge, Error as EdgeError, Target};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -107,7 +107,7 @@ struct NodeView {
 
 #[derive(Serialize)]
 struct InviteView {
-    #[serde(with = "dm_gocompat::time::json_time")]
+    #[serde(with = "otter_gocompat::time::json_time")]
     expires: OffsetDateTime,
 }
 
@@ -376,7 +376,7 @@ impl Node {
         #[derive(Serialize)]
         struct Out {
             code: String,
-            #[serde(with = "dm_gocompat::time::json_time")]
+            #[serde(with = "otter_gocompat::time::json_time")]
             expires: OffsetDateTime,
         }
         ok(&Out { code, expires })
@@ -647,7 +647,7 @@ fn remote_code(code: &str) -> &'static str {
 }
 
 fn clean_remote_text(s: &str) -> String {
-    dm_shared_termtext::cut(&dm_shared_termtext::strip(s), REMOTE_TEXT_MAX).to_string()
+    otter_shared_termtext::cut(&otter_shared_termtext::strip(s), REMOTE_TEXT_MAX).to_string()
 }
 
 /// Go `http.Client.Do` 가 ctx 시한 초과로 끝난 오류(`Post "<url>": context deadline exceeded`)다.
@@ -659,6 +659,6 @@ fn deadline_exceeded(t: &Target, path: &str) -> CallError {
     };
     let url = format!("https://{host}{path}");
     CallError::Unreachable(
-        dm_gocompat::neturl_err::UrlError::new("POST", &url, DEADLINE_EXCEEDED).to_string(),
+        otter_gocompat::neturl_err::UrlError::new("POST", &url, DEADLINE_EXCEEDED).to_string(),
     )
 }

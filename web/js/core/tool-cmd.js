@@ -10,7 +10,7 @@
  * M9_SRS FR-M9-4: 원격 닫기 명령의 인자를 `closeTab`·`delWindow` 의 opts 로 옮긴다.
  *
  * 두 자리가 같은 규칙을 쓰므로 함수로 둔다 — 손으로 옮겨 적으면 한쪽만 고쳐진다.
- * `keepTool` 은 `force` 없이 오지 않는다(`dmctl` 이 둘을 함께 싣는다). 그래도 여기서
+ * `keepTool` 은 `force` 없이 오지 않는다(`otterctl` 이 둘을 함께 싣는다). 그래도 여기서
  * 함께 세우는 것은, 답을 준 요청이 확인창을 만나면 무인 정리가 그 자리에서 멎기 때문이다.
  */
 function _closeOpts(args){
@@ -152,13 +152,13 @@ class ToolCmd extends Controller {
   _remoteNewWindow(args){
     // ISSUE_AGENT_TREE_SRS FR-WGR-33: 그 그룹의 끝에 만든다. 없는 그룹이면 만들지 않는다.
     if(args.group&&!this.app.layout.groups.windowGroups().some(g=>g.id===args.group)) return Promise.resolve({error:'not_found'});
-    // FR-WBR-22: `dmctl` 은 더 이상 호출자 도구를 자동으로 싣지 않는다 —
+    // FR-WBR-22: `otterctl` 은 더 이상 호출자 도구를 자동으로 싣지 않는다 —
     // 새 창은 홈에서 뜬다. `cwdTool` 은 다른 호출자가 명시로 줄 때만 온다
     // (FR-CWD-3 은 남는다).
     // FR-WBR-23: `--cwd` 가 오면 그 경로다. `--workdir` 은 샌드박스 창의
     // 컨테이너 안 자리라 다른 인자이며, 둘이 함께 오면 앞의 것이 이긴다.
     // M8 D-A-25: 도구 생성의 거부(없는 `--cwd` 400 · 샌드박스 실패)는 화면에
-    // 말한다. echo 는 내지 않는다 — dmctl 은 `timedOut` 으로 exit 1 을 받는다(D-A-2).
+    // 말한다. echo 는 내지 않는다 — otterctl 은 `timedOut` 으로 exit 1 을 받는다(D-A-2).
     return this.app.layout._mkWindow({name:args.name,keepFocus:!!args.keepFocus,cwdTool:args.cwdTool,
       sandbox:args.sandbox,cwd:args.cwd||args.workdir}).then((c)=>{
       if(c&&args.group) this.app.layout.groups.moveWindowTo(c.win,{to:args.group});
@@ -266,7 +266,7 @@ class ToolCmd extends Controller {
       // 부른 순간에 있었다.
       //
       // M9_SRS FR-M9-4: `keepTool` 은 그 답이 "백그라운드로 보내기" 일 때다
-      // (`dmctl close-tab --background`). `force` 없이 오지 않는다 — 답을 준
+      // (`otterctl close-tab --background`). `force` 없이 오지 않는다 — 답을 준
       // 요청이 확인창을 만나면 그 자리에서 멎는다.
       this.app.layout.tabOps.closeTab(tgt.paneId, tgt.tabId, tgt.windowId, {...(_closeOpts(args)||{}),keepView:true});
       return;

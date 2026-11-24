@@ -44,7 +44,7 @@ fn brief_and_handoff(b: &mut Lines, rec: &Record, m: &Member) {
 /// 일반 Run 멤버의 프리앰블.
 pub fn preamble(rec: &Record, m: &Member) -> String {
     let mut b = Lines(String::new());
-    b.w("너는 dongminal Run 의 멤버다. 아래 정체로 일하고 아래 규약으로 보고한다.");
+    b.w("너는 otterminal Run 의 멤버다. 아래 정체로 일하고 아래 규약으로 보고한다.");
     b.w("");
     b.w(format!("  역할     {}", m.role));
     b.w(format!("  Run 목적 {}", rec.objective));
@@ -58,7 +58,7 @@ pub fn preamble(rec: &Record, m: &Member) -> String {
     b.w("# 실패를 산문에만 담으면 조정자가 성공으로 읽는다. --summary 는 3문장이다:");
     b.w("# 무엇을 했는가 / 무엇을 발견했는가 / 무엇이 남았는가.");
     b.w(format!(
-        "dmctl run report --run {} --member {} --outcome succeeded --summary \"...\"",
+        "otterctl run report --run {} --member {} --outcome succeeded --summary \"...\"",
         rec.id, m.id
     ));
     b.w("");
@@ -66,7 +66,7 @@ pub fn preamble(rec: &Record, m: &Member) -> String {
     b.w("# 열지 마라 — 조정자는 그 화면을 볼 수 없어 세션이 영구히 멈춘다.");
     b.w("# 종료자 MSG 는 반드시 줄 맨 앞(열 0)이어야 한다.");
     b.w(format!(
-        "dmctl msg --to {} - <<'MSG'",
+        "otterctl msg --to {} - <<'MSG'",
         rec.coordinator_tool_id
     ));
     b.w("...본문...");
@@ -76,10 +76,10 @@ pub fn preamble(rec: &Record, m: &Member) -> String {
     b.w("# 요청의 응답을 무한정 기다리지 마라 — 상한을 정하고 넘으면 조정자에게 보고한다.");
     b.w("# 동료의 주소는 아래로 얻는다. 승계·이탈로 변하니 말을 걸기 직전에 부르고,");
     b.w("# 출력의 to= 를 위 msg 의 --to 에 넣는다. state 가 lost 면 조정자에게 알린다.");
-    b.w("dmctl run team");
+    b.w("otterctl run team");
     b.w("");
     b.w("# 팀 구성과 다른 멤버의 진행은 대화 기록이 아니라 기록에서 읽는다.");
-    b.w(format!("dmctl run status --run {}", rec.id));
+    b.w(format!("otterctl run status --run {}", rec.id));
     b.w("");
     b.w("# 보고 뒤에는 유휴 프롬프트로 돌아가 대기한다. 폴링 루프를 돌리지 말고,");
     b.w("# 탭이나 셸을 스스로 닫지 마라 — 정리는 조정자가 한다.");
@@ -110,7 +110,9 @@ pub fn tree_preamble(rec: &Record, m: &Member, tc: &TreeContext) -> String {
     let empty = Assignment::default();
     let a = m.assign.as_ref().unwrap_or(&empty);
     let mut b = Lines(String::new());
-    b.w("너는 dongminal 이슈 트리의 노드다. 아래 배정으로 일한다. 절차는 이 문서다 — 먼저 읽는다:");
+    b.w(
+        "너는 otterminal 이슈 트리의 노드다. 아래 배정으로 일한다. 절차는 이 문서다 — 먼저 읽는다:",
+    );
     b.w(format!("  {}", tc.doc_path));
     b.w("");
     b.w("[ISSUE-TREE 배정]");
@@ -153,14 +155,14 @@ pub fn tree_preamble(rec: &Record, m: &Member, tc: &TreeContext) -> String {
         b.w(line);
     }
     b.w(format!(
-        "dmctl run report --run {} --member {} --outcome succeeded --summary \"...\"",
+        "otterctl run report --run {} --member {} --outcome succeeded --summary \"...\"",
         rec.id, m.id
     ));
     if !tc.parent_tool_id.is_empty() {
         b.w("");
         b.w("# 보고·완료·실패·부모 범위의 사실 질문은 부모에게 보낸다. 본문 첫 줄이 종류와 사슬 이름이다.");
         b.w("# 종료자 MSG 는 반드시 줄 맨 앞(열 0)이어야 한다.");
-        b.w(format!("dmctl msg --to {} - <<'MSG'", tc.parent_tool_id));
+        b.w(format!("otterctl msg --to {} - <<'MSG'", tc.parent_tool_id));
         b.w(format!("완료 {}", m.role));
         b.w("...본문...");
         b.w("MSG");

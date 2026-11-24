@@ -3,7 +3,7 @@
  *
  * 옛 `app-cmd.js` 에서 옮겨 왔다. 본문은 수정하지 않았다 (R-ACS-3). 여기 있는 것은
  * 서버 워크스페이스와 맞추는 일이다 — SSE 구독 배선, `workspace_changed` 적용,
- * 전경 이름, 복원 비행 껍데기. `dmctl` 원격 명령의 실행은 `tool-cmd.js` 에 있다.
+ * 전경 이름, 복원 비행 껍데기. `otterctl` 원격 명령의 실행은 `tool-cmd.js` 에 있다.
  * App 은 이것을 `wsSync` 로 든다(REFACTOR3_FE_APPCTL_SRS 9f, 옛 `app-ws-sync.js`). 부품 — 내부 새로고침
  * `SoftReload`(`soft-reload.js`) `.reload`. 저장 경로(`app.js` `save`)가 함께 쓰는 `wsETag`·`_wsDeferRev`·
  * `_wsApplyPending`·`_saveInflight` 와 `_wsApplyInflight`·`_sseKick`·`fgNames` 는 App 에 남는다(§2.2).
@@ -48,7 +48,7 @@ class WsSyncController extends Controller {
   _restoreEnd(key,flight){ this.app.bus.endSnapshot(key,flight) }
 
   /**
-   * 외부 CLI(dmctl) → 서버 → SSE 브로드캐스트 수신 → `_execRemote` 재사용.
+   * 외부 CLI(otterctl) → 서버 → SSE 브로드캐스트 수신 → `_execRemote` 재사용.
    *
    * **채널과 라우팅은 `EventBus` 가 갖는다** (EVENT_TIMER_HUB_SRS 묶음 B).
    * 여기 남는 것은 **배선**뿐이다 — 어떤 action 이 무엇을 부르는가.
@@ -76,7 +76,7 @@ class WsSyncController extends Controller {
     bus.subscribe('server_hello',a=>{
       const v=a&&a.assetVersion;
       const gen=bus.gen();
-      if(v&&window.__dmAssetVersion) window.__dmAssetVersion(String(v),()=>bus.alive()&&bus.gen()===gen);
+      if(v&&window.__otterAssetVersion) window.__otterAssetVersion(String(v),()=>bus.alive()&&bus.gen()===gen);
     },{owner:'app'});
 
     bus.subscribe('workspace_changed',a=>this._onWorkspaceChanged(a&&a.rev),{owner:'app'});

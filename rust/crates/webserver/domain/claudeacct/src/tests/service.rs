@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use dm_gocompat::json::RawMessage;
+use otter_gocompat::json::RawMessage;
 use serde_json::Value;
 use tempfile::TempDir;
 
@@ -246,7 +246,7 @@ async fn switch_happy_path() {
         "same bytes needs no profile lookup"
     );
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal(&res).unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal(&res).unwrap()).unwrap(),
         r#"{"from":"id2","to":"id1","outgoing":"same"}"#
     );
 }
@@ -317,7 +317,7 @@ async fn switch_unresolved_outgoing_is_stashed() {
 #[tokio::test]
 async fn switch_empty_live_does_not_touch_backup() {
     let e = two_accounts().await;
-    use dm_shared_platform::Secrets;
+    use otter_shared_platform::Secrets;
     e.sec.delete(&e.paths.keychain_service, "tester").unwrap();
     assert_eq!(e.svc.switch("id1").await.unwrap().outgoing, OUTGOING_EMPTY);
     assert_eq!(backup_at(&e, "id2"), "at-b");
@@ -378,7 +378,7 @@ async fn switch_unknown_and_active() {
     let res = e.svc.switch("id2").await.unwrap();
     assert!(res.no_op);
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal(&res).unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal(&res).unwrap()).unwrap(),
         r#"{"from":"id2","to":"id2","noop":true}"#
     );
 }
@@ -587,7 +587,7 @@ async fn unclaimed_list_and_remove() {
         ]
     );
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal(&got[0]).unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal(&got[0]).unwrap()).unwrap(),
         r#"{"name":"300-bbbbbbbbbbbb.json","at":300,"fingerprint":"bbbbbbbbbbbb"}"#
     );
     e.svc.remove_unclaimed("200-cccccccccccc.json").unwrap();
@@ -697,10 +697,10 @@ async fn resolve_order() {
     let r = e.svc.resolve("t1", &s(&deep)).unwrap();
     assert!(r.source == SOURCE_NONE && r.account_id.is_empty() && r.config_dir.is_empty());
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal(&r).unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal(&r).unwrap()).unwrap(),
         format!(
             r#"{{"source":"none","path":{}}}"#,
-            dm_gocompat::strconv::quote(&r.path)
+            otter_gocompat::strconv::quote(&r.path)
         )
     );
     e.svc.set_folder(&s(root), "id1").unwrap();
@@ -799,7 +799,7 @@ async fn set_mapping_validation() {
         fs::read_to_string(e.data.join("mappings.json")).unwrap(),
         format!(
             "{{\n  \"folders\": {{\n    {}: {{\n      \"accountId\": \"id1\"\n    }}\n  }},\n  \"tabs\": {{\n    \"t1\": {{\n      \"accountId\": \"id1\"\n    }}\n  }}\n}}",
-            dm_gocompat::strconv::quote(&key)
+            otter_gocompat::strconv::quote(&key)
         )
     );
     e.svc.set_folder(&format!("{dir}/"), "").unwrap();

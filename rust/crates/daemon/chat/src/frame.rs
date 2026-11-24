@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_edge::Identity;
-use dm_shared_edgemesh::{parse_key, public_key, sign, verify};
-use dm_shared_termtext as termtext;
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_edge::Identity;
+use otter_shared_edgemesh::{parse_key, public_key, sign, verify};
+use otter_shared_termtext as termtext;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
@@ -83,7 +83,7 @@ pub(crate) struct MsgBody {
     pub room: String,
     pub from: String,
     pub text: String,
-    #[serde(with = "dm_gocompat::time::json_time")]
+    #[serde(with = "otter_gocompat::time::json_time")]
     pub at: OffsetDateTime,
 }
 
@@ -97,7 +97,7 @@ impl Default for MsgBody {
             room: String::new(),
             from: String::new(),
             text: String::new(),
-            at: dm_gocompat::time::zero_time(),
+            at: otter_gocompat::time::zero_time(),
         }
     }
 }
@@ -121,7 +121,7 @@ pub(crate) struct RecordBody {
     pub name: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub purpose: String,
-    #[serde(with = "dm_gocompat::time::json_time")]
+    #[serde(with = "otter_gocompat::time::json_time")]
     pub created: OffsetDateTime,
     pub nonce: String,
 }
@@ -137,7 +137,7 @@ impl Default for RecordBody {
             peer_node: String::new(),
             name: String::new(),
             purpose: String::new(),
-            created: dm_gocompat::time::zero_time(),
+            created: otter_gocompat::time::zero_time(),
             nonce: String::new(),
         }
     }

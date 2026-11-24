@@ -40,7 +40,7 @@ fn view_hides_token() {
     s.set_token(TEST_TOKEN, "office_bot").unwrap();
     s.set_user(42).unwrap();
     let v = s.view();
-    let raw = String::from_utf8(dm_gocompat::json::marshal(&v).unwrap()).unwrap();
+    let raw = String::from_utf8(otter_gocompat::json::marshal(&v).unwrap()).unwrap();
     assert!(!raw.contains("SECRET"), "{raw}");
     assert_eq!(
         raw,

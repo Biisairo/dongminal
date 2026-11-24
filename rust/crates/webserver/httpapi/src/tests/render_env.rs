@@ -1,6 +1,6 @@
 //! 에이전트 렌더 환경 (Go `agent_render_env_test.go`).
 
-use dm_shared_settingsschema::{self as settingsschema, Spec};
+use otter_shared_settingsschema::{self as settingsschema, Spec};
 use serde_json::{Value, json};
 
 use crate::agent_render_env::{AGENT_RENDER_ENV_KEY, agent_render_env, fullscreen_default_from};

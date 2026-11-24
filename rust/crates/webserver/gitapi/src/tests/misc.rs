@@ -4,8 +4,8 @@
 
 use std::sync::Arc;
 
-use dm_webserver_domain_git_query::Commit;
 use http::Method;
+use otter_webserver_domain_git_query::Commit;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -103,7 +103,7 @@ async fn body_too_large() {
     let e = env();
     let big = format!(
         r#"{{"path":"{}"}}"#,
-        "x".repeat(dm_shared_httpreq::DEFAULT_LIMIT as usize + 1024)
+        "x".repeat(otter_shared_httpreq::DEFAULT_LIMIT as usize + 1024)
     );
     for path in ["/api/git/repos/pin", "/api/git/records/replay"] {
         let r = req(&e.s, "POST", path, &big).await;
@@ -121,7 +121,7 @@ async fn dead_endpoints_removed() {
         ("GET", "/api/git/repo-at"),
         ("POST", "/api/git/repos/reorder"),
     ] {
-        assert!(dm_webserver_httproute::dispatch(&crate::routes::ROUTES, m, p).is_none());
+        assert!(otter_webserver_httproute::dispatch(&crate::routes::ROUTES, m, p).is_none());
         assert!(crate::lock::write_lease(&Method::POST, p).is_none());
         assert_eq!(req(&e.s, m, p, "{}").await.code, 404);
     }
@@ -159,7 +159,7 @@ fn oid_digest_shared_vectors() {
 async fn policy_job_slots() {
     let e = env();
     let out = req(&e.s, "GET", "/api/git/policy", "").await.json();
-    let want: Vec<serde_json::Value> = dm_webserver_domain_git_jobs::SLOT_ORDER
+    let want: Vec<serde_json::Value> = otter_webserver_domain_git_jobs::SLOT_ORDER
         .iter()
         .map(|s| serde_json::to_value(s).unwrap())
         .collect();

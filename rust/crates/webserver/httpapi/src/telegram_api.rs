@@ -5,13 +5,13 @@
 use std::sync::{Arc, LazyLock, Weak};
 use std::time::Duration;
 
-use dm_shared_agentrec as agentrec;
-use dm_shared_dmlog::infof;
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_telegram as telegram;
-use dm_webserver_hub::CommandHub;
 use http::StatusCode;
+use otter_shared_agentrec as agentrec;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::infof;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_telegram as telegram;
+use otter_webserver_hub::CommandHub;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
@@ -64,7 +64,7 @@ pub(crate) fn init_telegram(cfg: &Config, me: Weak<Server>) -> Option<TelegramWi
         return None;
     }
     let st = Arc::new(telegram::Store::open(
-        cfg.data_dir.join(dm_shared_dmenv::TELEGRAM_FILE),
+        cfg.data_dir.join(otter_shared_otterenv::TELEGRAM_FILE),
     ));
     let now: telegram::NowFn = Arc::new(OffsetDateTime::now_utc);
     let b = telegram::Bridge::new(
@@ -82,7 +82,7 @@ pub(crate) fn init_telegram(cfg: &Config, me: Weak<Server>) -> Option<TelegramWi
 
 #[derive(Serialize)]
 struct PairView {
-    #[serde(with = "dm_gocompat::time::json_time")]
+    #[serde(with = "otter_gocompat::time::json_time")]
     expires: OffsetDateTime,
 }
 
@@ -103,7 +103,7 @@ struct TelegramView {
 #[derive(Serialize)]
 struct PairIssued {
     code: String,
-    #[serde(with = "dm_gocompat::time::json_time")]
+    #[serde(with = "otter_gocompat::time::json_time")]
     expires: OffsetDateTime,
 }
 
@@ -402,5 +402,5 @@ fn device(s: &Server) -> String {
     if !h.is_empty() {
         return h;
     }
-    dm_shared_platform::hostname().unwrap_or_default()
+    otter_shared_platform::hostname().unwrap_or_default()
 }

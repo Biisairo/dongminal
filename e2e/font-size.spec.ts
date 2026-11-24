@@ -28,7 +28,7 @@ function mkRoot(tag: string) {
   return realPath(d);
 }
 
-test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-fs-'))) });
+test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-fs-'))) });
 test.afterAll(() => { if (BASE) rmTree(BASE) });
 
 /**

@@ -1,14 +1,14 @@
 use std::collections::{BTreeMap, HashMap};
 
-use dm_gocompat::json::{self, GoTyped, RawMessage};
-use dm_gocompat::strconv::quote;
+use otter_gocompat::json::{self, GoTyped, RawMessage};
+use otter_gocompat::strconv::quote;
 use serde::{Deserialize, Serialize};
 
 use crate::mounts::to_mount;
 use crate::profiles::{ProfileFile, normalize_ports};
 use crate::{Error, HomeFn, Mount, PROFILE_DEV, PROFILE_SCRATCH, Profile, WorkKind, scratch};
 
-dm_gocompat::go_type!(RawMapType = "map[string]json.RawMessage");
+otter_gocompat::go_type!(RawMapType = "map[string]json.RawMessage");
 
 /// sandbox.json 의 내용이다 (SANDBOX_SRS FR-SBX-3).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

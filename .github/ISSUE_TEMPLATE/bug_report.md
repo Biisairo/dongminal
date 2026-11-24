@@ -18,14 +18,14 @@ labels: bug
 
 ## 환경
 
-- dongminal 버전: <!-- ./dongminal version -->
+- otterminal 버전: <!-- ./otterminal version -->
 - OS / 아키텍처: <!-- 예: macOS 15 arm64, Ubuntu 24.04 amd64 -->
 - 브라우저: <!-- 예: Safari 18, Chrome 131 -->
-- 접속 형태: <!-- 로컬(127.0.0.1) / --expose / DONGMINAL_HOST -->
+- 접속 형태: <!-- 로컬(127.0.0.1) / --expose / OTTERMINAL_HOST -->
 
 ## 진단 출력
 
-<!-- ./dongminal doctor 와 ./dongminal health 출력. 경로·호스트명 등 -->
+<!-- ./otterminal doctor 와 ./otterminal health 출력. 경로·호스트명 등 -->
 <!-- 공개하고 싶지 않은 값은 지우고 올려도 됩니다. -->
 
 ```

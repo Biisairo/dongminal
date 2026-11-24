@@ -1,5 +1,5 @@
 /**
- * Dongminal — Git Stash 탭 (GIT_SRS §3D.2 / FR-GIT-161~170)
+ * Otterminal — Git Stash 탭 (GIT_SRS §3D.2 / FR-GIT-161~170)
  *
  * 목록은 `/api/git/stash` 다. 조작(`push`/`apply`/`pop`/`drop`)의 응답에는 **실행
  * 후 목록과 status 가 함께** 오므로 폴링 주기를 기다리지 않고 그것으로 갱신한다

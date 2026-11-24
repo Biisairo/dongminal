@@ -6,7 +6,7 @@ import { Page } from '@playwright/test';
 import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture } from './fixtures';
 import { realPath, tmpPath } from './osenv';
 
-const FIXTURES = tmpPath('dm-git-fx-ptu-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-ptu-' + process.pid);
 test.beforeAll(() => { gitFixture(FIXTURES) });
 test.afterAll(() => { cleanGitFixture(FIXTURES) });
 

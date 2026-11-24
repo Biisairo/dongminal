@@ -8,7 +8,7 @@
 
 사용자 진술: *"사용하면서 자잘한 버그가 너무 많아 사용성이 안 좋다. 전부 수정. 구조적으로, 근본적으로 수정해서 정상동작하게 해야 한다."*
 
-- **포함**: `internal/webserver/domain/git/**`(core·query·write·jobs·store), `internal/webserver/gitapi/**`, `internal/webserver/domain/worktree`·`domain/submodule`(Manager 실행 경로), `internal/webserver/httpapi/handlers_runs_worktree.go`(Run 격리)·`handlers_fs_ignored.go`(ExecUnguarded 호출처), `internal/shared/platform`(프로세스 기동), `internal/webserver/apierr`, `cmd/dongminal`(루트 ctx·종료 단계).
+- **포함**: `internal/webserver/domain/git/**`(core·query·write·jobs·store), `internal/webserver/gitapi/**`, `internal/webserver/domain/worktree`·`domain/submodule`(Manager 실행 경로), `internal/webserver/httpapi/handlers_runs_worktree.go`(Run 격리)·`handlers_fs_ignored.go`(ExecUnguarded 호출처), `internal/shared/platform`(프로세스 기동), `internal/webserver/apierr`, `cmd/otterminal`(루트 ctx·종료 단계).
 - **포함(프런트 — 이 문서의 계약 변경을 따라가는 부분)**: 일반화된 잡 표시기(§6), 쓰기 fetch 시한 상수, lock 버튼, stash 선택 모델의 oid 전환·stash/show 409 화면·stash branch 이름 충돌 오류(§5.3).
 - **비포함**: gitwatch 감시자(02), LSP(02), 에디터·탐색기(03·04), git 패널·기능 프런트의 나머지 결함(05). 05 는 §6 을 전제로 하고 잡 UI 계약을 다시 정의하지 않는다(문구·배치 등 시각 요소는 05).
 - **02 가 의존하는 계약**: §4(single-flight 수명·세대 Invalidate·호출자별 ctx 탈출·오류 분류 헬퍼)를 스펙에 공개 계약으로 명시한다.
@@ -118,7 +118,7 @@
 - **stash branch**: 사전 단계에서 기존 `gitBranchNameTaken` 으로 이미 있는 이름이면 409 `branch_exists`(**options 없음** — 브랜치 생성용 선택지는 맞지 않는다). 실행 뒤 `StashPopChecked`(write/stash.go:212-236)와 같은 확인 경로로 oid 잔존을 판정해 `stashKept`·`stashKeptOid`·`stashKeptReason` 을 싣는다(목록 재조회 실패 시 "남지 않았다"로 답하지 않고 오류를 합친다). 안내문: 사후 status 의 `Branch` 가 요청 name 과 같으면 "브랜치 `<name>` 은 만들어졌고 충돌이 남았다 — stash 는 보존됐다", 다르면 "stash branch 가 실패했다 — stash 는 보존됐다"+stderr tail, status 재조회 실패면 "stash branch 뒤 상태를 확인하지 못했다 — stash 보존 여부는 위 표시를 따른다".
 - **미리보기** `GET /api/git/stash/show?oid=`: `StashPreview(s, ctx, repo, oid)` 가 `stash show <flags> -z <oid>` 로 **위치를 거치지 않고** 연다. 목록은 oid 가 있는지 판정할 때만 쓰고, 없으면 409 `stash_moved`(본문 `{error, message, requested, repo, stashes}`). `index` 쿼리는 400. 응답 `requested` 는 `{repo, oid}`.
 - **없음 코드 통일**: 기존 `write.ErrStashNotFound`(404 `not_found`, write/stash.go:63·365)와 그 tables·inventory·apierr_test 항목을 **제거**하고, oid 가 목록에 없는 모든 경로(apply·pop·drop·branch·show)는 409 `stash_moved`. 이전: 위치로 찾다 없으면 404 / 새: oid 가 없으면 409 `stash_moved` / 이유: 같은 상황이 두 코드로 갈리지 않게.
-- **한계(스펙 명시)**: 사용자가 `rebase.autoStash`·`merge.autoStash` 를 켠 상태에서 pull·merge·rebase 잡이 도는 동안 다른 worktree 의 stash pop·drop·branch 는 잡의 autostash 가 위치를 밀 수 있다(막으려면 index 잡 내내 stash 를 잠가야 한다). dongminal 밖(터미널)과의 경쟁도 허용한다.
+- **한계(스펙 명시)**: 사용자가 `rebase.autoStash`·`merge.autoStash` 를 켠 상태에서 pull·merge·rebase 잡이 도는 동안 다른 worktree 의 stash pop·drop·branch 는 잡의 autostash 가 위치를 밀 수 있다(막으려면 index 잡 내내 stash 를 잠가야 한다). otterminal 밖(터미널)과의 경쟁도 허용한다.
 - **프런트(01 범위)**: web/js/git/stash.js 의 선택·미리보기·조작·echo 비교 키를 index 에서 oid 로 바꾼다. 목록 갱신 뒤 선택한 oid 가 있으면 선택 유지, 없으면 해제 + 미리보기 자리에 "선택한 stash 가 사라졌다". 409 `stash_moved` 는 `stashes` 로 목록을 갈아 끼우고 사유 표시. stash branch 다이얼로그는 409 `branch_exists` 를 다이얼로그 안 오류로 보이고 입력을 유지한다.
 
 ### 5.4 잡 슬롯·배타 행렬
@@ -249,7 +249,7 @@
 ### 7.1 쓰기 실패 코드 (apierr)
 | 코드 | HTTP | sentinel | 뜻 |
 |------|------|----------|----|
-| `repo_busy` | 409 | `jobs.ErrRepoBusy`(신규) | dongminal 동기 쓰기가 진행 중이라 잠금 대기 상한 초과·TryLock 실패 |
+| `repo_busy` | 409 | `jobs.ErrRepoBusy`(신규) | otterminal 동기 쓰기가 진행 중이라 잠금 대기 상한 초과·TryLock 실패 |
 | `index_locked` | 409 | `core.ErrIndexLocked`(신규) | git 이 index.lock 을 만들지 못함 |
 | `stash_moved` | 409 | `write.ErrStashMoved`(신규) | stash oid 가 목록에 없음 |
 | `resolve_partial` | 409 | 없음(핸들러가 직접) | 충돌 해결 일부 실패 |
@@ -287,7 +287,7 @@
 - **amend 메시지 전용**(사용자 결정, FR-GIT-84 개정 — GIT_SRS 에 기록): amend 가 켜져 있으면 staged 없이도 커밋 허용(서버·프런트 판정). 요청 메시지(트레일러 추가 전)와 직전 메시지를 Go 로 구현한 cleanup=strip 정규화로 비교해 같고 staged 도 없으면 "바뀔 것이 없음". 정규화: 주석 접두 = `core.commentString`(git ≥ 2.45) → `core.commentChar` → `#`, 값이 `auto` 면 주석 줄 제거 안 함 → 줄 끝 공백 제거 → 연속 빈 줄 하나로 → 앞뒤 빈 줄 제거. signoff 가 켜져 있고 직전 메시지에 `Signed-off-by:` 줄이 없으면 "바뀔 것이 있음"(서명자 일치는 보지 않음 — 한계). amend + `-a` 로 추적 변경이 있으면 허용. HEAD 없으면 amend 불가(현행).
 
 ## 8. 서버 수명·종료
-- `serve`(cmd/dongminal/app.go)가 `buildApp` 앞에서 `gitRoot, cancelGit := context.WithCancel(context.Background())` 를 만들어 `buildDeps`/`buildDepsWithHub`(main.go:216·268)로 GitServer 에 넘긴다(Store flight·지연 생성 Jobs·동기 쓰기·사후 단계·잡 상한 ctx(현행 `context.Background()` — job.go:272)·완료 처리 ctx 가 모두 그 파생). `signal.NotifyContext` ctx(app.go:320)가 생기면 `context.AfterFunc(sigCtx, cancelGit)`.
+- `serve`(cmd/otterminal/app.go)가 `buildApp` 앞에서 `gitRoot, cancelGit := context.WithCancel(context.Background())` 를 만들어 `buildDeps`/`buildDepsWithHub`(main.go:216·268)로 GitServer 에 넘긴다(Store flight·지연 생성 Jobs·동기 쓰기·사후 단계·잡 상한 ctx(현행 `context.Background()` — job.go:272)·완료 처리 ctx 가 모두 그 파생). `signal.NotifyContext` ctx(app.go:320)가 생기면 `context.AfterFunc(sigCtx, cancelGit)`.
 - 종료 단계 "git 잡·쓰기 대기": 먼저 `cancelGit()`, 최대 **7s**(2G+1s) 기다리고 초과 시 로그만. 위치는 `shutdownSteps` **인덱스 0 — "마커" 앞**(마커는 "정상 종료" 뜻, FR-OBS-15). `a.shutdown()` 은 HTTP 수신 중단 뒤. 순서 테스트(app_test.go)·주석(app.go:241-251) 갱신.
 - 종료로 끊긴 잡: `errorCode:"server_shutdown"`, `err:"서버 종료로 중단했다 — 일부가 적용됐을 수 있다"`, `canceled:false`. 동기 쓰기: 503 `server_shutdown`(재조회 안 함, partial 없음).
 - 상수 이동: `jobs.RemoteOpCeiling` → core `JobCeiling`(10분), `jobs.JobKillGrace` → core `KillGrace`(3s). jobs 참조 전부 교체(별칭 없음). `WriteSpec` 에 시한 필드를 두지 않는다(잡은 `withTimeout` 을 거치지 않는다).

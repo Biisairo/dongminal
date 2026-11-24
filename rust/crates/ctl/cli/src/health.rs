@@ -1,12 +1,12 @@
-//! `dongminal health` (FR-ACT-9/10).
+//! `otterminal health` (FR-ACT-9/10).
 
 use std::io::Write;
 use std::path::Path;
 
-use dm_gocompat::filepath;
-use dm_shared_dmenv as dmenv;
-use dm_shared_platform::Process;
-use dm_shared_runtime as runtime;
+use otter_gocompat::filepath;
+use otter_shared_otterenv as otterenv;
+use otter_shared_platform::Process;
+use otter_shared_runtime as runtime;
 
 use crate::env::Env;
 use crate::homelayout::DAEMON_SOCK_FILE;
@@ -17,7 +17,7 @@ use crate::service::{installed_service_files, service_bind_env_warning};
 use crate::staleness::{DAEMON_BUILD, daemon_state_line, inspect_daemon_with};
 
 pub fn run_health(o: &HealthOpts, stdout: &mut dyn Write, stderr: &mut dyn Write) -> i32 {
-    let proc = dm_shared_platform::current().process;
+    let proc = otter_shared_platform::current().process;
     run_health_in(o, &Env::process(), proc, DAEMON_BUILD, stdout, stderr)
 }
 
@@ -54,36 +54,36 @@ pub(crate) fn run_health_in(
     let mut fail = 0;
     // 호스트는 겨냥 해석이 준 것이다 (FR-STR-22·24).
     if ping(&format!("{}/", tgt.url), ALIVE_PROBE_TIMEOUT) {
-        let _ = writeln!(stdout, "✅ dongminal HTTP :{port}");
+        let _ = writeln!(stdout, "✅ otterminal HTTP :{port}");
     } else {
-        let _ = writeln!(stdout, "❌ dongminal HTTP :{port} — 응답 없음");
+        let _ = writeln!(stdout, "❌ otterminal HTTP :{port} — 응답 없음");
         fail += 1;
     }
 
     let (pid, alive) = daemon_pid(home, proc);
     if !socket_exists(home) {
         // 소켓 부재는 실패가 아니다 — 아직 기동 전이다.
-        let _ = writeln!(stdout, "ℹ️  dongminald 소켓 없음 (미기동)");
+        let _ = writeln!(stdout, "ℹ️  otterminald 소켓 없음 (미기동)");
     } else if alive {
         let _ = writeln!(
             stdout,
-            "✅ dongminald pid={pid} socket={home}/{DAEMON_SOCK_FILE}"
+            "✅ otterminald pid={pid} socket={home}/{DAEMON_SOCK_FILE}"
         );
     } else if pid > 0 {
         let _ = writeln!(
             stdout,
-            "⚠️  dongminald 소켓은 있으나 pid={pid} 가 죽어 있습니다"
+            "⚠️  otterminald 소켓은 있으나 pid={pid} 가 죽어 있습니다"
         );
         fail += 1;
     } else {
-        let _ = writeln!(stdout, "ℹ️  dongminald 소켓은 있으나 pidfile 이 없습니다");
+        let _ = writeln!(stdout, "ℹ️  otterminald 소켓은 있으나 pidfile 이 없습니다");
     }
 
     // FR-DFP-10: 낡은 데몬은 어긋남이지 고장이 아니다 — fail 에 세지 않는다.
     let _ = writeln!(stdout, "{}", state());
 
     // FR-HLI-9: 설치된 헬퍼가 죽어 있으면 다시 띄우기 전에 알린다.
-    let bin_dir = filepath::join(&[home, dmenv::BIN_DIR]);
+    let bin_dir = filepath::join(&[home, otterenv::BIN_DIR]);
     let st = runtime::inspect_helpers(Path::new(&bin_dir));
     if !st.installed {
         let _ = writeln!(
@@ -101,7 +101,7 @@ pub(crate) fn run_health_in(
         let _ = writeln!(
             stdout,
             "✅ 헬퍼 {}개 실행 가능 ({bin_dir})",
-            dmenv::helper_names().len()
+            otterenv::helper_names().len()
         );
     }
 

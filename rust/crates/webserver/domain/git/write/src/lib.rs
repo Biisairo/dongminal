@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/domain/git/write` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/domain/git/write` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 저장소를 변경하는 함수들이다 (FR-GIT-3). git 을 실행하는 경로는 `Service::exec_write` 하나뿐이다.
 //! 읽기가 필요한 복합 동작은 query 를 부른다 — 의존은 write → query → core 단방향이다 (FR-GIT-9).

@@ -25,7 +25,7 @@ import { TMP, realPath } from './osenv';
 
 let BASE = '';
 
-test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'dm-exc-'))) });
+test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'otter-exc-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
 // 검사마다 자기 루트를 판다 — 앞선 검사가 남긴 파일이 다음 검사의 화면을 바꾸는

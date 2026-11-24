@@ -1,6 +1,6 @@
 //! 저장소 루트 (FR-GIT-8/9).
 
-use dm_gocompat::{filepath, strconv::quote};
+use otter_gocompat::{filepath, strconv::quote};
 
 use crate::ctx::Ctx;
 use crate::error::{Error, Kind};

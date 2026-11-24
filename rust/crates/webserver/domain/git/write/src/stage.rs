@@ -1,7 +1,7 @@
 //! stage·unstage·discard (FR-GIT-60~66). 경로는 1000개씩 끊어 실행한다.
 
-use dm_webserver_domain_git_core::{self as core, Ctx, Hint, Output, Service};
-use dm_webserver_domain_git_query as query;
+use otter_webserver_domain_git_core::{self as core, Ctx, Hint, Output, Service};
+use otter_webserver_domain_git_query as query;
 
 use crate::commit::{argv, spec};
 use crate::error::{Batch, Error, exec_write};

@@ -4,8 +4,8 @@ use std::io::Write;
 use std::path::Path;
 use std::time::Duration;
 
-use dm_shared_handover::{self as handover, Kind, Outcome};
-use dm_shared_platform::Process;
+use otter_shared_handover::{self as handover, Kind, Outcome};
+use otter_shared_platform::Process;
 
 use crate::options::StartOpts;
 use crate::proc::{Procs, daemon_pid, socket_exists, stop_daemon};
@@ -42,54 +42,54 @@ pub(crate) fn prepare_daemon(
     if o.refresh_daemon {
         let _ = writeln!(
             stdout,
-            "dongminald 를 새로 띄웁니다 (터미널 세션을 잃습니다)..."
+            "otterminald 를 새로 띄웁니다 (터미널 세션을 잃습니다)..."
         );
         ops.stop(stdout);
         return Ok(());
     }
     if !ops.running() {
-        let _ = writeln!(stdout, "dongminald 미실행 — dongminal 이 자동 기동합니다");
+        let _ = writeln!(stdout, "otterminald 미실행 — otterminal 이 자동 기동합니다");
         return Ok(());
     }
 
-    let _ = writeln!(stdout, "dongminald 를 세션을 유지하며 교체합니다...");
+    let _ = writeln!(stdout, "otterminald 를 세션을 유지하며 교체합니다...");
     let out = ops.reload();
     match out.kind {
         Kind::Unsupported => {
             let _ = writeln!(
                 stdout,
-                "⚠ 도는 dongminald 는 세션 유지 교체를 모르는 옛 판입니다 — 서버만 다시 띄웠습니다."
+                "⚠ 도는 otterminald 는 세션 유지 교체를 모르는 옛 판입니다 — 서버만 다시 띄웠습니다."
             );
             let _ = writeln!(
                 stdout,
-                "  한 번은 `dongminal start --refresh-daemon` 이 필요합니다 (세션을 잃습니다)."
+                "  한 번은 `otterminal start --refresh-daemon` 이 필요합니다 (세션을 잃습니다)."
             );
             return Ok(());
         }
         Kind::Refused => {
             let _ = writeln!(
                 stderr,
-                "❌ dongminald 교체 실패 ({}): {}",
+                "❌ otterminald 교체 실패 ({}): {}",
                 out.reason, out.detail
             );
             let _ = writeln!(stderr, "  서버·데몬·세션은 그대로입니다.");
             let _ = writeln!(
                 stderr,
-                "  세션을 버리고 새로 띄우려면: dongminal start --refresh-daemon"
+                "  세션을 버리고 새로 띄우려면: otterminal start --refresh-daemon"
             );
             return Err(1);
         }
         Kind::Swapped => {}
     }
     if let Err(e) = ops.confirm() {
-        let _ = writeln!(stderr, "❌ 교체한 dongminald 를 확인하지 못했습니다: {e}");
+        let _ = writeln!(stderr, "❌ 교체한 otterminald 를 확인하지 못했습니다: {e}");
         let _ = writeln!(
             stderr,
-            "  서버는 끄지 않았습니다. `dongminal health --daemon` 으로 상태를 보세요."
+            "  서버는 끄지 않았습니다. `otterminal health --daemon` 으로 상태를 보세요."
         );
         return Err(1);
     }
-    let _ = writeln!(stdout, "✅ dongminald 교체 완료 (세션 유지)");
+    let _ = writeln!(stdout, "✅ otterminald 교체 완료 (세션 유지)");
     Ok(())
 }
 
@@ -154,9 +154,9 @@ impl DaemonOps for RealDaemonOps<'_> {
 
 /// 데몬이 exec 할 바이너리 — 이 `start` 를 실행한 파일이다 (FR-DSK-10).
 fn start_executable() -> Result<String, String> {
-    let exe = std::env::current_exe().map_err(|e| dm_gocompat::oserr::go_error_string(&e))?;
-    dm_gocompat::filepath::eval_symlinks(&exe.to_string_lossy())
-        .map_err(|e| dm_gocompat::oserr::go_error_string(&e))
+    let exe = std::env::current_exe().map_err(|e| otter_gocompat::oserr::go_error_string(&e))?;
+    otter_gocompat::filepath::eval_symlinks(&exe.to_string_lossy())
+        .map_err(|e| otter_gocompat::oserr::go_error_string(&e))
 }
 
 /// 새 데몬이 같은 pid 로 떴는지 본다 (FR-DSK-17).

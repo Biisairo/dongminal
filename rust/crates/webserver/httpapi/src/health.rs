@@ -3,8 +3,8 @@
 //! 생존이 아니라 어긋남을 답한다. 언제나 200 이다 (FR-VHL-12). 이미 메모리에 있는 값만 읽는다
 //! (NFR-VHL-1·2).
 
-use dm_shared_httpresp::{self as httpresp, Response};
 use http::StatusCode;
+use otter_shared_httpresp::{self as httpresp, Response};
 use serde::Serialize;
 
 use crate::Server;

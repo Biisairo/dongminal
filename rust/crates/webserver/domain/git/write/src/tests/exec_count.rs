@@ -1,7 +1,7 @@
 //! Go `exec_count_test.go`. Go 는 PATH 의 git 을 바꿔 프로세스를 셌다. 여기서는 Service 의
 //! runner 경계에서 실제 git 호출을 센다 — 같은 수, 같은 argv 다.
 
-use dm_webserver_domain_git_core::Service;
+use otter_webserver_domain_git_core::Service;
 
 use super::resolve::merge_ignoring_conflict;
 use super::stash::temp_repo_with_stashes;

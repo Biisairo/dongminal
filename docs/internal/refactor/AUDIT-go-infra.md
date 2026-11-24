@@ -1,6 +1,6 @@
 # AUDIT — Go 공용/데몬/CLI 계층
 
-대상: `internal/shared/` · `internal/daemon/` · `internal/ctl/` · `internal/helper/` · `cmd/dongminal/`
+대상: `internal/shared/` · `internal/daemon/` · `internal/ctl/` · `internal/helper/` · `cmd/otterminal/`
 범위: 비검사 Go 소스 약 29.5k LOC (`*_test.go` 제외)
 브랜치: `refactor` · 감사일 2026-09-20 · **읽기 전용 (소스 무수정)**
 
@@ -8,7 +8,7 @@
 
 ## 0. 총평
 
-이 계층은 이미 여러 차례 통합을 거친 흔적이 뚜렷하다. `dmenv`·`platform`·`serverconf`·
+이 계층은 이미 여러 차례 통합을 거친 흔적이 뚜렷하다. `otterenv`·`platform`·`serverconf`·
 `homeLayout`·`actionsOf`·`daemonStateLine` 처럼 **"두 벌로 두면 한쪽만 고쳐진다"** 를
 명시적으로 막아 둔 자리가 많고, 대부분의 주석이 결정의 근거와 실측을 함께 적고 있다.
 흔한 감사 항목(과대 함수·깊은 중첩·죽은 코드)은 거의 나오지 않았다 — 70줄 넘는 함수 26개
@@ -16,31 +16,31 @@
 
 그래서 이 보고서의 무게는 **"통합의 원칙은 세웠는데 그 원칙이 닿지 않은 자리"** 에 있다.
 발견의 다수가 같은 모양이다: 단일 출처 상수를 만들어 두고 일부 호출부만 옮겼거나,
-헬퍼(`dmenv.DialHost`·`WriteFileAtomic`·`serverconf.Resolve`)를 만들어 두고
+헬퍼(`otterenv.DialHost`·`WriteFileAtomic`·`serverconf.Resolve`)를 만들어 두고
 같은 물음을 묻는 다른 호출부는 옛 방식에 남아 있다.
 
 ### 요약 표
 
 | # | 등급 | 제목 | 주 위치 | 위험 | 공수 |
 |---|---|---|---|---|---|
-| 1 | HIGH | `DONGMINAL_HOST=::1` 로는 서버가 뜨지 않는다 (JoinHostPort 부재) | `cmd/dongminal/app.go:229` | MED | S |
+| 1 | HIGH | `OTTERMINAL_HOST=::1` 로는 서버가 뜨지 않는다 (JoinHostPort 부재) | `cmd/otterminal/app.go:229` | MED | S |
 | 2 | HIGH | 서버를 겨누는 방법이 명령마다 다르다 (4계층 설정을 `start` 만 지킨다) | `internal/ctl/cli/health.go:30` | MED | M |
 | 3 | HIGH | 기본 로그 경로에 답이 셋 — `config show`·`doctor`·`help`·`service` 가 틀린 값을 낸다 | `internal/ctl/cli/start.go:316` | LOW | S |
 | 4 | HIGH | `homeLayout()` 이 "전수 목록" 이 아니다 — `git-worktrees/`·`ext/`·`worktrees/` 누락 | `internal/ctl/cli/homelayout.go:34` | MED | S |
-| 5 | HIGH | 문서-구현 괴리 4건 (로그 기본값·bash 훅·노출 게이트·`DONGMINAL_SHELL`) | `docs/external/getting-started.md` | LOW | S |
+| 5 | HIGH | 문서-구현 괴리 4건 (로그 기본값·bash 훅·노출 게이트·`OTTERMINAL_SHELL`) | `docs/external/getting-started.md` | LOW | S |
 | 6 | MED | 홈 하위 경로 조립이 흩어져 있다 (`"bin"` 8곳, `"workspace.json"` 7곳, `"paned.pid"` 3곳) | 다수 | LOW | M |
 | 7 | MED | `unpackEmbedded` 가 살아 있는 셸이 읽는 파일을 비원자적으로 쓴다 | `internal/shared/runtime/install.go:481` | MED | S |
-| 8 | MED | `runtime.Install` 이 부팅마다 두 번 돈다 (서버 + 데몬) | `cmd/dongminal/app.go:56` · `internal/daemon/boot/boot.go:59` | LOW | S |
+| 8 | MED | `runtime.Install` 이 부팅마다 두 번 돈다 (서버 + 데몬) | `cmd/otterminal/app.go:56` · `internal/daemon/boot/boot.go:59` | LOW | S |
 | 9 | MED | `cli.Actions` 가 낡은 중복 — 액션 15개 중 6개만 검사가 돈다 | `internal/ctl/cli/options.go:54` | LOW | S |
 | 10 | MED | `envOr` 가 두 패키지에 똑같이 두 벌 | `internal/helper/runtimebin/http.go:16` · `internal/shared/sandboxplace/wire.go:47` | LOW | S |
-| 11 | MED | `dmctl` 이 `dmenv.DialHost` 를 지나지 않는다 | `internal/helper/runtimebin/http.go:24` | LOW | S |
+| 11 | MED | `otterctl` 이 `otterenv.DialHost` 를 지나지 않는다 | `internal/helper/runtimebin/http.go:24` | LOW | S |
 | 12 | MED | `service install` 이 launchd/systemd 로그를 세계 읽기 가능한 자리에 박는다 | `internal/ctl/cli/service.go:164` | MED | S |
-| 13 | MED | `DONGMINAL_SHELL` 이 Windows 에서만 듣는다 | `internal/shared/platform/shell.go:271` | LOW | S |
+| 13 | MED | `OTTERMINAL_SHELL` 이 Windows 에서만 듣는다 | `internal/shared/platform/shell.go:271` | LOW | S |
 | 14 | LOW | `EnvLog`·`daemonPIDFile`·`"PORT"` 가 상수를 두고도 리터럴로 재선언 | `internal/ctl/cli/options.go:29` 외 | LOW | S |
 | 15 | LOW | `paned.build` 지문이 정상 종료에서 치워지지 않는다 | `internal/daemon/ipc/paned_server.go:222` | LOW | S |
 | 16 | LOW | 고아 주석 — 없는 필드를 설명한다 | `internal/shared/toolhub/manager.go:128` | LOW | S |
 | 17 | LOW | `usageBackup`·`usageUninstall` 이 `homeLayout` 을 손으로 베낀다 | `internal/ctl/cli/help.go:179` | LOW | S |
-| 18 | LOW | `buildCommonDeps` 113줄 — 도메인 조립이 한 함수에 | `cmd/dongminal/main.go:298` | LOW | M |
+| 18 | LOW | `buildCommonDeps` 113줄 — 도메인 조립이 한 함수에 | `cmd/otterminal/main.go:298` | LOW | M |
 
 성능·문서 항목은 각각 §2·§3 에 따로 모았다.
 
@@ -48,30 +48,30 @@
 
 ## 1. 항목 (우선순위 순)
 
-### [HIGH] 1. `DONGMINAL_HOST=::1` 로는 서버가 뜨지 않는다 — 주소 조립에 `net.JoinHostPort` 가 없다
+### [HIGH] 1. `OTTERMINAL_HOST=::1` 로는 서버가 뜨지 않는다 — 주소 조립에 `net.JoinHostPort` 가 없다
 
 - **위치**
-  - `cmd/dongminal/app.go:229` — `return a.srv.Run(ctx, a.host+":"+a.port)`
+  - `cmd/otterminal/app.go:229` — `return a.srv.Run(ctx, a.host+":"+a.port)`
   - `internal/ctl/cli/start.go:359` — `fmt.Sprintf("http://%s:%s", pingHost(host), port)`
   - `internal/helper/runtimebin/http.go:24-29` — `fmt.Sprintf("http://%s:%s", …)`
-  - `internal/ctl/cli/health.go:37` — `fmt.Sprintf("http://%s:%s/", dmenv.DefaultHost, port)`
-  - `internal/shared/dmenv/host.go:21-25` — `normalizeHost` 가 대괄호를 **뗀다**
+  - `internal/ctl/cli/health.go:37` — `fmt.Sprintf("http://%s:%s/", otterenv.DefaultHost, port)`
+  - `internal/shared/otterenv/host.go:21-25` — `normalizeHost` 가 대괄호를 **뗀다**
 - **현상**: 저장소 전체에 `net.JoinHostPort` 사용이 0건이고, host:port 를 전부 문자열 접합으로 만든다.
 - **비용**: 실측 (darwin/arm64, Go 표준 net):
   ```
   net.Listen("tcp", "::1:9911")   -> listen tcp: address ::1:9911: too many colons in address
   net.Listen("tcp", "[::1]:9912") -> ok
   ```
-  `DONGMINAL_HOST=::1` 은 **문서가 명시적으로 지원한다고 적은 값**이다
+  `OTTERMINAL_HOST=::1` 은 **문서가 명시적으로 지원한다고 적은 값**이다
   (`docs/external/getting-started.md:309` — "loopback(`127.0.0.1`·`::1`·`localhost`)").
   그 값으로 띄우면 `serverconf.Resolve` 를 통과하고(`checkPort` 는 포트만 본다),
   `prepareServerCmd` 가 자식을 띄우고, 자식이 `net.Listen` 에서 죽는다. 부모는
   `waitReady` 로 5초 폴링한 뒤 "❌ 기동 실패" 만 낸다 — **어느 값이 문제인지가 없다.**
-  `dmenv.normalizeHost` 가 `[::1]` 의 대괄호를 떼므로 사용자가 올바른 형태로 적어도
+  `otterenv.normalizeHost` 가 `[::1]` 의 대괄호를 떼므로 사용자가 올바른 형태로 적어도
   같은 곳에 떨어진다. 판정(`IsExposedHost`)에는 대괄호를 떼는 것이 맞고,
   조립에는 붙이는 것이 맞는데 둘이 한 함수의 출력을 공유한다.
 - **제안**:
-  - `dmenv` 에 조립 전용 함수를 하나 더 둔다 — 판정용 `DialHost` 와 갈라 둔다:
+  - `otterenv` 에 조립 전용 함수를 하나 더 둔다 — 판정용 `DialHost` 와 갈라 둔다:
     ```go
     // ListenAddr 는 net.Listen 에 그대로 넘길 주소다. IPv6 는 대괄호가 필요하다.
     func ListenAddr(host, port string) string { return net.JoinHostPort(host, port) }
@@ -80,8 +80,8 @@
         return "http://" + net.JoinHostPort(DialHost(host), port)
     }
     ```
-  - `app.go:229` → `a.srv.Run(ctx, dmenv.ListenAddr(a.host, a.port))`
-  - `cli.ServerURL`·`runtimebin.baseURL` → `dmenv.BaseURL(host, port)`
+  - `app.go:229` → `a.srv.Run(ctx, otterenv.ListenAddr(a.host, a.port))`
+  - `cli.ServerURL`·`runtimebin.baseURL` → `otterenv.BaseURL(host, port)`
   - 더불어 `serverconf.checkPort` 옆에 `checkHost` 를 둔다 — `netip.ParseAddr` 로
     해석되지도 않고 DNS 이름도 아닌 값은 **`net.Listen` 전에** 출처와 함께 거부한다.
     `checkPort` 의 머리말(`conf.go:229`)이 적은 근거가 그대로 호스트에도 적용된다.
@@ -103,10 +103,10 @@
   | `config show` | `serverconf.Resolve` (`config.go:87`) | `serverconf.Resolve` | ✅ |
   | `service install` | `serverconf.Resolve` (`service.go:94`) | `serverconf.Resolve` | ✅ |
   | `window` | `DefaultHost` + `os.Getenv(EnvHost)` (`window.go:26-29`) | `o.ResolvePort()` (`window.go:30`) | ❌ |
-  | `health` | **`dmenv.DefaultHost` 고정** (`health.go:37`) | `o.ResolvePort()` (`health.go:30`) | ❌ |
+  | `health` | **`otterenv.DefaultHost` 고정** (`health.go:37`) | `o.ResolvePort()` (`health.go:30`) | ❌ |
   | `stop` | — | `o.ResolvePort()` (`stop.go:15`) | ❌ |
   | `migrate` | — | `o.ResolvePort()` (`migrate.go:39`) | ❌ |
-  | `dmctl`(헬퍼) | `envOr(EnvHost, DefaultHost)` (`runtimebin/http.go:25`) | 동 | ❌ |
+  | `otterctl`(헬퍼) | `envOr(EnvHost, DefaultHost)` (`runtimebin/http.go:25`) | 동 | ❌ |
 
 - **현상**: `CONFIG_MANAGEMENT_SRS` FR-CFG-13 이 **플래그 > 환경변수 > 파일 > 기본값**
   을 계약으로 선언하는데, 그 계층을 지나는 명령은 셋뿐이다. 나머지는
@@ -117,7 +117,7 @@
   | 명령 | 겨누는 포트 | 결과 |
   |---|---|---|
   | `start` | 9000 | 정상 |
-  | `health` | 58146 | "❌ dongminal HTTP :58146 — 응답 없음" (서버는 멀쩡하다) |
+  | `health` | 58146 | "❌ otterminal HTTP :58146 — 응답 없음" (서버는 멀쩡하다) |
   | `window` | 58146 | "서버가 떠 있지 않습니다" |
   | `stop` | 58146 | **그 포트의 다른 프로세스를 죽인다** (`killPort` 는 대상을 가리지 않는다) |
   | `migrate` | 58146 | 서버가 도는데도 "정지됨" 으로 보고 변환을 강행한다 |
@@ -152,7 +152,7 @@
       Home string
       Host string // DialHost 를 지난 값 — 그대로 두드릴 수 있다
       Port string
-      URL  string // dmenv.BaseURL(Host, Port)
+      URL  string // otterenv.BaseURL(Host, Port)
   }
 
   func (c Common) ResolveTarget() (Target, []string /*warnings*/, error)
@@ -169,21 +169,21 @@
 ### [HIGH] 3. 기본 로그 경로에 답이 셋 — 진단 명령 넷이 틀린 값을 낸다
 
 - **위치**
-  - `internal/ctl/cli/start.go:308-320` — **실제로 쓰이는 값**: `$DONGMINAL_LOG` → `<home>/server.log` → `defaultLogFile()`
-  - `internal/shared/platform/paths.go:65` — `posixPaths.DefaultLogFile()` = `/tmp/dongminal.log`
+  - `internal/ctl/cli/start.go:308-320` — **실제로 쓰이는 값**: `$OTTERMINAL_LOG` → `<home>/server.log` → `defaultLogFile()`
+  - `internal/shared/platform/paths.go:65` — `posixPaths.DefaultLogFile()` = `/tmp/otterminal.log`
   - `internal/ctl/cli/options.go:50` — `defaultLogFile()` 가 그것을 그대로 낸다
   - 그 값을 그대로 내는 곳: `config.go:90,150`(`config show` 의 `logFile` 행) ·
     `doctor.go:132`("로그 기본 경로 = …") · `help.go:63`("기본: …") ·
     `service.go:94,164-165`(launchd `StandardOutPath`) · `logcap.go:106-108`(`WatchLogSize`)
-- **현상**: 04-secops P1-6 이 기본 로그를 `/tmp/dongminal.log` 에서 `<home>/server.log`
+- **현상**: 04-secops P1-6 이 기본 로그를 `/tmp/otterminal.log` 에서 `<home>/server.log`
   로 옮겼는데(`start.go:310-315` 가 그 근거를 적는다), **그 이동이 `prepareServerCmd`
   안에만 있다.** `serverconf.Inputs.DefaultLogFile` 로 흘러드는 값은 여전히 옛 것이다.
 - **비용**:
-  - `dongminal config show` 가 `logFile = /tmp/dongminal.log · source=default` 를 낸다.
+  - `otterminal config show` 가 `logFile = /tmp/otterminal.log · source=default` 를 낸다.
     이 명령의 존재 이유가 FR-CFG-7 "값이 아니라 **출처**를 말한다" 인데, 출처는 맞고
     **값이 틀렸다.** 안 듣는 설정을 쫓는 사람이 정확히 그 화면에서 잘못된 경로로 간다.
-  - `dongminal doctor`·`dongminal start --help` 도 같은 경로를 안내한다.
-  - `service install` 이 만드는 launchd plist 의 `StandardOutPath` 가 `/tmp/dongminal.log`
+  - `otterminal doctor`·`otterminal start --help` 도 같은 경로를 안내한다.
+  - `service install` 이 만드는 launchd plist 의 `StandardOutPath` 가 `/tmp/otterminal.log`
     다 — 항목 12 참조. 이쪽은 표시가 아니라 **실제 동작**이고 보안 결정을 되돌린다.
   - `WatchLogSize` 는 우연히 구제된다: `capHomeLogs` 가 `homeLogs` 로 `server.log` 를
     따로 덮기 때문이다. 즉 `capLog(path,…)` 의 `path` 는 존재하지 않는 파일을 매 분 stat 한다.
@@ -200,7 +200,7 @@
   }
   ```
   호출부 6곳에 `home` 을 넘긴다. `usageStart()` 는 홈을 모르므로 문구를
-  "`$DONGMINAL_HOME/server.log`" 로 적는다 (그 편이 실제로도 정확하다).
+  "`$OTTERMINAL_HOME/server.log`" 로 적는다 (그 편이 실제로도 정확하다).
   `platform.Paths.DefaultLogFile()` 의 머리말(`paths.go:63`, "종전 `cli.DefaultLog` 와
   같은 값이다")도 함께 고친다 — 그 문장이 지금은 거짓이다.
 - **위험도**: LOW (표시 정정 + `service install` 산출물 변경)
@@ -213,9 +213,9 @@
 - **위치**
   - `internal/ctl/cli/homelayout.go:30-59` — "homeLayout 은 홈의 전수 목록이다"
   - 목록에 없는데 홈 아래에 만들어지는 것:
-    - `cmd/dongminal/main.go:342` — `worktrees/` (Run 격리 worktree)
-    - `cmd/dongminal/main.go:348` — `git-worktrees/` (**사용자 worktree**, FR-WKT-13)
-    - `cmd/dongminal/main.go:365` — `ext/` (LSP 플러그인·언어 서버 설치 자리)
+    - `cmd/otterminal/main.go:342` — `worktrees/` (Run 격리 worktree)
+    - `cmd/otterminal/main.go:348` — `git-worktrees/` (**사용자 worktree**, FR-WKT-13)
+    - `cmd/otterminal/main.go:365` — `ext/` (LSP 플러그인·언어 서버 설치 자리)
     - `internal/shared/toolipc/files.go:10` — `paned.build` (데몬 지문)
     - `internal/ctl/cli/doctor.go:288,392` — `doctor/`·`doctor-tools/`, `doctor_probe.go:204` — `doctor-probe.txt`
 - **현상**: `homeLayout()` 은 `backup`(`backup.go:82`)·`uninstall`(`uninstall.go:125,140`)
@@ -277,8 +277,8 @@
   | `"paned.pid"` | 3 | `boot.go:94` · `cli/proc.go:20` · `migrate/apply.go:21` |
   | `"server.log"` | 4 | `start.go:316` · `verify_run.go:45` · `logcap.go:85` · `homelayout.go:54` |
 
-- **현상**: 같은 저장소에 **이미 옳은 형태가 있다.** `dmenv.AgentHooksDirIn(binDir)`
-  (`dmenv/helpers.go:31`) 의 머리말이 그 원칙을 정확히 적는다:
+- **현상**: 같은 저장소에 **이미 옳은 형태가 있다.** `otterenv.AgentHooksDirIn(binDir)`
+  (`otterenv/helpers.go:31`) 의 머리말이 그 원칙을 정확히 적는다:
   > **이 이름을 아는 자리는 여기 하나다.** … 두 벌로 적으면 한쪽만 고쳐진다 —
   > 그 결함은 이 저장소가 이미 겪었다.
 
@@ -294,9 +294,9 @@
   나머지 6곳은 그 방어가 없다 — 지금은 그 6곳이 `home` 을 이미 해석한 뒤라 안전하지만,
   그 안전이 **구조가 아니라 호출 순서**에 달려 있다.
 
-- **제안**: `dmenv` 가 자리다 (의존 0, `DefaultHomeDir` 과 `AgentHooksDirIn` 이 이미 산다).
+- **제안**: `otterenv` 가 자리다 (의존 0, `DefaultHomeDir` 과 `AgentHooksDirIn` 이 이미 산다).
   ```go
-  // internal/shared/dmenv/home.go — 홈 아래 이름의 단일 출처.
+  // internal/shared/otterenv/home.go — 홈 아래 이름의 단일 출처.
   // 세 프로세스(서버·데몬·제어 CLI)가 같은 자리를 가리켜야 한다.
   const (
       BinDirName       = "bin"
@@ -335,7 +335,7 @@
   - `internal/shared/runtime/install.go:481` — `return os.WriteFile(target, data, mode)`
   - 대비: `internal/shared/platform/paths.go:296` — `WriteFileAtomic`
   - 대비: `internal/shared/platform/paths.go:88,236` — `LinkOrCopy`/`copyExecutable` 는 **원자적이다**
-- **현상**: 헬퍼 링크(`dmctl`·`edit`·…)는 "옆에 만들고 rename 으로 덮는" 규약을 지키는데,
+- **현상**: 헬퍼 링크(`otterctl`·`edit`·…)는 "옆에 만들고 rename 으로 덮는" 규약을 지키는데,
   그 헬퍼가 딛는 셸 훅(`bash-hook.sh`·`zdotdir/.zshrc`·`powershell-hook.ps1`)과
   에이전트 플러그인 18개 파일은 `os.WriteFile`(= `O_TRUNC` 후 쓰기)로 간다.
 - **비용**: `paths.go:236` 의 `copyExecutable` 머리말이 이 위험을 이미 적었다:
@@ -348,7 +348,7 @@
   그러면 cwd 추적·`claude` 래퍼·`open` 가로채기가 통째로 죽는다 —
   그리고 **그 실패는 조용하다** (셸 자체는 정상이므로).
 
-  창이 열리는 조건: ① `dongminal start` 중 다른 탭이 새 도구를 만들 때
+  창이 열리는 조건: ① `otterminal start` 중 다른 탭이 새 도구를 만들 때
   ② 항목 8의 이중 설치가 겹칠 때 ③ 데몬이 감시자에 의해 재기동할 때
   (`main.go:66` 의 `spawn` 클로저는 서버가 도는 내내 살아 있다).
 - **제안**: 같은 패키지의 원자적 쓰기를 쓴다. `platform` 은 이미 `runtime` 의 의존이다.
@@ -369,7 +369,7 @@
 ### [MED] 8. `runtime.Install` 이 부팅마다 두 번 돈다
 
 - **위치**
-  - `cmd/dongminal/app.go:56` — `runtime.Install(filepath.Join(home, "bin"))` (웹서버)
+  - `cmd/otterminal/app.go:56` — `runtime.Install(filepath.Join(home, "bin"))` (웹서버)
   - `internal/daemon/boot/boot.go:59` — 같은 호출 (데몬)
 - **현상**: 두 프로세스가 **같은 디렉터리에** 같은 자산을 각자 설치한다. 순서는
   `buildApp` → (`dialOrStartDaemon` 이 데몬을 띄우면) `boot.Run` 이다.
@@ -388,13 +388,13 @@
     데몬은 그것을 **소비**할 뿐이다(`toolhub.toolBinDir()` 이 도구 셸의 PATH 에 얹는다).
     데몬이 설치하는 이유는 "데몬이 먼저 떠 있을 수 있다" 일 텐데, 실제 기동 순서는
     `startDaemon` 이 서버의 자식이므로(`main.go:120`) **서버가 언제나 먼저 설치한다.**
-    데몬이 단독으로 뜨는 경로는 `dongminald` 를 사람이 직접 부르는 경우뿐이다.
+    데몬이 단독으로 뜨는 경로는 `otterminald` 를 사람이 직접 부르는 경우뿐이다.
 - **제안**: 둘 중 하나.
   - (A) 데몬 쪽을 **점검으로 낮춘다** — `runtime.InspectHelpers(binDir)` 가 이미 있고
     "설치된 적 없음"과 "깨짐"을 가른다. 없거나 깨졌을 때만 `Install` 한다.
     ```go
     // boot.go:59
-    binDir := dmenv.BinDirIn(home)
+    binDir := otterenv.BinDirIn(home)
     if st := runtime.InspectHelpers(binDir); !st.Installed || len(st.Problems) > 0 {
         // 데몬을 직접 띄운 경우다 — 정상 경로에서는 서버가 이미 깔았다.
         if err := runtime.Install(binDir); err != nil { … }
@@ -458,11 +458,11 @@
       return fallback
   }
   ```
-- **비용**: 지금은 해가 없다. 값은 **자리**에 있다 — `dmenv/tuning.go` 가
+- **비용**: 지금은 해가 없다. 값은 **자리**에 있다 — `otterenv/tuning.go` 가
   "종전에는 셋이 `toolhub`·`hub` 에 흩어져 각자 파싱했다 — 규칙이 세 벌이면
   한 벌만 고쳐진다" 를 근거로 `MillisEnv`·`FlagEnv` 를 만들었는데, **같은 계열의
   세 번째 읽기 규칙이 그 패키지 밖에 두 벌 남아 있다.**
-- **제안**: `dmenv/tuning.go` 에 넣는다 — 이웃 둘과 같은 자리다.
+- **제안**: `otterenv/tuning.go` 에 넣는다 — 이웃 둘과 같은 자리다.
   ```go
   // StringEnv 는 문자열 변수를 읽는다. 비면 def — 빈 문자열은 "정하지 않음"이며
   // serverconf.pick 의 계층 규칙과 같은 뜻이다 (FR-CFG-13).
@@ -471,42 +471,42 @@
       return def
   }
   ```
-  두 `envOr` 를 지우고 `dmenv.StringEnv` 로 바꾼다 (호출 6곳).
+  두 `envOr` 를 지우고 `otterenv.StringEnv` 로 바꾼다 (호출 6곳).
 - **위험도**: LOW
 - **공수**: S
 
 ---
 
-### [MED] 11. `dmctl` 이 `dmenv.DialHost` 를 지나지 않는다
+### [MED] 11. `otterctl` 이 `otterenv.DialHost` 를 지나지 않는다
 
 - **위치**
   - `internal/helper/runtimebin/http.go:24-29` — `baseURL()`
-  - 대비: `internal/ctl/cli/start.go:376-378` — `pingHost` 는 `dmenv.DialHost` 를 쓴다
-  - 소비자 24곳 (`dmctl.go:485,538` · `detach.go:158,191,210` · `edit.go:39` · `openurl.go:51` 외)
-- **현상**: `dmenv/host.go:58-66` 이 `DialHost` 를 만든 근거를 적는다 —
+  - 대비: `internal/ctl/cli/start.go:376-378` — `pingHost` 는 `otterenv.DialHost` 를 쓴다
+  - 소비자 24곳 (`otterctl.go:485,538` · `detach.go:158,191,210` · `edit.go:39` · `openurl.go:51` 외)
+- **현상**: `otterenv/host.go:58-66` 이 `DialHost` 를 만든 근거를 적는다 —
   "host 에 뜬 서버를 실제로 두드릴 주소다 … 미지정 주소만 바꿔 준다".
   `cli` 는 그것을 쓰고 헬퍼는 쓰지 않는다. `--expose` 로 띄우면
-  `app.go:47` 이 `DONGMINAL_HOST=0.0.0.0` 을 심고, 그 값이 `os.Environ()` 을 타고
+  `app.go:47` 이 `OTTERMINAL_HOST=0.0.0.0` 을 심고, 그 값이 `os.Environ()` 을 타고
   도구 셸까지 흘러(`toolhub/tool.go:311`) `baseURL()` 이 `http://0.0.0.0:<port>` 를 만든다.
 - **비용**: 실측으로 darwin/Go 에서는 **동작한다** (`0.0.0.0` 으로 connect 하면
   커널이 loopback 으로 해석한다 — 200 응답 확인). 그래서 아무도 눈치채지 못했다.
   깨지는 곳은 둘이다:
   - **Windows**: `connect()` to `0.0.0.0` 은 `WSAEADDRNOTAVAIL` 이다.
-    `--expose` 로 띄운 Windows 인스턴스에서 `dmctl`·`edit`·`detach`·`open-url`·
-    에이전트 훅(`dmctl activity`·`dmctl notify`)이 **전부 죽는다.**
-    그 실패는 조용하다 — `dmctl_activity.go:86,147,249` 는 반환을 버린다.
+    `--expose` 로 띄운 Windows 인스턴스에서 `otterctl`·`edit`·`detach`·`open-url`·
+    에이전트 훅(`otterctl activity`·`otterctl notify`)이 **전부 죽는다.**
+    그 실패는 조용하다 — `otterctl_activity.go:86,147,249` 는 반환을 버린다.
   - **컨테이너**: `sandboxplace` 가 `ExecEnv{Port: p.port}` 만 넘기므로 샌드박스 안
-    dmctl 의 호스트는 컨테이너의 `DONGMINAL_HOST` 다. 같은 경로를 탄다.
+    otterctl 의 호스트는 컨테이너의 `OTTERMINAL_HOST` 다. 같은 경로를 탄다.
 - **제안**: 한 줄이다.
   ```go
   // http.go:24 — 서버가 `0.0.0.0`/`::` 에 바인드했을 때 그 주소로는 두드릴 수
-  // 없는 호스트가 있다. 판정은 dmenv 한 벌이다 (TLS-2).
+  // 없는 호스트가 있다. 판정은 otterenv 한 벌이다 (TLS-2).
   func baseURL() string {
-      return dmenv.BaseURL(envOr(dmenv.EnvHost, dmenv.DefaultHost),
-                           envOr(dmenv.EnvPort, dmenv.DefaultPort))
+      return otterenv.BaseURL(envOr(otterenv.EnvHost, otterenv.DefaultHost),
+                           envOr(otterenv.EnvPort, otterenv.DefaultPort))
   }
   ```
-  (`dmenv.BaseURL` 은 항목 1의 제안과 같은 함수다 — 두 항목이 한 변경으로 닫힌다.)
+  (`otterenv.BaseURL` 은 항목 1의 제안과 같은 함수다 — 두 항목이 한 변경으로 닫힌다.)
 - **위험도**: LOW
 - **공수**: S
 
@@ -516,10 +516,10 @@
 
 - **위치**
   - `internal/ctl/cli/service.go:164-165` — `<key>StandardOutPath</key><string>` + `conf.LogFile.Value`
-  - `internal/ctl/cli/service.go:94` — `DefaultLogFile: defaultLogFile()` → `/tmp/dongminal.log`
+  - `internal/ctl/cli/service.go:94` — `DefaultLogFile: defaultLogFile()` → `/tmp/otterminal.log`
 - **현상**: 항목 3의 표시 문제가 여기서는 **실제 동작**이 된다. `server.json` 에
-  `logFile` 을 적지 않은 사용자가 `dongminal service install` 을 하면 launchd/systemd 가
-  로그를 `/tmp/dongminal.log` 로 리다이렉트한다.
+  `logFile` 을 적지 않은 사용자가 `otterminal service install` 을 하면 launchd/systemd 가
+  로그를 `/tmp/otterminal.log` 로 리다이렉트한다.
 - **비용**: 04-secops P1-6 이 로그를 홈으로 옮긴 근거(`start.go:310-315`):
   > 공유 디렉터리의 예측 가능한 이름이고, 그 로그에는 `RemoteAddr`·도구 cwd·
   > 헤드리스 명령이 남는다. 홈은 0700 이므로 같은 호스트의 다른 UID 가 읽지 못한다.
@@ -528,9 +528,9 @@
   게다가 `prepareServerCmd` 의 `0600`(`start.go:325`)도 적용되지 않는다 —
   파일을 만드는 것은 launchd 이고 그 모드는 umask 가 정한다.
   또한 `homeLogs`(`logcap.go:85`) 밖이라 **상한도 걸리지 않는다** —
-  `WatchLogSize` 는 `$DONGMINAL_LOG` 만 따로 보는데 그 변수는 비어 있다.
+  `WatchLogSize` 는 `$OTTERMINAL_LOG` 만 따로 보는데 그 변수는 비어 있다.
 - **제안**: 항목 3의 `defaultLogFile(home)` 을 고치면 자동으로 닫힌다.
-  추가로 plist/unit 에 `DONGMINAL_LOG` 를 명시로 심어 두면 `WatchLogSize` 의
+  추가로 plist/unit 에 `OTTERMINAL_LOG` 를 명시로 심어 두면 `WatchLogSize` 의
   상한이 걸린다 (지금은 `EnvHome`·`EnvHost`·`PORT`·`EnvLogLevel` 넷만 심는다).
 - **위험도**: MED (이미 설치한 사용자의 plist 는 자동으로 고쳐지지 않는다 —
   `service.go:143` 의 "이 파일은 다시 생성되지 않습니다" 가 그것을 말한다.
@@ -539,7 +539,7 @@
 
 ---
 
-### [MED] 13. `DONGMINAL_SHELL` 이 Windows 에서만 듣는다
+### [MED] 13. `OTTERMINAL_SHELL` 이 Windows 에서만 듣는다
 
 - **위치**
   - `internal/shared/platform/shell.go:269-272` — `windowsShell.pick()` 만 읽는다
@@ -547,29 +547,29 @@
   - `docs/external/getting-started.md:326` — "도구 셸로 띄울 프로그램을 강제합니다"
 - **현상**: 문서는 플랫폼을 가리지 않고 적었고, `scripts/check-env-docs.sh` 는
   **이름만** 대조하므로 이 비대칭을 잡지 못한다. (그 스크립트의 머리말이
-  `DONGMINAL_SHELL` 을 "문서 밖에 있던 다섯" 중 하나로 적는다 — 이름은 들어왔지만
+  `OTTERMINAL_SHELL` 을 "문서 밖에 있던 다섯" 중 하나로 적는다 — 이름은 들어왔지만
   의미는 절반만 참이다.)
 - **비용**: macOS/Linux 사용자가 이 변수로 도구 셸을 바꿀 수 없다. 대안은 `$SHELL`
   뿐인데 그것은 **사용자 로그인 셸 전체**를 바꾸는 것이라 범위가 다르다.
-  또 하나: 리터럴이 `dmenv` 밖에 있어 심는 쪽/읽는 쪽 대조가 불가능하다.
+  또 하나: 리터럴이 `otterenv` 밖에 있어 심는 쪽/읽는 쪽 대조가 불가능하다.
 - **제안**:
   ```go
-  // dmenv/dmenv.go — 도구 셸 관련 변수들 옆.
+  // otterenv/otterenv.go — 도구 셸 관련 변수들 옆.
   // EnvShell 은 도구 셸로 띄울 프로그램을 강제한다. 비면 플랫폼이 고른다.
-  EnvShell = "DONGMINAL_SHELL"
+  EnvShell = "OTTERMINAL_SHELL"
   ```
   `posixShell.pick()` 에 같은 갈래를 더한다 — **`$SHELL` 보다 먼저** 본다
   (Windows 쪽이 후보 목록보다 먼저 보므로 우선순위를 맞춘다):
   ```go
   func (s posixShell) pick() string {
-      if v := s.env(dmenv.EnvShell); v != "" && s.stat(v) == nil { return v }
+      if v := s.env(otterenv.EnvShell); v != "" && s.stat(v) == nil { return v }
       if v := s.env("SHELL"); v != "" && s.stat(v) == nil { return v }
       …
   }
   ```
   주의: `platform` 은 "`internal/` 안의 다른 패키지를 import 하지 않는다"
-  (`platform.go:17`, FR-XPL-6). 그러므로 `dmenv` 를 import 할 수 없다 —
-  이름은 `platform` 안의 상수로 두고 `dmenv` 가 그것을 재노출하거나,
+  (`platform.go:17`, FR-XPL-6). 그러므로 `otterenv` 를 import 할 수 없다 —
+  이름은 `platform` 안의 상수로 두고 `otterenv` 가 그것을 재노출하거나,
   이름만 `platform` 에 두고 문서 게이트가 그것을 세게 한다.
   **후자를 권한다** (지금 `check-env-docs.sh` 가 이미 `internal/` 전체를 훑는다).
   둘 중 어느 쪽이든 `IsExecutable` 로 검사하는 편이 낫다 — `s.stat` 은 존재만 본다.
@@ -581,30 +581,30 @@
 ### [LOW] 14. 상수를 두고도 리터럴로 재선언한 셋
 
 - **위치**
-  - `internal/ctl/cli/options.go:29` — `EnvLog = "DONGMINAL_LOG"`
-    vs `internal/shared/serverconf/conf.go:140` — `EnvLogFile = "DONGMINAL_LOG"`
+  - `internal/ctl/cli/options.go:29` — `EnvLog = "OTTERMINAL_LOG"`
+    vs `internal/shared/serverconf/conf.go:140` — `EnvLogFile = "OTTERMINAL_LOG"`
   - `internal/ctl/cli/options.go:26` — `EnvPort = "PORT"`
     vs `internal/shared/serverconf/conf.go:122` — `{"PORT", getenv("PORT")}` (리터럴)
     vs `internal/ctl/cli/service.go:161,183` — `<key>PORT</key>` / `Environment=PORT=` (리터럴)
   - `internal/ctl/cli/proc.go:20` — `daemonPIDFile = "paned.pid"`
     vs `internal/ctl/migrate/apply.go:21` — `daemonPIDFile = "paned.pid"`
     vs `internal/daemon/boot/boot.go:94` — `filepath.Join(home, "paned.pid")` (리터럴)
-  - `cmd/dongminal/main.go:135` — `"DONGMINAL_HOME="+home` (리터럴, `dmenv.EnvHome` 이 있다)
+  - `cmd/otterminal/main.go:135` — `"OTTERMINAL_HOME="+home` (리터럴, `otterenv.EnvHome` 이 있다)
 - **현상**: 같은 파일(`options.go:26-40`)에서 `EnvHome`·`EnvHost`·`EnvToolID` 는
-  올바르게 `dmenv.*` 를 별칭하는데 `EnvLog`·`EnvPort` 만 리터럴이다.
+  올바르게 `otterenv.*` 를 별칭하는데 `EnvLog`·`EnvPort` 만 리터럴이다.
   `daemonSockFile = platform.SocketFileName` 은 올바른데 `daemonPIDFile` 은 리터럴이다.
   **한 줄 옆에서 규칙이 갈린다.**
 - **비용**: 지금은 값이 같아서 해가 없다. 값은 일관성에 있다 — 옆줄과 규칙이 다르면
   다음 사람이 어느 쪽을 따를지 모른다. `main.go:135` 는 특히 눈에 띈다 (같은 파일
-  `main.go:441` 이 `dmenv.EnvHome` 을 쓴다).
+  `main.go:441` 이 `otterenv.EnvHome` 을 쓴다).
 - **제안**:
   - `cli.EnvLog` → `serverconf.EnvLogFile` 별칭. (`start.go:308`·`logcap.go:106` 호출)
   - `PORT` → `serverconf.EnvPortLegacy = "PORT"` 를 새로 두고 네 자리가 참조.
     이름이 계약이므로(`check-env-docs.sh` 가 특수 취급한다) 상수화가 특히 값이 있다.
-  - `daemonPIDFile` → 항목 6의 `dmenv.DaemonPIDFile`. `platform.SocketFileName` 과
+  - `daemonPIDFile` → 항목 6의 `otterenv.DaemonPIDFile`. `platform.SocketFileName` 과
     짝이 맞는 자리에 두는 편이 더 자연스럽다면 `platform.PIDFileName` 도 가능하다 —
     그 둘은 같이 만들어지고 같이 치워진다(`proc.go:156-157`, `paned_server.go:222`).
-  - `main.go:135` → `dmenv.EnvHome+"="+home`
+  - `main.go:135` → `otterenv.EnvHome+"="+home`
 - **위험도**: LOW
 - **공수**: S
 
@@ -695,7 +695,7 @@
 
 ### [LOW] 18. `buildCommonDeps` 113줄 — 도메인 조립이 한 함수에
 
-- **위치**: `cmd/dongminal/main.go:298-411`
+- **위치**: `cmd/otterminal/main.go:298-411`
 - **현상**: workspace · adapters · runStore · git core · worktree ×2 · sysstat ·
   git store · ext · lsp(+ 진단 콜백) 아홉 묶음을 한 함수가 만든다.
   **70줄 넘는 함수 26개 중 책임이 둘 이상인 것은 이것 하나다** — 나머지는
@@ -734,7 +734,7 @@
   # 세 OS 에서
   go test ./internal/shared/runtime -bench InstallWarm -benchtime 50x
   # 실환경 부팅
-  dmlog 에 boot.Run / buildApp 의 Install 전후 타임스탬프를 넣고 비교
+  otterlog 에 boot.Run / buildApp 의 Install 전후 타임스탬프를 넣고 비교
   ```
 - **우선순위**: 시간보다 **항목 7의 정확성**이 이 변경의 주된 근거다.
   성능만으로는 하지 않아도 된다.
@@ -778,7 +778,7 @@
 
 - **위치**
   - `internal/shared/toolhub/persist.go:56` — `owned := m.ownedTools()`
-  - `cmd/dongminal/main.go:243` · `internal/daemon/boot/boot.go:76` — 그 provider 가
+  - `cmd/otterminal/main.go:243` · `internal/daemon/boot/boot.go:76` — 그 provider 가
     `runfile.HeadlessToolIDs(home)` / `run.HeadlessToolIDs(cfg.DataDir)` 를 부른다
   - `internal/shared/runfile/runfile.go:56-76` — `os.ReadFile` + `json.Unmarshal`
 - **현상**: `persist.go:54-55` 의 주석이 "도구마다 부르면 SaveAll 한 번이 파일을
@@ -791,22 +791,22 @@
   더할 근거가 없다. P2 를 할 때 같은 함수 안이니 측정만 함께 뜬다.
 - **측정 방법**: `SaveAll` 에 `time.Since` 두 구간(owned / cwd)을 debug 로그로.
 
-### P4. [LOW] `dmctl` 의 공용 HTTP 클라이언트가 10초를 잡는다
+### P4. [LOW] `otterctl` 의 공용 HTTP 클라이언트가 10초를 잡는다
 
 - **위치**: `internal/helper/runtimebin/http.go:47` — `httpClient = &http.Client{Timeout: 10s}`
-- **현상**: 서버가 죽은 상태에서 에이전트 훅(`dmctl activity`·`dmctl notify`)이
+- **현상**: 서버가 죽은 상태에서 에이전트 훅(`otterctl activity`·`otterctl notify`)이
   돌면 훅 하나가 최대 10초를 쓴다. 그 훅은 **에이전트의 매 턴마다** 돈다.
 - **예상 효과**: 정상 경로에서는 영향 없다 (로컬 왕복은 ms 단위). 서버가 내려간
   동안 에이전트 세션이 턴마다 10초씩 멎는다.
 - **제안**: `clientWithin` 이 이미 있다(`http.go:53-55`). 훅 계열 호출
-  (`dmctl_activity.go:86,147,249` · `dmctl_notify.go:39` · `dmctl_agentcontext.go:97`)
+  (`otterctl_activity.go:86,147,249` · `otterctl_notify.go:39` · `otterctl_agentcontext.go:97`)
   은 **반환을 버리는 fire-and-forget** 이므로 짧은 예산이 맞다:
   ```go
   // hookBudget 은 훅이 서버를 부를 때의 상한이다. 훅은 에이전트의 매 턴에
   // 돌고 결과를 쓰지 않으므로, 서버가 없을 때 턴을 멈춰 세울 이유가 없다.
   const hookBudget = 2 * time.Second
   ```
-- **측정 방법**: 서버를 내린 뒤 `time dmctl activity …` 를 잰다.
+- **측정 방법**: 서버를 내린 뒤 `time otterctl activity …` 를 잰다.
 - **위험도**: LOW
 - **공수**: S
 
@@ -832,12 +832,12 @@
 게이트이고 실제로 다섯 개를 잡아냈다. 아래 넷은 전부 **이름은 맞고 의미/기본값이
 틀린** 것이라 그 게이트를 통과한다. 그것이 이 절의 공통 원인이다.
 
-### D1. [HIGH] `DONGMINAL_LOG` 기본값 — P1-6 이전 값이 남아 있다
+### D1. [HIGH] `OTTERMINAL_LOG` 기본값 — P1-6 이전 값이 남아 있다
 
 - **문서**
-  - `docs/external/getting-started.md:311` — `` `DONGMINAL_LOG` | `/tmp/dongminal.log` ``
-  - `docs/external/getting-started.md:425` — `` `$DONGMINAL_LOG` (기본 `/tmp/dongminal.log`) | 배경 모드 기동 로그 — **홈 밖입니다** | ❌ ``
-  - `docs/external/getting-started.md:407` — "전부 `$DONGMINAL_HOME` 아래에 있습니다.
+  - `docs/external/getting-started.md:311` — `` `OTTERMINAL_LOG` | `/tmp/otterminal.log` ``
+  - `docs/external/getting-started.md:425` — `` `$OTTERMINAL_LOG` (기본 `/tmp/otterminal.log`) | 배경 모드 기동 로그 — **홈 밖입니다** | ❌ ``
+  - `docs/external/getting-started.md:407` — "전부 `$OTTERMINAL_HOME` 아래에 있습니다.
     **이 폴더 밖에 상태를 두지 않습니다** — 로그 하나만 예외입니다."
 - **구현**: `internal/ctl/cli/start.go:308-320` — 기본은 `<home>/server.log` 다.
   `/tmp` 로 가는 갈래는 `home == ""` 일 때뿐이고, `RunStart` 는 그 위에서
@@ -850,7 +850,7 @@
 
 ### D2. [HIGH] bash 훅 주입 방식 — `BASH_ENV` 는 더 이상 쓰이지 않는다
 
-- **문서**: `docs/external/getting-started.md:395` — "bash → `BASH_ENV=$DONGMINAL_HOME/bin/bash-hook.sh`"
+- **문서**: `docs/external/getting-started.md:395` — "bash → `BASH_ENV=$OTTERMINAL_HOME/bin/bash-hook.sh`"
 - **구현**: `internal/shared/platform/shell.go:87-94`
   ```go
   // bash 는 `BASH_ENV` 로 걸 수 없다 — 그것은 **비대화형** 셸만 읽고 도구
@@ -867,12 +867,12 @@
   같은 줄의 zsh(`ZDOTDIR`)는 맞다.
 - **관련 FR**: HOST_PARITY_SRS FR-HPR-7 · CROSS_PLATFORM_SRS FR-XSH-4
 - **고칠 곳**: `getting-started.md:395` →
-  `` bash → `--rcfile $DONGMINAL_HOME/bin/bash-hook.sh` (인자로 건다 — `BASH_ENV` 는 대화형 셸이 읽지 않는다) ``
+  `` bash → `--rcfile $OTTERMINAL_HOME/bin/bash-hook.sh` (인자로 건다 — `BASH_ENV` 는 대화형 셸이 읽지 않는다) ``
   같은 목록의 `bin/bash-hook.sh` 설명(`:389`)도 함께 본다.
 
 ### D3. [HIGH] 노출 시 허용 목록 강제 — M9 가 없앤 게이트를 문서가 유지한다
 
-- **문서**: `docs/external/getting-started.md:309` — `DONGMINAL_HOST` 행 말미
+- **문서**: `docs/external/getting-started.md:309` — `OTTERMINAL_HOST` 행 말미
   > "`192.168.x` 같은 주소도 노출이고, **그때는 Settings ▸ Access 의 허용 목록을
   > 켜야 서버가 뜹니다**"
 - **구현**: `internal/ctl/cli/start.go:80-92`
@@ -893,7 +893,7 @@
   `:228` 의 경고로 연결한다. `docs/internal/archive/M9_SRS.md` 가 "이전 동작/새 동작/이유"
   형식을 이미 갖고 있으므로 그 문구를 옮기면 된다.
 
-### D4. [MED] `DONGMINAL_SHELL` 이 Windows 전용이라는 사실이 없다 — 항목 13
+### D4. [MED] `OTTERMINAL_SHELL` 이 Windows 전용이라는 사실이 없다 — 항목 13
 
 - **문서**: `docs/external/getting-started.md:326` — "도구 셸로 띄울 프로그램을 강제합니다.
   비면 플랫폼 계층이 고릅니다"
@@ -904,7 +904,7 @@
 ### D5. [LOW] 홈 구성 표에 세 디렉터리가 없다 — 항목 4와 같은 뿌리
 
 - **문서**: `docs/external/getting-started.md:407-425` — "데이터가 어디 있나요" 표
-- **구현**: `cmd/dongminal/main.go:342,348,365` 가 `worktrees/` · `git-worktrees/` · `ext/` 를 만든다
+- **구현**: `cmd/otterminal/main.go:342,348,365` 가 `worktrees/` · `git-worktrees/` · `ext/` 를 만든다
 - **괴리**: 문서와 `cli.homeLayout()` 이 **서로 일치하면서 둘 다 실제와 다르다.**
   이것이 항목 4의 게이트 제안이 셋(코드·표·문서)을 함께 세는 이유다.
 - **관련 FR**: M5 `G10-3`(문서 절의 제목) · RUN_ORCHESTRATION_SRS 묶음 W(FR-WKT-9/10/13) ·
@@ -920,7 +920,7 @@ D1~D4 가 전부 그 틈에 있다. 제안:
 ```
 scripts/check-env-defaults.sh  (새로)
   getting-started.md 의 "기본" 칸에서 백틱 리터럴을 뽑아
-  dmenv/serverconf 의 Default* 상수와 대조한다.
+  otterenv/serverconf 의 Default* 상수와 대조한다.
   값이 코드 상수가 아닌 행(예: "(주입)"·"(내부)")은 건너뛴다.
 ```
 이것으로 D1 은 구조적으로 닫힌다. D2~D4 는 자연어라 게이트가 어렵다 —
@@ -935,7 +935,7 @@ scripts/check-env-defaults.sh  (새로)
 
 ### 4.1 `shared` 가 존재하는 근거는 명확하다
 
-`dmenv/dmenv.go:5-9` 가 그 규칙을 적는다:
+`otterenv/otterenv.go:5-9` 가 그 규칙을 적는다:
 > 쓰는 쪽이 서로를 import 할 수 없기 때문이다. `internal/ctl/cli` 가
 > `internal/helper/runtimebin` 과 `internal/shared/toolhub` 를 import 하므로,
 > 그 둘은 `ctl/cli` 를 되받아 import 할 수 없다.
@@ -950,7 +950,7 @@ scripts/check-env-defaults.sh  (새로)
 24개 하위 패키지를 훑은 결과, **이름과 내용이 어긋나는 것은 없었다**:
 `platform`(OS 차이) · `toolhub`(PTY 수명) · `agentadapter`(에이전트 프로토콜) ·
 `sandbox`+`sandboxplace`(컨테이너, 배선 분리도 옳다) · `workspace` ·
-`serverconf` · `dmenv` · `dmlog` · `outbuf` · `pollwait` · `runwait` ·
+`serverconf` · `otterenv` · `otterlog` · `outbuf` · `pollwait` · `runwait` ·
 `updatecheck` · `settingsschema` · `toolipc` · `mimeprobe` · `diagtail` ·
 `listorder` · `uuid` · `release` · `runfile` · `testpath` · `gittest`.
 
@@ -1022,7 +1022,7 @@ posix/windows 어댑터, 그리고 원자적 쓰기 정책 셋이 함께 산다.
   거기는 launchd/systemd 정의를 **문자열로 만드는** 자리라 OS 이름이 나오는 것이 맞다.
 
 발견한 비일관은 셋이고 전부 위에 적었다:
-- 항목 13 — `DONGMINAL_SHELL` 이 windows 갈래에만 있다 (**진짜 비대칭**)
+- 항목 13 — `OTTERMINAL_SHELL` 이 windows 갈래에만 있다 (**진짜 비대칭**)
 - 항목 1 — IPv6 주소 조립이 OS 무관하게 틀렸다
 - `posixShell.pick()`(`shell.go:204`)이 `s.stat` 으로 존재만 보는데
   `Paths.IsExecutable` 이 같은 패키지에 있다. `windowsShell.pick()` 은
@@ -1062,8 +1062,8 @@ posix/windows 어댑터, 그리고 원자적 쓰기 정책 셋이 함께 산다.
 같은 변경으로 여러 항목이 닫히는 순서로 묶었다.
 
 **1차 (S, 저위험 — 먼저 고친다)**
-1. 항목 1 + 11 — `dmenv.ListenAddr`/`BaseURL` 도입. `::1` 기동 실패와
-   `dmctl` 의 `DialHost` 누락이 한 변경으로 닫힌다.
+1. 항목 1 + 11 — `otterenv.ListenAddr`/`BaseURL` 도입. `::1` 기동 실패와
+   `otterctl` 의 `DialHost` 누락이 한 변경으로 닫힌다.
 2. 항목 3 + 12 — `defaultLogFile(home)`. `config show`·`doctor`·`help` 의 표시와
    `service install` 의 보안 결정이 함께 닫힌다. D1 문서 수정도 여기서.
 3. 항목 7 — `unpackEmbedded` → `WriteFileAtomic`. 한 줄.
@@ -1074,7 +1074,7 @@ posix/windows 어댑터, 그리고 원자적 쓰기 정책 셋이 함께 산다.
 6. 항목 2 — `Common.ResolveTarget()`. **가장 값이 크고 가장 조심해야 한다**
    (`stop` 의 대상이 바뀐다). 항목 4 이후가 좋다 — 그때는 홈 아래 자리가 확정된다.
 7. 항목 9 — `ActionNames()`. 새로 드러나는 검사 실패를 먼저 확인한다.
-8. 항목 13 + D4 — `DONGMINAL_SHELL` 의 posix 갈래.
+8. 항목 13 + D4 — `OTTERMINAL_SHELL` 의 posix 갈래.
 
 **3차 (M — 구조)**
 9. 항목 6 — 홈 경로 상수화. 항목 4 의 게이트가 이것을 쉽게 만든다.
@@ -1092,7 +1092,7 @@ posix/windows 어댑터, 그리고 원자적 쓰기 정책 셋이 함께 산다.
 
 - **읽은 것**: `internal/shared/`(24 패키지) · `internal/daemon/`(boot · ipc) ·
   `internal/ctl/`(cli 33파일 · migrate · decidx · errdoc) · `internal/helper/` ·
-  `cmd/dongminal/` 의 비검사 소스. 함수 길이는 `go/ast` 로 기계 측정했다.
+  `cmd/otterminal/` 의 비검사 소스. 함수 길이는 `go/ast` 로 기계 측정했다.
 - **실측한 것**: `runtime.Install` 벤치(P1) · `net.Listen`/`http.Get` 의 IPv6·
   미지정 주소 동작(항목 1·11). 벤치 파일은 측정 후 삭제했다 — 작업 트리는 깨끗하다.
 - **한계**
@@ -1100,7 +1100,7 @@ posix/windows 어댑터, 그리고 원자적 쓰기 정책 셋이 함께 산다.
     P1 의 Defender 비용은 코드와 플랫폼 문서에 근거한 **예측**이며 미측정이다.
   - 검사 파일은 커버리지 판단에만 참고했고 내용 감사는 하지 않았다.
   - `internal/webserver/` 는 담당 밖이라 보지 않았다 — 다만 항목 4·6 의 근거가
-    `cmd/dongminal/main.go` 를 통해 그쪽 도메인(`worktree`·`ext`·`lsp`)에 닿으므로,
+    `cmd/otterminal/main.go` 를 통해 그쪽 도메인(`worktree`·`ext`·`lsp`)에 닿으므로,
     그 부분은 호출 지점만 확인했다.
   - 항목 9 의 "9개 액션이 새 검사를 통과하는가" 는 확인하지 않았다 (읽기 전용).
 
@@ -1116,15 +1116,15 @@ posix/windows 어댑터, 그리고 원자적 쓰기 정책 셋이 함께 산다.
 - 관찰: 격리 인스턴스를 `stop --all` 로 내릴 때
   ```
   강제 종료...
-  dongminald pid=36341 가 아직 살아 있습니다
-  ❌ dongminald 정지 실패
+  otterminald pid=36341 가 아직 살아 있습니다
+  ❌ otterminald 정지 실패
   ```
   그러나 **직후 `ps -p 36341` 은 프로세스가 없다고 답했다.** 즉 실제로는
   정지에 성공했는데 실패로 보고했다.
 - 조건: 그 인스턴스는 약 20분간 떠 있었고, 브라우저가 붙어 있었으며, 저장소
   하나와 터미널 여러 개가 살아 있었다.
 - **재현 실패**: 같은 바이너리로 `start --isolated` → 1초 대기 → `stop --all`
-  을 3회 돌렸고 **3회 모두 `✅ dongminald 정지`** 였다. 잔여 프로세스도
+  을 3회 돌렸고 **3회 모두 `✅ otterminald 정지`** 였다. 잔여 프로세스도
   `paned.pid`·`paned.sock` 잔여물도 없었다.
 - 관련 코드: `internal/ctl/cli/proc.go:155 stopDaemon`.
   `stopGrace = 1초` (`:64`) 가 SIGTERM 대기와 SIGKILL 대기에 **각각** 쓰이고,

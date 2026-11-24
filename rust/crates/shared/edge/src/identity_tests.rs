@@ -26,7 +26,7 @@ fn creates() {
         leaf.tbs_certificate.issuer.as_raw(),
         leaf.tbs_certificate.subject.as_raw()
     );
-    assert_eq!(leaf.subject().to_string(), "CN=dongminal node");
+    assert_eq!(leaf.subject().to_string(), "CN=otterminal node");
     let life = leaf.validity().not_after.timestamp() - leaf.validity().not_before.timestamp();
     let want = CERT_VALIDITY.as_secs() as i64;
     assert!((want - 86400..=want + 86400).contains(&life), "{life}");
@@ -43,10 +43,10 @@ fn creates() {
     {
         use std::os::unix::fs::PermissionsExt;
         let mode = |n: &str| fs::metadata(d.path().join(n)).unwrap().permissions().mode() & 0o777;
-        assert_eq!(mode(dmenv::EDGE_KEY_FILE), 0o600);
-        assert_eq!(mode(dmenv::EDGE_CERT_FILE), 0o644);
+        assert_eq!(mode(otterenv::EDGE_KEY_FILE), 0o600);
+        assert_eq!(mode(otterenv::EDGE_CERT_FILE), 0o644);
     }
-    let key = fs::read_to_string(d.path().join(dmenv::EDGE_KEY_FILE)).unwrap();
+    let key = fs::read_to_string(d.path().join(otterenv::EDGE_KEY_FILE)).unwrap();
     assert!(
         key.starts_with("-----BEGIN EC PRIVATE KEY-----\n")
             && key.ends_with("-----END EC PRIVATE KEY-----\n")
@@ -67,7 +67,7 @@ fn fingerprint_is_spki_sha256() {
 #[test]
 fn reads_go_identity() {
     let d = TempDir::new().unwrap();
-    for n in [dmenv::EDGE_CERT_FILE, dmenv::EDGE_KEY_FILE] {
+    for n in [otterenv::EDGE_CERT_FILE, otterenv::EDGE_KEY_FILE] {
         fs::copy(format!("{TESTDATA}/{n}"), d.path().join(n)).unwrap();
     }
     let id = load_or_create_identity(d.path()).unwrap();
@@ -82,12 +82,12 @@ fn reads_go_identity() {
 fn reuses() {
     let d = TempDir::new().unwrap();
     let first = load_or_create_identity(d.path()).unwrap();
-    let before = fs::read(d.path().join(dmenv::EDGE_KEY_FILE)).unwrap();
+    let before = fs::read(d.path().join(otterenv::EDGE_KEY_FILE)).unwrap();
     let second = load_or_create_identity(d.path()).unwrap();
     assert_eq!(first.fingerprint, second.fingerprint);
     assert_eq!(
         before,
-        fs::read(d.path().join(dmenv::EDGE_KEY_FILE)).unwrap()
+        fs::read(d.path().join(otterenv::EDGE_KEY_FILE)).unwrap()
     );
 }
 
@@ -95,7 +95,7 @@ fn reuses() {
 fn corrupt_fails() {
     let d = TempDir::new().unwrap();
     load_or_create_identity(d.path()).unwrap();
-    let key = d.path().join(dmenv::EDGE_KEY_FILE);
+    let key = d.path().join(otterenv::EDGE_KEY_FILE);
     fs::write(&key, b"garbage").unwrap();
     let err = load_or_create_identity(d.path()).unwrap_err();
     assert_eq!(
@@ -109,7 +109,7 @@ fn corrupt_fails() {
 fn partial_fails() {
     let d = TempDir::new().unwrap();
     load_or_create_identity(d.path()).unwrap();
-    let cert = d.path().join(dmenv::EDGE_CERT_FILE);
+    let cert = d.path().join(otterenv::EDGE_CERT_FILE);
     fs::remove_file(&cert).unwrap();
     let err = load_or_create_identity(d.path()).unwrap_err();
     assert_eq!(
@@ -117,7 +117,7 @@ fn partial_fails() {
         format!(
             "노드 인증서와 키 중 하나만 있습니다 ({}, {}) — 둘 다 지우면 새 신원을 만듭니다",
             cert.display(),
-            d.path().join(dmenv::EDGE_KEY_FILE).display()
+            d.path().join(otterenv::EDGE_KEY_FILE).display()
         )
     );
     assert!(!cert.exists());
@@ -127,14 +127,14 @@ fn partial_fails() {
 fn cert_write_failure_removes_key() {
     let d = TempDir::new().unwrap();
     let failing = |p: &Path, data: &[u8], m: u32| {
-        if p.file_name().is_some_and(|n| n == dmenv::EDGE_CERT_FILE) {
+        if p.file_name().is_some_and(|n| n == otterenv::EDGE_CERT_FILE) {
             return Err(io::Error::other("disk full"));
         }
-        dm_shared_platform::write_file_atomic(p, data, m)
+        otter_shared_platform::write_file_atomic(p, data, m)
     };
     let err = load_or_create_with(d.path(), &failing).unwrap_err();
     assert_eq!(err.to_string(), "노드 인증서 저장: disk full");
-    assert!(!d.path().join(dmenv::EDGE_KEY_FILE).exists());
+    assert!(!d.path().join(otterenv::EDGE_KEY_FILE).exists());
     load_or_create_identity(d.path()).unwrap();
 }
 
@@ -174,7 +174,7 @@ fn key_pair_errors_match_go() {
     );
     let d = TempDir::new().unwrap();
     let other = load_or_create_identity(d.path()).unwrap();
-    let other_key = fs::read(d.path().join(dmenv::EDGE_KEY_FILE)).unwrap();
+    let other_key = fs::read(d.path().join(otterenv::EDGE_KEY_FILE)).unwrap();
     assert_ne!(
         other.fingerprint,
         fingerprint_of(&pem_blocks(&c)[0].bytes).unwrap()

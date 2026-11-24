@@ -1,7 +1,7 @@
 use super::*;
 
 fn marshal<T: Serialize + ?Sized>(v: &T) -> String {
-    String::from_utf8(dm_gocompat::json::marshal(v).unwrap()).unwrap()
+    String::from_utf8(otter_gocompat::json::marshal(v).unwrap()).unwrap()
 }
 
 // 2026-11-05 실측 입력(Claude Code 2.1.318)에 사용률·한도를 채우고 모르는 필드를 더한 표본.

@@ -18,7 +18,7 @@ let BASE = '';
 let ROOT = '';
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-edk-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-edk-')));
   ROOT = j(BASE, 'root');
   // 조상이 셋인 파일 — 재귀 전개가 한 겹만 여는지 전부 여는지 가른다.
   fs.mkdirSync(j(ROOT, 'aa', 'bb', 'cc'), { recursive: true });

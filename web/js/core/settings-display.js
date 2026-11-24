@@ -25,6 +25,8 @@ class DisplaySection extends SettingsSection {
       {key:'fgTabNames',id:'ds-fgnames',kind:'check'},
       // FR-LVC-1·10: 가드가 이 전역을 그때그때 읽으므로 리스너를 다시 걸 일이 없다.
       {key:'confirmLeave',id:'ds-confirmleave',kind:'check'},
+      // OTTERMINAL_RENAME_SRS FR-FAV-3.
+      {key:'attnFavicon',id:'ds-attnfavicon',kind:'check'},
     ]);
     this.paint();
     applyUiFontScale();

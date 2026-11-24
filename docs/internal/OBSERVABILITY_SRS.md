@@ -25,7 +25,7 @@
 
 | 묶음 | 내용 |
 |---|---|
-| **L** 로그 | `log/slog` 전환 + `DONGMINAL_LOG_LEVEL`. **의존성 추가 0** |
+| **L** 로그 | `log/slog` 전환 + `OTTERMINAL_LOG_LEVEL`. **의존성 추가 0** |
 | **R** 요청 ID | 미들웨어가 부여하고 접근 로그·핸들러 로그·데몬 RPC 로그가 함께 싣는다 |
 | **D** 진단 | `GET /api/diag` — 집계 수치만 |
 | **C** 크래시 | `.lastexit` 마커 + 프론트 `window.onerror`·`unhandledrejection` |
@@ -47,7 +47,7 @@
   다른 것**이다: 사람이 읽는 것과 기계가 읽는 것
 - [`./REQUEST_GATE_SRS.md`](./REQUEST_GATE_SRS.md) — `FR-RQG-1`. 게이트 체인은
   **둘**이다(`accessGate` → `requestGate`). 요청 ID 는 그보다 앞에 선다
-- [`./CONFIG_MANAGEMENT_SRS.md`](./CONFIG_MANAGEMENT_SRS.md) — `DONGMINAL_LOG_LEVEL`
+- [`./CONFIG_MANAGEMENT_SRS.md`](./CONFIG_MANAGEMENT_SRS.md) — `OTTERMINAL_LOG_LEVEL`
   의 계층
 - [`./RECONNECT_STORM_SRS.md`](./RECONNECT_STORM_SRS.md) — `FR-LOG-1`. 로그 크기를
   서버가 스스로 지킨다는 계약. 이 문서가 그것을 바꾸지 않는다
@@ -62,7 +62,7 @@
 > 조용히 낡는다는 이 마일스톤의 전제가 로그 축에서도 참이다.
 
 가장 많은 곳은 `internal/webserver/httpapi`(19파일)이고, 데몬·도구 허브·워크스페이스가
-그 뒤다. 표준 `log` 는 **수준이 없다** — `dongminald accept: …` 같은 치명과
+그 뒤다. 표준 `log` 는 **수준이 없다** — `otterminald accept: …` 같은 치명과
 `settings loaded 1234 bytes` 같은 잡음이 같은 무게로 한 파일에 섞인다.
 
 ### 2.2 접근 로그와 핸들러 로그가 이어지지 않는다
@@ -97,11 +97,11 @@ M3 이 `GET /api/health` 를 만들었고 그것이 **어긋남을 답하는 자
 **FR-OBS-1** 로그는 `log/slog` 를 지난다. **의존성을 더하지 않는다**(표준 라이브러리).
 
 **FR-OBS-2** 수준은 넷이다 — `debug`·`info`·`warn`·`error`.
-`DONGMINAL_LOG_LEVEL` 이 하한을 정하고 기본은 `info` 다.
+`OTTERMINAL_LOG_LEVEL` 이 하한을 정하고 기본은 `info` 다.
 **알 수 없는 값은 `info` 로 떨어지고 경고하지 않는다** — 로그 설정 하나가 기동을
 시끄럽게 만들 이유가 없다.
 
-**FR-OBS-3** 전환은 `internal/shared/dmlog` 한 자리를 지난다. 각 파일이
+**FR-OBS-3** 전환은 `internal/shared/otterlog` 한 자리를 지난다. 각 파일이
 `slog.Default()` 를 직접 부르지 않는다 — 요청 ID 를 붙이는 자리가 거기이기 때문이다.
 
 **FR-OBS-4** 서식 있는 호출(`Warnf`)을 남긴다. 172곳을 전부 키-값으로 바꾸는 것은
@@ -109,7 +109,7 @@ M3 이 `GET /api/health` 를 만들었고 그것이 **어긋남을 답하는 자
 서식을 유지한 채로 얻는다. 새로 쓰는 곳은 키-값(`Info(ctx, msg, "k", v)`)을 쓴다.
 
 **FR-OBS-5** `log.Printf`·`log.Println` 은 **제품 코드에서 0곳**이 되고
-`scripts/check-logging.sh` 가 재발을 막는다. 예외는 `dmlog` 자신뿐이다.
+`scripts/check-logging.sh` 가 재발을 막는다. 예외는 `otterlog` 자신뿐이다.
 
 ### 3.2 묶음 R — 요청 ID
 
@@ -199,7 +199,7 @@ M3 이 `GET /api/health` 를 만들었고 그것이 **어긋남을 답하는 자
 
 | ID | 확인 |
 |---|---|
-| TC-OBS-1 | `DONGMINAL_LOG_LEVEL=warn` 이면 `info` 줄이 나오지 않는다 |
+| TC-OBS-1 | `OTTERMINAL_LOG_LEVEL=warn` 이면 `info` 줄이 나오지 않는다 |
 | TC-OBS-2 | 알 수 없는 수준은 `info` 로 떨어지고 **오류가 아니다** |
 | TC-OBS-3 | 의존성이 늘지 않았다 (`go.mod` 직접 의존 수 불변) |
 

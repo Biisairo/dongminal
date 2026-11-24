@@ -1,5 +1,5 @@
 [package]
-name = "dm-ctl-errdoc"
+name = "otter-ctl-errdoc"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,4 +10,4 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-webserver-apierr = { path = "../../webserver/apierr" }
+otter-webserver-apierr = { path = "../../webserver/apierr" }

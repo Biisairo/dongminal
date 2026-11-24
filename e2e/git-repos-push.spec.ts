@@ -49,7 +49,7 @@ function reposLog(page: Page) {
 
 test.describe('저장소 목록의 push (FR-OPT-4-3)', () => {
   test('안전망이 꺼져 있어도 핀 저장소의 변화가 배지에 선다', async ({ page, request }) => {
-    const dir = makeRepo('dm-o4b-push-');
+    const dir = makeRepo('otter-o4b-push-');
     const root = await pin(request, dir);
     await waitForInit(page);
     await page.evaluate(() => { (window as any).gitStatusInterval = 0; (window as any).app.timers.refreshChanged() });
@@ -70,7 +70,7 @@ test.describe('저장소 목록의 push (FR-OPT-4-3)', () => {
   });
 
   test('탭을 떠나면 임대를 놓고, 목록이 같으면 다시 칠하지 않는다', async ({ page, request }) => {
-    const root = await pin(request, makeRepo('dm-o4b-leave-'));
+    const root = await pin(request, makeRepo('otter-o4b-leave-'));
     await waitForInit(page);
     await waitSettled(page);
     await openGitTab(page);
@@ -103,7 +103,7 @@ test.describe('저장소 목록의 push (FR-OPT-4-3)', () => {
    * 방송이 이미 나갔음은 다른 창(구독이 살아 있는 쪽)의 배지로 안다.
    */
   test('재연결하면 끊긴 동안의 변화를 목록이 갚는다', async ({ page, request, browser }) => {
-    const dir = makeRepo('dm-o4b-reconn-');
+    const dir = makeRepo('otter-o4b-reconn-');
     const root = await pin(request, dir);
     await waitForInit(page);
     await page.evaluate(() => { (window as any).gitStatusInterval = 0; (window as any).app.timers.refreshChanged() });

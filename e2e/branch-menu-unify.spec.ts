@@ -13,7 +13,7 @@ import { tmpPath } from './osenv';
 // 만들던 것을 정리한다. merge 는 **동작이 하나였으므로** 항목도 하나가 되고,
 // 삭제는 동작이 둘이므로 **둘을 함께 하는 셋째 길**이 생긴다.
 
-const FIXTURES = tmpPath('dm-git-fx-bmu-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-bmu-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

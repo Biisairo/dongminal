@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use dm_webserver_domain_git_core::{Ctx, Kind};
+use otter_webserver_domain_git_core::{Ctx, Kind};
 use tokio::sync::Notify;
 
 use super::support::*;

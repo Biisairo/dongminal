@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use dm_shared_dmlog::infof;
+use otter_shared_otterlog::infof;
 use tokio_util::sync::CancellationToken;
 
 use crate::Server;
@@ -66,7 +66,7 @@ pub(crate) fn age_of(ns: i64) -> String {
         .map(|d| i64::try_from(d.as_nanos()).unwrap_or(i64::MAX))
         .unwrap_or_default();
     let d = u64::try_from(now.saturating_sub(ns)).unwrap_or(0);
-    dm_gocompat::time::format_std_duration(Duration::from_secs(d / 1_000_000_000))
+    otter_gocompat::time::format_std_duration(Duration::from_secs(d / 1_000_000_000))
 }
 
 /// 주기마다 `tick` 을 부른다. `ctx` 가 끝나면 함께 끝난다 (FR-CNR-12).

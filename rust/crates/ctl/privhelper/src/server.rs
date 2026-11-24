@@ -5,13 +5,13 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use dm_gocompat::json;
-use dm_shared_humancmd::{
+use ed25519_dalek::SigningKey;
+use otter_gocompat::json;
+use otter_shared_humancmd::{
     self as humancmd, Body, CODE_BAD_CODE, CODE_BAD_REQUEST, Deadline, Frame, TYPE_ERROR,
     TYPE_INFO, TYPE_SIGN, TYPE_SIGNED,
 };
-use dm_shared_platform::{IpcListener, IpcStream};
-use ed25519_dalek::SigningKey;
+use otter_shared_platform::{IpcListener, IpcStream};
 
 use crate::guard::{Clock, Guard, Save};
 use crate::secret::{Secret, decode_key};

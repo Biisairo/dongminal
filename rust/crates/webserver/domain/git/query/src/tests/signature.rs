@@ -1,6 +1,6 @@
 use super::support::*;
 use crate::*;
-use dm_webserver_domain_git_core::Service;
+use otter_webserver_domain_git_core::Service;
 
 #[tokio::test]
 async fn signature_tracks_index_and_refs() {

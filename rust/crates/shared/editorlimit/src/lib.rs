@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/editorlimit` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/shared/editorlimit` 의 Rust 포팅.
 //!
 //! 편집기가 여는 한 파일의 상한이다 (FR-OPT-15-1 · D-OPT-9).
 

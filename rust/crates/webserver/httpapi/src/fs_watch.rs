@@ -6,11 +6,13 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use dm_gocompat::filepath;
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_fswatch::{self as fswatch, Change, Manager, ManagerOptions};
-use dm_webserver_hub::{CommandBroker, GIT_WATCH_INTERVAL, GIT_WATCH_WORKTREE_EVERY, GitWatcher};
 use http::StatusCode;
+use otter_gocompat::filepath;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_webserver_fswatch::{self as fswatch, Change, Manager, ManagerOptions};
+use otter_webserver_hub::{
+    CommandBroker, GIT_WATCH_INTERVAL, GIT_WATCH_WORKTREE_EVERY, GitWatcher,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::Server;
@@ -58,7 +60,7 @@ struct Overflow {
 /// Go `fsChangedPayload`: `fs_changed` 방송 본문이다 (FR-ELR-59).
 pub(crate) fn fs_changed_payload(changes: &[Change], overflow: bool) -> Vec<u8> {
     if overflow {
-        return dm_webserver_sse::payload("fs_changed", Some(&Overflow { overflow: true }));
+        return otter_webserver_sse::payload("fs_changed", Some(&Overflow { overflow: true }));
     }
     let out = changes
         .iter()
@@ -67,7 +69,7 @@ pub(crate) fn fs_changed_payload(changes: &[Change], overflow: bool) -> Vec<u8> 
             kind: c.kind.as_str(),
         })
         .collect();
-    dm_webserver_sse::payload("fs_changed", Some(&Changes { changes: out }))
+    otter_webserver_sse::payload("fs_changed", Some(&Changes { changes: out }))
 }
 
 /// Go `newFSWatch`: 감시자를 세운다. 이벤트는 방송하고, 같은 경로로 git 관측을 당긴다
@@ -99,9 +101,9 @@ pub(crate) fn new_fs_watch(
 /// Go `gitWorktreeRounds`: 설정 blob 에서 워크트리 회차 간격을 회차 수로 낸다 (FR-ELR-76). 값은
 /// `GIT_WATCH_INTERVAL` 로 나눠 올림한다. 읽을 수 없거나 범위 밖이면 표의 기본값이다.
 pub(crate) fn git_worktree_rounds(blob: &[u8]) -> u64 {
-    let spec = dm_shared_settingsschema::load()
+    let spec = otter_shared_settingsschema::load()
         .ok()
-        .and_then(|specs| dm_shared_settingsschema::by_key(&specs).remove(GIT_WORKTREE_KEY));
+        .and_then(|specs| otter_shared_settingsschema::by_key(&specs).remove(GIT_WORKTREE_KEY));
     let Some(spec) = spec else {
         return GIT_WATCH_WORKTREE_EVERY;
     };
@@ -110,7 +112,7 @@ pub(crate) fn git_worktree_rounds(blob: &[u8]) -> u64 {
     };
     let mut ms = def;
     if !blob.is_empty()
-        && let Ok(m) = dm_gocompat::json::unmarshal::<BTreeMap<String, serde_json::Value>>(blob)
+        && let Ok(m) = otter_gocompat::json::unmarshal::<BTreeMap<String, serde_json::Value>>(blob)
         && let Some(v) = m.get(GIT_WORKTREE_KEY).and_then(serde_json::Value::as_f64)
     {
         let i = v as i64;

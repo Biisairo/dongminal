@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-edge"
+name = "otter-shared-edge"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,12 +12,12 @@ workspace = true
 [dependencies]
 base64 = { workspace = true }
 bytes = { workspace = true }
-dm-gocompat = { path = "../../gocompat", features = ["reqwest"] }
-dm-shared-dmenv = { path = "../dmenv" }
-dm-shared-dmlog = { path = "../dmlog" }
-dm-shared-httpresp = { path = "../httpresp" }
-dm-shared-platform = { path = "../platform" }
-dm-shared-termtext = { path = "../termtext" }
+otter-gocompat = { path = "../../gocompat", features = ["reqwest"] }
+otter-shared-otterenv = { path = "../otterenv" }
+otter-shared-otterlog = { path = "../otterlog" }
+otter-shared-httpresp = { path = "../httpresp" }
+otter-shared-platform = { path = "../platform" }
+otter-shared-termtext = { path = "../termtext" }
 hex = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }

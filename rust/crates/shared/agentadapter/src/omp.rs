@@ -2,21 +2,21 @@
 
 use std::io;
 
-use dm_gocompat::json;
-use dm_shared_activity as activity;
-use dm_shared_platform::write_file_if_changed;
+use otter_gocompat::json;
+use otter_shared_activity as activity;
+use otter_shared_platform::write_file_if_changed;
 use serde::Deserialize;
 
 use crate::install::InstallSpec;
 use crate::{Adapter, PolicyInjection, PromptInjection, Readiness, Report, Signals};
 
-/// 멤버의 `dmctl` 사전 허용을 담은 오버레이의 파일명.
+/// 멤버의 `otterctl` 사전 허용을 담은 오버레이의 파일명.
 pub const OMP_MEMBER_CONFIG_FILE: &str = "omp-member.yml";
 /// 활동 보고 훅의 파일명. `omp --hook <이 파일>` 로 붙는다.
 pub const OMP_SHIM_FILE: &str = "omp-activity.mjs";
 
 /// `HOOKS_DIR_TOKEN + "/" + OMP_MEMBER_CONFIG_FILE`. 선언은 슬래시, 조립은 OS 표기다 (FR-OMP-22a).
-const MEMBER_CONFIG_ARG: &str = "{{dmHooks}}/omp-member.yml";
+const MEMBER_CONFIG_ARG: &str = "{{otterHooks}}/omp-member.yml";
 
 pub(crate) static ADAPTER: Adapter = Adapter {
     id: "omp",
@@ -120,7 +120,7 @@ pub(crate) fn parse_hook(data: &[u8]) -> Option<Report> {
 fn install_assets(s: &InstallSpec) -> io::Result<()> {
     write_file_if_changed(
         &s.dir.join(OMP_SHIM_FILE),
-        shim_source(&s.dmctl).as_bytes(),
+        shim_source(&s.otterctl).as_bytes(),
         0o644,
     )?;
     write_file_if_changed(
@@ -130,30 +130,30 @@ fn install_assets(s: &InstallSpec) -> io::Result<()> {
     )
 }
 
-/// `dmctl` 만 사전 허용하는 오버레이 (FR-OMP-20·23). 승인 모드는 건드리지 않는다.
-const MEMBER_OVERLAY: &str = r#"# dongminal: Run 멤버가 보고·질문을 할 수 있게 dmctl 만 사전 허용한다.
+/// `otterctl` 만 사전 허용하는 오버레이 (FR-OMP-20·23). 승인 모드는 건드리지 않는다.
+const MEMBER_OVERLAY: &str = r#"# otterminal: Run 멤버가 보고·질문을 할 수 있게 otterctl 만 사전 허용한다.
 # 이 파일은 --config 로 **그 실행에만** 얹힌다 (OMP_AGENT_SUPPORT_SRS FR-OMP-20).
 # 승인 모드 자체는 건드리지 않는다 (FR-OMP-23).
 bash:
   patterns:
-    - match: "dmctl *"
+    - match: "otterctl *"
       approval: allow
-    - match: "dmctl"
+    - match: "otterctl"
       approval: allow
 "#;
 
-const SHIM_HEAD: &str = r#"// dongminal 활동 보고 훅 (OMP_AGENT_SUPPORT_SRS 묶음 B).
+const SHIM_HEAD: &str = r#"// otterminal 활동 보고 훅 (OMP_AGENT_SUPPORT_SRS 묶음 B).
 // 설치가 만든 파일이다 — 손으로 고치면 다음 기동에서 덮인다.
 import { spawn } from "node:child_process";
 
-const DMCTL = "#;
+const OTTERCTL = "#;
 
 const SHIM_TAIL: &str = r#";
 
 // 보고는 **한 방향**이다. 실패해도 에이전트를 막지 않는다 (FR-OMP-13).
 function report(payload) {
   try {
-    const p = spawn(DMCTL, ["activity", "omp"], { stdio: ["pipe", "ignore", "ignore"] });
+    const p = spawn(OTTERCTL, ["activity", "omp"], { stdio: ["pipe", "ignore", "ignore"] });
     p.on("error", () => {});
     p.stdin.on("error", () => {});
     p.stdin.end(JSON.stringify(payload) + "\n");
@@ -211,9 +211,9 @@ export default function (pi) {
 }
 "#;
 
-/// 훅 모듈의 본문. dmctl 은 절대 경로이고 JS 문자열 리터럴로 넣는다.
-fn shim_source(dmctl: &str) -> String {
-    format!("{SHIM_HEAD}{}{SHIM_TAIL}", js_string(dmctl))
+/// 훅 모듈의 본문. otterctl 은 절대 경로이고 JS 문자열 리터럴로 넣는다.
+fn shim_source(otterctl: &str) -> String {
+    format!("{SHIM_HEAD}{}{SHIM_TAIL}", js_string(otterctl))
 }
 
 /// 역슬래시와 따옴표만 다룬다 (Go `jsonString`).

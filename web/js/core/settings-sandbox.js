@@ -1,5 +1,5 @@
 /**
- * Dongminal — 설정창의 **샌드박스 패널** (FE_MODULE_BOUNDARY_SRS FR-FMB-10).
+ * Otterminal — 설정창의 **샌드박스 패널** (FE_MODULE_BOUNDARY_SRS FR-FMB-10).
  *
  * 샌드박스 설정 (SANDBOX_WINDOW_SRS FR-SBX-43).
  *

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::io;
 
-use dm_gocompat::fmt::{v_float, v_value};
-use dm_gocompat::json;
-use dm_gocompat::strconv::quote;
+use otter_gocompat::fmt::{v_float, v_value};
+use otter_gocompat::json;
+use otter_gocompat::strconv::quote;
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, HomeFn, PROFILE_SCRATCH, Profile, WorkKind, parse_config, scratch};
@@ -34,7 +34,7 @@ pub fn load_profiles(
         Err(e) => {
             return Err(Error::msg(format!(
                 "샌드박스 프로파일 정의를 읽을 수 없습니다({path}): {}",
-                dm_gocompat::oserr::go_error_string(&e)
+                otter_gocompat::oserr::go_error_string(&e)
             )));
         }
     };

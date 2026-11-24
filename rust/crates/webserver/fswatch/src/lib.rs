@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/webserver/fswatch` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/fswatch` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 화면에 보이는 디렉터리를 비재귀로 감시해 바뀐 항목을 알린다 (EDITOR_LIVE_RELOAD_SRS 묶음 W).
 //! 규칙은 VS Code 의 비재귀 감시자와 병합을 옮긴 것이다 (D-6). API 는 동기다 — 감시와 타이머는

@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/statusline` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/statusline` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! Claude Code statusLine 입력의 허용 목록이다 (ISSUE_AGENT_TREE_SRS FR-SLP-2·2a · PROD2 §6).
 //! 목록은 이 crate 의 타입 **한 벌**이다. 끝 필드는 `Option` 이다 — "관측이 없다" 와 "0 이다" 를 가른다.
@@ -215,7 +215,7 @@ fn rate_limits(m: &Obj) -> Option<BTreeMap<String, RateWindow>> {
 
 /// statusLine 입력에서 허용 목록의 값만 꺼낸다. 실을 값이 하나도 없거나 입력이 객체가 아니면 `None`.
 pub fn from_input(raw: &[u8]) -> Option<Usage> {
-    let v: Value = dm_gocompat::json::unmarshal(raw).ok()?;
+    let v: Value = otter_gocompat::json::unmarshal(raw).ok()?;
     let m = v.as_object()?;
     some_if(Usage {
         session_id: str_at(m, "session_id"),
@@ -266,16 +266,16 @@ mod decode_tests {
             )])),
             ..Usage::default()
         };
-        let raw = dm_gocompat::json::marshal(&u).unwrap();
-        assert_eq!(dm_gocompat::json::unmarshal::<Usage>(&raw).unwrap(), u);
+        let raw = otter_gocompat::json::marshal(&u).unwrap();
+        assert_eq!(otter_gocompat::json::unmarshal::<Usage>(&raw).unwrap(), u);
         let s: Subagent =
-            dm_gocompat::json::unmarshal(br#"{"id":"a","agentType":"Explore","tokens":5}"#)
+            otter_gocompat::json::unmarshal(br#"{"id":"a","agentType":"Explore","tokens":5}"#)
                 .unwrap();
         assert_eq!(
             (s.id.as_deref(), s.agent_type.as_deref(), s.tokens),
             (Some("a"), Some("Explore"), Some(5.0))
         );
-        let err = dm_gocompat::json::unmarshal::<Usage>(br#"{"thinking":"x"}"#).unwrap_err();
+        let err = otter_gocompat::json::unmarshal::<Usage>(br#"{"thinking":"x"}"#).unwrap_err();
         assert_eq!(
             err.to_string(),
             "json: cannot unmarshal string into Go struct field Usage.thinking of type bool"

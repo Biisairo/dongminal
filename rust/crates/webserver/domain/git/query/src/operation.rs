@@ -28,7 +28,7 @@ fn operation_markers() -> Vec<(&'static str, Vec<String>)> {
     vec![
         (
             OP_AM,
-            vec![dm_gocompat::filepath::join(&[
+            vec![otter_gocompat::filepath::join(&[
                 REBASE_APPLY_DIR,
                 REBASE_APPLYING,
             ])],

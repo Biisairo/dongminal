@@ -10,11 +10,11 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::SystemTime;
 
-use dm_webserver_action as action;
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_git_core::{Output, Service};
-use dm_webserver_domain_git_jobs::JobRunner;
-use dm_webserver_domain_git_store::{Store, StoreOptions};
+use otter_webserver_action as action;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_git_core::{Output, Service};
+use otter_webserver_domain_git_jobs::JobRunner;
+use otter_webserver_domain_git_store::{Store, StoreOptions};
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
@@ -197,7 +197,7 @@ async fn git_commit_ops_routes_registered_and_unavailable() {
     for (method, path, b) in eps {
         let p = path.split('?').next().unwrap();
         assert!(
-            dm_webserver_httproute::dispatch(&crate::routes::ROUTES, method, p).is_some(),
+            otter_webserver_httproute::dispatch(&crate::routes::ROUTES, method, p).is_some(),
             "{method} {p} 가 gitapi.routes 에 없다"
         );
         let (code, out) = call(&s, method, &path, &b).await;

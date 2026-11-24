@@ -1,5 +1,5 @@
 [package]
-name = "dm-webserver-domain-ext"
+name = "otter-webserver-domain-ext"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,10 +10,10 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../../gocompat" }
-dm-shared-diagtail = { path = "../../../shared/diagtail" }
-dm-shared-dmenv = { path = "../../../shared/dmenv" }
-dm-shared-platform = { path = "../../../shared/platform" }
+otter-gocompat = { path = "../../../gocompat" }
+otter-shared-diagtail = { path = "../../../shared/diagtail" }
+otter-shared-otterenv = { path = "../../../shared/otterenv" }
+otter-shared-platform = { path = "../../../shared/platform" }
 flate2 = { workspace = true }
 futures-util = { workspace = true }
 hex = { workspace = true }

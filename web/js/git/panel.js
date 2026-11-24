@@ -1,5 +1,5 @@
 /**
- * Dongminal — Git 창의 표면 (GIT_SRS §3.4)
+ * Otterminal — Git 창의 표면 (GIT_SRS §3.4)
  *
  * Git 창은 워크스페이스에 하나이므로(FR-GIT-26) 이 객체도 앱에 하나다. GIT_VIEWS 의
  * 고정 탭은 각자 루트 DOM 을 갖고, 활성 탭의 루트만 pane 본문에 붙는다 — 숫자를 여기

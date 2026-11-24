@@ -6,9 +6,9 @@ use std::process::Stdio;
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::Duration;
 
-use dm_gocompat::filepath;
-use dm_gocompat::json::is_empty;
-use dm_gocompat::time::format_std_duration;
+use otter_gocompat::filepath;
+use otter_gocompat::json::is_empty;
+use otter_gocompat::time::format_std_duration;
 use serde::Serialize;
 
 use crate::ctx::Ctx;
@@ -78,8 +78,8 @@ pub(crate) fn host_exe_in(name: &str, path_env: &str) -> Result<String, String> 
     if name.bytes().any(filepath::is_path_separator) {
         return Ok(name.to_owned());
     }
-    dm_shared_platform::try_look_path_in(name, path_env)
-        .map_err(|e| dm_shared_platform::exec_error(name, e))
+    otter_shared_platform::try_look_path_in(name, path_env)
+        .map_err(|e| otter_shared_platform::exec_error(name, e))
 }
 
 async fn run_host(ctx: &Ctx, name: &str, args: &[String], env: &[String], dir: &str) -> ExecResult {
@@ -94,11 +94,11 @@ async fn run_host(ctx: &Ctx, name: &str, args: &[String], env: &[String], dir: &
     };
     let (reader, writer) = match std::io::pipe() {
         Ok(p) => p,
-        Err(e) => return fail(dm_gocompat::oserr::go_error_string(&e)),
+        Err(e) => return fail(otter_gocompat::oserr::go_error_string(&e)),
     };
     let writer2 = match writer.try_clone() {
         Ok(w) => w,
-        Err(e) => return fail(dm_gocompat::oserr::go_error_string(&e)),
+        Err(e) => return fail(otter_gocompat::oserr::go_error_string(&e)),
     };
     let mut cmd = tokio::process::Command::new(&path);
     cmd.args(args)
@@ -120,7 +120,7 @@ async fn run_host(ctx: &Ctx, name: &str, args: &[String], env: &[String], dir: &
         Err(e) => {
             return fail(format!(
                 "fork/exec {path}: {}",
-                dm_gocompat::oserr::go_error_string(&e)
+                otter_gocompat::oserr::go_error_string(&e)
             ));
         }
     };
@@ -159,7 +159,7 @@ async fn run_host(ctx: &Ctx, name: &str, args: &[String], env: &[String], dir: &
     let mut err = match &status {
         Ok(st) if st.success() => None,
         Ok(st) => Some(exit_text(st)),
-        Err(e) => Some(dm_gocompat::oserr::go_error_string(e)),
+        Err(e) => Some(otter_gocompat::oserr::go_error_string(e)),
     };
     // Go: 취소로 죽였으면 ctx 의 오류가 앞선다. 끝났는데 파이프가 남았으면 WaitDelay 오류다.
     if let Some(e) = ctx_err
@@ -175,7 +175,7 @@ async fn run_host(ctx: &Ctx, name: &str, args: &[String], env: &[String], dir: &
 
 /// Go `ProcessState.String()`.
 fn exit_text(st: &std::process::ExitStatus) -> String {
-    dm_shared_platform::exit_status_text(st)
+    otter_shared_platform::exit_status_text(st)
 }
 
 /// 조달의 결과 (FR-EXT-18). 사유가 있는 것이 규칙이다.
@@ -301,7 +301,7 @@ impl Installer {
                 return fail(format!(
                     "{}: 모르는 조달 방법입니다: {}",
                     m.id,
-                    dm_gocompat::strconv::quote(other)
+                    otter_gocompat::strconv::quote(other)
                 ));
             }
         }
@@ -501,7 +501,7 @@ impl Installer {
 
 /// 출력의 끝쪽 (FR-ATF-28). 깨진 조각을 버리고, 출력이 비면 오류 문장을 싣는다.
 fn tail(r: &ExecResult) -> String {
-    let b = dm_shared_diagtail::of(&r.out, r.err.as_deref(), OUTPUT_TAIL);
+    let b = otter_shared_diagtail::of(&r.out, r.err.as_deref(), OUTPUT_TAIL);
     String::from_utf8_lossy(&b).into_owned()
 }
 

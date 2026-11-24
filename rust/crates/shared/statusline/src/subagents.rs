@@ -44,7 +44,9 @@ struct TasksIn {
 /// `None` 이다. 빈 배열은 빈 목록이다. id 가 없는 원소는 버리고, 앞에서부터
 /// [`SUBAGENT_MAX_TASKS`] 개만 싣는다.
 pub fn subagents_from_input(raw: &[u8]) -> Option<Vec<Subagent>> {
-    let tasks = dm_gocompat::json::unmarshal::<TasksIn>(raw).ok()?.tasks?;
+    let tasks = otter_gocompat::json::unmarshal::<TasksIn>(raw)
+        .ok()?
+        .tasks?;
     let mut out = Vec::with_capacity(tasks.len().min(SUBAGENT_MAX_TASKS));
     for t in &tasks {
         if out.len() == SUBAGENT_MAX_TASKS {

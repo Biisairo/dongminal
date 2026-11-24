@@ -1,5 +1,5 @@
 /**
- * Dongminal — 드롭을 `{file, relPath}` 로 펴는 **순수 함수** (TERMINAL_FOLDER_DROP_SRS
+ * Otterminal — 드롭을 `{file, relPath}` 로 펴는 **순수 함수** (TERMINAL_FOLDER_DROP_SRS
  * FR-TFD-1~3).
  *
  * 탐색기와 터미널이 **같은 일**을 한다 — 놓인 것이 폴더면 하위 구조까지 올린다.

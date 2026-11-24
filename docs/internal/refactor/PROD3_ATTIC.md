@@ -48,7 +48,7 @@
 | AT-SYS-2 | 문서 | `sysstat.go:37-40` · `docs/external/api.md:22` | FR-XSY-4 의 주석 한 줄이 없다. api.md 는 `/api/stats` 키가 늘 있는 것처럼 적는다(실제는 무효 키를 뺀다, FR-STAT-7) | 문서 정정 | S | ✔ | 문서 |
 | AT-SYS-3 | 문서 | `procparse.go:17,34-36` ↔ `CROSS_PLATFORM_SRS` FR-XSY-2 | 코드는 iowait 을 idle 에 더한다. SRS 에 없다 | SRS 정정 | S | ✔ | 문서 |
 | AT-SYS-4 | 자원 | `mach_darwin_cgo.go:25,52,72` | 호출마다 `mach_host_self()` 포트를 얻고 놓지 않는다 | 한 번 얻어 둔다 | S | ? | 고침 |
-| AT-SYS-5 | 플랫폼 | `cmd/dongminal/main.go:297` · `reader_windows.go:104-111` | Windows 에 디스크 경로 `"/"` 를 넘긴다 | `SystemDrive` | S | ? | 둠 — 이 기계에서 확인할 수 없다 |
+| AT-SYS-5 | 플랫폼 | `cmd/otterminal/main.go:297` · `reader_windows.go:104-111` | Windows 에 디스크 경로 `"/"` 를 넘긴다 | `SystemDrive` | S | ? | 둠 — 이 기계에서 확인할 수 없다 |
 | AT-GST-1 | 성능 | `git/store/store.go:362-379` | `gitDirs` 캐시 미스가 single-flight 가 아니다(`RepoRoot` 는 `rootFlight`) | 같은 모양으로 묶는다 | S | ✔ | 고침 |
 | AT-GST-2 | 캐시 무효화 | `store.go:341-358` | `ForgetRoot` 가 `dirs` 를 지우지 않아 저장소를 다시 만들면 30초 동안 옛 경로를 읽는다 | 함께 지운다 | S | ? | 고침 |
 | AT-GST-3 | 경계 | `store.go:347` | 루트(`/`)면 접두어가 `//` 가 되어 하위 항목을 못 지운다 | `filepath.Clean` 후 처리 | S | ? | 고침 |
@@ -108,7 +108,7 @@
 | AT-ECFG-4 | 내구성 | `platform/paths.go:298-331` | 원자 쓰기가 rename 뒤 디렉터리 fsync 를 하지 않는다 | POSIX 디렉터리 fsync | S | ? | 고침 |
 | AT-INST-1 | 설치 정책 | `ctl/cli/doctor.go:83-87,197` ↔ `HELPER_INSTALL_SRS.md:106-116` FR-HLI-5·8 | 임시 bin 을 못 만들면 doctor 가 운영 bin 을 덮는다 | 대체 경로를 지우고 실패로 끝낸다 | S | ✔ | 고침 |
 | AT-INST-2 | 상태 판정 | `runtime/install.go:64-143` | 점검이 헬퍼만 본다 — 중간 실패가 데몬 단독 기동에서 복구되지 않는다(서버는 매 기동 설치) | 점검 대상 넓히기 | S | ? | 둠 — 정상 경로 영향 작음 |
-| AT-INST-3 | 잔재 | `install.go:146-149,184-185,212-228,309-320` | `dongminal-self` 복사본과 폐지된 shim 이 manifest 밖이라 남는다 | manifest 에 포함 | S | ✔ | 고침 |
+| AT-INST-3 | 잔재 | `install.go:146-149,184-185,212-228,309-320` | `otterminal-self` 복사본과 폐지된 shim 이 manifest 밖이라 남는다 | manifest 에 포함 | S | ✔ | 고침 |
 | AT-INST-4 | 경로 검증 | `install.go:218-244` | manifest 줄에 `..` 이 있으면 bin 밖 파일을 지운다 | 헬퍼 이름·구분자 검사 | S | ✔ | 고침 |
 | AT-INST-5 | 문서 | `HELPER_INSTALL_SRS.md:113` ↔ `install.go:274` | `CheckHelpers` ↔ `InspectHelpers` | 문서 정정 | S | ✔ | 문서 |
 | AT-INST-6 | 중복 | `ctl/privhelper/secret.go:95-101` ↔ `platform.WriteFileAtomic` | 고정 tmp 이름·fsync 없음의 두 번째 원자 쓰기 | `WriteFileAtomic` | S | ✔ | 고침 |

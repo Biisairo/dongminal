@@ -5,8 +5,8 @@ use std::io::{self, Seek, SeekFrom};
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::Duration;
 
-use dm_gocompat::filepath;
-use dm_shared_dmenv as dmenv;
+use otter_gocompat::filepath;
+use otter_shared_otterenv as otterenv;
 
 use crate::env::Env;
 use crate::homelayout::RESTART_LOG_FILE;
@@ -21,8 +21,8 @@ pub const LOG_CHECK_EVERY: Duration = Duration::from_secs(60);
 
 /// 홈 아래에서 무한히 자랄 수 있는 로그들이다.
 pub(crate) const HOME_LOGS: [&str; 3] = [
-    dmenv::SERVER_LOG_FILE,
-    dmenv::DAEMON_LOG_FILE,
+    otterenv::SERVER_LOG_FILE,
+    otterenv::DAEMON_LOG_FILE,
     RESTART_LOG_FILE,
 ];
 
@@ -106,7 +106,7 @@ pub fn watch_log_size_in(home: &str, done: &Receiver<()>) {
     );
 }
 
-/// 홈 아래 셋을 함께 본다 (G2-1). `$DONGMINAL_LOG` 로 옮긴 서버 로그는 홈 밖일 수 있으므로 따로
+/// 홈 아래 셋을 함께 본다 (G2-1). `$OTTERMINAL_LOG` 로 옮긴 서버 로그는 홈 밖일 수 있으므로 따로
 /// 건다. 홈을 정하지 못하면 홈 아래 로그는 건드리지 않는다 (FR-LOG-4).
 pub(crate) fn watch_loop(
     env: &Env<'_>,

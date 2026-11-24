@@ -189,13 +189,13 @@ impl Drop for ReqGuard {
 
 /// 응답 본문이다. 다 쓰고 버려지면 연결이 유휴로 돌아간다.
 pub(crate) struct DoneBody {
-    pub(crate) inner: dm_shared_httpresp::Body,
+    pub(crate) inner: otter_shared_httpresp::Body,
     pub(crate) _guard: ReqGuard,
 }
 
 impl Body for DoneBody {
     type Data = Bytes;
-    type Error = <dm_shared_httpresp::Body as Body>::Error;
+    type Error = <otter_shared_httpresp::Body as Body>::Error;
 
     fn poll_frame(
         self: Pin<&mut Self>,

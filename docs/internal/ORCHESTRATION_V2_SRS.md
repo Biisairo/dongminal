@@ -14,7 +14,7 @@
 | 1 | "한 에이전트에게 여러 일을 시키면 컨텍스트가 오염되고 많이 찬다" | 멤버의 컨텍스트 소모를 **아무도 관측하지 못한다.** 고갈은 압축이나 응답 붕괴로만 사후에 드러나고, 그때는 이미 팀 산출물이 오염돼 있다 |
 | 2 | "모든 동작을 uuid 로. w.p.t 기반이면 화면을 자유롭게 못 쓴다. 백그라운드에서 세션을 돌릴 수도 있다" | 에이전트 IO 경로가 **좌표 라벨을 받는다.** 그리고 멤버는 **탭을 반드시 점유해야** 존재할 수 있다 — 팀 규모가 곧 화면 분할 수다 |
 | 3 | "오케스트레이션 패턴이 너무 단순하다. 2개 만들고 계속 일만 시킨다" | 스킬이 **토폴로지 하나**(조정자→평면 멤버 N)만 안다. 작업 성격과 무관하게 같은 모양이 나온다 |
-| 4 | "Run 을 시각화해서 볼 수 있으면 좋겠다" | Run 상태를 보는 유일한 창이 `dmctl run status` 의 **텍스트**다. 누가 누구와 말하는지는 어디에도 남지 않는다 |
+| 4 | "Run 을 시각화해서 볼 수 있으면 좋겠다" | Run 상태를 보는 유일한 창이 `otterctl run status` 의 **텍스트**다. 누가 누구와 말하는지는 어디에도 남지 않는다 |
 
 ### 1.2 범위 (Scope)
 
@@ -43,7 +43,7 @@
 | **컨텍스트 예산 (context budget)** | 멤버 에이전트가 쓸 수 있는 대화 컨텍스트의 총량. 서버는 이를 **직접 알 수 없고 추정**한다 |
 | **승계 (succession)** | 컨텍스트가 고갈된 멤버를 같은 역할·같은 brief·같은 작업 트리의 **새 멤버**로 교체하고, 인수인계 요약을 물려주는 절차 |
 | **패턴 (pattern)** | 멤버 구성·통신 토폴로지·종료 조건의 정형화된 조합 (supervisor-worker, debate 등) |
-| **메시지 로그** | `dmctl msg` 로 오간 신뢰 채널 통신의 발신·수신·시각 기록. 본문은 담지 않는다 |
+| **메시지 로그** | `otterctl msg` 로 오간 신뢰 채널 통신의 발신·수신·시각 기록. 본문은 담지 않는다 |
 
 ### 1.4 참조 (References)
 
@@ -70,14 +70,14 @@
 | `/api/commands` (레이아웃) | `split-h/v`, `new-tab`, `new-window`, `close-tab`, `focus`, `rename-tab`, `open-editor` | **거부한다 (400)** | `httpapi/commands.go:34` `translateLocationUUID` → `IsKnownTabID(loc)` 아니면 에러. FR-DMC-9 |
 | `/api/tools/*` (IO·에이전트) | `read-screen`, `read-output`, `send-input`, `msg`, `status`, `wait`, `activity` | **받는다** | `httpapi/handlers_toolio.go:37` `resolveToolID` → `workspace/manager.go:249` `Resolve` 3단계 (toolId → uuid → **라벨**) |
 
-`dmctl` 도움말(`runtimebin/dmctl.go:54`)은 "좌표·라벨·toolId 는 거부(400)" 라고 **이미
+`otterctl` 도움말(`runtimebin/otterctl.go:54`)은 "좌표·라벨·toolId 는 거부(400)" 라고 **이미
 선언하고 있다.** 즉 (b) 는 문서가 앞서 있고 구현이 따라오지 않은 자리다.
 
 > **따라서 본 SRS 는 레이아웃 명령에 라벨을 새로 열지 않는다.** 접수한 요구
 > ("레이아웃 변경을 제외한 모든 동작을 uuid 로")의 실질은 **IO·오케스트레이션 경로를
 > 좁히는 것** 하나다. 레이아웃 경로는 이미 목표 상태에 있으므로 손대지 않는다.
 
-**(b) 멤버는 탭을 점유해야만 존재한다.** `dmctl run member` 는 `--at <탭 uuid>` 를
+**(b) 멤버는 탭을 점유해야만 존재한다.** `otterctl run member` 는 `--at <탭 uuid>` 를
 요구하고, `Member.TabID`·`Member.ToolID` 가 함께 채워진다. 탭 없는 Tool 을 만드는
 능력은 **이미 있다** — `toolhub.ToolManager.Create(cwd, cols, rows)` 는 워크스페이스
 트리와 무관하고, 백그라운드 도구 레지스트리(`tool.go:690` `background map[string]int64`,
@@ -89,7 +89,7 @@
 Claude Code 훅 페이로드에 실려 오는 `transcript_path`·`session_id` 와 `PreCompact`
 이벤트는 **현재 버려지고 있다.**
 
-**(d) 메시지는 흔적을 남기지 않는다.** `dmctl msg` 는 `handlers_toolio.go:151` 에서
+**(d) 메시지는 흔적을 남기지 않는다.** `otterctl msg` 는 `handlers_toolio.go:151` 에서
 엔벨로프를 조립해 대상 PTY 에 쓰고 끝난다. 누가 누구에게 말했는지는 **어디에도 남지
 않는다** — 관계 그래프를 그릴 원천이 없다.
 
@@ -127,7 +127,7 @@ Claude Code 훅 페이로드에 실려 오는 `transcript_path`·`session_id` �
 - 오류 메시지는 **다음 행동을 지시**해야 한다. "잘못된 id" 로는 에이전트가 복구하지
   못한다 — 무엇을 대신 쓸지 말해야 한다.
 - 관측 결과는 **텍스트로도 완전**해야 한다. 시각화는 사람을 위한 것이고, 에이전트는
-  `dmctl` 출력만 본다. 시각화에만 있는 정보는 없다 (NFR-ORC-3).
+  `otterctl` 출력만 본다. 시각화에만 있는 정보는 없다 (NFR-ORC-3).
 
 ### 2.4 묶음 간 의존
 
@@ -183,7 +183,7 @@ Claude Code 훅 페이로드에 실려 오는 `transcript_path`·`session_id` �
 ```
 좌표 라벨(W1.P2.T1)은 이 명령에서 쓸 수 없다 — uuid 를 쓴다.
 라벨은 창·분할 칸이 닫히면 다시 계산돼 다른 탭을 가리킨다.
-uuid 는 `dmctl list-workspace` 의 uuid= 컬럼, 또는 생성 명령(new-tab/split-*)의 응답에 있다.
+uuid 는 `otterctl list-workspace` 의 uuid= 컬럼, 또는 생성 명령(new-tab/split-*)의 응답에 있다.
 ```
 
 **FR-IDU-3** 라벨 형태가 아닌 미지의 식별자는 기존 메시지를 유지한다 (행위 보존).
@@ -194,7 +194,7 @@ uuid 는 `dmctl list-workspace` 의 uuid= 컬럼, 또는 생성 명령(new-tab/s
 (`Bad Request`) 이며, 지금의 404(없는 도구)와 구분된다 — 에이전트가 "잘못 불렀다" 와
 "없다" 를 가를 수 있어야 한다.
 
-| dmctl | HTTP | 핸들러 |
+| otterctl | HTTP | 핸들러 |
 |---|---|---|
 | `read-screen` | `GET /api/tools/screen` | `apiToolScreen` |
 | `read-output` | `GET /api/tools/output` | `apiToolOutput` |
@@ -212,7 +212,7 @@ uuid 전용이며(FR-DMC-9), 본 SRS 는 라벨을 되살리지 않는다.
 화면을 읽을 때의 좌표이지 입력 식별자가 아니다. 다만 `--json` 출력의 `label` 필드에는
 설명 주석을 달지 않고, 도움말에서 "표시 전용" 임을 명시한다.
 
-**FR-IDU-7** `dmctl` 도움말(`dmctl.go`)의 "위치 식별자 — uuid 만 허용" 절을 실제
+**FR-IDU-7** `otterctl` 도움말(`otterctl.go`)의 "위치 식별자 — uuid 만 허용" 절을 실제
 적용 범위에 맞게 개정한다. 지금은 전 명령에 해당하는 것처럼 읽히지만, 사실은
 `--at`/`--to`/`--from`/`location` 전부에 해당한다는 것을 **명시**한다.
 
@@ -222,7 +222,7 @@ uuid 만이 유효한 입력임을 단정한다.
 **FR-IDU-9 (개정, 2026-09-06)** 신뢰 채널 엔벨로프 헤더는 발신자·수신자를
 **uuid 만**으로 싣는다. 좌표 라벨은 헤더·응답·안내문 어디에도 실리지 않는다.
 
-    [DONGMINAL-AGENT-MSG from=<uuid> to=<uuid> ts=<시각>]
+    [OTTERMINAL-AGENT-MSG from=<uuid> to=<uuid> ts=<시각>]
 
   이전 동작: `from=<라벨> (<uuid>)` — 라벨과 uuid 를 함께 실었다 (2026-08-28 추가)
   새  동작: `from=<uuid>` — uuid 만 싣는다
@@ -239,12 +239,12 @@ uuid 만이 유효한 입력임을 단정한다.
   형태는 **400**(FR-IDU-2 문안), 해석 불가는 **404** 다. FR-IDU-4 의 표가 이미
   `msg` 의 `--to`·`--from` 둘 다를 적용 지점으로 선언하고 있었고, 본 개정이 그것을
   구현으로 맞춘다
-- `--from` 이 비어 있으면(dongminal 외부 호출자) 헤더는 `from=unknown` 이다.
-  `dmctl msg` 는 `$DONGMINAL_TOOL_ID` 로 자동 채우므로 정상 경로에서는 나오지 않는다
+- `--from` 이 비어 있으면(otterminal 외부 호출자) 헤더는 `from=unknown` 이다.
+  `otterctl msg` 는 `$OTTERMINAL_TOOL_ID` 로 자동 채우므로 정상 경로에서는 나오지 않는다
 - `POST /api/tools/message` 응답의 `from`·`to` 도 uuid 다 (이전에는 라벨)
 - `list-workspace` 의 `label=` 컬럼은 그대로다 (FR-IDU-6). 라벨은 **사람이 화면을
   읽을 때의 좌표**로만 남고, 에이전트 간 통신 경로에서는 사라진다
-- SessionStart 안내문(`dmctl_agentcontext.go`), `dmctl msg` 도움말, `team` 스킬
+- SessionStart 안내문(`otterctl_agentcontext.go`), `otterctl msg` 도움말, `team` 스킬
   문서(`SKILL.md`·`references/patterns.md`), `docs/external/agent-orchestration.md`
   의 관련 서술을 함께 고친다
 
@@ -252,16 +252,16 @@ uuid 만이 유효한 입력임을 단정한다.
 
 | ID | 시나리오 | 기대 |
 |---|---|---|
-| V-IDU-1 | 살아있는 탭의 라벨로 `dmctl msg --to W1.P1.T1` | rc≠0, stderr 에 FR-IDU-2 문안, 대상 PTY 에 **아무것도 쓰이지 않음** |
+| V-IDU-1 | 살아있는 탭의 라벨로 `otterctl msg --to W1.P1.T1` | rc≠0, stderr 에 FR-IDU-2 문안, 대상 PTY 에 **아무것도 쓰이지 않음** |
 | V-IDU-2 | 같은 탭의 uuid 로 같은 호출 | rc=0, 엔벨로프 전달 |
-| V-IDU-3 | 라벨로 `dmctl send-input`/`read-screen`/`status`/`wait` 각각 | 전부 400 + 동일 문안 |
-| V-IDU-4 | 라벨로 `dmctl split-h --at` | 기존과 동일하게 거부 (회귀 없음) |
-| V-IDU-5 | uuid 로 `dmctl split-h --at` | 기존과 동일하게 성공 (회귀 없음) |
-| V-IDU-6 | 존재하지 않는 uuid 로 `dmctl msg` | 404 + 기존 문안 (400 아님) |
+| V-IDU-3 | 라벨로 `otterctl send-input`/`read-screen`/`status`/`wait` 각각 | 전부 400 + 동일 문안 |
+| V-IDU-4 | 라벨로 `otterctl split-h --at` | 기존과 동일하게 거부 (회귀 없음) |
+| V-IDU-5 | uuid 로 `otterctl split-h --at` | 기존과 동일하게 성공 (회귀 없음) |
+| V-IDU-6 | 존재하지 않는 uuid 로 `otterctl msg` | 404 + 기존 문안 (400 아님) |
 | V-IDU-7 | `Resolve` 단위 테스트 — 라벨 3단계가 살아 있음 | 통과 (레이아웃 경로 보존) |
-| V-IDU-8 | uuid 로 `dmctl msg` 성공 후 엔벨로프 헤더 | `from=<uuid> to=<uuid>` — 라벨 문자열이 **없다** |
-| V-IDU-9 | 라벨로 `dmctl msg --from` (`--to` 는 uuid) | 400 + FR-IDU-2 문안, 대상 PTY 에 **아무것도 쓰이지 않음** |
-| V-IDU-10 | `--from` 생략 + `$DONGMINAL_TOOL_ID` 없음 | rc=0, 헤더는 `from=unknown` |
+| V-IDU-8 | uuid 로 `otterctl msg` 성공 후 엔벨로프 헤더 | `from=<uuid> to=<uuid>` — 라벨 문자열이 **없다** |
+| V-IDU-9 | 라벨로 `otterctl msg --from` (`--to` 는 uuid) | 400 + FR-IDU-2 문안, 대상 PTY 에 **아무것도 쓰이지 않음** |
+| V-IDU-10 | `--from` 생략 + `$OTTERMINAL_TOOL_ID` 없음 | rc=0, 헤더는 `from=unknown` |
 
 ---
 
@@ -269,7 +269,7 @@ uuid 만이 유효한 입력임을 단정한다.
 
 #### 3.2.1 생성과 수명
 
-**FR-HLM-1** `dmctl run member` 는 `--at <탭 uuid>` 대신 **`--headless`** 를 받는다.
+**FR-HLM-1** `otterctl run member` 는 `--at <탭 uuid>` 대신 **`--headless`** 를 받는다.
 둘은 배타이며 **정확히 하나**가 있어야 한다. 없으면 오류로 무엇을 줘야 하는지 안내한다.
 
 **FR-HLM-2** `--headless` 멤버는 서버가 Tool 을 새로 만든다
@@ -315,20 +315,20 @@ uuid 만이 유효한 입력임을 단정한다.
 > 그 테스트를 **고쳐야만 통과하는 구조**가 나오면 그것은 예외가 아니라 정책
 > 교체라는 신호다. 멈추고 재판정을 받아라.
 
-**FR-HLM-4** `dmctl run close` 는 헤드리스 멤버의 Tool 을 **종료한다.** 탭 부착
+**FR-HLM-4** `otterctl run close` 는 헤드리스 멤버의 Tool 을 **종료한다.** 탭 부착
 멤버는 지금처럼 조정자가 `/exit` → `close-tab` 으로 정리하지만, 헤드리스는 닫을 탭이
 없으므로 Run 이 소유권을 갖는다. `--keep-tools` 로 남길 수 있다.
 
 **FR-HLM-5** Run 이 `closed`/`aborted` 가 된 뒤에도 남은 헤드리스 Tool 은 **고아**다.
-`dmctl run close` 응답과 `dmctl run status` 에 고아 목록을 낸다 (worktree 잔여물과 같은 규약).
+`otterctl run close` 응답과 `otterctl run status` 에 고아 목록을 낸다 (worktree 잔여물과 같은 규약).
 
 #### 3.2.2 부착과 분리
 
-**FR-HLM-6** `dmctl run attach --member <uuid> [--at <탭 uuid>]` 는 헤드리스 멤버의
+**FR-HLM-6** `otterctl run attach --member <uuid> [--at <탭 uuid>]` 는 헤드리스 멤버의
 Tool 을 탭에 연결한다. `--at` 이 없으면 **현재 포커스 분할 칸에 새 탭**을 만든다.
 연결 후 `Member.TabID` 가 채워지고 백그라운드 레지스트리에서 빠진다.
 
-**FR-HLM-7** `dmctl run detach --member <uuid>` 는 역이다. 탭을 닫고 Tool 을
+**FR-HLM-7** `otterctl run detach --member <uuid>` 는 역이다. 탭을 닫고 Tool 을
 백그라운드로 되돌린다. **에이전트 프로세스는 죽지 않는다** — 이것이 detach 의 정의다.
 
 **FR-HLM-8** 부착·분리는 멤버의 `state`·`outcome`·컨텍스트 관측을 **바꾸지 않는다.**
@@ -348,13 +348,13 @@ Tool 을 탭에 연결한다. `--at` 이 없으면 **현재 포커스 분할 칸
 - 팬아웃 멤버처럼 개별 화면을 볼 이유가 없을 때
 - 승계로 잠깐 살아있는 인수인계 전용 멤버
 
-**FR-HLM-11** 헤드리스 멤버에 대한 **Barrier 는 동일하다** — `dmctl wait --at <탭>`
-대신 `dmctl wait --member <멤버 uuid>` 를 받는다. 화면 스크래핑에 의존하지 않으므로
-헤드리스에서도 그대로 성립한다. `dmctl status --member <멤버 uuid>` 도 같은 해석이다
+**FR-HLM-11** 헤드리스 멤버에 대한 **Barrier 는 동일하다** — `otterctl wait --at <탭>`
+대신 `otterctl wait --member <멤버 uuid>` 를 받는다. 화면 스크래핑에 의존하지 않으므로
+헤드리스에서도 그대로 성립한다. `otterctl status --member <멤버 uuid>` 도 같은 해석이다
 (M8_UNIFIED_SRS D-A-5 — 종전에는 `wait` 만 `--member` 를 받아 헤드리스 멤버의 상태를
 조회할 수단이 없었다).
 
-**FR-HLM-12** `dmctl read-screen --at <헤드리스 Tool uuid>` 는 **동작한다.** 출력
+**FR-HLM-12** `otterctl read-screen --at <헤드리스 Tool uuid>` 는 **동작한다.** 출력
 버퍼는 화면 부착 여부와 무관하다. 헤드리스 멤버가 막혔을 때 진단할 유일한 길이므로
 막지 않는다.
 
@@ -433,14 +433,14 @@ claude 가 아님)에는 **`ContextLevel` 을 비운다.** 0 이나 `ok` 로 채
 #### 3.3.2 통지
 
 **FR-CBG-6** 멤버가 `ok`→`warn` 또는 `→critical` 로 **전이할 때 1회**, 서버는 그 Run 의
-조정자 Tool 에 신뢰 채널 엔벨로프를 보낸다. 발신자는 `dongminal-server` 다.
+조정자 Tool 에 신뢰 채널 엔벨로프를 보낸다. 발신자는 `otterminal-server` 다.
 
 ```
-[DONGMINAL-AGENT-MSG from=dongminal-server to=<조정자 uuid> ts=<시각>]
+[OTTERMINAL-AGENT-MSG from=otterminal-server to=<조정자 uuid> ts=<시각>]
 [CONTEXT-ALERT run=<short> member=<uuid> role=<역할> level=critical]
 추정 사용률 87% (압축 1회). 이 멤버에게 새 작업을 주지 마라.
-승계: dmctl run succeed --member <uuid> --at <새 탭 uuid> | --headless
-[/DONGMINAL-AGENT-MSG]
+승계: otterctl run succeed --member <uuid> --at <새 탭 uuid> | --headless
+[/OTTERMINAL-AGENT-MSG]
 ```
 
 **FR-CBG-7** 같은 멤버·같은 level 에 대한 통지는 **한 번뿐**이다. 되돌아갔다가
@@ -513,11 +513,11 @@ claude 가 아님)에는 **`ContextLevel` 을 비운다.** 0 이나 `ok` 로 채
 
 #### 3.3.3 승계
 
-**FR-CBG-9** `dmctl run succeed --member <uuid> (--at <탭 uuid> | --headless) [--model <m>]`
+**FR-CBG-9** `otterctl run succeed --member <uuid> (--at <탭 uuid> | --headless) [--model <m>]`
 는 아래를 **한 번의 호출로** 수행한다.
 
 1. 이전 멤버에게 인수인계 요약을 요청하는 엔벨로프를 보낸다 — 요청 문안은 서버가
-   조립하며, 응답은 `dmctl run handoff --summary -` 로 받는다
+   조립하며, 응답은 `otterctl run handoff --summary -` 로 받는다
 2. 응답이 오면(또는 `--timeout-ms` 초과 시 요약 없이) 새 Member 를 만든다.
    `Role`·`Brief`·`Worktree`·`RunID` 를 **그대로 물려받는다**
 3. 새 멤버의 프리앰블에 **인수인계 절**을 넣는다 — 이전 멤버의 요약 + "이것은 승계다"
@@ -527,12 +527,12 @@ claude 가 아님)에는 **`ContextLevel` 을 비운다.** 0 이나 `ok` 로 채
 > **정정 (M8 P1 ③ `GO-12` · FBE-01 서버측, 2026-09-13)** — 2 의 기다림은 **요청이
 > 끊기면 그 자리에서 끝나고 새 Member 를 만들지 않는다.**
 >
->   이전 동작: `time.Sleep` 폴링이라 dmctl 의 시한(10초)이 먼저 끊겨도 서버는
+>   이전 동작: `time.Sleep` 폴링이라 otterctl 의 시한(10초)이 먼저 끊겨도 서버는
 >             상한(기본 180초)까지 기다린 뒤 이었다 — 실패로 보고된 승계가 실제로는
 >             성공해 있고, 재시도가 멤버·도구를 이중으로 만들었다 (`07 FBE-01`)
 >   새  동작: 대기는 `r.Context()` 로 끊긴다. 끊기면 `--headless` 로 만든 도구를
 >             거두고 아무것도 잇지 않는다 — 재시도가 처음부터 다시 한다
->   이유:     묻는 쪽이 사라진 요청의 부작용은 그 요청의 것이 아니다. dmctl 쪽의
+>   이유:     묻는 쪽이 사라진 요청의 부작용은 그 요청의 것이 아니다. otterctl 쪽의
 >             예산(서브커맨드별 시한)은 P6 ⑤ 에서
 
 **FR-CBG-10** `succeeded` 는 새 `MemberState` 다. `done` 도 `failed` 도 아니다 —
@@ -548,7 +548,7 @@ claude 가 아님)에는 **`ContextLevel` 을 비운다.** 0 이나 `ok` 로 채
 
 #### 3.3.4 표시
 
-**FR-CBG-13** `dmctl run status` 의 멤버 행에 컨텍스트를 낸다. 추정임이 드러나야 한다.
+**FR-CBG-13** `otterctl run status` 의 멤버 행에 컨텍스트를 낸다. 추정임이 드러나야 한다.
 
 ```
 member=<uuid> role=작가 state=working ctx=~72% (warn) compact=0
@@ -585,7 +585,7 @@ member=<uuid> role=비평가 state=working ctx=— (unknown)
 ### 3.4 묶음 P — 패턴 카탈로그 (FR-PAT-*)
 
 > 대부분 문서다 — `agentplugin/skills/team/` 이 바뀐다. **예외는 §3.4.1 의 P2P
-> 봉인 해제 둘**이다: `dmctl run peers` (신설)와 프리앰블의 통신 규약 절. 이 둘은
+> 봉인 해제 둘**이다: `otterctl run peers` (신설)와 프리앰블의 통신 규약 절. 이 둘은
 > 코드이며, 없으면 카탈로그의 8패턴 중 5개가 **문서상으로만 존재**한다.
 
 **FR-PAT-1** `references/patterns.md` 를 신설한다. 각 패턴은 **같은 6절 형식**을 지킨다.
@@ -595,7 +595,7 @@ member=<uuid> role=비평가 state=working ctx=— (unknown)
 3. **멤버 구성** — 역할과 최소 인원
 4. **토폴로지** — 누가 누구에게 말하는가 (ASCII 다이어그램)
 5. **종료 조건** — 무엇으로 끝났다고 판정하는가
-6. **dmctl 시퀀스** — 그대로 실행 가능한 스니펫
+6. **otterctl 시퀀스** — 그대로 실행 가능한 스니펫
 
 **FR-PAT-2** 카탈로그에 담을 패턴은 아래 8종이다. **통신** 열은 §3.4.1 의 멤버 간
 직접 통신(P2P)이 그 패턴의 **본질인지 아닌지**를 가른다 — 이 구분이 패턴 선택의
@@ -635,11 +635,11 @@ member=<uuid> role=비평가 state=working ctx=— (unknown)
 
 #### 3.4.1 멤버 간 직접 통신 (P2P) — 문서가 막고 있던 1급 기능
 
-**조사로 확정한 사실.** `dmctl msg --to <uuid>` 에는 발신자·수신자가 조정자여야 한다는
+**조사로 확정한 사실.** `otterctl msg --to <uuid>` 에는 발신자·수신자가 조정자여야 한다는
 제약이 **없다.** 멤버끼리 서로에게 직접 말할 수 있고, 서버는 이미 그것을 실어 나른다.
 그런데 실제 팀은 거의 성형(star)으로만 돈다. 이유가 둘이다.
 
-1. **멤버가 동료의 uuid 를 모른다.** 프리앰블은 `dmctl run member` 시점에 조립되므로,
+1. **멤버가 동료의 uuid 를 모른다.** 프리앰블은 `otterctl run member` 시점에 조립되므로,
    **그 시점에 아직 등록되지 않은 동료**는 담길 수 없다. 첫 멤버의 프리앰블에는 동료가
    0명이고, 마지막 멤버만 전원을 안다. 상대를 지목할 수 없으니 말을 걸 수 없다.
 2. **스킬이 금지로 읽힌다.** `SKILL.md` §3 은 "brief 에 다른 팀원에게 말을 거는
@@ -650,8 +650,8 @@ member=<uuid> role=비평가 state=working ctx=— (unknown)
 이 둘이 겹쳐 P2P 가 사실상 봉인돼 있다. §3.4 의 8패턴 중 **6개가 P2P 를 본질로
 한다** — 봉인을 풀지 않으면 카탈로그를 써도 패턴이 늘지 않는다.
 
-**FR-PAT-5** 멤버는 동료 명부를 **스스로 조회**할 수 있다 — `dmctl run peers`
-(신설, 인자 없음). 발신자 정체(`$DONGMINAL_TOOL_ID`)로 자기가 속한 Run 을 찾아,
+**FR-PAT-5** 멤버는 동료 명부를 **스스로 조회**할 수 있다 — `otterctl run peers`
+(신설, 인자 없음). 발신자 정체(`$OTTERMINAL_TOOL_ID`)로 자기가 속한 Run 을 찾아,
 **자기를 제외한** 동료의 `role`·`member uuid`·`state`·`headless` 를 낸다.
 
 ```
@@ -660,13 +660,13 @@ role=검수       member=<uuid>  state=idle     headless=true
 ```
 
 프리앰블에 명부를 **박아 넣지 않는다.** 명부는 시간에 따라 변하고(승계·이탈), 박아
-넣으면 낡는다. 대신 프리앰블에는 `dmctl run peers` 를 부르라는 **한 줄**이 들어간다
+넣으면 낡는다. 대신 프리앰블에는 `otterctl run peers` 를 부르라는 **한 줄**이 들어간다
 (FR-PAT-6).
 
 **FR-PAT-6** 멤버 프리앰블에 **통신 규약 절**을 추가한다. 현재 프리앰블은 역할·목적·
 uuid·보고 규약만 담는다. 여기에 다음을 더한다.
 
-- 동료에게 말하려면 `dmctl run peers` 로 상대를 찾아 `dmctl msg --to <to 값>`
+- 동료에게 말하려면 `otterctl run peers` 로 상대를 찾아 `otterctl msg --to <to 값>`
 
   > **`member` uuid 를 `--to` 에 넣으면 안 된다** (2026-08-28 정정, WS-4 발견).
   > `msg` 는 `ResolveStrict` 를 지나고 그것이 받는 것은 살아있는 toolId 와 공간
@@ -691,7 +691,7 @@ uuid·보고 규약만 담는다. 여기에 다음을 더한다.
 > 아니라 **순서의 문제**다: 기동 시점에는 동료가 아직 없으므로 그때 보낸 메시지는
 > 사라진다. **Barrier(전원 ready) 이후에는 자유롭게 주고받는다** — 그것이 pipeline·
 > debate·red-team 이 작동하는 방식이다. 조정자는 Kickoff 메시지에 "이제 동료가 전원
-> 준비됐다. `dmctl run peers` 로 확인하고 <역할>에게 <무엇>을 보내라" 를 넣어 P2P 를
+> 준비됐다. `otterctl run peers` 로 확인하고 <역할>에게 <무엇>을 보내라" 를 넣어 P2P 를
 > **연다**.
 
 **FR-PAT-8** 각 패턴의 6절 형식 중 **4. 토폴로지**는 P2P 를 쓰는 경우 다음을 반드시
@@ -705,7 +705,7 @@ uuid·보고 규약만 담는다. 여기에 다음을 더한다.
 항목(V-PAT-5)이 이를 강제한다.
 
 **FR-PAT-9** 조정자는 P2P 를 **연 뒤에도 관측을 잃지 않는다.** 멤버 간 메시지는 묶음 V
-의 메시지 로그(FR-RVZ-14)에 기록되어 관계 그래프의 엣지가 되고, `dmctl run status` 의
+의 메시지 로그(FR-RVZ-14)에 기록되어 관계 그래프의 엣지가 되고, `otterctl run status` 의
 멤버 행에 건수로 나타난다. **P2P 가 열렸다고 조정자가 눈을 감는 것이 아니다** —
 이것이 P2P 를 안전하게 열 수 있는 근거다.
 
@@ -736,12 +736,12 @@ map-reduce, pipeline) 추가한다. debate 시나리오는 **P2P 왕복이 실�
 
 | ID | 시나리오 | 기대 |
 |---|---|---|
-| V-PAT-1 | `patterns.md` 의 모든 dmctl 스니펫을 셸 문법 검사 | 전부 통과 (`bash -n`) |
+| V-PAT-1 | `patterns.md` 의 모든 otterctl 스니펫을 셸 문법 검사 | 전부 통과 (`bash -n`) |
 | V-PAT-2 | `models.md`(구 `models_and_patterns.md`) 에 패턴 카탈로그 잔재 검색 | 0건 (FR-PAT-10) |
 | V-PAT-3 | `SKILL.md` 결정표의 모든 패턴이 `patterns.md` 에 존재 | 8/8 |
 | V-PAT-4 | 실제 debate Run 을 스킬대로 수행 | 종료 조건까지 도달 |
 | V-PAT-5 | `patterns.md` 의 P2P 패턴 5종이 §FR-PAT-8 의 세 항목(첫 발신자·왕복 상한·탈출로)을 전부 갖는지 | 5/5 |
-| V-PAT-6 | 멤버가 `dmctl run peers` 로 동료 uuid 를 얻어 직접 msg 를 보낸다 | 도달 + 메시지 로그에 멤버→멤버 엣지 기록 |
+| V-PAT-6 | 멤버가 `otterctl run peers` 로 동료 uuid 를 얻어 직접 msg 를 보낸다 | 도달 + 메시지 로그에 멤버→멤버 엣지 기록 |
 | V-PAT-7 | `run peers` 를 Run 에 속하지 않은 도구에서 호출 | 거부 |
 | V-PAT-8 | 승계된 멤버가 `run peers` 결과에서 사라지고 후임이 나타난다 | 명부가 낡지 않음 (FR-PAT-5 근거) |
 
@@ -795,7 +795,7 @@ map-reduce, pipeline) 추가한다. debate 시나리오는 **P2P 왕복이 실�
 > 계속 실행 중인데 "1일 전" 이 바뀌지 않아 카드가 지금 상태를 말하지 못했다. 대시보드 머리의 경과
 > (생성 시각)는 바꾸지 않는다.
 
-**FR-RVZ-4** 빈 목록이면 "진행 중인 Run 이 없다" 와 `/dongminal:team` 안내를 낸다.
+**FR-RVZ-4** 빈 목록이면 "진행 중인 Run 이 없다" 와 `/otterminal:team` 안내를 낸다.
 
 **FR-RVZ-5** 행 클릭 시 모달이 닫히고, **현재 포커스 분할 칸에 새 탭**이 생기며 그
 탭에 대시보드가 렌더된다.
@@ -845,7 +845,7 @@ Run 이 사라졌으면 "이 Run 은 더 이상 없다" 를 렌더한다 (탭을
 > 선택지일 뿐 서버가 관측하는 사실이 아니다.
 >
 > 필드를 신설하지 않는 이유는 범위가 아니라 **NFR-RVZ-4** 다 — "시각화에만 있는
-> 정보는 없다. 모든 항목이 `dmctl run status` 로도 읽힌다." `run status` 에 패턴이
+> 정보는 없다. 모든 항목이 `otterctl run status` 로도 읽힌다." `run status` 에 패턴이
 > 없으므로 대시보드에 패턴을 그리면 그 규칙을 어기는 쪽이 된다.
 >
 > 도해의 나머지 요약 항목(`short`·목적·`state`·`isolation`·경과·멤버 수·헤드리스 수)은
@@ -874,7 +874,7 @@ Run 이 사라졌으면 "이 Run 은 더 이상 없다" 를 렌더한다 (탭을
 
 #### 3.5.4 데이터 — 메시지 로그
 
-**FR-RVZ-14** Run 레코드에 **메시지 로그**를 추가한다. `dmctl msg` 가 성공적으로
+**FR-RVZ-14** Run 레코드에 **메시지 로그**를 추가한다. `otterctl msg` 가 성공적으로
 전달될 때마다 한 건씩 쌓는다.
 
 ```go
@@ -908,7 +908,7 @@ type MsgEvent struct {
 - **NFR-RVZ-2** 그래프 다시 그리기는 `repaint.js` 의 보존 규약을 따른다 — 갱신이
   hover·선택·툴팁을 깨뜨리지 않는다 (`GIT_REVIEW4_SRS` 가 세운 공통 수단).
 - **NFR-RVZ-3** 메시지 본문·brief 전문·transcript 경로는 **API 응답에 싣지 않는다.**
-- **NFR-RVZ-4** 시각화에만 있는 정보는 없다 — 모든 항목이 `dmctl run status` 로도
+- **NFR-RVZ-4** 시각화에만 있는 정보는 없다 — 모든 항목이 `otterctl run status` 로도
   읽힌다 (§2.3).
 
 #### 3.5.6 검증 (묶음 V)
@@ -918,7 +918,7 @@ type MsgEvent struct {
 | V-RVZ-1 | Run 0개 상태에서 `Runs` 클릭 | 빈 안내 모달 |
 | V-RVZ-2 | Run 2개 상태에서 행 클릭 | 모달 닫힘 + 현재 분할 칸에 새 탭 + 대시보드 |
 | V-RVZ-3 | 같은 Run 행을 다시 클릭 | 새 탭이 생기지 않고 기존 탭으로 포커스 (FR-RVZ-7) |
-| V-RVZ-4 | 대시보드 열린 채 `dmctl msg` 송신 | SSE 로 엣지가 갱신됨. 폴링 요청 0건 |
+| V-RVZ-4 | 대시보드 열린 채 `otterctl msg` 송신 | SSE 로 엣지가 갱신됨. 폴링 요청 0건 |
 | V-RVZ-5 | 멤버 4명(헤드리스 2) Run | 점선 노드 2개, 실선 2개 |
 | V-RVZ-6 | `critical` 멤버 존재 | 노드 게이지 오류색 + 모달 행 배지 |
 | V-RVZ-7 | `run succeed` 후 | 승계 화살표가 그려짐 |
@@ -932,18 +932,18 @@ type MsgEvent struct {
 
 ## 4. 인터페이스 요구사항
 
-### 4.1 dmctl 신설·개정
+### 4.1 otterctl 신설·개정
 
 ```
-dmctl run member --run <uuid> --role <이름> --agent <id>
+otterctl run member --run <uuid> --role <이름> --agent <id>
                  (--at <탭 uuid> | --headless) [--brief -]   # --headless 신설
-dmctl run attach --member <uuid> [--at <탭 uuid>]            # 신설
-dmctl run detach --member <uuid>                             # 신설
-dmctl run succeed --member <uuid> (--at <uuid> | --headless)
+otterctl run attach --member <uuid> [--at <탭 uuid>]            # 신설
+otterctl run detach --member <uuid>                             # 신설
+otterctl run succeed --member <uuid> (--at <uuid> | --headless)
                   [--model <m>] [--timeout-ms N]             # 신설
-dmctl run handoff --summary -                                # 신설 (승계 대상이 호출)
-dmctl run peers                                              # 신설 (멤버가 호출 — 동료 명부)
-dmctl wait (--at <uuid> | --member <uuid>) --for ready|done  # --member 신설
+otterctl run handoff --summary -                                # 신설 (승계 대상이 호출)
+otterctl run peers                                              # 신설 (멤버가 호출 — 동료 명부)
+otterctl wait (--at <uuid> | --member <uuid>) --for ready|done  # --member 신설
 ```
 
 ### 4.2 HTTP 종단

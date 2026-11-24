@@ -26,7 +26,7 @@ R-2 에 반영했고 `decisions.md` 를 다시 만들었다.
 
 | 단계 | 항목 | 판정 | 어디에 |
 |---|---|---|---|
-| ① | GO-4 | **해소** — 위반 4곳 중 a·b 해소, c·d 예외 등록. `scripts/check-pkg-axis.sh` 가 축 규칙(축 패키지→자기 축+shared, shared→shared)을 `go list -deps` 로 지킨다. Makefile·verify.yml 배선, 탐침 3종 확인 | `check-pkg-axis.sh` · `shared/dmenv/helpers.go` · `shared/runfile/` · `architecture.md` §패키지 레이아웃 |
+| ① | GO-4 | **해소** — 위반 4곳 중 a·b 해소, c·d 예외 등록. `scripts/check-pkg-axis.sh` 가 축 규칙(축 패키지→자기 축+shared, shared→shared)을 `go list -deps` 로 지킨다. Makefile·verify.yml 배선, 탐침 3종 확인 | `check-pkg-axis.sh` · `shared/otterenv/helpers.go` · `shared/runfile/` · `architecture.md` §패키지 레이아웃 |
 | ① | GO-48 | **해소** — 표에 빠진 20개(+`clientpid` 는 실재하지 않아 삭제)를 더했고 같은 게이트가 `go list ./...` 과 양방향 대조. 동시성 절에 `toolclient`·`AttnTracker`·`Jobs` | `architecture.md` |
 | ② | GO-5 | **해소** — `SetOnOutput/SetOnExit/SetOnForeground`, 필드 비공개, `FlushEarlyPushes` 는 `SetOnExit` 안으로. 레이스 테스트 2건(잠금을 빼면 `DATA RACE` 로 잡힘을 탐침) | `toolclient/client.go` · `client_test.go` |
 | ② | GO-7 | **해소** — `exitAfterRead()` 를 EOF·패닉이 함께 지난다. 릴레이 콜백에 패닉을 주입해 kill·onExit·OpExit·프로세스 소멸을 확인 | `toolhub/tool.go` · `tool_readpty_panic_test.go` |
@@ -42,8 +42,8 @@ R-2 에 반영했고 `decisions.md` 를 다시 만들었다.
 | ② | (발견) FR-GIT-107 | **해소** — 전량 `-race -shuffle` 에서 `TestGitRemote_InvalidatesStatusCacheOnDone` 이 한 번 떨어졌다. 원인은 제품 코드: `Jobs.finish` 가 `Done` 을 공개한 **뒤** 완료 훅(캐시 무효화)을 불렀다. 훅 → 공개 → 기록 순으로 고쳤다 | `git/jobs/job.go` · `job_test.go` · `GIT_SRS` FR-GIT-107 정정 |
 | ③ | GO-9 | **해소** — `limits`·`fsOps`·`contextNotices` 가 `Server` 필드. 두 서버 동시 기동 테스트 2건(상한·통지 기억 독립). `fsOps` 는 Mkdir/OpenFile/count+RemoveAll/count+copy 구간만 | `httpapi/server.go` · `server_coexist_test.go` |
 | ③ | GO-12 · FBE-01(서버) | **해소** — `pollUntil(ctx, max, every, cond)` 하나로 4곳(`waitHandoff`·`requestHandoff`·`waitToolsIdle`·`awaitTab`). 끊긴 `succeed` 는 잇지 않고 헤드리스 도구를 거둔다. `SendPaste` 의 틈은 도구 죽음으로 끊기고, `kill()` 유예는 `Wait` 채널로, worktree 되풀이는 ctx + 예산(3초) — `repoLock` 18분 경로 소멸. 요청 경로 `time.Sleep` 0 | `httpapi/wait.go` · `handlers_runs*.go` · `toolhub/bracketpaste.go`·`tool.go` · `worktree/worktree.go` |
-| ③ | GO-40 | **해소** — `daemonBusyWait`·`daemonReadyTries`·`daemonReadyPoll`·`terminateGrace`·`removeRetry*`. `termReset` 은 이미 이름이 있었고 `/tmp` 기본값은 의도된 것 | `cmd/dongminal/main.go` 등 |
-| ③ | GO-41 | **해소** — 튜닝 env 셋(`ATTENTION_IDLE_MS`·`ATTENTION_BELL`·`CMD_RESULT_TIMEOUT_MS`)의 이름과 읽는 규칙(`MillisEnv`·`FlagEnv`)이 `dmenv` 한 곳 | `shared/dmenv/tuning.go` |
+| ③ | GO-40 | **해소** — `daemonBusyWait`·`daemonReadyTries`·`daemonReadyPoll`·`terminateGrace`·`removeRetry*`. `termReset` 은 이미 이름이 있었고 `/tmp` 기본값은 의도된 것 | `cmd/otterminal/main.go` 등 |
+| ③ | GO-41 | **해소** — 튜닝 env 셋(`ATTENTION_IDLE_MS`·`ATTENTION_BELL`·`CMD_RESULT_TIMEOUT_MS`)의 이름과 읽는 규칙(`MillisEnv`·`FlagEnv`)이 `otterenv` 한 곳 | `shared/otterenv/tuning.go` |
 | ④ | GO-13 | **해소** — `ToolHub.List() []ToolInfo`, 와이어(데몬 `list`)와 소비자가 같은 타입. `m["id"].(string)` 형 단언 0, `map[string]interface{}` 80→71, 필드명 변경이 컴파일 오류 1회 확인 | `toolhub/hub.go` · 소비처 6곳 |
 | ④ | GO-6 | **해소** — `ToolClient` 에 200ms TTL 목록 캐시 + `exit`·`fg` push 와 변경 호출(create·kill·terminate·restore·setbackground) 무효화(**보내기 전·돌아온 뒤 두 번**, 세대 가드). Get/IsLive 30회에 list RPC 1회 계측. 전량 e2e 가 잡은 결함은 §1-2 ① | `toolclient/client.go` · `client_test.go` |
 | ④ | GO-44 | **부분 해소** — `RunStore`(httpapi)·`worktree.Service` 인터페이스, `Runs`·`Worktrees`·`UserWorktrees` 가 그것을 든다. 가짜로 git 없이 도는 핸들러 테스트 1건. **`Git *store.Store` 는 남긴다** — gitapi 가 `Service()`(구체)를 83곳에서 쓰므로 인터페이스로 좁혀도 git 없이 돌지 못한다; ⑥(GO-39 git 실행기 통합) 뒤의 일 | `httpapi/deps.go` · `worktree/worktree.go` · `deps_seam_test.go` |
@@ -82,7 +82,7 @@ R-2 에 반영했고 `decisions.md` 를 다시 만들었다.
 | ② | FR-B-2 카탈로그 | **해소** — `t(key,params)`·`tn(key,n,params)`·`I18N.register/apply/applyShortcuts`. 카탈로그 `web/js/i18n/ko.js`(915키)·`en.js`(915+복수형 `.one` 13). 키 규약·네임스페이스는 스펙 §3.3 | `web/js/core/i18n.js` · `web/js/i18n/` · 단위 13건 `i18n.test.mjs`(TC-B-8) |
 | ③ | FR-B-3 게이트 | **해소** — `scripts/check-i18n.mjs`(espree AST: JS 리터럴 한글 · HTML 텍스트/속성 · CSS `content` 문구 · ko·en 키 집합 · `t()` 키 존재 · **`t`/`tn` 가려짐**). Makefile·verify.yml 둘 다. **탐침 5종** 확인 뒤 지움: JS 리터럴(잡음) · HTML 텍스트(잡음) · CSS `content`(잡음) · `console.warn` 한글(지나감 — 예외 등록부) · Go `httpErr` 한국어 추가(`check-http-error.sh` 가 잡음) | `scripts/check-i18n.mjs` · `scripts/check-http-error.sh` · `Makefile` · `verify.yml` |
 | ④ | 외부화 | **해소** — `constants*.js` 12파일 630줄 → `t()` (키는 상수 이름에서 기계적 파생, 객체·배열 값은 `.prop`) · 그 밖 31파일 254줄 → `t()`/`tn()` (`apiErrText` 로 모인 오류 문구 포함) · `index.html` 72줄 → `data-i18n`/`-html`/`-title`/`-placeholder`. 한글 리터럴 **0** (게이트) | 43 JS 파일 · `web/index.html` |
-| ⑤ | FR-B-5 `<html lang>` | **해소** — head 인라인 스크립트(`dm.locale` 거울)가 첫 페인트 전에, `i18n.js` 가 로드 시 다시 세운다. 영어가 섞인 요소 셋(`.boot-name`·`.modal-title`·`.modal-tabs`)과 언어 선택지 `<option>` 에 `lang` | `web/index.html` · `i18n.js` · TC-B-3 |
+| ⑤ | FR-B-5 `<html lang>` | **해소** — head 인라인 스크립트(`otter.locale` 거울)가 첫 페인트 전에, `i18n.js` 가 로드 시 다시 세운다. 영어가 섞인 요소 셋(`.boot-name`·`.modal-title`·`.modal-tabs`)과 언어 선택지 `<option>` 에 `lang` | `web/index.html` · `i18n.js` · TC-B-3 |
 | ⑤ | FR-B-6 CSS `content` | **해소** — 3곳 전부 DOM 텍스트(`.slot-empty-hint`·`.tp-drop-hint`·`.pn-dim-hint`). CSS 는 보일 때만 `display` 를 연다. 접근성 트리의 텍스트로 잡힘을 e2e 셋이 `ariaSnapshot()` 으로 단정 (TC-B-4) | `renderer.js` · `term-pane.js` · `style.css` |
 | ⑤ | FR-B-7 툴팁 보간 | **해소** — 정적 단축키 툴팁 4곳(`split-h`·`split-v`·`slot-add`·`slot-remove`)이 `data-i18n-shortcut` 으로 `{key}`=`displayKey(shortcuts[action])`. 설정 적용·녹화·되돌리기 세 자리에서 `I18N.applyShortcuts`. e2e 가 재바인딩 뒤 갱신을 단정 (TC-B-5). **동작 변경**: 종전 `(Ctrl+Shift+H)` → `(⌃+⇧+H)`(displayKey 표기) | `index.html` · `app-settings.js` · `input-binding.js` · `app-settings-keys.js` |
 | ⑥ | FR-B-8 서버 오류 | **정정 후 해소** — `http.Error` 한국어는 M5 가 이미 0 으로. `httpErr` 한국어 본문 9곳은 D-ERR-2 로 **동결**(게이트가 상한 9 를 지킨다). 문장의 소유는 프론트: `apiErrText(r, what)` 이 `X-Error-Code` → `err.<code>`(25 코드) → 본문 → `{what} ({status})` 순. **동작 변경**: 코드가 카탈로그에 있으면 서버 본문 대신 카탈로그 문장 (이전: 본문 그대로 / 이유: FR-B-8) | `api.js` · `check-http-error.sh` · `i18n/*.js` `err.*` |
@@ -147,7 +147,7 @@ omp 17.4.0 을 다시 띄웠고(자격증명 없음 — 무모델 프레임), �
 
 | 회차 | 결과 | 비고 |
 |---|---|---|
-| ① 코드 완료 직후 | **무효** — 두 실행이 겹쳤다 | `&` 로 띄운 첫 `make e2e` 의 서브셸이 죽지 않고 살아남아 둘째와 나란히 돌았고(`xargs -P 4` 둘), 서로의 `test-results/*/traces` 와 `/tmp/dongminal-e2e-*` 홈을 지웠다(ENOENT 폭주, 초반 샤드마다 `waitForInit` 15s 시한). 그 사이에 드리프트 잡(`go test -tags agentdrift`)도 두 번 돌렸다. 판정 불가 — 둘 다 죽이고 청소한 뒤 다시 |
+| ① 코드 완료 직후 | **무효** — 두 실행이 겹쳤다 | `&` 로 띄운 첫 `make e2e` 의 서브셸이 죽지 않고 살아남아 둘째와 나란히 돌았고(`xargs -P 4` 둘), 서로의 `test-results/*/traces` 와 `/tmp/otterminal-e2e-*` 홈을 지웠다(ENOENT 폭주, 초반 샤드마다 `waitForInit` 15s 시한). 그 사이에 드리프트 잡(`go test -tags agentdrift`)도 두 번 돌렸다. 판정 불가 — 둘 다 죽이고 청소한 뒤 다시 |
 | ② 단독 실행 | **unexpected 0** · flaky 4 | 1,657 통과 · 8샤드 각 4.1~4.5분. flaky 넷은 전부 M7 §5-5 군집·그 이웃(`git-commit` E13 · `git-history` H6·H22 · `slot-view-state` TC-SVS-53) — P1·P2·P3 의 표에도 같은 스펙들이 있다. 에이전트 도구 13건은 재시도 없이 통과. `make e2e-rebalance` 로 시간표 갱신(8샤드 400~401s, 불균형 1.00배) |
 
 ### 1-9. P5 항목별 판정
@@ -164,7 +164,7 @@ codex `thread/resume` rejoin·재 `initialize` 를 드라이버로 봤다 (스�
 | B | FR-ABG-20 오류 상태 (+stderr 사유) | **해소** — 프로세스가 죽으면 `Dormant=error`, `EvExit{Text:died, Detail:"exit N: <stderr 꼬리>", IsError}` (D-C-15). stderr 꼬리(8줄·2 KiB)는 `toolhub.Tool.stderrTail` → `ExitInfo` — 직접 모드 `ExitObserver(id, info)`, 데몬 `exit` push `{code, stderr[]}`(종전 `code:0` 고정을 실제 값으로). 뷰: `data-state=error` + 사유 줄 + 재개 버튼(신원 있을 때). 활동은 `ended` — idle 로 읽히지 않는다. **stderr 사유 절은 폐기** (2026-09-25, OPTIMIZE_REFACTOR_SRS D-OPT-6 — 사유는 종료 코드뿐, `stderr[]` 필드·주석 삭제) | `toolhub/tool.go` · `paned.go pushExit` · `client.go` · `TestDormant_ExitBecomesError` · `TestAgentAPI_ExitAndErrors` · e2e TC-AGT-7·10 |
 | B | 휴면 레코드 · 되살림 (D-C-5 의 제외를 푸는 자리) | **해소** — `agents.json` 레코드(어댑터·이름·신원·cwd·approval·permissionMode·model·dormant·reason·lastSeq). 세션이 열릴 때·신원/모드/모델이 바뀔 때·상태가 바뀔 때 다시 쓴다(잠금 밖 `flushRecord`). 부팅 `AgentRestore`: 살아 있으면 `Resume` 채택 · 없으면 `error/server_restart` · 신원 없거나 참조 없는 레코드는 버림(`workspace.ReferencedToolIDs`) (D-C-14). `tools.json` 은 그대로 셸의 것 | `disk.go` · `dormant.go Restore` · `TestDisk_Restore*` · `TestAgentAPI_RestoreAfterRestart` · `TestAgentAPI_DaemonHibernateResume` |
 | B | 목록 표면 (탭이 살아남는 근거) | **해소** — `/api/state.tools` 가 휴면·오류 세션을 `ToolInfo{kind:agent, dormant}` 로 합친다 (D-C-17). 브라우저 `_applyRemoteWorkspace` 는 `kind:agent` 에 `mkTool` 을 부르지 않는다 — P3 의 잠복 결함(살아 있는 에이전트 도구에 숨은 xterm WS) 도 함께 닫혔다. 닫기(`DELETE /api/tools/<id>`·백그라운드 kill)가 `Forget` 을 먼저 부른다 | `handlers_api.go` · `app-cmd.js` · `stateToolIDs` 단정 |
-| B | D-C-16 신원 없는 도구 | **해소** — claude 의 `system:init` 은 첫 프롬프트 뒤(§2-28). 휴면은 409 `agent_no_identity`, 메뉴 항목은 사유와 함께 비활성. `idle` 은 `initialize` 응답(`EvSession{SessionID:""}`)이 낸다 — `dmctl wait --for ready` 는 첫 턴 전에 답한다. 가짜 claude 도 첫 `user` 프레임 뒤에 init (`--resume` 도 같다). 드리프트 잡의 모델 목록 판정을 kind 무관으로 | `claude_proto.go` · `fakeagent.go` · `drift_test.go` · e2e TC-AGT-6·11 |
+| B | D-C-16 신원 없는 도구 | **해소** — claude 의 `system:init` 은 첫 프롬프트 뒤(§2-28). 휴면은 409 `agent_no_identity`, 메뉴 항목은 사유와 함께 비활성. `idle` 은 `initialize` 응답(`EvSession{SessionID:""}`)이 낸다 — `otterctl wait --for ready` 는 첫 턴 전에 답한다. 가짜 claude 도 첫 `user` 프레임 뒤에 init (`--resume` 도 같다). 드리프트 잡의 모델 목록 판정을 kind 무관으로 | `claude_proto.go` · `fakeagent.go` · `drift_test.go` · e2e TC-AGT-6·11 |
 | P | codex 되살림이 thread 를 잃는다 (P4 발견) | **해소** — 레코드의 `Resume=threadId` 로 핸드셰이크 → 살아 있는 thread 를 **rejoin**(실측). 재 `initialize` 의 "Already initialized" 는 어댑터가 부재로 읽는다 | `codex_proto.go` · `TestCodexProto_ReinitializeIsQuiet` |
 | — | (발견) 틈 되메움이 readLoop 안의 RPC 였다 | **고침** — §2-30. `feedLocked` 의 틈 → `scheduleResync`(고루틴) · 그 청크는 버리고 스냅샷이 대신 가져온다 | `session.go` · `TestSession_GapAndOverlap` |
 | — | 오류 코드 셋 · 문구 15키 · CSS 휴면 줄 · 홈 구성표(`agents.json`·`agents/` — backup 대상) | **해소** | `apierr` · `ko.js`·`en.js` · `style.css` · `homelayout.go` |
@@ -184,16 +184,16 @@ codex `thread/resume` rejoin·재 `initialize` 를 드라이버로 봤다 (스�
 
 | 항목 | 판정 | 어디에 |
 |---|---|---|
-| FBE-01(클라) | **해소** — `runPostWithin/runGetWithin` + `clientWithin(budget)`. `succeed` = `--timeout-ms`(없으면 180초) + 10초, `preamble`(launch · `--member` 해석) = 90 + 10초, `close` = 20 + 40초. 상한 셋은 새 `shared/runwait` — 서버 `httpapi` 의 상수가 그것을 가리킨다(D-A-1). "60초 뒤 답해도 성공" 은 예산 계산(순수) + 전송이 예산을 쓴다(300ms 응답을 50ms 는 끊고 5초는 잇는다) 두 단정으로 | `runtimebin/http.go`·`dmctl_run.go` · `shared/runwait` · `TestRunBudget_*`·`TestRunPostWithin_UsesBudget`·`TestDmctlRun{Succeed,Launch,Close}_Uses*Budget` |
-| FBE-02 | **해소** — `dmctlDelivery`: `delivered==0` → exit 1(detach 와 같은 문구), 생성 명령 `timedOut` → exit 1. 본문은 stdout 에 남는다. 필드가 **있을 때만** 판정(모른다 ≠ 없다). `send` 도 같은 경로 (D-A-2). 동작 변경 — 이전/새/이유는 `dmctl.go` 주석과 D-A-2 | `dmctl.go` · `TestRunDmctlPost_*`·`TestRunDmctlSend_NoBrowserIsExit1` · `commands.md` |
+| FBE-01(클라) | **해소** — `runPostWithin/runGetWithin` + `clientWithin(budget)`. `succeed` = `--timeout-ms`(없으면 180초) + 10초, `preamble`(launch · `--member` 해석) = 90 + 10초, `close` = 20 + 40초. 상한 셋은 새 `shared/runwait` — 서버 `httpapi` 의 상수가 그것을 가리킨다(D-A-1). "60초 뒤 답해도 성공" 은 예산 계산(순수) + 전송이 예산을 쓴다(300ms 응답을 50ms 는 끊고 5초는 잇는다) 두 단정으로 | `runtimebin/http.go`·`otterctl_run.go` · `shared/runwait` · `TestRunBudget_*`·`TestRunPostWithin_UsesBudget`·`TestOtterctlRun{Succeed,Launch,Close}_Uses*Budget` |
+| FBE-02 | **해소** — `otterctlDelivery`: `delivered==0` → exit 1(detach 와 같은 문구), 생성 명령 `timedOut` → exit 1. 본문은 stdout 에 남는다. 필드가 **있을 때만** 판정(모른다 ≠ 없다). `send` 도 같은 경로 (D-A-2). 동작 변경 — 이전/새/이유는 `otterctl.go` 주석과 D-A-2 | `otterctl.go` · `TestRunOtterctlPost_*`·`TestRunOtterctlSend_NoBrowserIsExit1` · `commands.md` |
 | FBE-04 | **해소** — `closed = broadcastLayout(...) > 0`, `delivered` 도 싣는다. `closedTabIDs` 는 `closed==true` 만 → 브라우저 0 이면 표식 해제가 남은 탭을 지운다 (D-A-3). 정리는 멈추지 않는다 | `handlers_runs_cleanup.go`·`handlers_runs.go` · `TestRunClose_NoBrowserReportsUnclosedAndClearsMarks` · `api.md` |
-| FBE-06 · 14 | **해소 (실측 + 안내)** — 사용자 결정 "선언 정정 + 안내 코드". `codex.go` 터미널 표면 `PromptArgv`·`--model`(D-A-4, 프로토콜 필드 불변). `launchNotes`: 주입이 argv 가 아니면 `wait --for ready` 뒤 `--text | send-input` 안내, `--model` 인데 플래그가 없으면 "생략했다" — 둘 다 stderr, exit 0. 헬프 3단계 절차에 2b) 분기. 종전 테스트 둘(codex 미확인 고정)은 뒤집었다 | `codex.go` · `dmctl_run.go` · `TestCodex_TerminalSurfaceIsMeasured` · `TestLaunchNotes_*` · `TestDmctlRunLaunch_CodexCarriesPreambleAndModel` |
+| FBE-06 · 14 | **해소 (실측 + 안내)** — 사용자 결정 "선언 정정 + 안내 코드". `codex.go` 터미널 표면 `PromptArgv`·`--model`(D-A-4, 프로토콜 필드 불변). `launchNotes`: 주입이 argv 가 아니면 `wait --for ready` 뒤 `--text | send-input` 안내, `--model` 인데 플래그가 없으면 "생략했다" — 둘 다 stderr, exit 0. 헬프 3단계 절차에 2b) 분기. 종전 테스트 둘(codex 미확인 고정)은 뒤집었다 | `codex.go` · `otterctl_run.go` · `TestCodex_TerminalSurfaceIsMeasured` · `TestLaunchNotes_*` · `TestOtterctlRunLaunch_CodexCarriesPreambleAndModel` |
 | FBE-09 · 10 | **해소** — `announceIsolated`(격리 홈 · 도구 셸의 홈 · 정지법) 하나를 두 경로가 부르고, `ensureIsolatedToolHome` 하나가 도구 홈을 만든다 — **전경 격리 기동이 도구 홈을 심지 않던 비대칭도 함께** (D-A-9, 동작 변경 기록). 헬프·getting-started 에 도구 홈 상실 | `ctl/cli/start.go`·`help.go` · `TestRunStart_IsolatedForegroundAnnouncesHomes` |
 | FBE-11 | **이미 해소** — TERMINAL_RESUME FR-TRS-12: `buildReplay` 하나를 두 모드가 쓰고 `termReset` 은 전량 재생 때만 | `httpapi/term_resume.go` |
-| FBE-13 | **해소** — `parseStatusFlags` 의 `--member` 게이트를 풀었다. 해석은 `memberToolID` 한 벌(예산은 preamble 것). FR-HLM-11 본문에 status 를 더했다 (D-A-5). 종전 테스트 `TestDmctlStatus_DoesNotAcceptMember` 는 결정과 정반대라 지웠다 | `dmctl_status.go` · `TestDmctlStatus_Member*` |
-| FBE-15 | **해소** — `run delete --run`(`DELETE /api/runs/{id}`, 잔여물 보고) · `run graph --run [--json]`(멤버·간선·타임라인). 헬프가 close 와의 차이를 적는다 (D-A-6). `httpDelete` 헬퍼 | `dmctl_run_admin.go` · `TestDmctlRunDelete_*`·`TestDmctlRunGraph_*` · `commands.md` |
-| FBE-16 | **해소** — `apiToolsCreate`: 명시 `cwd` 가 디렉터리가 아니면 400 `tool_cwd_missing`(새 코드 — `codes_core`·`codes_doc`·`errors.md`·`err.tool_cwd_missing` ko·en). 샌드박스는 배치기, `cwdTool`·`Restore` 의 폴백은 남긴다 (D-A-7). dmctl 쪽은 브라우저가 echo 하지 않아 `timedOut` → D-A-2 로 exit 1 | `handlers_api.go` · `TestHandleAPI_ToolsCreate_{MissingCwd,FileCwd}Is400` |
-| FBE-18 | **해소 (둘 다)** — `wrapPaste` 가 켜진 모드에서 본문의 `ESC[201~` 제거 · `quoteEnvelope` 가 `[DONGMINAL-AGENT-MSG`→`[\DONGMINAL-AGENT-MSG`, `[/…`→`[\/…`. 04-Sec P0-1/2 는 Origin/CSRF 라 M2 가 다루지 않았음을 확인하고 여기서 닫았다 (D-A-8). `agent-context` 본문 불변 | `bracketpaste.go` · `handlers_toolio.go` · `TestWrapPaste_StripsEndMarkerInsideBody` · `TestToolMessage_QuotesEnvelopeDelimitersInBody` |
+| FBE-13 | **해소** — `parseStatusFlags` 의 `--member` 게이트를 풀었다. 해석은 `memberToolID` 한 벌(예산은 preamble 것). FR-HLM-11 본문에 status 를 더했다 (D-A-5). 종전 테스트 `TestOtterctlStatus_DoesNotAcceptMember` 는 결정과 정반대라 지웠다 | `otterctl_status.go` · `TestOtterctlStatus_Member*` |
+| FBE-15 | **해소** — `run delete --run`(`DELETE /api/runs/{id}`, 잔여물 보고) · `run graph --run [--json]`(멤버·간선·타임라인). 헬프가 close 와의 차이를 적는다 (D-A-6). `httpDelete` 헬퍼 | `otterctl_run_admin.go` · `TestOtterctlRunDelete_*`·`TestOtterctlRunGraph_*` · `commands.md` |
+| FBE-16 | **해소** — `apiToolsCreate`: 명시 `cwd` 가 디렉터리가 아니면 400 `tool_cwd_missing`(새 코드 — `codes_core`·`codes_doc`·`errors.md`·`err.tool_cwd_missing` ko·en). 샌드박스는 배치기, `cwdTool`·`Restore` 의 폴백은 남긴다 (D-A-7). otterctl 쪽은 브라우저가 echo 하지 않아 `timedOut` → D-A-2 로 exit 1 | `handlers_api.go` · `TestHandleAPI_ToolsCreate_{MissingCwd,FileCwd}Is400` |
+| FBE-18 | **해소 (둘 다)** — `wrapPaste` 가 켜진 모드에서 본문의 `ESC[201~` 제거 · `quoteEnvelope` 가 `[OTTERMINAL-AGENT-MSG`→`[\OTTERMINAL-AGENT-MSG`, `[/…`→`[\/…`. 04-Sec P0-1/2 는 Origin/CSRF 라 M2 가 다루지 않았음을 확인하고 여기서 닫았다 (D-A-8). `agent-context` 본문 불변 | `bracketpaste.go` · `handlers_toolio.go` · `TestWrapPaste_StripsEndMarkerInsideBody` · `TestToolMessage_QuotesEnvelopeDelimitersInBody` |
 | FUI-23 | 기록만 — Run 시작은 스킬의 것 (D-A-6 말미) | |
 | V | V-11 | `git diff` 에 `claude.go`·`omp.go`·`*_proto.go`·훅 e2e 0줄. `codex.go` 는 터미널 표면 두 값(`ModelFlag`·`PromptInjection`)과 주석만 | |
 
@@ -214,14 +214,14 @@ codex `thread/resume` rejoin·재 `initialize` 를 드라이버로 봤다 (스�
 |---|---|---|
 | GO-14 `handlers_fs.go` | **해소** — `/api/editors/*` → `handlers_editors.go`, 전송 → `handlers_fs_transfer.go`, 이름변경·삭제 → `handlers_fs_mutate.go`. 845 → 403 (D-A-10, 이동만) | `httpapi/handlers_editors.go`·`handlers_fs_{transfer,mutate}.go` |
 | GO-15 `tool.go` | **해소** — 주의·활동 상태기 → `tool_attention.go`, 클라이언트 전달 → `tool_clients.go`, 종료·쓰기·리사이즈 → `tool_control.go`, ExitInfo·stderr 꼬리 → `tool_exitinfo.go`, 홈·환경 → `tool_env.go`, cwd → `tool_cwd.go`. 1037 → 464 | `toolhub/tool_*.go` · `architecture.md` |
-| GO-16 `main.go serve` | **해소** — `cmd/dongminal/app.go`: `buildApp`(조립) / `run`(기동) / `shutdown`(종료). 종료 순서는 `shutdownSteps()` 표 `[마커, 데몬 연결, 도구 저장, 샌드박스, LSP, 워크스페이스]` 이고 테스트가 이름 순서를 잰다. `buildDeps` 3벌은 그대로(조립의 것) — `main.go` 689 → 461. 패키지는 `cmd/dongminal`(축 규칙, D-A-12) | `cmd/dongminal/app.go` · `TestShutdownSteps_OrderIsTheContract` |
+| GO-16 `main.go serve` | **해소** — `cmd/otterminal/app.go`: `buildApp`(조립) / `run`(기동) / `shutdown`(종료). 종료 순서는 `shutdownSteps()` 표 `[마커, 데몬 연결, 도구 저장, 샌드박스, LSP, 워크스페이스]` 이고 테스트가 이름 순서를 잰다. `buildDeps` 3벌은 그대로(조립의 것) — `main.go` 689 → 461. 패키지는 `cmd/otterminal`(축 규칙, D-A-12) | `cmd/otterminal/app.go` · `TestShutdownSteps_OrderIsTheContract` |
 | GO-17 `handlers_runs.go` | **해소** — 트리 조작 → `workspace.ApplyRunMarks`(D-A-13, 테이블 테스트), close → `handlers_runs_close.go`, 표식 → `handlers_runs_marks.go`. `apiRunMemberAdd` 는 `rollbackMemberAdd`·`memberAddedView`, `apiRunClose` 는 `unreportedExtra`·`cleanupTargets` 로. 719 → 425 | `workspace/runmarks.go` · `httpapi/handlers_runs_{close,marks}.go` |
 | GO-18 `worktree.go` | **해소** — `parse.go`(porcelain)·`naming.go`(bucket·slug·ref)·`remove.go`. 775 → 440. **`..` 오탐** 고침 — 조각 판정(D-A-14, 동작 변경: `a..b` 허용, 조각 `..` 는 여전히 거부) | `worktree/{parse,naming,remove}.go` · `TestCheckPath_DotDotIsASegmentNotASubstring` |
-| GO-19 거대 함수 셋 | **해소** — `runSubClose` 124 → 요청 + `closeResponse`·`printCloseReport`·`printCloseLeftTabs`·`printCloseResidue` · `dmctlListWorkspace` 119 → `parseListWorkspaceFlags`·`fetchListWorkspaceRows`·`listWorkspaceLine` · `RewriteIdentifiers` 147 → `claimTools`·`claimEntities`·`identityRewriter{tools,workspace}` | `runtimebin/dmctl_run.go`·`dmctl_listworkspace.go` · `migrate/identity.go` |
+| GO-19 거대 함수 셋 | **해소** — `runSubClose` 124 → 요청 + `closeResponse`·`printCloseReport`·`printCloseLeftTabs`·`printCloseResidue` · `otterctlListWorkspace` 119 → `parseListWorkspaceFlags`·`fetchListWorkspaceRows`·`listWorkspaceLine` · `RewriteIdentifiers` 147 → `claimTools`·`claimEntities`·`identityRewriter{tools,workspace}` | `runtimebin/otterctl_run.go`·`otterctl_listworkspace.go` · `migrate/identity.go` |
 | GO-20 `doctor.go` | **해소** — `doctorChecks(p, home, probeBin) []doctorCheck{name, run}` 표를 `RunDoctor` 가 순서대로 돈다(D-A-11, 순서 테스트). 프로브(PTY 왕복·콘솔 없는 자식) → `doctor_probe.go`. 691 → 439 | `cli/doctor.go`·`doctor_probe.go` · `TestDoctorChecks_TableOrderIsTheContract` |
 | GO-21 `handlePush` | **해소** — `pushOutput`·`pushForeground`·`pushExit` | `toolclient/client.go` |
 | GO-22 JSON-RPC | **해소** — `toolipc.Code*` 상수 5개(`CodeToolCap` 포함) · `decodeParams[T]` 로 핸들러 10곳의 두 줄 제거 · `createError` (D-A-16) | `toolipc/wire.go` · `ipc/paned.go` · `paned_decode_test.go` |
-| GO-24 `dataPath` | **해소** — `main.go` 사본 삭제(`filepath.Join(home, …)`), toolhub 의 메서드만 남는다 (D-A-18) | `cmd/dongminal/main.go` |
+| GO-24 `dataPath` | **해소** — `main.go` 사본 삭제(`filepath.Join(home, …)`), toolhub 의 메서드만 남는다 (D-A-18) | `cmd/otterminal/main.go` |
 | GO-25 `HeadlessToolIDs` | **이미 해소** — 부팅 읽기 1회, `SetOwnedTools` 술어는 저장 시점에 신선해야 한다 (D-A-18) | |
 | GO-26 스냅샷 프레이밍 | **이미 해소** — FR-TRS-12 `buildReplay` 하나 | `httpapi/term_resume.go` |
 | GO-27 `pollUntil` | **해소** — `shared/pollwait.Until`(D-A-15). 요청 경로 넷 · `dialOrStartDaemon` 데몬 소켓 대기 · `waitReady`·`waitDaemonConnected`(tries×interval 상한) · `killPort`·`stopDaemon`(동작 변경: 고정 1초 → 사라짐까지 최대 1초). `killport_test` 의 가짜는 "답의 순서" 에서 "생사에서 파생" 으로 | `shared/pollwait/` · `cli/{start,health_wait,proc}.go` |
@@ -243,7 +243,7 @@ codex `thread/resume` rejoin·재 `initialize` 를 드라이버로 봤다 (스�
 | (P5) 레코드 없는 도구 이행 | **그대로 — 결정** — 한 번뿐인 이행 경로 (D-A-26 ④) | |
 | (P5) `agents.json`·`migrate` | **불필요 — 결정** — uuid 시대에 태어난 파일, 구 형식 식별자가 없다 (D-A-26 ⑤) | |
 | (P5) `_newAgentTool(…, opts.resume)` | **해소** — 지웠다. 재개는 `/api/agent/resume` (D-A-25) | `web/js/core/app-agent-tool.js` |
-| (P6) `wait` 예산 사본 | **해소** — `runwait.ActivityWaitDefault/Max` 를 서버와 dmctl 이 읽는다. `waitBudget(timeoutMS)` 로 떼어 테스트 (D-A-24) | `shared/runwait` · `httpapi/handlers_status.go` · `runtimebin/dmctl_status.go` |
+| (P6) `wait` 예산 사본 | **해소** — `runwait.ActivityWaitDefault/Max` 를 서버와 otterctl 이 읽는다. `waitBudget(timeoutMS)` 로 떼어 테스트 (D-A-24) | `shared/runwait` · `httpapi/handlers_status.go` · `runtimebin/otterctl_status.go` |
 | (P6) 데몬 모드 `ErrToolCap` 429 | **해소** — `CodeToolCap` 이 경계를 건너 `errors.Is` 가 참. **발견**: `toolclient.call` 이 오류 응답을 한 번도 오류로 읽지 않았다(`PanedResponse` 해석이 성공해 빈 맵) — `GO-8` 이 데몬 모드에서 반쪽이었다. 고쳤다(동작 변경, D-A-16). `ListOK` 테스트의 가짜는 hello 를 답하게 | `toolclient/client.go` · `client_rpcerr_test.go` |
 | (P6) `_newTool` throw | **해소** — 원격 `newWindow`·`newTab`·단축키·`addTabFocused` 가 `_notify`(`core.open_window_fail`·새 `core.open_tab_fail`). echo 는 내지 않는다(D-A-2) (D-A-25) | `web/js/core/app-cmd.js`·`app.js`·`app-layout.js` · ko·en |
 | V | V-11 | `git diff` 에 `claude.go`·`codex.go`·`omp.go`·`*_proto.go`·훅 e2e 0줄 | |
@@ -287,7 +287,7 @@ codex `thread/resume` rejoin·재 `initialize` 를 드라이버로 봤다 (스�
 세션은 `seen` 오프셋을 들고 겹침은 버리고 틈은 `SnapshotTool` 로 되메운다; 열 때도 스냅샷을 먼저 읽는다
 (세션이 붙기 전에 나온 `system:init` 을 놓치지 않기 위해 — 테스트 `TestSession_OpenResyncsFromSnapshot`).
 활동 보고는 `activity/set` 핸들러의 본문을 `reportActivity` 로 뽑아 **같은 함수**를 지난다 — 그래서
-알람·활동 패널·`dmctl wait --for ready` 가 에이전트 도구에서도 터미널과 같은 길로 섰다 (FR-AGT-8).
+알람·활동 패널·`otterctl wait --for ready` 가 에이전트 도구에서도 터미널과 같은 길로 섰다 (FR-AGT-8).
 
 ### 2-22. (P3) 종류를 묻는 자리는 정말 셋으로 끝났다
 
@@ -299,10 +299,10 @@ agent 갈래·`AgentPane`) (c) 전송 — `SendPaste` 무동작·데몬 push 의
 
 ### 2-23. (P3) 가짜 에이전트는 테스트 바이너리 자신이다
 
-`agent_api_test.go` 는 `DM_FAKEAGENT=1` 로 자기를 다시 실행하면 `fakeagent.Main` 을 돈다 — `go build`
+`agent_api_test.go` 는 `OTTER_FAKEAGENT=1` 로 자기를 다시 실행하면 `fakeagent.Main` 을 돈다 — `go build`
 없이 서버 핸들러를 실제 프로세스·파이프로 잰다. 파일 이름은 어댑터의 `DetectCmd` 에서 온다(리터럴이
 아니다). e2e 는 `global-setup` 이 바이너리를 하나 만들어 `E2E_AGENT_BIN_DIR` 에 놓고 서버가
-`DONGMINAL_AGENT_BIN_DIR` 로 받는다 (D-C-7).
+`OTTERMINAL_AGENT_BIN_DIR` 로 받는다 (D-C-7).
 
 ### 2-24. (P3) 게이트가 잡은 셋 · 실측이 잡은 하나
 
@@ -355,7 +355,7 @@ omp 는 `Approve`·`Deny` 가 `allow`·`deny` 자리다. 그래서 다이얼로�
 `drift_test.go` 를 실제 바이너리 셋으로 돌리자 claude 만 "세션 신원이 오지 않았다" 로 실패했다. P0 의
 원본(`claude-ctl.jsonl`)을 다시 보니 `system:init` 은 **첫 `user` 프레임 뒤**(SessionStart 훅 뒤)에
 온다 — 기동 즉시가 아니다. P3 의 가짜는 기동 즉시 낸다. 뜻: 실제 claude 에서는 첫 프롬프트 전까지
-세션 id 가 비고 활동이 `idle` 로 서지 않는다 (`dmctl wait --for ready` 는 첫 턴 뒤에 답한다). codex·omp
+세션 id 가 비고 활동이 `idle` 로 서지 않는다 (`otterctl wait --for ready` 는 첫 턴 뒤에 답한다). codex·omp
 는 핸드셰이크 응답에서 신원이 온다. 드리프트 잡은 이 사실을 표(`driftSessionAtHandshake`)로 들고,
 고치는 일은 P5(세션 신원·재개·휴면)의 몫이다 — 가짜를 실제에 맞추는 것도 그때.
 
@@ -483,7 +483,7 @@ TC-AGT-4 는 P6 전량에서 한 번, P7 전량 ①에서 두 번(재시도 포�
 `const X=t('…')` 가 1,100여 개고 77파일이 그 이름을 읽는다. "로케일을 바꾸면 UI 전부가
 바뀐다"(FR-B-4)를 살아 있는 재렌더로 하려면 모든 소비처가 구독자가 되어야 하고, 그 값은 이
 제품에 없다 — 단일 사용자이고 전환은 드물다. 그래서 D-B-1: 저장 → `localStorage` 거울 →
-`location.reload()`. 첫 페인트 전의 `<html lang>` 은 테마 캐시(`dm.themeVars`)와 같은 모양으로
+`location.reload()`. 첫 페인트 전의 `<html lang>` 은 테마 캐시(`otter.themeVars`)와 같은 모양으로
 head 인라인 스크립트가 같은 키를 읽는다. 설정이 서버에서 오는데 카탈로그는 설정보다 먼저
 필요하다는 시차를 거울 하나가 잇는다 — 새 브라우저의 첫 방문은 ko 로 뜨고 설정을 받은 뒤 한 번
 다시 연다.
@@ -547,7 +547,7 @@ GO-46 의 답은 "인터페이스에 메서드를 올리거나 하위 인터페�
 ### 2-1. claude 의 승인은 MCP 가 아니었다 — 스펙의 "범위 항목" 이 사라진다
 
 스펙 FR-APS-10 과 R-c 는 `--permission-prompt-tool` 이 **MCP 도구 서버**를 요구한다고
-적었고, 그래서 dongminal 이 MCP 서버를 하나 들어야 한다는 범위 항목이 됐다. 실측:
+적었고, 그래서 otterminal 이 MCP 서버를 하나 들어야 한다는 범위 항목이 됐다. 실측:
 `--permission-prompts host` 만 주면 요청 없이 **자동 거부**(`system:permission_denied`,
 `result.permission_denials[]`)이고, `--permission-prompt-tool stdio`(헬프에 없는 값)를
 주면 `control_request{subtype:"can_use_tool",…,permission_suggestions[]}` 가 stdout 으로
@@ -567,7 +567,7 @@ claude `--resume`·codex `thread/resume`·omp `--resume` 셋 다 같은 세션 �
 ### 2-3. `--bg` 는 휴면의 반대였다
 
 `claude --bg` 는 `claude daemon run` + `bg-pty-host`(200×50 PTY) 로 **TUI 를 숨은 PTY 에
-살려 두는** 기계다 — dongminal 의 백그라운드 터미널 도구와 같은 자리이지 프로세스가
+살려 두는** 기계다 — otterminal 의 백그라운드 터미널 도구와 같은 자리이지 프로세스가
 사라지는 휴면이 아니다. 휴면(FR-ABG-10)의 실체는 `--resume` 하나.
 
 ### 2-4. omp 는 기본이 yolo 다 — 인자 없이 띄우면 승인 요청이 한 번도 안 온다
@@ -654,6 +654,6 @@ d05eee9  feat(m8): P1 — Go 부채 ①~④ + TEST-8
 13918d6  feat(m8): P3 — 축 C-a 프로토콜 표면·에이전트 도구 (claude 한정, 묶음 P+T+A)
 0306db4  feat(m8): P4 — 축 C-b, codex·omp 어댑터 (같은 Proto 구조체, 가짜 세 프로토콜, 대조 잡)
 e6f9037  feat(m8): P5 — 축 C-c 묶음 B, 이벤트 로그 디스크·요약 스냅샷·휴면·재개·오류 상태
-251bc30  feat(m8): P6 — 축 A ⑤ CLI 계약, dmctl 예산·delivered 판정·codex 표면 실측·run delete/graph·cwd 400·붙여넣기 인용
+251bc30  feat(m8): P6 — 축 A ⑤ CLI 계약, otterctl 예산·delivered 판정·codex 표면 실측·run delete/graph·cwd 400·붙여넣기 인용
 fc6db80  feat(m8): P7 — 축 A ⑥·⑦, 파일 분리·serve Build/Run/Shutdown·doctor 표·중복 6건·Sync 죽은 코드·FBE-08 작업 경로·gittest·셸 고정·RPC 오류 코드
 ```

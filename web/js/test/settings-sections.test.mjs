@@ -175,7 +175,7 @@ const MOVED = [
       // 8b
       '_initFocusEdge', '_initAttnEdge', '_focusEdgePaintRow', '_attnEdgePaintRow', '_focusEdgePreview', '_attnEdgePreview'],
     rows: [['tabFixedWidth', 'ds-tabfix', 'check'], ['tabWidthPx', 'ds-tabw', 'number'], ['uiFontSize', 'ds-uifs', 'number'],
-      ['fgTabNames', 'ds-fgnames', 'check'], ['confirmLeave', 'ds-confirmleave', 'check']] },
+      ['fgTabNames', 'ds-fgnames', 'check'], ['confirmLeave', 'ds-confirmleave', 'check'], ['attnFavicon', 'ds-attnfavicon', 'check']] },
   { cls: 'TerminalSection', tab: 'terminal',
     gone: ['_initClaudeFullscreen', '_initTermGpu', '_initTermFontSize', '_initClaudeScrollSpeed', '_initMigrationSettings',
       // 8d — 모바일 키바 구역
@@ -493,12 +493,12 @@ test('8d: BackupSection — 파일 이름·저장된 키만 담기·봉투 검�
   };
   ctx.t = (k) => k;
   const s = new ctx.BackupSection(fakeApp([]));
-  assert.equal(s._bkFileName(new Date(2026, 0, 2, 3, 4, 5)), 'dongminal-settings-20260102-030405.json');
+  assert.equal(s._bkFileName(new Date(2026, 0, 2, 3, 4, 5)), 'otterminal-settings-20260102-030405.json');
   assert.deepEqual(plain(s._bkCollect()), { local: { attnSound: '1' }, session: { slotDir: 'h' } });
   assert.equal(s._bkParse('{').err, 'backup.not_json');
   assert.equal(s._bkParse('{"kind":"x","version":1,"server":{}}').err, 'backup.not_ours');
-  assert.equal(s._bkParse('{"kind":"dongminal-settings","version":9,"server":{}}').err, 'backup.newer_version');
-  assert.deepEqual(plain(s._bkParse('{"kind":"dongminal-settings","version":1,"server":{"a":1}}').env.server), { a: 1 });
+  assert.equal(s._bkParse('{"kind":"otterminal-settings","version":9,"server":{}}').err, 'backup.newer_version');
+  assert.deepEqual(plain(s._bkParse('{"kind":"otterminal-settings","version":1,"server":{"a":1}}').env.server), { a: 1 });
 });
 
 // ── TC-FES-4 SettingsController (8e) ─────────────────────────────────────

@@ -4,8 +4,8 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_activity as activity;
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_activity as activity;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -24,8 +24,8 @@ pub(crate) static ADAPTER: Adapter = Adapter {
     model_flag: "--model",
     prompt_injection: PromptInjection::Argv,
     argv_separator: "--",
-    // 멤버가 보고·질문을 할 수 있게 dmctl 만 사전 허용한다.
-    member_args: &["--allowedTools", "Bash(dmctl:*)"],
+    // 멤버가 보고·질문을 할 수 있게 otterctl 만 사전 허용한다.
+    member_args: &["--allowedTools", "Bash(otterctl:*)"],
     policy_injection: PolicyInjection {
         flags: &["--settings", "--plugin-dir"],
         session_scoped: true,
@@ -329,7 +329,7 @@ fn session_pids(session_id: &str, config_dirs: &[PathBuf]) -> Option<Vec<i64>> {
             .collect();
         names.sort();
         for name in names {
-            if dm_gocompat::filepath::ext(&name.to_string_lossy()) != ".json" {
+            if otter_gocompat::filepath::ext(&name.to_string_lossy()) != ".json" {
                 continue;
             }
             let Ok(blob) = fs::read(reg.join(&name)) else {
@@ -364,7 +364,7 @@ pub(crate) const HOOK_EVENTS: &[&str] = &[
     "PostCompact",
 ];
 
-/// 맥락 훅(`dmctl ctx-hook`)을 함께 거는 이벤트 (FR-ITM-10).
+/// 맥락 훅(`otterctl ctx-hook`)을 함께 거는 이벤트 (FR-ITM-10).
 const CTX_HOOK_EVENTS: &[&str] = &["PostToolUse", "UserPromptSubmit"];
 
 /// 활동 훅 설정의 파일명. 셸 래퍼가 이 이름으로 찾는다.

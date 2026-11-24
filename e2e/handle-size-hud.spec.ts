@@ -15,7 +15,7 @@ import { tmpPath, realPath } from './osenv';
  * 검증 V-6 ~ V-9.
  */
 
-const FIXTURES = tmpPath('dm-git-fx-hud-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-hud-' + process.pid);
 test.beforeAll(() => { gitFixture(FIXTURES) });
 test.afterAll(() => { cleanGitFixture(FIXTURES) });
 const fx = (name: string) => realPath(join(FIXTURES, name));

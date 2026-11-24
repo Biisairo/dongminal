@@ -1,5 +1,5 @@
 /**
- * Dongminal — 원격 잡 표시기의 칠하기 (REFACTOR3_FE_REST3_SRS FR-FR3-13, FU-12)
+ * Otterminal — 원격 잡 표시기의 칠하기 (REFACTOR3_FE_REST3_SRS FR-FR3-13, FU-12)
  *
  * `GitRemote`(remote.js)가 잡 칸 하나의 상태·실행·스트림·수명을 갖고, 이 클래스는 그 상태를 **화면에 옮긴다** —
  * 머리의 원격 버튼, Changes 의 잡 박스(상태 글자·argv·취소·닫기·접기·실패 사유·인증 안내·후속 선택지·출력).

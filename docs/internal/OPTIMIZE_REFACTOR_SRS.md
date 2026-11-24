@@ -265,13 +265,13 @@ e2e 요청 타임라인으로 잰다.
   - *개정 메모 (2026-09-26, Ofix3·Ofix4):* `wsentry.Roots` 가 rev 로 기억하는 것은 workspace.json 의 **파싱 결과(editors.list)뿐**이다. 정규화(`NormalizePath` — EvalSymlinks)와 메모·플러그인 자리 보장(`ensureRoot`)은 **호출마다** 한다 — 요청 경로가 요청 시점에 정규화되므로(`fsRootOf`) 루트도 같은 시점의 파일시스템을 따라야 루트 가드(FR-EDT-113)·다른 루트 삭제 가드(FR-EDT-114)가 어긋나지 않는다(`wsentry.go` `rootsMemo`).
 - **FR-OPT-8-3** fork 일괄화: BackgroundList 의 cwd 와 ActivitySnapshot 의 busy 를 한 번의 lsof·pgrep 으로 조회한다. `/api/runs/context` 는 비멤버를 빠른 경로로 처리한다. (SHR-8 · SHR-28 · HTTP-3)
 - **FR-OPT-8-4** 서버 내부 폴링 대기(100 ms·250 ms·50 ms)를 조건 변수 또는 채널 대기로 바꾼다. (HTTP-31)
-- **FR-OPT-8-5** 훅 보고 경로: dmctl 은 훅 한 번에 HTTP 한 번만 부르고, 전사본 꼬리를 스트리밍으로 읽는다. fire-and-forget 시한은 짧게 한다. list-workspace 의 이중 호출을 없앤다. (SHR-9 · SHR-10 · SHR-31)
+- **FR-OPT-8-5** 훅 보고 경로: otterctl 은 훅 한 번에 HTTP 한 번만 부르고, 전사본 꼬리를 스트리밍으로 읽는다. fire-and-forget 시한은 짧게 한다. list-workspace 의 이중 호출을 없앤다. (SHR-9 · SHR-10 · SHR-31)
 - **FR-OPT-8-6** 소항목: `/api/state` 가 blob 을 RawMessage 로 넘긴다(HTTP-8 · IPC-21). 명령 payload 전문은 Info 가 아니라 Debug 로 남긴다(HTTP-28 · IPC-32). TimerHub 재스케줄을 O(n) 으로 줄인다(IPC-31). sysstat 은 부팅 시각을 한 번만 읽는다(DOM-33). tail 은 로그 끝에서 읽는다(SHR-32). Restore 는 락 밖에서 PTY 를 띄운다(SHR-27). claude 델타를 한 번만 디코드한다(SHR-29). 패키지 전역 wait 를 없앤다(HTTP-9). UTF-8 경계에서 자른다(IPC-27).
 
 ### 3.9 O9 — Go 구조 리팩토링
 
 - **FR-OPT-9-1** agentadapter 세 프로토콜의 요청 id·대기표·턴 경계를 공통 타입으로 모은다. (SHR-13)
-- **FR-OPT-9-2** dmctl 인자 파서와 결과→종료 코드 변환을 한 벌로 모은다. 셸 준비 대기를 한 함수로 모은다. (SHR-15 · SHR-16 · SHR-18)
+- **FR-OPT-9-2** otterctl 인자 파서와 결과→종료 코드 변환을 한 벌로 모은다. 셸 준비 대기를 한 함수로 모은다. (SHR-15 · SHR-16 · SHR-18)
 - **FR-OPT-9-3** attention/activity 종단의 direct/daemon 이중 분기를 서비스 인터페이스 하나로 모은다. (HTTP-13)
 - **FR-OPT-9-4** 성공 JSON 작성기를 하나로 모은다(방언별 오류 렌더러는 유지). (HTTP-14)
 - **FR-OPT-9-5** 분할: composition root(HTTP-23), Run 표면을 하위 패키지로(HTTP-24), StartTool(SHR-26), jobs.finish(DOM-32), 커맨드 action 표를 단일 선언으로(IPC-19). 빈 훅 둘을 지운다(SHR-24).
@@ -413,7 +413,7 @@ e2e 요청 타임라인으로 잰다.
 
 ### 3.14 O14 — 문서·주석·죽은 코드
 
-- **FR-OPT-14-1** 코드와 어긋난 문서를 고친다: architecture.md 의 HTTP·core·toolhub 서술(HTTP-30 · FEC-30 · SHR-22), backup·uninstall 도움말은 homeLayout 에서 생성한다(SHR-20), `DONGMINAL_SHELL` 플랫폼 표기(SHR-21).
+- **FR-OPT-14-1** 코드와 어긋난 문서를 고친다: architecture.md 의 HTTP·core·toolhub 서술(HTTP-30 · FEC-30 · SHR-22), backup·uninstall 도움말은 homeLayout 에서 생성한다(SHR-20), `OTTERMINAL_SHELL` 플랫폼 표기(SHR-21).
 - **FR-OPT-14-2** 엉뚱한 자리에 붙은 주석과 낡은 주석을 바로잡는다. 죽은 코드를 지운다. (SHR-23 · SHR-34 · HTTP-19 · HTTP-20 · IPC-28 · DOM-29)
 - **FR-OPT-14-3** 인라인 영문 툴팁을 상수 표로 옮긴다(FR-TIP-4). 쓰이지 않는 i18n 키를 잡는 게이트를 세우고 탐침으로 확인한다. (FEC-29 · FEU-31)
 
@@ -434,7 +434,7 @@ e2e 요청 타임라인으로 잰다.
   `BodyMaxBytes(n) = 6n + 64 KiB` (FR-OPT-16-4 에서 2n 을 개정). 파생: `httpapi.fileReadMaxBytes`(read·raw·probe·write, 그림
   전용 git 실행기) · `lsp.MaxTextBytes`(요청 텍스트와 재동기화 — DOM-30 의 8/10 MiB 두 벌을
   하나로) · LSP 요청 본문 `lspAskMaxBody` · LSP 프레임 상한 `maxFrame` · `query.DiffMaxBytes`
-  (diff 본문 · HEAD 판 열기 · 커밋 템플릿 읽기) · `dongminal verify` 의 상한 초과 검사. 브라우저는
+  (diff 본문 · HEAD 판 열기 · 커밋 템플릿 읽기) · `otterminal verify` 의 상한 초과 검사. 브라우저는
   값을 들지 않는다 — `probe.maxBytes` 를 쓴다 (FR-FAB-9).
 - **저장 본문 = 파일 상한 × 6 + 64 KiB** (FR-OPT-16-4 개정). JSON 문자열에서 개행·따옴표·
   역슬래시·탭은 두 바이트, 그 밖의 제어 문자는 `\u00XX` 여섯 바이트다.

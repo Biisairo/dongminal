@@ -3,7 +3,7 @@
 
 use std::sync::LazyLock;
 
-use dm_webserver_httproute::{Route, get, post};
+use otter_webserver_httproute::{Route, get, post};
 
 use crate::GitServer;
 use crate::reply::git_unavailable;
@@ -13,13 +13,13 @@ use crate::req::{BoxFut, Handler, Req};
 /// (REFACTOR3_DEDUP_GO_SRS FR-RDG-8).
 macro_rules! h {
     ($m:ident) => {{
-        fn f<'a>(s: &'a GitServer, r: &'a mut Req) -> BoxFut<'a, dm_shared_httpresp::Response> {
+        fn f<'a>(s: &'a GitServer, r: &'a mut Req) -> BoxFut<'a, otter_shared_httpresp::Response> {
             Box::pin(s.$m(r))
         }
         f as Handler
     }};
     (need_git $m:ident) => {{
-        fn f<'a>(s: &'a GitServer, r: &'a mut Req) -> BoxFut<'a, dm_shared_httpresp::Response> {
+        fn f<'a>(s: &'a GitServer, r: &'a mut Req) -> BoxFut<'a, otter_shared_httpresp::Response> {
             Box::pin(async move {
                 if s.git.is_none() {
                     return git_unavailable();

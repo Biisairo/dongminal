@@ -250,11 +250,11 @@
 | `agentsPanelOpen` | 없음 | `app-agents.js:56` |
 | `agentsGroupFold` | 없음 | `app-agents.js:199,208` |
 | `agentsPollMs` | 없음 | `app-polling.js:162,164` (이관 대상) |
-| `dm.sbx.recent` | 없음 | `app-tool.js:199,208` |
+| `otter.sbx.recent` | 없음 | `app-tool.js:199,208` |
 | `attnDesktop` · `attnSound` | 없음 | `app.js:328,329,348,353` |
 | `displayMode` · `mobileBreakpoint` · `focusedPanes` | 없음 | `app.js:71,79,86,254` |
-| `dm.themeVars` · `dm.themeFollow` | `THEME_VARS_KEY`·`THEME_FOLLOW_KEY` | `index.html:49` 리터럴 (M9) |
-| `dm.locale` | `I18N_STORAGE_KEY` | `index.html:53` 리터럴 (M9) |
+| `otter.themeVars` · `otter.themeFollow` | `THEME_VARS_KEY`·`THEME_FOLLOW_KEY` | `index.html:49` 리터럴 (M9) |
+| `otter.locale` | `I18N_STORAGE_KEY` | `index.html:53` 리터럴 (M9) |
 | `sidebarCollapsed` | `SIDEBAR_COLLAPSED_KEY` | `index.html:38` 리터럴 (M9) |
 
 - **현상**: 같은 종류의 값인데 절반은 상수, 절반은 리터럴이다. `lspDiagnostics` 는 **같은 키가 한 파일에서는 리터럴이고 다른 파일에서는 상수**다 — `constants-editor.js` 가 `helpers.js` 보다 먼저 로드되므로(`index.html:664` vs `:685`) `helpers.js:628` 이 `LSP_DIAG_KEY` 를 못 써서가 **아니다**.
@@ -309,7 +309,7 @@
 
 - **현상**: git view 가 적게 하는 것은 **정당하다** — `findGitViewTab(s, view)` 가 그 창 안에서만 찾으므로(FR-RTU-31: *"저장소마다 자기 History 가 있어야 한다"*) 창을 옮길 일이 없다. run/editor 는 `_findRunTab`·`_findEditorTab` 이 전 창을 뒤지므로 창 전환이 필요하다.
 - **정당하지 않은 차이 둘**:
-  1. **반환값.** run/editor 는 기존 탭을 찾았을 때 `undefined` 를 주고 git view 는 `{uuid}` 를 준다. `_execRemote` 의 `newTab`(`app-cmd.js:558`)이 `.then((tab)=>{ if(args.reqId&&tab) this._echoResult(…) })` 로 받으므로, **이미 열려 있는 탭으로 옮겨 간 경우 echo 가 나가지 않는다** — `dmctl` 쪽에서는 `timedOut` 으로 읽힌다(`M8 D-A-25`). 셋 다 `{uuid}` 를 주는 쪽이 맞다.
+  1. **반환값.** run/editor 는 기존 탭을 찾았을 때 `undefined` 를 주고 git view 는 `{uuid}` 를 준다. `_execRemote` 의 `newTab`(`app-cmd.js:558`)이 `.then((tab)=>{ if(args.reqId&&tab) this._echoResult(…) })` 로 받으므로, **이미 열려 있는 탭으로 옮겨 간 경우 echo 가 나가지 않는다** — `otterctl` 쪽에서는 `timedOut` 으로 읽힌다(`M8 D-A-25`). 셋 다 `{uuid}` 를 주는 쪽이 맞다.
   2. **`_slotOnSwitch` 누락 셋 다.** H4 참조. run/editor 는 창을 바꾸므로 반드시 필요하다.
 - **제안**: `_focusExistingTab(win, pane, tab, opts)` 를 하나 세운다. `activateWindow`(H4)를 부르고, `paneTabSet`·`setFocusState`·`render`·`save` 를 하고, `{uuid:tab.id}` 를 돌려준다. git view 는 `{sameWindow:true}` 로 창 전환을 건너뛴다. M3 의 `addTab` 분할과 같은 커밋으로 처리한다.
 - **위험도**: LOW
@@ -317,7 +317,7 @@
 
 ### [MED] M9 — `index.html` 선주입 스크립트가 상수 6개를 손으로 동기화한다
 
-- **위치**: `index.html:38`(`sidebarWidth`·`100`·`400`·`sidebarCollapsed`·`sb-collapsed`) · `:49`(`dm.themeVars`·`dm.themeFollow`) · `:53`(`dm.locale`·`'en'`/`'ko'`)
+- **위치**: `index.html:38`(`sidebarWidth`·`100`·`400`·`sidebarCollapsed`·`sb-collapsed`) · `:49`(`otter.themeVars`·`otter.themeFollow`) · `:53`(`otter.locale`·`'en'`/`'ko'`)
 - **현상**: 첫 페인트 전에 돌아야 하므로 `constants.js` 를 볼 수 없다. 주석 셋이 전부 그 사실과 *"고칠 때 `web/js/core/constants.js` 의 그 둘을 함께 고친다"* 를 적는다.
 - **비용**: 집행자가 **사람의 눈**이다. 이 저장소의 나머지는 정확히 그 이유로 게이트를 세웠다 — `check-load-order`·`check-shortcuts-docs`·`check-css-vars`·`check-i18n`·`check-env-docs` 가 전부 "두 곳이 같은가" 를 잰다. `SPLIT_REFACTOR_SRS` 의 *"손으로 적은 목록은 새 항목을 놓친다"* 가 여기에만 적용되지 않았다. 어긋나면 증상은 "새로고침할 때 사이드바가 한 번 펄럭인다"·"첫 페인트가 기본 테마다" 로, e2e 가 잡기 어려운 것들이다.
 - **제안**: `scripts/check-boot-inline.mjs` — `index.html` 의 `<head>` 인라인 `<script>` 에서 문자열·숫자 리터럴을 뽑아 `constants.js`/`i18n.js` 의 `THEME_VARS_KEY`·`THEME_FOLLOW_KEY`·`SIDEBAR_COLLAPSED_KEY`·`SIDEBAR_W_MIN_PX`·`SIDEBAR_W_MAX_PX`·`I18N_STORAGE_KEY`·`I18N_LOCALES` 와 대조한다. `sidebarWidth` 는 상수가 없으므로 M5 에서 먼저 세운다. 검출 확인용 탐침을 넣었다 지우는 `FR-FMB-43` 의 규약을 따른다.
@@ -349,7 +349,7 @@
 
 - **위치**: `main.js:35-95` (`#add-window` 클릭 핸들러 61줄)
 - **현상**: 파일 머리가 `bootstrap entry point` 인데, 샌드박스 런타임 확인 → 프로파일 조회 → `_pickSandbox` → 진행 토스트 → `addWindow` 까지 전 흐름을 들고 있다. `App.prototype` 의 다른 `_init*` 들과 달리 이 배선만 모듈 최상위에 있다.
-- **비용**: `app-tool.js` 가 `_sbxRuntime`·`_sbxRuntimeModal`·`_pickSandbox`·`_sbxProgress`·`_sbxRemember` 다섯을 갖고 있는데 그것을 **엮는 순서**만 다른 파일에 있다. 샌드박스 창 생성 흐름을 읽으려면 두 파일을 열어야 하고, 같은 흐름을 다른 진입점(예: 명령 팔레트·`dmctl`)에서 부르려면 복사해야 한다.
+- **비용**: `app-tool.js` 가 `_sbxRuntime`·`_sbxRuntimeModal`·`_pickSandbox`·`_sbxProgress`·`_sbxRemember` 다섯을 갖고 있는데 그것을 **엮는 순서**만 다른 파일에 있다. 샌드박스 창 생성 흐름을 읽으려면 두 파일을 열어야 하고, 같은 흐름을 다른 진입점(예: 명령 팔레트·`otterctl`)에서 부르려면 복사해야 한다.
 - **제안**: `App.prototype._sbxAddWindow()` 로 옮기고 `main.js` 는 `document.getElementById('add-window').addEventListener('click', e=>app._sbxAddWindow(e))` 한 줄로 남긴다. `executeAction.newWindow`(`app.js:377`)와 같은 규약(*"버튼과 단축키가 같은 함수를 부른다"* — `FR-WSL-51·74`·`FR-PSC-3` 이 반복해 적은 것)이 된다.
 - **위험도**: LOW · **공수**: S
 

@@ -1,5 +1,5 @@
 /**
- * Dongminal — e2e 가 보는 **공개 계약** (APP_TESTING_CONTRACT_SRS FR-ATC-1~7).
+ * Otterminal — e2e 가 보는 **공개 계약** (APP_TESTING_CONTRACT_SRS FR-ATC-1~7).
  *
  * ## 왜 있는가
  *

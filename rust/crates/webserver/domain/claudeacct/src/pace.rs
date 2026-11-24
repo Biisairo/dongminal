@@ -1,6 +1,6 @@
 //! 주간 창의 사용 속도 예측 (FR-CAC-57, cswap `pace.py`).
 
-use dm_gocompat::json::is_empty;
+use otter_gocompat::json::is_empty;
 use serde::{Deserialize, Serialize};
 
 pub(crate) const WEEK_SECONDS: i64 = 7 * 86400;

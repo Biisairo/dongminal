@@ -6,14 +6,14 @@ use std::io::Read;
 use std::path::Path;
 
 use bytes::Bytes;
-use dm_gocompat::{filepath, json};
-use dm_shared_dmlog::{errorf, infof};
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_shared_textenc::{self as textenc, Decoded, Encoded, Unmappable};
-use dm_webserver_action::{self as action, Answer};
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_lsp::{FileEvent, WATCH_CHANGED, WATCH_CREATED};
 use http::{HeaderValue, StatusCode, header};
+use otter_gocompat::{filepath, json};
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::{errorf, infof};
+use otter_shared_textenc::{self as textenc, Decoded, Encoded, Unmappable};
+use otter_webserver_action::{self as action, Answer};
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_lsp::{FileEvent, WATCH_CHANGED, WATCH_CREATED};
 use serde::{Deserialize, Serialize};
 
 use crate::Server;
@@ -175,7 +175,7 @@ impl Server {
 
     async fn parse_file_write(&self, r: &Req) -> Result<(FileWriteReq, String), Response> {
         // FR-OPT-15-2: 파일 상한을 JSON 문자열로 실은 최악의 크기다.
-        let limit = dm_shared_editorlimit::body_max_bytes(self.limits.file_read_max);
+        let limit = otter_shared_editorlimit::body_max_bytes(self.limits.file_read_max);
         let body = r.read_body(limit).await.map_err(|e| read_body_err(&e))?;
         let req: FileWriteReq = json::unmarshal(&body).map_err(|e| invalid_json(r, e))?;
         let target = self.file_guard(&req.path)?;
@@ -201,7 +201,7 @@ fn file_read(fp: &str, max: i64, decode: bool, want: &str) -> Response {
             errorf!(
                 None,
                 "file stat error: {}",
-                dm_gocompat::oserr::go_error_string(&e)
+                otter_gocompat::oserr::go_error_string(&e)
             );
             return http_err(
                 "stat failed",
@@ -223,7 +223,7 @@ fn file_read(fp: &str, max: i64, decode: bool, want: &str) -> Response {
             errorf!(
                 None,
                 "file read error: {}",
-                dm_gocompat::oserr::go_error_string(&e)
+                otter_gocompat::oserr::go_error_string(&e)
             );
             return http_err(
                 "read failed",
@@ -238,7 +238,7 @@ fn file_read(fp: &str, max: i64, decode: bool, want: &str) -> Response {
         infof!(
             None,
             "file read: copy {fp}: {}",
-            dm_gocompat::oserr::go_error_string(&e)
+            otter_gocompat::oserr::go_error_string(&e)
         );
     }
     let mut res = text_response(raw);
@@ -332,11 +332,11 @@ fn commit_file_write(req: &FileWriteReq, target: &str, max: i64) -> (Response, O
     }
     let existed = std::fs::metadata(target).is_ok();
     // 원자적으로 쓴다 (FR-CAF-11). 잘리는 것은 사용자가 쓰던 원본이다.
-    if let Err(e) = dm_shared_platform::write_file_atomic(Path::new(target), &data, perm) {
+    if let Err(e) = otter_shared_platform::write_file_atomic(Path::new(target), &data, perm) {
         errorf!(
             None,
             "file write error: {}",
-            dm_gocompat::oserr::go_error_string(&e)
+            otter_gocompat::oserr::go_error_string(&e)
         );
         return (
             http_err(

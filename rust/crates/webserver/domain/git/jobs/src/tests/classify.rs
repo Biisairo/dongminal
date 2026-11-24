@@ -1,6 +1,6 @@
 //! Go `classify_test.go`.
 
-use dm_webserver_domain_git_core::{self as core, Kind};
+use otter_webserver_domain_git_core::{self as core, Kind};
 
 use crate::{
     ERROR_SERVER_SHUTDOWN, ERROR_TIMEOUT, Job, REMOTE_REJECT_OPTIONS, classify_outcome,

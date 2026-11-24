@@ -210,10 +210,10 @@ fn build_views_basic() {
     );
     // 관측 바이트: Account 임베드 뒤에 active·usage, 빈 pace 는 {}.
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal(&vs[1]).unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal(&vs[1]).unwrap()).unwrap(),
         r#"{"id":"b","email":"b@x.com","accountUuid":"","organizationUuid":"","organizationName":"","addedAt":"0001-01-01T00:00:00Z","color":"","disabled":false,"priority":0,"active":true,"usage":{"pace":{}}}"#
     );
-    let s = String::from_utf8(dm_gocompat::json::marshal(&vs[0].usage).unwrap()).unwrap();
+    let s = String::from_utf8(otter_gocompat::json::marshal(&vs[0].usage).unwrap()).unwrap();
     assert!(s.starts_with(r#"{"status":"ok","windows":{"fiveHour":{"pct":10,"resetsAt":1003600,"resetsInSec":3600,"level":""},"sevenDay":{"pct":60,"resetsAt":1345600,"resetsInSec":345600,"level":""},"scoped":[{"name":"Opus","pct":30,"resetsAt":1345600,"resetsInSec":345600,"level":""}]},"pace":{"sevenDay":{"#), "{s}");
     assert!(s.ends_with(r#""fetchedAt":999600,"ageSeconds":400,"stale":true,"nextPollAt":1000010,"loginExpiresAt":1259200,"loginExpiringSoon":true}"#), "{s}");
 }
@@ -366,7 +366,7 @@ fn apply_status_line_cases() {
     let slv = v.status_line.clone().unwrap();
     assert!(slv.windows.five_hour.as_ref().unwrap().pct == 35.0 && slv.stale);
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal(&slv).unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal(&slv).unwrap()).unwrap(),
         r#"{"windows":{"fiveHour":{"pct":35,"resetsAt":1003600,"resetsInSec":3600,"level":""},"sevenDay":{"pct":50,"resetsAt":1345600,"resetsInSec":345600,"level":""}},"observedAt":999100,"ageSeconds":900,"stale":true}"#
     );
     let mut v = build(Some(&oauth));

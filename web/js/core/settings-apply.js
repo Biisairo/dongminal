@@ -1,5 +1,5 @@
 /**
- * Dongminal — 설정 값의 길과 개별 설정의 **즉시 반영** (FE_MODULE_BOUNDARY_SRS FR-FMB-10).
+ * Otterminal — 설정 값의 길과 개별 설정의 **즉시 반영** (FE_MODULE_BOUNDARY_SRS FR-FMB-10).
  *
  * `SettingsApply` 는 `SettingsController` 의 부품이다(`settings.apply`, REFACTOR3_FE_APPCTL_SRS 9a). 표
  * `SETTINGS_ACCESS`(`settings-table.js`)를 도는 셋 — 저장(PUT) · 적용 · 복원 — 과, 설정 하나하나가 화면에 붙는
@@ -147,10 +147,12 @@ class SettingsApply extends Controller {
    *
    * 주의 배지(FR-PAN-13b)가 제목 전체를 다시 쓰므로, 설정값을 다른 곳에서
    * 넣으면 다음 `_attnRefresh` 에 지워진다. 합성은 여기 하나뿐이어야 한다.
+   * 주의 상태 파비콘도 같은 때에 바뀌므로 여기서 함께 고른다 (OTTERMINAL_RENAME_SRS FR-FAV-2).
    */
   _applyPageTitle(){
     const n=this.app._attn?this.app._attn.size:0;
     document.title=(n?'('+n+') ':'')+effectiveTitle();
+    applyAttnFavicon(document, attnFaviconHref(this.app._attn, attnFavicon));
   }
 
   _saveSettingsSoon(key){ return this._settingsSync()._saveSettingsSoon(key) }

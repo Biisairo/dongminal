@@ -22,7 +22,7 @@ const git = (d: string, ...a: string[]) => execFileSync('git', ['-C', d, ...a], 
 const LONG_LINES = 300;
 
 test.beforeAll(() => {
-  const d = realPath(fs.mkdtempSync(j(TMP, 'dm-rtr-')));
+  const d = realPath(fs.mkdtempSync(j(TMP, 'otter-rtr-')));
   git(d, 'init', '-q', '-b', 'main', '.');
   git(d, 'config', 'user.name', 'Fixture');
   git(d, 'config', 'user.email', 'fixture@example.invalid');

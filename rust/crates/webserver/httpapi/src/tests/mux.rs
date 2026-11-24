@@ -103,7 +103,7 @@ async fn request_id_generated_honored_and_sanitized() {
     let r = get(&srv, "/api/ping").await;
     let id = r.header("X-Request-Id");
     assert!(!id.is_empty());
-    assert_eq!(dm_shared_dmlog::sanitize_req_id(&id), id);
+    assert_eq!(otter_shared_otterlog::sanitize_req_id(&id), id);
     let r = call(
         &srv,
         "GET",

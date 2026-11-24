@@ -40,18 +40,18 @@ async function neutralShell(page: Page, cmds: string[] = []) {
 
 test('01 — 터미널과 분할', async ({ page }) => {
   await boot(page);
-  await neutralShell(page, ['cd /tmp/dm-demo/notes-app && ls']);
+  await neutralShell(page, ['cd /tmp/otter-demo/notes-app && ls']);
   // 분할 단추는 탭 줄 끝의 아이콘이다 — 자리가 바뀌어도 깨지지 않게 명령으로 나눈다.
   await page.evaluate(() => (window as any).app.testing.execRemote('splitV', {}));
   await page.waitForTimeout(900);
-  await neutralShell(page, ['cd /tmp/dm-demo/notes-app && git log --oneline --graph --all']);
+  await neutralShell(page, ['cd /tmp/otter-demo/notes-app && git log --oneline --graph --all']);
   await page.screenshot({ path: `${OUT}/terminal.png` });
 });
 
 test('02 — Git 창', async ({ page }) => {
   // 리포 고정은 API 로 한다 — 화면 조작으로 하면 다이얼로그 모양이 바뀔 때마다
   // 촬영이 깨진다. 여기서 재려는 것은 고정된 뒤의 **화면**이다.
-  await page.request.post(`${BASE}/api/git/repos/pin`, { data: { path: '/tmp/dm-demo/notes-app' } });
+  await page.request.post(`${BASE}/api/git/repos/pin`, { data: { path: '/tmp/otter-demo/notes-app' } });
   await boot(page);
   // 목록 패널의 `저장소` 탭을 보이고, 저장소 창을 열어 `기록` 을 본문에 띄운다.
   // 목록 패널의 `저장소` 탭에서 notes-app 행을 눌러 그 저장소 창을 연다.

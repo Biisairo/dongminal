@@ -66,7 +66,7 @@ fn runtime_for(goos: &str) -> Option<RuntimeOs> {
 }
 
 fn tail(r: &RunOutput) -> String {
-    dm_shared_diagtail::of_str(&r.out, r.err.as_deref(), DETAIL_MAX)
+    otter_shared_diagtail::of_str(&r.out, r.err.as_deref(), DETAIL_MAX)
 }
 
 /// 런타임 상태를 잰다: 바이너리가 없으면 missing, `docker info` 가 실패하면 stopped.

@@ -4,15 +4,15 @@
 use std::collections::BTreeMap;
 use std::io::Write;
 
-use dm_gocompat::filepath;
-use dm_shared_dmlog::infof;
-use dm_shared_httpreq::{ReadError, mark_response};
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_action::{self as action, Answer};
-use dm_webserver_apierr as apierr;
 use futures_util::TryStreamExt;
 use http::{HeaderValue, StatusCode, header};
 use http_body_util::{BodyExt, StreamBody};
+use otter_gocompat::filepath;
+use otter_shared_httpreq::{ReadError, mark_response};
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::infof;
+use otter_webserver_action::{self as action, Answer};
+use otter_webserver_apierr as apierr;
 use serde::Serialize;
 
 use crate::Server;
@@ -336,7 +336,7 @@ pub(crate) async fn serve_download(fp: &str, fail: Fail) -> Response {
             infof!(
                 None,
                 "download {log_name}: {}",
-                dm_gocompat::oserr::go_error_string(&e)
+                otter_gocompat::oserr::go_error_string(&e)
             );
             Box::new(e) as httpresp::BoxError
         });

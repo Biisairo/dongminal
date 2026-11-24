@@ -7,7 +7,7 @@ import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture } from 
 import { cssPath, realPath, tmpPath } from './osenv';
 
 const MOBILE = { width: 412, height: 839 };
-const FIXTURES = tmpPath('dm-git-fx-uxf6-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-uxf6-' + process.pid);
 
 test.beforeAll(() => { gitFixture(FIXTURES) });
 test.afterAll(() => { cleanGitFixture(FIXTURES) });

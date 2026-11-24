@@ -3,10 +3,10 @@
 
 use std::collections::HashSet;
 
-use dm_gocompat::json;
-use dm_shared_dmlog::{errorf, infof};
-use dm_shared_workspace::apply_run_marks;
-use dm_webserver_domain_run::{self as run, Record};
+use otter_gocompat::json;
+use otter_shared_otterlog::{errorf, infof};
+use otter_shared_workspace::apply_run_marks;
+use otter_webserver_domain_run::{self as run, Record};
 use serde_json::{Map, Value};
 
 use crate::Server;
@@ -88,7 +88,7 @@ impl Server {
             match work.save(&out, &rev.to_string()) {
                 Ok(new_rev) => {
                     if let Some(c) = self.commands() {
-                        c.broadcast(&dm_webserver_sse::workspace_changed(new_rev));
+                        c.broadcast(&otter_webserver_sse::workspace_changed(new_rev));
                     }
                     return;
                 }

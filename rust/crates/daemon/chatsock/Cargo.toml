@@ -1,5 +1,5 @@
 [package]
-name = "dm-daemon-chatsock"
+name = "otter-daemon-chatsock"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,19 +10,19 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-daemon-chat = { path = "../chat" }
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-chatwire = { path = "../../shared/chatwire" }
-dm-shared-dmlog = { path = "../../shared/dmlog" }
-dm-shared-humancmd = { path = "../../shared/humancmd" }
-dm-shared-platform = { path = "../../shared/platform" }
-dm-shared-termtext = { path = "../../shared/termtext" }
+otter-daemon-chat = { path = "../chat" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-chatwire = { path = "../../shared/chatwire" }
+otter-shared-otterlog = { path = "../../shared/otterlog" }
+otter-shared-humancmd = { path = "../../shared/humancmd" }
+otter-shared-platform = { path = "../../shared/platform" }
+otter-shared-termtext = { path = "../../shared/termtext" }
 serde = { workspace = true }
 time = { workspace = true }
 
 [dev-dependencies]
-dm-shared-edge = { path = "../../shared/edge" }
-dm-shared-edgemesh = { path = "../../shared/edgemesh" }
+otter-shared-edge = { path = "../../shared/edge" }
+otter-shared-edgemesh = { path = "../../shared/edgemesh" }
 ed25519-dalek = { workspace = true }
 rand = { workspace = true }
 tempfile = { workspace = true }

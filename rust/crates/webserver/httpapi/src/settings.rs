@@ -8,11 +8,11 @@ use std::io;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use dm_shared_dmlog::infof;
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_run::ContextPolicy;
 use http::{HeaderValue, StatusCode, header};
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::infof;
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_run::ContextPolicy;
 use serde::Deserialize;
 
 use crate::agent_render_env::agent_render_env;
@@ -107,12 +107,12 @@ impl SettingsStore for FileSettings {
         if data.is_empty() {
             return Ok(());
         }
-        dm_shared_platform::write_state_file(&self.path, &data, SETTINGS_FILE_PERM).inspect_err(
+        otter_shared_platform::write_state_file(&self.path, &data, SETTINGS_FILE_PERM).inspect_err(
             |e| {
                 infof!(
                     None,
                     "saveSettings: {}",
-                    dm_gocompat::oserr::go_error_string(e)
+                    otter_gocompat::oserr::go_error_string(e)
                 )
             },
         )
@@ -143,7 +143,7 @@ pub(crate) fn parse_fg_tab_names(blob: &[u8]) -> bool {
         #[serde(rename = "fgTabNames")]
         fg_tab_names: Option<bool>,
     }
-    dm_gocompat::json::unmarshal::<Cfg>(blob)
+    otter_gocompat::json::unmarshal::<Cfg>(blob)
         .ok()
         .and_then(|c| c.fg_tab_names)
         .unwrap_or(true)
@@ -168,7 +168,7 @@ pub(crate) fn parse_context_policy(blob: &[u8]) -> ContextPolicy {
     struct Cfg {
         orchestration: Orch,
     }
-    match dm_gocompat::json::unmarshal::<Cfg>(blob) {
+    match otter_gocompat::json::unmarshal::<Cfg>(blob) {
         Ok(c) => ContextPolicy {
             bytes_per_token: c.orchestration.bpt,
             limit_tokens: c.orchestration.limit,
@@ -186,7 +186,7 @@ pub(crate) fn settings_changed_payload(origin: &str) -> Vec<u8> {
     if !origin.is_empty() {
         args.insert("origin", origin);
     }
-    dm_webserver_sse::payload("settings_changed", Some(&args))
+    otter_webserver_sse::payload("settings_changed", Some(&args))
 }
 
 impl Server {
@@ -218,14 +218,14 @@ impl Server {
             Ok(b) => b.to_vec(),
             Err(e) => return read_body_err(&e),
         };
-        if !dm_gocompat::json::valid(&body) {
+        if !otter_gocompat::json::valid(&body) {
             return http_err(
                 "settings must be JSON",
                 StatusCode::BAD_REQUEST,
                 apierr::CODE_INVALID_JSON,
             );
         }
-        if let Some(p) = dm_shared_settingsschema::check_theme_blob(&body) {
+        if let Some(p) = otter_shared_settingsschema::check_theme_blob(&body) {
             return http_err(
                 &format!("{}: {}", p.key, p.reason),
                 StatusCode::BAD_REQUEST,

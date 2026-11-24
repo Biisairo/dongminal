@@ -46,7 +46,7 @@ const BODY = [...LINES, ...PAD, 'omega needle last', ''].join('\n');
 const NEEDLE_LINE_LAST = LINES.length + PAD.length + 1; // 105
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-efp-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-efp-')));
   ROOT = j(BASE, 'root');
   fs.mkdirSync(ROOT, { recursive: true });
   fs.writeFileSync(j(ROOT, 'find.txt'), BODY);

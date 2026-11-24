@@ -9,9 +9,9 @@ use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 
-use dm_gocompat::filepath;
 use notify::event::{EventKind, ModifyKind, RenameMode};
 use notify::{RecursiveMode, Watcher};
+use otter_gocompat::filepath;
 
 use crate::os::KQUEUE_ENTRIES_MAX;
 use crate::pipeline::{OP_CHMOD, OP_CREATE, OP_REMOVE, OP_RENAME, OP_WRITE, Op, RawEvent};
@@ -78,7 +78,7 @@ fn err_text(e: &notify::Error) -> BackendError {
         return BackendError::Exhausted("too many open files".into());
     }
     if let notify::ErrorKind::Io(io) = &e.kind {
-        let text = dm_gocompat::oserr::go_error_string(io);
+        let text = otter_gocompat::oserr::go_error_string(io);
         #[cfg(unix)]
         if matches!(io.raw_os_error(), Some(libc::EMFILE) | Some(libc::ENOSPC)) {
             return BackendError::Exhausted(text);

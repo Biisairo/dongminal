@@ -1,10 +1,10 @@
-//! Go 기준선 `dongminal/internal/webserver/action` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/webserver/action` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 화면의 동작 하나가 지금 가능한가(`Answer`)와, 그 동작이 줄 수 있는 거절 사유의 목록(`CATALOG`)이다.
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use dm_webserver_apierr as apierr;
+use otter_webserver_apierr as apierr;
 use regex::Regex;
 use serde::Serialize;
 
@@ -15,7 +15,7 @@ pub struct Answer {
     pub ok: bool,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub why: String,
-    #[serde(skip_serializing_if = "dm_gocompat::json::is_empty")]
+    #[serde(skip_serializing_if = "otter_gocompat::json::is_empty")]
     pub args: Option<BTreeMap<String, serde_json::Value>>,
     #[serde(skip)]
     pub status: u16,

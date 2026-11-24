@@ -1,5 +1,5 @@
 [package]
-name = "dm-webserver-toolclient"
+name = "otter-webserver-toolclient"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,12 +10,12 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-chatwire = { path = "../../shared/chatwire" }
-dm-shared-dmlog = { path = "../../shared/dmlog" }
-dm-shared-platform = { path = "../../shared/platform" }
-dm-shared-toolhub = { path = "../../shared/toolhub" }
-dm-shared-toolipc = { path = "../../shared/toolipc" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-chatwire = { path = "../../shared/chatwire" }
+otter-shared-otterlog = { path = "../../shared/otterlog" }
+otter-shared-platform = { path = "../../shared/platform" }
+otter-shared-toolhub = { path = "../../shared/toolhub" }
+otter-shared-toolipc = { path = "../../shared/toolipc" }
 serde = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }

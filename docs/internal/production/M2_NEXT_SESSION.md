@@ -54,10 +54,10 @@ M2 를 이어서 진행한다. **P0 5건·P1 11건이 끝났고, 사용자 보�
   · **알람** — 9차에 구조를 고쳤다(§2.28). omp 가 턴을 끝내면 이제 울려야 한다.
     **다만 승인 대기 알람은 없다** — omp 훅에 그 이벤트가 없다
     (`Signals.Waiting=false`). 그것까지 기대하고 "안 된다" 로 읽지 마라
-  · `V-OMP-21` 그 세션에 dongminal 스킬(`team`·`workflow`)이 얹히는가 —
+  · `V-OMP-21` 그 세션에 otterminal 스킬(`team`·`workflow`)이 얹히는가 —
     코드 독해까지만 확인됐다. 아니면 `FR-OMP-31`(래퍼에서 `--plugin-dir` 만 빼기)
   · `V-OMP-21a` 그 세션 뒤 `~/.omp` 에 **새 파일이 없는가** (`NFR-OMP-1`)
-  · `V-OMP-22` `dmctl run` 으로 띄운 omp 멤버의 첫 `dmctl` 이 승인 없이 지나는가
+  · `V-OMP-22` `otterctl run` 으로 띄운 omp 멤버의 첫 `otterctl` 이 승인 없이 지나는가
   · `U-1` 의 나머지 — 커맨드클릭은 닫혔다(§2.18). 그런데도 *"정의를 찾지
     못했습니다"* 가 뜨면 그것은 **언어 서버 기동**이며 stub 밖의 자리다
 
@@ -120,7 +120,7 @@ ubuntu `editor-ops` S3 · windows `editor-ops` O1 · `git-console` K2 ·
     (`reqgate.go:269` — `return next`)
   · **파일 API 의 홈 루트** → **M4** (§2.21). 같은 뿌리다
   · **codex 를 통합 경로로 옮기는 것** → 미정 (`AGENT_EVENT_ABSTRACTION_SRS` D-3).
-    codex 훅은 페이로드를 **argv** 로 주는데 `dmctl activity` 는 stdin 을 읽는다
+    codex 훅은 페이로드를 **argv** 로 주는데 `otterctl activity` 는 stdin 을 읽는다
 
 ## D. 마무리 절차
 
@@ -155,7 +155,7 @@ ubuntu `editor-ops` S3 · windows `editor-ops` O1 · `git-console` K2 ·
   (`kern.tty.ptmx_max` 기본 511) 실패 목록이 오염된다. **샤드끼리는 안전하다** —
   `make e2e` 가 포트·산출물·청소 범위를 갈라 둔다 (`FR-EPL-14`).
 - **이 저장소의 바이너리에 start/stop 을 부르지 마라.** 도구 셸의
-  `DONGMINAL_PORT` 가 사용자의 실제 인스턴스를 가리킨다.
+  `OTTERMINAL_PORT` 가 사용자의 실제 인스턴스를 가리킨다.
 - **RED 를 먼저 본다.** 이미 구현했다면 `git stash` 로 코드만 되돌려 확인한다.
 - 중·대 규모는 **스펙 → 테스트(RED) → 구현(GREEN)**.
 - **동작을 바꾸면 그 근거 문서를 같은 변경에서 고쳐라.**

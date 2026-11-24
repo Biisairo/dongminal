@@ -1,5 +1,5 @@
 /**
- * Dongminal — Git Branches 탭 (GIT_SRS §3D.1 / FR-GIT-147~160)
+ * Otterminal — Git Branches 탭 (GIT_SRS §3D.1 / FR-GIT-147~160)
  *
  * 목록은 **14단계의 `/api/git/refs` 를 그대로 쓴다** (FR-GIT-147) — 이름·대상·
  * upstream·ahead/behind 를 이미 주므로 새 조회를 만들지 않는다.

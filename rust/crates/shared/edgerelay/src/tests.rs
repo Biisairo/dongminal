@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use dm_shared_edge::{
+use otter_shared_edge::{
     CallError, Client, Config, Handler, Identity, Listener, Target, edges_only,
     load_or_create_identity,
 };
@@ -18,7 +18,7 @@ const PORT_MAX: u16 = 64999;
 /// 유닉스 소켓 경로 상한(104바이트)을 넘지 않는 짧은 임시 폴더다.
 fn short_dir() -> TempDir {
     tempfile::Builder::new()
-        .prefix("dmr")
+        .prefix("otterr")
         .tempdir_in("/tmp")
         .unwrap()
 }
@@ -290,8 +290,8 @@ fn start_relay_node(admit: impl Fn(&str) -> bool + Send + Sync + 'static) -> Rel
     let relay = Port::new(&node_sock);
     relay.apply(true, "127.0.0.1", i64::from(port));
     let h: Handler = Arc::new(|req| {
-        let fp = dm_shared_edge::client_fingerprint(&req).to_string();
-        Box::pin(async move { dm_shared_httpresp::json(http::StatusCode::OK, &[("fp", fp)]) })
+        let fp = otter_shared_edge::client_fingerprint(&req).to_string();
+        Box::pin(async move { otter_shared_httpresp::json(http::StatusCode::OK, &[("fp", fp)]) })
     });
     let ln = Listener::new(&id, edges_only(admit), h).unwrap();
     let ns = node_sock.clone();

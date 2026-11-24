@@ -1,5 +1,5 @@
 [package]
-name = "dm-webserver-domain-git-jobs"
+name = "otter-webserver-domain-git-jobs"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,18 +10,18 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-shared-dmlog = { path = "../../../../shared/dmlog" }
-dm-shared-uuid = { path = "../../../../shared/uuid" }
-dm-webserver-domain-git-core = { path = "../core" }
-dm-webserver-domain-git-query = { path = "../query" }
-dm-webserver-domain-git-write = { path = "../write" }
-dm-gocompat = { path = "../../../../gocompat" }
+otter-shared-otterlog = { path = "../../../../shared/otterlog" }
+otter-shared-uuid = { path = "../../../../shared/uuid" }
+otter-webserver-domain-git-core = { path = "../core" }
+otter-webserver-domain-git-query = { path = "../query" }
+otter-webserver-domain-git-write = { path = "../write" }
+otter-gocompat = { path = "../../../../gocompat" }
 serde = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
-dm-shared-gittest = { path = "../../../../shared/gittest" }
-dm-shared-platform = { path = "../../../../shared/platform" }
-dm-shared-testpath = { path = "../../../../shared/testpath" }
+otter-shared-gittest = { path = "../../../../shared/gittest" }
+otter-shared-platform = { path = "../../../../shared/platform" }
+otter-shared-testpath = { path = "../../../../shared/testpath" }
 serde_json = { workspace = true }
 tempfile = { workspace = true }

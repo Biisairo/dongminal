@@ -34,13 +34,13 @@
 
 | 자리 | 판정 | 결과 |
 |---|---|---|
-| 기동 표시 (`start.go`·`main.go`) | `0.0.0.0`/`::` 만 노출 | `DONGMINAL_HOST=192.168.1.5` 가 `local-only` 로 **거짓 표시** |
+| 기동 표시 (`start.go`·`main.go`) | `0.0.0.0`/`::` 만 노출 | `OTTERMINAL_HOST=192.168.1.5` 가 `local-only` 로 **거짓 표시** |
 | ACL 게이트 (`start.go`) | `host != DefaultHost` | `::1`·`localhost` 바인드가 **ACL 을 강제받았다** |
 
 두 오차가 한 조합에서 만난다 — **게이트는 물면서 화면은 안전하다고 말한다.**
 
-`dmenv.IsExposedHost` 한 벌로 모았다. **loopback 만 로컬이다.**
-`dmenv.DialHost` 는 기준이 다르다 — 미지정 주소만 바꾼다 (`192.168.1.5` 는
+`otterenv.IsExposedHost` 한 벌로 모았다. **loopback 만 로컬이다.**
+`otterenv.DialHost` 는 기준이 다르다 — 미지정 주소만 바꾼다 (`192.168.1.5` 는
 노출이지만 그 주소로 두드린다). 둘을 합치면 `--expose` 의 준비 확인이 깨진다.
 
 > **사용자 결정** (2026-09-12): 표 기반 테스트에서 `100.64.x`(CGNAT) 행을 뺐다 —
@@ -65,7 +65,7 @@
   기본값**. 깨져도 **기동을 막지 않는다**(D-CFG-3) — `access.json` 은 경계라
   fail-closed 이고 이쪽은 편의라 fail-open 이다. 둘을 같은 규칙으로 묶으면 한쪽이
   반드시 틀린다.
-- **`dongminal config show/validate`**: 출처(`flag`·`env`·`file`·`default`)가 값보다
+- **`otterminal config show/validate`**: 출처(`flag`·`env`·`file`·`default`)가 값보다
   중요하다 — 안 듣는 설정을 쫓는 사람이 묻는 것이 그것이다.
 
 **`SEC-27` 잔여를 판정하고 닫았다** (§2.4). 서버는 `settings.json` 을 **런타임에
@@ -77,7 +77,7 @@
 
 신규 SRS: `OBSERVABILITY_SRS`.
 
-- **`log.Printf` 172곳 → 0곳.** `internal/shared/dmlog` 한 자리를 지난다.
+- **`log.Printf` 172곳 → 0곳.** `internal/shared/otterlog` 한 자리를 지난다.
   의존성 추가 0(`log/slog`). `scripts/check-logging.sh` 가 재발을 막는다.
   서식 있는 호출(`Warnf`)을 남긴 것은 D-OBS-1 — 172곳을 키-값으로 옮기는 위험
   대비 이득이 없다. 얻으려던 **수준·시각·요청 ID** 는 서식을 유지한 채 얻는다.
@@ -111,11 +111,11 @@
 
 | 항목 | 무엇 |
 |---|---|
-| `G3-3` | `dongminal update --check` + **서버의 자동 확인·상태바 배지** (UPDATE_NOTICE_SRS). **개정됨**: 옵트인("묻지 않으면 나가지 않는다")이 **옵트아웃**이 됐다 — 켠 사람이 없어 기능이 도달하지 않았고 보안 공지가 그 실패의 실증이었다. 조건은 셋: 끌 수 있을 것 · 끈 것이 실제로 멎을 것 · 처음 한 번 고지할 것. 내려받지 않는 판단은 그대로다 |
-| `G3-4` | `dongminal uninstall` — 기본이 목록이고, 지우려면 `--yes`. 기본은 **다시 만들어지는 것만** 지운다 |
-| `G4-3` | `dongminal backup --out` / `restore` — 소켓·pid·로그를 담지 않고, 복원이 그것들을 건드리지 않는다. zip slip 을 거절한다 |
+| `G3-3` | `otterminal update --check` + **서버의 자동 확인·상태바 배지** (UPDATE_NOTICE_SRS). **개정됨**: 옵트인("묻지 않으면 나가지 않는다")이 **옵트아웃**이 됐다 — 켠 사람이 없어 기능이 도달하지 않았고 보안 공지가 그 실패의 실증이었다. 조건은 셋: 끌 수 있을 것 · 끈 것이 실제로 멎을 것 · 처음 한 번 고지할 것. 내려받지 않는 판단은 그대로다 |
+| `G3-4` | `otterminal uninstall` — 기본이 목록이고, 지우려면 `--yes`. 기본은 **다시 만들어지는 것만** 지운다 |
+| `G4-3` | `otterminal backup --out` / `restore` — 소켓·pid·로그를 담지 않고, 복원이 그것들을 건드리지 않는다. zip slip 을 거절한다 |
 | `G4-7` | `POST /api/workspace/revert` + Backup 탭 진입점. **기계를 새로 만들지 않았다** — 세대는 이미 있고, 되돌리기는 그중 하나를 `Save` 로 올리는 것이 전부다. 그러면 직전 판이 사슬 맨 앞으로 들어가 **되돌리기도 되돌릴 수 있다** |
-| `SEC-23` | `dongminal service install` — launchd plist · systemd **user** unit. **설치하지 않는다**: 파일을 쓰고 다음 걸음을 안내한다 |
+| `SEC-23` | `otterminal service install` — launchd plist · systemd **user** unit. **설치하지 않는다**: 파일을 쓰고 다음 걸음을 안내한다 |
 | `SEC-31` | cosign keyless 서명 + provenance. 서명 대상은 `SHA256SUMS` 하나 — 그것이 나머지를 이미 묶는다 |
 
 **홈의 구성을 한 곳에 선언했다** (`homeLayout`). `backup` 이 담을 것과
@@ -140,7 +140,7 @@
 |---|---|
 | `errors.md` | **생성** ← `codes_doc.go` |
 | `decisions.md` | **생성** ← SRS 의 결정 380건 |
-| `commands.md` | 대조 ← `dmctl.go` (32개) |
+| `commands.md` | 대조 ← `otterctl.go` (32개) |
 | `api.md` | 대조 ← 라우트 표 (152개) |
 | `shortcuts.md` | 대조 ← `helpers.js` (30개) |
 | getting-started 환경변수 표 | 대조 ← 코드 (16개) |
@@ -189,9 +189,9 @@
 
 ### 3-4. 검사가 자기 전제를 세우지 않으면 남의 값을 잰다
 
-이 저장소의 검사는 **dongminal 도구 안에서** 돈다. 그 셸에는 사용자의 실제
-인스턴스를 가리키는 `DONGMINAL_*` 가 심겨 있고, `config` 검사가 그것을 그대로
-읽어 `DONGMINAL_HOST=0.0.0.0` 을 쟀다. `scripts/perf-probe.sh` 도 같은 이유로
+이 저장소의 검사는 **otterminal 도구 안에서** 돈다. 그 셸에는 사용자의 실제
+인스턴스를 가리키는 `OTTERMINAL_*` 가 심겨 있고, `config` 검사가 그것을 그대로
+읽어 `OTTERMINAL_HOST=0.0.0.0` 을 쟀다. `scripts/perf-probe.sh` 도 같은 이유로
 격리 기동이 노출 게이트에 막혔다.
 
 **`ui-layout-defaults` 에서 비싸게 배운 것과 같은 부류다.** 둘 다 자기 전제를
@@ -273,7 +273,7 @@ M2·M3 의 규약을 그대로 잇는다. 이번에 더해진 것:
   `scripts/check-srs-status.sh` 가 강제한다.
 - **표면을 더하면 그 문서를 같은 변경에서 고친다.** 잊으면 CI 가 멎는다 —
   명령·API·단축키·환경변수 넷이 양방향으로 대조된다.
-- **로그는 `dmlog` 를, 오류는 `httpErr` 을 지난다.** 표준 `log` 와 `http.Error` 를
+- **로그는 `otterlog` 를, 오류는 `httpErr` 을 지난다.** 표준 `log` 와 `http.Error` 를
   직접 부르면 게이트가 막는다.
 
 ---

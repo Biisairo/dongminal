@@ -21,14 +21,14 @@ fn last_history(e: &super::service::Env, n: usize) -> Vec<HistoryEntry> {
 #[tokio::test]
 async fn switch_by_id_records_history() {
     let (e, eng, _) = three_accounts().await;
-    let res = eng.switch(&req("id1", "", BY_DMCTL)).await.unwrap();
+    let res = eng.switch(&req("id1", "", BY_OTTERCTL)).await.unwrap();
     assert_eq!((res.from.as_str(), res.to.as_str()), ("id3", "id1"));
     let h = last_history(&e, 10);
     assert_eq!(h.len(), 1);
     let x = &h[0];
     assert!(
         x.trigger == TRIGGER_MANUAL
-            && x.by == BY_DMCTL
+            && x.by == BY_OTTERCTL
             && x.from == "id3"
             && x.to == "id1"
             && x.at == NOW_UNIX
@@ -180,10 +180,13 @@ async fn smart_skips_recent_attempt_and_disabled_and_dead() {
 #[tokio::test]
 async fn best_picks_largest_headroom() {
     let (e, eng, _) = three_accounts().await;
-    let res = eng.switch(&req("", STRATEGY_BEST, BY_DMCTL)).await.unwrap();
+    let res = eng
+        .switch(&req("", STRATEGY_BEST, BY_OTTERCTL))
+        .await
+        .unwrap();
     assert!(res.to == "id1" && !res.no_op);
     let h = &last_history(&e, 1)[0];
-    assert!(h.trigger == TRIGGER_BEST && h.by == BY_DMCTL);
+    assert!(h.trigger == TRIGGER_BEST && h.by == BY_OTTERCTL);
 }
 
 #[tokio::test]
@@ -207,7 +210,7 @@ async fn best_reason_stay() {
     assert!(res.no_op && res.reason == REASON_STAY && res.to == "id1");
     assert_eq!(last_history(&e, 10).len(), 1, "noop not recorded");
     assert_eq!(
-        String::from_utf8(dm_gocompat::json::marshal(&res).unwrap()).unwrap(),
+        String::from_utf8(otter_gocompat::json::marshal(&res).unwrap()).unwrap(),
         r#"{"from":"id1","to":"id1","noop":true,"reason":"stay"}"#
     );
 }

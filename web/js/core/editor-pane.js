@@ -1,5 +1,5 @@
 /**
- * Dongminal — Editor 창의 **칸과 사이드** (FE_MODULE_BOUNDARY_SRS FR-FMB-20).
+ * Otterminal — Editor 창의 **칸과 사이드** (FE_MODULE_BOUNDARY_SRS FR-FMB-20).
  *
  * 어느 칸에 무엇이 서는가 — 사이드 폭 · 핀 · 탭의 이동과 닫힘 · git 폴링의 시작.
  * `_edAfterGitSignal` 이 저장을 색 갱신의 계기로 잇는다 (FR-EDT-78) — `GitController.gitSignal` 이 부른다.

@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use dm_gocompat::filepath;
-use dm_gocompat::json::is_empty;
+use otter_gocompat::filepath;
+use otter_gocompat::json::is_empty;
 use serde::Serialize;
 
 use crate::env::managed_bin_dir;
@@ -18,14 +18,14 @@ const RUNTIMES_SUB: &str = "runtimes";
 const CACHE_SUB: &str = "cache";
 
 /// 데이터 디렉터리 아래 격리 칸의 이름.
-pub const DIR_NAME: &str = dm_shared_dmenv::EXT_DIR;
+pub const DIR_NAME: &str = otter_shared_otterenv::EXT_DIR;
 
 /// 실행 파일 이름으로 찾는다. Go `exec.LookPath` 이며, 찾지 못하면 `None` 이다. 검사가 바꿔 끼운다.
 pub type LookPath = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 
 /// 실제 PATH 를 쓰는 [`LookPath`].
 pub fn host_look_path() -> LookPath {
-    Arc::new(dm_shared_platform::look_path)
+    Arc::new(otter_shared_platform::look_path)
 }
 
 /// 데이터 디렉터리 아래 격리 칸.
@@ -296,7 +296,7 @@ pub fn managed_exe_found(root: &str, m: &Manifest, s: &Server) -> String {
 }
 
 fn exe_suffix() -> &'static str {
-    dm_shared_platform::current().paths.exe_suffix()
+    otter_shared_platform::current().paths.exe_suffix()
 }
 
 fn managed_exe_candidates(root: &str, m: &Manifest, s: &Server) -> Vec<String> {
@@ -348,7 +348,7 @@ fn archive_exe(root: &str, m: &Manifest, s: &Server, target: &str) -> String {
 
 /// 실행할 수 있는 보통 파일인가. 판정은 platform 이 갖는다 (FR-EXT-41 / FR-LWP-1).
 pub(crate) fn is_executable(p: &str) -> bool {
-    dm_shared_platform::current()
+    otter_shared_platform::current()
         .paths
         .is_executable(std::path::Path::new(p))
 }

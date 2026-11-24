@@ -1,8 +1,8 @@
 //! fetch·pull·push 와 원격 설정 (FR-GIT-85~90·267).
 
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_git_core::{self as core, Ctx, Hint, Output, Service, WriteSpec};
-use dm_webserver_domain_git_query as query;
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_git_core::{self as core, Ctx, Hint, Output, Service, WriteSpec};
+use otter_webserver_domain_git_query as query;
 use serde::{Deserialize, Serialize};
 
 use crate::commit::{argv, spec};

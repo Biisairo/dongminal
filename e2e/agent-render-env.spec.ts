@@ -53,7 +53,7 @@ test('V-ARE-9: Settings ▸ Terminal 의 스크롤 속도가 기본 3 이고, �
 
     const num = page.locator('#ds-scrollspeed');
     await expect(num).toBeVisible();
-    // FR-ARE-9: 기본은 3 이다 — dongminal 은 xterm.js 기반이라 Claude Code 가
+    // FR-ARE-9: 기본은 3 이다 — otterminal 은 xterm.js 기반이라 Claude Code 가
     // 스스로 고르는 값과 같고, 그래서 기본값에서 화면이 바뀌지 않는다.
     await expect(num).toHaveValue('3');
 

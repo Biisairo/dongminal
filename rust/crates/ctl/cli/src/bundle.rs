@@ -1,4 +1,4 @@
-//! `dongminal doctor --bundle <파일>` — 진단 번들 (G2-3).
+//! `otterminal doctor --bundle <파일>` — 진단 번들 (G2-3).
 //!
 //! 신고에 늘 묻는 것(판·OS·홈에 무엇이 있는지·로그의 끝·설정)을 한 zip 으로 모은다. **비밀이 새면
 //! 번들 자체가 위험이다** — 담는 것을 좁히고, 모든 항목이 이 저장소의 유일한 마스킹 규칙
@@ -8,11 +8,11 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
-use dm_gocompat::filepath;
-use dm_gocompat::oserr::{go_error_string, path_error};
-use dm_shared_dmenv as dmenv;
-use dm_shared_platform::{build_target, read_last_exit};
-use dm_webserver_domain_git_core::sanitize_remote;
+use otter_gocompat::filepath;
+use otter_gocompat::oserr::{go_error_string, path_error};
+use otter_shared_otterenv as otterenv;
+use otter_shared_platform::{build_target, read_last_exit};
+use otter_webserver_domain_git_core::sanitize_remote;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
@@ -26,7 +26,7 @@ use crate::version::{GO_RUNTIME, VERSION};
 const BUNDLE_LOG_TAIL: u64 = 64 << 10;
 
 /// 그대로 담는 설정 파일들이다. `access.json` 은 허용 출발지 목록이지 자격이 아니다.
-const BUNDLE_SETTINGS: [&str; 2] = [dmenv::SETTINGS_FILE, dmenv::ACCESS_FILE];
+const BUNDLE_SETTINGS: [&str; 2] = [otterenv::SETTINGS_FILE, otterenv::ACCESS_FILE];
 
 pub(crate) fn run_doctor_bundle(
     o: &DoctorOpts,

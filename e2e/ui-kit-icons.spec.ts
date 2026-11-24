@@ -18,7 +18,7 @@ import { tmpPath, realPath } from './osenv';
  * 새 표면을 옮길 때 이 검사가 그 자리를 자동으로 포함한다.
  */
 
-const FIXTURES = tmpPath('dm-git-fx-uikit-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-uikit-' + process.pid);
 test.beforeAll(() => { gitFixture(FIXTURES) });
 test.afterAll(() => { cleanGitFixture(FIXTURES) });
 const fx = (name: string) => realPath(join(FIXTURES, name));

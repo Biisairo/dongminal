@@ -1,7 +1,7 @@
 //! 사람 참가자의 채팅 와이어 (PEER_CHAT_SRS §3.11). FEATURE_CHAT 을 양쪽이 말할 때만 쓴다.
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_chatwire as chatwire;
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_chatwire as chatwire;
 use serde::{Deserialize, Serialize};
 
 /// 사람 참가자의 연산 하나다. op 는 chatwire 의 call op 와 state 다.

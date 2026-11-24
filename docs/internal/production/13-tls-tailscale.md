@@ -85,16 +85,16 @@
 ### 2-2. 바인딩
 `internal/ctl/cli/start.go:36-42`:
 ```go
-host := DefaultHost                       // dmenv.go:56 = "127.0.0.1"
-if v := os.Getenv(EnvHost); v != "" {     // dmenv.go:46 = "DONGMINAL_HOST"
+host := DefaultHost                       // otterenv.go:56 = "127.0.0.1"
+if v := os.Getenv(EnvHost); v != "" {     // otterenv.go:46 = "OTTERMINAL_HOST"
     host = v
 }
 if o.Expose {
     host = ExposeHost                     // options.go:44 = "0.0.0.0"
 }
 ```
-- `DONGMINAL_HOST` 는 **검증 없이 바인드 주소가 된다** → 특정 인터페이스 한정 바인딩이 이미 가능하다.
-- **노출 판정 결함**: `start.go:133`·`:248` 이 `host == ExposeHost || host == "::"` 만 노출로 본다. `DONGMINAL_HOST=192.168.1.5` 는 **`local-only` 로 잘못 표시된다.** → `TLS-2`(§6-3).
+- `OTTERMINAL_HOST` 는 **검증 없이 바인드 주소가 된다** → 특정 인터페이스 한정 바인딩이 이미 가능하다.
+- **노출 판정 결함**: `start.go:133`·`:248` 이 `host == ExposeHost || host == "::"` 만 노출로 본다. `OTTERMINAL_HOST=192.168.1.5` 는 **`local-only` 로 잘못 표시된다.** → `TLS-2`(§6-3).
 
 ### 2-3. **[2판 갱신] ACL 은 `--expose` 기본 배치에서 실제로 유효하다**
 
@@ -148,7 +148,7 @@ var Upgrader = websocket.Upgrader{
 
 | # | 경로 | secure context 확보 | 인증서 오류 | 설정 부담(초기) | 설정 부담(운영) | 다중 기기 | 모바일(iOS/Android) | 외부 의존 |
 |---|---|---|---|---|---|---|---|---|
-| **P1** | **앱 내장 로컬 CA** (`dongminal tls init` → CA 발급 + SAN 자동 leaf) | **보장** | **없음**(설치 후) | 중 — 기기마다 CA 설치 1회 | **낮음** — CA 10년, leaf 는 앱이 기동 시 자동 재발급 | 기기마다 CA 1회. **CA 는 재설치 불필요** | iOS: 프로파일 설치 + *인증서 신뢰 설정*에서 전체 신뢰 **2단계**. Android: 사용자 CA 설치(브라우저는 신뢰 — §9 실측) | **없음** — `crypto/x509` 표준 라이브러리 |
+| **P1** | **앱 내장 로컬 CA** (`otterminal tls init` → CA 발급 + SAN 자동 leaf) | **보장** | **없음**(설치 후) | 중 — 기기마다 CA 설치 1회 | **낮음** — CA 10년, leaf 는 앱이 기동 시 자동 재발급 | 기기마다 CA 1회. **CA 는 재설치 불필요** | iOS: 프로파일 설치 + *인증서 신뢰 설정*에서 전체 신뢰 **2단계**. Android: 사용자 CA 설치(브라우저는 신뢰 — §9 실측) | **없음** — `crypto/x509` 표준 라이브러리 |
 | **P2** | `mkcert` 외부 도구 | 보장 | 없음(설치 후) | 중 — 도구 설치 + CA 설치 | 낮음 | P1 과 동일 | P1 과 동일 | **있음** — 사용자가 `mkcert` 설치. 앱 의존은 아님 |
 | **P3** | 자체 서명 + 브라우저 예외 승인 | 명세상 true. **실측 필요**(§9) | **남는다** — 주소창 "주의 요함" 상시 | 낮음 — 앱이 생성, 사용자는 승인 클릭 | 중 — 예외가 만료·초기화되면 재승인 | **기기·브라우저마다 승인.** 승인이 유지되는 기간이 브라우저별로 다름 | iOS Safari 승인 가능하나 마찰 큼. **Chrome 은 인증서 오류 페이지에 별도 차단을 건 전례 있음** | 없음 |
 | **P4** | **사용자 제공 인증서** `--tls-cert/--tls-key` | 인증서 출처에 따름 | 출처에 따름 | 사용자가 인증서를 마련 | 사용자 책임 | 인증서에 따름 | 인증서에 따름 | **없음**(앱은 PEM 을 읽을 뿐) |
@@ -165,10 +165,10 @@ var Upgrader = websocket.Upgrader{
 
 - 구현: `crypto/x509` 로 CA(자기서명, 10년) + 서버 leaf(CA 서명, 짧게) 발급. `crypto/tls`·`net/http` 로 서빙. **전부 Go 표준 라이브러리** → `08 §제약`("새 런타임 의존 추가 금지", go.mod 직접 2 + 간접 1) 위반 없음.
 - SAN 자동 구성: `access.go:73` 의 `s.self`(인터페이스 주소)를 재사용해 **모든 로컬 IP + 호스트명 + `localhost` + `127.0.0.1` + `::1`** 를 넣는다. 기동 때마다 현재 주소로 leaf 를 재발급하면 **DHCP 로 IP 가 바뀌어도 CA 재설치 없이 따라간다** — 이것이 CA 계층을 두는 이유다(자체 서명 단층은 IP 가 바뀌면 전 기기 재승인).
-- 사용자 절차: `dongminal tls init` → 출력된 `ca.crt` 를 접속할 기기마다 1회 설치.
+- 사용자 절차: `otterminal tls init` → 출력된 `ca.crt` 를 접속할 기기마다 1회 설치.
 - **P3 대비 이점**: 인증서 오류가 **아예 없다** → §0 표의 불확실성이 전부 소멸. 주소창 경고 없음. 승인 만료 없음. IP 변경에 강함.
 - **비용**: 기기마다 CA 설치 1회. iOS 2단계.
-- 위험: CA 개인키가 새면 그 CA 를 신뢰하는 기기에 대해 임의 사이트를 위조할 수 있다 → `ca.key` 0600, `$DONGMINAL_HOME/tls/`, `auth.json`(`G1-2`)과 같은 저장 규약. mkcert 문서도 같은 경고를 한다(*"rootCA-key.pem 을 내보내거나 공유하지 말 것"*).
+- 위험: CA 개인키가 새면 그 CA 를 신뢰하는 기기에 대해 임의 사이트를 위조할 수 있다 → `ca.key` 0600, `$OTTERMINAL_HOME/tls/`, `auth.json`(`G1-2`)과 같은 저장 규약. mkcert 문서도 같은 경고를 한다(*"rootCA-key.pem 을 내보내거나 공유하지 말 것"*).
 
 **P3 — 자체 서명 + 예외 승인 (1판의 "미확인" 해소 시도)**
 
@@ -232,9 +232,9 @@ var Upgrader = websocket.Upgrader{
 → **평문 원격에서 "브라우저 밖에 있을 때 알리는" 수단은 알림음뿐이고, 그것은 기본 꺼짐이다.** 토글만 비활성화하면 사용자는 "알림 기능이 없는 제품" 을 얻는다.
 
 **차선책 권장 (`TLS-1` 확장):**
-1. **[필수] 조용한 실패 제거** — `window.isSecureContext===false` 면 데스크톱 알림 토글을 **비활성화 + 사유 표시**("HTTPS 로 접속해야 사용할 수 있습니다"). 해결 경로(`dongminal tls init`)를 함께 안내.
+1. **[필수] 조용한 실패 제거** — `window.isSecureContext===false` 면 데스크톱 알림 토글을 **비활성화 + 사유 표시**("HTTPS 로 접속해야 사용할 수 있습니다"). 해결 경로(`otterminal tls init`)를 함께 안내.
 2. **[필수] 대체 경로로 자동 승격** — 같은 조건에서 **알림음을 기본 켜짐으로** 전환한다. 기본값이 환경에 따라 갈리는 것은 바람직하지 않으나, "기본 켜짐인 알림이 조용히 죽는" 현행보다 낫다. 사용자가 끄면 그 선택이 우선한다.
-3. **[권장] 탭 제목 알림 추가** — `document.title` 앞에 미확인 attn 수를 붙인다(`(2) dongminal`). secure context 불요, 구현 수 줄, **브라우저 밖(다른 탭)에서 유일하게 보이는 시각 신호**다. 파비콘 배지까지는 불필요.
+3. **[권장] 탭 제목 알림 추가** — `document.title` 앞에 미확인 attn 수를 붙인다(`(2) otterminal`). secure context 불요, 구현 수 줄, **브라우저 밖(다른 탭)에서 유일하게 보이는 시각 신호**다. 파비콘 배지까지는 불필요.
 4. **[권장] `G10-1` 배포 형태표에 명시** — "평문 배치: 데스크톱 알림 미동작, `Secure` 쿠키 불가" 를 **열등 등급으로 문서화**한다.
 
 ### C. `--expose` 기본 전제에서의 보안 요구 재정리
@@ -254,15 +254,15 @@ var Upgrader = websocket.Upgrader{
 거부만 하면 사용자는 막힌다. 다음 흐름을 권장한다:
 
 ```
-$ dongminal start --expose
+$ otterminal start --expose
 ❌ 노출 모드는 인증이 필요합니다.
 
-  1) 자격증명을 만드세요:      dongminal auth init
-  2) (권장) HTTPS 를 켜세요:   dongminal tls init
+  1) 자격증명을 만드세요:      otterminal auth init
+  2) (권장) HTTPS 를 켜세요:   otterminal tls init
 
   둘 다 건너뛰려면(권장하지 않음): --insecure-plaintext --no-auth
 ```
-- **`auth init` 은 대화형 1회로 끝나야 한다** — 비밀번호 입력(또는 자동 생성 후 1회 출력) → `$DONGMINAL_HOME/auth.json` 0600. `G1-2` DoD 그대로.
+- **`auth init` 은 대화형 1회로 끝나야 한다** — 비밀번호 입력(또는 자동 생성 후 1회 출력) → `$OTTERMINAL_HOME/auth.json` 0600. `G1-2` DoD 그대로.
 - **`tls init` 도 1회로 끝나야 한다** — CA + leaf 생성, `ca.crt` 경로와 기기별 설치 안내(OS별 한 줄씩) 출력.
 - **거부는 `--expose` 뿐 아니라 비 loopback 바인드 전체**에 걸린다(`TLS-2`).
 - **`--isolated` 는 예외로 둔다** — e2e·개발 격리 실행이 매번 인증을 요구하면 테스트가 무너진다. M4 DoD 가 이미 `--isolated` 에서만 `--auth=off` 를 허용하는 방향으로 적혀 있다.
@@ -294,7 +294,7 @@ $ dongminal start --expose
 | TLS 서빙 | `httpapi/server.go:220-230` 에 `ListenAndServeTLS` 분기, `--tls-cert/--tls-key` 플래그(`ctl/cli/options.go`) | **S** |
 | **로컬 CA 발급기** | `crypto/x509` — CA 생성(자기서명·10년·`IsCA`·`KeyUsageCertSign`), leaf 발급(CA 서명·SAN 구성·`ExtKeyUsageServerAuth`), PEM 저장(`ca.key` 0600) | **M** |
 | SAN 자동 구성 | `access.go:73` `s.self` 재사용 + 호스트명 + loopback. 기동 시 현재 주소와 대조해 leaf 재발급 | **S** |
-| `dongminal tls init` / `tls show` | CLI 액션, `ca.crt` 경로·지문 출력, **OS별 CA 설치 안내문**(macOS·Windows·Linux·iOS·Android) | **S/M** |
+| `otterminal tls init` / `tls show` | CLI 액션, `ca.crt` 경로·지문 출력, **OS별 CA 설치 안내문**(macOS·Windows·Linux·iOS·Android) | **S/M** |
 | 노출 판정 확장(`TLS-2`) | `start.go:133,248` 를 비 loopback 전체로. `pingHost` 연동 주의 | **S** |
 | 기동 거부 + 안내(C-3) | `--insecure-plaintext` 게이트, 3단 안내 출력 | **S** |
 | `Secure` 쿠키 연동 | 자체 TLS 일 때만 부착(프록시 미지원 결정으로 분기 1개) | **S** |
@@ -313,15 +313,15 @@ $ dongminal start --expose
 | ID(제안) | 내용 | 규모 |
 |---|---|---|
 | **TLS-1** | **조용한 실패 제거 + 대체 경로 승격** — `isSecureContext===false` 면 ① 데스크톱 알림 토글 비활성화 + 사유·해결 안내 ② 알림음 기본 켜짐으로 전환 ③ 탭 제목 미확인 수 표시. §5-B | **S/M** |
-| **TLS-2** | 노출 판정을 `0.0.0.0`/`::` → **비 loopback 바인드 전체**로 확장(`start.go:133,248`). 현재 `DONGMINAL_HOST=192.168.x` 가 `local-only` 로 **오표시**된다 | **S** |
+| **TLS-2** | 노출 판정을 `0.0.0.0`/`::` → **비 loopback 바인드 전체**로 확장(`start.go:133,248`). 현재 `OTTERMINAL_HOST=192.168.x` 가 `local-only` 로 **오표시**된다 | **S** |
 | ~~TLS-3~~ | ~~프록시 뒤 ACL 무력화 감지·경고~~ → **C-4 로 삭제**(리버스 프록시 미지원 선언 시 불요). 지원하기로 뒤집히면 부활 | ~~S~~ |
-| **TLS-4** | `dongminal verify` 에 "TLS 켜짐이면 인증서 SAN 이 현재 바인드 주소를 덮는가 / 만료 임박 아닌가" 항목 추가 | **S** |
+| **TLS-4** | `otterminal verify` 에 "TLS 켜짐이면 인증서 SAN 이 현재 바인드 주소를 덮는가 / 만료 임박 아닌가" 항목 추가 | **S** |
 | **G10-1 보강** | 배포 형태별 보증표에 **P1·P4·P5·P7·P9·P10 을 그대로** 싣는다. P10(평문) = **명시적 열등 등급**. 리버스 프록시·funnel·멀티유저 = 미지원 선언. CA 개인키 보관 주의 | (G10-1 내) |
 | **DoD 근거** | "loopback 도 인증 면제하지 않는다" 유지 — `04 §1.2` P0 가 loopback 출발지 공격이라는 근거로 충분하다(1판의 `tailscale serve` 근거는 부차) | (문서) |
 
 ### 6-4. `G1-5` DoD 제안
 
-- `dongminal tls init` 이 `$DONGMINAL_HOME/tls/{ca.crt,ca.key,server.crt,server.key}` 를 만든다. `ca.key`·`server.key` 는 **0600**, 스키마/버전 포함. `ca.crt` 지문과 **OS별 설치 명령**을 출력.
+- `otterminal tls init` 이 `$OTTERMINAL_HOME/tls/{ca.crt,ca.key,server.crt,server.key}` 를 만든다. `ca.key`·`server.key` 는 **0600**, 스키마/버전 포함. `ca.crt` 지문과 **OS별 설치 명령**을 출력.
 - 기동 시 leaf 의 SAN 이 현재 바인드 주소를 덮지 않으면 **자동 재발급**하고 로그에 남긴다. CA 는 건드리지 않는다.
 - `--tls-cert`/`--tls-key` 를 주면 그쪽이 우선하고, 한쪽만 주면 **기동 거부**.
 - 비 loopback 바인드 + TLS 없음 + `--insecure-plaintext` 없음 → **기동 거부**, C-3 의 3단 안내 출력.
@@ -342,7 +342,7 @@ $ dongminal start --expose
 | 로컬 | `localhost:58146` / `127.0.0.1:58146` | `http://localhost:58146` 등 |
 | **`--expose` + 평문 (기본)** | `192.168.1.5:58146` (사용자가 친 주소 그대로) | `http://192.168.1.5:58146` |
 | **`--expose` + P1 로컬 CA** | `192.168.1.5:58146` 또는 `<hostname>:58146` | `https://…:58146` |
-| P4 + 공인 도메인 | `dm.example.com:58146` | `https://dm.example.com:58146` |
+| P4 + 공인 도메인 | `otter.example.com:58146` | `https://otter.example.com:58146` |
 | P7 SSH 터널 | `localhost:58146` | `http://localhost:58146` |
 | P9 `tailscale cert` | `<host>.<tailnet>.ts.net:58146` | `https://…:58146` |
 | P9 `tailscale serve` | `<host>.<tailnet>.ts.net` (**443 → 포트 없음**) | `https://…` (포트 없음) |
@@ -356,7 +356,7 @@ $ dongminal start --expose
    → **`s.self` 재사용으로 새 수집 코드가 필요 없고, `--expose 0.0.0.0` 기본 경로에서 사용자가 어느 로컬 IP 로 접속하든 자동으로 통과한다.** 이것이 2판의 1급 규칙이다(1판의 `*.ts.net` 을 대체).
 4. **`*.ts.net` 접미사 규칙은 기본이 아니라 옵션으로 내린다.** 전제가 바뀌었으므로 기본 허용목록에 넣지 않는다. `--allowed-host '*.ts.net'` 로 사용자가 켠다. (와일드카드 접미사 문법은 지원해야 한다 — tailnet 이름이 임의라 하드코딩 불가.)
 5. **`--allowed-host` 로 명시 확장.** 공인 도메인(P5)·CNAME·리버스 프록시 사용자가 쓰는 유일한 입구. 반복 지정 또는 쉼표 구분.
-6. **`Origin` 부재는 거부가 아니다.** 비브라우저 클라이언트(`dmctl`·`curl`·e2e `page.request`)는 `Origin` 을 보내지 않는다. **부재 = 통과, 존재하면 대조.** 어기면 M4 의 `dmctl` Bearer 경로(`runtimebin/http.go:40-70` 경유 17곳/9파일)가 전부 막힌다.
+6. **`Origin` 부재는 거부가 아니다.** 비브라우저 클라이언트(`otterctl`·`curl`·e2e `page.request`)는 `Origin` 을 보내지 않는다. **부재 = 통과, 존재하면 대조.** 어기면 M4 의 `otterctl` Bearer 경로(`runtimebin/http.go:40-70` 경유 17곳/9파일)가 전부 막힌다.
 7. **`Host` 는 존재하면 항상 대조한다**(HTTP/1.1 필수 헤더이므로 부재 예외가 불필요). DNS 리바인딩 방어의 본체가 여기다.
 8. **`X-Forwarded-Host`·`X-Forwarded-Proto`·`X-Forwarded-For` 를 읽지 않는다.** `04 §5`/FR-ACL-6 의 근거를 그대로 승계한다. **C-4 의 리버스 프록시 미지원 결정으로, 신뢰 옵트인 설계 자체가 M4 범위에서 빠진다** — 판정 함수가 단순해진다.
 9. **거부는 로그에 남고 본문에 허용목록을 노출하지 않는다** — `FR-ACL-13` 형식, 403 본문 규약을 그대로 따른다. "목록을 켰는데 접속이 안 된다" 를 풀 근거가 로그여야 한다(`accessGate` 가 `loggingMiddlewareFor` 안쪽에 서는 이유와 같다).

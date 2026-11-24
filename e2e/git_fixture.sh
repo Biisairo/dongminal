@@ -7,28 +7,28 @@
 # 그대로다.
 #
 # 사용:
-#   e2e/git_fixture.sh [출력디렉터리]     # 기본: /tmp/dm-git-fixtures
+#   e2e/git_fixture.sh [출력디렉터리]     # 기본: /tmp/otter-git-fixtures
 #   e2e/git_fixture.sh --clean [디렉터리] # 지운다
 #
 # 이 스크립트는 **읽기 검증용 저장소를 만들 뿐이고 사용자의 저장소를 건드리지
 # 않는다.** 출력 디렉터리 밖에는 어떤 파일도 쓰지 않는다.
 set -euo pipefail
 
-OUT="${2:-${1:-/tmp/dm-git-fixtures}}"
+OUT="${2:-${1:-/tmp/otter-git-fixtures}}"
 if [ "${1:-}" = "--clean" ]; then
-  OUT="${2:-/tmp/dm-git-fixtures}"
+  OUT="${2:-/tmp/otter-git-fixtures}"
   case "$OUT" in
     /|/Users|/Users/*/|"") echo "거부: 지우기에 안전하지 않은 경로 '$OUT'" >&2; exit 1 ;;
   esac
   [ -d "$OUT" ] || { echo "없음: $OUT"; exit 0; }
-  [ -f "$OUT/.dm-git-fixture" ] || { echo "거부: $OUT 은 이 스크립트가 만든 디렉터리가 아니다" >&2; exit 1; }
+  [ -f "$OUT/.otter-git-fixture" ] || { echo "거부: $OUT 은 이 스크립트가 만든 디렉터리가 아니다" >&2; exit 1; }
   rm -rf "$OUT"
   echo "지웠다: $OUT"
   exit 0
 fi
 
 mkdir -p "$OUT"
-: > "$OUT/.dm-git-fixture"   # --clean 의 안전 표식
+: > "$OUT/.otter-git-fixture"   # --clean 의 안전 표식
 
 # 파이썬은 이름이 하나가 아니다.
 #

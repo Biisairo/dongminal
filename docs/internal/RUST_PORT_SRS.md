@@ -13,14 +13,14 @@
 
 ### 1.1 목적
 
-이 문서는 dongminal 의 Go 구현 전체(`cmd/`, `internal/`)를 Rust 로 다시 구현하는 작업의 요구사항을 정한다. 이 문서는 포팅 작업의 단일 진실 공급원이다. 이슈 문서와 구현이 이 문서와 충돌하면 작업을 멈추고 충돌을 보고한다.
+이 문서는 otterminal 의 Go 구현 전체(`cmd/`, `internal/`)를 Rust 로 다시 구현하는 작업의 요구사항을 정한다. 이 문서는 포팅 작업의 단일 진실 공급원이다. 이슈 문서와 구현이 이 문서와 충돌하면 작업을 멈추고 충돌을 보고한다.
 
 ### 1.2 범위
 
 포함한다.
 
-- Go 바이너리 `dongminal` 하나가 맡는 네 가지 프로세스 역할 전부. ① 런타임 헬퍼(`dmctl`·`edit`·`download`·`detach`, multi-call), ② 데몬 `dongminald`(`dongminal d`), ③ 웹 서버(`dongminal start`), ④ 제어 CLI(`start`·`stop`·`health`·`migrate` 등).
-- 위 역할이 외부에 보이는 모든 표면. CLI 인자·출력·종료 코드, HTTP·WebSocket·SSE API, 유닉스 소켓·named pipe IPC, 간선(edge) TLS 프로토콜, `DONGMINAL_HOME` 아래 파일의 형식, 환경변수, 설치되는 셸 훅·에이전트 플러그인 자산.
+- Go 바이너리 `otterminal` 하나가 맡는 네 가지 프로세스 역할 전부. ① 런타임 헬퍼(`otterctl`·`edit`·`download`·`detach`, multi-call), ② 데몬 `otterminald`(`otterminal d`), ③ 웹 서버(`otterminal start`), ④ 제어 CLI(`start`·`stop`·`health`·`migrate` 등).
+- 위 역할이 외부에 보이는 모든 표면. CLI 인자·출력·종료 코드, HTTP·WebSocket·SSE API, 유닉스 소켓·named pipe IPC, 간선(edge) TLS 프로토콜, `OTTERMINAL_HOME` 아래 파일의 형식, 환경변수, 설치되는 셸 훅·에이전트 플러그인 자산.
 - 다섯 대상 플랫폼. darwin/arm64, darwin/amd64, linux/amd64, linux/arm64, windows/amd64.
 - `scripts/` 의 Go 보조 도구 4종(`check-action-reasons`, `check-shared-constants`, `gen-decisions`, `gen-errors`). 이 도구들은 CI 게이트에만 쓰이므로 마지막 순서로 둔다.
 
@@ -37,8 +37,8 @@
 | 관측 동작 | 사용자, 브라우저, 다른 프로세스(에이전트·셸·다른 PC 의 노드)가 보거나 받을 수 있는 모든 결과. 화면 출력, 응답 바이트, 파일 내용, 종료 코드, 타이밍 계약(타임아웃·재시도 간격)을 포함한다 |
 | 내부 동작 | 관측 동작에 드러나지 않는 구현 세부. 함수 구조, 동시성 모델, 내부 자료구조, 단위 테스트의 모양 |
 | 동등 | 같은 입력과 같은 환경에서 두 구현의 관측 동작을 사용자가 구별할 수 없는 상태 |
-| 운영 인스턴스 | 이 기계에서 지금 돌고 있는 Go 서버·데몬·특권 헬퍼와, 이들이 쓰는 `~/.dongminal` 홈 |
-| 격리 실행 | 임시 `DONGMINAL_HOME`, 운영과 겹치지 않는 포트, `DONGMINAL_*` 환경변수를 지운 환경에서 바이너리를 실행하는 것 |
+| 운영 인스턴스 | 이 기계에서 지금 돌고 있는 Go 서버·데몬·특권 헬퍼와, 이들이 쓰는 `~/.otterminal` 홈 |
+| 격리 실행 | 임시 `OTTERMINAL_HOME`, 운영과 겹치지 않는 포트, `OTTERMINAL_*` 환경변수를 지운 환경에서 바이너리를 실행하는 것 |
 | 이슈 | `docs/internal/archive/rust-port/issues/` 아래의 파일 하나. 2.6 절의 형식을 따른다 |
 
 ### 1.4 참고 문서
@@ -57,7 +57,7 @@
 
 ### 2.1 제품 관점
 
-Rust 구현은 Go 구현을 대체한다. 바이너리 이름(`dongminal`), 하위 명령, 홈 레이아웃, 와이어 형식이 같으므로, 사용자는 바이너리만 바꾸고 같은 홈을 계속 쓴다. 전환 시점은 이 SRS 의 범위 밖이며, 사용자가 4장의 검증 결과를 보고 결정한다.
+Rust 구현은 Go 구현을 대체한다. 바이너리 이름(`otterminal`), 하위 명령, 홈 레이아웃, 와이어 형식이 같으므로, 사용자는 바이너리만 바꾸고 같은 홈을 계속 쓴다. 전환 시점은 이 SRS 의 범위 밖이며, 사용자가 4장의 검증 결과를 보고 결정한다.
 
 ### 2.2 제품 기능
 
@@ -65,22 +65,22 @@ Go 구현과 같다. 기능 목록의 근거는 `architecture.md` 의 패키지 
 
 ### 2.3 사용자 특성
 
-- 최종 사용자: 브라우저로 dongminal 을 쓰는 개발자. Rust 판으로 바뀐 사실을 몰라야 한다.
-- 에이전트: 터미널 탭 안에서 `dmctl` 을 부르는 claude·codex 등. 출력 형식에 의존해 파싱한다.
-- 다른 PC 의 노드: 간선으로 연결된 Go 판 또는 Rust 판 dongminal.
+- 최종 사용자: 브라우저로 otterminal 을 쓰는 개발자. Rust 판으로 바뀐 사실을 몰라야 한다.
+- 에이전트: 터미널 탭 안에서 `otterctl` 을 부르는 claude·codex 등. 출력 형식에 의존해 파싱한다.
+- 다른 PC 의 노드: 간선으로 연결된 Go 판 또는 Rust 판 otterminal.
 
 ### 2.4 제약
 
 - **C-RSP-1 (운영 무중단)** 포팅 중에 운영 인스턴스를 내리거나, 재시작하거나, swap 하거나, 설정을 바꾸지 않는다. 구체적으로 다음을 금지한다.
-  - 저장소 루트의 `./dongminal` 을 덮어쓰기. 루트에서 `go build -o dongminal` 이나 `scripts/build.sh` 를 실행하는 것도 포함한다.
+  - 저장소 루트의 `./otterminal` 을 덮어쓰기. 루트에서 `go build -o otterminal` 이나 `scripts/build.sh` 를 실행하는 것도 포함한다.
   - 격리되지 않은 환경에서 Go·Rust 바이너리의 `start`·`stop`·`d`·`update`·`rollback`·`service`·`uninstall`·`migrate` 를 실행하기.
-  - `~/.dongminal` 아래의 파일·소켓에 쓰거나 연결하기. 읽기도 하지 않는다.
+  - `~/.otterminal` 아래의 파일·소켓에 쓰거나 연결하기. 읽기도 하지 않는다.
   - 운영 서버의 포트나 1024~60146 범위의 포트를 잡기. 격리 실행은 60147 이상을 쓴다.
-  - 특권 헬퍼(`/Library/PrivilegedHelperTools/com.dongminal.helper`)나 launchd·systemd 서비스를 설치하거나, 제거하거나, 호출하기. 예외: 데몬이 부팅할 때와 30초마다 헬퍼 소켓(`/var/run/com.dongminal.helper.sock`)에 보내는 읽기 전용 `info`(공개키 조회)는 허용한다. 기준선 Go 데몬과 e2e 가 이미 하는 동작이고 헬퍼 상태를 바꾸지 않는다. `sign`·`kill`·`kick` 등 다른 요청은 금지한다.
+  - 특권 헬퍼(`/Library/PrivilegedHelperTools/com.otterminal.helper`)나 launchd·systemd 서비스를 설치하거나, 제거하거나, 호출하기. 예외: 데몬이 부팅할 때와 30초마다 헬퍼 소켓(`/var/run/com.otterminal.helper.sock`)에 보내는 읽기 전용 `info`(공개키 조회)는 허용한다. 기준선 Go 데몬과 e2e 가 이미 하는 동작이고 헬퍼 상태를 바꾸지 않는다. `sign`·`kill`·`kick` 등 다른 요청은 금지한다.
   - `pkill`·`killall` 처럼 이름으로 프로세스를 죽이기. 프로세스를 끌 때는 자기가 띄운 PID 만 끈다.
 - **C-RSP-2 (기준선 고정)** 포팅의 기준은 커밋 `127ff7d9` 의 Go 코드다. 포팅 브랜치에서 Go 코드를 고치지 않는다. 다만 e2e 가 Rust 바이너리를 쓰게 하는 경로 수정(FR-RSP-31)만 예외로 한다.
 - **C-RSP-3 (의존성 보안)** 외부 crate 는 다음을 모두 만족해야 한다. 널리 쓰이고, 유지보수가 계속되며, RustSec 권고에 걸리지 않는다. 맞는 crate 가 없으면 직접 구현한다. 허용 목록은 `rust/DEPENDENCIES.md` 에 두고, 목록에 없는 crate 를 더하려면 그 문서를 먼저 고친다.
-- **C-RSP-4 (unsafe)** `unsafe` 는 OS 호출 이음매 crate(`dm-shared-platform`), PTY·소켓 fd 전달 코드, `dm-webserver-domain-sysstat` 의 OS 모듈 하나(Go 도 platform 을 거치지 않고 OS 를 직접 부르는 자리), `dm-gocompat` 의 Windows 전용 `FormatMessageW(LANG_ENGLISH)` 호출 하나(platform 이 gocompat 에 의존하므로 platform 에 둘 수 없는 자리), `dm-gocompat` 의 Windows 전용 로컬 시간대 조회(`GetTimeZoneInformation`, Go zoneinfo_windows.go initLocalFromTZI 대응 — 같은 이유, RUST_DEFECT_FIX_SRS FR-RDF-5)에서만 쓴다. 쓰는 곳마다 `// SAFETY:` 주석으로 불변 조건을 적는다.
+- **C-RSP-4 (unsafe)** `unsafe` 는 OS 호출 이음매 crate(`otter-shared-platform`), PTY·소켓 fd 전달 코드, `otter-webserver-domain-sysstat` 의 OS 모듈 하나(Go 도 platform 을 거치지 않고 OS 를 직접 부르는 자리), `otter-gocompat` 의 Windows 전용 `FormatMessageW(LANG_ENGLISH)` 호출 하나(platform 이 gocompat 에 의존하므로 platform 에 둘 수 없는 자리), `otter-gocompat` 의 Windows 전용 로컬 시간대 조회(`GetTimeZoneInformation`, Go zoneinfo_windows.go initLocalFromTZI 대응 — 같은 이유, RUST_DEFECT_FIX_SRS FR-RDF-5)에서만 쓴다. 쓰는 곳마다 `// SAFETY:` 주석으로 불변 조건을 적는다.
 - **C-RSP-5 (커밋)** 커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 않는다. 이슈 브랜치와 `rust-port` 에는 자동으로 커밋해도 된다. `main` 병합과 push 는 사용자 확인을 받은 뒤에만 한다.
 
 ### 2.5 가정과 의존
@@ -100,7 +100,7 @@ title: shared/edge 포팅
 status: todo | ready | in-progress | review | done | blocked | split
 deps: [1.2, 1.3]        # 이 이슈가 쓰는 crate 를 만드는 이슈
 go: [internal/shared/edge]
-crates: [dm-shared-edge]
+crates: [otter-shared-edge]
 owner: <탭 uuid 또는 비움>
 branch: rp/2.3
 ```
@@ -127,28 +127,28 @@ branch: rp/2.3
 
 ### 3.2 바이너리와 프로세스 역할
 
-- **FR-RSP-10** 산출 바이너리 이름은 `dongminal`(Windows 는 `dongminal.exe`)이다. 같은 바이너리가 argv[0] 과 첫 인자로 네 역할을 가른다. 판정 규칙은 Go 의 `cmd/dongminal/main.go` 와 `runtimebin.Dispatch` 와 같다.
-- **FR-RSP-11** 빌드할 때 `Version` 과 `DaemonBuild` 지문을 각인할 수 있어야 한다. 각인 방법은 환경변수(`DONGMINAL_BUILD_VERSION`, `DONGMINAL_BUILD_DAEMON`)를 `build.rs` 가 읽는 방식으로 한다. 각인하지 않았을 때의 기본값은 Go 와 같다.
+- **FR-RSP-10** 산출 바이너리 이름은 `otterminal`(Windows 는 `otterminal.exe`)이다. 같은 바이너리가 argv[0] 과 첫 인자로 네 역할을 가른다. 판정 규칙은 Go 의 `cmd/otterminal/main.go` 와 `runtimebin.Dispatch` 와 같다.
+- **FR-RSP-11** 빌드할 때 `Version` 과 `DaemonBuild` 지문을 각인할 수 있어야 한다. 각인 방법은 환경변수(`OTTERMINAL_BUILD_VERSION`, `OTTERMINAL_BUILD_DAEMON`)를 `build.rs` 가 읽는 방식으로 한다. 각인하지 않았을 때의 기본값은 Go 와 같다.
 - **FR-RSP-12** 웹 자산(`web/` 의 임베드 대상)은 Go `web/embed.go` 의 패턴과 같은 파일 집합을 바이너리에 싣는다.
-- **FR-RSP-13** 런타임 헬퍼 설치(`$DONGMINAL_HOME/bin/` 의 symlink, 셸 훅, 에이전트 훅·플러그인 자산)는 Go 와 같은 경로에 같은 내용으로 만든다.
+- **FR-RSP-13** 런타임 헬퍼 설치(`$OTTERMINAL_HOME/bin/` 의 symlink, 셸 훅, 에이전트 훅·플러그인 자산)는 Go 와 같은 경로에 같은 내용으로 만든다.
 
 ### 3.3 상호 운용
 
 - **FR-RSP-20** Rust 판과 Go 판은 같은 홈을 번갈아 써도 서로의 파일을 읽을 수 있어야 한다.
-- **FR-RSP-21** Rust `dmctl` 은 Go 서버에, Go `dmctl` 은 Rust 서버에 붙어 같은 결과를 내야 한다.
+- **FR-RSP-21** Rust `otterctl` 은 Go 서버에, Go `otterctl` 은 Rust 서버에 붙어 같은 결과를 내야 한다.
 - **FR-RSP-22** Rust 판 데몬은 Go 판 데몬에게서 handover(`d --handover-fd`)를 받아 PTY 세션을 잃지 않고 이어받아야 한다. 이 요구는 운영 인스턴스를 Rust 판으로 바꿀 때 세션을 잃지 않기 위한 것이다. 검증은 격리 실행으로만 한다.
 - **FR-RSP-23** Rust 노드와 Go 노드는 간선(TLS, mesh, relay)으로 서로 연결되어야 한다.
 
 ### 3.4 저장소 구조
 
-- **FR-RSP-30** Rust 코드는 저장소의 `rust/` 아래 Cargo 워크스페이스에 둔다. crate 는 Go 패키지 경로를 따른다. 예: `internal/shared/edge` → `rust/crates/shared/edge`(crate 이름 `dm-shared-edge`), `cmd/dongminal` → `rust/crates/cmd/dongminal`. 여러 Go 패키지를 한 crate 로 묶거나 한 패키지를 여러 crate 로 나눠도 되지만, 그 사실을 이슈에 적는다.
-- **FR-RSP-31** e2e 의 `globalSetup` 은 환경변수 `DM_E2E_PREBUILT_BIN` 이 있으면 Go 빌드 대신 그 경로의 바이너리를 복사해 쓴다. 없으면 지금과 똑같이 동작한다.
-- **FR-RSP-32** Go 의 JSON·flag·시간·오류 문자열 규칙을 흉내 내는 공통 코드는 `dm-gocompat` crate 하나에 모은다. 다른 crate 가 같은 규칙을 따로 구현하지 않는다.
-- **FR-RSP-33 (입출력 모델)** `dm-shared-platform` 은 동기(std) API 만 낸다. 근거: Go 가 블로킹 I/O 모델이고, Windows AF_UNIX 는 std·tokio 모두 지원하지 않으며, PTY 읽기도 블로킹이다. 비동기 소비자(웹 서버·데몬)는 `tokio::task::spawn_blocking` 이나 전용 스레드로 감싼다. unix 의 IPC 스트림은 `into_std()` 뒤 `tokio::net::UnixStream::from_std` 로 바꿔 써도 된다. (1.4 결정 D-1)
-- **FR-RSP-35 (OS 오류 문구)** 로그·HTTP 오류 본문·CLI 출력에 드러나는 파일·OS 오류 문구는 Go 의 `*os.PathError`(`op path: 문구`)·`*os.LinkError`(`op old new: 문구`)·`*os.SyscallError` 와 같아야 한다. errno 문구는 unix 에서 Go `syscall` 의 표(소문자)를, Windows 에서 Go 와 같은 FormatMessage 결과를 쓴다. 이 규칙은 `dm-gocompat` 의 오류 타입(`GoPathError` 등, `io::Error` 로 감싸 `ErrorKind` 보존)으로만 만든다. (1.4.2 제안)
-- **FR-RSP-34 (로그 요청 ID)** Go 의 `context.Context` 로 넘기던 요청 ID 는 `dm-shared-dmlog` 의 `ReqCtx<'a> = Option<&'a str>` 를 첫 인자로 넘긴다.
+- **FR-RSP-30** Rust 코드는 저장소의 `rust/` 아래 Cargo 워크스페이스에 둔다. crate 는 Go 패키지 경로를 따른다. 예: `internal/shared/edge` → `rust/crates/shared/edge`(crate 이름 `otter-shared-edge`), `cmd/otterminal` → `rust/crates/cmd/otterminal`. 여러 Go 패키지를 한 crate 로 묶거나 한 패키지를 여러 crate 로 나눠도 되지만, 그 사실을 이슈에 적는다.
+- **FR-RSP-31** e2e 의 `globalSetup` 은 환경변수 `OTTER_E2E_PREBUILT_BIN` 이 있으면 Go 빌드 대신 그 경로의 바이너리를 복사해 쓴다. 없으면 지금과 똑같이 동작한다.
+- **FR-RSP-32** Go 의 JSON·flag·시간·오류 문자열 규칙을 흉내 내는 공통 코드는 `otter-gocompat` crate 하나에 모은다. 다른 crate 가 같은 규칙을 따로 구현하지 않는다.
+- **FR-RSP-33 (입출력 모델)** `otter-shared-platform` 은 동기(std) API 만 낸다. 근거: Go 가 블로킹 I/O 모델이고, Windows AF_UNIX 는 std·tokio 모두 지원하지 않으며, PTY 읽기도 블로킹이다. 비동기 소비자(웹 서버·데몬)는 `tokio::task::spawn_blocking` 이나 전용 스레드로 감싼다. unix 의 IPC 스트림은 `into_std()` 뒤 `tokio::net::UnixStream::from_std` 로 바꿔 써도 된다. (1.4 결정 D-1)
+- **FR-RSP-35 (OS 오류 문구)** 로그·HTTP 오류 본문·CLI 출력에 드러나는 파일·OS 오류 문구는 Go 의 `*os.PathError`(`op path: 문구`)·`*os.LinkError`(`op old new: 문구`)·`*os.SyscallError` 와 같아야 한다. errno 문구는 unix 에서 Go `syscall` 의 표(소문자)를, Windows 에서 Go 와 같은 FormatMessage 결과를 쓴다. 이 규칙은 `otter-gocompat` 의 오류 타입(`GoPathError` 등, `io::Error` 로 감싸 `ErrorKind` 보존)으로만 만든다. (1.4.2 제안)
+- **FR-RSP-34 (로그 요청 ID)** Go 의 `context.Context` 로 넘기던 요청 ID 는 `otter-shared-otterlog` 의 `ReqCtx<'a> = Option<&'a str>` 를 첫 인자로 넘긴다.
 
-- **FR-RSP-36 (동시성 모델)** `dm-shared-platform` 위의 계층은 tokio 를 기본 런타임으로 쓴다. Go 의 goroutine 은 tokio task 로, `context.Context` 의 취소는 `tokio_util::sync::CancellationToken` 으로 옮긴다(`dm-shared-pollwait`·`dm-shared-fanout` 이 이 모양이다). 블로킹 I/O(platform, PTY 읽기, 파일 잠금)는 `spawn_blocking` 이나 전용 스레드에서 돈다. CLI 처럼 Go `context.Background()` 로 부르던 쪽은 취소하지 않는 토큰을 넘기고, 필요하면 current-thread 런타임을 띄운다. (1.2 결정)
+- **FR-RSP-36 (동시성 모델)** `otter-shared-platform` 위의 계층은 tokio 를 기본 런타임으로 쓴다. Go 의 goroutine 은 tokio task 로, `context.Context` 의 취소는 `tokio_util::sync::CancellationToken` 으로 옮긴다(`otter-shared-pollwait`·`otter-shared-fanout` 이 이 모양이다). 블로킹 I/O(platform, PTY 읽기, 파일 잠금)는 `spawn_blocking` 이나 전용 스레드에서 돈다. CLI 처럼 Go `context.Background()` 로 부르던 쪽은 취소하지 않는 토큰을 넘기고, 필요하면 current-thread 런타임을 띄운다. (1.2 결정)
 
 ### 3.5 작업 절차
 
@@ -194,22 +194,22 @@ FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는�
 | DIFF-20 | 결함 수정 | ctl doctor (도구 진단 임시 디렉터리) | 저장 중지와 경쟁해 홈에 `doctor-tools/` 가 남을 수 있다 | 저장을 멈춘 뒤 지워 남기지 않는다 | 6.1.2 |
 | DIFF-21 | 보안 강화 | edgemesh (재전송 막기 marks, 상한 4096) | 가득 차면 가장 오래된 번호를 밀어내므로, 일부러 밀어내 재전송 막기를 우회할 수 있다 | DIFF-19 와 같다(같은 함수 `edgemesh::mark_expendable` 을 쓴다). 남은 위험: 잊은 지 180초가 지난 닿은 노드는 기억을 가득 채우는 공격으로 그 노드의 옛 net·상태를 다시 받을 수 있다. 그 노드가 더 새로운 번호를 알리면 바로 덮인다 | 3.1, 10.1 |
 | DIFF-22 | 보안 강화 | ctl doctor `--bundle` (항목 가림) | 항목은 URL userinfo 만 가린다(sanitize_remote) | 그 뒤에 PEM 본문, Authorization·Cookie·Set-Cookie·X-Api-Key 헤더 값, Bearer 토큰, 비밀 이름(token·secret·password 등으로 끝나는 키)의 JSON 값(문자열과 숫자. 숫자는 `"***"` 문자열로 바꾸고, true·false·null 은 그대로 둔다)·`이름=값`·`이름: 값` 을 `***` 로 가린다. 비밀이 없는 입력의 번들은 Go 와 바이트 단위로 같다 | 6.1.3 |
-| DIFF-23 | 보안 강화 | git API file-head (HEAD 사본 쓰기, `$TMPDIR/dongminal-git-head/`) | 공유 임시 디렉터리에서 경로를 따라 chmod·쓰기를 해, 다른 로컬 사용자가 미리 심은 디렉터리·심볼릭 링크로 남의 파일을 덮거나 권한을 바꿀 수 있다 | 최상위 디렉터리가 링크가 아니고 내 소유이며 group/other 쓰기가 없을 때만 쓰고, 끝 성분을 `O_NOFOLLOW` 로 열며, 읽기 전용 전환은 열린 핸들로 한다. 정상 사용자에게는 경로·권한·응답이 Go 와 같다 | 5.4.3 |
+| DIFF-23 | 보안 강화 | git API file-head (HEAD 사본 쓰기, `$TMPDIR/otterminal-git-head/`) | 공유 임시 디렉터리에서 경로를 따라 chmod·쓰기를 해, 다른 로컬 사용자가 미리 심은 디렉터리·심볼릭 링크로 남의 파일을 덮거나 권한을 바꿀 수 있다 | 최상위 디렉터리가 링크가 아니고 내 소유이며 group/other 쓰기가 없을 때만 쓰고, 끝 성분을 `O_NOFOLLOW` 로 열며, 읽기 전용 전환은 열린 핸들로 한다. 정상 사용자에게는 경로·권한·응답이 Go 와 같다 | 5.4.3 |
 | DIFF-24 | 알려진 차이 | httpapi `/api/fs/download-dir`·`download-many` (zip 본문) | compress/flate 레벨 5 로 압축한다 | zip 컨테이너(헤더·데이터 기술자·중앙 디렉터리·extra·모드·플래그)는 Go 와 바이트까지 같고, deflate 압축 스트림 바이트만 다르다(flate2). 풀어 낸 파일·이름·mtime·권한은 같다 | 5.5.7.2 |
 | DIFF-25 | 알려진 차이 | httpapi LSP WebSocket (서버→브라우저) | 언어 서버 출력을 텍스트 프레임에 바이트 그대로 싣는다(잘못된 UTF-8 이면 브라우저가 연결을 끊는다) | 잘못된 UTF-8 은 U+FFFD 로 바꿔 싣는다. 올바른 UTF-8 출력은 같다 | 5.5.9 |
 | DIFF-26 | 결함 수정 | httpapi Run headless 멤버 등록(도구 허브 없음) | nil 역참조 패닉이 500 으로 끝난다 | 500 `헤드리스 도구 생성 실패: tool hub unavailable` 로 답한다. 또 workspace 표식의 2^53 넘는 정수를 잃지 않는다(Go 는 float64 로 잃는다 — workspace.json 에 그런 수는 없다) | 5.5.4 |
 | DIFF-27 | 알려진 차이 | httpapi `/api/diag` | `goroutines` 는 goroutine 수, `allocMB` 는 GC 힙 할당량이다 | `goroutines` 는 살아 있는 tokio task 수, `allocMB` 는 늘 0 이다(런타임 구조가 달라 같은 값이 없다) | 5.5.8 |
 | DIFF-28 | 알려진 차이 | httpapi 정적 응답 mime 형식 (Windows) | 내장 표에 더해 Windows 레지스트리의 확장자 형식을 읽는다 | 내장 표와 unix 호스트 mime 파일만 읽는다. Windows 에서 내장 표 밖 확장자는 형식이 다를 수 있다 | 5.5.8 |
 | DIFF-29 | 결함 수정 | 빌드 스크립트 데몬 지문(daemon-fingerprint.sh) | `xargs sum` 이 셸 함수를 못 불러 /usr/bin/sum(BSD 16비트 체크섬)이 돈다 — 지문 충돌이 쉽다 | sha256 으로 지문을 만든다. 지문 값의 모양이 Go 빌드와 다르다 | 7.4 |
-| DIFF-30 | 구현 차이 | 보조 도구(gen-decisions·gen-errors `-check` 안내, check-shared-constants 사유 문구) | 재생성 안내가 `go run ./scripts/gen-…`, gen-errors 원천이 `codes_doc.go`, 사유가 Go 이름(`query.Op*`·`workspace.SchemaVersion`·`N * time.<단위>`) | 실제로 돌 명령 `cargo run -p dm-scripts-gen-… --`, 원천 `apierr` 의 코드 안내, 사유가 Rust 이름(`query::OP_*`·`workspace::SCHEMA_VERSION`·`Duration::from_<단위>(N)`). 짝 ID·형식·종료 코드는 같다(틀린 안내를 하지 않는다 — DIFF-12 와 같은 이유) | 8.4 |
+| DIFF-30 | 구현 차이 | 보조 도구(gen-decisions·gen-errors `-check` 안내, check-shared-constants 사유 문구) | 재생성 안내가 `go run ./scripts/gen-…`, gen-errors 원천이 `codes_doc.go`, 사유가 Go 이름(`query.Op*`·`workspace.SchemaVersion`·`N * time.<단위>`) | 실제로 돌 명령 `cargo run -p otter-scripts-gen-… --`, 원천 `apierr` 의 코드 안내, 사유가 Rust 이름(`query::OP_*`·`workspace::SCHEMA_VERSION`·`Duration::from_<단위>(N)`). 짝 ID·형식·종료 코드는 같다(틀린 안내를 하지 않는다 — DIFF-12 와 같은 이유) | 8.4 |
 | DIFF-31 | 보안 강화 | sandbox dev 헬퍼 (릴리스 trimpath 빌드) | `-trimpath` 빌드는 작업 디렉터리의 go.mod 를 헬퍼 소스 루트로 받아들여, 남의 트리에서 빌드가 돌 수 있다 | 릴리스 빌드는 헬퍼 소스 트리를 작업 디렉터리에서 찾지 않는다 | 7.4 |
-| DIFF-32 | 결함 수정 | 서버 판 확인 킬스위치 `DONGMINAL_NO_UPDATE_CHECK=1` | `app.go` 가 updatecheck 에 Getenv 를 넘기지 않아 변수가 먹지 않는다 — server.json `updateCheck` 가 켜져 있으면 판 확인(외부 요청)이 나가고 `/api/update` 가 `enabled:true` 다 | 변수가 1 이면 판 확인을 하지 않고 `/api/update` 가 `enabled:false` 다 | 8.2 |
+| DIFF-32 | 결함 수정 | 서버 판 확인 킬스위치 `OTTERMINAL_NO_UPDATE_CHECK=1` | `app.go` 가 updatecheck 에 Getenv 를 넘기지 않아 변수가 먹지 않는다 — server.json `updateCheck` 가 켜져 있으면 판 확인(외부 요청)이 나가고 `/api/update` 가 `enabled:true` 다 | 변수가 1 이면 판 확인을 하지 않고 `/api/update` 가 `enabled:false` 다 | 8.2 |
 
 ## 4. 검증
 
 - **V-RSP-1 (단위·통합)** crate 마다 관측 동작을 검증하는 Rust 테스트를 둔다. Go 테스트 중 관측 동작을 검증하는 것은 같은 입력·기대값으로 옮긴다.
 - **V-RSP-2 (차분 실행)** `rust/parity/` 의 차분 실행기는 같은 시나리오를 Go 바이너리와 Rust 바이너리에 각각 격리 실행으로 돌리고, FR-RSP-3 의 표면을 비교한다. 비교에서 빼는 값(시각, PID, 임시 경로, 무작위 ID)은 시나리오마다 정규화 규칙으로 명시한다.
-- **V-RSP-3 (e2e)** `DM_E2E_PREBUILT_BIN=<Rust 바이너리> E2E_PORT_BASE=<60147 이상> npx playwright test` 가 Go 바이너리로 돌렸을 때와 같은 결과를 내야 한다. 이미 불안정한 것으로 알려진 검사(`parity-flaky.txt`)는 같은 기준으로 다룬다.
+- **V-RSP-3 (e2e)** `OTTER_E2E_PREBUILT_BIN=<Rust 바이너리> E2E_PORT_BASE=<60147 이상> npx playwright test` 가 Go 바이너리로 돌렸을 때와 같은 결과를 내야 한다. 이미 불안정한 것으로 알려진 검사(`parity-flaky.txt`)는 같은 기준으로 다룬다.
 - **V-RSP-4 (상호 운용)** FR-RSP-20~23 을 격리 실행에서 검증한다.
 - **V-RSP-5 (운영 보호)** 모든 이슈의 완료 조건에 "운영 인스턴스의 PID(서버·데몬)가 작업 전후로 같다" 를 넣는다. 조정자는 병합할 때마다 이것을 확인한다.
 
@@ -218,12 +218,12 @@ FR-RSP-6·7 에 따라 고친 것과, 구현 한계로 남은 차이를 적는�
 | ID | 내용 | 선행 |
 |---|---|---|
 | 0 | 기반: SRS, 워크스페이스 골격, 의존성 정책, 격리 실행 도구, 차분 실행기 | — |
-| 1 | shared 기초: gocompat, 잎 패키지, dmenv·dmlog, platform, workspace 등 | 0 |
+| 1 | shared 기초: gocompat, 잎 패키지, otterenv·otterlog, platform, workspace 등 | 0 |
 | 2 | shared 중간: agentadapter·runtime, toolhub·toolipc, edge 계열, sandbox | 1 |
 | 3 | 데몬: chat·chatsock, ipc·swap, boot | 2 |
 | 4 | webserver 도메인: git, worktree, run, claudeacct, ext·lsp, telegram 등 | 1·2 |
 | 5 | webserver 표면: apierr, hub, toolclient, gitapi, httpapi | 3·4 |
-| 6 | ctl·helper: cli, migrate·privhelper, runtimebin(dmctl) | 2·5 |
-| 7 | 진입점과 빌드: cmd/dongminal, 웹 임베드, 빌드 스크립트 | 3·5·6 |
+| 6 | ctl·helper: cli, migrate·privhelper, runtimebin(otterctl) | 2·5 |
+| 7 | 진입점과 빌드: cmd/otterminal, 웹 임베드, 빌드 스크립트 | 3·5·6 |
 | 8 | 통합 검증: e2e, 상호 운용, 크로스 빌드, 보조 도구 | 7 |
 | 9 | 기준선 이후 Go 변경 따라가기 | 수시 |

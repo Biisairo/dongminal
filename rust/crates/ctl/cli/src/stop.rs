@@ -1,4 +1,4 @@
-//! `dongminal stop` (FR-ACT-5..8).
+//! `otterminal stop` (FR-ACT-5..8).
 
 use std::io::Write;
 
@@ -30,23 +30,23 @@ pub(crate) fn run_stop_in(
 
     let mut ok = true;
     if (ps.pids_on_port)(port).is_empty() {
-        let _ = writeln!(stdout, "dongminal 미실행 (포트 {port})");
-    } else if kill_port(port, stdout, "dongminal", ps) {
-        let _ = writeln!(stdout, "✅ dongminal 정지");
+        let _ = writeln!(stdout, "otterminal 미실행 (포트 {port})");
+    } else if kill_port(port, stdout, "otterminal", ps) {
+        let _ = writeln!(stdout, "✅ otterminal 정지");
     } else {
-        let _ = writeln!(stderr, "❌ dongminal 정지 실패");
+        let _ = writeln!(stderr, "❌ otterminal 정지 실패");
         ok = false;
     }
 
     if o.all {
         if stop_daemon(home, stdout, ps) {
-            let _ = writeln!(stdout, "✅ dongminald 정지");
+            let _ = writeln!(stdout, "✅ otterminald 정지");
         } else {
-            let _ = writeln!(stderr, "❌ dongminald 정지 실패");
+            let _ = writeln!(stderr, "❌ otterminald 정지 실패");
             ok = false;
         }
     } else if let (pid, true) = daemon_pid(home, ps.proc) {
-        let _ = writeln!(stdout, "dongminald 실행 유지 pid={pid} (세션 보존)");
+        let _ = writeln!(stdout, "otterminald 실행 유지 pid={pid} (세션 보존)");
     }
 
     if ok { 0 } else { 1 }

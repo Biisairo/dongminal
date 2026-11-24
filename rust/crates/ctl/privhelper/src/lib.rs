@@ -1,7 +1,7 @@
-//! Go 기준선 `dongminal/internal/ctl/privhelper` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/ctl/privhelper` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 사람 명령의 도우미다 (PEER_CHAT_SRS §3.12, FR-PCH-72~79). 관리자 권한으로 돌며 TOTP 를
-//! 확인하고 사람 명령 묶음에 서명한다. `dongminal otp` 하위 명령이다(옛 이름 `helper`).
+//! 확인하고 사람 명령 묶음에 서명한다. `otterminal otp` 하위 명령이다(옛 이름 `helper`).
 
 mod guard;
 mod secret;
@@ -19,24 +19,24 @@ use std::process::Command;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use dm_gocompat::oserr::{go_error_string, link_error, path_error};
-use dm_shared_humancmd::{Client, SOCKET_PATH};
+use otter_gocompat::oserr::{go_error_string, link_error, path_error};
+use otter_shared_humancmd::{Client, SOCKET_PATH};
 
 use secret::{load_secret, new_secret, save_secret};
 
 /// 자리다 (FR-PCH-72).
-pub const LABEL: &str = "com.dongminal.helper";
-const BIN_PATH: &str = "/Library/PrivilegedHelperTools/com.dongminal.helper";
-const PLIST_PATH: &str = "/Library/LaunchDaemons/com.dongminal.helper.plist";
-const SECRET_DIR: &str = "/Library/Application Support/com.dongminal.helper";
-const SECRET_PATH: &str = "/Library/Application Support/com.dongminal.helper/secret.json";
-const LOG_PATH: &str = "/var/log/com.dongminal.helper.log";
+pub const LABEL: &str = "com.otterminal.helper";
+const BIN_PATH: &str = "/Library/PrivilegedHelperTools/com.otterminal.helper";
+const PLIST_PATH: &str = "/Library/LaunchDaemons/com.otterminal.helper.plist";
+const SECRET_DIR: &str = "/Library/Application Support/com.otterminal.helper";
+const SECRET_PATH: &str = "/Library/Application Support/com.otterminal.helper/secret.json";
+const LOG_PATH: &str = "/var/log/com.otterminal.helper.log";
 const BIN_DIR_MODE: u32 = 0o755;
 const BIN_MODE: u32 = 0o755;
 const PLIST_MODE: u32 = 0o644;
 
-/// `dongminal otp --help` 다. 옛 이름 `dongminal helper` 도 같은 것을 부른다.
-pub const USAGE: &str = "사용법: dongminal otp <install|uninstall|run|status>
+/// `otterminal otp --help` 다. 옛 이름 `otterminal helper` 도 같은 것을 부른다.
+pub const USAGE: &str = "사용법: otterminal otp <install|uninstall|run|status>
 
 OTP 도우미다. 채팅의 강제 삭제·강퇴는 사람만 할 수 있어야 하므로, 할 때마다 휴대폰
 OTP 앱의 6자리를 넣게 한다. 도우미는 관리자(root) 권한으로 따로 돌며 OTP 를 확인하고,
@@ -56,7 +56,7 @@ OTP 앱의 6자리를 넣게 한다. 도우미는 관리자(root) 권한으로 �
   - 5번 틀리면 5분 동안 잠긴다.
   - 휴대폰이 없으면 6자리 대신 복구 코드를 넣는다. 복구 코드도 한 번씩만 쓰인다.
 
-install 은 dongminal 탭이 아닌 OS 기본 터미널 앱에서 실행한다 — dongminal 탭의 화면은
+install 은 otterminal 탭이 아닌 OS 기본 터미널 앱에서 실행한다 — otterminal 탭의 화면은
 에이전트가 읽을 수 있다. 지금은 macOS 만 된다.
 ";
 
@@ -78,7 +78,7 @@ fn ioe(e: io::Error) -> Error {
     Error(go_error_string(&e))
 }
 
-/// `dongminal otp` 를 실행하고 종료 코드를 돌려준다.
+/// `otterminal otp` 를 실행하고 종료 코드를 돌려준다.
 pub fn main(args: &[String], stdout: &mut dyn Write, stderr: &mut dyn Write) -> i32 {
     let Some(cmd) = args.first() else {
         let _ = stderr.write_all(USAGE.as_bytes());
@@ -112,7 +112,7 @@ fn fail(stderr: &mut dyn Write, res: Result<(), Error>) -> i32 {
     match res {
         Ok(()) => 0,
         Err(e) => {
-            let _ = writeln!(stderr, "dongminal otp: {e}");
+            let _ = writeln!(stderr, "otterminal otp: {e}");
             1
         }
     }
@@ -137,7 +137,7 @@ fn status_at(sock: &Path, stdout: &mut dyn Write) -> i32 {
 
 /// Go `time.UnixMilli(ms).Format(time.RFC3339)` (Local).
 fn local_rfc3339(ms: i64) -> String {
-    use dm_gocompat::time::{format_rfc3339, local, to_zone};
+    use otter_gocompat::time::{format_rfc3339, local, to_zone};
     match time::OffsetDateTime::from_unix_timestamp_nanos(i128::from(ms) * 1_000_000) {
         Ok(t) => format_rfc3339(to_zone(t, local())),
         Err(_) => String::new(),
@@ -186,7 +186,7 @@ fn install(stdout: &mut dyn Write, stderr: &mut dyn Write) -> Result<(), Error> 
         errw: stderr,
         own: Box::new(|p| sys::chown(p, 0, 0)),
         launch: Box::new(|| {
-            let launchctl = dm_shared_platform::command_path("launchctl").map_err(Error)?;
+            let launchctl = otter_shared_platform::command_path("launchctl").map_err(Error)?;
             let _ = Command::new(&launchctl)
                 .args(["bootout", &format!("system/{LABEL}")])
                 .output();
@@ -209,7 +209,7 @@ fn install(stdout: &mut dyn Write, stderr: &mut dyn Write) -> Result<(), Error> 
             if nopasswd_user.is_empty() {
                 return false;
             }
-            let Ok(sudo) = dm_shared_platform::command_path("sudo") else {
+            let Ok(sudo) = otter_shared_platform::command_path("sudo") else {
                 return false;
             };
             Command::new(sudo)
@@ -223,7 +223,7 @@ fn install(stdout: &mut dyn Write, stderr: &mut dyn Write) -> Result<(), Error> 
 
 /// Go `*exec.ExitError` 의 문구.
 fn exit_status(s: &std::process::ExitStatus) -> String {
-    dm_shared_platform::exit_status_text(s)
+    otter_shared_platform::exit_status_text(s)
 }
 
 type OwnFn<'a> = dyn Fn(&Path) -> io::Result<()> + 'a;
@@ -246,7 +246,7 @@ struct InstallEnv<'a> {
 
 /// Go `os.MkdirAll(p, mode)`.
 fn mkdir_all(p: &Path, mode: u32) -> io::Result<()> {
-    dm_gocompat::oserr::mkdir_all(&p.to_string_lossy(), mode)
+    otter_gocompat::oserr::mkdir_all(&p.to_string_lossy(), mode)
 }
 
 /// 순서 (§3.12a R-1·R-8): 비밀 확인(다른 사용자면 멈춤) → 처음이면 비밀을 만들어 저장하고 바로
@@ -298,11 +298,11 @@ fn print_enrollment(w: &mut dyn Write, sec: &Secret, codes: &[String], user: &st
     let mut s = String::new();
     s.push('\n');
     s.push_str(
-        "아래 값은 지금 한 번만 보인다. 이 창은 dongminal 탭이 아닌 OS 기본 터미널이어야 한다.\n",
+        "아래 값은 지금 한 번만 보인다. 이 창은 otterminal 탭이 아닌 OS 기본 터미널이어야 한다.\n",
     );
     s.push_str("휴대폰 OTP 앱(Ente Auth 권장)에 '직접 입력'으로 넣는다.\n");
     s.push('\n');
-    s.push_str(&format!("  계정 이름  dongminal ({user})\n"));
+    s.push_str(&format!("  계정 이름  otterminal ({user})\n"));
     s.push_str(&format!("  비밀       {}\n", group_by4(&sec.totp)));
     s.push_str("  방식       TOTP · SHA1 · 6자리 · 30초\n");
     s.push('\n');
@@ -328,7 +328,7 @@ fn group_by4(s: &str) -> String {
 
 fn uninstall(stdout: &mut dyn Write) -> Result<(), Error> {
     installer()?;
-    if let Ok(launchctl) = dm_shared_platform::command_path("launchctl") {
+    if let Ok(launchctl) = otter_shared_platform::command_path("launchctl") {
         let _ = Command::new(launchctl)
             .args(["bootout", &format!("system/{LABEL}")])
             .output();
@@ -363,7 +363,7 @@ fn run() -> Result<(), Error> {
         Box::new(sys::peer_uid),
     )
     .map_err(|e| Error(e.to_string()))?;
-    let ipc = dm_shared_platform::current().ipc;
+    let ipc = otter_shared_platform::current().ipc;
     let sock = Path::new(SOCKET_PATH);
     let _ = ipc.remove(sock);
     let ln = ipc.listen(sock).map_err(ioe)?;

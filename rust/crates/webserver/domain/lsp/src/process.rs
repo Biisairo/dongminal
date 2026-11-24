@@ -4,7 +4,7 @@ use std::io::{self, Read, Write};
 use std::process::{Command, Stdio};
 use std::sync::Arc;
 
-use dm_gocompat::oserr::path_error;
+use otter_gocompat::oserr::path_error;
 
 /// 띄운 서버와의 연결. `stop` 은 서버(와 자손)를 끝내고 거둔다.
 pub struct Conn {
@@ -24,7 +24,7 @@ pub fn start_process(exe: &str, args: &[String], dir: &str) -> io::Result<Conn> 
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
-    let group = dm_shared_platform::current().process.new_group(&mut cmd);
+    let group = otter_shared_platform::current().process.new_group(&mut cmd);
     let mut child = cmd.spawn().map_err(|e| path_error("fork/exec", exe, e))?;
     if let Err(e) = group.bind(&child) {
         let _ = group.kill();

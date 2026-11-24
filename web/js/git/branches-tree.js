@@ -1,5 +1,5 @@
 /**
- * Dongminal — Branches 탭의 **트리** (FE_MODULE_BOUNDARY_SRS FR-FMB-30).
+ * Otterminal — Branches 탭의 **트리** (FE_MODULE_BOUNDARY_SRS FR-FMB-30).
  *
  * 즐겨찾기 / 로컬 / 원격 / 태그 4그룹, 이름의 `/` 로 다시 묶는 접두어 그룹, 그
  * 아래 행 하나 (FR-GIT-148~153). 접힘(FR-GIT-150)과 즐겨찾기(FR-GIT-149, O13)가

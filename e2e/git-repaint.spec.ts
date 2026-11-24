@@ -23,7 +23,7 @@ import { tmpPath, realPath } from './osenv';
 // 남았는지를 본다. 표식은 DOM 속성이 아니라 객체 프로퍼티라 재생성에서 살아남지
 // 않는다.
 
-const FIXTURES = tmpPath('dm-git-fx-repaint-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-repaint-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

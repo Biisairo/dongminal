@@ -4,13 +4,13 @@
 
 use std::sync::Arc;
 
-use dm_webserver_domain_git_core::{self as core, Ctx, Hint, WriteSpec};
-use dm_webserver_domain_git_jobs::{
+use http::StatusCode;
+use otter_webserver_domain_git_core::{self as core, Ctx, Hint, WriteSpec};
+use otter_webserver_domain_git_jobs::{
     self as jobs, Finisher, Job, JobResult, Jobs, JobsOptions, Keys, SLOT_INDEX,
 };
-use dm_webserver_domain_git_query::Status;
-use dm_webserver_domain_git_store::Store;
-use http::StatusCode;
+use otter_webserver_domain_git_query::Status;
+use otter_webserver_domain_git_store::Store;
 
 use crate::GitServer;
 use crate::answers::slots_answer;

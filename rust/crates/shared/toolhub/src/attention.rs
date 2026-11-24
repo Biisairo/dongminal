@@ -2,9 +2,9 @@
 
 use std::time::Duration;
 
-use dm_gocompat::json;
-use dm_shared_activity as activity;
-use dm_shared_dmenv as dmenv;
+use otter_gocompat::json;
+use otter_shared_activity as activity;
+use otter_shared_otterenv as otterenv;
 use serde::{Deserialize, Serialize};
 
 /// 읽기 경계에 걸친 끝나지 않은 OSC 조각의 이월 상한이다. 넘으면 버린다.
@@ -17,10 +17,10 @@ pub const ATTENTION_SWEEP_INTERVAL: Duration = Duration::from_millis(ATTN_TICK_M
 /// 활동 보고 `working` 을 믿어 주는 기한(unix-nanos)이다 (FR-ATF-10·AS-1). 5분.
 pub const ATTN_WORKING_STALE: i64 = 5 * 60 * 1_000_000_000;
 
-/// L2 유휴 임계값: `DONGMINAL_ATTENTION_IDLE_MS` 또는 기본값. 0 은 끄기다.
+/// L2 유휴 임계값: `OTTERMINAL_ATTENTION_IDLE_MS` 또는 기본값. 0 은 끄기다.
 pub fn attention_idle_threshold() -> Duration {
-    dmenv::millis_env(
-        dmenv::ENV_ATTENTION_IDLE_MS,
+    otterenv::millis_env(
+        otterenv::ENV_ATTENTION_IDLE_MS,
         Duration::from_millis(ATTN_DEFAULT_IDLE_MS),
         0,
     )
@@ -28,7 +28,7 @@ pub fn attention_idle_threshold() -> Duration {
 
 /// 맨 BEL 을 주의 신호로 칠지다. 기본은 끔이다 (FR-HPR-17).
 pub fn attention_allow_bell() -> bool {
-    dmenv::flag_env(dmenv::ENV_ATTENTION_BELL)
+    otterenv::flag_env(otterenv::ENV_ATTENTION_BELL)
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

@@ -4,7 +4,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use dm_gocompat::json::{self, RawMessage};
+use otter_gocompat::json::{self, RawMessage};
 use serde::Deserialize;
 
 use crate::claudecfg::read_config_map;
@@ -75,7 +75,7 @@ impl SharedLinker {
     pub(crate) fn default_os() -> Self {
         Self {
             symlink: Box::new(os_symlink),
-            junction: Box::new(dm_shared_platform::junction),
+            junction: Box::new(otter_shared_platform::junction),
         }
     }
 
@@ -121,7 +121,9 @@ impl SharedLinker {
 
 fn copy_shared_file(src: &Path, dst: &Path) -> Result<(), Error> {
     let b = fsutil::read_file(src)?;
-    Ok(dm_shared_platform::write_file_atomic(dst, &b, FILE_MODE)?)
+    Ok(otter_shared_platform::write_file_atomic(
+        dst, &b, FILE_MODE,
+    )?)
 }
 
 impl Service {
@@ -173,7 +175,7 @@ impl Service {
         };
         self.set_profile_warnings(id, &warn);
         for w in &warn {
-            dm_shared_dmlog::infof!(
+            otter_shared_otterlog::infof!(
                 None,
                 "claude-accounts: 프로필 {id} 의 공유 항목 {w} 를 잇지 못했다"
             );
@@ -195,13 +197,15 @@ impl Service {
         out.insert(OAUTH_ACCOUNT_KEY.to_owned(), oauth);
         out.insert(ONBOARDING_KEY.to_owned(), RawMessage(b"true".to_vec()));
         let b = json::marshal(&out)?;
-        Ok(dm_shared_platform::write_file_atomic(path, &b, FILE_MODE)?)
+        Ok(otter_shared_platform::write_file_atomic(
+            path, &b, FILE_MODE,
+        )?)
     }
 
     fn alive(&self, pid: i32) -> bool {
         match &self.alive {
             Some(f) => f(pid),
-            None => dm_shared_platform::current().process.alive(pid),
+            None => otter_shared_platform::current().process.alive(pid),
         }
     }
 
@@ -254,7 +258,10 @@ impl Service {
             Ok(_) => {}
         }
         if let Err(e) = self.backup.write(&a.id, &pc) {
-            dm_shared_dmlog::infof!(None, "claude-accounts: 프로필 토큰을 회수하지 못했다: {e}");
+            otter_shared_otterlog::infof!(
+                None,
+                "claude-accounts: 프로필 토큰을 회수하지 못했다: {e}"
+            );
         }
     }
 
@@ -286,5 +293,5 @@ fn remove_all(p: &Path) -> io::Result<()> {
         Ok(m) if m.is_dir() => fs::remove_dir_all(p),
         Ok(_) => fs::remove_file(p),
     }
-    .map_err(|e| dm_gocompat::oserr::path_error("unlinkat", &p.to_string_lossy(), e))
+    .map_err(|e| otter_gocompat::oserr::path_error("unlinkat", &p.to_string_lossy(), e))
 }

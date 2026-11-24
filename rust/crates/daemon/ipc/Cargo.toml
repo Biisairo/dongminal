@@ -1,5 +1,5 @@
 [package]
-name = "dm-daemon-ipc"
+name = "otter-daemon-ipc"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,25 +10,25 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-activity = { path = "../../shared/activity" }
-dm-shared-agentadapter = { path = "../../shared/agentadapter" }
-dm-shared-agentrec = { path = "../../shared/agentrec" }
-dm-shared-chatwire = { path = "../../shared/chatwire" }
-dm-shared-dmlog = { path = "../../shared/dmlog" }
-dm-shared-edge = { path = "../../shared/edge" }
-dm-shared-edgenode = { path = "../../shared/edgenode" }
-dm-shared-handover = { path = "../../shared/handover" }
-dm-shared-platform = { path = "../../shared/platform" }
-dm-shared-toolhub = { path = "../../shared/toolhub" }
-dm-shared-toolipc = { path = "../../shared/toolipc" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-activity = { path = "../../shared/activity" }
+otter-shared-agentadapter = { path = "../../shared/agentadapter" }
+otter-shared-agentrec = { path = "../../shared/agentrec" }
+otter-shared-chatwire = { path = "../../shared/chatwire" }
+otter-shared-otterlog = { path = "../../shared/otterlog" }
+otter-shared-edge = { path = "../../shared/edge" }
+otter-shared-edgenode = { path = "../../shared/edgenode" }
+otter-shared-handover = { path = "../../shared/handover" }
+otter-shared-platform = { path = "../../shared/platform" }
+otter-shared-toolhub = { path = "../../shared/toolhub" }
+otter-shared-toolipc = { path = "../../shared/toolipc" }
 serde = { workspace = true }
 time = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 
 [dev-dependencies]
-dm-shared-outbuf = { path = "../../shared/outbuf" }
-dm-webserver-toolclient = { path = "../../webserver/toolclient" }
+otter-shared-outbuf = { path = "../../shared/outbuf" }
+otter-webserver-toolclient = { path = "../../webserver/toolclient" }
 serde_json = { workspace = true }
 tempfile = { workspace = true }

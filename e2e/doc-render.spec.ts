@@ -45,7 +45,7 @@ const DOC = [
 ].join('\n');
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-drv-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-drv-')));
   ROOT = j(BASE, 'root');
   fs.mkdirSync(ROOT, { recursive: true });
   fs.writeFileSync(j(ROOT, 'doc.md'), DOC);

@@ -1,12 +1,12 @@
 //! 에이전트 접합면의 도구 입출력 (Go `handlers_toolio.go`, SKILL_INJECTION_SRS FR-API-1/2/3).
-//! `dmctl read-screen`·`read-output`·`send-input`·`msg` 가 부른다. 공용 도우미는 다른 하위
+//! `otterctl read-screen`·`read-output`·`send-input`·`msg` 가 부른다. 공용 도우미는 다른 하위
 //! 이슈의 종단도 쓴다.
 
 use std::sync::Arc;
 
-use dm_shared_dmlog::infof;
-use dm_shared_httpresp::Response;
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_shared_otterlog::infof;
 use serde::{Deserialize, Serialize};
 
 use crate::Server;
@@ -18,7 +18,7 @@ use crate::toolhub::with_req;
 
 /// 서버가 보낸 봉투의 발신자 이름이다.
 #[allow(dead_code)]
-pub(crate) const ENVELOPE_SERVER_SENDER: &str = "dongminal-server";
+pub(crate) const ENVELOPE_SERVER_SENDER: &str = "otterminal-server";
 
 impl Server {
     #[allow(dead_code)]
@@ -80,8 +80,8 @@ impl Server {
         };
         idx.resolve_strict(ident).map_err(|err| {
             let label = err
-                .downcast_ref::<dm_shared_workspace::Error>()
-                .is_some_and(dm_shared_workspace::Error::is_label_identifier);
+                .downcast_ref::<otter_shared_workspace::Error>()
+                .is_some_and(otter_shared_workspace::Error::is_label_identifier);
             let status = if label {
                 StatusCode::BAD_REQUEST
             } else {
@@ -230,26 +230,26 @@ impl Server {
 /// Go `agentEnvelope`: 받는 쪽 에이전트가 신뢰 채널로 알아보는 봉투다.
 pub(crate) fn agent_envelope(from: &str, to_tool_id: &str, body: &str) -> String {
     // Go 배치 `15:04:05`(지역 시각).
-    let t = dm_gocompat::time::now_local();
+    let t = otter_gocompat::time::now_local();
     let ts = format!("{:02}:{:02}:{:02}", t.hour(), t.minute(), t.second());
     format!(
-        "[DONGMINAL-AGENT-MSG from={from} to={to_tool_id} ts={ts}]\n{}\n[/DONGMINAL-AGENT-MSG]",
+        "[OTTERMINAL-AGENT-MSG from={from} to={to_tool_id} ts={ts}]\n{}\n[/OTTERMINAL-AGENT-MSG]",
         quote_envelope(body)
     )
 }
 
 /// Go `quoteEnvelope`: 본문 안의 봉투 표지를 깨뜨려 가짜 봉투를 막는다.
 pub(crate) fn quote_envelope(msg: &str) -> String {
-    const CLOSE: &str = "[/DONGMINAL-AGENT-MSG";
-    const OPEN: &str = "[DONGMINAL-AGENT-MSG";
+    const CLOSE: &str = "[/OTTERMINAL-AGENT-MSG";
+    const OPEN: &str = "[OTTERMINAL-AGENT-MSG";
     let mut out = String::with_capacity(msg.len());
     let mut rest = msg;
     while !rest.is_empty() {
         if let Some(r) = rest.strip_prefix(CLOSE) {
-            out.push_str("[\\/DONGMINAL-AGENT-MSG");
+            out.push_str("[\\/OTTERMINAL-AGENT-MSG");
             rest = r;
         } else if let Some(r) = rest.strip_prefix(OPEN) {
-            out.push_str("[\\DONGMINAL-AGENT-MSG");
+            out.push_str("[\\OTTERMINAL-AGENT-MSG");
             rest = r;
         } else {
             let c = rest.chars().next().unwrap_or_default();

@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/daemon/chat` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/daemon/chat` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 데몬의 채팅 핵심이다 (PEER_CHAT_SRS §3.9). 간선 상대마다 채팅 연결을 하나 열어 두고, 노드 상태
 //! 알림과 글을 서명해 망에 퍼뜨린다. 노드는 자기 참가자에 대해서만 말하고, 글은 그 순간 방에 있는

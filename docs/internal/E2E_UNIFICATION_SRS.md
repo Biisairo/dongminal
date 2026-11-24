@@ -25,7 +25,7 @@
 
 **대상 안**
 
-- 새 서브커맨드 `dongminal verify` — 격리 인스턴스를 스스로 띄우고 HTTP 표면을
+- 새 서브커맨드 `otterminal verify` — 격리 인스턴스를 스스로 띄우고 HTTP 표면을
   훑은 뒤 치운다
 - 현행 세 하네스가 검사하던 항목의 **합집합**을 그 한 벌에 담는다
 - 대상별로 성립하지 않는 항목을 **능력 질의**로 건너뛰되, 건너뛴 사실과 이유를
@@ -40,8 +40,8 @@
 | 용어 | 뜻 |
 |---|---|
 | **종단간(e2e)** | 서버를 **데몬 모드로** 띄우고 HTTP 표면을 실제로 두드리는 검증. 프로세스 경계를 넘는다 |
-| **doctor** | `dongminal doctor`. 서버 **없이** 플랫폼 계층을 계층별로 in-process 로 실행하는 진단 |
-| **격리 인스턴스** | `--isolated` 로 띄운 것 — 임시 홈(`dongminal-iso-*`) + 빈 포트. 운영 인스턴스를 건드리지 않는다 |
+| **doctor** | `otterminal doctor`. 서버 **없이** 플랫폼 계층을 계층별로 in-process 로 실행하는 진단 |
+| **격리 인스턴스** | `--isolated` 로 띄운 것 — 임시 홈(`otterminal-iso-*`) + 빈 포트. 운영 인스턴스를 건드리지 않는다 |
 | **능력 질의** | "이 호스트가 X 를 할 수 있는가" 로 묻는 것. **OS 이름으로 가르지 않는다** (CROSS_PLATFORM_SRS FR-XBD-3) |
 | **건너뜀(skip)** | 검사를 돌리지 않되 그 사실과 이유를 보고서에 **남기는** 것. 침묵과 구별된다 |
 
@@ -110,7 +110,7 @@ git 표면의 동작 변경인데, 그 표면이 Linux·Windows 에서 한 번�
 
 | 필요한 것 | 이미 있는 것 |
 |---|---|
-| 임시 홈 + 빈 포트 | `resolveStartTarget` (`start.go`) — `MkdirTemp("dongminal-iso-")` + `FreePort()` |
+| 임시 홈 + 빈 포트 | `resolveStartTarget` (`start.go`) — `MkdirTemp("otterminal-iso-")` + `FreePort()` |
 | 데몬 모드 기동 | `startDetached` — 자기 자신을 `start --foreground` 로 끊어 띄운다 |
 | ✅/❌ 보고 + 실패 재수집 + exit code | `doctorReport` (`doctor.go`) |
 | 셸 준비 판정 | doctor 의 "출력이 오고 조용해지면 준비" (`doctorReadyWait`·`doctorQuietFor` — 지금은 `waitQuiet`·`shellQuietFor`, FR-OPT-9-2) |
@@ -127,7 +127,7 @@ git 표면의 동작 변경인데, 그 표면이 Linux·Windows 에서 한 번�
 
 ### 3.1 묶음 A — 진입점 (FR-E2C)
 
-**FR-E2C-1** 서브커맨드 `dongminal verify` 를 신설한다. 액션 표(`internal/ctl/cli/actions.go`
+**FR-E2C-1** 서브커맨드 `otterminal verify` 를 신설한다. 액션 표(`internal/ctl/cli/actions.go`
 `actionsOf()`)에 행 하나로 더하며, `Help()`·`Usage()` 는 그 표에서 나온다.
 
 > 개정 (2026-09-26, OPTIMIZE_REFACTOR_SRS FR-OPT-10-2 · SHR-30): 종전 문구의 `Actions` 는 help 에
@@ -140,7 +140,7 @@ git 표면의 동작 변경인데, 그 표면이 Linux·Windows 에서 한 번�
 받아서 무시하는 것이 아니라 오류로 끝낸다. 운영 인스턴스를 겨눌 방법 자체를 두지
 않는 것이 사고를 막는 가장 단순한 형태다 (D-4).
 
-**FR-E2C-4** `verify` 는 환경변수 `DONGMINAL_HOME`·`DONGMINAL_PORT` 를 **무시한다.**
+**FR-E2C-4** `verify` 는 환경변수 `OTTERMINAL_HOME`·`OTTERMINAL_PORT` 를 **무시한다.**
 CI 가 다른 목적으로 그 값을 세워 두어도 검사는 격리 홈·빈 포트에서 돈다. 띄우는
 서버에도 격리 값을 명시적으로 넘긴다 (`withEnv` 가 이미 그렇게 한다).
 
@@ -165,9 +165,9 @@ CI 가 다른 목적으로 그 값을 세워 두어도 검사는 격리 홈·빈
 **FR-E2G-1** 기동 전, 정해진 대상이 다음을 **모두** 만족해야 한다. 하나라도
 어긋나면 아무것도 띄우지 않고 즉시 중단한다.
 
-1. 홈이 `dongminal-iso-` 를 이름에 포함하는 임시 디렉터리다
-2. 홈이 사용자 기본 홈(`~/.dongminal`)이 **아니다**
-3. 포트가 기본 포트(`dmenv.DefaultPort`, 58146)가 **아니다**
+1. 홈이 `otterminal-iso-` 를 이름에 포함하는 임시 디렉터리다
+2. 홈이 사용자 기본 홈(`~/.otterminal`)이 **아니다**
+3. 포트가 기본 포트(`otterenv.DefaultPort`, 58146)가 **아니다**
 
 **FR-E2G-2** 가드를 통과하기 전에는 **어떤 프로세스도 종료하지 않고 어떤 디렉터리도
 지우지 않는다.** 중단 시 정리 대상은 비어 있어야 한다.
@@ -301,7 +301,7 @@ AF_UNIX 종단은 재분석 지점으로 나타나 그 비트가 서지 않는�
 ### 3.6 묶음 F — 통합과 철거 (FR-E2I)
 
 **FR-E2I-1** `verify.yml` 의 `windows-runtime`·`linux-runtime` 두 잡에서
-「종단간」 인라인 블록을 `dongminal verify` 호출로 교체한다. **bash·PowerShell
+「종단간」 인라인 블록을 `otterminal verify` 호출로 교체한다. **bash·PowerShell
 종단간 스크립트는 사라진다.**
 
 **FR-E2I-2** 두 잡의 「정리」 단계를 제거한다. verify 가 스스로 치운다 (FR-E2G-3·6).
@@ -309,7 +309,7 @@ AF_UNIX 종단은 재분석 지점으로 나타나 그 비트가 서지 않는�
 **FR-E2I-3** 두 잡의 「doctor」 단계는 **유지한다.** doctor 와 verify 는 겹치지
 않는다 (§5-2).
 
-**FR-E2I-4** `scripts/verify-isolated.sh` 를 `go build` + `dongminal verify` 를
+**FR-E2I-4** `scripts/verify-isolated.sh` 를 `go build` + `otterminal verify` 를
 부르는 껍데기로 축소한다. 이름은 유지한다 — 개발자가 기억하는 진입점이고 문서
 여러 곳이 그것을 가리킨다.
 
@@ -358,7 +358,7 @@ OS 이름으로 갈라지지 않는다 (`scripts/check-seams.sh` 통과).
 | FR-E2C-4 | 단위테스트 — 환경변수를 세운 채 대상 해석이 격리 값을 내는지 |
 | FR-E2C-6 | 단위테스트 — 건너뜀만 있는 보고서가 0 을 내는지 |
 | FR-E2C-7 | 세 대상 실동작 (verify 자신이 데몬 모드로 뜨므로 통과가 곧 증거) |
-| FR-E2G-1,2 | **단위테스트** — 가드 판정 함수를 순수 함수로 분리해 위험한 조합(기본 포트·`~/.dongminal`·비임시 홈)이 전부 거부되는지. 프로세스를 띄우지 않고 검증한다 |
+| FR-E2G-1,2 | **단위테스트** — 가드 판정 함수를 순수 함수로 분리해 위험한 조합(기본 포트·`~/.otterminal`·비임시 홈)이 전부 거부되는지. 프로세스를 띄우지 않고 검증한다 |
 | FR-E2G-3,4,5 | 코드 검토 + 단위테스트 — 정리 대상 목록이 우리가 띄운 둘뿐인지 |
 | FR-E2G-6 | 단위테스트 — 이름 조건을 어긴 경로에 삭제가 가지 않는지 |
 | FR-E2K-1 | 검사 표를 데이터로 두고, **항목 수와 이름을 단위테스트가 고정한다** (골든) |
@@ -388,7 +388,7 @@ GOOS=windows go vet ./...
 go test ./internal/... ./cmd/... -count=1
 scripts/check-cross.sh
 scripts/check-seams.sh
-scripts/verify-isolated.sh     # darwin — 이제 dongminal verify 를 부른다
+scripts/verify-isolated.sh     # darwin — 이제 otterminal verify 를 부른다
 ```
 
 CI 는 잡 넷이 전부 초록이어야 한다.
@@ -471,11 +471,11 @@ git 능력 질의 둘. 주입 가능한 형태로 두어 단위테스트가 양�
 
 | | 결정 | 상태 |
 |---|---|---|
-| **D-1** | e2e 를 담는 형태 — 서브커맨드 / `go test -tags e2e` / 둘 다 | **확정: `dongminal verify` 서브커맨드** (사용자). 저장소에 커스텀 build tag 관행이 없고, doctor 가 같은 형태의 선례이며, 스크립트가 "부르는 껍데기"가 되기에 자연스럽다 |
+| **D-1** | e2e 를 담는 형태 — 서브커맨드 / `go test -tags e2e` / 둘 다 | **확정: `otterminal verify` 서브커맨드** (사용자). 저장소에 커스텀 build tag 관행이 없고, doctor 가 같은 형태의 선례이며, 스크립트가 "부르는 껍데기"가 되기에 자연스럽다 |
 | **D-2** | doctor 와 겹치는가 | **확정: 가른다** (§5-2) |
 | **D-3** | macOS 를 CI 에 넣는가 | **확정: 넣지 않는다** (사용자, FR-E2I-5) |
 | **D-4** | `verify-isolated.sh` 를 남기는가 | **확정: 껍데기로 축소해 남긴다** (FR-E2I-4) |
-| **D-5** | 검사 8(왕복)에 쓸 마커 문자열 | 현행 CI 와 같은 `dongminal-e2e-ok` 를 승계한다 |
+| **D-5** | 검사 8(왕복)에 쓸 마커 문자열 | 현행 CI 와 같은 `otterminal-e2e-ok` 를 승계한다 |
 
 ---
 
@@ -483,13 +483,13 @@ git 능력 질의 둘. 주입 가능한 형태로 두어 단위테스트가 양�
 
 ### 9.1 최종 상태
 
-`dongminal verify` 가 신설됐고 **세 대상이 같은 22항목을 돈다.**
+`otterminal verify` 가 신설됐고 **세 대상이 같은 22항목을 돈다.**
 
 | 대상 | 수단 | 어디서 | 결과 |
 |---|---|---|---|
-| macOS | `scripts/verify-isolated.sh` → `dongminal verify` | 로컬 | ✅ 22/22 |
-| Linux | `dongminal verify` | CI | CI 확인 |
-| Windows | `dongminal verify` | CI | CI 확인 |
+| macOS | `scripts/verify-isolated.sh` → `otterminal verify` | 로컬 | ✅ 22/22 |
+| Linux | `otterminal verify` | CI | CI 확인 |
+| Windows | `otterminal verify` | CI | CI 확인 |
 
 이관 무결성은 **나란한 대조**로 실증했다 (§6 7단계). 구 `verify-isolated.sh` 21항목이
 전부 통과하는 상태에서 새 verify 를 돌려, 21항목이 모두 새 목록에 대응하고 CI 의
@@ -522,7 +522,7 @@ git 부재까지 한 번에 답해 `LookPath` 도 필요 없어졌다.
 함께 남긴다. 도구 id 와 왕복 바이트 수도 같은 자리에 실린다.
 
 **정정 3 — 서버 로그를 격리 홈 안에 둔다.**
-`prepareServerCmd` 가 `$DONGMINAL_LOG` 또는 기본 로그 자리를 쓰므로, 그대로 두면
+`prepareServerCmd` 가 `$OTTERMINAL_LOG` 또는 기본 로그 자리를 쓰므로, 그대로 두면
 verify 의 서버 로그가 운영 인스턴스의 로그에 섞인다. `logPath` 를 인자로 받게 하고
 verify 는 `<격리 홈>/server.log` 를 준다. `start` 는 `""` 를 넘겨 종전과 같다.
 
@@ -534,10 +534,10 @@ verify 는 `<격리 홈>/server.log` 를 준다. `start` 는 `""` 를 넘겨 종
 PowerShell·bash 블록은 `-match` / `grep -q` 로 **한 번만** 봤다. 즉 종전 CI 의
 왕복 검사는 에코만으로도 통과할 수 있었다.
 
-**리터럴 셋이 가드의 전제였다.** `dongminal-iso-`(start.go)와 `.dongminal`
+**리터럴 셋이 가드의 전제였다.** `otterminal-iso-`(start.go)와 `.otterminal`
 (options.go·main.go)이 흩어져 있었다. 가드는 그 값과의 **일치**로 판정하므로,
 만드는 쪽만 바뀌면 가드가 조용히 무력해진다. `isolatedHomePrefix`(cli)와
-`dmenv.DefaultHomeDir` 로 묶고,
+`otterenv.DefaultHomeDir` 로 묶고,
 `TestGuardIsolated_AcceptsWhatResolveStartTargetMakes` 가 그 일치를 붙든다.
 
 ### 9.5 남은 위험

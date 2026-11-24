@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use dm_webserver_apierr as apierr;
+use otter_webserver_apierr as apierr;
 use serde_json::json;
 
 use super::harness::*;

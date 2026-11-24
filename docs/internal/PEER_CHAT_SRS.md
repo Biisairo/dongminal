@@ -6,7 +6,7 @@
 > 이유 — 사용자 결정 D-7(채팅이 자기 화면을 갖는다).
 > **직접 모드 제거 (2026-11-18, `DIRECT_MODE_REMOVAL_SRS.md`)**: 직접 모드(데몬 없이 서버만 도는 배선)는 지원 대상이 아니었고 코드에서 없어졌다. 서버는 늘 데몬에 붙고, 붙지 못하면 오류로 끝난다. 이 문서의 직접 모드 서술은 기록으로 남긴다 — NFR-PCH-5·D-PCH-35 의 직접 모드 갈래와 `chat_daemon_only` 는 없다. 데몬이 없거나 준비되지 않은 서버는 409 `chat_daemon_restart` 다(FR-DMR-22).
 
-> **남은 것**: 없음. 단계 1~4 와 독립 리뷰 수정(§3.12a)이 끝났다. 적용(데몬·서버 재시작, 재설치, `sudo dongminal helper install`)과 e2e 는 사용자가 한다
+> **남은 것**: 없음. 단계 1~4 와 독립 리뷰 수정(§3.12a)이 끝났다. 적용(데몬·서버 재시작, 재설치, `sudo otterminal helper install`)과 e2e 는 사용자가 한다
 > **선행**: `PEER_DAEMON_SRS.md` (노드 = 데몬, 이름 peer → edge). 이 SRS 의 "노드"는 모두 데몬이다.
 > **입력**: 2026-11-17 대화 두 번. 결정은 §4 다. §9 미결은 모두 정했다.
 > **후속**: `EDGE_MESH_SRS.md`(2026-11-18)가 채팅 연결을 간선 계층의 간선 연결(`/edge/v1/link`, `dmlink1`)로 옮기고,
@@ -18,9 +18,9 @@
 
 접수한 요청은 다음과 같다.
 
-> "연결된 dongminal 끼리 단톡방 같은 걸 만들거나 갠톡을 할 수 있는 구조로 만드는 건 어때? dongminal tab 에서 claude 를 열면 mcp 가 주입되게 하고 해당 mcp 를 통해서 메시지 알림, 보내기, 읽기가 되게 하는 거야. 중심 서버가 없고 망으로 연결된 dongminal 이면 누구든 갠톡, 단톡을 만들 수 있도록 하고 싶은데."
+> "연결된 otterminal 끼리 단톡방 같은 걸 만들거나 갠톡을 할 수 있는 구조로 만드는 건 어때? otterminal tab 에서 claude 를 열면 mcp 가 주입되게 하고 해당 mcp 를 통해서 메시지 알림, 보내기, 읽기가 되게 하는 거야. 중심 서버가 없고 망으로 연결된 otterminal 이면 누구든 갠톡, 단톡을 만들 수 있도록 하고 싶은데."
 
-이 SRS 는 중심 서버 없이, 간선으로 이어진 노드들이 하나의 망을 이루고 그 안에서 방(단체채팅·개인채팅)을 만들어 대화하게 한다. 에이전트는 MCP 로 참여하고, 사람은 dongminal 화면으로 참여한다. 대화는 IRC 처럼 그 순간 방에 있는 참가자에게만 전달하고, 노드는 대화 내용을 들지 않는다.
+이 SRS 는 중심 서버 없이, 간선으로 이어진 노드들이 하나의 망을 이루고 그 안에서 방(단체채팅·개인채팅)을 만들어 대화하게 한다. 에이전트는 MCP 로 참여하고, 사람은 otterminal 화면으로 참여한다. 대화는 IRC 처럼 그 순간 방에 있는 참가자에게만 전달하고, 노드는 대화 내용을 들지 않는다.
 
 ### 1.2 범위 (Scope)
 
@@ -71,7 +71,7 @@
 ## 2. 현황 (Identified Issue)
 
 - 노드 사이 통신은 간선 상대끼리의 짝맺기 경로뿐이다. 간선을 건너 전달하지 않는다(PEER_NETWORK 비목표 6).
-- 에이전트끼리의 메시지는 같은 노드 안의 터미널 붙여넣기(`dmctl msg` 엔벨로프)로만 들어간다. 여럿이 함께 쓰는 자리, 읽지 않은 수가 없다.
+- 에이전트끼리의 메시지는 같은 노드 안의 터미널 붙여넣기(`otterctl msg` 엔벨로프)로만 들어간다. 여럿이 함께 쓰는 자리, 읽지 않은 수가 없다.
 - 사람과 에이전트를 가르는 수단이 없다. 같은 OS 계정에서 돌기 때문이다.
 
 ## 3. 요구 (Requirements)
@@ -126,7 +126,7 @@
 ### 3.3 묶음 P — 참가자
 
 - **FR-PCH-40** 에이전트 참가자 하나는 `노드 + session_id + claude 프로세스` 하나다. 세션마다 따로 참가하므로, 각 세션은 자기가 들어간 방의 글만 받는다.
-- **FR-PCH-41** 사람 참가자는 노드마다 하나다. dongminal 화면에서 그 노드 이름으로 참가한다. 사람 명령(§3.6)을 빼면 에이전트와 똑같이 다룬다.
+- **FR-PCH-41** 사람 참가자는 노드마다 하나다. otterminal 화면에서 그 노드 이름으로 참가한다. 사람 명령(§3.6)을 빼면 에이전트와 똑같이 다룬다.
 - **FR-PCH-42** MCP 프로세스는 claude 가 띄우는 자식 프로세스이며, 데몬에 연결한다. 처음 연결할 때 claude 가 넘긴 세션 id(환경 변수 `CLAUDE_CODE_SESSION_ID`)를 알린다. 세션의 신원은 세션 id 하나뿐이다. 훅은 보고에 실린 `session_id` 로 그 세션의 MCP 연결을 찾는다(D-PCH-37).
 - **FR-PCH-43** 상황별 동작은 아래와 같다. 참가자 수명에는 시간 확인 루프를 두지 않는다. 모두 사건 하나로 끝난다.
 
@@ -147,7 +147,7 @@
 
 ### 3.4 묶음 M — MCP
 
-- **FR-PCH-50** dongminal 탭에서 claude 를 띄우면 claude shim 이 MCP 설정을 주입한다(`--mcp-config`). 사용자 파일과 `~/.claude` 는 건드리지 않는다.
+- **FR-PCH-50** otterminal 탭에서 claude 를 띄우면 claude shim 이 MCP 설정을 주입한다(`--mcp-config`). 사용자 파일과 `~/.claude` 는 건드리지 않는다.
 - **FR-PCH-51** MCP 도구는 여덟 개다.
 
   | 도구 | 입력 | 하는 일 |
@@ -170,7 +170,7 @@
 ### 3.5 묶음 A — 알림
 
 - **FR-PCH-60** 에이전트가 일하는 중이면, 도구를 쓸 때마다 실행되는 훅이 "읽지 않은 글 N건"을 맥락에 덧붙인다. 방 이름은 싣지 않는다(§3.10). 훅은 데몬에 묻고, 데몬은 그 세션의 MCP 프로세스에 지금 개수를 물어 전한다. 데몬은 개수를 저장하지 않는다.
-- **FR-PCH-61** 터미널 붙여넣기 알림은 **안 읽은 글이 0건에서 생기는 순간, 그 세션이 쉬고 있을 때만** 한다. 0건에서 바뀌는 순간은 MCP 프로세스가 데몬에 알린다. 본문과 방 이름은 넣지 않는다(방 이름은 망의 다른 노드가 정한 값이다). 예: `[dongminal chat] 새 글 3건. chat_read 로 확인한다.` 그 밖의 모든 경우에는 붙여 넣지 않는다.
+- **FR-PCH-61** 터미널 붙여넣기 알림은 **안 읽은 글이 0건에서 생기는 순간, 그 세션이 쉬고 있을 때만** 한다. 0건에서 바뀌는 순간은 MCP 프로세스가 데몬에 알린다. 본문과 방 이름은 넣지 않는다(방 이름은 망의 다른 노드가 정한 값이다). 예: `[otterminal chat] 새 글 3건. chat_read 로 확인한다.` 그 밖의 모든 경우에는 붙여 넣지 않는다.
 - **FR-PCH-62** 일하는 중에 글이 와서 훅으로 알린 뒤, 읽지 않은 채 쉬는 상태가 되어도 다시 붙여 넣지 않는다. 0건에서 바뀌는 순간이 이미 지났기 때문이다.
 - **FR-PCH-63** 쉬는 중 판정과 붙여넣기는 데몬이 한다. 활동 보고와 PTY 를 데몬이 갖는다.
 
@@ -181,12 +181,12 @@
   - **강퇴**: 특정 참가자를 방에서 내보낸다. 기록하지 않는다. 다시 들어오는 것은 막지 않는다.
   - 한 번에 여러 대상을 고를 수 있다. 한 묶음에는 한 종류만 담는다(강제 삭제끼리, 강퇴끼리). 강퇴 묶음은 여러 방의 참가자를 함께 담을 수 있다.
 - **FR-PCH-71** 사람 명령은 묶음마다 TOTP 6자리를 받는다. 도우미는 묶음 전체에 서명 하나를 붙인다. 허가를 일정 시간 남겨 두지 않는다.
-- **FR-PCH-72** 도우미는 관리자 권한으로 돈다(macOS: LaunchDaemon). 설치는 `sudo dongminal helper install`, 제거는 `sudo dongminal helper uninstall` 이다. 설치는 도우미 프로그램을 관리자만 고칠 수 있는 자리(`/Library/PrivilegedHelperTools`)에 복사하고 LaunchDaemon 으로 등록한다. 제거는 등록을 내리고 프로그램과 비밀 파일을 지운다. 도우미는 TOTP 비밀과 사람 명령 서명 키를 관리자만 읽을 수 있는 파일에 둔다.
+- **FR-PCH-72** 도우미는 관리자 권한으로 돈다(macOS: LaunchDaemon). 설치는 `sudo otterminal helper install`, 제거는 `sudo otterminal helper uninstall` 이다. 설치는 도우미 프로그램을 관리자만 고칠 수 있는 자리(`/Library/PrivilegedHelperTools`)에 복사하고 LaunchDaemon 으로 등록한다. 제거는 등록을 내리고 프로그램과 비밀 파일을 지운다. 도우미는 TOTP 비밀과 사람 명령 서명 키를 관리자만 읽을 수 있는 파일에 둔다.
 - **FR-PCH-73** 도우미는 유닉스 소켓 하나를 연다. 접속한 프로세스의 OS 사용자를 확인해 설치한 사용자만 받는다. 데몬이 `{명령, 대상 목록, 코드}` 를 보내면, 도우미는 코드가 맞을 때만 "사람이 승인함" 서명을 붙여 돌려준다. 도우미는 망으로 직접 보내지 않는다. 데몬이 그 서명과 함께 명령을 망에 퍼뜨린다.
 - **FR-PCH-74** 다른 노드는 그 노드의 도우미 공개키로 서명을 확인한다. 간선 상대의 도우미 공개키는 `edges.json` 의 간선 항목에 필드 하나로 고정해 둔다. 고정한 값과 다르면 받지 않고 경고한다.
 - **FR-PCH-75** 도우미는 틀린 코드를 5번 받으면 5분 동안 잠근다. 잠긴 동안에는 맞는 코드도 거절한다. 잠금이 풀리면 횟수를 0 부터 다시 센다. 같은 코드를 두 번 받지 않는다.
-- **FR-PCH-76** 등록은 설치하는 터미널에 TOTP 비밀 문자열과 복구 코드를 한 번만 보여 주고, 사람이 휴대폰 OTP 앱에 직접 입력하게 한다. 안내는 설치를 dongminal 탭이 아닌 OS 기본 터미널 앱에서 하라고 적는다(dongminal 탭의 화면은 에이전트가 읽을 수 있다). QR 은 처음에는 두지 않는다. 등록 뒤 코드 입력은 dongminal 화면에서 한다.
-- **FR-PCH-77** 안내 문서는 OTP 앱으로 Ente Auth 를 권장한다. dongminal 은 앱을 정하지 않는다. TOTP 는 표준이므로 어떤 앱이든 쓸 수 있다.
+- **FR-PCH-76** 등록은 설치하는 터미널에 TOTP 비밀 문자열과 복구 코드를 한 번만 보여 주고, 사람이 휴대폰 OTP 앱에 직접 입력하게 한다. 안내는 설치를 otterminal 탭이 아닌 OS 기본 터미널 앱에서 하라고 적는다(otterminal 탭의 화면은 에이전트가 읽을 수 있다). QR 은 처음에는 두지 않는다. 등록 뒤 코드 입력은 otterminal 화면에서 한다.
+- **FR-PCH-77** 안내 문서는 OTP 앱으로 Ente Auth 를 권장한다. otterminal 은 앱을 정하지 않는다. TOTP 는 표준이므로 어떤 앱이든 쓸 수 있다.
 - **FR-PCH-78** 도우미를 설치하지 못한 노드(관리자 권한 없음 등)는 사람 명령을 쓰지 못한다. 채팅은 그대로 한다.
 - **FR-PCH-79** OS 연동은 macOS 부터 만든다. 다른 OS 는 도우미가 생기기 전까지 사람 명령을 쓰지 못한다.
 
@@ -291,26 +291,26 @@
 
 ### 3.10 단계 2 설계 (MCP·알림)
 
-근거 조사: 2026-11-17 (claude shim `runtimebin/claude_shim.go`, 훅 설정 `agentadapter/claude_install.go`, 맥락 훅 `dmctl ctx-hook`, 보고 소켓 `daemon/ipc/report.go`, 활동 어휘 `shared/activity`, 붙여넣기 `toolhub.ToolManager.SendPaste`). claude 가 stdio MCP 프로세스에 `CLAUDE_CODE_SESSION_ID` 를 넘기는 것은 실행 중인 MCP 프로세스의 환경에서 확인했다.
+근거 조사: 2026-11-17 (claude shim `runtimebin/claude_shim.go`, 훅 설정 `agentadapter/claude_install.go`, 맥락 훅 `otterctl ctx-hook`, 보고 소켓 `daemon/ipc/report.go`, 활동 어휘 `shared/activity`, 붙여넣기 `toolhub.ToolManager.SendPaste`). claude 가 stdio MCP 프로세스에 `CLAUDE_CODE_SESSION_ID` 를 넘기는 것은 실행 중인 MCP 프로세스의 환경에서 확인했다.
 
 **자리**
 
 | 요소 | 자리 |
 |---|---|
 | 채팅 소켓 | 데몬이 여는 유닉스 소켓 `chat.sock`. 데몬 IPC 종단과 같은 0700 폴더다(`report.sock` 옆). 서버를 지나지 않으므로 서버 재시작에 영향받지 않는다(FR-PCH-43) |
-| 와이어 | 새 패키지 `internal/shared/chatwire`(①②). 소켓 경로·프레임·상한. 데몬과 dmctl 이 같이 쓴다 |
+| 와이어 | 새 패키지 `internal/shared/chatwire`(①②). 소켓 경로·프레임·상한. 데몬과 otterctl 이 같이 쓴다 |
 | 데몬 쪽 | 새 패키지 `internal/daemon/chatsock`(②). 연결마다 참가자 하나, 글 넘기기, 훅 질의 중계, 붙여넣기 알림. 도구 접근은 인터페이스 `Tools{Resting(toolID) bool; Paste(toolID, text) error}` 로 받는다 |
-| MCP 서버 | `dmctl chat-mcp`(`runtimebin`). stdio 의 MCP(JSON-RPC 2.0, 줄 하나에 메시지 하나)를 표준 라이브러리로 구현한다(NFR-PCH-4). 안 읽은 글함을 든다 |
+| MCP 서버 | `otterctl chat-mcp`(`runtimebin`). stdio 의 MCP(JSON-RPC 2.0, 줄 하나에 메시지 하나)를 표준 라이브러리로 구현한다(NFR-PCH-4). 안 읽은 글함을 든다 |
 | 주입 | claude shim(FR-PCH-50) |
-| 훅 알림 | `dmctl ctx-hook` 에 덧붙인다. 같은 훅 이벤트(PostToolUse·UserPromptSubmit)에 이미 걸려 있어 프로세스를 늘리지 않는다 |
+| 훅 알림 | `otterctl ctx-hook` 에 덧붙인다. 같은 훅 이벤트(PostToolUse·UserPromptSubmit)에 이미 걸려 있어 프로세스를 늘리지 않는다 |
 | 데몬 배선 | `daemon/boot/edge.go` `startChat` 이 채팅 소켓을 열고 `chat.Options.Deliver` 를 채팅 소켓으로 잇는다 |
 
 **주입 (FR-PCH-50, NFR-PCH-5)**
 
-- shim 은 `DONGMINAL_HOME`·`DONGMINAL_TOOL_ID` 가 있고 채팅 소켓에 300ms 안에 연결될 때만 주입한다. 연결되지 않으면(직접 모드, 옛 데몬, 꺼진 데몬) 주입하지 않는다.
+- shim 은 `OTTERMINAL_HOME`·`OTTERMINAL_TOOL_ID` 가 있고 채팅 소켓에 300ms 안에 연결될 때만 주입한다. 연결되지 않으면(직접 모드, 옛 데몬, 꺼진 데몬) 주입하지 않는다.
 - 붙이는 인자는 둘이며, 사용자 인자보다 앞에 `=` 꼴 한 토큰으로 붙인다(가변 인자 옵션이 사용자 인자를 삼키지 않게, FR-AMI-2 와 같은 이유).
-  - `--mcp-config={"mcpServers":{"dongminal":{"type":"stdio","command":"<home>/bin/dmctl","args":["chat-mcp"],"env":{"DONGMINAL_HOME":…,"DONGMINAL_TOOL_ID":…}}}}`
-  - `--allowedTools=mcp__dongminal` — 채팅 도구 여덟 개를 허락 없이 쓴다(D-PCH-36).
+  - `--mcp-config={"mcpServers":{"otterminal":{"type":"stdio","command":"<home>/bin/otterctl","args":["chat-mcp"],"env":{"OTTERMINAL_HOME":…,"OTTERMINAL_TOOL_ID":…}}}}`
+  - `--allowedTools=mcp__otterminal` — 채팅 도구 여덟 개를 허락 없이 쓴다(D-PCH-36).
 - 사용자 파일과 `~/.claude` 는 건드리지 않는다.
 
 **세션 신원 (FR-PCH-42, D-PCH-37)**
@@ -357,8 +357,8 @@
 
 **알림 (FR-PCH-60~63)**
 
-- 훅: `ctx-hook` 이 stdin 의 `session_id` 로 데몬에 묻는다(예산 700ms). `total` 이 1 이상이면 맥락에 `[dongminal chat] 읽지 않은 글 N건. 하던 일을 마친 뒤 chat_read 로 확인한다.` 를 덧붙인다. 맥락 기준 알림(FR-ITM)과 함께 나면 한 `additionalContext` 에 줄을 나눠 싣는다. 데몬은 개수를 저장하지 않는다.
-- 붙여넣기: MCP 는 글함이 0건에서 1건 이상이 되는 순간에만 `rise` 를 보낸다. 데몬은 그 연결의 도구가 쉬는 중(활동 상태 `idle` 또는 `done`)일 때만 `[dongminal chat] 새 글 N건. chat_read 로 확인한다.` 를 붙여 넣고 제출한다. 일하는 중(`working`), 사람을 기다리는 중(`waiting`), 활동 보고가 아직 없음은 쉬는 중이 아니다. 다시 붙이지 않는다(FR-PCH-62).
+- 훅: `ctx-hook` 이 stdin 의 `session_id` 로 데몬에 묻는다(예산 700ms). `total` 이 1 이상이면 맥락에 `[otterminal chat] 읽지 않은 글 N건. 하던 일을 마친 뒤 chat_read 로 확인한다.` 를 덧붙인다. 맥락 기준 알림(FR-ITM)과 함께 나면 한 `additionalContext` 에 줄을 나눠 싣는다. 데몬은 개수를 저장하지 않는다.
+- 붙여넣기: MCP 는 글함이 0건에서 1건 이상이 되는 순간에만 `rise` 를 보낸다. 데몬은 그 연결의 도구가 쉬는 중(활동 상태 `idle` 또는 `done`)일 때만 `[otterminal chat] 새 글 N건. chat_read 로 확인한다.` 를 붙여 넣고 제출한다. 일하는 중(`working`), 사람을 기다리는 중(`waiting`), 활동 보고가 아직 없음은 쉬는 중이 아니다. 다시 붙이지 않는다(FR-PCH-62).
 - 붙여 넣는 글과 훅의 맥락 줄에는 망에서 온 값을 하나도 넣지 않는다. 개수만 싣는다. 방 이름·본문이 사용자 입력처럼 제출되는 자리나 훅 맥락에 들어가면 프롬프트 주입 통로가 되므로, 이 값들은 MCP 도구 결과(JSON)로만 보인다(FR-PCH-52).
 
 **시험 (단계 2)**
@@ -369,7 +369,7 @@
 | TC-PCH-12(MCP 쪽) | `runtimebin`: `chat-mcp` 를 가짜 데몬 소켓과 파이프로 돌린다. `initialize`·`tools/list`(여덟 개)·`tools/call`, 글함 201번째에서 `dropped`, 0→1 에서만 `rise`, `count?` 답, 데몬 끊김 뒤 글함 비움·`daemon_unavailable` |
 | TC-PCH-15 | `runtimebin`: shim 이 채팅 소켓이 열려 있을 때만 두 인자를 사용자 인자 앞에 붙인다. `ctx-hook` 이 개수가 있을 때만 줄을 덧붙인다 |
 
-**데몬 재시작**: 적용하려면 데몬 재시작과 dongminal 재설치(새 dmctl)가 필요하다. 이미 떠 있는 claude 에는 주입되지 않는다.
+**데몬 재시작**: 적용하려면 데몬 재시작과 otterminal 재설치(새 otterctl)가 필요하다. 이미 떠 있는 claude 에는 주입되지 않는다.
 
 ### 3.11 단계 3 설계 (화면)
 
@@ -434,7 +434,7 @@
 
 | 요소 | 자리 |
 |---|---|
-| 도우미 프로그램 | 새 바이너리를 만들지 않는다. `dongminal otp <install\|uninstall\|run\|status>` 하위 명령이다(옛 이름 `helper` 는 별칭). 설치는 지금 실행 중인 `dongminal` 바이너리를 `/Library/PrivilegedHelperTools/com.dongminal.helper` 로 복사하고(root:wheel, 0755), LaunchDaemon 이 그 사본을 `otp run` 으로 띄운다(옛 설치는 `helper run`, D-PCH-38) |
+| 도우미 프로그램 | 새 바이너리를 만들지 않는다. `otterminal otp <install\|uninstall\|run\|status>` 하위 명령이다(옛 이름 `helper` 는 별칭). 설치는 지금 실행 중인 `otterminal` 바이너리를 `/Library/PrivilegedHelperTools/com.otterminal.helper` 로 복사하고(root:wheel, 0755), LaunchDaemon 이 그 사본을 `otp run` 으로 띄운다(옛 설치는 `helper run`, D-PCH-38) |
 | 도우미 코드 | 새 패키지 `internal/ctl/privhelper`(④). TOTP·잠금·비밀 파일·소켓 서버·설치 |
 | 사람 명령 와이어 | 새 패키지 `internal/shared/humancmd`(②④). 도우미 소켓 경로·프레임, 명령 본문, 서명·확인(Ed25519), 데몬 쪽 클라이언트 |
 | 채팅 쪽 | `daemon/chat` 에 프레임 `cmd`, 도우미 키 신뢰, 명령 적용. `chatsock.UserCall` 에 op `kill`·`kick` |
@@ -442,21 +442,21 @@
 **설치·제거 (FR-PCH-72·76)**
 
 - `install`·`uninstall` 은 root 로만 돈다(`sudo`). 설치한 사용자는 `SUDO_UID` 다. 없거나 0 이면 거절한다.
-- `install` 순서: 바이너리 복사 → 비밀 파일이 없으면 만든다 → plist `/Library/LaunchDaemons/com.dongminal.helper.plist`(`RunAtLoad`·`KeepAlive`, 인자 `helper run`)를 쓴다 → `launchctl bootout` 뒤 `launchctl bootstrap system <plist>`.
+- `install` 순서: 바이너리 복사 → 비밀 파일이 없으면 만든다 → plist `/Library/LaunchDaemons/com.otterminal.helper.plist`(`RunAtLoad`·`KeepAlive`, 인자 `helper run`)를 쓴다 → `launchctl bootout` 뒤 `launchctl bootstrap system <plist>`.
 - 비밀 파일이 이미 있으면 그대로 두고 바이너리와 plist 만 바꾼다(판 올림). 비밀과 복구 코드는 처음 만들 때 한 번만 보인다. 새 비밀이 필요하면 `uninstall` 뒤 `install` 한다. 이때 서명 키도 바뀌므로 간선 상대가 고정한 키와 달라진다(아래 신뢰).
-- 처음 만들 때 터미널에 보이는 것: TOTP 비밀(base32, 4자씩 띄움), 설정값(SHA1·6자리·30초), 복구 코드 8개. 앞에 "dongminal 탭이 아닌 OS 기본 터미널 앱에서 실행한다", "Ente Auth 를 권장한다"를 적는다. QR 은 없다.
+- 처음 만들 때 터미널에 보이는 것: TOTP 비밀(base32, 4자씩 띄움), 설정값(SHA1·6자리·30초), 복구 코드 8개. 앞에 "otterminal 탭이 아닌 OS 기본 터미널 앱에서 실행한다", "Ente Auth 를 권장한다"를 적는다. QR 은 없다.
 - 설치한 사용자의 `sudo -l` 에 `NOPASSWD` 가 있으면 경고한다(§7).
-- `uninstall`: `launchctl bootout system/com.dongminal.helper` → plist·바이너리·비밀 폴더·소켓을 지운다.
+- `uninstall`: `launchctl bootout system/com.otterminal.helper` → plist·바이너리·비밀 폴더·소켓을 지운다.
 - `status`: 소켓에 `info` 를 물어 설치 여부와 도우미 공개키 지문을 보인다. root 가 아니어도 된다.
 
 **비밀 파일 (NFR-PCH-2)**
 
-- `/Library/Application Support/com.dongminal.helper/secret.json`. 폴더 0700, 파일 0600, 주인 root.
+- `/Library/Application Support/com.otterminal.helper/secret.json`. 폴더 0700, 파일 0600, 주인 root.
 - 내용: `{uid, totp(base32, 20바이트), key(Ed25519 시드 base64), recovery[](복구 코드의 SHA-256 hex), used[](쓴 복구 코드의 해시)}`. 복구 코드를 쓰면 `used` 에 더해 다시 쓴다. 그 밖의 상태(잠금·마지막 코드)는 도우미 메모리에만 둔다.
 
 **도우미 소켓 (FR-PCH-73)**
 
-- 경로 `/var/run/com.dongminal.helper.sock`. root 가 만든 뒤 주인을 설치한 사용자로 바꾸고 0600 으로 둔다. 받을 때마다 macOS `LOCAL_PEERCRED`(`getpeereid`)로 접속자 uid 를 읽어 설치한 사용자가 아니면 끊는다. macOS 밖에서는 `run` 이 시작하지 않는다(FR-PCH-79).
+- 경로 `/var/run/com.otterminal.helper.sock`. root 가 만든 뒤 주인을 설치한 사용자로 바꾸고 0600 으로 둔다. 받을 때마다 macOS `LOCAL_PEERCRED`(`getpeereid`)로 접속자 uid 를 읽어 설치한 사용자가 아니면 끊는다. macOS 밖에서는 `run` 이 시작하지 않는다(FR-PCH-79).
 - 연결 하나에 요청 하나, 줄 하나에 JSON 하나다. 상한 64 KiB.
 
 | 요청 | 답 |
@@ -525,7 +525,7 @@
 | TC-PCH-17 | `chatsock`·IPC·서버: `kill`·`kick` op 가 가짜 도우미를 지나 적용되고, 오류 코드가 대응표대로 나간다. `state` 의 `helper` |
 | TC-PCH-13(일부) | JS 단위: 고르기(Cmd·Shift), 메뉴가 `helper` 거짓이면 없음, 확인 창의 대상 문구 |
 
-**적용**: 데몬·서버 재시작과 dongminal 재설치 뒤, OS 기본 터미널에서 `sudo dongminal helper install` 을 한다. 간선 상대 양쪽 모두 새 판이어야 고정이 생긴다.
+**적용**: 데몬·서버 재시작과 otterminal 재설치 뒤, OS 기본 터미널에서 `sudo otterminal helper install` 을 한다. 간선 상대 양쪽 모두 새 판이어야 고정이 생긴다.
 
 ### 3.12a 단계 4 독립 리뷰 수정 (2026-11-17)
 
@@ -580,12 +580,12 @@
 | D-PCH-30 | 글 하나는 16 KiB, 참가자 하나는 1분에 30개까지다 | 사용자 결정(미결 M-3). 코드 조각에는 넉넉하고, 고장 난 에이전트의 폭주가 망 전체에 퍼지는 것을 막는다 |
 | D-PCH-31 | 채팅 화면은 Activity 패널 맨 위의 탭(Agents·Background·Runs·Chats)과 칸의 채팅 탭이다. Usage 는 아래에 고정한다. 탭마다 개수·알람 점을 붙이고, 레일에서는 탭 아이콘을 세로로 세운다 | 사용자 결정(미결 U-1). Activity 에 구역을 더하면 에이전트가 많을 때 꽉 차고, 새 패널은 늘리고 싶지 않다 |
 | D-PCH-32 | 사람 명령은 채팅 탭과 Chats 목록, 대화 속 이름의 우클릭에서 한다. 여러 대상을 한 묶음으로 고르고 OTP 는 묶음마다 한 번이다 | 사용자 결정. 승인 하나가 묶음 하나를 덮으므로 "OTP 한 번 = 승인 한 번" 원칙(D-PCH-14)은 그대로다 |
-| D-PCH-33 | 도우미는 `sudo dongminal helper install` 로 관리자 자리에 복사해 LaunchDaemon 으로 등록하고, 유닉스 소켓으로 데몬과 이야기한다. OTP 등록은 OS 기본 터미널에서 한 번, 그 뒤 입력은 dongminal 화면에서 한다 | 사용자 결정(미결 H-1). 사용자 폴더의 프로그램은 에이전트가 바꿔칠 수 있다. dongminal 탭의 화면은 에이전트가 읽을 수 있어 비밀을 보이지 않는다 |
+| D-PCH-33 | 도우미는 `sudo otterminal helper install` 로 관리자 자리에 복사해 LaunchDaemon 으로 등록하고, 유닉스 소켓으로 데몬과 이야기한다. OTP 등록은 OS 기본 터미널에서 한 번, 그 뒤 입력은 otterminal 화면에서 한다 | 사용자 결정(미결 H-1). 사용자 폴더의 프로그램은 에이전트가 바꿔칠 수 있다. otterminal 탭의 화면은 에이전트가 읽을 수 있어 비밀을 보이지 않는다 |
 | D-PCH-34 | 틀린 코드 5번이면 5분 잠근다 | 사용자 결정(미결 H-2). 실수에는 넉넉하고, 마구 넣기는 1시간에 60번 안쪽이라 맞힐 수 없다 |
 | D-PCH-35 | 채팅은 데몬 모드에서만 동작한다. 직접 모드에는 채팅이 없다 | 사용자 결정. 직접 모드까지 하려면 MCP·훅·붙여넣기 길을 두 벌 두어야 한다 |
-| D-PCH-36 | 주입한 채팅 도구 여덟 개는 claude 의 허락을 묻지 않고 쓴다(`--allowedTools=mcp__dongminal`) | 사용자 결정(단계 2). 허락을 묻게 두면 쉬는 중 알림을 받아도 사람이 누를 때까지 에이전트가 멈춘다 |
+| D-PCH-36 | 주입한 채팅 도구 여덟 개는 claude 의 허락을 묻지 않고 쓴다(`--allowedTools=mcp__otterminal`) | 사용자 결정(단계 2). 허락을 묻게 두면 쉬는 중 알림을 받아도 사람이 누를 때까지 에이전트가 멈춘다 |
 | D-PCH-37 | 세션의 신원은 세션 id 하나다. MCP 는 claude 가 넘긴 `CLAUDE_CODE_SESSION_ID` 로, 훅은 보고의 `session_id` 로 찾는다. `/clear`·claude 안의 `/resume` 로 세션 id 가 바뀐 것은 메우지 않고 다른 세션으로 본다 | 사용자 결정(단계 2): "세션 id 만이 절대적이다". 프로세스 번호나 shim 표식을 더하지 않는다 |
-| D-PCH-38 | 도우미는 새 바이너리가 아니라 `dongminal helper` 하위 명령이다. 설치가 실행 중인 바이너리를 관리자 자리로 복사한다 | 단계 4 설계. 빌드·배포 대상을 늘리지 않는다. 복사본은 root 소유라 에이전트가 바꿔칠 수 없다 . 2026-11-18 이름을 `dongminal otp` 로 바꿨다 — `helper` 로는 무엇인지 알아보기 어렵다(사용자). 옛 설치의 LaunchDaemon 이 `helper run` 을 부르므로 `helper` 는 목록에 보이지 않는 별칭으로 남긴다 |
+| D-PCH-38 | 도우미는 새 바이너리가 아니라 `otterminal helper` 하위 명령이다. 설치가 실행 중인 바이너리를 관리자 자리로 복사한다 | 단계 4 설계. 빌드·배포 대상을 늘리지 않는다. 복사본은 root 소유라 에이전트가 바꿔칠 수 없다 . 2026-11-18 이름을 `otterminal otp` 로 바꿨다 — `helper` 로는 무엇인지 알아보기 어렵다(사용자). 옛 설치의 LaunchDaemon 이 `helper run` 을 부르므로 `helper` 는 목록에 보이지 않는 별칭으로 남긴다 |
 | D-PCH-39 | 간선 상대의 도우미 키는 채팅 연결로 처음 받은 값을 `edges.json` 에 고정한다. 망 이웃의 키는 그 이웃의 간선 상대들이 상태 알림에 실은 고정값이 하나 이상 있고 모두 같을 때만 믿는다 | 단계 4 설계(FR-PCH-74). 노드 하나의 데몬을 바꿔쳐서는 이웃에게 가짜 사람 명령을 믿게 할 수 없다. 키 이력 사슬(D-PCH-19)은 넣지 않는다 |
 
 ### 4.1 검토하고 버린 안
@@ -601,7 +601,7 @@
 | OS 본인 확인 창(Touch ID 등) | PC 앞에 있어야 한다. 이 프로젝트는 원격 사용이 목적이다 |
 | 사용자 권한 서버가 확인하는 비밀번호·해시 | 에이전트가 해시를 바꿔치거나 서버를 바꿔칠 수 있다 |
 | 터미널에서 OS 로그인 암호 입력 | 입력이 바꿔칠 수 있는 데몬을 지난다. 새면 PC 전체가 뚫린다 |
-| `sudo` 관리자 명령 | 화면에서 쓸 수 없고, dongminal 탭 안의 sudo 기억을 에이전트가 쓸 수 있다 |
+| `sudo` 관리자 명령 | 화면에서 쓸 수 없고, otterminal 탭 안의 sudo 기억을 에이전트가 쓸 수 있다 |
 | 종단 간 암호화(개인채팅만, 또는 모두) | D-PCH-21. 단체채팅은 지킬 것이 없고, 방 열쇠 교체로 구현량이 크게 는다 |
 | 아는 노드 목록을 간선 상대에게만 전달 | D-PCH-22. 남이 전한 정보라 떨어진 노드가 한동안 남고, 지우려면 시간 확인이 필요하다 |
 | 개인채팅을 따로 두지 않음, 노드 단위 개인채팅 | D-PCH-24. 사용자가 일반적인 1대1 채팅을 원했다. 노드 단위는 세션 단위 참가와 어긋난다 |
@@ -611,7 +611,7 @@
 | 데몬이 안 읽은 수를 셈 | D-PCH-28. MCP 가 이미 안다 |
 | 사람의 대화를 데몬에 둠 | D-PCH-29. 저장을 늘린다 |
 | Activity 에 Chat 구역 추가, 채팅 패널 하나, 새 패널 | D-PCH-31. 꽉 차거나, 좁거나, 패널이 는다 |
-| 설정 화면 버튼으로 도우미 설치(관리자 암호 창) | D-PCH-33. OTP 비밀이 dongminal 화면을 지난다 |
+| 설정 화면 버튼으로 도우미 설치(관리자 암호 창) | D-PCH-33. OTP 비밀이 otterminal 화면을 지난다 |
 | 늘어나는 잠금, 3번 15분 | D-PCH-34. 누군가 일부러 틀려 사람을 오래 막을 수 있거나, 너무 엄격하다 |
 
 ### 4.2 동작 변경 (Activity 패널)
@@ -658,7 +658,7 @@
 | 위험 | 등급 | 대응 |
 |---|---|---|
 | 데몬(사용자 권한)이 바꿔쳐진 상태에서 사람이 코드를 넣으면, 그 한 번의 승인을 다른 묶음으로 바꿀 수 있다 | MEDIUM | 막을 수 없다(원격 화면이 바꿔친 프로세스에서 온다). 코드는 한 번·30초만 쓸 수 있어 피해가 한 묶음에 그친다 |
-| 같은 OS 계정의 에이전트가 dongminal 프로그램 자체를 고친다 | MEDIUM | 사람 명령의 서명은 도우미만 만든다. 그 노드 안의 채팅은 거짓말할 수 있다 |
+| 같은 OS 계정의 에이전트가 otterminal 프로그램 자체를 고친다 | MEDIUM | 사람 명령의 서명은 도우미만 만든다. 그 노드 안의 채팅은 거짓말할 수 있다 |
 | 단체채팅이 프롬프트 주입을 넓게 퍼뜨린다 | MEDIUM | 본문은 도구 결과로만 들어간다(FR-PCH-52). 안내문(FR-PCH-53) |
 | 중간 노드가 다른 노드 사이의 글을 읽는다 | LOW | 받아들인다(D-PCH-21). 단체채팅은 누구나 들어가고, 개인채팅의 "둘만 보임"은 표시 규칙이다. 안내 문서에 적는다 |
 | 쉬는 동안 오래 안 읽으면 글이 버려진다 | LOW | 글함 상한 200(D-PCH-27). 버린 수를 알린다 |

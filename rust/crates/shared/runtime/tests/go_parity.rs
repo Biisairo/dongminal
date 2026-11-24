@@ -1,7 +1,7 @@
 //! 설치 결과(경로·종류·권한·내용·symlink 대상)를 Go 와 바이트 단위로 비교한다 (FR-RSP-13).
 //!
 //! Go 참조는 `testdata/goref` 를 빌드해 같은 bin 자리에 설치한 결과다. 두 설치는 같은 경로에
-//! 차례로 하므로 경로가 든 파일(claude.json·omp shim)도 그대로 비교된다. Go 참조는 `DM_GO_REF_SRC`
+//! 차례로 하므로 경로가 든 파일(claude.json·omp shim)도 그대로 비교된다. Go 참조는 `OTTER_GO_REF_SRC`
 //! (main 의 worktree)가 있을 때만 `rust/scripts/go-ref.sh` 로 빌드한다. 없으면 건너뛴다 (GO_REMOVAL_SRS Q-GRM-4).
 #![cfg(unix)]
 
@@ -15,8 +15,8 @@ fn repo_root() -> PathBuf {
 }
 
 fn build_goref(out: &Path) -> Option<PathBuf> {
-    std::env::var_os("DM_GO_REF_SRC")?;
-    let exe = out.join("dongminal");
+    std::env::var_os("OTTER_GO_REF_SRC")?;
+    let exe = out.join("otterminal");
     let st = Command::new("bash")
         .arg(repo_root().join("rust/scripts/go-ref.sh"))
         .arg(&exe)
@@ -65,7 +65,7 @@ fn compare(name: &str, bin: &Path, self_exe: &Path, seed: &dyn Fn(&Path)) {
     let go = snapshot(bin);
     fs::remove_dir_all(bin).unwrap();
     seed(bin);
-    dm_shared_runtime::install_with(bin, self_exe).unwrap();
+    otter_shared_runtime::install_with(bin, self_exe).unwrap();
     let rust = snapshot(bin);
     let gp: Vec<_> = go.iter().map(|e| (&e.0, e.1, e.2)).collect();
     let rp: Vec<_> = rust.iter().map(|e| (&e.0, e.1, e.2)).collect();
@@ -91,7 +91,7 @@ fn write(p: &Path, body: &str, mode: u32) {
 fn install_matches_go() {
     let work = tempfile::tempdir().unwrap();
     let Some(goref) = build_goref(work.path()) else {
-        eprintln!("DM_GO_REF_SRC 가 없어 건너뛴다");
+        eprintln!("OTTER_GO_REF_SRC 가 없어 건너뛴다");
         return;
     };
     let goref = fs::canonicalize(goref).unwrap();
@@ -103,7 +103,7 @@ fn install_matches_go() {
     compare("stale", &bin, &goref, &|b| {
         write(&b.join("mdview"), "x", 0o755);
         write(&b.join("옛헬퍼"), "x", 0o755);
-        write(&b.join(".helpers"), "dmctl\n옛헬퍼\n../escape\n", 0o644);
+        write(&b.join(".helpers"), "otterctl\n옛헬퍼\n../escape\n", 0o644);
         write(&b.join("agent-shims/옛shim"), "x", 0o755);
         write(&b.join("agent-shims/.helpers"), "claude\n옛shim\n", 0o644);
         write(&b.join("agent-plugin/skills/gone/SKILL.md"), "옛", 0o755);
@@ -116,7 +116,7 @@ fn install_matches_go() {
         write(&b.join("bash-hook.sh"), "old", 0o644);
         write(&b.join("agent-hooks/claude.json"), "{}", 0o600);
         write(&b.join("user-file.txt"), "사용자", 0o644);
-        fs::create_dir_all(b.join("dmctl")).unwrap();
+        fs::create_dir_all(b.join("otterctl")).unwrap();
     });
 
     // 덧없는 자기 경로(`go run`): 실체를 bin 안에 복사하고 헬퍼가 그것을 가리킨다.
@@ -124,7 +124,7 @@ fn install_matches_go() {
         .prefix("go-build")
         .tempdir()
         .unwrap();
-    let eph = go_build.path().join("b001").join("exe").join("dongminal");
+    let eph = go_build.path().join("b001").join("exe").join("otterminal");
     fs::create_dir_all(eph.parent().unwrap()).unwrap();
     fs::copy(&goref, &eph).unwrap();
     let eph = fs::canonicalize(eph).unwrap();

@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-edgerelay"
+name = "otter-shared-edgerelay"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,14 +10,14 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-shared-dmlog = { path = "../dmlog" }
-dm-shared-edge = { path = "../edge" }
-dm-shared-platform = { path = "../platform" }
-dm-gocompat = { path = "../../gocompat" }
+otter-shared-otterlog = { path = "../otterlog" }
+otter-shared-edge = { path = "../edge" }
+otter-shared-platform = { path = "../platform" }
+otter-gocompat = { path = "../../gocompat" }
 tokio = { workspace = true }
 
 [dev-dependencies]
 rand = { workspace = true }
 tempfile = { workspace = true }
-dm-shared-httpresp = { path = "../httpresp" }
+otter-shared-httpresp = { path = "../httpresp" }
 http = { workspace = true }

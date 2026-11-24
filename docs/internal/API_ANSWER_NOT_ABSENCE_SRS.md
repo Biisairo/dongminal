@@ -14,7 +14,7 @@
 콘솔에 쌓이던 것이 이것이다.
 
 ```
-/api/git/status?repo=%2FUsers%2Fdykim%2F.dongminal%2Fnotes  404 (Not Found)
+/api/git/status?repo=%2FUsers%2Fdykim%2F.otterminal%2Fnotes  404 (Not Found)
 /api/fs/ignored                                             404 (Not Found)
 ```
 

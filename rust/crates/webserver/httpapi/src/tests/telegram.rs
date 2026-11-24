@@ -5,13 +5,13 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use bytes::Bytes;
-use dm_gocompat::json::RawMessage;
-use dm_shared_agentrec::ActivityReport;
-use dm_webserver_domain_telegram as telegram;
-use dm_webserver_hub::{AttnTracker, CommandBroker, CommandHub};
-use dm_webserver_seam_toolaccess::{Error, WorkspaceEntry, WorkspaceReader};
 use http_body_util::Full;
 use hyper_util::rt::TokioIo;
+use otter_gocompat::json::RawMessage;
+use otter_shared_agentrec::ActivityReport;
+use otter_webserver_domain_telegram as telegram;
+use otter_webserver_hub::{AttnTracker, CommandBroker, CommandHub};
+use otter_webserver_seam_toolaccess::{Error, WorkspaceEntry, WorkspaceReader};
 use telegram::Host;
 
 use super::attnenv::LiveIo;
@@ -319,8 +319,8 @@ impl WorkspaceReader for EntryIndex {
     fn is_known_tab_id(&self, _: &str) -> bool {
         false
     }
-    fn changes(&self) -> dm_shared_pollwait::Changed {
-        dm_shared_pollwait::Signal::default().c()
+    fn changes(&self) -> otter_shared_pollwait::Changed {
+        otter_shared_pollwait::Signal::default().c()
     }
 }
 
@@ -437,7 +437,7 @@ async fn telegram_wire_off_forwards_nothing() {
 async fn telegram_host() {
     let e = tg_server(true);
     let h = TelegramHost(Arc::downgrade(&e.srv));
-    let host = dm_shared_platform::hostname().unwrap_or_default();
+    let host = otter_shared_platform::hostname().unwrap_or_default();
     assert_eq!(
         h.location("p1"),
         telegram::Location {

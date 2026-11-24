@@ -3,13 +3,13 @@
 //!
 //! 진행 중 상태를 실패로 뭉개지 않는다 — 충돌로 멈추면 그 출구는 `/api/git/operation` 이다.
 
-use dm_shared_httpresp::Response;
-use dm_webserver_action::{self as action, Answer, allow, deny};
-use dm_webserver_apierr::{self as apierr, Classify, Sentinel};
-use dm_webserver_domain_git_core::{self as core, Ctx, WriteSpec};
-use dm_webserver_domain_git_query::Status;
-use dm_webserver_domain_git_write::{self as write, PickOpts, ResetOpts, WriteKind};
 use http::StatusCode;
+use otter_shared_httpresp::Response;
+use otter_webserver_action::{self as action, Answer, allow, deny};
+use otter_webserver_apierr::{self as apierr, Classify, Sentinel};
+use otter_webserver_domain_git_core::{self as core, Ctx, WriteSpec};
+use otter_webserver_domain_git_query::Status;
+use otter_webserver_domain_git_write::{self as write, PickOpts, ResetOpts, WriteKind};
 use serde::Deserialize;
 
 use crate::GitServer;

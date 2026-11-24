@@ -1,5 +1,5 @@
 /**
- * Dongminal — Editor 창을 **열고 그 안에 무엇을 세우는가** (FE_MODULE_BOUNDARY_SRS FR-FMB-20).
+ * Otterminal — Editor 창을 **열고 그 안에 무엇을 세우는가** (FE_MODULE_BOUNDARY_SRS FR-FMB-20).
  *
  * 창·문서·탐색기 트리의 생성 자리. 셋이 한 파일인 이유는 **여는 한 번**이 셋을
  * 함께 세우기 때문이다 — 창을 열면 문서 스토어가 서고 그 위에 트리가 붙는다.

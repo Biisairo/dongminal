@@ -5,7 +5,7 @@ use crate::ctx::{Ctx, outf};
 pub(crate) fn run_download(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
     let mut path = args.first().cloned().unwrap_or_default();
     if !path.is_empty()
-        && let Ok(abs) = dm_gocompat::filepath::abs(&path)
+        && let Ok(abs) = otter_gocompat::filepath::abs(&path)
     {
         path = abs;
     }

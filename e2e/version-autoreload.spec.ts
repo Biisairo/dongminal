@@ -69,10 +69,10 @@ const helloSeen = (page: Page) =>
 const mark = (page: Page) => page.evaluate(() => { (window as any).__alive = 1 });
 const survived = (page: Page) => page.evaluate(() => !!(window as any).__alive);
 
-// 새로고침을 **부른** 순간 서는 표식(`window.__dmReloading`, version-watch `reload`). 판정은
+// 새로고침을 **부른** 순간 서는 표식(`window.__otterReloading`, version-watch `reload`). 판정은
 // 동기이므로 판정이 끝난 뒤 이 값이 거짓이면 다시 열지 않은 것이다 — 문서가 내려가기를
 // 시간을 두고 기다릴 필요가 없다.
-const reloading = (page: Page) => page.evaluate(() => !!(window as any).__dmReloading);
+const reloading = (page: Page) => page.evaluate(() => !!(window as any).__otterReloading);
 
 // version-watch 가 판을 묻는 길(`apiGet('/', {query:{_v}})`)을 감싼다. 물은 횟수(`__vget`)와,
 // 그 답으로 한 판정까지 끝났음을 알리는 promise(`__vdone`)를 남긴다 — 답 뒤의 판정은
@@ -149,7 +149,7 @@ test.describe('묶음 P — 새 버전 자동 새로고침', () => {
     // 저절로 되풀이되는지만 봤는데, 다시 선 문서는 스스로 확인을 내지 않아 고리가 열려
     // 있어도 드러나지 않았다.
     await page.waitForFunction(
-      () => typeof (window as any).__dmAssetVersion === 'function' && !!(window as any).app?.bus?._es,
+      () => typeof (window as any).__otterAssetVersion === 'function' && !!(window as any).app?.bus?._es,
       undefined, { timeout: 15000 });
     await probeChecks(page);
     await triggerCheck(page);
@@ -193,7 +193,7 @@ test('TC-OPT-4-10b (FR-RLC-2b 개정·FR-RLC-1 D-2): 살아 있는 구독의 미
     const w = window as any;
     w.__dirty = true;
     w.app.editor.sync.edAnyDirty = () => w.__dirty;
-    w.__dmAssetVersion('999997', () => true);
+    w.__otterAssetVersion('999997', () => true);
   });
   await expect(page.locator('#ver-held')).toBeVisible();
   expect(await survived(page)).toBe(true);
@@ -313,8 +313,8 @@ test('TC-RLC-10b (FR-RLC-5a): 만진 적 있는 페이지에서도 대화가 뜨
 // TestHandleCommandSSE_ServerHello 가 따로 잰다.
 const sendHello = (page: Page, v: string) =>
   page.evaluate((ver) => {
-    const f = (window as any).__dmAssetVersion;
-    if (typeof f !== 'function') throw new Error('__dmAssetVersion 이 없다');
+    const f = (window as any).__otterAssetVersion;
+    if (typeof f !== 'function') throw new Error('__otterAssetVersion 이 없다');
     f(ver);
   }, v);
 

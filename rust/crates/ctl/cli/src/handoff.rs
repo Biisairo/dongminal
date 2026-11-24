@@ -3,8 +3,8 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-use dm_gocompat::filepath;
-use dm_gocompat::oserr::{go_error_string, path_error};
+use otter_gocompat::filepath;
+use otter_gocompat::oserr::{go_error_string, path_error};
 
 use crate::env::Env;
 use crate::homelayout::RESTART_LOG_FILE;
@@ -67,12 +67,12 @@ pub(crate) fn hand_off_restart(
         .stdin(Stdio::null())
         .stdout(out)
         .stderr(err);
-    dm_shared_platform::current().process.detach(&mut cmd);
+    otter_shared_platform::current().process.detach(&mut cmd);
     match cmd.spawn() {
         Ok(child) => {
             let _ = writeln!(
                 stdout,
-                "dongminald 재시작을 대리 프로세스에 넘겼습니다 pid={}",
+                "otterminald 재시작을 대리 프로세스에 넘겼습니다 pid={}",
                 child.id()
             );
             let _ = writeln!(

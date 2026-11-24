@@ -44,7 +44,7 @@ size-garbage: 0 bytes
 | 경로 | blob 수 | 비고 |
 |---|---|---|
 | `remote-terminal` | 27 | 개명 전 루트 바이너리. 최대 9,105,986 bytes |
-| `bin/dongminal` | 1 | 9,086,770 bytes. 개명 과정에서 생성 |
+| `bin/otterminal` | 1 | 9,086,770 bytes. 개명 과정에서 생성 |
 | **합계** | **28** | **249,218,200 bytes** (압축 전 원본 크기 합) |
 
 `06-docs-hygiene.md` §4 의 감사 실측(28개 · 249,218,200 bytes)과 일치한다.
@@ -57,8 +57,8 @@ size-garbage: 0 bytes
 $ git check-ignore -v remote-terminal
 .gitignore:47:/remote-terminal	remote-terminal
 
-$ git check-ignore -v bin/dongminal
-.gitignore:5:/bin	bin/dongminal
+$ git check-ignore -v bin/otterminal
+.gitignore:5:/bin	bin/otterminal
 ```
 
 `remote-terminal` 규칙은 M0 에서 추가했다. 워킹트리에 그 이름의 파일은 없으므로

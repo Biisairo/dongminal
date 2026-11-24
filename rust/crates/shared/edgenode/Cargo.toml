@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-edgenode"
+name = "otter-shared-edgenode"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,14 +10,14 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-shared-dmenv = { path = "../dmenv" }
-dm-shared-dmlog = { path = "../dmlog" }
-dm-shared-edge = { path = "../edge" }
-dm-shared-edgemesh = { path = "../edgemesh" }
-dm-shared-httpreq = { path = "../httpreq" }
-dm-shared-httpresp = { path = "../httpresp" }
-dm-shared-termtext = { path = "../termtext" }
-dm-gocompat = { path = "../../gocompat" }
+otter-shared-otterenv = { path = "../otterenv" }
+otter-shared-otterlog = { path = "../otterlog" }
+otter-shared-edge = { path = "../edge" }
+otter-shared-edgemesh = { path = "../edgemesh" }
+otter-shared-httpreq = { path = "../httpreq" }
+otter-shared-httpresp = { path = "../httpresp" }
+otter-shared-termtext = { path = "../termtext" }
+otter-gocompat = { path = "../../gocompat" }
 hex = { workspace = true }
 http = { workspace = true }
 hyper = { workspace = true }
@@ -28,6 +28,6 @@ tokio = { workspace = true }
 tokio-util = { workspace = true }
 
 [dev-dependencies]
-dm-shared-edgerelay = { path = "../edgerelay" }
+otter-shared-edgerelay = { path = "../edgerelay" }
 rand = { workspace = true }
 tempfile = { workspace = true }

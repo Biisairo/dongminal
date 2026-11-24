@@ -22,7 +22,7 @@ PTY 의미론을 얻는 유일한 공식 경로이며 그 버전에서 도입됐
 
 | 브라우저 | 최소 | 비고 |
 |---|---|---|
-| Chrome · Edge · Brave 등 Chromium 계열 | 111 | **권장.** `dongminal window` 의 frameless 창(`--app`)이 여기만 있습니다 |
+| Chrome · Edge · Brave 등 Chromium 계열 | 111 | **권장.** `otterminal window` 의 frameless 창(`--app`)이 여기만 있습니다 |
 | Safari | 16.4 | 동작합니다. frameless 창은 기본 브라우저로 내려갑니다 |
 | Firefox | 121 | 동작합니다. 같음 |
 
@@ -53,7 +53,7 @@ PTY 의미론을 얻는 유일한 공식 경로이며 그 버전에서 도입됐
 
 ### `linux/arm64` 는 검증되지 않았습니다 (M5 `G10-5`)
 
-릴리스에 `dongminal-linux-arm64` 를 올리지만 **그 대상에서 실기 검증을 하지
+릴리스에 `otterminal-linux-arm64` 를 올리지만 **그 대상에서 실기 검증을 하지
 않습니다.** CI 는 `ubuntu-latest`(x86_64) · `windows-latest` · `macos`(arm64)
 셋에서 돌고, 리눅스 ARM 은 **교차 컴파일만 확인**합니다.
 
@@ -63,20 +63,20 @@ PTY 의미론을 얻는 유일한 공식 경로이며 그 버전에서 도입됐
 
 ## 설치
 
-[Releases](https://github.com/Biisairo/dongminal/releases/latest) 에서 자기 OS 것
+[Releases](https://github.com/Biisairo/otterminal/releases/latest) 에서 자기 OS 것
 **하나만** 받으면 됩니다.
 
 ### macOS
 
 ```bash
 # Apple Silicon
-curl -fL -o dongminal https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-darwin-arm64
+curl -fL -o otterminal https://github.com/Biisairo/otterminal/releases/latest/download/otterminal-darwin-arm64
 # Intel 이면 위 줄의 darwin-arm64 를 darwin-amd64 로
 
-chmod +x dongminal
-xattr -d com.apple.quarantine dongminal   # 서명·공증을 하지 않았으므로 필요합니다
-./dongminal start
-./dongminal window                        # 창을 띄웁니다 (선택)
+chmod +x otterminal
+xattr -d com.apple.quarantine otterminal   # 서명·공증을 하지 않았으므로 필요합니다
+./otterminal start
+./otterminal window                        # 창을 띄웁니다 (선택)
 ```
 
 `xattr` 를 건너뛰면 macOS 가 **"개발자를 확인할 수 없어 열 수 없습니다"** 로 막습니다.
@@ -85,11 +85,11 @@ xattr -d com.apple.quarantine dongminal   # 서명·공증을 하지 않았으�
 ### Linux · WSL
 
 ```bash
-curl -fL -o dongminal https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-linux-amd64
+curl -fL -o otterminal https://github.com/Biisairo/otterminal/releases/latest/download/otterminal-linux-amd64
 # ARM64 면 linux-arm64
 
-chmod +x dongminal
-./dongminal start
+chmod +x otterminal
+./otterminal start
 ```
 
 WSL 은 별도 대상이 아닙니다 — `linux-amd64` 를 그대로 씁니다.
@@ -99,23 +99,23 @@ WSL 은 별도 대상이 아닙니다 — `linux-amd64` 를 그대로 씁니다.
 PowerShell 에서:
 
 ```powershell
-curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/latest/download/dongminal-windows-amd64.exe
-.\dongminal.exe start
-.\dongminal.exe window                    # 창을 띄웁니다 (선택)
+curl.exe -fL -o otterminal.exe https://github.com/Biisairo/otterminal/releases/latest/download/otterminal-windows-amd64.exe
+.\otterminal.exe start
+.\otterminal.exe window                    # 창을 띄웁니다 (선택)
 ```
 
 ### 받은 파일 확인
 
 ```bash
-curl -fLO https://github.com/Biisairo/dongminal/releases/latest/download/SHA256SUMS
+curl -fLO https://github.com/Biisairo/otterminal/releases/latest/download/SHA256SUMS
 sha256sum -c SHA256SUMS --ignore-missing
 ```
 
 ### 판 확인
 
 ```bash
-./dongminal version
-# dongminal v1.0.3 darwin/arm64 go1.25.4
+./otterminal version
+# otterminal v1.0.3 darwin/arm64 go1.25.4
 ```
 
 `dev` 가 나오면 릴리스가 아니라 소스에서 빌드한 것입니다.
@@ -126,24 +126,24 @@ sha256sum -c SHA256SUMS --ignore-missing
 저장소의 `rust/rust-toolchain.toml` 이 정하고, 빌드할 때 rustup 이 알아서 받습니다.
 
 ```bash
-git clone https://github.com/Biisairo/dongminal
-cd dongminal
-./scripts/build.sh             # 호스트용 → ./dongminal
-./dongminal start
+git clone https://github.com/Biisairo/otterminal
+cd otterminal
+./scripts/build.sh             # 호스트용 → ./otterminal
+./otterminal start
 ```
 
 교차 컴파일은 `./scripts/build.sh --help` 를 보세요. 대상마다 `rustup target add` 와
 그 대상의 링커가 필요합니다. **`cargo build` 를 손으로 부르지 마세요** — `build.sh` 가
 판(`VERSION`)과 데몬 지문을 새기고, 재현 가능한 빌드 플래그를 붙이고, 산출물을
-`./dongminal`·`dist/` 에 놓습니다.
+`./otterminal`·`dist/` 에 놓습니다.
 
 ## 실행
 
 운영 동작은 모두 바이너리의 **액션**입니다. 액션 없이 실행하면 도움말이 나옵니다.
 
 ```bash
-./dongminal                    # 도움말 (-h, --help 도 동일)
-./dongminal <action> --help    # 액션별 옵션
+./otterminal                    # 도움말 (-h, --help 도 동일)
+./otterminal <action> --help    # 액션별 옵션
 ```
 
 | 액션 | 설명 |
@@ -151,7 +151,7 @@ cd dongminal
 | `start` | 서버를 띄운다 |
 | `stop` | 서버를 정지한다 |
 | `migrate` | 워크스페이스 데이터를 최신 스키마로 변환한다 (1회성) |
-| `health` | 서버와 dongminald 의 상태를 확인한다 |
+| `health` | 서버와 otterminald 의 상태를 확인한다 |
 | `doctor` | 이 호스트에서 플랫폼 계층이 실제로 도는지 계층별로 진단한다 |
 | `verify` | 격리 인스턴스를 띄워 종단간 표면을 훑는다 (개발·CI) |
 | `version` | 판·대상·go 런타임을 찍는다 (`--version` 도 동일) |
@@ -159,20 +159,20 @@ cd dongminal
 `start` 는 다음을 수행합니다.
 
 1. `--expose` 를 해석해 바인드 주소 결정 (기본 `127.0.0.1`).
-2. dongminald 가 돌고 있으면 **서버를 끄기 전에** 세션을 유지하며 새 바이너리로 교체하라고 요청합니다. 교체에 실패하면 서버·데몬·세션을 그대로 두고 종료 코드 1로 끝납니다. `--server-only` 면 이 단계를 건너뛰고, `--refresh-daemon` 이면 데몬을 정지합니다.
+2. otterminald 가 돌고 있으면 **서버를 끄기 전에** 세션을 유지하며 새 바이너리로 교체하라고 요청합니다. 교체에 실패하면 서버·데몬·세션을 그대로 두고 종료 코드 1로 끝납니다. `--server-only` 면 이 단계를 건너뛰고, `--refresh-daemon` 이면 데몬을 정지합니다.
 3. 대상 포트를 점유한 이전 프로세스가 있으면 `lsof` 로 종료. **`--isolated` 일 때는 하지 않습니다.**
-4. 자기 자신을 `start --foreground` 로 재실행해 백그라운드로 띄우고, 로그를 `$DONGMINAL_LOG` 로 리다이렉트.
+4. 자기 자신을 `start --foreground` 로 재실행해 백그라운드로 띄우고, 로그를 `$OTTERMINAL_LOG` 로 리다이렉트.
 5. `/api/ping` 이 응답할 때까지 최대 5초 대기.
 6. 결과 안내 출력 (`local-only` / `LAN 노출` 표기).
 
-창은 `start` 가 열지 않습니다 — `dongminal window` 가 따로 엽니다.
+창은 `start` 가 열지 않습니다 — `otterminal window` 가 따로 엽니다.
 
 `start` 는 데몬을 **세션을 유지한 채** 새 바이너리로 교체합니다. 셸과 에이전트는
 끊기지 않고, 화면 내용과 활동 카드·알람·사용량 기록도 그대로 이어집니다. 그래서 판을
-올리면 `dongminal start` 한 번으로 서버와 데몬이 모두 새 판이 됩니다.
+올리면 `otterminal start` 한 번으로 서버와 데몬이 모두 새 판이 됩니다.
 
 - 돌고 있는 데몬이 교체를 모르는 옛 판이면, `start` 는 서버만 다시 띄우고 그 사실을
-  알립니다. 이때는 한 번만 `dongminal start --refresh-daemon` 으로 데몬을 새로 띄웁니다
+  알립니다. 이때는 한 번만 `otterminal start --refresh-daemon` 으로 데몬을 새로 띄웁니다
   (터미널 세션을 잃습니다). 그 뒤로는 `start` 가 교체합니다.
 - 세션 유지 교체는 macOS·Linux 에서만 됩니다. Windows 의 `start` 는 교체를 거절받고
   아무것도 끄지 않은 채 끝납니다. Windows 에서는 `--server-only` 나 `--refresh-daemon`
@@ -182,11 +182,11 @@ cd dongminal
 
 ### 훅이 죽을 때 — `health`
 
-에이전트 훅이 `bin/dmctl: No such file or directory` 로 실패하면 설치된 헬퍼가
-깨진 것입니다. `dongminal health` 가 그 사실을 알려 줍니다.
+에이전트 훅이 `bin/otterctl: No such file or directory` 로 실패하면 설치된 헬퍼가
+깨진 것입니다. `otterminal health` 가 그 사실을 알려 줍니다.
 
 ```bash
-./dongminal health
+./otterminal health
 ```
 
 고치는 방법은 서버를 다시 띄우는 것입니다 — 기동이 헬퍼를 다시 설치합니다.
@@ -196,7 +196,7 @@ cd dongminal
 터미널이 뜨지 않거나 비어 보이면 먼저 이것을 돌립니다.
 
 ```bash
-./dongminal doctor
+./otterminal doctor
 ```
 
 서버가 쓰는 **바로 그 코드**를 계층별로 실제 실행합니다 — 헬퍼·셸 훅 설치, 셸 선택,
@@ -211,8 +211,8 @@ cd dongminal
 | 옵션 | 설명 |
 |---|---|
 | `--expose` | `0.0.0.0` 에 바인드 (사내망 다른 기기에서 접근 가능) |
-| `--server-only` | dongminald 에 아무것도 묻지 않고 서버만 다시 띄웁니다 |
-| `--refresh-daemon` | dongminald 를 새로 띄웁니다 (터미널 세션을 잃습니다). dongminal 도구 안에서 실행하면 재시작을 대리 프로세스가 이어서 수행하고 출력은 `$DONGMINAL_HOME/restart.log` 에 남습니다 — 데몬을 내리는 순간 명령 자신도 함께 끊기기 때문입니다 |
+| `--server-only` | otterminald 에 아무것도 묻지 않고 서버만 다시 띄웁니다 |
+| `--refresh-daemon` | otterminald 를 새로 띄웁니다 (터미널 세션을 잃습니다). otterminal 도구 안에서 실행하면 재시작을 대리 프로세스가 이어서 수행하고 출력은 `$OTTERMINAL_HOME/restart.log` 에 남습니다 — 데몬을 내리는 순간 명령 자신도 함께 끊기기 때문입니다 |
 | `--isolated` | 임시 홈 + 비어 있는 포트로 띄웁니다. 운영 인스턴스를 건드리지 않습니다. 도구 셸도 그 아래의 빈 홈(`tool-home`)에서 뜨므로 사용자 rc·git config·자격증명이 없습니다 — 기동 출력이 두 경로를 찍습니다 (`--foreground` 에서도) |
 | `--foreground` | 터미널을 점유하며 실행 (`^C` 로 정지) |
 | `--port <n>` / `--home <path>` | 모든 액션 공통. 환경변수보다 우선합니다 |
@@ -220,7 +220,7 @@ cd dongminal
 ### 창 열기 — `window`
 
 ```bash
-./dongminal window
+./otterminal window
 ```
 
 **돌고 있는 서버에 주소창 없는 창을 하나 엽니다. 서버를 띄우지도, 죽이지도
@@ -235,20 +235,20 @@ Chrome/Chromium 계열의 `--app` 이고, 없으면 기본 브라우저로 내�
 기본값은 **localhost 전용**(127.0.0.1) 으로, 동일 PC 외에는 접근할 수 없습니다. 사내망의 다른 기기에서도 접근하려면 `--expose` 로 띄워야 합니다.
 
 ```bash
-./dongminal start                              # 127.0.0.1 바인딩 (동일 PC 에서만 접근)
-./dongminal start --expose                     # 0.0.0.0 바인딩 (사내망 다른 기기에서도 접근)
+./otterminal start                              # 127.0.0.1 바인딩 (동일 PC 에서만 접근)
+./otterminal start --expose                     # 0.0.0.0 바인딩 (사내망 다른 기기에서도 접근)
 ```
 
-`--expose` 와 `--port` 는 `$DONGMINAL_HOME/server.json` 에 저장됩니다. 그래서 다음 `start` 도
-같은 호스트·포트로 뜹니다. 환경변수 `DONGMINAL_HOST` 로는 바인드를 바꿀 수 없습니다.
+`--expose` 와 `--port` 는 `$OTTERMINAL_HOME/server.json` 에 저장됩니다. 그래서 다음 `start` 도
+같은 호스트·포트로 뜹니다. 환경변수 `OTTERMINAL_HOST` 로는 바인드를 바꿀 수 없습니다.
 
 서버를 끄지 않고 바꿀 수도 있습니다. 설정 ▸ **서버** 에서 포트와 expose 를 고쳐 적용하거나,
 CLI 로 바꿉니다. 바꾼 값은 `server.json` 에 남습니다.
 
 ```bash
-dongminal config set port 9100      # 포트를 옮깁니다 — 열린 화면은 설정을 들고 새 주소로 옮겨 갑니다
-dongminal config set expose off     # 노출을 끕니다 — 같은 망에서 맺은 연결을 바로 끊습니다
-dongminal config get                # 지금 바인드와 server.json 의 값
+otterminal config set port 9100      # 포트를 옮깁니다 — 열린 화면은 설정을 들고 새 주소로 옮겨 갑니다
+otterminal config set expose off     # 노출을 끕니다 — 같은 망에서 맺은 연결을 바로 끊습니다
+otterminal config get                # 지금 바인드와 server.json 의 값
 ```
 
 서버가 돌고 있지 않으면 `config set` 은 `server.json` 만 고칩니다. 바인드는 서버가 도는
@@ -275,7 +275,7 @@ dongminal config get                # 지금 바인드와 server.json 의 값
   무관합니다 — 잘못 설정해도 그 컴퓨터에서 되돌릴 수 있습니다.
 - 같은 기기라도 **Tailscale 로 붙을 때와 같은 LAN 에서 붙을 때 출발지가 다릅니다.**
   두 경로를 다 쓴다면 두 값을 모두 넣으세요. 설정 화면이 "지금 내 주소" 를 보여줍니다.
-- 목록은 `$DONGMINAL_HOME/access.json` 에 저장됩니다.
+- 목록은 `$OTTERMINAL_HOME/access.json` 에 저장됩니다.
 
 이것은 **기기**를 가리는 수단이지 인증이 아닙니다. 허용된 출발지 뒤의 사람이 누구인지
 서버는 알지 못하며, 통신은 평문 HTTP 그대로입니다.
@@ -307,10 +307,10 @@ dongminal config get                # 지금 바인드와 server.json 의 값
 
 ### 격리 실행
 
-운영 인스턴스(`~/.dongminal`, 포트 58146)를 건드리지 않고 별도 인스턴스를 띄웁니다. 검증·실험용입니다.
+운영 인스턴스(`~/.otterminal`, 포트 58146)를 건드리지 않고 별도 인스턴스를 띄웁니다. 검증·실험용입니다.
 
 ```bash
-./dongminal start --isolated
+./otterminal start --isolated
 # → 임시 홈과 빈 포트를 골라 띄우고, 정지 명령을 함께 출력합니다.
 #   격리 홈은 자동으로 지우지 않습니다.
 ```
@@ -320,9 +320,9 @@ dongminal config get                # 지금 바인드와 server.json 의 값
 ### 중지 / 헬스 체크
 
 ```bash
-./dongminal stop                  # 서버만 정지 (dongminald 는 세션 유지)
-./dongminal stop --all            # dongminald 까지 정지
-./dongminal health                # HTTP 응답 + dongminald 소켓·pid 확인
+./otterminal stop                  # 서버만 정지 (otterminald 는 세션 유지)
+./otterminal stop --all            # otterminald 까지 정지
+./otterminal health                # HTTP 응답 + otterminald 소켓·pid 확인
 ```
 
 ## 환경 변수
@@ -336,13 +336,13 @@ CI 가 잡습니다 (`scripts/check-env-docs.sh`) — 문서는 조용히 낡으
 | 변수 | 기본 | 설명 |
 |------|------|------|
 | `PORT` | (없음) | **서버의 포트를 정하지 않습니다.** 포트는 `--port` 와 `server.json` 이 정합니다(아래 "우선순위"). 설정돼 있으면 `start` 가 경고를 한 줄 냅니다 |
-| `DONGMINAL_PORT` | (없음) | **서버의 포트를 정하지 않습니다** — 설정된 채로 `start` 하면 경고를 한 줄 냅니다. 호스트의 `dmctl`·`edit` 도 읽지 않고 `run/server.addr` 로 서버를 찾습니다. 샌드박스 컨테이너 안에서만, 주소 파일이 없을 때 쓰는 기동 때의 포트입니다 |
-| `DONGMINAL_HOST` | (없음) | **서버의 바인드를 정하지 않습니다** — 노출은 `--expose` 와 `server.json` 의 `host` 가 정합니다. 샌드박스 컨테이너 안에서만 `host.docker.internal` 로 넣어, `dmctl` 이 호스트의 서버를 부릅니다 |
-| `DONGMINAL_HOME` | `~/.dongminal` | 설치 루트. `bin/`(런타임 헬퍼), `server.json`, `settings.json`, `access.json`(접속 허용 목록), `workspace.json`, `tools.json`, `notes/`(메모장) 모두 이 아래. 없으면 서버 기동 시 자동 생성 |
-| `DONGMINAL_LOG` | `/tmp/dongminal.log`<br>(Windows: `%LOCALAPPDATA%` 아래) | `start` 가 배경 모드에서 서버 로그를 리다이렉트할 파일 |
-| `DONGMINAL_LOG_LEVEL` | `info` | 로그 수준 — `debug`·`info`·`warn`·`error`. 알 수 없는 값은 `info` 로 떨어집니다 |
-| `DONGMINAL_NO_UPDATE_CHECK` | (없음) | `1` 이면 서버가 새 판을 **확인하지 않습니다**. `server.json` 의 `updateCheck` 와 설정 화면의 토글보다 **먼저** 이깁니다 — 에어갭·CI 환경에서 한 줄로 막는 자리입니다. `dongminal update --check` 는 사람이 직접 친 명령이므로 이 변수와 무관하게 동작합니다 |
-| `DONGMINAL_RESTART_RUNNER` | (내부) | **직접 설정하지 마세요.** `--refresh-daemon` 이 재시작을 대리 프로세스에 넘길 때 그 대리에게 심는 표시입니다 — 대리가 다시 위임하지 않게 하는 것이 전부입니다 |
+| `OTTERMINAL_PORT` | (없음) | **서버의 포트를 정하지 않습니다** — 설정된 채로 `start` 하면 경고를 한 줄 냅니다. 호스트의 `otterctl`·`edit` 도 읽지 않고 `run/server.addr` 로 서버를 찾습니다. 샌드박스 컨테이너 안에서만, 주소 파일이 없을 때 쓰는 기동 때의 포트입니다 |
+| `OTTERMINAL_HOST` | (없음) | **서버의 바인드를 정하지 않습니다** — 노출은 `--expose` 와 `server.json` 의 `host` 가 정합니다. 샌드박스 컨테이너 안에서만 `host.docker.internal` 로 넣어, `otterctl` 이 호스트의 서버를 부릅니다 |
+| `OTTERMINAL_HOME` | `~/.otterminal` | 설치 루트. `bin/`(런타임 헬퍼), `server.json`, `settings.json`, `access.json`(접속 허용 목록), `workspace.json`, `tools.json`, `notes/`(메모장) 모두 이 아래. 없으면 서버 기동 시 자동 생성 |
+| `OTTERMINAL_LOG` | `/tmp/otterminal.log`<br>(Windows: `%LOCALAPPDATA%` 아래) | `start` 가 배경 모드에서 서버 로그를 리다이렉트할 파일 |
+| `OTTERMINAL_LOG_LEVEL` | `info` | 로그 수준 — `debug`·`info`·`warn`·`error`. 알 수 없는 값은 `info` 로 떨어집니다 |
+| `OTTERMINAL_NO_UPDATE_CHECK` | (없음) | `1` 이면 서버가 새 판을 **확인하지 않습니다**. `server.json` 의 `updateCheck` 와 설정 화면의 토글보다 **먼저** 이깁니다 — 에어갭·CI 환경에서 한 줄로 막는 자리입니다. `otterminal update --check` 는 사람이 직접 친 명령이므로 이 변수와 무관하게 동작합니다 |
+| `OTTERMINAL_RESTART_RUNNER` | (내부) | **직접 설정하지 마세요.** `--refresh-daemon` 이 재시작을 대리 프로세스에 넘길 때 그 대리에게 심는 표시입니다 — 대리가 다시 위임하지 않게 하는 것이 전부입니다 |
 
 ### 도구 셸에 주입되는 값
 
@@ -351,49 +351,49 @@ CI 가 잡습니다 (`scripts/check-env-docs.sh`) — 문서는 조용히 낡으
 
 | 변수 | 기본 | 설명 |
 |------|------|------|
-| `DONGMINAL_TOOL_ID` | (주입) | 이 셸이 어느 도구 안인지. `dmctl` 이 자기 정체를 이것으로 압니다 |
-| `DONGMINAL_TOOL_HOME` | 사용자 홈 | 도구 셸이 자기 `HOME` 으로 여길 곳. 비면 사용자 홈입니다. 검사·격리 기동이 도구 셸을 사용자 홈에서 떼어내는 자리입니다 |
-| `DONGMINAL_HISTFILE` | `<home>/tool-history/…` | 도구 셸이 쓸 히스토리 파일. macOS `/etc/zshrc` 가 `HISTFILE` 을 무조건 덮으므로, 값은 서버가 정하고 zdotdir 의 rc 가 이 변수로 되살립니다 |
-| `DONGMINAL_SHELL` | (Windows) `pwsh.exe` → `powershell.exe` → `cmd.exe` | **Windows 전용.** 도구 셸로 띄울 프로그램을 강제합니다. macOS·Linux 는 이 값을 읽지 않고 `$SHELL` 을 따릅니다 |
-| `DONGMINAL_AGENT_BIN_DIR` | (없음) | 어댑터 계약 검사(`-tags agentdrift`)가 에이전트 실행 파일을 **먼저** 찾을 디렉터리. 거기에 에이전트 이름(`claude`·`codex`·`omp`)의 파일이 있으면 그것을, 없으면 `PATH` 를 씁니다 |
+| `OTTERMINAL_TOOL_ID` | (주입) | 이 셸이 어느 도구 안인지. `otterctl` 이 자기 정체를 이것으로 압니다 |
+| `OTTERMINAL_TOOL_HOME` | 사용자 홈 | 도구 셸이 자기 `HOME` 으로 여길 곳. 비면 사용자 홈입니다. 검사·격리 기동이 도구 셸을 사용자 홈에서 떼어내는 자리입니다 |
+| `OTTERMINAL_HISTFILE` | `<home>/tool-history/…` | 도구 셸이 쓸 히스토리 파일. macOS `/etc/zshrc` 가 `HISTFILE` 을 무조건 덮으므로, 값은 서버가 정하고 zdotdir 의 rc 가 이 변수로 되살립니다 |
+| `OTTERMINAL_SHELL` | (Windows) `pwsh.exe` → `powershell.exe` → `cmd.exe` | **Windows 전용.** 도구 셸로 띄울 프로그램을 강제합니다. macOS·Linux 는 이 값을 읽지 않고 `$SHELL` 을 따릅니다 |
+| `OTTERMINAL_AGENT_BIN_DIR` | (없음) | 어댑터 계약 검사(`-tags agentdrift`)가 에이전트 실행 파일을 **먼저** 찾을 디렉터리. 거기에 에이전트 이름(`claude`·`codex`·`omp`)의 파일이 있으면 그것을, 없으면 `PATH` 를 씁니다 |
 
 ### 동작 조정
 
 | 변수 | 기본 | 설명 |
 |------|------|------|
-| `DONGMINAL_ATTENTION_IDLE_MS` | `10000` | 도구가 이만큼 조용하면 "대기" 로 봅니다(L2 판정). `0` 이면 그 판정을 끕니다 |
-| `DONGMINAL_ATTENTION_BELL` | (꺼짐) | `1` 이면 맨 BEL(`\a`) 하나도 주의 신호로 셉니다. 기본이 꺼짐인 것은 BEL 이 시끄럽기 때문입니다 — 탭 자동완성 하나에도 울립니다 |
-| `DONGMINAL_CMD_RESULT_TIMEOUT_MS` | `3000` | 명령 결과를 기다리는 long-poll 상한 |
-| `DONGMINAL_URL_OPEN` | (자동 판정) | `local` 또는 `viewer`. 서버가 URL 을 **어디서** 열지의 판정을 강제합니다 |
+| `OTTERMINAL_ATTENTION_IDLE_MS` | `10000` | 도구가 이만큼 조용하면 "대기" 로 봅니다(L2 판정). `0` 이면 그 판정을 끕니다 |
+| `OTTERMINAL_ATTENTION_BELL` | (꺼짐) | `1` 이면 맨 BEL(`\a`) 하나도 주의 신호로 셉니다. 기본이 꺼짐인 것은 BEL 이 시끄럽기 때문입니다 — 탭 자동완성 하나에도 울립니다 |
+| `OTTERMINAL_CMD_RESULT_TIMEOUT_MS` | `3000` | 명령 결과를 기다리는 long-poll 상한 |
+| `OTTERMINAL_URL_OPEN` | (자동 판정) | `local` 또는 `viewer`. 서버가 URL 을 **어디서** 열지의 판정을 강제합니다 |
 
 ### 빌드
 
 | 변수 | 기본 | 설명 |
 |------|------|------|
-| `BINARY` | `dongminal` | `./scripts/build.sh` 가 만들 바이너리 이름 |
+| `BINARY` | `otterminal` | `./scripts/build.sh` 가 만들 바이너리 이름 |
 
 ### 우선순위
 
-**플래그 > 환경변수 > `$DONGMINAL_HOME/server.json` > 기본값** 입니다.
+**플래그 > 환경변수 > `$OTTERMINAL_HOME/server.json` > 기본값** 입니다.
 단, 바인드(`host`·`port`)에는 환경변수 계층이 없습니다 — **플래그 > `server.json` > 기본값** 입니다.
 `start` 에 준 `--port`·`--expose` 는 `server.json` 에 저장됩니다.
 레포 루트의 `.env` 는 더 이상 읽히지 않습니다.
 
-`stop`·`health`·`window` 와 `dmctl`·`edit` 는 겨눌 서버를 **플래그 > `$DONGMINAL_HOME/run/server.addr`(지금 리슨하는 주소) >
+`stop`·`health`·`window` 와 `otterctl`·`edit` 는 겨눌 서버를 **플래그 > `$OTTERMINAL_HOME/run/server.addr`(지금 리슨하는 주소) >
 `server.json` > 기본값** 순으로 찾습니다.
 
 빈 값은 "정하지 않음" 이라 다음 계층으로 넘어갑니다. 지금 실효값이 무엇이고
 **어디서 왔는지**는 이것으로 봅니다:
 
 ```bash
-dongminal config show          # 값과 출처(flag/env/file/default)
-dongminal config validate      # 설정 파일을 스키마에 대조 (불일치가 있으면 exit 1)
-dongminal config get           # 지금 리슨하는 바인드와 server.json 의 값
+otterminal config show          # 값과 출처(flag/env/file/default)
+otterminal config validate      # 설정 파일을 스키마에 대조 (불일치가 있으면 exit 1)
+otterminal config get           # 지금 리슨하는 바인드와 server.json 의 값
 ```
 
 ### `server.json` — 기계마다 다른 기동값을 고정합니다
 
-`$DONGMINAL_HOME/server.json` 에 두면 셸 프로필이나 래퍼 스크립트 없이 기동값이
+`$OTTERMINAL_HOME/server.json` 에 두면 셸 프로필이나 래퍼 스크립트 없이 기동값이
 따라옵니다. 없는 것이 정상이고, 없으면 조용히 넘어갑니다.
 
 ```json
@@ -401,7 +401,7 @@ dongminal config get           # 지금 리슨하는 바인드와 server.json �
   "host": "127.0.0.1",
   "port": "58146",
   "logLevel": "info",
-  "logFile": "/tmp/dongminal.log"
+  "logFile": "/tmp/otterminal.log"
 }
 ```
 
@@ -415,34 +415,34 @@ dongminal config get           # 지금 리슨하는 바인드와 server.json �
 이쪽은 **편의**라 답이 갈립니다.)
 
 브라우저 설정(테마·단축키·상태바·레이아웃)은 여기가 아니라 `settings.json` 이며,
-**서버는 그것을 해석하지 않습니다.** `dongminal config validate` 로 대조할 수는
+**서버는 그것을 해석하지 않습니다.** `otterminal config validate` 로 대조할 수는
 있지만, 그것은 사람이 부를 때만 도는 진단이고 요청 경로에 없습니다.
 
 ### 런타임 헬퍼 배포 (자동)
 
-서버 기동 시 런타임 모듈(`rust/crates/shared/runtime`)이 `$DONGMINAL_HOME/bin/` 을 채웁니다. helper CLI 는 dongminal 바이너리를 가리키는 symlink, 셸 훅은 바이너리에 번들한 실제 파일입니다.
+서버 기동 시 런타임 모듈(`rust/crates/shared/runtime`)이 `$OTTERMINAL_HOME/bin/` 을 채웁니다. helper CLI 는 otterminal 바이너리를 가리키는 symlink, 셸 훅은 바이너리에 번들한 실제 파일입니다.
 
-- `bin/dmctl` — 워크스페이스 원격 제어 CLI (분할/탭/포커스/목록/알림)
+- `bin/otterctl` — 워크스페이스 원격 제어 CLI (분할/탭/포커스/목록/알림)
 - `bin/edit` — 내장 편집기 탭으로 파일 열기
 - `bin/download` — 파일을 브라우저로 다운로드
 - `bin/detach` — 현재 도구를 백그라운드로 보내고 탭 닫기
 - `bin/bash-hook.sh`, `bin/zdotdir/.zshrc` — 현재 디렉터리 OSC 리포트 훅
 - `bin/agent-hooks/` — claude shim 이 주입하는 hooks settings
-- `bin/agent-shims/claude` — 탭에서 `claude` 를 치면 먼저 도는 shim. 훅 인자와, 탭·폴더에 연결한 Claude 계정(`dmctl account pin`·`map`)을 넣고 진짜 claude 를 실행합니다. 셸 훅이 이 폴더를 PATH 맨 앞에 둡니다. 계정 지정을 적용하지 못하면(서버 오류·3초 초과) claude 를 실행하지 않습니다. 서버가 꺼져 있으면 기본 계정으로 실행합니다
+- `bin/agent-shims/claude` — 탭에서 `claude` 를 치면 먼저 도는 shim. 훅 인자와, 탭·폴더에 연결한 Claude 계정(`otterctl account pin`·`map`)을 넣고 진짜 claude 를 실행합니다. 셸 훅이 이 폴더를 PATH 맨 앞에 둡니다. 계정 지정을 적용하지 못하면(서버 오류·3초 초과) claude 를 실행하지 않습니다. 서버가 꺼져 있으면 기본 계정으로 실행합니다
 
 각 터미널 도구의 shell 은 서버가 다음을 주입한 환경으로 스폰되므로 PATH 를 수동 설정할 필요가 없습니다.
 
-- `PATH=<기존 PATH>:$DONGMINAL_HOME/bin` (셸 훅이 사용자 rc 를 읽은 뒤 `$DONGMINAL_HOME/bin/agent-shims` 를 맨 앞에 더합니다)
-- zsh → `ZDOTDIR=$DONGMINAL_HOME/bin/zdotdir`
-- bash → `BASH_ENV=$DONGMINAL_HOME/bin/bash-hook.sh`
+- `PATH=<기존 PATH>:$OTTERMINAL_HOME/bin` (셸 훅이 사용자 rc 를 읽은 뒤 `$OTTERMINAL_HOME/bin/agent-shims` 를 맨 앞에 더합니다)
+- zsh → `ZDOTDIR=$OTTERMINAL_HOME/bin/zdotdir`
+- bash → `BASH_ENV=$OTTERMINAL_HOME/bin/bash-hook.sh`
 - `TERM=xterm-256color`, `COLORTERM=truecolor`, `LANG/LC_ALL/LC_CTYPE=en_US.UTF-8`
-- `DONGMINAL_HOME=<홈>`, `DONGMINAL_TOOL_ID=<도구 id>`
+- `OTTERMINAL_HOME=<홈>`, `OTTERMINAL_TOOL_ID=<도구 id>`
 
-서버의 포트는 주입하지 않습니다. `dmctl`·`edit` 는 요청마다 `$DONGMINAL_HOME/run/server.addr` 를 읽어 서버를
+서버의 포트는 주입하지 않습니다. `otterctl`·`edit` 는 요청마다 `$OTTERMINAL_HOME/run/server.addr` 를 읽어 서버를
 찾으므로, 서버가 포트를 바꿔도 이미 열린 셸이 따라갑니다.
 
-외부 터미널에서도 `dmctl`/`edit` 를 쓰고 싶다면 `PATH` 에 `$DONGMINAL_HOME/bin` 을 더하면 됩니다. 홈이 기본값이
-아니면 `DONGMINAL_HOME` 도 export 합니다.
+외부 터미널에서도 `otterctl`/`edit` 를 쓰고 싶다면 `PATH` 에 `$OTTERMINAL_HOME/bin` 을 더하면 됩니다. 홈이 기본값이
+아니면 `OTTERMINAL_HOME` 도 export 합니다.
 
 ## 접속
 
@@ -450,7 +450,7 @@ dongminal config get           # 지금 리슨하는 바인드와 server.json �
 
 ## 데이터가 어디 있나요 (M5 `G10-3`)
 
-전부 `$DONGMINAL_HOME`(기본 `~/.dongminal`) 아래에 있습니다. **이 폴더 밖에
+전부 `$OTTERMINAL_HOME`(기본 `~/.otterminal`) 아래에 있습니다. **이 폴더 밖에
 상태를 두지 않습니다.**
 
 | 자리 | 무엇 | 옮겨지나 |
@@ -483,24 +483,24 @@ dongminal config get           # 지금 리슨하는 바인드와 server.json �
 | `doctor/` · `doctor-tools/` · `doctor-probe.txt` | `doctor` 의 작업 자리 | ❌ |
 | `verify-too-large.bin` | `verify` 가 413 을 확인할 때 쓰는 큰 파일 | ❌ 정상 종료면 스스로 치웁니다 |
 
-배경 모드 기동 로그는 `$DONGMINAL_LOG`, 정하지 않았으면
-**`$DONGMINAL_HOME/server.log`** 입니다. 홈은 `0700` 이라 같은 기계의 다른
+배경 모드 기동 로그는 `$OTTERMINAL_LOG`, 정하지 않았으면
+**`$OTTERMINAL_HOME/server.log`** 입니다. 홈은 `0700` 이라 같은 기계의 다른
 사용자가 읽지 못합니다.
 
 ```bash
-dongminal backup --out ~/dm-backup.zip   # 옮겨지는 것 전부
-dongminal restore ~/dm-backup.zip --yes  # 되돌리기
-dongminal uninstall --dry-run            # 지울 것을 먼저 봅니다
+otterminal backup --out ~/otter-backup.zip   # 옮겨지는 것 전부
+otterminal restore ~/otter-backup.zip --yes  # 되돌리기
+otterminal uninstall --dry-run            # 지울 것을 먼저 봅니다
 ```
 
 `backup` 이 만드는 zip 은 소유자만 읽을 수 있습니다(`0600`). 이미 있던 파일을
 덮어쓸 때도 권한을 `0600` 으로 바꿉니다. 노드 개인키가 들어가기 때문입니다.
 
 **채팅의 사람 명령 도우미는 홈 밖에 삽니다**(macOS). 프로그램은
-`/Library/PrivilegedHelperTools/com.dongminal.helper`, 비밀은
-`/Library/Application Support/com.dongminal.helper/` 에 있고 관리자만 읽습니다.
+`/Library/PrivilegedHelperTools/com.otterminal.helper`, 비밀은
+`/Library/Application Support/com.otterminal.helper/` 에 있고 관리자만 읽습니다.
 `backup`·`uninstall` 은 이것을 다루지 않습니다. 지우려면
-`sudo dongminal otp uninstall` 을 씁니다([기능 안내](./features.md#사람-명령-강제-삭제강퇴)).
+`sudo otterminal otp uninstall` 을 씁니다([기능 안내](./features.md#사람-명령-강제-삭제강퇴)).
 
 **브라우저에도 일부가 삽니다.** 기기별 취향(알림 켬/끔·슬롯 방향)은
 `localStorage` 에, 탭별 값(표시 모드)은 `sessionStorage` 에 있습니다.
@@ -516,16 +516,16 @@ Backup 의 내보내기에 들어가지 않습니다.
 ### 지원하는 것
 
 - **최신 릴리스 한 판.** 옛 판의 수정본을 따로 내지 않습니다. 문제가 있으면
-  최신으로 올려 주세요 — `dongminal update --check` 가 그것이 있는지 알려 줍니다.
+  최신으로 올려 주세요 — `otterminal update --check` 가 그것이 있는지 알려 줍니다.
 - 위 §요구사항의 OS·브라우저 조합.
 
 ### 스키마 호환 약속
 
 - **`workspace.json` 의 `schemaVersion` 은 위아래 모두 거부합니다.** 판이 뒤진
   서버가 앞선 파일을 열면 빈 배치를 저장해 **덮어쓰기** 때문입니다. 판을 올릴 때
-  `dongminal migrate` 가 변환합니다.
+  `otterminal migrate` 가 변환합니다.
 - **`settings.json` 은 모르는 키를 무시합니다.** 판이 앞선 브라우저가 쓴 값이
-  뒤진 서버에서 지워지지 않습니다. `dongminal config validate` 로 대조할 수는
+  뒤진 서버에서 지워지지 않습니다. `otterminal config validate` 로 대조할 수는
   있지만, 알 수 없는 키는 **경고이지 오류가 아닙니다.**
 - **`server.json` 은 깨져도 기동을 막지 않습니다.** 경고를 내고 다음 계층으로
   갑니다 — 설정 파일 하나가 서버를 못 뜨게 하면 그것을 고칠 화면에 닿을 수 없습니다.
@@ -544,6 +544,6 @@ Backup 의 내보내기에 들어가지 않습니다.
 - 기능 전체: [features.md](./features.md)
 - 오류 코드와 복구 안내: [errors.md](./errors.md)
 - 단축키 커스터마이징: [shortcuts.md](./shortcuts.md)
-- 터미널 안에서 쓰는 `dmctl` / `edit` / `download` CLI: [commands.md](./commands.md)
+- 터미널 안에서 쓰는 `otterctl` / `edit` / `download` CLI: [commands.md](./commands.md)
 - 에이전트 오케스트레이션: [agent-orchestration.md](./agent-orchestration.md)
 - HTTP/WebSocket/SSE/OSC: [api.md](./api.md)

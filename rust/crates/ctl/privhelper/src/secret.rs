@@ -8,8 +8,8 @@ use base64::Engine as _;
 use base64::alphabet::STANDARD as STD_ALPHABET;
 use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig, STANDARD};
 use data_encoding::{Encoding, Specification};
-use dm_gocompat::json;
-use dm_gocompat::oserr::path_error;
+use otter_gocompat::json;
+use otter_gocompat::oserr::path_error;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -104,7 +104,7 @@ pub(crate) enum LoadError {
 impl std::fmt::Display for LoadError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LoadError::Io(e) => f.write_str(&dm_gocompat::oserr::go_error_string(e)),
+            LoadError::Io(e) => f.write_str(&otter_gocompat::oserr::go_error_string(e)),
             LoadError::Json(e) => write!(f, "{e}"),
         }
     }
@@ -124,8 +124,8 @@ pub(crate) fn load_secret(path: &Path) -> Result<Secret, LoadError> {
 
 /// 0700 폴더의 0600 파일로 원자 쓰기 한다 (FR-ATF-61).
 pub(crate) fn save_secret(path: &Path, s: &Secret) -> io::Result<()> {
-    let dir_s = dm_gocompat::filepath::dir(&path.to_string_lossy());
-    dm_gocompat::oserr::mkdir_all(&dir_s, SECRET_DIR_MODE)?;
+    let dir_s = otter_gocompat::filepath::dir(&path.to_string_lossy());
+    otter_gocompat::oserr::mkdir_all(&dir_s, SECRET_DIR_MODE)?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -133,5 +133,5 @@ pub(crate) fn save_secret(path: &Path, s: &Secret) -> io::Result<()> {
             .map_err(|e| path_error("chmod", &dir_s, e))?;
     }
     let raw = json::marshal_indent(s, "", "  ").map_err(io::Error::other)?;
-    dm_shared_platform::write_file_atomic(path, &raw, SECRET_MODE)
+    otter_shared_platform::write_file_atomic(path, &raw, SECRET_MODE)
 }

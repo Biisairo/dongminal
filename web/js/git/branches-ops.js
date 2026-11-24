@@ -1,5 +1,5 @@
 /**
- * Dongminal — Branches 의 **쓰기 동작** (FE_MODULE_BOUNDARY_SRS FR-FMB-30·31).
+ * Otterminal — Branches 의 **쓰기 동작** (FE_MODULE_BOUNDARY_SRS FR-FMB-30·31).
  *
  * checkout(FR-GIT-155·156·157) · 생성 · 이름 변경 · 삭제 · 병합 · 리베이스 ·
  * 업스트림 · 푸시 (GIT_ACTIONS_SRS §3.2 FR-GIT-253~259 · §3.5 FR-GIT-268).

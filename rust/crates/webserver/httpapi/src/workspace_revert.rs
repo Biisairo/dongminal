@@ -5,12 +5,12 @@
 
 use std::path::PathBuf;
 
-use dm_gocompat::json;
-use dm_shared_dmlog::{self as dmlog, Value};
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_shared_platform::STATE_FILE_GENERATIONS;
-use dm_webserver_apierr as apierr;
 use http::StatusCode;
+use otter_gocompat::json;
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::{self as otterlog, Value};
+use otter_shared_platform::STATE_FILE_GENERATIONS;
+use otter_webserver_apierr as apierr;
 use serde::{Deserialize, Serialize};
 
 use crate::Server;
@@ -138,7 +138,7 @@ impl Server {
                 return http_err("revert failed", StatusCode::CONFLICT, apierr::CODE_CONFLICT);
             }
         };
-        dmlog::info(
+        otterlog::info(
             r.rid(),
             "workspace reverted",
             &[
@@ -158,8 +158,10 @@ impl Server {
     /// Go `workspacePath`: `data_dir` 이 비면 작업 디렉터리다.
     fn workspace_path(&self) -> PathBuf {
         if self.cfg.data_dir.as_os_str().is_empty() {
-            return PathBuf::from(dm_shared_dmenv::WORKSPACE_FILE);
+            return PathBuf::from(otter_shared_otterenv::WORKSPACE_FILE);
         }
-        self.cfg.data_dir.join(dm_shared_dmenv::WORKSPACE_FILE)
+        self.cfg
+            .data_dir
+            .join(otter_shared_otterenv::WORKSPACE_FILE)
     }
 }

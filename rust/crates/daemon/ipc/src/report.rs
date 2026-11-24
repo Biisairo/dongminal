@@ -9,14 +9,14 @@ use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::Duration;
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_activity as activity;
-use dm_shared_agentrec as agentrec;
-use dm_shared_dmlog::warnf;
-use dm_shared_handover as handover;
-use dm_shared_platform::IpcStream;
-use dm_shared_toolhub::{ManagerError, Tool};
-use dm_shared_toolipc as ipc;
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_activity as activity;
+use otter_shared_agentrec as agentrec;
+use otter_shared_handover as handover;
+use otter_shared_otterlog::warnf;
+use otter_shared_platform::IpcStream;
+use otter_shared_toolhub::{ManagerError, Tool};
+use otter_shared_toolipc as ipc;
 use serde::Serialize;
 use time::OffsetDateTime;
 
@@ -48,7 +48,7 @@ impl ReportError {
 impl PanedServer {
     /// 보고 소켓을 연다.
     pub fn listen_reports(&self, path: &Path) -> io::Result<()> {
-        let ipc_t = &dm_shared_platform::current().ipc;
+        let ipc_t = &otter_shared_platform::current().ipc;
         let _ = ipc_t.remove(path);
         mkdir_sock_dir(path)?;
         let ln = ipc_t.listen(path)?;
@@ -258,7 +258,7 @@ impl Inner {
                     },
                 );
                 let windows = r.usage.rate_limits.clone().unwrap_or_default();
-                if let Some(agent) = dm_shared_agentadapter::status_line_reporter()
+                if let Some(agent) = otter_shared_agentadapter::status_line_reporter()
                     && r.account.is_none()
                     && !windows.is_empty()
                 {

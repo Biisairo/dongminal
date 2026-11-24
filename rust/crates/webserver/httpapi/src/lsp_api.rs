@@ -5,16 +5,16 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use dm_gocompat::json;
-use dm_shared_dmlog::{errorf, infof};
-use dm_shared_httpreq::{self as httpreq, ReadError};
-use dm_shared_httpresp::{self as httpresp, Response};
-use dm_webserver_apierr as apierr;
-use dm_webserver_domain_ext as ext;
-use dm_webserver_domain_lsp::{OpenError, PathsError, Tunnel};
 use futures_util::{SinkExt, StreamExt};
 use http::{HeaderValue, StatusCode, header};
 use hyper_util::rt::TokioIo;
+use otter_gocompat::json;
+use otter_shared_httpreq::{self as httpreq, ReadError};
+use otter_shared_httpresp::{self as httpresp, Response};
+use otter_shared_otterlog::{errorf, infof};
+use otter_webserver_apierr as apierr;
+use otter_webserver_domain_ext as ext;
+use otter_webserver_domain_lsp::{OpenError, PathsError, Tunnel};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio_tungstenite::WebSocketStream;
@@ -39,7 +39,7 @@ const LSP_WS_CLOSE_ENDED: u16 = 4003;
 const LSP_WS_REASON_MAX: usize = 123;
 /// 브라우저 메시지 하나의 상한이다 (FR-CMR-104) — 텍스트 상한을 JSON 문자열로 실은 최악의 크기다.
 pub(crate) const LSP_WS_READ_LIMIT: usize =
-    dm_shared_editorlimit::body_max_bytes(dm_webserver_domain_lsp::MAX_TEXT_BYTES) as usize;
+    otter_shared_editorlimit::body_max_bytes(otter_webserver_domain_lsp::MAX_TEXT_BYTES) as usize;
 /// gorilla `CloseMessageTooBig`.
 const CLOSE_MESSAGE_TOO_BIG: u16 = 1009;
 

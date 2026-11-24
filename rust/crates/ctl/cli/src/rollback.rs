@@ -1,16 +1,16 @@
-//! `dongminal rollback` — 상태 파일을 백업 세대로 되돌린다 (G3-2·G4-4).
+//! `otterminal rollback` — 상태 파일을 백업 세대로 되돌린다 (G3-2·G4-4).
 
 use std::io::Write;
 use std::path::Path;
 use std::time::SystemTime;
 
-use dm_gocompat::filepath;
-use dm_gocompat::fmt::v_list;
-use dm_gocompat::oserr::{go_error_string, link_error, path_error};
-use dm_gocompat::strconv::quote;
-use dm_gocompat::time::{format_log_std, local, to_zone};
-use dm_shared_dmenv as dmenv;
-use dm_shared_platform::{STATE_FILE_GENERATIONS, write_file_atomic};
+use otter_gocompat::filepath;
+use otter_gocompat::fmt::v_list;
+use otter_gocompat::oserr::{go_error_string, link_error, path_error};
+use otter_gocompat::strconv::quote;
+use otter_gocompat::time::{format_log_std, local, to_zone};
+use otter_shared_otterenv as otterenv;
+use otter_shared_platform::{STATE_FILE_GENERATIONS, write_file_atomic};
 use time::OffsetDateTime;
 
 use crate::env::Env;
@@ -18,7 +18,7 @@ use crate::homelayout::home_layout;
 use crate::http::ALIVE_PROBE_TIMEOUT;
 use crate::options::{Common, ParseError, atoi, invalid};
 
-/// `dongminal rollback` 의 옵션이다. 공통 파서를 쓰지 않는다 — `--home` 만 받는다.
+/// `otterminal rollback` 의 옵션이다. 공통 파서를 쓰지 않는다 — `--home` 만 받는다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RollbackOpts {
     pub common: Common,
@@ -81,7 +81,7 @@ pub(crate) fn rollback_targets() -> Vec<&'static str> {
 }
 
 /// 고르지 않으면 `workspace.json` 이다 — 잃어서 가장 아픈 것이다.
-pub(crate) const DEFAULT_ROLLBACK_TARGET: &str = dmenv::WORKSPACE_FILE;
+pub(crate) const DEFAULT_ROLLBACK_TARGET: &str = otterenv::WORKSPACE_FILE;
 
 fn resolve_target(name: &str) -> Result<&'static str, String> {
     if name.is_empty() {
@@ -130,15 +130,15 @@ pub(crate) fn run_rollback_in(
 
     // **도는 인스턴스가 있으면 거부한다.** 지금 되돌려도 그 서버가 곧 자기 메모리로 덮어쓴다. 답하는
     // 상대가 있다는 사실만으로 충분하다 — 그 홈을 누군가 쓰고 있다.
-    let ipc = dm_shared_platform::current().ipc;
+    let ipc = otter_shared_platform::current().ipc;
     if ipc
         .dial(&ipc.endpoint(Path::new(&home)), ALIVE_PROBE_TIMEOUT)
         .is_ok()
     {
-        let _ = writeln!(stderr, "이 홈에서 dongminald 가 돌고 있습니다.");
+        let _ = writeln!(stderr, "이 홈에서 otterminald 가 돌고 있습니다.");
         let _ = writeln!(
             stderr,
-            "되돌리기 전에 `dongminal stop --all` 로 내려 주세요 (터미널 세션을 잃습니다)."
+            "되돌리기 전에 `otterminal stop --all` 로 내려 주세요 (터미널 세션을 잃습니다)."
         );
         return 1;
     }
@@ -224,6 +224,6 @@ fn list_generations(path: &str, stdout: &mut dyn Write) -> i32 {
         );
         return 0;
     }
-    let _ = writeln!(stdout, "\n되돌리려면: dongminal rollback --gen <번호>");
+    let _ = writeln!(stdout, "\n되돌리려면: otterminal rollback --gen <번호>");
     0
 }

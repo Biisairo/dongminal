@@ -10,7 +10,7 @@
 
 사용자 진술: *"전부 수정. 구조적으로, 근본적으로 수정해서 정상동작하게 해야 한다."*
 
-- 포함: `internal/webserver/hub/gitwatch.go`(+hub 관련), `internal/webserver/hub/commands.go`(구독 큐), `internal/webserver/httpapi/commands.go`(SSE 쓰기 루프), `internal/webserver/domain/lsp/**`, `internal/webserver/httpapi/handlers_lsp*.go`(+ LSP 실행 파일 경로 저장 종단), `internal/webserver/httpapi/handlers_files.go`(쓰기 성공 후 LSP 재동기화 알림 한 곳), `cmd/dongminal/main.go`(배선), LSP 설정 UI·요청(`web/js/core/app-lsp.js`, `web/js/core/app-settings.js` 의 설정 ▸ Code, `web/js/core/helpers.js` 의 `lspServerPaths` 제거), 편집기 문서 수명 훅(`web/js/core/app-editor-open.js` `edDocDrop`)에서 didClose 를 보내는 연결부의 최소 변경.
+- 포함: `internal/webserver/hub/gitwatch.go`(+hub 관련), `internal/webserver/hub/commands.go`(구독 큐), `internal/webserver/httpapi/commands.go`(SSE 쓰기 루프), `internal/webserver/domain/lsp/**`, `internal/webserver/httpapi/handlers_lsp*.go`(+ LSP 실행 파일 경로 저장 종단), `internal/webserver/httpapi/handlers_files.go`(쓰기 성공 후 LSP 재동기화 알림 한 곳), `cmd/otterminal/main.go`(배선), LSP 설정 UI·요청(`web/js/core/app-lsp.js`, `web/js/core/app-settings.js` 의 설정 ▸ Code, `web/js/core/helpers.js` 의 `lspServerPaths` 제거), 편집기 문서 수명 훅(`web/js/core/app-editor-open.js` `edDocDrop`)에서 didClose 를 보내는 연결부의 최소 변경.
 - 비포함: git 백엔드(01), 에디터 본체(03).
 
 ## 2. 근본 원인
@@ -84,7 +84,7 @@
 인수: ① 일시적 오류 3회 후 성공 시 holders 유지·방송 발생 ② `ErrRepoMissing` 시 제외 + `mark:""` 방송 1회 ③ 가짜 Status 가 25s 걸리는 저장소(시한은 테스트에서 축소)에서 sig 변화 후 방송이 발생 ④ TTL 캐시·옛 flight 에서 변화 전 관측을 받는 N5 재현이 방송을 낸다.
 
 ### §3A-2 이벤트 허브·SSE (G-2)
-사실: 허브 하나(`hub/commands.go`)를 모든 SSE 액션이 공유 — 워크스페이스 명령·`window_focus`·`settings_changed`(`handlers_settings.go:122-124`)·`git_changed`·`lsp_diagnostics`(`cmd/dongminal/main.go:375-387`). 구독 큐 16칸(`hub/commands.go:188`), 가득 차면 버림(`:233-245`). SSE 쓰기 루프(`httpapi/commands.go:130-143`)에 쓰기 시한이 없고 전역 `WriteTimeout` 도 없다(`httpapi/server.go:346`). 따라서 쓰기가 막히면 `sub.Close()` 뒤에도 핸들러가 `Fprintf` 안에서 빠져나오지 못한다. `lsp_diagnostics` 는 푸시 전용이라 재수신 경로가 없다.
+사실: 허브 하나(`hub/commands.go`)를 모든 SSE 액션이 공유 — 워크스페이스 명령·`window_focus`·`settings_changed`(`handlers_settings.go:122-124`)·`git_changed`·`lsp_diagnostics`(`cmd/otterminal/main.go:375-387`). 구독 큐 16칸(`hub/commands.go:188`), 가득 차면 버림(`:233-245`). SSE 쓰기 루프(`httpapi/commands.go:130-143`)에 쓰기 시한이 없고 전역 `WriteTimeout` 도 없다(`httpapi/server.go:346`). 따라서 쓰기가 막히면 `sub.Close()` 뒤에도 핸들러가 `Fprintf` 안에서 빠져나오지 못한다. `lsp_diagnostics` 는 푸시 전용이라 재수신 경로가 없다.
 
 | 항목 | 확정 |
 |------|------|
@@ -157,7 +157,7 @@
 | 재동기화 계기 | ① gitwatch 가 저장소 R 에 `git_changed` 를 방송할 때(제외 알림 포함) — R 아래 경로의 열린 문서 전부 ② `/api/file/write` 성공 — 그 경로가 열린 세션의 그 문서 |
 | 재동기화 동작 | 문서마다 디스크를 읽는다. 없음·읽기 실패·`fileReadMaxBytes`(10MiB) 초과·유효하지 않은 UTF-8 이면 didClose. 그 밖에는 내용의 SHA-256 을 세션이 기억한 "마지막 전송 텍스트" 해시와 비교해 같으면 아무것도 하지 않고, 다르면 didChange(전체 텍스트 = 디스크 판, 판 번호 +1)를 §3A-5 임계구역에서 보낸다 |
 | 비목표 | 열지 않은 파일의 변경 통보(`workspace/didChangeWatchedFiles` — 클라이언트 등록 영역이며 dynamicRegistration 미선언), HEAD 변경 시 세션 재시작, 변경 파일 계산 |
-| 배선 | gitwatch → LSP 알림은 `cmd/dongminal/main.go` 에서 `OnDiagnostics`(:375-387)와 같은 방식으로 잇는다(도메인 계층은 서로를 모른다) |
+| 배선 | gitwatch → LSP 알림은 `cmd/otterminal/main.go` 에서 `OnDiagnostics`(:375-387)와 같은 방식으로 잇는다(도메인 계층은 서로를 모른다) |
 
 동작 기록 — 이전: 한 번 연 문서는 세션이 끝날 때까지 열린 채 남아 디스크가 바뀌어도(브랜치 전환 포함) 서버가 옛 판으로 답했다 / 새: 마지막 뷰가 닫히면 닫고, 디스크가 바뀌면 열린 문서를 디스크 판으로 맞춘다 / 이유: #19 "한 번 호버한 파일이 영구 오버레이로 남는다".
 

@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/ctl/cli` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/ctl/cli` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 액션 분기·옵션 해석·도움말과, 그 위에 선 명령들(`config`·`window`·`version`)이다.
 

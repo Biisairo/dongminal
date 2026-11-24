@@ -46,7 +46,7 @@ import { TMP, tmpPath, realPath, cssPath } from './osenv';
 //   open 동작          활성 리포 행에는 안 붙는다(worktrees.js:119 `_canOpen`) —
 //                      이미 그것이므로 여는 것이 아무 일도 안 한다(FR-GIT-180).
 
-const FIXTURES = tmpPath('dm-git-fx-worktrees-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-worktrees-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);
@@ -106,7 +106,7 @@ const wtRows = (page: Page) => wt(page).locator('.git-wt-row');
 // 새로 만든 임시 디렉터리에 git worktree add 로 "바깥 것"을 직접 만든다 — 관리
 // 영역(user/run root) 밖이므로 소유는 무조건 outside 다. 서버 API 를 쓰지 않는다.
 function addOutsideWorktree(repo: string, name: string, ref = 'main') {
-  const dir = mkdtempSync(join(TMP, 'dm-wt-outside-'));
+  const dir = mkdtempSync(join(TMP, 'otter-wt-outside-'));
   rmTree(dir); // git worktree add 가 직접 만들게 둔다
   execFileSync('git', ['-C', repo, 'worktree', 'add', '-b', name, dir, ref], { stdio: 'pipe' });
   // 서버가 rev-parse 로 정규화한 값과 비교해야 하므로 여기서도 realpath 한다
@@ -180,7 +180,7 @@ test.describe('묶음 M — I7 Worktrees 목록 (FR-GIT-240)', () => {
 
   // 이 테스트가 **V163 의 e2e 절반**이다(조정자 판단, FR-WKT-13 전제). e2e 환경
   // 자체가 이미 심링크를 지나는 데이터 디렉터리 위에서 돈다 — playwright.config 의
-  // E2E_HOME 이 `/tmp/dongminal-e2e-…` 이고 macOS 는 `/tmp` → `/private/tmp` 심링크다.
+  // E2E_HOME 이 `/tmp/otterminal-e2e-…` 이고 macOS 는 `/tmp` → `/private/tmp` 심링크다.
   // 따로 심링크 픽스처를 만들지 않았다: Run 것(runPath, addRunWorktree)의 소유가
   // `run`(=outside 로 잘못 떨어지지 않음)으로 정확히 나오는 것 자체가 심링크를 지나는
   // 환경에서 `gitWorktreeOwner`(Go 기준선 handlers_git_worktree.go)의 소유 판정이 옳다는 증거다.
@@ -240,8 +240,8 @@ test.describe('묶음 M — I7 Worktrees 목록 (FR-GIT-240)', () => {
       const p = r.querySelector('.git-wt-path') as HTMLElement | null;
       return p?.getAttribute('title') || p?.textContent || '';
     });
-    // FR-WKT-13: $DONGMINAL_HOME/git-worktrees/<베이스이름>-<해시8자>/<이름>. 절대
-    // 경로 전체를 단정하지 않는다 — $DONGMINAL_HOME 은 이 테스트 프로세스에서 알 수
+    // FR-WKT-13: $OTTERMINAL_HOME/git-worktrees/<베이스이름>-<해시8자>/<이름>. 절대
+    // 경로 전체를 단정하지 않는다 — $OTTERMINAL_HOME 은 이 테스트 프로세스에서 알 수
     // 없다(playwright.config 의 E2E_HOME 은 webServer 프로세스와 다시 계산되어
     // 어긋난다, e2e/skill-contract.spec.ts:671 의 선례와 같은 이유). 파생 규칙의
     // **모양**만 검증한다.

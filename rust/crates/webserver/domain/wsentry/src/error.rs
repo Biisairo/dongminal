@@ -15,10 +15,10 @@ pub enum Error {
     /// 메모·플러그인 자리를 만들지 못했다 (Go `*os.PathError`). 값은 문구다.
     Io(String),
     /// workspace 블롭을 풀지 못했다.
-    Parse(dm_gocompat::json::Error),
-    Marshal(dm_gocompat::json::Error),
+    Parse(otter_gocompat::json::Error),
+    Marshal(otter_gocompat::json::Error),
     /// 저장 실패. 경합이면 `is_stale` 이다.
-    Workspace(dm_shared_workspace::Error),
+    Workspace(otter_shared_workspace::Error),
 }
 
 impl Error {

@@ -208,7 +208,7 @@ fn spec_and_problem_wire() {
     let mut s = int("a", 1, 2, false);
     s.def = json!(3);
     assert_eq!(
-        dm_gocompat::json::marshal(&s).unwrap(),
+        otter_gocompat::json::marshal(&s).unwrap(),
         br#"{"key":"a","type":"int","def":3,"min":1,"max":2,"where":"w"}"#
     );
     let s = Spec {
@@ -216,12 +216,12 @@ fn spec_and_problem_wire() {
         ..spec("b", "string")
     };
     assert_eq!(
-        dm_gocompat::json::marshal(&s).unwrap(),
+        otter_gocompat::json::marshal(&s).unwrap(),
         br#"{"key":"b","type":"string","def":null,"off":true,"where":"w"}"#
     );
     let p = Problem::new("k", "r", &json!(1.5));
     assert_eq!(
-        dm_gocompat::json::marshal(&p).unwrap(),
+        otter_gocompat::json::marshal(&p).unwrap(),
         br#"{"key":"k","reason":"r","got":1.5}"#
     );
 }
@@ -230,7 +230,7 @@ fn spec_and_problem_wire() {
 #[test]
 fn load_reads_embedded_table() {
     let specs = load().unwrap();
-    assert_eq!(specs.len(), 34, "서술자 {}개, 기대 34개", specs.len());
+    assert_eq!(specs.len(), 35, "서술자 {}개, 기대 35개", specs.len());
     let by = by_key(&specs);
     for k in [
         "themeName",
@@ -302,7 +302,7 @@ fn validate_corrupt_blob() {
     );
 }
 
-// `dongminal config validate` 가 이 문구를 그대로 낸다. go1.27.2 실측 문구다.
+// `otterminal config validate` 가 이 문구를 그대로 낸다. go1.27.2 실측 문구다.
 #[test]
 fn validate_non_object_blob_type_name() {
     let specs = load().unwrap();
@@ -345,7 +345,7 @@ fn check_theme_blob_cases() {
 // TC-QG-10 · FR-QG-13: 내장 테마 54종의 값은 모두 통과한다. 원천은 임베드된 `js/ui/themes.js` 다.
 #[test]
 fn builtin_themes_pass() {
-    let src = dm_web_assets::get("js/ui/themes.js").unwrap();
+    let src = otter_web_assets::get("js/ui/themes.js").unwrap();
     let src = std::str::from_utf8(&src).unwrap();
     let section = regex::Regex::new(r"(?m)^\s+(ui|terminal):\{([^}]*)\}").unwrap();
     let pair = regex::Regex::new(r"(\w+):'([^']*)'").unwrap();
@@ -414,7 +414,7 @@ fn save_settings_derives_from_table() {
     }
 }
 
-// Go `Problem.String()` — `dongminal config validate` 가 이 줄을 낸다.
+// Go `Problem.String()` — `otterminal config validate` 가 이 줄을 낸다.
 #[test]
 fn problem_display() {
     let specs = load().unwrap();

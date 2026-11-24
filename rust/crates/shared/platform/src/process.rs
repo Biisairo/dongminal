@@ -203,7 +203,7 @@ pub(crate) mod windows {
     use std::os::windows::process::CommandExt;
     use std::sync::Mutex;
 
-    use dm_gocompat::oserr::go_error_string;
+    use otter_gocompat::oserr::go_error_string;
     use windows_sys::Win32::Foundation::{
         CloseHandle, ERROR_ACCESS_DENIED, HANDLE, INVALID_HANDLE_VALUE, STILL_ACTIVE,
     };

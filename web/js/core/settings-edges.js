@@ -1,5 +1,5 @@
 /**
- * Dongminal — 설정창의 **Edges 패널** (PEER_NETWORK_SRS FR-PNW-80, EDGE_PAIRING_SRS FR-EPR-70·71).
+ * Otterminal — 설정창의 **Edges 패널** (PEER_NETWORK_SRS FR-PNW-80, EDGE_PAIRING_SRS FR-EPR-70·71).
  *
  * 구역은 셋이다: 이 노드 · 초대(만들기와 붙여 넣기) · 간선. 목록은 `EdgesController`(`edges-controller.js`)가 읽은
  * `_edges` 를 그린다 — 방송(`edges_changed`)이 오면 그쪽이 다시 읽고 여기를 부른다.

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# `commands.md` ↔ `dmctl/mod.rs` 양방향 대조 (M5 `DOC-2`, GO_REMOVAL_SRS G-27).
+# `commands.md` ↔ `otterctl/mod.rs` 양방향 대조 (M5 `DOC-2`, GO_REMOVAL_SRS G-27).
 #
-# 착수 시 `commands.md` 가 `dmctl` 서브커맨드의 **절반 가까이**를 문서화하지
+# 착수 시 `commands.md` 가 `otterctl` 서브커맨드의 **절반 가까이**를 문서화하지
 # 않고 있었다. 그리고 그 사실을 아무도 몰랐다 — 문서는 조용히 낡고, 낡았다는
 # 것을 알려 주는 것이 없었기 때문이다.
 #
@@ -14,14 +14,14 @@ set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 DOC=docs/external/commands.md
-SRC=rust/crates/helper/runtimebin/src/dmctl/mod.rs
+SRC=rust/crates/helper/runtimebin/src/otterctl/mod.rs
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<'USAGE'
-dmctl 서브커맨드 문서 대조
+otterctl 서브커맨드 문서 대조
 
-  코드: dmctl/mod.rs 의 명령 표 command() 의 match 팔 (`"a" | "b" =>` 는 둘로 센다)
-  문서: commands.md 표의 `| `dmctl <이름>` ...` 첫 칸
+  코드: otterctl/mod.rs 의 명령 표 command() 의 match 팔 (`"a" | "b" =>` 는 둘로 센다)
+  문서: commands.md 표의 `| `otterctl <이름>` ...` 첫 칸
 
   둘의 집합이 같아야 한다. `help`/`-h`/`--help` 는 뺀다 — 명령이 아니라 출구다.
 USAGE
@@ -43,9 +43,9 @@ if [[ -z "$code" ]]; then
 fi
 
 doc=$(
-  grep -oE '^\| `dmctl [a-z-]+' "$DOC" | sed -E 's/^\| `dmctl //'
+  grep -oE '^\| `otterctl [a-z-]+' "$DOC" | sed -E 's/^\| `otterctl //'
   # 같은 행 안의 `/ \`name\`` 꼴 곁가지.
-  grep -E '^\| `dmctl ' "$DOC" | grep -oE '/ `[a-z-]+`' | tr -d '/ `'
+  grep -E '^\| `otterctl ' "$DOC" | grep -oE '/ `[a-z-]+`' | tr -d '/ `'
 )
 doc=$(printf '%s\n' $doc | LC_ALL=C sort -u)
 
@@ -55,12 +55,12 @@ extra=$(comm -13 <(printf '%s\n' "$code") <(printf '%s\n' "$doc"))
 fail=0
 if [[ -n "$missing" ]]; then
   echo "코드에 있는데 $DOC 에 없습니다:"
-  printf '  dmctl %s\n' $missing
+  printf '  otterctl %s\n' $missing
   fail=1
 fi
 if [[ -n "$extra" ]]; then
   echo "$DOC 에 있는데 코드에 없습니다:"
-  printf '  dmctl %s\n' $extra
+  printf '  otterctl %s\n' $extra
   echo "  (지웠다면 문서에서도 지우세요 — 없는 명령을 안내하면 사용자가 그것을 칩니다)"
   fail=1
 fi

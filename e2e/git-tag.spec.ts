@@ -32,7 +32,7 @@ import { tmpPath, realPath } from './osenv';
 //   job 표시      Changes 탭의 `.git-job` — 태그 push 는 기존 원격 job 경로를 그대로
 //                 탄다(FR-GIT-262·101~104, remote.js:_attach).
 
-const FIXTURES = tmpPath('dm-git-fx-tag-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-tag-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

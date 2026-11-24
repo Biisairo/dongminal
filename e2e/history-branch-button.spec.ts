@@ -12,7 +12,7 @@ import { tmpPath, realPath } from './osenv';
 // 가는 **길 하나** — History 바의 버튼 — 이며, 그 길이 공용 머리(FR-GHM-4)를
 // 건드리지 않았는지다.
 
-const FIXTURES = tmpPath('dm-git-fx-hbb-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-hbb-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

@@ -1,5 +1,5 @@
 //! `testdata/goref` 와 같은 시나리오를 Rust 로 돌려 출력(반환 JSON·오류 문구·프리앰블·runs.json)을
-//! Go 와 바이트 단위로 비교한다 (FR-RSP-3). Go 참조는 `DM_GO_REF_SRC`(main 의 worktree)가 있을 때만
+//! Go 와 바이트 단위로 비교한다 (FR-RSP-3). Go 참조는 `OTTER_GO_REF_SRC`(main 의 worktree)가 있을 때만
 //! `rust/scripts/go-ref.sh` 로 빌드한다. 없으면 건너뛴다 (GO_REMOVAL_SRS Q-GRM-4).
 
 use std::fmt::Write as _;
@@ -7,10 +7,10 @@ use std::path::Path;
 use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use dm_gocompat::fmt::v_float;
-use dm_gocompat::json;
-use dm_gocompat::strconv::quote;
-use dm_webserver_domain_run::*;
+use otter_gocompat::fmt::v_float;
+use otter_gocompat::json;
+use otter_gocompat::strconv::quote;
+use otter_webserver_domain_run::*;
 use serde::Serialize;
 
 struct Out(String);
@@ -679,8 +679,8 @@ fn observe(
 
 #[test]
 fn scenario_matches_go() {
-    if std::env::var_os("DM_GO_REF_SRC").is_none() {
-        eprintln!("DM_GO_REF_SRC 가 없어 건너뛴다");
+    if std::env::var_os("OTTER_GO_REF_SRC").is_none() {
+        eprintln!("OTTER_GO_REF_SRC 가 없어 건너뛴다");
         return;
     }
     let work = tempfile::tempdir().unwrap();

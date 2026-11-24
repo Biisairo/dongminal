@@ -15,7 +15,7 @@ allowed-tools: Bash
 | `--ctx <퍼센트>` | 설정 `issueTreeCtxPct`(기본 50) | 노드가 안전 지점에서 migration 을 판단하는 맥락 기준(「맥락 판단」). 주면 설정보다 우선한다. 설정 `issueTreeMigration` 이 꺼져 있으면 맥락 때문에 넘기지 않는다 |
 | `--no-commit` | 없음 | 트리 전체가 커밋하지 않는다. 사용자가 그렇게 말했을 때만 붙인다 |
 
-노드가 따를 절차는 **이 문서뿐**이다. 대상 저장소에서 dongminal 의 SRS 를 찾지 않는다.
+노드가 따를 절차는 **이 문서뿐**이다. 대상 저장소에서 otterminal 의 SRS 를 찾지 않는다.
 
 ---
 
@@ -31,7 +31,7 @@ allowed-tools: Bash
 
 1. **노드는 바로 아래 자식만 띄운다.** 여러 단계를 한꺼번에 띄우지 않는다.
 2. **일하지 않을 노드로 가는 길은 띄우지 않는다.** 병렬이 없으면 일하는 잎은 하나다.
-3. **중간 노드는 하위를 띄운 뒤 턴을 끝낸다.** `dmctl msg` 가 와야 깨어난다. 상태를 폴링하지 않는다. sleep 루프를 짜지 않는다.
+3. **중간 노드는 하위를 띄운 뒤 턴을 끝낸다.** `otterctl msg` 가 와야 깨어난다. 상태를 폴링하지 않는다. sleep 루프를 짜지 않는다.
 4. **트리의 window·탭은 트리 그룹 안에만 만든다.** 그룹 밖의 window·탭을 만들거나 옮기거나 닫지 않는다.
 5. **각 걸음은 기대 출력을 확인한 뒤 다음으로 간다.** 확인하지 못하면 멈추고 말한다.
 6. **push 와 사용자 브랜치로의 병합은 사용자의 확인 뒤에만 한다.** 커밋과 이슈 닫기는 이 명령의 실행으로 승인된 것이다. `--no-commit` 이면 커밋하지 않는다.
@@ -42,16 +42,16 @@ allowed-tools: Bash
 | 값 | 어디서 | 어디에 쓰나 |
 |---|---|---|
 | 탭 `uuid` | `who-am-i` 의 `uuid=` · 응답의 `newTabs[0].uuid` | `--at` (탭 명령 · `send-input` · `wait` · `status` · `close-tab`) |
-| `toolId` | `who-am-i` 의 `toolId=` · `newTabs[0].toolId` | `dmctl msg --to`. 엔벨로프의 `from=` 과 같다 |
+| `toolId` | `who-am-i` 의 `toolId=` · `newTabs[0].toolId` | `otterctl msg --to`. 엔벨로프의 `from=` 과 같다 |
 | window `uuid` | `newWindows[0]` | `run start --window` · `move-window --at` |
 | 그룹 `uuid` | `new-group` 의 `newGroups[0]` · `list-groups` | `--group` · `move-group --at` · `delete-group --at` |
 
-좌표·라벨(`W1.P1.T1`)은 어디에도 넣지 않는다. 레이아웃 명령에 `--help` 를 붙여 도움말을 보지 않는다 — `dmctl --help` 를 쓴다.
+좌표·라벨(`W1.P1.T1`)은 어디에도 넣지 않는다. 레이아웃 명령에 `--help` 를 붙여 도움말을 보지 않는다 — `otterctl --help` 를 쓴다.
 
 ## 이름
 
 - **별칭**: 저장소 이름을 `-` · `_` · `.` 로 나눈 낱말의 첫 글자를 소문자로 잇는다. 낱말이 하나면 앞 세 글자다. 예: `common-chart-renderer-ts` → `ccr`.
-- **사슬 이름**: `<별칭>#<루트>›<번호>›…›<이 노드>`. 다른 저장소의 하위 이슈는 그 칸에 별칭을 다시 붙인다(`ccr#32›dmn#120`).
+- **사슬 이름**: `<별칭>#<루트>›<번호>›…›<이 노드>`. 다른 저장소의 하위 이슈는 그 칸에 별칭을 다시 붙인다(`ccr#32›otter#120`).
 - **탭 이름**: `<사슬 이름> <이슈 제목의 짧은 형태>`. 예: `ccr#32›33›35›62 피킹`.
 - **window 이름**: 그 window 에 처음 선 노드의 사슬 이름.
 - **그룹 이름**: `<별칭>#<루트> <루트 제목>`. 트리 표지는 `owner/repo#<루트>` 다.
@@ -147,10 +147,10 @@ gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$
 ### 1. 자기 자리
 
 ```
-dmctl who-am-i
+otterctl who-am-i
 ```
 
-`uuid=` · `toolId=` 를 적는다. 실패하면 dongminal 안이 아니다 — 사용자에게 말하고 멈춘다.
+`uuid=` · `toolId=` 를 적는다. 실패하면 otterminal 안이 아니다 — 사용자에게 말하고 멈춘다.
 
 ### 2. 경로
 
@@ -159,13 +159,13 @@ dmctl who-am-i
 ### 3. 그룹
 
 ```
-dmctl list-groups --json
+otterctl list-groups --json
 ```
 
 `tree` 가 `owner/repo#<루트>` 인 그룹이 있으면 그것을 쓴다. 없으면 만든다. 트리가 이미 도는지는 4의 `run start --tree` 가 서버에서 판정한다.
 
 ```
-dmctl new-group --name "<별칭>#<루트> <루트 제목>" --tree <owner/repo>#<루트>
+otterctl new-group --name "<별칭>#<루트> <루트 제목>" --tree <owner/repo>#<루트>
 ```
 
 기대 출력: `newGroups` 가 하나. 그 값을 적는다.
@@ -173,18 +173,18 @@ dmctl new-group --name "<별칭>#<루트> <루트 제목>" --tree <owner/repo>#<
 ### 4. 루트 window 와 Run
 
 ```
-dmctl new-window -n --group <그룹> --name "<별칭>#<루트>" --cwd "<저장소 루트>"
+otterctl new-window -n --group <그룹> --name "<별칭>#<루트>" --cwd "<저장소 루트>"
 cd "<저장소 루트>"
-dmctl run start --objective "<별칭>#<루트> 이슈 트리" --window <newWindows[0]> --isolation per-run --tree <owner/repo>#<루트>
+otterctl run start --objective "<별칭>#<루트> 이슈 트리" --window <newWindows[0]> --isolation per-run --tree <owner/repo>#<루트>
 ```
 
 **같은 트리는 두 번 열리지 않는다.** 같은 트리의 열린 Run 이 있으면 `run start` 가 `tree_open` 으로 거절한다.
 
-- 안내에 「이미 돌고 있다」가 나오면 멈추고 사용자에게 말한다. 4에서 만든 window 는 닫는다(`dmctl close-window -n --at <그 window 의 탭 uuid> --force`).
-- 「멈췄다(살아 있는 멤버 없음)」가 나오면 사용자에게 정리할지 묻는다. 정리하라고 하면 안내의 `dmctl run close --run <id> --force` 를 실행하고 4를 다시 한다.
+- 안내에 「이미 돌고 있다」가 나오면 멈추고 사용자에게 말한다. 4에서 만든 window 는 닫는다(`otterctl close-window -n --at <그 window 의 탭 uuid> --force`).
+- 「멈췄다(살아 있는 멤버 없음)」가 나오면 사용자에게 정리할지 묻는다. 정리하라고 하면 안내의 `otterctl run close --run <id> --force` 를 실행하고 4를 다시 한다.
 
 - 새 window 의 `newTabs[0].uuid`·`toolId` 를 적는다. 이 탭이 루트 노드의 자리다.
-- 트리의 진행은 Runs 대시보드의 「이슈 트리」 에 보인다(노드를 누르면 그 탭으로 간다). 같은 내용을 `dmctl run tree --ref <owner/repo>#<루트>` 로 읽는다.
+- 트리의 진행은 Runs 대시보드의 「이슈 트리」 에 보인다(노드를 누르면 그 탭으로 간다). 같은 내용을 `otterctl run tree --ref <owner/repo>#<루트>` 로 읽는다.
 - `run start` 의 `run=` 을 적는다. `--isolation per-run` 이 사용자 작업 트리와 분리된 worktree 를 만든다. 사용자 작업 트리는 트리가 도는 동안 고치지 않는다.
 
 ### 5. 루트 노드를 띄운다
@@ -195,7 +195,7 @@ dmctl run start --objective "<별칭>#<루트> 이슈 트리" --window <newWindo
 
 루트 노드가 `state=working` 이면 사용자에게 다음을 보고한다: 그룹 이름 · 루트 window · Run · 목표 경로. 그 뒤 턴을 끝내고 **조율 에이전트로 남는다.** 루트의 메시지(`완료` · `실패` · `종료 요청` · `준비됨` · `막힘`)가 오면 깨어나 「트리 종료」 를 따른다. `실패` 는 사용자에게 알리기만 한다. 트리의 탭 · window 는 트리 종료 때만 닫는다. **자기 탭은 닫지 않는다.**
 
-루트 노드의 프리앰블에서 부모는 이 세션의 `toolId` 다. 사용자가 이 탭을 닫으면 루트가 대신 조율한다. 맥락이 모자라 새 세션으로 넘길 때는 `/dongminal:migration` 을 쓴다 — 그 절차가 `dmctl run coordinate` 로 조율 자리를 넘기고, 서버가 루트에 새 주소를 알린다.
+루트 노드의 프리앰블에서 부모는 이 세션의 `toolId` 다. 사용자가 이 탭을 닫으면 루트가 대신 조율한다. 맥락이 모자라 새 세션으로 넘길 때는 `/otterminal:migration` 을 쓴다 — 그 절차가 `otterctl run coordinate` 로 조율 자리를 넘기고, 서버가 루트에 새 주소를 알린다.
 
 ---
 
@@ -207,13 +207,13 @@ dmctl run start --objective "<별칭>#<루트> 이슈 트리" --window <newWindo
 
 | 경우 | 자리 | Run |
 |---|---|---|
-| 사슬의 자식 · 병렬 자식 중 첫째 | `dmctl new-tab -n --at <자기 탭 uuid> --after <자기 탭 uuid> --name "<자식 탭 이름>"` | 부모와 같은 Run |
-| 병렬 자식 중 둘째부터 | `dmctl new-window -n --group <그룹> --name "<자식 사슬 이름>" --cwd "<자기 worktree>"` | 새 Run (아래) |
+| 사슬의 자식 · 병렬 자식 중 첫째 | `otterctl new-tab -n --at <자기 탭 uuid> --after <자기 탭 uuid> --name "<자식 탭 이름>"` | 부모와 같은 Run |
+| 병렬 자식 중 둘째부터 | `otterctl new-window -n --group <그룹> --name "<자식 사슬 이름>" --cwd "<자기 worktree>"` | 새 Run (아래) |
 
 새 Run 은 자식 window 를 갖고, 부모 브랜치의 지금 HEAD 에서 갈라진다. 부모의 worktree 에서 실행한다.
 
 ```
-dmctl run start --objective "<자식 사슬 이름>" --window <newWindows[0]> --isolation per-run --base "$(git rev-parse HEAD)" --tree <owner/repo>#<루트> --branch
+otterctl run start --objective "<자식 사슬 이름>" --window <newWindows[0]> --isolation per-run --base "$(git rev-parse HEAD)" --tree <owner/repo>#<루트> --branch
 ```
 
 기대 출력을 확인한다: `newTabs` 하나, `timedOut:false`. `delivered:0` 이면 브라우저가 없다 — 사용자에게 말하고 멈춘다.
@@ -225,16 +225,16 @@ dmctl run start --objective "<자식 사슬 이름>" --window <newWindows[0]> --
 `rename-tab` 은 이름이 남았는지 확인한다. exit 1 이면 이름이 붙지 않은 것이다. 한 번 더 부르고, 그래도 exit 1 이면 사용자에게 보고하고 계속한다.
 
 ```
-dmctl rename-tab --at <새 탭 uuid> "<자식 탭 이름>"      # new-window 로 만든 탭만
-dmctl run member --run <Run> --role "<자식 사슬 이름>" --agent claude --at <새 탭 uuid> \
+otterctl rename-tab --at <새 탭 uuid> "<자식 탭 이름>"      # new-window 로 만든 탭만
+otterctl run member --run <Run> --role "<자식 사슬 이름>" --agent claude --at <새 탭 uuid> \
   --issue <owner/repo#번호> --title "<제목>" --parent <내 member uuid> \
   [--goal "<남은 번호 목록>"] [--parallel] [--ctx <퍼센트>] [--no-commit] --brief - <<'B'
 <자식 이슈 한 줄 요약>
 B
-dmctl run launch --member <member uuid> | dmctl send-input --at <새 탭 uuid> --execute -
-dmctl wait --at <새 탭 uuid> --for ready --timeout-ms 180000
-dmctl read-screen --at <새 탭 uuid>
-dmctl status --at <새 탭 uuid>
+otterctl run launch --member <member uuid> | otterctl send-input --at <새 탭 uuid> --execute -
+otterctl wait --at <새 탭 uuid> --for ready --timeout-ms 180000
+otterctl read-screen --at <새 탭 uuid>
+otterctl status --at <새 탭 uuid>
 ```
 
 **배정은 등록 플래그로 넘긴다.** 서버가 배정을 기록하고, 기동줄의 프리앰블에 `[ISSUE-TREE 배정]` 블록으로 싣는다(노드 · 사슬 이름 · 목표 경로 · 부모 · 그룹 · Run · member · 병렬 가지 · 맥락 기준 · 커밋 · 이 문서의 절대 경로). 그래서 배정 엔벨로프를 따로 보내지 않는다. 자식은 기동하자마자 배정을 안다.
@@ -247,10 +247,10 @@ dmctl status --at <새 탭 uuid>
 | `--ctx` | 사용자가 `--ctx` 를 줬을 때만. 주지 않으면 설정을 따른다 |
 | `--no-commit` | 사용자가 커밋하지 말라고 했을 때 |
 
-배정이 바뀌면(맥락 기준 정정 등) `dmctl run assign --member <자식 member uuid> --ctx <퍼센트>` 로 고친다. 자식의 다음 프리앰블(승계)부터 반영된다. 이미 일하는 자식에게는 `dmctl msg` 로도 알린다.
+배정이 바뀌면(맥락 기준 정정 등) `otterctl run assign --member <자식 member uuid> --ctx <퍼센트>` 로 고친다. 자식의 다음 프리앰블(승계)부터 반영된다. 이미 일하는 자식에게는 `otterctl msg` 로도 알린다.
 
 `run member` 가 `node_taken` 으로 거절하면 그 이슈는 다른 노드가 이미 맡고 있다. 거절에 그 멤버와 상태가 실린다.
-- 상태가 `lost` 면(옛 탭이 닫혔다) 새 노드로 맡지 말고 **이어받는다**: `dmctl run succeed --member <그 member> --at <새 탭 uuid>` 뒤 `run launch --member <새 member>`.
+- 상태가 `lost` 면(옛 탭이 닫혔다) 새 노드로 맡지 말고 **이어받는다**: `otterctl run succeed --member <그 member> --at <새 탭 uuid>` 뒤 `run launch --member <새 member>`.
 - 그 밖이면 그 하위를 띄우지 않는다. 만든 탭·window 를 닫고 부모에게 `보고` 로 알린다.
 
 `wait` 가 `ready` 를 내도 입력을 받을 준비가 아닐 수 있다. `read-screen` 을 본다. 신뢰·권한 확인을 묻고 있으면 답한 뒤 다시 확인한다.
@@ -264,7 +264,7 @@ dmctl status --at <새 탭 uuid>
 ### 1. 자기 자리와 이슈
 
 ```
-dmctl who-am-i
+otterctl who-am-i
 ```
 
 `uuid=` · `toolId=` 를 적는다. 배정은 프리앰블의 `[ISSUE-TREE 배정]` 블록에 있다. 「이슈 접근 규칙」 의 「권한」 을 먼저 지난다. 배정의 이슈를 위 GraphQL 로 읽고, 「설정 점검」 을 한다. 프로젝트의 지시 문서에서 이슈 규약을 확인한다. **이슈를 프로젝트 보드의 진행 중으로 옮긴다**(규약이 없으면 건너뛴다).
@@ -314,11 +314,11 @@ dmctl who-am-i
 
 1. 그 하위의 탭을 닫는다. 병렬 가지의 마지막 노드였으면 window 를 닫는다. **하위는 스스로 닫지 않는다 — 닫는 것은 나다.**
    ```
-   dmctl close-tab --at <하위 탭 uuid> --force
-   dmctl close-window -n --at <하위 탭 uuid> --force
+   otterctl close-tab --at <하위 탭 uuid> --force
+   otterctl close-window -n --at <하위 탭 uuid> --force
    ```
    둘 중 하나만 쓴다.
-2. 병렬 가지였으면 그 브랜치를 내 브랜치에 병합한다. 충돌은 내가 푼다. 풀 수 없으면 사용자에게 묻는다. 병합 뒤 `dmctl run close --run <그 가지의 Run>`.
+2. 병렬 가지였으면 그 브랜치를 내 브랜치에 병합한다. 충돌은 내가 푼다. 풀 수 없으면 사용자에게 묻는다. 병합 뒤 `otterctl run close --run <그 가지의 Run>`.
 3. 그 하위 이슈와 내 이슈의 **결정 코멘트**(첫 줄 `결정:`)를 읽는다. 내 범위의 다른 이슈나 앞선 결정과 충돌하면 사용자에게 묻는다. 공유 문서로 옮길지는 프로젝트 규약을 따른다 — 규약이 없으면 옮기지 않는다.
 4. 보고에 문서에 남길 것이 있으면 적는다(프로젝트 규약이 있을 때).
 5. 하위 이슈를 더했거나 진행 순서가 바뀌었으면 서브이슈 순서를 진행 순서에 맞게 다시 놓는다(쓰기 — 「이슈 접근 규칙」 의 「권한」 을 먼저 지난다). 닫힌 하위는 닫힌 순서대로 앞에 둔다.
@@ -327,9 +327,9 @@ dmctl who-am-i
    ```
 6. 맥락 사용률을 본다:
    ```
-   dmctl status --json
+   otterctl status --json
    ```
-   `context.usedPct` 로 「맥락 판단」 을 한다(배정이 `끔` 이면 넘기지 않는다). 다음 일은 다음 하위를 띄우고 그 완료를 처리하는 것까지다. 넘기기로 하면 `/dongminal:migration` 으로 새 세션에 넘긴다. 이 노드는 Run 멤버이므로 migration 의 **멤버 갈래**(자기 승계 `run succeed --self`)를 탄다 — 배정 · 탭 이름 · worktree 가 그대로 가고, 서버가 부모와 하위에게 새 `toolId` 를 알린다. 값이 없으면 넘기지 않고 계속하며, 그 사실을 보고에 적는다.
+   `context.usedPct` 로 「맥락 판단」 을 한다(배정이 `끔` 이면 넘기지 않는다). 다음 일은 다음 하위를 띄우고 그 완료를 처리하는 것까지다. 넘기기로 하면 `/otterminal:migration` 으로 새 세션에 넘긴다. 이 노드는 Run 멤버이므로 migration 의 **멤버 갈래**(자기 승계 `run succeed --self`)를 탄다 — 배정 · 탭 이름 · worktree 가 그대로 가고, 서버가 부모와 하위에게 새 `toolId` 를 알린다. 값이 없으면 넘기지 않고 계속하며, 그 사실을 보고에 적는다.
    migration 은 **같은 이슈**를 이어 갈 때만 쓴다. 다른 이슈로 넘어가는 수단이 아니다.
 7. 다음에 열 하위 이슈가 있으면 3으로 간다. 모두 닫혔으면 내 이슈를 끝낸다(「잎 노드의 일」 의 끝내기).
 
@@ -358,7 +358,7 @@ dmctl who-am-i
 
 1. 이슈를 계획하고 일한다. 공유 문서는 고치지 않는다 — 남길 것은 보고에 담는다. 진행 메모가 필요하면 이슈에 코멘트로 남긴다. 이 잎의 모든 이슈 쓰기(코멘트 · 결정 · 하위 만들기 · 닫기)는 「이슈 접근 규칙」 을 지난다.
 2. 시험한다(프로젝트 규약).
-   **잎의 안전 지점** — 일의 한 단계(시험이 통과하는 단위)를 커밋한 뒤 `dmctl status --json` 의 `context.usedPct` 로 「맥락 판단」 을 한다. 다음 일은 다음 단계다. 넘기기로 하면 `/dongminal:migration` 의 멤버 갈래로 넘긴다(같은 이슈를 새 세션이 잇는다). 배정이 `끔` 이면 넘기지 않는다. 값이 없으면 넘기지 않고, 그 사실을 보고에 적는다.
+   **잎의 안전 지점** — 일의 한 단계(시험이 통과하는 단위)를 커밋한 뒤 `otterctl status --json` 의 `context.usedPct` 로 「맥락 판단」 을 한다. 다음 일은 다음 단계다. 넘기기로 하면 `/otterminal:migration` 의 멤버 갈래로 넘긴다(같은 이슈를 새 세션이 잇는다). 배정이 `끔` 이면 넘기지 않는다. 값이 없으면 넘기지 않고, 그 사실을 보고에 적는다.
 3. **질문이 생기면:**
    - 사실 질문(코드 · 문서로 답이 나오는 것)은 스스로 찾는다. 내 범위 밖의 사실(형제 이슈의 상태 · 결과)만 부모에게 `질문` 으로 보낸다.
    - 판단 질문은 먼저 기존 결정을 찾는다: 프로젝트 문서 · 내 이슈와 부모 이슈의 코멘트(첫 줄 `결정:`). 있으면 따른다.
@@ -370,7 +370,7 @@ dmctl who-am-i
    3. 내 이슈에 어디까지 했는지 코멘트로 남긴다.
    4. 부모에게 알리고 멈춘다. 탭은 닫지 않는다 — 부모가 닫는다.
       ```
-      dmctl msg --to <부모 toolId> - <<'M'
+      otterctl msg --to <부모 toolId> - <<'M'
       보고: 선행 #<번호> <사슬 이름>
       WIP: <커밋 해시 | stash 이름>
       M
@@ -382,8 +382,8 @@ dmctl who-am-i
 6. 「설정 점검」 을 한 번 더 한 뒤, 이슈를 프로젝트 규약대로 닫고 보드의 완료로 옮긴다.
 7. 기록하고 부모에게 알린다:
    ```
-   dmctl run report --outcome succeeded --summary "<세 문장>"
-   dmctl msg --to <부모 toolId> - <<'M'
+   otterctl run report --outcome succeeded --summary "<세 문장>"
+   otterctl msg --to <부모 toolId> - <<'M'
    완료 <사슬 이름>
    커밋: <해시 목록>  브랜치: <병렬 가지면 브랜치 이름>
    문서에 남길 것: <없음 | 내용>
@@ -393,7 +393,7 @@ dmctl who-am-i
 
 루트 노드의 부모는 조율 에이전트다. 조율이 `완료` 를 받아 「트리 종료」 를 한다. 보내기 전에 조율이 있는지 본다(「대신 조율」 의 판정). 없으면 「대신 조율」 로 간다.
 
-실패로 끝나면 커밋하지 않은 변경을 지우지 않는다. `dmctl run report --outcome failed` 와 `실패` 메시지를 보낸다.
+실패로 끝나면 커밋하지 않은 변경을 지우지 않는다. `otterctl run report --outcome failed` 와 `실패` 메시지를 보낸다.
 
 ---
 
@@ -403,7 +403,7 @@ dmctl who-am-i
 
 정리 중의 이슈 쓰기(WIP 코멘트 · 이슈 닫기 · 보드 옮기기)도 「이슈 접근 규칙」 을 지난다. 권한이 모자라거나 쓰기가 거절되면 쓰지 않고 `막힘` 으로 올린다.
 
-메시지는 `dmctl msg --to <부모 | 자식 toolId>` 로 보낸다. 본문 첫 줄이 종류다.
+메시지는 `otterctl msg --to <부모 | 자식 toolId>` 로 보낸다. 본문 첫 줄이 종류다.
 
 | 종류 | 방향 | 본문 |
 |---|---|---|
@@ -417,7 +417,7 @@ dmctl who-am-i
 
 - 사용자가 내 탭에서 트리를 닫자고 하면 **스스로 정리하지 않는다.** 하던 일을 멈추고(커밋도 되돌리기도 하지 않는다) 부모에게 보낸다.
   ```
-  dmctl msg --to <부모 toolId> - <<'M'
+  otterctl msg --to <부모 toolId> - <<'M'
   종료 요청 <사슬 이름>
   <사용자가 말한 이유>
   M
@@ -430,7 +430,7 @@ dmctl who-am-i
 
 1. 미완료 노드를 찾는다. `run report` 를 하지 않은 노드이고, `nodes` 에서 `endedAt` 이 없는 노드다.
    ```
-   dmctl run tree --ref <owner/repo>#<루트> --json
+   otterctl run tree --ref <owner/repo>#<루트> --json
    ```
 2. 사용자에게 트리를 닫을지 확인한다. 미완료 노드마다 **보존**(WIP 커밋으로 남기고 브랜치를 보존한다) 또는 **버림**(커밋하지 않은 변경을 버린다)을 고르게 한다. 판단에 필요하면 그 노드 worktree 의 `git -C <worktree> status --short` 를 보여 준다.
 3. 확인하지 않으면 요청한 노드에 `종료 취소` 를 보내고 끝낸다. 아무것도 닫지 않는다.
@@ -448,7 +448,7 @@ dmctl who-am-i
    - **버림**: 내 worktree 의 커밋하지 않은 변경만 버린다(`git restore .` · `git clean -fd`). 다른 노드의 커밋은 건드리지 않는다.
    - 그 뒤 보고한다. 이미 보고했으면 다시 하지 않는다.
      ```
-     dmctl run report --outcome failed --summary "트리 종료로 중단: <어디까지 했는가>"
+     otterctl run report --outcome failed --summary "트리 종료로 중단: <어디까지 했는가>"
      ```
 3. 병렬 가지의 이슈가 닫혔으면 그 브랜치를 내 브랜치에 병합한다. 닫히지 않았으면 병합하지 않고 「남긴 브랜치」 에 적는다. 충돌은 스스로 풀고, 풀 수 없으면 `막힘` 이다.
 4. 내 worktree 가 깨끗한지 본다. 출력이 비어 있어야 한다.
@@ -457,7 +457,7 @@ dmctl who-am-i
    ```
 5. 깨끗하면 `준비됨`, 아니면 `막힘` 을 부모에게 보내고 멈춘다. **내 탭은 닫지 않는다.**
    ```
-   dmctl msg --to <부모 toolId> - <<'M'
+   otterctl msg --to <부모 toolId> - <<'M'
    준비됨 <사슬 이름>
    남긴 브랜치: <없음 | 목록>
    닫은 이슈: <목록>
@@ -471,32 +471,32 @@ dmctl who-am-i
 1. 사용자에게 루트 Run 브랜치를 어떻게 할지 묻는다: 사용자 브랜치에 병합 · push · PR · 브랜치만 남김. **답을 받기 전에는 하지 않는다.** 병합 충돌이 나면 사용자 작업 트리에서 풀지 않고 알린다.
 2. 트리의 열린 Run 을 **가지 Run 부터** 닫는다. `runs` 에서 `treeBranch` 인 Run 이 가지 Run 이다. 노드가 깊은 가지가 먼저이고 루트 Run 이 마지막이다. `--force` 를 쓰지 않는다. 보고하지 않은 멤버 때문에 거절되면 그 멤버의 `state` 를 본다. 모두 `lost`(탭이 이미 닫혔다)면 사용자에게 알리고 확인을 받은 뒤 `--force` 로 닫는다. 살아 있는 멤버가 있으면 멈추고 사용자에게 알린다.
    ```
-   dmctl run tree --ref <owner/repo>#<루트> --json
-   dmctl run close --run <id>
+   otterctl run tree --ref <owner/repo>#<루트> --json
+   otterctl run close --run <id>
    ```
-   `run close` 가 세션 종료 · 탭 닫기 · worktree 정리를 한다. 트리 Run 의 worktree 는 그 브랜치가 병합 대상(그 Run 을 연 곳의 브랜치)에 들어가 있을 때만 지워진다. 아니면 잔여물 `unmerged` 로 남고 Run 기록도 남는다. 나중에 병합한 뒤 `dmctl run close --run <id> --force` 로 다시 정리한다.
+   `run close` 가 세션 종료 · 탭 닫기 · worktree 정리를 한다. 트리 Run 의 worktree 는 그 브랜치가 병합 대상(그 Run 을 연 곳의 브랜치)에 들어가 있을 때만 지워진다. 아니면 잔여물 `unmerged` 로 남고 Run 기록도 남는다. 나중에 병합한 뒤 `otterctl run close --run <id> --force` 로 다시 정리한다.
 3. 그룹에 남은 window 를 모두 닫고 그룹을 지운다. 그룹 uuid 는 `list-groups` 에서 `tree` 가 이 트리인 행이다. 남은 window 는 `list-workspace` 에서 `groupUuid` 가 그 그룹인 행이다. `windowUuid` 마다 탭 `uuid` 하나로 닫는다.
    ```
-   dmctl list-groups --json
-   dmctl list-workspace --json
-   dmctl close-window -n --at <그 window 의 탭 uuid> --force
-   dmctl delete-group --at <그룹 uuid>
+   otterctl list-groups --json
+   otterctl list-workspace --json
+   otterctl close-window -n --at <그 window 의 탭 uuid> --force
+   otterctl delete-group --at <그룹 uuid>
    ```
 4. 내 탭에 최종 보고를 남긴다: 닫은 이슈 · 남긴 브랜치 · worktree 잔여물(`run close` 응답의 `residue` 와 사유) · 병합/push 결과. **내 탭은 닫지 않는다.**
 
 ### 5. 대신 조율 (루트)
 
-조율이 없으면 루트가 2~4를 내 탭에서 한다. 조율이 없다는 것은 셋 중 하나다: 프리앰블이 「부모: 없음」 이다 · 조율에게 보낸 `msg` 가 전송되지 않는다 · `dmctl status --at <조율 toolId>` 가 `live=false` 이거나 `state=unknown` 이다(에이전트가 끝나면 활동 기록이 지워져 `unknown` 이 된다. 탭만 남은 셸에 보낸 엔벨로프는 셸 명령으로 실행된다). 루트는 조율에게 `완료` · `종료 요청` · `준비됨` · `막힘` 을 보내기 전에 늘 `status` 를 본다. 다른 점은 다섯이다.
+조율이 없으면 루트가 2~4를 내 탭에서 한다. 조율이 없다는 것은 셋 중 하나다: 프리앰블이 「부모: 없음」 이다 · 조율에게 보낸 `msg` 가 전송되지 않는다 · `otterctl status --at <조율 toolId>` 가 `live=false` 이거나 `state=unknown` 이다(에이전트가 끝나면 활동 기록이 지워져 `unknown` 이 된다. 탭만 남은 셸에 보낸 엔벨로프는 셸 명령으로 실행된다). 루트는 조율에게 `완료` · `종료 요청` · `준비됨` · `막힘` 을 보내기 전에 늘 `status` 를 본다. 다른 점은 다섯이다.
 
 - 2의 4에서 `종료 준비` 는 나에게 보내지 않는다. 내가 받은 것으로 보고 3의 1부터 한다.
 - 4의 2에서 가지 Run 은 그대로 닫는다. 루트 Run 은 아직 닫지 않는다.
 - 4의 3에서 내 window 는 닫지 않는다. 그 대신 내 window 의 다른 노드 탭을 닫는다. `run tree --json` 의 `nodes` 중 루트 Run 의 다른 노드다. 이들은 모두 멈췄다.
   ```
-  dmctl close-tab --at <그 노드의 tabId> --force
+  otterctl close-tab --at <그 노드의 tabId> --force
   ```
 - 루트 Run 은 **맨 마지막 명령**으로 닫는다. 내 `run report` 를 먼저 하고(이미 했으면 건너뛴다) `--keep-tools` 로 닫는다. `--keep-tools` 는 내 세션과 탭을 닫지 않는다. 대신 다른 탭도 닫지 않으므로 바로 앞 걸음이 필요하다. 이 명령이 내 worktree 를 지울 수 있으므로 그 뒤에는 명령을 실행하지 않는다.
   ```
-  dmctl run close --run <루트 Run> --keep-tools
+  otterctl run close --run <루트 Run> --keep-tools
   ```
 - 최종 보고에 「이 탭과 window 는 직접 닫는다」 를 적는다.
 

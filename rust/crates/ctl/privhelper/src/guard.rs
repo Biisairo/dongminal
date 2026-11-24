@@ -3,7 +3,7 @@
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
-use dm_shared_humancmd::{CODE_BAD_CODE, CODE_LOCKED, CODE_UNAVAILABLE, Error as HError};
+use otter_shared_humancmd::{CODE_BAD_CODE, CODE_LOCKED, CODE_UNAVAILABLE, Error as HError};
 use subtle::ConstantTimeEq;
 
 use crate::secret::{Secret, base32_nopad, hash_recovery};

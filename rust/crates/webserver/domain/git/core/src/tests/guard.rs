@@ -185,7 +185,7 @@ fn read_commands_blame() {
 // FR-WTP-8: 경로 가드는 이 OS 의 구분자로 조각을 나눠 본다.
 #[test]
 fn rel_path_rejects_parent_ref_with_os_separator() {
-    let sep = dm_gocompat::filepath::SEPARATOR;
+    let sep = otter_gocompat::filepath::SEPARATOR;
     for p in [
         format!("src{sep}..{sep}x"),
         format!("..{sep}x"),

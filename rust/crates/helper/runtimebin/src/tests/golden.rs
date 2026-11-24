@@ -5,10 +5,10 @@ use std::fmt::Write as _;
 
 use super::*;
 use crate::detach::parse_detach_flags;
-use crate::dmctl::listworkspace::parse_list_workspace_flags;
-use crate::dmctl::parse_dmctl_flags;
-use crate::dmctl::status::parse_status_flags;
-use crate::dmctl::toolio::{parse_msg_flags, parse_send_input_flags};
+use crate::otterctl::listworkspace::parse_list_workspace_flags;
+use crate::otterctl::parse_otterctl_flags;
+use crate::otterctl::status::parse_status_flags;
+use crate::otterctl::toolio::{parse_msg_flags, parse_send_input_flags};
 
 fn fnv32(s: &[u8]) -> u32 {
     let mut h: u32 = 2166136261;
@@ -180,9 +180,9 @@ fn parse_cases() -> Vec<(&'static str, Vec<&'static str>)> {
             ],
         ],
     );
-    add("dmctl", common);
+    add("otterctl", common);
     add(
-        "dmctl",
+        "otterctl",
         &[
             &["--at"],
             &["--at", "1.2"],
@@ -310,8 +310,8 @@ fn render_parse(env: &Env, parser: &str, args: &[&str]) -> String {
                     .s("member", &f.member);
                 code_res(c, fs.done())
             }
-            "dmctl" => {
-                let (p, e) = match parse_dmctl_flags(&owned) {
+            "otterctl" => {
+                let (p, e) = match parse_otterctl_flags(&owned) {
                     Ok(p) => (p, "<nil>".to_owned()),
                     Err(e) => (Default::default(), e),
                 };
@@ -349,7 +349,7 @@ fn render_parse(env: &Env, parser: &str, args: &[&str]) -> String {
                 code_res(c, fs.done())
             }
             "run" => {
-                let (f, c) = crate::dmctl::run::parse_run_flags(&mut ctx, "sub", &owned);
+                let (f, c) = crate::otterctl::run::parse_run_flags(&mut ctx, "sub", &owned);
                 let mut fs = Fields::new()
                     .s("run", &f.run)
                     .s("member", &f.member)
@@ -404,7 +404,9 @@ fn render_parse(env: &Env, parser: &str, args: &[&str]) -> String {
         }
     };
     let stdout = if out.len() > 40 {
-        format!("<{} bytes, sum {:x}>", out.len(), fnv32(&out))
+        // OTTERMINAL_RENAME_SRS FR-REN-10: 골든은 옛 이름 출력의 길이·해시다.
+        let out = otter_shared_otterenv::legacy::legacy_names(&String::from_utf8_lossy(&out));
+        format!("<{} bytes, sum {:x}>", out.len(), fnv32(out.as_bytes()))
     } else {
         String::from_utf8_lossy(&out).into_owned()
     };
@@ -412,13 +414,13 @@ fn render_parse(env: &Env, parser: &str, args: &[&str]) -> String {
         "{parser} {}\n  {res}\n  stdout={}\n  stderr={}\n",
         q_list(args),
         q(&stdout),
-        dm_gocompat::strconv::quote_bytes(&err)
+        otter_gocompat::strconv::quote_bytes(&err)
     )
 }
 
 #[test]
 fn argparse_golden() {
-    let env = Env::with_vars([(dm_shared_dmenv::ENV_TOOL_ID, "self-tool")]);
+    let env = Env::with_vars([(otter_shared_otterenv::ENV_TOOL_ID, "self-tool")]);
     let mut got = String::new();
     for (p, args) in parse_cases() {
         got.push_str(&render_parse(&env, p, &args));
@@ -458,7 +460,7 @@ fn httpresult_golden() {
         let home = tempfile::tempdir().unwrap();
         let env = srv.env(home.path());
         for c in cmds {
-            let (code, out, err) = dm(&env, c);
+            let (code, out, err) = ctl(&env, c);
             let _ = write!(
                 got,
                 "{status} {} {}\n  code={code}\n  stdout={}\n  stderr={}\n",
@@ -479,7 +481,7 @@ type RunBox = Box<dyn Fn(&Env) -> (i32, String, String)>;
 type GoldenCmd = (&'static str, RunBox, Option<fn(u16, &str) -> bool>);
 
 fn httpexit_cmds(file: String) -> Vec<GoldenCmd> {
-    let dmc = |args: &'static [&'static str]| -> RunBox { Box::new(move |env| dm(env, args)) };
+    let dmc = |args: &'static [&'static str]| -> RunBox { Box::new(move |env| ctl(env, args)) };
     // DM-F3: detach 가 배달 수를 모르는 본문을 1 로 읽던 것은 Go 쪽 §5 의 변경이다.
     let detach_skip: fn(u16, &str) -> bool = |s, b| s / 100 == 2 && !b.contains(r#""delivered""#);
     vec![
@@ -661,7 +663,7 @@ fn listworkspace_golden() {
         &["list-groups"],
         &["list-groups", "--json"],
     ] {
-        let (code, out, err) = dm(&env, args);
+        let (code, out, err) = ctl(&env, args);
         let _ = write!(
             got,
             "{}\n  code={code}\n  stdout={out}\n  stderr={}\n",

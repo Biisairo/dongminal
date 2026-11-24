@@ -1,9 +1,9 @@
-//! Go 기준선 `dongminal/internal/webserver/seam/toolaccess` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/webserver/seam/toolaccess` 의 Rust 포팅.
 //!
 //! 도구(PTY)·워크스페이스·커맨드 허브에 대한 읽기·쓰기 접합면이다. 구체 타입(httpapi,
 //! workspace)을 소비자에게 드러내지 않는 경계이며, 구현은 `seam/adapters` 가 준다.
 
-use dm_shared_pollwait::Changed;
+use otter_shared_pollwait::Changed;
 
 /// 접합면의 오류다. 구현의 문구를 그대로 실어 나른다.
 pub type Error = Box<dyn std::error::Error + Send + Sync>;

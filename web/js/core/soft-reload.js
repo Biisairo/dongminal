@@ -1,5 +1,5 @@
 /**
- * Dongminal — 내부 새로고침 (SOFT_RELOAD_SRS)
+ * Otterminal — 내부 새로고침 (SOFT_RELOAD_SRS)
  *
  * **페이지를 다시 열지 않고 서버의 사실을 다시 받아 화면을 맞춘다.**
  *

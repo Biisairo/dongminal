@@ -17,7 +17,7 @@ fn windows_log_file_uses_local_app_data() {
         },
         || PathBuf::from("T:"),
     );
-    assert_eq!(got, lad.join("dongminal").join("dongminal.log"));
+    assert_eq!(got, lad.join("otterminal").join("otterminal.log"));
 }
 
 #[test]
@@ -25,14 +25,14 @@ fn windows_log_file_falls_back_to_temp() {
     let temp = Path::new("C:").join("Temp");
     let t2 = temp.clone();
     let got = windows_log_file(|_| String::new(), move || t2.clone());
-    assert_eq!(got, temp.join("dongminal.log"));
+    assert_eq!(got, temp.join("otterminal.log"));
 }
 
 #[test]
 fn posix_default_log_file() {
     assert_eq!(
         PosixPaths.default_log_file(),
-        Path::new("/tmp/dongminal.log")
+        Path::new("/tmp/otterminal.log")
     );
     assert_eq!(PosixPaths.exe_suffix(), "");
     assert_eq!(WindowsPaths.exe_suffix(), ".exe");
@@ -211,9 +211,9 @@ fn path_from_uri_matches_go_url_parse() {
 #[test]
 fn windows_link_or_copy_prefers_hard_link() {
     let d = tempfile::tempdir().unwrap();
-    let src = d.path().join("dongminal.exe");
+    let src = d.path().join("otterminal.exe");
     fs::write(&src, "payload").unwrap();
-    let dst = d.path().join("dmctl.exe");
+    let dst = d.path().join("otterctl.exe");
     WindowsPaths.link_or_copy(&src, &dst).unwrap();
     assert!(
         same_file_at(&src, &dst),
@@ -224,9 +224,9 @@ fn windows_link_or_copy_prefers_hard_link() {
 #[test]
 fn windows_link_or_copy_idempotent() {
     let d = tempfile::tempdir().unwrap();
-    let src = d.path().join("dongminal.exe");
+    let src = d.path().join("otterminal.exe");
     fs::write(&src, "payload").unwrap();
-    let dst = d.path().join("dmctl.exe");
+    let dst = d.path().join("otterctl.exe");
     WindowsPaths.link_or_copy(&src, &dst).unwrap();
     let before = file_id(&dst);
     WindowsPaths.link_or_copy(&src, &dst).unwrap();
@@ -236,9 +236,9 @@ fn windows_link_or_copy_idempotent() {
 #[test]
 fn windows_link_or_copy_replaces_stale() {
     let d = tempfile::tempdir().unwrap();
-    let src = d.path().join("dongminal.exe");
+    let src = d.path().join("otterminal.exe");
     fs::write(&src, "new").unwrap();
-    let dst = d.path().join("dmctl.exe");
+    let dst = d.path().join("otterctl.exe");
     fs::write(&dst, "old").unwrap();
     WindowsPaths.link_or_copy(&src, &dst).unwrap();
     assert_eq!(fs::read_to_string(&dst).unwrap(), "new");

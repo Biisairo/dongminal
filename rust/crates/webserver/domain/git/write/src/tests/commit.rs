@@ -1,7 +1,7 @@
 //! Go `commit_msg_test.go`·`commit_ops_test.go`·`commit_test.go`.
 
-use dm_webserver_domain_git_core::{self as core, Service};
-use dm_webserver_domain_git_query as query;
+use otter_webserver_domain_git_core::{self as core, Service};
+use otter_webserver_domain_git_query as query;
 
 use super::support::*;
 use crate::*;

@@ -1,4 +1,4 @@
-# Dongminal 전방위 테스트 체크리스트
+# Otterminal 전방위 테스트 체크리스트
 
 > 작성일: 2026-05-05 · 갱신: 2026-08-20 (엔티티 모델 v2 어휘 + 제거된 표면 정리)  
 > 범위: 백엔드(Go) + 프론트엔드(xterm.js) 전 동작  
@@ -62,7 +62,7 @@
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
 | A4.1 | `StartTool` — 셸 결정 순서: `$SHELL` → `/bin/bash` → `/bin/sh` | 존재하지 않는 셸 경로 다음으로 폴백 |
-| A4.2 | `StartTool` — 환경변수 설정 | TERM, COLORTERM, LANG, PATH(DONGMINAL_HOME/bin 추가), HOME, USER/LOGNAME, SHELL |
+| A4.2 | `StartTool` — 환경변수 설정 | TERM, COLORTERM, LANG, PATH(OTTERMINAL_HOME/bin 추가), HOME, USER/LOGNAME, SHELL |
 | A4.3 | `StartTool` — zsh용 ZDOTDIR 설정 | |
 | A4.4 | `StartTool` — bash용 BASH_ENV 설정 | |
 | A4.5 | `StartTool` — cwd 결정: 인자 > home > "." | 존재하지 않거나 파일이면 home |
@@ -457,7 +457,7 @@ Safari 의 스크롤 휴리스틱은 실기기로만 확인된다. 화면이 미
 > **方針**: Go 서버를 `testserver` 패키지로 프로그래밍 방식 기동 → Playwright로 브라우저 제어 → 실제 DOM/Network/WebSocket 검증.  
 > **위치**: `e2e/`  
 > **도구**: `@playwright/test`. 서버는 `playwright.config.ts` 의 `webServer` 가
-> `go run ./cmd/dongminal start --foreground` 로 띄우며, 격리된 `DONGMINAL_HOME`
+> `go run ./cmd/otterminal start --foreground` 로 띄우며, 격리된 `OTTERMINAL_HOME`
 > 을 쓴다 (`E2E_HOME`).
 
 ### E1. 기본 연결 및 생명주기
@@ -474,7 +474,7 @@ Safari 의 스크롤 휴리스틱은 실기기로만 확인된다. 화면이 미
 | E2.1 | **새 창 생성** → 포커스 이동 | `+ New` 클릭 → `.pn.focused` 개수=1, 활성 창 이름 변경, 상태바 CWD 초기화, **`window.focusedPane` 누락 여부** (API PUT body에서 검증) |
 | E2.2 | **새 탭 생성** → 포커스 이동 | 분할 칸 내 `+` 버튼 클릭 → `.pn-tab.active` = 새 탭, `.pn.focused` 유지, 이전 탭 비활성화 |
 | E2.3 | **Split H** → 포커스 우측 이동 / **Split V** → 포커스 하단 이동 | `Split H` → `.pn` 개수=2, `.pn.focused` = 우측(신규); `Split V` → `.pn.focused` = 하단(신규) |
-| E2.4 | **Split (keepFocus)** → 포커스 유지 | dmctl/SSE로 `splitV` + keepFocus → `.pn.focused` = 기존 분할 칸 유지, API PUT body에서 `focusedPane` 변경 없음 확인 |
+| E2.4 | **Split (keepFocus)** → 포커스 유지 | otterctl/SSE로 `splitV` + keepFocus → `.pn.focused` = 기존 분할 칸 유지, API PUT body에서 `focusedPane` 변경 없음 확인 |
 | E2.5 | **탭 닫기** — 마지막 탭 아님 | `×` 클릭 → `.pn-tab.active` = 남은 탭, `.pn.focused` 유지 |
 | E2.6 | **탭 닫기** — 마지막 탭 (분할 칸 제거) | 유일한 탭 `×` 클릭 → `.pn` 개수 감소, `.pn.focused` = fallback 분할 칸, activeWindow 유지, **새 activeWindow의 `focusedPane` 설정 여부** 확인 |
 | E2.7 | **창 전환** → 포커스 복원 | 목록 패널 창 클릭 → `.si.active` 변경, `#area` 재렌더, `.pn.focused` = 해당 창의 focusedPane |
@@ -505,7 +505,7 @@ Safari 의 스크롤 휴리스틱은 실기기로만 확인된다. 화면이 미
 | # | 테스트 | 검증 방법 |
 |---|--------|-----------|
 | E6.1 | SSE 연결 → `/api/commands/sse` | EventSource 연결, `workspace_changed` 이벤트 수신 후 `#area` DOM 구조가 서버 workspace와 동기화되는지 간접 검증 |
-| E6.2 | dmctl → `splitH` 브로드캐스트 수신 → 실행 | 외부 HTTP POST → 브라우저 SSE 수신 → DOM에 새 `.pn` 생성 |
+| E6.2 | otterctl → `splitH` 브로드캐스트 수신 → 실행 | 외부 HTTP POST → 브라우저 SSE 수신 → DOM에 새 `.pn` 생성 |
 | E6.3 | `workspace_changed` 수신 시 로컬 상태 병합 | 다른 클라이언트에서 PUT → SSE 수신 → `#area` 재렌더, 기존 pane 유지 |
 
 ### E7. 동시성/충돌 시나리오
@@ -542,8 +542,8 @@ Go 테스트는 전 패키지 통과, `go vet` 무경고, `gofmt` 청결. Playwr
 | `webserver/domain/run`·`worktree`·`wsentry` | 각 패키지 `*_test.go` | Run 오케스트레이션·격리·Editor/Git 목록 |
 | `webserver/toolclient` | `toolclient_test.go` 등 | 데몬 RPC |
 | `ctl/migrate` | `migrate_test.go`, `apply_test.go`, `settings_test.go` | **구 어휘가 입력이다** — 여기의 `panes.json`·`region`·`paneId` 는 개명 대상이 아니다 |
-| `helper/runtimebin` | `dmctl_test.go`, `detach_test.go`, `dmctl_whoami_test.go` | `detach_test.go` 는 스텁 서버를 쓰므로 실제 화이트리스트는 e2e 가 검증한다 |
-| `helper/toolline` | `toolline_test.go` | dmctl 출력의 byte-level 동일성 |
+| `helper/runtimebin` | `otterctl_test.go`, `detach_test.go`, `otterctl_whoami_test.go` | `detach_test.go` 는 스텁 서버를 쓰므로 실제 화이트리스트는 e2e 가 검증한다 |
+| `helper/toolline` | `toolline_test.go` | otterctl 출력의 byte-level 동일성 |
 | `web` | `version_test.go`, `embed_test.go` | **`index.html` 은 판을 손으로 적지 않는다** — `?v=__ASSETV__` 여야 하며, 손으로 적은 값이 들어오면 여기서 깨진다. 판은 서버가 자산 내용에서 계산해 넣는다 (ASSET_VERSION_SINGLE_SOURCE_SRS) |
 | 프론트엔드 | `e2e/*.spec.ts` 76개 | 아래 참조 |
 

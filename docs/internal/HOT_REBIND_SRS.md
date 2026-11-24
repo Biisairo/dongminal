@@ -9,7 +9,7 @@
 
 ### 1.1 목적 (Purpose)
 
-서버를 끄지 않고 포트와 expose(바인드 주소)를 바꾼다. 바꾼 값은 `server.json` 에 남아 서버·데몬을 다시 올려도 유지된다. 이미 열린 셸의 `dmctl` 과 열린 브라우저 화면도 새 주소를 따라간다.
+서버를 끄지 않고 포트와 expose(바인드 주소)를 바꾼다. 바꾼 값은 `server.json` 에 남아 서버·데몬을 다시 올려도 유지된다. 이미 열린 셸의 `otterctl` 과 열린 브라우저 화면도 새 주소를 따라간다.
 
 ### 1.2 범위 (Scope)
 
@@ -29,22 +29,22 @@
 | **바인드** | 서버가 리슨하는 `호스트:포트` |
 | **expose** | 호스트가 `0.0.0.0` 인 상태. 아니면 `127.0.0.1` 이다 |
 | **리바인드** | 서버 프로세스를 끄지 않고 바인드를 바꾸는 일 |
-| **주소 파일** | `$DONGMINAL_HOME/run/server.addr`. 지금 리슨하는 바인드 한 줄. 폴더 `run/` 은 지우지 않는다(D-HRB-9) |
+| **주소 파일** | `$OTTERMINAL_HOME/run/server.addr`. 지금 리슨하는 바인드 한 줄. 폴더 `run/` 은 지우지 않는다(D-HRB-9) |
 | **이사** | 포트가 바뀔 때 열린 화면이 새 주소로 옮겨 가는 일 |
 
 ### 1.4 참조 (References)
 
 - `CONFIG_MANAGEMENT_SRS` FR-CFG-13~15, §6-3 — 이 문서가 바꾼다(§3.1, D-HRB-1·5)
 - `ACCESS_ALLOWLIST_SRS` — expose 때의 접근 허용 목록
-- `internal/shared/serverconf/conf.go` `Resolve`, `internal/ctl/cli/start.go`, `internal/ctl/cli/service.go`, `cmd/dongminal/app.go`, `internal/webserver/httpapi/server.go` `Run`, `internal/helper/runtimebin/http.go` `baseURL`, `internal/shared/sandboxplace/wire.go`
+- `internal/shared/serverconf/conf.go` `Resolve`, `internal/ctl/cli/start.go`, `internal/ctl/cli/service.go`, `cmd/otterminal/app.go`, `internal/webserver/httpapi/server.go` `Run`, `internal/helper/runtimebin/http.go` `baseURL`, `internal/shared/sandboxplace/wire.go`
 
 ## 2. 현재 상태 (조사로 확정한 사실, 2026-11-18)
 
 1. 바인드는 기동값이다. `Server.Run` 이 `ListenAndServe` 를 한 번 부르고, 실행 중에 바꾸는 길이 없다.
-2. 기동값은 플래그 > 환경 변수(`PORT`·`DONGMINAL_PORT`·`DONGMINAL_HOST`) > `server.json` > 기본값 순서다(`serverconf.Resolve`).
-3. 서버는 자기 포트·호스트를 환경 변수에 넣는다(`app.go:55`). 데몬은 그 서버의 자식이라 물려받고, 모든 셸은 데몬에게서 다시 물려받는다. `dmctl` 은 이 환경 변수로 서버를 찾는다(`runtimebin/http.go:22`). 그래서 **서버만 다른 포트로 다시 띄우면 기존 셸과 이후 새 셸의 `dmctl` 이 모두 옛 포트로 보낸다.** 데몬을 새로 띄워야 바로잡힌다.
+2. 기동값은 플래그 > 환경 변수(`PORT`·`OTTERMINAL_PORT`·`OTTERMINAL_HOST`) > `server.json` > 기본값 순서다(`serverconf.Resolve`).
+3. 서버는 자기 포트·호스트를 환경 변수에 넣는다(`app.go:55`). 데몬은 그 서버의 자식이라 물려받고, 모든 셸은 데몬에게서 다시 물려받는다. `otterctl` 은 이 환경 변수로 서버를 찾는다(`runtimebin/http.go:22`). 그래서 **서버만 다른 포트로 다시 띄우면 기존 셸과 이후 새 셸의 `otterctl` 이 모두 옛 포트로 보낸다.** 데몬을 새로 띄워야 바로잡힌다.
 4. launchd plist·systemd 유닛은 포트·호스트를 환경 변수로 박는다(`service.go:160·193`). 서비스로 뜨면 파일의 값이 진다.
-5. 샌드박스 컨테이너의 `dmctl` 은 데몬이 기동 때 읽은 포트로 `host.docker.internal` 에 붙는다(`sandboxplace/wire.go:41`).
+5. 샌드박스 컨테이너의 `otterctl` 은 데몬이 기동 때 읽은 포트로 `host.docker.internal` 에 붙는다(`sandboxplace/wire.go:41`).
 6. e2e 는 워커마다 `PORT` 환경 변수로 서버를 띄운다(`e2e/fixtures.ts:267`).
 7. 화면 설정 일부는 브라우저 `localStorage` 에 있고, 이것은 출처(포트 포함)마다 따로다.
 
@@ -52,33 +52,33 @@
 
 ### 3.1 묶음 S — 기준 하나
 
-**FR-HRB-1** 포트와 호스트는 `server.json` 의 `port`·`host` 만 정한다. 환경 변수 `PORT`·`DONGMINAL_PORT`·`DONGMINAL_HOST` 는 바인드를 정하지 않는다(D-HRB-1).
+**FR-HRB-1** 포트와 호스트는 `server.json` 의 `port`·`host` 만 정한다. 환경 변수 `PORT`·`OTTERMINAL_PORT`·`OTTERMINAL_HOST` 는 바인드를 정하지 않는다(D-HRB-1).
 
 **FR-HRB-2** 기본값(`127.0.0.1`, 기본 포트)은 `server.json` 이 없거나, 읽지 못하거나, 그 키가 없거나 틀렸을 때만 쓴다. 파일이 깨져도 기동을 막지 않는다(FR-CFG-15 승계).
 
-**FR-HRB-3** `dongminal start --port N`·`--expose` 는 그 값을 `server.json` 에 쓴 뒤 그 값으로 뜬다(D-HRB-2). `--expose` 를 주지 않은 `start` 는 파일의 호스트를 그대로 쓴다 — expose 를 끄는 길은 FR-HRB-41·42 다.
+**FR-HRB-3** `otterminal start --port N`·`--expose` 는 그 값을 `server.json` 에 쓴 뒤 그 값으로 뜬다(D-HRB-2). `--expose` 를 주지 않은 `start` 는 파일의 호스트를 그대로 쓴다 — expose 를 끄는 길은 FR-HRB-41·42 다.
 
 **FR-HRB-4** `--isolated` 는 임시 홈의 `server.json` 에 고른 포트를 쓴다. 사용자 홈의 파일은 건드리지 않는다.
 
 **FR-HRB-5** `start` 가 백그라운드 서버를 띄울 때 바인드를 환경 변수로 넘기지 않는다. 자식은 `server.json` 을 읽는다.
 
-**FR-HRB-6** `dongminal service install` 이 만드는 plist·systemd 유닛은 바인드 환경 변수를 넣지 않는다. 이미 설치된 서비스는 다음 `service install` 때 고쳐진다. `start`·`health` 는 설치된 서비스 파일에 바인드 환경 변수가 남아 있으면 경고 한 줄을 낸다.
+**FR-HRB-6** `otterminal service install` 이 만드는 plist·systemd 유닛은 바인드 환경 변수를 넣지 않는다. 이미 설치된 서비스는 다음 `service install` 때 고쳐진다. `start`·`health` 는 설치된 서비스 파일에 바인드 환경 변수가 남아 있으면 경고 한 줄을 낸다.
 
 **FR-HRB-7** `stop`·`health`·`window` 의 대상 해석도 같은 규칙을 쓴다 — 플래그, 없으면 주소 파일, 없으면 `server.json`, 없으면 기본값.
 
-**FR-HRB-8** 환경 변수 `DONGMINAL_HOST`·`DONGMINAL_PORT`·`PORT` 가 설정돼 있으면 `start` 는 "바인드를 정하지 않는다, `server.json` 이나 플래그를 쓴다" 는 경고를 한 번 낸다.
+**FR-HRB-8** 환경 변수 `OTTERMINAL_HOST`·`OTTERMINAL_PORT`·`PORT` 가 설정돼 있으면 `start` 는 "바인드를 정하지 않는다, `server.json` 이나 플래그를 쓴다" 는 경고를 한 번 낸다.
 
 ### 3.2 묶음 D — 주소 찾기
 
-**FR-HRB-10** 서버는 리슨에 성공할 때마다(기동·리바인드) 주소 파일 `$DONGMINAL_HOME/run/server.addr` 에 `host:port` 한 줄을 원자적으로 쓴다. 권한은 `0600`, 폴더는 `0700` 이다. 정상 종료 때 파일만 지운다 — 그 내용이 자기가 쓴 것일 때만.
+**FR-HRB-10** 서버는 리슨에 성공할 때마다(기동·리바인드) 주소 파일 `$OTTERMINAL_HOME/run/server.addr` 에 `host:port` 한 줄을 원자적으로 쓴다. 권한은 `0600`, 폴더는 `0700` 이다. 정상 종료 때 파일만 지운다 — 그 내용이 자기가 쓴 것일 때만.
 
 **FR-HRB-11** 서버는 자기 바인드를 환경 변수에 넣지 않는다(`app.go:55·56` 삭제). 데몬과 셸이 옛 값을 물려받지 않게 한다.
 
-**FR-HRB-12** `dmctl` 등 도우미는 서버 주소를 이렇게 찾는다: 주소 파일 → `server.json` → 기본값. 주소 파일의 호스트가 `0.0.0.0` 이면 `127.0.0.1` 로 붙는다. 요청마다 다시 읽는다(파일 하나, 수십 바이트).
+**FR-HRB-12** `otterctl` 등 도우미는 서버 주소를 이렇게 찾는다: 주소 파일 → `server.json` → 기본값. 주소 파일의 호스트가 `0.0.0.0` 이면 `127.0.0.1` 로 붙는다. 요청마다 다시 읽는다(파일 하나, 수십 바이트).
 
-**FR-HRB-13** 헬퍼가 있는 샌드박스 컨테이너에는 주소 파일의 폴더 `run/` 을 읽기 전용으로 바인드 마운트한다(컨테이너 안 `/run/dongminal`, D-HRB-9). 컨테이너의 `dmctl`(`DONGMINAL_HOST` 가 `host.docker.internal`)은 `/run/dongminal/server.addr` 의 포트와 호스트 게이트웨이로 붙는다. 그 파일이 없으면 지금처럼 기동 때의 포트(`DONGMINAL_PORT`)를 쓴다. 마운트는 컨테이너를 만들 때 정해지므로, 이 변경 전에 만든 컨테이너도 기동 때의 포트를 쓴다. 기동 때의 포트는 데몬이 FR-HRB-12 와 같은 순서(주소 파일 → `server.json` → 기본값)로 정한다 — 데몬은 더 이상 서버에게서 포트를 환경변수로 물려받지 않는다(FR-HRB-11).
+**FR-HRB-13** 헬퍼가 있는 샌드박스 컨테이너에는 주소 파일의 폴더 `run/` 을 읽기 전용으로 바인드 마운트한다(컨테이너 안 `/run/otterminal`, D-HRB-9). 컨테이너의 `otterctl`(`OTTERMINAL_HOST` 가 `host.docker.internal`)은 `/run/otterminal/server.addr` 의 포트와 호스트 게이트웨이로 붙는다. 그 파일이 없으면 지금처럼 기동 때의 포트(`OTTERMINAL_PORT`)를 쓴다. 마운트는 컨테이너를 만들 때 정해지므로, 이 변경 전에 만든 컨테이너도 기동 때의 포트를 쓴다. 기동 때의 포트는 데몬이 FR-HRB-12 와 같은 순서(주소 파일 → `server.json` → 기본값)로 정한다 — 데몬은 더 이상 서버에게서 포트를 환경변수로 물려받지 않는다(FR-HRB-11).
 
-**FR-HRB-14** 옛 셸(이 변경 전 데몬이 띄운 셸)에 남은 `DONGMINAL_PORT` 는 읽지 않는다. 주소 파일이 이긴다.
+**FR-HRB-14** 옛 셸(이 변경 전 데몬이 띄운 셸)에 남은 `OTTERMINAL_PORT` 는 읽지 않는다. 주소 파일이 이긴다.
 
 **FR-HRB-15** 주소 파일은 경계가 아니다. 접근 통제는 지금처럼 Host·Origin 게이트와 허용 목록이 한다.
 
@@ -130,9 +130,9 @@
 
 **FR-HRB-40** Settings 에 **Server** 구역을 둔다: 포트 입력, expose 켜기/끄기, "적용" 버튼. 지금 바인드와 출처(파일·기본값)를 보인다. 적용하면 확인 대화상자를 거쳐 FR-HRB-20 을 부른다.
 
-**FR-HRB-41** CLI `dongminal config set port <N>`·`dongminal config set expose on|off` 를 둔다. 서버가 돌고 있으면 FR-HRB-20 을 부르고, 돌고 있지 않으면 `server.json` 만 고친다.
+**FR-HRB-41** CLI `otterminal config set port <N>`·`otterminal config set expose on|off` 를 둔다. 서버가 돌고 있으면 FR-HRB-20 을 부르고, 돌고 있지 않으면 `server.json` 만 고친다.
 
-**FR-HRB-42** CLI `dongminal config get` 은 지금 바인드(주소 파일)와 `server.json` 의 값을 함께 보인다.
+**FR-HRB-42** CLI `otterminal config get` 은 지금 바인드(주소 파일)와 `server.json` 의 값을 함께 보인다.
 
 **FR-HRB-43** 화면과 CLI 는 FR-HRB-23·24 의 오류 코드를 사람 말로 보인다.
 
@@ -146,7 +146,7 @@
 
 **NFR-HRB-2** expose 만 바꿀 때 리슨하지 않는 틈은 100ms 를 넘지 않는다.
 
-**NFR-HRB-3** `dmctl` 의 주소 찾기는 요청마다 파일 하나를 읽는 것 이상을 하지 않는다.
+**NFR-HRB-3** `otterctl` 의 주소 찾기는 요청마다 파일 하나를 읽는 것 이상을 하지 않는다.
 
 ## 4. 검증 (Verification)
 
@@ -158,7 +158,7 @@
 | TC-HRB-2 | FR-HRB-3·4 | 유닛 — `start --port`·`--expose` 가 `server.json` 에 쓰고, `--isolated` 는 임시 홈에만 쓴다 |
 | TC-HRB-3 | FR-HRB-6 | 유닛 — 서비스 파일에 바인드 환경 변수가 없다. 남은 서비스 파일을 경고한다 |
 | TC-HRB-4 | FR-HRB-10·11 | 유닛 — 리슨·리바인드마다 주소 파일이 바뀐다(`0600`). 종료 때 지운다. 서버가 바인드 환경 변수를 넣지 않는다 |
-| TC-HRB-5 | FR-HRB-12·14 | 유닛 — `dmctl` 주소 찾기 순서. 옛 `DONGMINAL_PORT` 를 무시한다. `0.0.0.0` → `127.0.0.1` |
+| TC-HRB-5 | FR-HRB-12·14 | 유닛 — `otterctl` 주소 찾기 순서. 옛 `OTTERMINAL_PORT` 를 무시한다. `0.0.0.0` → `127.0.0.1` |
 | TC-HRB-6 | FR-HRB-13 | 유닛 — 샌드박스 실행 명세에 주소 파일의 읽기 전용 마운트가 있다 |
 | TC-HRB-7 | FR-HRB-20~23·27 | 유닛(실제 리스너) — 포트 변경: 새 포트가 받고, 옛 포트는 유예 동안 `GET /` 를 `307` 로 보내고, 유예 뒤 닫힌다. 쓰이는 포트·범위 밖·진행 중은 각 코드로 거절되고 옛 바인드가 그대로다 |
 | TC-HRB-8 | FR-HRB-24 | 유닛 — expose 만 바꾸면 같은 포트로 다시 리슨한다. 실패를 주입하면 옛 호스트로 돌아간다 |
@@ -190,7 +190,7 @@
 
 ## 6. 비목표 (Non-goals)
 
-- 로그 수준·로그 파일의 환경 변수 계층(`DONGMINAL_LOG_LEVEL`·`DONGMINAL_LOG`). 바인드만 바꾼다.
+- 로그 수준·로그 파일의 환경 변수 계층(`OTTERMINAL_LOG_LEVEL`·`OTTERMINAL_LOG`). 바인드만 바꾼다.
 - 간선 노드 포트의 실행 중 변경.
 - TLS·인증. 영구 제외다(로드맵 결정 9).
 - 여러 바인드에 동시에 리슨하기(유예 중의 옛 포트를 빼고).
@@ -203,4 +203,4 @@
 | R-2 | 이사 도중 화면이 닫히면 `localStorage` 가 새 주소로 오지 않는다 | LOW | 옛 주소의 `localStorage` 는 남는다. 다시 옛 포트로 오면 그대로 있다 |
 | R-3 | expose 를 켠 채 포트를 옮기면 같은 망에 새 포트가 열린다 | MEDIUM | FR-HRB-29 경고, 허용 목록(ACCESS_ALLOWLIST)은 그대로 적용된다 |
 | R-4 | 유예 동안 두 포트가 열려 있다 | LOW | 30초로 짧고 같은 게이트를 지난다 |
-| R-5 | 이 변경 전 데몬이 띄운 셸에는 `DONGMINAL_PORT` 가 남는다 | LOW | 주소 파일이 이긴다(FR-HRB-14) |
+| R-5 | 이 변경 전 데몬이 띄운 셸에는 `OTTERMINAL_PORT` 가 남는다 | LOW | 주소 파일이 이긴다(FR-HRB-14) |

@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/outbuf` 의 Rust 포팅.
+//! Go 기준선 `otterminal/internal/shared/outbuf` 의 Rust 포팅.
 //!
 //! PTY writer 와 MCP/WS reader 를 잇는 단일 진입점 바운디드 버퍼다 (S4 SRS).
 //!

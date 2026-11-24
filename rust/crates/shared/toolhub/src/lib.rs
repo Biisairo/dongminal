@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/shared/toolhub` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/shared/toolhub` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 2.2.1: 와이어 타입·순수 판정, 2.2.2: Tool(PTY 소유 도구). 2.2.3: ToolManager.
 

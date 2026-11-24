@@ -1,5 +1,5 @@
 /**
- * Dongminal — 편집기의 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS 묶음 B·C·D)
+ * Otterminal — 편집기의 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS 묶음 B·C·D)
  *
  * `FileEditor` 에서 갈라 나온 주제 하나다 (DRIFT_RECLAIM_SRS FR-DRC-13) — 이
  * 코드베이스가 `FileTree`·`App` 에 이미 쓰는 방식과 같다: 뼈대 클래스는 자기

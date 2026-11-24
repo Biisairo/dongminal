@@ -1,14 +1,14 @@
 //! 일반 맵 트리를 다루는 도우미. Go 의 `map[string]interface{}` 순회와 같은 뜻이다.
 
-use dm_gocompat::json::{self, GoTyped};
+use otter_gocompat::json::{self, GoTyped};
 use serde_json::{Map, Value};
 
 use crate::Error;
 
 pub(crate) type Obj = Map<String, Value>;
 
-dm_gocompat::go_type!(GoMapAny = "map[string]interface {}");
-dm_gocompat::go_type!(GoSliceAny = "[]interface {}");
+otter_gocompat::go_type!(GoMapAny = "map[string]interface {}");
+otter_gocompat::go_type!(GoSliceAny = "[]interface {}");
 
 /// Go `json.Unmarshal(b, &map[string]interface{})`. `null` 은 `None`(nil map)이다.
 pub(crate) fn decode_obj(b: &[u8], what: &str) -> Result<Option<Obj>, Error> {

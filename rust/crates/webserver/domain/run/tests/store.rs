@@ -5,7 +5,7 @@ use std::io;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use dm_webserver_domain_run::*;
+use otter_webserver_domain_run::*;
 
 fn opts(objective: &str) -> StartOptions {
     StartOptions {
@@ -68,7 +68,7 @@ fn failed_save_rolls_back_to_last_written_state() {
         if f.load(Ordering::SeqCst) {
             return Err(io::Error::other("disk full"));
         }
-        dm_shared_platform::write_state_file(p, b, perm)
+        otter_shared_platform::write_state_file(p, b, perm)
     });
     let a = s.start(opts("하나")).unwrap();
     s.add_member(
@@ -158,7 +158,7 @@ fn context_at_only_change_skips_save() {
         .with_clock(move || i64::try_from(c.load(Ordering::SeqCst)).unwrap())
         .with_writer(move |p, b, perm| {
             w.fetch_add(1, Ordering::SeqCst);
-            dm_shared_platform::write_state_file(p, b, perm)
+            otter_shared_platform::write_state_file(p, b, perm)
         });
     let a = s.start(opts("하나")).unwrap();
     s.add_member(
@@ -282,7 +282,7 @@ fn write_does_not_hold_store_lock() {
         let g = gate.lock().unwrap();
         let _ = g.0.send(());
         let _ = g.1.recv_timeout(Duration::from_secs(5));
-        dm_shared_platform::write_state_file(p, b, perm)
+        otter_shared_platform::write_state_file(p, b, perm)
     }));
     let w = s.clone();
     let writer = std::thread::spawn(move || w.start(opts("하나")).unwrap());
@@ -317,7 +317,7 @@ fn earlier_failure_covered_by_later_success() {
             let _ = g.1.recv_timeout(Duration::from_secs(5));
             return Err(io::Error::other("첫 쓰기 실패"));
         }
-        dm_shared_platform::write_state_file(p, b, perm)
+        otter_shared_platform::write_state_file(p, b, perm)
     }));
     let w = s.clone();
     let first = std::thread::spawn(move || w.start(opts("하나")));

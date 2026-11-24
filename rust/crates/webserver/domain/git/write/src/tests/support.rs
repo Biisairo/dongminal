@@ -3,8 +3,8 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use dm_shared_gittest::{self as gittest, TempDir};
-use dm_webserver_domain_git_core::{self as core, Ctx, Output, Runner, Service, WriteRunner};
+use otter_shared_gittest::{self as gittest, TempDir};
+use otter_webserver_domain_git_core::{self as core, Ctx, Output, Runner, Service, WriteRunner};
 
 pub(crate) fn bg() -> Ctx {
     Ctx::background()
@@ -15,7 +15,9 @@ pub(crate) fn sv(a: &[&str]) -> Vec<String> {
 }
 
 fn abs(seg: &[&str]) -> String {
-    dm_shared_testpath::abs(seg).to_string_lossy().into_owned()
+    otter_shared_testpath::abs(seg)
+        .to_string_lossy()
+        .into_owned()
 }
 
 pub(crate) fn abs_etc_passwd() -> String {
@@ -161,7 +163,7 @@ impl Fx {
 
 /// 심볼릭 링크를 푼 임시 디렉터리와 그 경로.
 pub(crate) fn temp_dir() -> (TempDir, PathBuf) {
-    let t = TempDir::new("dm-write-test-");
+    let t = TempDir::new("otter-write-test-");
     let p = std::fs::canonicalize(t.path()).unwrap();
     (t, p)
 }

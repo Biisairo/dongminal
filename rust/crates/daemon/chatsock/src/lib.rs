@@ -1,4 +1,4 @@
-//! Go 기준선 `dongminal/internal/daemon/chatsock` 의 Rust 포팅. RUST_PORT_SRS 참고.
+//! Go 기준선 `otterminal/internal/daemon/chatsock` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 데몬의 채팅 소켓이다 (PEER_CHAT_SRS §3.10). MCP 연결 하나가 참가자 하나이고(FR-PCH-43), 훅
 //! 질의와 0건→1건 붙여넣기 알림(FR-PCH-60~63)을 중계한다. 개수와 글은 저장하지 않는다(NFR-PCH-1).
@@ -13,11 +13,11 @@ use std::sync::mpsc::{SyncSender, sync_channel};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, Weak};
 use std::time::Duration;
 
-use dm_daemon_chat::{self as chat, Participant, Service};
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_chatwire::{self as chatwire, Frame, Scanner};
-use dm_shared_platform::{IpcListener, IpcStream};
-use dm_shared_termtext::{self as termtext, FP_SHORT};
+use otter_daemon_chat::{self as chat, Participant, Service};
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_chatwire::{self as chatwire, Frame, Scanner};
+use otter_shared_platform::{IpcListener, IpcStream};
+use otter_shared_termtext::{self as termtext, FP_SHORT};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -136,7 +136,7 @@ impl Conn {
             }
         };
         if full {
-            dm_shared_dmlog::warnf!(None, "chat: MCP 연결이 밀려 끊는다 ({})", self.pid);
+            otter_shared_otterlog::warnf!(None, "chat: MCP 연결이 밀려 끊는다 ({})", self.pid);
             self.close();
             return;
         }
@@ -335,7 +335,7 @@ fn is_user_tab(tab: &str) -> bool {
 }
 
 fn create_dir(dir: &Path) -> io::Result<()> {
-    dm_gocompat::oserr::mkdir_all(&dir.to_string_lossy(), DIR_PERM)
+    otter_gocompat::oserr::mkdir_all(&dir.to_string_lossy(), DIR_PERM)
 }
 
 fn write_once(nc: &IpcStream, f: &Frame) {
@@ -391,9 +391,9 @@ impl Server {
 
     /// path 에 채팅 소켓을 연다. 폴더는 0700 이다.
     pub fn listen(&self, path: &Path) -> io::Result<()> {
-        let ipc = &dm_shared_platform::current().ipc;
+        let ipc = &otter_shared_platform::current().ipc;
         let _ = ipc.remove(path);
-        create_dir(Path::new(&dm_gocompat::filepath::dir(
+        create_dir(Path::new(&otter_gocompat::filepath::dir(
             &path.to_string_lossy(),
         )))?;
         let ln = ipc.listen(path)?;
@@ -435,7 +435,7 @@ impl Server {
         };
         if ln.is_some() {
             // 막혀 있는 accept 를 깨운다. serve 는 closed 를 보고 리스너를 놓는다.
-            let _ = dm_shared_platform::current()
+            let _ = otter_shared_platform::current()
                 .ipc
                 .dial(&path, WAKE_DIAL_WAIT);
         }
@@ -738,7 +738,7 @@ impl Server {
             }
             _ => Err(CallError::Plain(format!(
                 "모르는 op: {}",
-                dm_gocompat::strconv::quote(op)
+                otter_gocompat::strconv::quote(op)
             ))),
         }
     }
@@ -754,13 +754,13 @@ impl Server {
             return;
         }
         let text = format!(
-            "[dongminal chat] 새 글 {}건. chat_read 로 확인한다.",
+            "[otterminal chat] 새 글 {}건. chat_read 로 확인한다.",
             f.total
         );
         let tool = tool.to_string();
         std::thread::spawn(move || {
             if let Err(e) = tools.paste(&tool, &text) {
-                dm_shared_dmlog::warnf!(None, "chat: 알림을 붙여 넣지 못했다: {e}");
+                otter_shared_otterlog::warnf!(None, "chat: 알림을 붙여 넣지 못했다: {e}");
             }
         });
     }

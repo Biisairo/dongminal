@@ -1,5 +1,5 @@
 [package]
-name = "dm-ctl-privhelper"
+name = "otter-ctl-privhelper"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,9 +12,9 @@ workspace = true
 [dependencies]
 base64 = { workspace = true }
 data-encoding = { workspace = true }
-dm-gocompat = { path = "../../gocompat" }
-dm-shared-humancmd = { path = "../../shared/humancmd" }
-dm-shared-platform = { path = "../../shared/platform" }
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-humancmd = { path = "../../shared/humancmd" }
+otter-shared-platform = { path = "../../shared/platform" }
 ed25519-dalek = { workspace = true }
 hex = { workspace = true }
 hmac = { workspace = true }

@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-release"
+name = "otter-shared-release"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,7 +10,7 @@ publish = false
 workspace = true
 
 [dependencies]
-dm-gocompat = { path = "../../gocompat", features = ["reqwest"] }
+otter-gocompat = { path = "../../gocompat", features = ["reqwest"] }
 reqwest = { workspace = true }
 rustls = { workspace = true }
 serde = { workspace = true }

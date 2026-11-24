@@ -1,6 +1,6 @@
 use std::fs;
 
-use dm_gocompat::json;
+use otter_gocompat::json;
 use tempfile::TempDir;
 
 use super::*;
@@ -20,7 +20,7 @@ fn fp_of(prefix: &str) -> String {
 
 fn new_store() -> (TempDir, Store) {
     let d = TempDir::new().unwrap();
-    let s = Store::open(d.path().join(dmenv::EDGES_FILE), "host-a");
+    let s = Store::open(d.path().join(otterenv::EDGES_FILE), "host-a");
     (d, s)
 }
 
@@ -81,7 +81,7 @@ fn open_store_defaults() {
 #[test]
 fn open_store_moves_broken_file() {
     let d = TempDir::new().unwrap();
-    let path = d.path().join(dmenv::EDGES_FILE);
+    let path = d.path().join(otterenv::EDGES_FILE);
     let broken = br#"{"enabled": true, "edges": ["#;
     fs::write(&path, broken).unwrap();
     let s = Store::open(&path, "host-a");
@@ -187,7 +187,7 @@ fn save_failure_restores() {
     let d = TempDir::new().unwrap();
     let blocker = d.path().join("file");
     fs::write(&blocker, b"").unwrap();
-    let s = Store::open(blocker.join(dmenv::EDGES_FILE), "host-a");
+    let s = Store::open(blocker.join(otterenv::EDGES_FILE), "host-a");
     let mut c = s.config();
     c.name = "changed".into();
     assert_eq!(s.save(c), Err(Error::SaveFailed));
@@ -197,7 +197,7 @@ fn save_failure_restores() {
 #[test]
 fn corrupt_falls_back() {
     let d = TempDir::new().unwrap();
-    let path = d.path().join(dmenv::EDGES_FILE);
+    let path = d.path().join(otterenv::EDGES_FILE);
     fs::write(&path, b"{").unwrap();
     let c = Store::open(&path, "host-a").config();
     assert!(
@@ -209,7 +209,7 @@ fn corrupt_falls_back() {
 #[test]
 fn partial_fills_defaults() {
     let d = TempDir::new().unwrap();
-    let path = d.path().join(dmenv::EDGES_FILE);
+    let path = d.path().join(otterenv::EDGES_FILE);
     fs::write(&path, br#"{"enabled":true}"#).unwrap();
     let c = Store::open(&path, "host-a").config();
     assert!(
@@ -310,7 +310,7 @@ fn add_edge_keeps_helper_key() {
 #[test]
 fn normalizes_legacy_name() {
     let d = TempDir::new().unwrap();
-    let path = d.path().join(dmenv::EDGES_FILE);
+    let path = d.path().join(otterenv::EDGES_FILE);
     fs::write(
         &path,
         br#"{"enabled":false,"port":58147,"bind":"0.0.0.0","name":"Mac.local","edges":[]}"#,
@@ -500,10 +500,10 @@ const LEGACY_JSON: &str = r#"{"enabled":true,"port":58147,"bind":"0.0.0.0","name
 #[test]
 fn migrate_moves() {
     let d = TempDir::new().unwrap();
-    fs::write(d.path().join(dmenv::LEGACY_PEERS_FILE), LEGACY_JSON).unwrap();
+    fs::write(d.path().join(otterenv::LEGACY_PEERS_FILE), LEGACY_JSON).unwrap();
     migrate_legacy_files(d.path()).unwrap();
-    assert!(!d.path().join(dmenv::LEGACY_PEERS_FILE).exists());
-    let c = Store::open(d.path().join(dmenv::EDGES_FILE), "h").config();
+    assert!(!d.path().join(otterenv::LEGACY_PEERS_FILE).exists());
+    let c = Store::open(d.path().join(otterenv::EDGES_FILE), "h").config();
     assert!(
         c.name == "old" && c.edges.len() == 1 && c.edges[0].name == "b",
         "{c:?}"
@@ -513,16 +513,16 @@ fn migrate_moves() {
 #[test]
 fn migrate_keeps_both() {
     let d = TempDir::new().unwrap();
-    let legacy = d.path().join(dmenv::LEGACY_PEERS_FILE);
+    let legacy = d.path().join(otterenv::LEGACY_PEERS_FILE);
     fs::write(&legacy, LEGACY_JSON).unwrap();
     fs::write(
-        d.path().join(dmenv::EDGES_FILE),
+        d.path().join(otterenv::EDGES_FILE),
         br#"{"name":"new","edges":[]}"#,
     )
     .unwrap();
     migrate_legacy_files(d.path()).unwrap();
     assert!(legacy.exists());
-    let c = Store::open(d.path().join(dmenv::EDGES_FILE), "h").config();
+    let c = Store::open(d.path().join(otterenv::EDGES_FILE), "h").config();
     assert!(c.name == "new" && c.edges.is_empty(), "{c:?}");
 }
 
@@ -530,9 +530,9 @@ fn migrate_keeps_both() {
 fn migrate_none() {
     let d = TempDir::new().unwrap();
     migrate_legacy_files(d.path()).unwrap();
-    assert!(!d.path().join(dmenv::EDGES_FILE).exists());
+    assert!(!d.path().join(otterenv::EDGES_FILE).exists());
     assert!(
-        Store::open(d.path().join(dmenv::EDGES_FILE), "h")
+        Store::open(d.path().join(otterenv::EDGES_FILE), "h")
             .config()
             .edges
             .is_empty()
@@ -542,7 +542,7 @@ fn migrate_none() {
 #[test]
 fn reads_legacy_key() {
     let d = TempDir::new().unwrap();
-    let path = d.path().join(dmenv::EDGES_FILE);
+    let path = d.path().join(otterenv::EDGES_FILE);
     fs::write(&path, LEGACY_JSON).unwrap();
     let s = Store::open(&path, "h");
     assert_eq!(s.config().edges.len(), 1);
@@ -557,7 +557,10 @@ fn reads_legacy_key() {
 #[test]
 fn migrate_drops_node_identity() {
     let d = TempDir::new().unwrap();
-    for n in [dmenv::LEGACY_NODE_CERT_FILE, dmenv::LEGACY_NODE_KEY_FILE] {
+    for n in [
+        otterenv::LEGACY_NODE_CERT_FILE,
+        otterenv::LEGACY_NODE_KEY_FILE,
+    ] {
         fs::write(d.path().join(n), b"old").unwrap();
     }
     migrate_legacy_files(d.path()).unwrap();
@@ -593,7 +596,7 @@ fn add_edge_rejects_beyond_max() {
 #[test]
 fn keeps_edges_beyond_max() {
     let d = TempDir::new().unwrap();
-    let path = d.path().join(dmenv::EDGES_FILE);
+    let path = d.path().join(otterenv::EDGES_FILE);
     let over = MAX_EDGES + 6;
     let mut c = default_config("host-a");
     c.edges = (0..over).map(nth_edge).collect();

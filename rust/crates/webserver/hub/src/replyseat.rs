@@ -4,9 +4,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use dm_shared_toolhub::{OP_REPLY_SEAT, SafeConn};
 use futures_util::Sink;
 use futures_util::future::BoxFuture;
+use otter_shared_toolhub::{OP_REPLY_SEAT, SafeConn};
 use tokio_tungstenite::tungstenite::{Error as WsError, Message};
 
 use crate::lock;

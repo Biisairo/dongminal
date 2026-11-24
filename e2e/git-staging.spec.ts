@@ -13,7 +13,7 @@ import { tmpPath, realPath, cssPath } from './osenv';
 // 안에서 git init 을 되풀이하지 않는다. 상태를 **바꾸는** 테스트는 픽스처를
 // 복사해 쓴다.
 
-const FIXTURES = tmpPath('dm-git-fx-staging-' + process.pid);
+const FIXTURES = tmpPath('otter-git-fx-staging-' + process.pid);
 
 test.beforeAll(() => {
   gitFixture(FIXTURES);

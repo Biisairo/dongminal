@@ -54,7 +54,7 @@ GIT_SRS.md §3.2 의 클라이언트 절반이다. 검증은 V17(신규)·V3·V7
 ### 2.1 follow 항목 (FR-GIT-9·10)
 
 ```
-⟳ dongminal   ③
+⟳ otterminal   ③
 ```
 
 - `.git-repo.follow` 클래스. `data-git-repo="<path>"`.

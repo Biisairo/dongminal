@@ -13,7 +13,7 @@ import { TMP, realPath, echoCmd } from './osenv';
 let DIR = '';
 
 test.beforeAll(() => {
-  DIR = realPath(fs.mkdtempSync(path.join(TMP, 'dm-bdl-')));
+  DIR = realPath(fs.mkdtempSync(path.join(TMP, 'otter-bdl-')));
   fs.writeFileSync(path.join(DIR, 'README.md'), '# r\n');
 });
 

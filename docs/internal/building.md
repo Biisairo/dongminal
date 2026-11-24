@@ -12,7 +12,7 @@
 
 macOS · Linux · **WSL** · **Windows 10 1809+** (native).
 
-OS 마다 달라지는 것은 전부 `rust/crates/shared/platform`(`dm-shared-platform`) 뒤에 있다 — PTY,
+OS 마다 달라지는 것은 전부 `rust/crates/shared/platform`(`otter-shared-platform`) 뒤에 있다 — PTY,
 프로세스 제어·그룹, 프로세스 조회, 셸 선택과 훅, 로컬 IPC 종단, 경로 규약,
 브라우저 실행. **그 패키지 밖에는 OS 분기가 한 줄도 없다.** 그 규칙을 강제하는
 것이 `scripts/check-seams.sh` 다.
@@ -28,14 +28,14 @@ PTY 의미론을 얻는 유일한 공식 경로이며 그 버전에서 도입됐
 rustup 이 그 판을 알아서 받는다. `scripts/build.sh` 는 그 안에서 cargo 를 부른다.
 
 ```bash
-scripts/build.sh                        # 호스트용 하나 → ./dongminal
-scripts/build.sh --os windows           # 윈도우용 → dist/dongminal-windows-amd64.exe
+scripts/build.sh                        # 호스트용 하나 → ./otterminal
+scripts/build.sh --os windows           # 윈도우용 → dist/otterminal-windows-amd64.exe
 scripts/build.sh --os linux --arch arm64
 scripts/build.sh --all                  # 배포 대상 5종 → dist/
 VERSION=v1.0.3 scripts/build.sh --all   # 판을 새겨서 (릴리스가 쓰는 형태)
 ```
 
-`VERSION` 을 주지 않으면 `dongminal version` 이 `dev` 를 낸다. 소스 빌드와 릴리스
+`VERSION` 을 주지 않으면 `otterminal version` 이 `dev` 를 낸다. 소스 빌드와 릴리스
 산출물을 구별하기 위해서다. 산출물의 이름과 위치는 Go 판과 같다.
 
 대상은 darwin/arm64 · darwin/amd64 · linux/amd64 · linux/arm64 · windows/amd64 다.
@@ -76,7 +76,7 @@ make hooks      # pre-commit 훅을 켠다
 ```bash
 scripts/check-cross.sh     # 5개 대상 cargo check + clippy (테스트 코드까지 타입 검사)
 scripts/check-seams.sh     # OS 의존 호출이 platform 밖에 없는지
-scripts/verify-isolated.sh # 격리 인스턴스를 띄워 종단간 검사 (dongminal verify)
+scripts/verify-isolated.sh # 격리 인스턴스를 띄워 종단간 검사 (otterminal verify)
 ```
 
 종단간 검사의 정의는 **한 벌**이다 (`rust/crates/ctl/cli/src/verify.rs`). 세 OS 가 같은
@@ -108,7 +108,7 @@ scripts/check-cross.sh   # 5개 대상 cargo check + clippy — 테스트 코드
 ```
 
 `make test` 는 격리 실행(`rust/scripts/hermetic.sh`)으로 돈다 — 도구 셸에서 물려받은
-`DONGMINAL_*` 가 운영 인스턴스를 겨누지 않게 한다. Go 판의 `-race -shuffle=on` 에
+`OTTERMINAL_*` 가 운영 인스턴스를 겨누지 않게 한다. Go 판의 `-race -shuffle=on` 에
 해당하는 것은 없다(GO_REMOVAL_SRS DIFF-GRM-5).
 
 e2e(Playwright)는 npm 이 필요하다. **빌드에는 필요 없다** — 프론트엔드는 번들러가
@@ -124,7 +124,7 @@ npx playwright test e2e/git-panel.spec.ts   # 스펙 하나
 ```
 
 e2e 는 `globalSetup`(`e2e/global-setup.ts`)이 서버 바이너리를 한 번 빌드하고(`build.sh` 와 같은
-cargo 산출물을 나눠 쓴다. `DM_E2E_PREBUILT_BIN` 이 있으면 그 파일을 쓴다), 워커마다
+cargo 산출물을 나눠 쓴다. `OTTER_E2E_PREBUILT_BIN` 이 있으면 그 파일을 쓴다), 워커마다
 임시 홈과 포트(60147 부터, 워커 i 는 `60147+i`)로 서버를 띄운다 (`playwright.config.ts`,
 `E2E_PARALLEL_SRS`). 포트 기준은 `E2E_PORT_BASE` 로 바꾼다. 운영 인스턴스의 UI 포트(58146)와 노드 포트
 기본값(58147)을 피한다. 워커의 `start` 는 그 포트를 쥔 프로세스를 종료하므로, 운영 포트와
@@ -133,18 +133,18 @@ cargo 산출물을 나눠 쓴다. `DM_E2E_PREBUILT_BIN` 이 있으면 그 파일
 수동으로 실동작을 확인할 때도 **운영 인스턴스를 건드리지 않는 경로**를 쓴다:
 
 ```bash
-./dongminal start --isolated    # 임시 홈 + 빈 포트. 기존 서버를 죽이지 않는다
+./otterminal start --isolated    # 임시 홈 + 빈 포트. 기존 서버를 죽이지 않는다
 ```
 
-`dongminal stop` 은 홈이 아니라 **포트**로 대상을 찾는다. `--port` 없이 부르면
+`otterminal stop` 은 홈이 아니라 **포트**로 대상을 찾는다. `--port` 없이 부르면
 기본 포트(58146)의 인스턴스를 정지시키므로, 격리 인스턴스를 접을 때는 `start` 가
 출력한 정지 명령(`--port`·`--home` 이 채워진 형태)을 그대로 쓴다.
 
-종단간은 `dongminal verify` 다. 격리 인스턴스를 **스스로** 띄워 검사 목록 전량
+종단간은 `otterminal verify` 다. 격리 인스턴스를 **스스로** 띄워 검사 목록 전량
 (`rust/crates/ctl/cli/src/verify.rs` 의 `run_verify_checks`)을 훑고 치운다:
 
 ```bash
-./dongminal verify           # 또는 scripts/verify-isolated.sh (빌드까지 함께)
+./otterminal verify           # 또는 scripts/verify-isolated.sh (빌드까지 함께)
 ```
 
 검사 범위는 데몬 기동·`paned.sock`·`/api/ping`, 도구 생성(PTY+IPC 왕복)·조회·busy

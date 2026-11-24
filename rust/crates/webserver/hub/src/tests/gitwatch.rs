@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
-use dm_webserver_domain_git_core::{self as core, Ctx};
-use dm_webserver_domain_git_query::{Error, FileEntry, Signature};
-use dm_webserver_domain_git_store::Observation;
 use futures_util::future::BoxFuture;
+use otter_webserver_domain_git_core::{self as core, Ctx};
+use otter_webserver_domain_git_query::{Error, FileEntry, Signature};
+use otter_webserver_domain_git_store::Observation;
 
 use super::FakeBroker;
 use crate::gitwatch::round::{need_status, pending_step, settles_pending};

@@ -32,7 +32,7 @@ const BODY = [
 const CAPS = ['left_right', 'up_down', ''].join('\n');
 
 test.beforeAll(() => {
-  BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-ers-')));
+  BASE = realPath(fs.mkdtempSync(j(TMP, 'otter-ers-')));
   ROOT = j(BASE, 'root');
   fs.mkdirSync(ROOT, { recursive: true });
   fs.writeFileSync(j(ROOT, 'rep.txt'), BODY);

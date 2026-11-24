@@ -5,10 +5,10 @@
 
 use std::collections::BTreeMap;
 
-use dm_gocompat::json::{self, RawMessage};
-use dm_shared_httpresp::{self as httpresp, Response};
 use http::{HeaderValue, StatusCode, header};
 use http_body_util::BodyExt;
+use otter_gocompat::json::{self, RawMessage};
+use otter_shared_httpresp::{self as httpresp, Response};
 
 use crate::Server;
 use crate::req::{Handler, Req};

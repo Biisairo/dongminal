@@ -1,6 +1,6 @@
 //! 이슈 트리 배정 (ISSUE_TREE_OPS_SRS FR-ITA·ITM).
 
-use dm_gocompat::json::is_empty;
+use otter_gocompat::json::is_empty;
 use serde::{Deserialize, Serialize};
 
 use crate::store::{index_of_member, open_tree_runs};

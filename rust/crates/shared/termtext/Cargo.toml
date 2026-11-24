@@ -1,5 +1,5 @@
 [package]
-name = "dm-shared-termtext"
+name = "otter-shared-termtext"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

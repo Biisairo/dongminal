@@ -4,7 +4,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use dm_webserver_domain_git_core::{self as core, Kind, Output, Recorder, Service};
+use otter_webserver_domain_git_core::{self as core, Kind, Output, Recorder, Service};
 
 use super::support::*;
 use crate::*;

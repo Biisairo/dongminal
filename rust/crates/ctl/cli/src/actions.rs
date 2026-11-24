@@ -36,11 +36,11 @@ pub struct ServeTarget<'a> {
     pub host: &'a str,
     pub port: &'a str,
     /// 도구 셸이 자기 홈으로 쓸 자리다. 격리 기동에서만 차고, 비면 사용자 홈이다. Go 는 이것을
-    /// `DONGMINAL_TOOL_HOME` 으로 프로세스 환경에 심었다 — Rust 는 환경을 바꾸지 않고 넘긴다.
+    /// `OTTERMINAL_TOOL_HOME` 으로 프로세스 환경에 심었다 — Rust 는 환경을 바꾸지 않고 넘긴다.
     pub tool_home: &'a str,
 }
 
-/// 서버를 이 프로세스로 실행하는 콜백이다. cmd/dongminal 이 준다.
+/// 서버를 이 프로세스로 실행하는 콜백이다. cmd/otterminal 이 준다.
 pub type Serve<'a> = dyn Fn(&ServeTarget<'_>) -> i32 + 'a;
 
 type RunFn = fn(&[String], &Env<'_>, &Serve<'_>, &mut dyn Write, &mut dyn Write) -> i32;
@@ -60,7 +60,7 @@ pub(crate) fn actions() -> Vec<Action> {
     vec![
         Action {
             name: "start",
-            brief: "서버를 띄운다 (필요하면 dongminald 도 함께)",
+            brief: "서버를 띄운다 (필요하면 otterminald 도 함께)",
             usage: usage_start,
             run: |rest, env, serve, out, err| {
                 drive("start", parse_start(rest), out, err, |o, out, err| {
@@ -174,14 +174,14 @@ pub(crate) fn actions() -> Vec<Action> {
         },
         Action {
             name: "health",
-            brief: "서버와 dongminald 의 상태를 확인한다",
+            brief: "서버와 otterminald 의 상태를 확인한다",
             usage: usage_health,
             run: |rest, env, _, out, err| {
                 drive("health", parse_health(rest), out, err, |o, out, err| {
                     health::run_health_in(
                         &o,
                         env,
-                        dm_shared_platform::current().process,
+                        otter_shared_platform::current().process,
                         DAEMON_BUILD,
                         out,
                         err,
@@ -212,8 +212,8 @@ pub(crate) fn actions() -> Vec<Action> {
         Action {
             name: "otp",
             brief: "OTP 도우미 — 채팅 강제 삭제·강퇴를 사람만 하게 한다 (설치는 sudo, macOS)",
-            usage: || dm_ctl_privhelper::USAGE.to_owned(),
-            run: |rest, _, _, out, err| dm_ctl_privhelper::main(rest, out, err),
+            usage: || otter_ctl_privhelper::USAGE.to_owned(),
+            run: |rest, _, _, out, err| otter_ctl_privhelper::main(rest, out, err),
         },
         // `--version` 별칭은 dispatch 가 처리한다.
         Action {

@@ -11,15 +11,15 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use dm_shared_chatwire as chatwire;
-use dm_shared_dmenv as dmenv;
+use otter_shared_chatwire as chatwire;
+use otter_shared_otterenv as otterenv;
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
 use super::{Req, TestServer, closed_port, env_at, run_with};
 use crate::ctx::Env;
-use crate::dmctl::hooks::run_dmctl_ctx_hook;
 use crate::helper;
+use crate::otterctl::hooks::run_otterctl_ctx_hook;
 
 const NONE: &str = r#"{"source":"none"}"#;
 const ADD_DIR_MEMORY_ENV: &str = "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD";
@@ -64,23 +64,23 @@ fn write_exe(path: &Path) {
     fs::set_permissions(path, fs::Permissions::from_mode(0o755)).unwrap();
 }
 
-/// DONGMINAL_HOME, 진짜 claude 가 있는 PATH, 실행 가로채기를 세운다. 서버는 port 다.
+/// OTTERMINAL_HOME, 진짜 claude 가 있는 PATH, 실행 가로채기를 세운다. 서버는 port 다.
 fn fixture(port: u16) -> Fixture {
     let home = short_dir();
-    let shims = dmenv::agent_shims_dir_in(&home.path().join("bin"));
+    let shims = otterenv::agent_shims_dir_in(&home.path().join("bin"));
     let real_dir = tempfile::tempdir().unwrap();
     for d in [&shims, &real_dir.path().to_path_buf()] {
         fs::create_dir_all(d).unwrap();
         write_exe(&d.join("claude"));
     }
     let mut env = env_at(home.path(), port);
-    env.set(dmenv::ENV_HOME, home.path().to_str().unwrap());
+    env.set(otterenv::ENV_HOME, home.path().to_str().unwrap());
     env.set(
         "PATH",
         &format!("{}:{}", shims.display(), real_dir.path().display()),
     );
     env.set("CLAUDE_CONFIG_DIR", "");
-    env.set(dmenv::ENV_TOOL_ID, "tool-1");
+    env.set(otterenv::ENV_TOOL_ID, "tool-1");
     let ran = Arc::new(Mutex::new(None));
     let r2 = ran.clone();
     env.shim_exec = Some(Arc::new(move |path, argv, envl| {
@@ -112,10 +112,10 @@ fn env_value(env: &[String], key: &str) -> Option<String> {
 
 #[test]
 fn shim_registered_for_every_declared_command() {
-    for name in dm_shared_agentadapter::shim_commands() {
+    for name in otter_shared_agentadapter::shim_commands() {
         assert!(helper(name).is_some(), "{name}");
     }
-    assert!(dm_shared_agentadapter::shim_commands().contains(&"claude"));
+    assert!(otter_shared_agentadapter::shim_commands().contains(&"claude"));
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn claude_shim_finds_real_claude_outside_shims() {
 #[test]
 fn claude_shim_not_found() {
     let mut f = fixture(closed_port());
-    let shims = dmenv::agent_shims_dir_in(&f.bin());
+    let shims = otterenv::agent_shims_dir_in(&f.bin());
     f.env.set("PATH", shims.to_str().unwrap());
     let (code, out, err) = f.run(&[]);
     assert_eq!(
@@ -150,7 +150,7 @@ fn claude_shim_injects_hook_args() {
     let f = fixture(srv.port);
     f.run(&["x"]);
     assert_eq!(f.ran().unwrap().argv.len(), 2, "no assets → no flags");
-    let settings = dmenv::agent_hooks_dir_in(&f.bin()).join("claude.json");
+    let settings = otterenv::agent_hooks_dir_in(&f.bin()).join("claude.json");
     let plugin = f.bin().join("agent-plugin");
     fs::create_dir_all(settings.parent().unwrap()).unwrap();
     fs::write(&settings, "{}").unwrap();
@@ -167,7 +167,7 @@ fn claude_shim_injects_hook_args() {
     ];
     assert_eq!(ran.argv, want);
     let joined = ran.argv.join(" ");
-    for flag in dm_shared_agentadapter::get("claude")
+    for flag in otter_shared_agentadapter::get("claude")
         .unwrap()
         .policy_injection
         .flags
@@ -230,7 +230,7 @@ fn claude_shim_server_error_refuses() {
     assert_eq!(code, 1);
     assert_eq!(
         err,
-        "dongminal: Claude 계정 지정을 적용하지 못했습니다 (HTTP 500 internal)\n"
+        "otterminal: Claude 계정 지정을 적용하지 못했습니다 (HTTP 500 internal)\n"
     );
     assert!(f.ran().is_none());
 }
@@ -243,13 +243,13 @@ fn claude_shim_bad_reply_refuses() {
     assert_eq!(code, 1);
     assert_eq!(
         err,
-        "dongminal: Claude 계정 지정을 적용하지 못했습니다 (서버 응답을 읽을 수 없음)\n"
+        "otterminal: Claude 계정 지정을 적용하지 못했습니다 (서버 응답을 읽을 수 없음)\n"
     );
     let srv = TestServer::fixed(404, "");
     let f = fixture(srv.port);
     assert_eq!(
         f.run(&[]).2,
-        "dongminal: Claude 계정 지정을 적용하지 못했습니다 (HTTP 404)\n"
+        "otterminal: Claude 계정 지정을 적용하지 못했습니다 (HTTP 404)\n"
     );
 }
 
@@ -265,7 +265,7 @@ fn claude_shim_timeout_refuses() {
     assert_eq!(code, 1);
     assert_eq!(
         err,
-        "dongminal: Claude 계정 지정을 적용하지 못했습니다 (서버가 제때 답하지 않음)\n"
+        "otterminal: Claude 계정 지정을 적용하지 못했습니다 (서버가 제때 답하지 않음)\n"
     );
     assert!(f.ran().is_none());
 }
@@ -360,14 +360,14 @@ fn claude_shim_empty_memory_no_prompt() {
 
 // ---- 채팅 MCP 주입 (TC-PCH-15) ----
 
-fn listen_at(home: &Path) -> dm_shared_platform::IpcListener {
+fn listen_at(home: &Path) -> otter_shared_platform::IpcListener {
     let sock = chatwire::socket_path(home);
     fs::create_dir_all(sock.parent().unwrap()).unwrap();
-    dm_shared_platform::current().ipc.listen(&sock).unwrap()
+    otter_shared_platform::current().ipc.listen(&sock).unwrap()
 }
 
 /// home 에 채팅 소켓을 연다. 받은 연결마다 serve 를 부른다.
-fn listen_chat(home: &Path, serve: fn(dm_shared_platform::IpcStream)) {
+fn listen_chat(home: &Path, serve: fn(otter_shared_platform::IpcStream)) {
     let ln = listen_at(home);
     thread::spawn(move || {
         while let Ok(c) = ln.accept() {
@@ -398,11 +398,11 @@ fn claude_shim_injects_chat_mcp() {
         "--mcp-config|user.json|질문",
         "사용자 인자가 끝에 그대로 있지 않다"
     );
-    assert_eq!(ran.argv[n - 4], "--allowedTools=mcp__dongminal");
+    assert_eq!(ran.argv[n - 4], "--allowedTools=mcp__otterminal");
     assert_eq!(
         ran.argv[n - 5],
         format!(
-            "--mcp-config={{\"mcpServers\":{{\"dongminal\":{{\"args\":[\"chat-mcp\"],\"command\":\"{home}/bin/dmctl\",\"env\":{{\"DONGMINAL_HOME\":\"{home}\",\"DONGMINAL_TOOL_ID\":\"tool-1\"}},\"type\":\"stdio\"}}}}}}"
+            "--mcp-config={{\"mcpServers\":{{\"otterminal\":{{\"args\":[\"chat-mcp\"],\"command\":\"{home}/bin/otterctl\",\"env\":{{\"OTTERMINAL_HOME\":\"{home}\",\"OTTERMINAL_TOOL_ID\":\"tool-1\"}},\"type\":\"stdio\"}}}}}}"
         )
     );
 }
@@ -423,7 +423,7 @@ fn claude_shim_no_chat_without_socket() {
 fn claude_shim_no_chat_without_tool() {
     let srv = TestServer::fixed(200, NONE);
     let mut f = fixture(srv.port);
-    f.env.set(dmenv::ENV_TOOL_ID, "");
+    f.env.set(otterenv::ENV_TOOL_ID, "");
     listen_chat(f.home(), |_| {});
     f.run(&[]);
     assert!(
@@ -456,10 +456,10 @@ fn chat_hook_run(verdict: &str, total: i64) -> String {
     });
     let srv = TestServer::fixed(200, verdict);
     let mut env = srv.env(home.path());
-    env.set(dmenv::ENV_HOME, home.path().to_str().unwrap());
+    env.set(otterenv::ENV_HOME, home.path().to_str().unwrap());
     let (rc, out, _) = run_with(
         &env,
-        run_dmctl_ctx_hook,
+        run_otterctl_ctx_hook,
         &["claude"],
         br#"{"hook_event_name":"PostToolUse","session_id":"s-1"}"#,
     );

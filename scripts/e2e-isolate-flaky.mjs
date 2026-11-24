@@ -139,7 +139,7 @@ function assertMatchable(item) {
   // **`parity-flaky.txt` 를 0 으로 덮어쓴다** — 잡 요약이 그것을 읽는다.
   const r = spawnSync(process.execPath, [PW_CLI, 'test', specArg(item), '--list', '--reporter=line'], {
     encoding: 'utf8',
-    env: { ...process.env, DM_E2E_KEEP_PEERS: '1' },
+    env: { ...process.env, OTTER_E2E_KEEP_PEERS: '1' },
   });
   if (r.error) throw new Error(`격리 대상을 세지 못했다 (${specArg(item)}): ${r.error.message}`);
   if (r.status !== 0) {
@@ -160,7 +160,7 @@ function playwrightRunner(item, round) {
     [PW_CLI, 'test', specArg(item), '--workers=1', '--retries=0', '--reporter=line'],
     {
       stdio: 'inherit',
-      env: { ...process.env, E2E_PORT_BASE: String(port), DM_E2E_KEEP_PEERS: '1' },
+      env: { ...process.env, E2E_PORT_BASE: String(port), OTTER_E2E_KEEP_PEERS: '1' },
     },
   );
   // **실행이 서지 못한 것은 "졌다" 가 아니다.** 그 둘을 종료 코드 하나로 뭉뚱그리면
