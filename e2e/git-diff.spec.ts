@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture, clickGitView } from './fixtures';
+import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture, clickGitView, scopedSettings } from './fixtures';
 import { ED_SEL, ED_VENDOR_ROUTE } from './editor';
 import { tmpPath, realPath, cssPath } from './osenv';
 
@@ -201,46 +201,52 @@ test.describe('묶음 F — Diff 뷰', () => {
     await expect.poll(() => lineChanges(page), { timeout: 20000 }).toBe(1);
   });
 
-  test('D7 (V12): 편집기를 못 받아도 파일 목록·헤더가 동작하고 diff 가 사유를 보인다', async ({ page }) => {
-    const repo = copyFx('basic', 'd7');
-    // FR-GIT-55: 편집기 로드 실패가 Git 창을 멈춰서는 안 된다.
-    //
-    // **막는 자리가 바뀌었다** (FR-MVN-3). 종전에는
-    // `cdn.jsdelivr.net` 을 끊었는데 편집기가 이제 바이너리 안에 있어 그 요청이
-    // 아예 없다 — 끊어도 아무것도 실패하지 않으므로 이 검사가 재던 것이 사라진다.
-    // 이제 **자기 자산 경로**를 끊는다. 요구(FR-GIT-55)는 그대로이고 실패를
-    // 만드는 방법만 현실에 맞췄다.
-    await page.route(ED_VENDOR_ROUTE, (r) => r.abort());
+  test('D7 (V12): 편집기를 못 받아도 파일 목록·헤더가 동작하고 diff 가 사유를 보인다', async ({ page, request }) => {
+    // 새 파일(`d7-new.txt`)은 워크트리 회차가 잡는다 — 기본 4초 주기를 하한 1초로 줄인다 (§8.2 (b)).
+    const restore = await scopedSettings(request, { gitWorktreeInterval: 1000 });
+    try {
+      const repo = copyFx('basic', 'd7');
+      // FR-GIT-55: 편집기 로드 실패가 Git 창을 멈춰서는 안 된다.
+      //
+      // **막는 자리가 바뀌었다** (FR-MVN-3). 종전에는
+      // `cdn.jsdelivr.net` 을 끊었는데 편집기가 이제 바이너리 안에 있어 그 요청이
+      // 아예 없다 — 끊어도 아무것도 실패하지 않으므로 이 검사가 재던 것이 사라진다.
+      // 이제 **자기 자산 경로**를 끊는다. 요구(FR-GIT-55)는 그대로이고 실패를
+      // 만드는 방법만 현실에 맞췄다.
+      await page.route(ED_VENDOR_ROUTE, (r) => r.abort());
 
-    await waitForInit(page);
-    await openGit(page, repo);
-    await expect(changes(page).locator('.git-head-repo')).toHaveText('copy-d7', { timeout: 10000 });
+      await waitForInit(page);
+      await openGit(page, repo);
+      await expect(changes(page).locator('.git-head-repo')).toHaveText('copy-d7', { timeout: 10000 });
 
-    await row(page, 'working', 'tracked.txt').click();
-    await expect(diff(page).locator('.git-diff-note'))
-      .toHaveText('에디터를 불러오지 못했습니다 — 새로고침해 보세요', { timeout: 20000 });
-    await expect(diffEditor(page)).toHaveCount(0);
+      await row(page, 'working', 'tracked.txt').click();
+      await expect(diff(page).locator('.git-diff-note'))
+        .toHaveText('에디터를 불러오지 못했습니다 — 새로고침해 보세요', { timeout: 20000 });
+      await expect(diffEditor(page)).toHaveCount(0);
 
-    // 헤더와 목록은 계속 동작한다.
-    writeFileSync(join(repo, 'd7-new.txt'), 'x');
-    await expect(changes(page).locator('.git-group[data-group="working"] .git-group-count'))
-      .toHaveText('4', { timeout: 10000 });
-    await expect(changes(page).locator('.git-head-branch')).toHaveText('main');
+      // 헤더와 목록은 계속 동작한다.
+      writeFileSync(join(repo, 'd7-new.txt'), 'x');
+      await expect(changes(page).locator('.git-group[data-group="working"] .git-group-count'))
+        .toHaveText('4', { timeout: 10000 });
+      await expect(changes(page).locator('.git-head-branch')).toHaveText('main');
 
-    // Diff 탭도 같은 사유를 보이고 바는 살아 있다.
-    await clickGitView(page, 'diff');
-    await expect(diff(page).locator('.git-diff-note'))
-      .toHaveText('에디터를 불러오지 못했습니다 — 새로고침해 보세요');
-    await expect(diff(page).locator('.git-diff-path')).toHaveText('tracked.txt');
+      // Diff 탭도 같은 사유를 보이고 바는 살아 있다.
+      await clickGitView(page, 'diff');
+      await expect(diff(page).locator('.git-diff-note'))
+        .toHaveText('에디터를 불러오지 못했습니다 — 새로고침해 보세요');
+      await expect(diff(page).locator('.git-diff-path')).toHaveText('tracked.txt');
+    } finally {
+      await restore();
+    }
   });
 
   /**
    * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-72).** 리포 전환은 이제 **창 전환**이므로
    * `gitPanel.setRepo` 는 Repo 창의 패널에서 조기 반환한다 — 그 자리에 두면
-   * 아무 일도 하지 않는 왕복을 20번 도는 시험이 된다. 그리고 패널이 창마다
+   * 아무 일도 하지 않는 왕복만 되풀이하는 시험이 된다. 그리고 패널이 창마다
    * 유지되므로(FR-RTU-61) 기준선은 **두 창이 다 선 뒤에** 재야 한다.
    */
-  test('D8 (V12): 탭·창을 20회 왕복해도 Diff 편집기가 늘지 않는다', async ({ page }) => {
+  test('D8 (V12): 탭·창을 5회 왕복해도 Diff 편집기가 늘지 않는다', async ({ page }) => {
     test.setTimeout(180_000);
     const a = fx('basic');
     const b = fx('detached');
@@ -257,7 +263,8 @@ test.describe('묶음 F — Diff 뷰', () => {
     const baseline = await models(page);
     expect(baseline, 'diff 모델이 만들어지지 않았다').toBeGreaterThan(0);
 
-    for (let i = 0; i < 20; i++) {
+    // 왕복마다 새는 것은 쌓이므로 한 번만 새도 기준선을 넘는다 — 20회에서 5회로 줄였다.
+    for (let i = 0; i < 5; i++) {
       await clickGitView(page, 'history');
       await clickGitView(page, 'diff');
       await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });

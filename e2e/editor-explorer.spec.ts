@@ -6,12 +6,15 @@ import { APIRequestContext, Page } from '@playwright/test';
 
 import {
   test, expect, rmTree, switchToEditorRoot, openExplorerSide, addEditor, gotoWithEditors, openExplorerAt, enterExplorer,
+  scopedSettings, nextFrames,
 } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 /**
  * **고정 대기의 예외 (`TEST-16`).** 남은 `waitForTimeout` 은 폴링 주기의 배수를
- * **넘기는 창**이다 — 그동안 요청이 몇 건인가가 답이므로 기다릴 신호가 없다.
+ * **넘기는 창**이다 (X9) — 그동안 요청이 몇 건인가가 답이므로 기다릴 신호가 없다.
+ * 창은 `window.gitReposInterval` 에서 나오고, 그 주기는 아래 `beforeEach` 가
+ * 하한(1000)으로 내린다 (E2E_PRUNE_REPORT §8.2 (b)).
  */
 
 // EDITOR_TAB_SRS §4 — M3(파일 탐색기) · M4(탐색기의 git 색)의 검증 V-EDT-40~56.
@@ -153,9 +156,34 @@ function counter(page: Page, pred: (url: string) => boolean) {
   return box;
 }
 
+// 탐색기 틱(`gitReposInterval`, 기본 3000)을 하한으로 내린다. 창·상한이 틱에서 나오는
+// 시험에만 건다 — 파일 전체에 걸면 X6b(더 보기)가 잦은 틱과 겹쳐 흔들렸다. `page.goto` 전에
+// 넣어야 첫 틱부터 적용된다 — `beforeEach` 는 시험 본문(진입)보다 먼저 돈다.
+const TICK = 1000;
+const FAST_TICK = ['X7 ', 'X9 ', 'X12 ', 'X15 '];
+let restoreSettings: (() => Promise<void>) | null = null;
+test.beforeEach(async ({ request }, info) => {
+  if (!FAST_TICK.some((p) => info.title.startsWith(p))) return;
+  restoreSettings = await scopedSettings(request, { gitReposInterval: TICK });
+});
+test.afterEach(async () => {
+  if (restoreSettings) await restoreSettings();
+  restoreSettings = null;
+});
+
 const isList = (u: string) => u.includes('/api/fs/list');
 const isStatusOf = (repo: string) => (u: string) =>
   u.includes('/api/git/status') && u.includes(encodeURIComponent(repo));
+
+// 본문에 그 경로가 실린 `/api/fs/stamps` 요청 수. 본문은 JSON 이므로 경로도 JSON 으로 적어 찾는다.
+function stampsOf(page: Page, root: string) {
+  const box = { n: 0 };
+  const key = JSON.stringify(root).slice(1, -1);
+  page.on('request', ((req: { url(): string; postData(): string | null }) => {
+    if (req.url().includes('/api/fs/stamps') && (req.postData() || '').includes(key)) box.n++;
+  }) as never);
+  return box;
+}
 
 test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
   test('X1 (V-EDT-40): dot 파일과 dot 폴더가 보인다', async ({ page, request }) => {
@@ -486,10 +514,16 @@ test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
     await openExplorerAt(page, REPO);
     await expect(row(page, j(REPO, 'a.txt'))).toHaveAttribute('data-st', 'M', { timeout: 10000 });
     await openExplorerAt(page, PLAIN);
-    const poll = await page.evaluate(() => (window as any).gitReposInterval);
-    const c = counter(page, isStatusOf(REPO));
-    await page.waitForTimeout(poll * 3 + 1000);
-    expect(c.n).toBe(0);
+    // 틱이 실제로 묻는 것은 `/api/fs/stamps` 다 (FR-OPT-4-1) — status 는 30초 안전망에만
+    // 나가므로(`file-tree-load.js`) 그것을 세면 "비활성 창이 틱을 돈다" 는 회귀를 잡지
+    // 못한다 (E2E_PRUNE_REPORT §8.6). 그래서 본문에 각 루트가 실린 stamps 를 센다.
+    // 활성 창(PLAIN)의 틱이 세 번 지나는 동안 저장소 루트를 묻지 않아야 한다 — 종전
+    // 창(주기×3+1초)과 같은 회차를 고정 시간 없이 지난다.
+    const active = stampsOf(page, PLAIN);
+    const idle = stampsOf(page, REPO);
+    await expect.poll(() => active.n, { timeout: 15000, message: '활성 창의 틱이 돌지 않는다' })
+      .toBeGreaterThanOrEqual(3);
+    expect(idle.n, '비활성 창의 루트를 틱이 물었다').toBe(0);
   });
 
   test('X13 (V-EDT-56): 창 활성화와 저장이 즉시 갱신을 부른다', async ({ page, request }) => {
@@ -502,11 +536,15 @@ test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
     await openExplorerAt(page, PLAIN);
 
     const c = counter(page, isStatusOf(REPO));
+    const done = { n: 0 };
+    page.on('requestfinished', ((req: { url(): string }) => { if (isStatusOf(REPO)(req.url())) done.n++ }) as never);
     // ① 창 활성화
     await openExplorerAt(page, REPO);
     await expect.poll(() => c.n, { timeout: 2000 }).toBeGreaterThanOrEqual(1);
-    // 응답이 도착해야 다음 신호가 single-flight 에 막히지 않는다.
-    await page.waitForTimeout(500);
+    // 응답이 도착해야 다음 신호가 single-flight 에 막히지 않는다 — 나간 물음이 전부
+    // 답을 받을 때까지 본다.
+    await expect.poll(() => done.n >= c.n, { timeout: 5000 }).toBe(true);
+    await nextFrames(page);
     const base = c.n;
     // ② 저장. 진입점은 `FileEditor.save` 가 부르는 `gitSignal('write')` 하나다
     //    (FR-EDT-78) — 그 자리를 그대로 두드린다.

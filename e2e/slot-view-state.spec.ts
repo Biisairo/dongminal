@@ -62,6 +62,16 @@ const paneOf = (page: Page, slot: number | null) =>
 const activeTabLabel = (page: Page, slot: number | null) =>
   paneOf(page, slot).locator('.pn-tab.active .pn-tab-label').innerText();
 
+// 저장이 조용하고, 들고 있는 판(`wsETag`)이 서버의 마지막 판과 같을 때까지 기다린다 —
+// 그때 내는 저장은 `If-Match` 가 맞아 충돌(FR-WSC-1)로 포기되지 않는다.
+const wsCaughtUp = async (page: Page) => {
+  await expect.poll(() => page.evaluate(async () => {
+    const a = (window as any).app;
+    if (a.testing.saveInflight || a.testing.savePending || a.testing.wsApplyInflight) return false;
+    const r = await fetch('/api/workspace');
+    return r.headers.get('ETag') === a.wsETag;
+  }), { timeout: 15000 }).toBe(true);
+};
 const clickTab = async (page: Page, slot: number | null, name: string) => {
   await paneOf(page, slot).locator('.pn-tab', { hasText: name }).first().click();
 };
@@ -329,13 +339,14 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
       const beforeB = await pageB.locator('#windows .si').count();
       // A 의 저장이 방금 B 가 낸 저장들과 겹치면 **A 의 저장이 포기된다**
       // (WORKSPACE_SAVE_CONFLICT_SRS FR-WSC-1) — 서버에 창이 늘지 않으니 B 에는
-      // 아무것도 오지 않고, 기다리기만 하면 15초를 서 있다 (실측: 3회 중 2회).
-      // 겹침은 앱이 설계한 상황이므로 테스트는 다시 눌러야 한다. 여기서 재는
-      // 것은 "구조 변경이 전파된다" 이므로 몇 개가 늘었는지는 중요하지 않다.
-      await expect(async () => {
-        await pageA.click('#add-window');
-        await expect(pageB.locator('#windows .si')).not.toHaveCount(beforeB, { timeout: 6000 });
-      }).toPass({ timeout: 30000 });
+      // 아무것도 오지 않는다. 종전에는 다시 눌러(`toPass`) 넘겼고 겹칠 때마다 6초를
+      // 버렸다. 이제 누르기 **전에** 겹침을 없앤다: B 의 저장이 다 끝나고 두 쪽이
+      // 서버의 마지막 판(ETag)을 들고 있으면 A 의 저장은 충돌하지 않는다.
+      await waitSettled(pageB);
+      await wsCaughtUp(pageB);
+      await wsCaughtUp(pageA);
+      await pageA.click('#add-window');
+      await expect(pageB.locator('#windows .si')).not.toHaveCount(beforeB, { timeout: 15000 });
 
       // 구조는 따라왔지만 각 칸이 보던 탭은 그대로다.
       expect(await activeTabId(pageB, 0)).toBe(tabs[0].id);

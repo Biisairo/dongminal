@@ -547,58 +547,16 @@ test.describe('묶음 S — 편집기 선택으로 고르는 줄 범위', () => 
   });
 });
 
-test.describe('묶음 S — 좌표 사상 (단위)', () => {
-  // V-DHB-13: 순수 함수이므로 브라우저 안에서 바로 잰다. `core/hunk-coords.js` 가
-  // 편집기 쪽과 나눠 쓰는 규약이며(D-2), 서버의 `from`/`to` 뜻이 여기 걸려 있다.
+test.describe('묶음 S — 좌표 사상 (연결)', () => {
+  // V-DHB-13: 순수 함수의 사상은 `web/js/test/hunk-coords.test.mjs` 가 잰다 (scan·짝·삭제만·
+  // no-newline·좁힌 좌표). 여기는 브라우저가 그 `core/hunk-coords.js` 를 싣고 Diff 탭과 편집기
+  // 두 경로가 같은 전역을 쓰는지만 본다.
   test.beforeEach(async ({ page }) => { await waitForInit(page) });
 
-  // base one..eight 의 2번·7번 줄을 고친 덩어리. git 은 U3 문맥으로 이것을 하나로
-  // 만든다 — 그래서 "한 조각 안의 두 변경" 을 재는 자리가 된다.
   const H = {
     index: 0, header: '@@ -1,8 +1,8 @@', oldStart: 1, oldLines: 8, newStart: 1, newLines: 8,
     lines: [' one', '-two', '+TWO', ' three', ' four', ' five', ' six', '-seven', '+SEVEN', ' eight'],
   };
-
-  test('scan 이 새 쪽·옛 쪽 줄 번호를 함께 센다', async ({ page }) => {
-    const rows = await page.evaluate((h) => (window as any).gitHunkScan(h)
-      .map((r: any) => [r.i, r.mark, r.newLine, r.oldLine]), H);
-    expect(rows).toEqual([
-      [1, ' ', 1, 1], [2, '-', 0, 2], [3, '+', 2, 0], [4, ' ', 3, 3], [5, ' ', 4, 4],
-      [6, ' ', 5, 5], [7, ' ', 6, 6], [8, '-', 0, 7], [9, '+', 7, 0], [10, ' ', 8, 8],
-    ]);
-  });
-
-  test('선택한 새 줄의 변경 짝이 함께 간다', async ({ page }) => {
-    const r = await page.evaluate((h) => [
-      (window as any).gitHunkRangeForLines(h, 2, 2),
-      (window as any).gitHunkRangeForLines(h, 7, 7),
-      (window as any).gitHunkRangeForLines(h, 2, 7),
-      (window as any).gitHunkRangeForLines(h, 4, 6),
-    ], H);
-    // `+TWO` 만 보내면 짝인 `-two` 가 문맥이 되어 두 줄이 다 남는다 (§2.4).
-    expect(r[0]).toEqual([2, 3]);
-    expect(r[1]).toEqual([8, 9]);
-    expect(r[2]).toEqual([2, 9]);
-    // 문맥만 고르면 사상이 서지 않는다 — 호출자가 조각 전체로 물러선다.
-    expect(r[3]).toBeNull();
-  });
-
-  test('삭제만 있는 변경은 선택으로 닿지 않는다', async ({ page }) => {
-    const r = await page.evaluate(() => (window as any).gitHunkRangeForLines({
-      index: 0, oldStart: 1, oldLines: 5, newStart: 1, newLines: 3,
-      lines: [' a', '-b', '-c', ' d', ' e'],
-    }, 1, 3));
-    expect(r).toBeNull();
-  });
-
-  test('no-newline 표식은 앞 줄과 함께 간다', async ({ page }) => {
-    const r = await page.evaluate(() => (window as any).gitHunkRangeForLines({
-      index: 0, oldStart: 1, oldLines: 2, newStart: 1, newLines: 2,
-      lines: [' a', '-b', '\\ No newline at end of file', '+B',
-        '\\ No newline at end of file'],
-    }, 2, 2));
-    expect(r).toEqual([2, 5]);
-  });
 
   test('편집기 경로도 같은 규약을 쓴다 (회귀)', async ({ page }) => {
     const r = await page.evaluate((h) => [
@@ -606,10 +564,13 @@ test.describe('묶음 S — 좌표 사상 (단위)', () => {
         { type: 'mod', line: 2, count: 1, baseStart: 2, baseCount: 1 }),
       (window as any).gitHunkCoordsForChange([h],
         { type: 'add', line: 99, count: 1, baseStart: 99, baseCount: 0 }),
+      (window as any).gitHunkRangeForLines(h, 2, 2),
     ], H);
     expect(r[0]).toEqual({ hunk: 0, from: 2, to: 3, wide: false });
     // 겹치는 덩어리가 없으면 null — 관측이 낡았다는 뜻이다.
     expect(r[1]).toBeNull();
+    // Diff 탭 경로(줄 범위)도 같은 좌표를 낸다.
+    expect(r[2]).toEqual([2, 3]);
   });
 });
 

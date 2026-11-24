@@ -9,8 +9,9 @@ import { tmpPath, realPath, cssPath } from './osenv';
 /**
  * **고정 대기의 예외 (`TEST-16`).** 남아 있는 `waitForTimeout` 은 백오프의
  * **간격을 재는 창**이다 — "이 시간 동안 몇 건이 나갔는가" 가 곧 답이므로
- * 짧게 하면 비율을 잴 수 없다. 소실을 **기다리던** 대기는 `TEST-19` 에서
- * 걷었다 (`setSafetyNet`).
+ * 기다릴 신호가 없다. 창은 주입한 기준 주기에 비례해 잡았다 — 기준을 줄이면
+ * 창도 같은 비율로 줄고, 창 안의 회차 수는 그대로다. 소실을 **기다리던** 대기는
+ * `TEST-19` 에서 걷었다 (`setSafetyNet`).
  */
 
 // GIT_REPO_MISSING_SRS — 소실의 확정과 알림, 그리고 실패 백오프.
@@ -123,7 +124,7 @@ const UI_WAIT_MS = 20000;
  * "30초 안에 뜨는가" 가 아니다. 30초라는 값을 재는 자리는 M7 하나이고 거기서는
  * 이것을 쓰지 않는다.
  */
-const FAST_SAFETY_MS = 700;
+const FAST_SAFETY_MS = 300;
 
 const missing = (page: Page) => page.locator('#area .pn-body .git-missing');
 const gitTab = (page: Page, view: string) => page.locator(`#area .pn-tab[data-git-view="${view}"]`);
@@ -196,7 +197,9 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m4');
     await waitForInit(page);
     await openGit(page, repo);
-    await setSafetyNet(page, FAST_SAFETY_MS);
+    // 종전 값(700ms)을 지킨다. 주기가 짧을수록 소실 확정 직후에 남은 수집이 복구를
+    // 대신 잡을 수 있다 — 그러면 소실 주기를 거친 복구를 재지 못한다 (실측: 300ms 에서 1회).
+    await setSafetyNet(page, 700);
     await vanish(repo);
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
@@ -279,9 +282,10 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
     const c = counter(page, '/api/git/status');
-    await page.waitForTimeout(5000);
-    // 기준(1초)이면 5회다. 30초 주기면 0회에 가깝다.
-    expect(c.n, '소실 상태인데 매초 요청이 나간다').toBeLessThanOrEqual(1);
+    // 안전망 주기의 7배 — 소실 주기를 따르지 않고 안전망을 탔다면 7회 안팎이다.
+    // 30초 주기면 0회에 가깝다.
+    await page.waitForTimeout(FAST_SAFETY_MS * 7);
+    expect(c.n, '소실 상태인데 안전망 주기로 요청이 나간다').toBeLessThanOrEqual(1);
   });
 });
 
@@ -313,7 +317,7 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
    * (`git-polling.spec.ts`)과 같은 길을 쓴다. 그 값이 설정 방송에 지워지지 않는
    * 것은 FR-PIS-8a 의 `!==undefined` 가드가 지켜 준다.
    */
-  const BACKOFF_BASE_MS = 1000;
+  const BACKOFF_BASE_MS = 500;
   const backoffBase = (page: Page) => setSafetyNet(page, BACKOFF_BASE_MS);
 
   test('B1 (V-RMS-16): 연속 실패가 쌓이면 요청 간격이 늘어난다', async ({ page }) => {
@@ -329,8 +333,8 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
 
     failing = true;
     const c = counter(page, '/api/git/status');
-    await page.waitForTimeout(7000);
-    // 백오프가 없으면 1초 주기로 7회다. 2·4·8… 로 늘면 3~4회에 그친다.
+    await page.waitForTimeout(BACKOFF_BASE_MS * 7);
+    // 백오프가 없으면 기준 주기로 7회다. 2·4·8배로 늘면 3~4회에 그친다.
     expect(c.n, '실패가 이어지는데 주기가 그대로다').toBeLessThanOrEqual(4);
     expect(c.n, '아예 멈춰 버렸다 — 백오프는 중단이 아니다').toBeGreaterThanOrEqual(1);
   });
@@ -346,65 +350,19 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
     await backoffBase(page);
 
     failing = true;
-    await page.waitForTimeout(6000);
+    await page.waitForTimeout(BACKOFF_BASE_MS * 6);
     failing = false;
     // 사용자의 계기는 백오프를 기다리지 않는다 (V-RMS-19) — 이것으로 성공 하나를 만든다.
     await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
 
     const c = counter(page, '/api/git/status');
-    await page.waitForTimeout(3000);
-    // 기준(1초)으로 돌아왔으면 3회 안팎이다.
+    await page.waitForTimeout(BACKOFF_BASE_MS * 3);
+    // 기준으로 돌아왔으면 3회 안팎이다.
     expect(c.n, '성공했는데 주기가 기준으로 돌아오지 않았다').toBeGreaterThanOrEqual(2);
   });
 
-  test('B3 (V-RMS-18·26): 주기 0 은 백오프에도 0 이고, 소실은 고정 주기다', async ({ page, request }) => {
-    await defaultIntervals(request);
-    const repo = copyFx('b3');
-    await waitForInit(page);
-    await openGit(page, repo);
-
-    const got = await page.evaluate(() => {
-      const p = (window as any).app.gitPanel;
-      const out: any = {};
-      // POLL_INTERVAL_SETTINGS_SRS FR-PIS-4: 인자와 반환이 **하나**가 됐다 —
-      // 브라우저 signature 폴링이 사라지면서 실효 주기를 계산할 계층이 status
-      // 하나만 남았다. 재는 규약(백오프·상한·0·소실 고정)은 그대로다.
-      // 기준 1000, 실패 없음
-      p._missing = null; p._failStreak = 0;
-      out.base = p.poll._cadence(1000);
-      // 연속 실패 2회 → 4배
-      p._failStreak = 2;
-      out.backoff = p.poll._cadence(1000);
-      // 상한을 넘지 않는다
-      p._failStreak = 20;
-      out.capped = p.poll._cadence(1000);
-      // GIT_REFRESH_LIFECYCLE_SRS FR-GRF-30 (`GP-13`): 상한이 **기준 주기보다
-      // 크다.** 종전에는 둘이 같아(30000) `min(30000*2ⁿ, 30000)` 이 늘 30000
-      // 이었고, 그래서 기본 설정에서 백오프가 아무 일도 하지 않았다.
-      p._failStreak = 1;
-      out.base30 = p.poll._cadence(30000);
-      p._failStreak = 2;
-      out.step30 = p.poll._cadence(30000);
-      // 기준 0 은 0 으로 남는다 (꺼 둔 계층을 되살리지 않는다)
-      out.off = p.poll._cadence(0);
-      // 소실은 고정 주기다 — 백오프로 점증하지 않는다
-      p._missing = '/gone'; p._failStreak = 20;
-      out.missing = p.poll._cadence(1000);
-      out.missingOff = p.poll._cadence(0);
-      p._missing = null; p._failStreak = 0;
-      return out;
-    });
-
-    expect(got.base).toBe(1000);
-    expect(got.backoff).toBe(4000);
-    expect(got.capped).toBe(300000);
-    // 기본 주기(30초)에서도 백오프가 실제로 는다 (V-GRF-13).
-    expect(got.base30, '기본 주기에서 백오프 1단계가 늘지 않았다').toBe(60000);
-    expect(got.step30, '기본 주기에서 백오프 2단계가 늘지 않았다').toBe(120000);
-    expect(got.off, '꺼 둔 계층이 백오프로 되살아났다').toBe(0);
-    expect(got.missing, '소실인데 고정 주기가 아니다').toBe(30000);
-    expect(got.missingOff, '소실이 꺼 둔 계층을 되살렸다').toBe(0);
-  });
+  // B3 (V-RMS-18·26 · V-GRF-13) 은 `_cadence` 값만 읽었다 — 단위 시험으로 옮겼다
+  // (`web/js/test/git-poll-cadence.test.mjs`, E2E_PRUNE_REPORT §8.3).
 
   test('B4 (V-RMS-20): 관측이 주기를 바꿔도 관측이 관측을 부르지 않는다', async ({ page, request }) => {
     await defaultIntervals(request);
@@ -415,15 +373,17 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
     await openGit(page, repo);
     await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo, { timeout: UI_WAIT_MS });
+    // 종전에는 기준이 안전망(30초)이라 아래 창에 회차가 들지 않았다 (§8.6). 기준을 세운다.
+    await backoffBase(page);
 
     // 실패 → 성공 → 실패 로 주기를 세 번 바꾼다. 재평가가 즉시 수집을 부르면
     // 그때마다 요청이 한 벌씩 더 붙어 폭주한다.
     const c = counter(page, '/api/git/status');
     for (let i = 0; i < 3; i++) {
       failing = !failing;
-      await page.waitForTimeout(1200);
+      await page.waitForTimeout(BACKOFF_BASE_MS * 1.2);
     }
-    // 1초 주기로 3.6초면 4회 안팎이다. 재귀가 있으면 그보다 훨씬 많다.
+    // 기준 주기로 그 3.6배면 4회 안팎이다. 재귀가 있으면 그보다 훨씬 많다.
     expect(c.n, '주기 재평가가 관측을 연쇄시켰다').toBeLessThanOrEqual(8);
   });
 });

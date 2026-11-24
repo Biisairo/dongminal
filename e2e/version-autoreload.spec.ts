@@ -2,11 +2,10 @@ import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, waitSettled } from './fixtures';
 
-/**
- * **고정 대기의 예외 (`TEST-16`).** 이 파일의 `waitForTimeout` 은 전부 **일어나지
- * 않는 것**을 잰다 — 새로고침이 되풀이되지 않는다 · 가만히 두면 버전 확인이
- * 나가지 않는다 · 멀쩡한 구독을 끊지 않는다. 기다릴 신호가 없다.
- */
+// 고정 대기가 없다. "일어나지 않음" 은 그 판정이 끝난 자리에서 바로 본다 — 판 확인은
+// `probeChecks` 가 남기는 완료 promise 로, 인사는 동기 호출로, 침묵 감시는 job 을 직접
+// 한 번 돌려서. "가만히 두면 묻지 않는다"(TC-RLC-3c)는 단위로 옮겼다
+// (`web/js/test/version-watch.test.mjs`).
 
 // RELOAD_CONTINUITY_SRS §5 묶음 P — TC-RLC-1~4.
 //
@@ -70,6 +69,31 @@ const helloSeen = (page: Page) =>
 const mark = (page: Page) => page.evaluate(() => { (window as any).__alive = 1 });
 const survived = (page: Page) => page.evaluate(() => !!(window as any).__alive);
 
+// 새로고침을 **부른** 순간 서는 표식(`window.__dmReloading`, version-watch `reload`). 판정은
+// 동기이므로 판정이 끝난 뒤 이 값이 거짓이면 다시 열지 않은 것이다 — 문서가 내려가기를
+// 시간을 두고 기다릴 필요가 없다.
+const reloading = (page: Page) => page.evaluate(() => !!(window as any).__dmReloading);
+
+// version-watch 가 판을 묻는 길(`apiGet('/', {query:{_v}})`)을 감싼다. 물은 횟수(`__vget`)와,
+// 그 답으로 한 판정까지 끝났음을 알리는 promise(`__vdone`)를 남긴다 — 답 뒤의 판정은
+// 마이크로태스크라 다음 매크로태스크면 끝나 있다.
+const probeChecks = (page: Page) =>
+  page.evaluate(() => {
+    const w = window as any;
+    const orig = w.apiGet;
+    w.__vget = 0;
+    w.__vdone = Promise.resolve();
+    w.apiGet = (p: string, o: any) => {
+      const r = orig(p, o);
+      if (p === '/' && o && o.query && o.query._v) {
+        w.__vget++;
+        w.__vdone = r.then(() => new Promise((res) => w.app.timers.defer(res)));
+      }
+      return r;
+    };
+  });
+const checkSettled = (page: Page) => page.evaluate(() => (window as any).__vdone);
+
 async function waitReloaded(page: Page, ms = 5000): Promise<boolean> {
   try {
     await page.waitForFunction(() => !(window as any).__alive, undefined, { timeout: ms });
@@ -97,9 +121,12 @@ test.describe('묶음 P — 새 버전 자동 새로고침', () => {
     const cur = await currentVersion(page);
     expect(cur).not.toBe('');
     await stubVersion(page, cur);
+    await probeChecks(page);
     await triggerCheck(page);
 
-    expect(await waitReloaded(page, 2000)).toBe(false);
+    await expect.poll(() => page.evaluate(() => (window as any).__vget)).toBe(1);
+    await checkSettled(page);
+    expect(await reloading(page), '같은 판인데 새로고침을 불렀다').toBe(false);
     expect(await survived(page)).toBe(true);
   });
 
@@ -113,35 +140,42 @@ test.describe('묶음 P — 새 버전 자동 새로고침', () => {
     await waitForInit(page);
     const after = loads;
 
-    // 첫 새로고침이 일어날 시간을 준다. 고리가 열려 있으면 여기서 계속 돈다.
+    // 첫 새로고침을 본다.
     await triggerCheck(page);
-    await page.waitForTimeout(4000);
+    await expect.poll(() => loads - after, { timeout: 10000 }).toBeGreaterThanOrEqual(1);
 
-    expect(loads - after, '새로고침이 되풀이되고 있다').toBeLessThanOrEqual(1);
+    // 다시 선 문서에서 같은 확인을 한 번 더 낸다. 확인 요청은 여전히 새 판을 보이지만
+    // 문서는 그대로다 — 되풀이를 막는 기록이 이 판정을 막아야 한다. 종전에는 4초를 두고
+    // 저절로 되풀이되는지만 봤는데, 다시 선 문서는 스스로 확인을 내지 않아 고리가 열려
+    // 있어도 드러나지 않았다.
+    await page.waitForFunction(
+      () => typeof (window as any).__dmAssetVersion === 'function' && !!(window as any).app?.bus?._es,
+      undefined, { timeout: 15000 });
+    await probeChecks(page);
+    await triggerCheck(page);
+    await expect.poll(() => page.evaluate(() => (window as any).__vget)).toBe(1);
+    await checkSettled(page);
+    expect(await reloading(page), '새로고침이 되풀이되고 있다').toBe(false);
+    expect(loads - after, '새로고침이 되풀이되고 있다').toBe(1);
   });
 });
 
 // ── FR-RLC-3a·5a·2a (TC-RLC-3b·3c·10·11) ──
 
-test('TC-RLC-3c (FR-RLC-2a): 주기 폴링이 돌지 않는다', async ({ page }) => {
-  await waitForInit(page);
-  // 감지의 계기는 서버의 인사다 (FR-RLC-2). 주기를 함께 두면 같은 일을 두 벌로
-  // 하며 요청만 는다 — 가만히 두었을 때 확인 요청이 늘지 않아야 한다.
-  let checks = 0;
-  await page.route(/\/\?_v=\d+/, (route) => { checks++; route.continue() });
-  await page.waitForTimeout(8000);
-  expect(checks, '가만히 두었는데 버전 확인이 나갔다').toBe(0);
-});
+// TC-RLC-3c (FR-RLC-2a, 주기 폴링이 돌지 않는다)는 단위로 옮겼다 — `web/js/test/version-watch.test.mjs`.
 
 test('TC-OPT-4-10 (FR-RLC-2b 개정): 인사를 받은 구독이 살아 있으면 탭 복귀가 문서를 묻지 않는다', async ({ page }) => {
   await waitForInit(page);
   await helloSeen(page);
   let checks = 0;
   await page.route(/\/\?_v=\d+/, (route) => { checks++; route.continue() });
-  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-  // **예외 (`TEST-16`)**: 나가지 않는 요청을 잰다.
-  await page.waitForTimeout(1500);
-  expect(checks, '인사를 받았는데 index.html 을 다시 받았다').toBe(0);
+  await probeChecks(page);
+  // 탭 복귀의 확인은 묻기 전까지 동기로 돈다 — 계기를 낸 그 호출 안에서 물음 수를 읽는다.
+  const asked = await page.evaluate(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+    return (window as any).__vget;
+  });
+  expect(asked, '인사를 받았는데 index.html 을 다시 받았다').toBe(0);
 
   // 구독이 죽으면 보조 확인이 되살아난다 — 인사가 닿지 못하는 상태의 길이다.
   await triggerCheck(page);
@@ -233,8 +267,11 @@ test('TC-RLC-3b (FR-RLC-3a): 헛돈 뒤에도 또 다른 새 버전이 오면 �
   // 같은 목표라면 되풀이하지 않는다 (FR-RLC-3).
   await mark(page);
   await stubVersion(page, '900001');
+  await probeChecks(page);
   await triggerCheck(page);
-  expect(await waitReloaded(page, 2000), '소용없다고 판명된 시도를 되풀이했다').toBe(false);
+  await expect.poll(() => page.evaluate(() => (window as any).__vget)).toBe(1);
+  await checkSettled(page);
+  expect(await reloading(page), '소용없다고 판명된 시도를 되풀이했다').toBe(false);
 
   // **다른** 버전이 나오면 다시 시도한다 — 기록은 포기가 아니다.
   await page.unroute(/\/\?_v=\d+/);
@@ -293,8 +330,9 @@ test('TC-RLC-23 (FR-RLC-23): 인사의 판이 같으면 아무 일도 하지 않
   const self = await currentVersion(page);
   expect(self).not.toBe('');
   await mark(page);
+  // 인사의 판정은 동기다 — 부른 직후에 새로고침 표식을 본다.
   await sendHello(page, self);
-  expect(await waitReloaded(page, 2000)).toBe(false);
+  expect(await reloading(page), '같은 판의 인사에 새로고침을 불렀다').toBe(false);
   expect(await survived(page)).toBe(true);
 });
 
@@ -308,7 +346,8 @@ test('TC-RLC-22b (FR-RLC-23): 인사도 되풀이 방지를 따른다', async ({
 
   await mark(page);
   await sendHello(page, '900003');
-  expect(await waitReloaded(page, 2000), '소용없다고 판명된 시도를 되풀이했다').toBe(false);
+  expect(await reloading(page), '소용없다고 판명된 시도를 되풀이했다').toBe(false);
+  expect(await survived(page)).toBe(true);
 });
 
 // ── FR-RLC-25~28: SSE 의 침묵 (TC-RLC-25·26·27) ──
@@ -339,8 +378,17 @@ test('TC-RLC-27 (FR-RLC-25·28): 수신이 이어지는 동안에는 끊지 않�
   await waitForInit(page);
   const gen = await sseGen(page);
   expect(gen, '구독 세대를 셀 수 없다').toBeGreaterThan(0);
-  // 서버가 인사를 15초마다 보내므로 그동안은 침묵이 아니다.
-  await page.waitForTimeout(3000);
+  // 서버가 인사를 15초마다 보내므로 그동안은 침묵이 아니다. 종전 3초 창은 감시 주기
+  // (`SSE_SILENCE_CHECK_MS`=5초)보다 짧아 감시가 한 번도 돌지 않을 수 있었다
+  // (E2E_PRUNE_REPORT §8.6). 감시 job 을 직접 한 번 돌리고, 돌았음을 확인한 뒤 본다.
+  const ran = await page.evaluate(() => {
+    const app = (window as any).app;
+    const job = app.timers._jobs.get('sse.silence');
+    const before = job.runs;
+    app.bus._silentJob.poke();
+    return job.runs - before;
+  });
+  expect(ran, '침묵 감시가 돌지 않았다').toBe(1);
   expect(await sseGen(page), '멀쩡한 구독을 끊었다').toBe(gen);
 });
 
@@ -365,6 +413,14 @@ test('TC-RLC-25 (FR-RLC-25): 침묵이 상한을 넘으면 스스로 다시 연�
   // 어떤 수신이든 `_sseSeen` 을 현재로 되돌린다 (FR-RLC-28). 조작 직전에 화면이
   // 멎기를 기다린다 (E2E_QUIESCENCE_SRS §2.3).
   await waitSettled(page);
+
+  // 감시 주기(5초)를 200ms 로 당긴다 — 재는 것은 "주기가 돌면 되살린다" 이지 주기의 길이가
+  // 아니다 (E2E_PRUNE_REPORT §8.2 (a′)). job 은 주기를 함수로 읽으므로 그것을 바꾸고 다시 건다.
+  await page.evaluate(() => {
+    const t = (window as any).app.timers;
+    t._jobs.get('sse.silence').every = () => 200;
+    t.refreshChanged();
+  });
 
   // 깨어남의 계기 없이도 감시가 돈다 — 화면을 보고 있지 않아도 되살아나야 한다.
   await fakeSilence(page, 120000);

@@ -41,6 +41,7 @@ function setup({ self = SELF, tried = null, dirty = false, page = null } = {}) {
       } },
       BootScreen: { show: (s) => log.push('boot:' + s) },
       BOOT_STEP_VERSION: 'step-version',
+      setInterval: () => { log.push('setInterval') },
       VER_HELD_MSG: 'held', VER_HELD_GO: 'go',
       UIKit: { button: (o) => ({ id: '', label: o.label, cls: o.cls, click: o.onClick }) },
       app: { editor: { sync: { edAnyDirty: () => dirty } }, },
@@ -140,4 +141,16 @@ test('TC-FR5-10: 문서에 판이 없으면 아무것도 걸지 않는다', () =
   assert.equal(s.ctx.__dmAssetVersion, undefined);
   s.fireVisible();
   assert.deepEqual(s.log, []);
+});
+
+// RELOAD_CONTINUITY_SRS TC-RLC-3c (FR-RLC-2a): 판 확인에는 주기가 없다. 종전 e2e 는 8초 동안 확인
+// 요청이 0 인지 봤는데, 그 창은 무엇이 주기를 걸든 재지 못했다 (E2E_PRUNE_REPORT §8.6). 여기서는
+// 적재가 타이머를 하나도 걸지 않고, 시계를 한참 흘려도 묻지 않음을 직접 본다.
+test('TC-RLC-3c: 적재와 인사가 타이머를 걸지 않고, 가만히 두면 판을 묻지 않는다', async () => {
+  const s = setup();
+  assert.equal(s.ctx._clock.pending(), 0, '적재가 타이머를 걸었다');
+  s.ctx.__dmAssetVersion(SELF, () => true);
+  assert.equal(s.ctx._clock.pending(), 0, '인사가 타이머를 걸었다');
+  await s.ctx._clock.advance(10 * 60 * 1000);
+  assert.deepEqual(s.log, [], '가만히 두었는데 판을 물었다');
 });
