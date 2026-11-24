@@ -8,7 +8,8 @@ import {
 import { tmpPath, realPath } from './osenv';
 
 /**
- * GIT_REFRESH_LIFECYCLE_SRS §5 — V-GRF-1~7·14.
+ * GIT_REFRESH_LIFECYCLE_SRS §5 — V-GRF-1·3·5~7·14. V-GRF-2·4 는 단위 시험이다
+ * (`web/js/test/git-poll-cadence.test.mjs`·`git-history-timeout.test.mjs`).
  *
  * `11-git-polling.md` 가 확정한 **갱신 계층**의 결함들이다. 공통 성질은 하나다:
  * *한 번 멈추면 스스로 돌아오지 않고, 멈춘 사실이 화면에 없다.*
@@ -76,26 +77,8 @@ test.describe('FR-GRF 묶음 A — 첫 관측', () => {
       await defaultIntervals(request);
     });
 
-  test('V-GRF-2: 그 1회 뒤에도 주기 타이머는 서지 않는다',
-    async ({ page, request }) => {
-      await patchSettings(request, { gitStatusInterval: 0 });
-      await waitForInit(page);
-      await openGit(page, fx('basic'));
-      const c = counter(page, '/api/git/status');   // 세우기 전에 — V-GRF-1 과 같은 이유
-      await page.evaluate(() => {
-        const p = (window as any).app.gitPanel;
-        p._lastObsAt = 0; p._wdTryAt = 0; p._pollOn = true; p._pollSt = 0;
-      });
-      await expect.poll(() => c.n, { timeout: 10000 }).toBeGreaterThanOrEqual(1);
-      // 사용자가 끈 것은 **주기**다. 되살리지 않는다 (FR-GRF-2).
-      const armed = await page.evaluate(() => !!(window as any).app.gitPanel._stPoll);
-      expect(armed, '주기 0 인데 타이머가 걸렸다').toBe(false);
-      const after = c.n;
-      // **예외 (`TEST-16`)**: 요청이 **되풀이되지 않음**을 재는 창이다.
-      await page.waitForTimeout(3000);
-      expect(c.n - after, '주기 0 인데 요청이 되풀이된다').toBeLessThanOrEqual(1);
-      await defaultIntervals(request);
-    });
+  // V-GRF-2 (FR-GRF-2, "그 1회 뒤에도 주기 타이머는 서지 않는다") 는 워치독 상수(1초)의
+  // 되풀이를 3초 창으로 쟀다 — 단위 시험으로 옮겼다 (`web/js/test/git-poll-cadence.test.mjs`).
 });
 
 // ── 묶음 B — 복귀 (GP-3) ──────────────────────────────────────────────────
@@ -129,40 +112,9 @@ test.describe('FR-GRF 묶음 B — git 이 돌아온다', () => {
 });
 
 // ── 묶음 C — 시한 (GP-5) ──────────────────────────────────────────────────
-
-test.describe('FR-GRF 묶음 C — 무응답 연결', () => {
-  // 기본 시한이 20초다. 그것이 **기본으로 붙는지**가 검사 대상이므로 짧은 값을
-  // 주입하지 않는다 — 주입하면 "호출자가 주면 걸린다" 만 재게 된다.
-  test('V-GRF-4: 응답하지 않는 연결에서 History 의 잠금이 시한 뒤 풀린다',
-    async ({ page, request }) => {
-      test.setTimeout(90_000);
-      await defaultIntervals(request);
-      await waitForInit(page);
-      await openGit(page, fx('many-commits'));
-      await clickGitView(page, 'history');
-
-      // 블랙홀. 응답도 거부도 오지 않는다 — `11 GP-5` 가 적은 터널 끊김·프록시
-      // 중단의 모양이다. `abort` 가 아니라 **아무것도 하지 않는** 것이 요점이다.
-      const held: any[] = [];
-      await page.route('**/api/git/log**', (route) => { held.push(route) });
-
-      await page.evaluate(() => {
-        const h = (window as any).app.gitPanel._historyView;
-        h._ver = (h._ver || 0) + 1;   // 같은 요청으로 접히지 않게 한다
-        h.reload();
-      });
-      await expect.poll(
-        () => page.evaluate(() => !!(window as any).app.gitPanel._historyView._loading),
-        { timeout: 5000 }).toBe(true);
-
-      // 종전에는 여기서 영원히 참이었다 — `finally` 가 실행되지 않는다.
-      await expect.poll(
-        () => page.evaluate(() => !!(window as any).app.gitPanel._historyView._loading),
-        { timeout: 45_000 }).toBe(false);
-      await page.unroute('**/api/git/log**');
-      for (const r of held) { try { await r.abort() } catch { /* 이미 끝났다 */ } }
-    });
-});
+//
+// V-GRF-4 (FR-GRF-6) 는 기본 시한 20초(`GIT_STATUS_FETCH_TIMEOUT_MS`)를 실제로 기다렸다 —
+// 같은 경로를 상수만 줄여 지나는 단위 시험으로 옮겼다 (`web/js/test/git-history-timeout.test.mjs`).
 
 // ── 묶음 D — 낡음 표시 (GP-4) ──────────────────────────────────────────────
 
@@ -287,8 +239,9 @@ test.describe('FR-GRF 묶음 I — 숨은 탭', () => {
         const a = (window as any).app;
         a.testing.onGitChanged({ repo: a.gitPanel.repo, mark: 'grf-hidden-1' });
       });
-      // **예외 (`TEST-16`)**: 요청이 **나가지 않음**을 잰다.
-      await page.waitForTimeout(1000);
+      // **예외 (`TEST-16`)**: 요청이 **나가지 않음**을 잰다. 숨지 않았다면 방송은
+      // 그 자리에서(동기) 수집하므로 창은 그 요청이 도착할 한 박자면 된다.
+      await page.waitForTimeout(300);
       expect(c.n - before, '숨었는데 방송이 요청을 냈다').toBe(0);
 
       // 돌아오면 갚는다 (D-GRF-7) — 가시성 복귀 신호가 수집으로 간다.
