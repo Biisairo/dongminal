@@ -74,29 +74,55 @@ test('TC-RLV-5: 주기 실행은 살아 있는 뷰만 받고 사라진 뷰는 �
   assert.equal(p._runViewMap().has('tab-a'), true);
 });
 
-// ── TC-RLV-6 ──
+// ── TC-CH3-11 (PERF M1 C3) ──
 
-test('TC-RLV-6: run.views 주기는 Run 뷰가 있을 때만 활동 주기로 돈다', () => {
-  const reg = load(['core/state-registry.js'], { expose: ['wireStateRegistry'] });
-  const jobs = [];
-  let open = false;
-  let calls = 0;
-  const app = {
-    bus: { subscribe() {} },
-    timers: { every: (spec) => jobs.push(spec) },
-    agentsPollMs: 4321,
-    _attn: new Map(),
-    _agentsPanelOpen: () => false,
-    _runViewsOpen: () => open,
-    _runViewsRestore: () => { calls++ },
-  };
-  reg.wireStateRegistry(app);
-  const job = jobs.find((j) => j.id === 'run.views');
-  assert.ok(job, 'Run 뷰 주기가 없다');
-  assert.equal(job.every(), 4321);
-  assert.equal(job.when(), false);
-  open = true;
-  assert.equal(job.when(), true);
-  job.run();
-  assert.equal(calls, 1);
+function topicPanel() {
+  const subs = new Map();
+  const stopped = [];
+  const p = new ctx.RunsPanel({
+    ws: { windows: [] }, slot: { slotBase: (k) => k },
+    channel: { sub: (topic, fn) => { subs.set(topic, fn); return { stop: () => stopped.push(topic) } } },
+  });
+  const painted = [];
+  p._runPaint = (v) => painted.push(v.key);
+  return { p, subs, stopped, painted };
+}
+
+test('TC-CH3-11: 열린 Run 화면은 run:<id> 를 구독해 그래프를 GET 없이 얹는다', async () => {
+  const { p, subs, painted } = topicPanel();
+  const v = { key: 'tab-a', runId: 'run-a', data: null, err: null };
+  p._runViewMap().set(v.key, v);
+  p._runSubscribe(v);
+  assert.deepEqual([...subs.keys()], ['run:run-a']);
+  await subs.get('run:run-a')({ kind: 'full', data: { runId: 'run-a', state: 'open' } });
+  assert.equal(v.data.state, 'open');
+  assert.deepEqual(painted, ['tab-a']);
+  await subs.get('run:run-a')({ kind: 'full', data: null });
+  assert.equal(v.err, 'gone', '사라진 Run 을 사라짐으로 그리지 않았다');
+});
+
+test('TC-CH3-11: 화면이 사라지거나 runId 가 바뀌면 옛 토픽을 해지한다', () => {
+  const { p, subs, stopped } = topicPanel();
+  const v = { key: 'tab-a', runId: 'run-a', data: null, err: null };
+  p._runViewMap().set(v.key, v);
+  p._runSubscribe(v);
+  p._runSubscribe(v);
+  assert.deepEqual(stopped, [], '같은 Run 을 두 번 구독했다');
+  v.runId = 'run-b';
+  p._runSubscribe(v);
+  assert.deepEqual(stopped, ['run:run-a']);
+  assert.ok(subs.has('run:run-b'));
+  p._runDisposeView(v);
+  assert.deepEqual(stopped, ['run:run-a', 'run:run-b']);
+});
+
+test('TC-CH3-8: runs 토픽의 목록을 GET 없이 얹는다', () => {
+  const { p } = topicPanel();
+  let painted = 0;
+  p._runsPanelPaint = () => { painted++ };
+  p._runsErr = 'x';
+  p._runsApplyList([{ id: 'r1' }]);
+  assert.equal(p._runsList.length, 1);
+  assert.equal(p._runsErr, null);
+  assert.equal(painted, 1);
 });

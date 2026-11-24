@@ -369,6 +369,15 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
     // 묻는 것은 "다시 그려도 그대로인가" 이므로 앞뒤를 견준다.
     // PANEL_TEMPLATE_SRS FR-PNT-1 로 개정: 머리(탭 줄·끝 단추)는 몸통 밖의 `#agents-head` 다 — 세는 범위에 함께 넣는다.
     const KIDS = '#agents-head > *, #agents-body > *';
+    // PERF M1 C3: 활동 토픽의 정정(보고 뒤 ~100 ms)이 아직 올 수 있다 — 패널이 멈출 때까지 기다린다.
+    // 그 정정이 바꾼 항목을 다시 만드는 것은 맞는 동작이다 (FR-RPT-2). 재는 것은 바깥 계기의 다시 그리기다.
+    let prev = '';
+    await expect.poll(async () => {
+      const cur = await page.locator('#agents-body').innerHTML();
+      const same = cur === prev;
+      prev = cur;
+      return same;
+    }, { intervals: [300], timeout: 5000 }).toBe(true);
     const before = await page.locator(KIDS).count();
     expect(before, '패널이 비었다 — 검증이 공회전한다').toBeGreaterThan(5);
     await page.evaluate(() => {
@@ -385,7 +394,12 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
 
     // FR-AGG-11: 접힌 채로도 알람 수가 보인다. 알람이 서려면 턴이 먼저 시작되어야
     // 한다 (FR-ATN-4).
+    //
+    // PERF M1 C3: `working` 항목은 PTY 가 바쁠 때만 서버 목록에 든다. 이 셸은 놀고 있으므로
+    // 서버가 곧바로 그 카드를 거둔다 — 종전에는 다음 활동 주기(5초)까지 카드가 남아 있었고
+    // 이 검증이 그 낡은 상태에 기댔다. 턴을 연 뒤 `waiting` 으로 둔다.
     expect(await setActivity(page, pidA, 'working', '', 'a')).toBe(200);
+    expect(await setActivity(page, pidA, 'waiting', '', 'a')).toBe(200);
     await page.evaluate(async (p) => {
       await fetch('/api/tools/attention/set', {
         method: 'POST',

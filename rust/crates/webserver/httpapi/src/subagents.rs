@@ -304,6 +304,8 @@ impl Server {
 
     /// Go `applySubagentsReport`: HTTP 와 데몬의 report push 가 함께 지난다.
     pub(crate) fn apply_subagents_report(&self, body: &agentrec::SubagentsReport) {
+        // 사용률·서브에이전트는 방송 없이 바뀐다 — 채널 토픽에 직접 알린다 (C3).
+        self.mark_state_topics(crate::state_topics::T_ACTIVITY);
         let now = OffsetDateTime::now_utc();
         self.agents
             .subagents

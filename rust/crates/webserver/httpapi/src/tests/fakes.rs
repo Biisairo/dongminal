@@ -28,6 +28,8 @@ use crate::{
 #[derive(Default)]
 pub(crate) struct FakeHub {
     pub(crate) tools: Mutex<Vec<ToolInfo>>,
+    /// `background_list` 의 답이다.
+    pub(crate) bg: Mutex<Vec<BackgroundEntry>>,
     pub(crate) busy: Mutex<HashMap<String, bool>>,
     pub(crate) cwds: Mutex<HashMap<String, String>>,
     /// 마지막 Create 의 인자 (cwd, cols, rows, place).
@@ -214,7 +216,7 @@ impl ToolHub for FakeHub {
         self.has(id)
     }
     fn background_list(&self) -> Vec<BackgroundEntry> {
-        Vec::new()
+        self.bg.lock().unwrap().clone()
     }
 }
 
@@ -392,6 +394,7 @@ pub(crate) struct FakeBroker {
     pub(crate) await_result: CmdResult,
     pub(crate) await_delivered: usize,
     pub(crate) delivered: Mutex<Vec<(String, CmdResult)>>,
+    pub(crate) tap: Mutex<Option<otter_webserver_hub::BroadcastTap>>,
 }
 
 impl FakeBroker {
@@ -410,6 +413,10 @@ impl CommandBroker for FakeBroker {
             .lock()
             .unwrap()
             .push(String::from_utf8_lossy(payload).into_owned());
+        let tap = self.tap.lock().unwrap().clone();
+        if let Some(f) = tap {
+            f(payload);
+        }
         1
     }
     fn broadcast_and_await<'a>(
@@ -420,6 +427,9 @@ impl CommandBroker for FakeBroker {
     ) -> BoxFuture<'a, (CmdResult, usize, bool)> {
         self.broadcast(payload);
         Box::pin(async move { (self.await_result.clone(), self.await_delivered, false) })
+    }
+    fn set_broadcast_tap(&self, f: Option<otter_webserver_hub::BroadcastTap>) {
+        *self.tap.lock().unwrap() = f;
     }
     fn deliver_result(&self, req_id: &str, res: CmdResult) {
         self.delivered

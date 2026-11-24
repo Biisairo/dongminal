@@ -393,7 +393,7 @@ const DELEGATES_9B = {
   claude: ['_claudeAcctRestore', '_onClaudeAccountsChanged', '_onClaudeAccountAlert', '_claudeAcctFold', '_claudeAcctSmartMenu',
     '_claudeAcctHistory', '_claudeAcctEl'],
   'claude.maps': ['claudeTabTint', 'claudeOnCwd', 'claudeRepoChip', 'claudeFolderChip', 'claudeTabMenuItem', 'claudeFolderMenu'],
-  statusbar: ['initStatusBar', '_startStatsPoll', '_pollStats', 'updateStatusBar', '_bgPanelPaint', '_bgRow',
+  statusbar: ['initStatusBar', '_startStatsPoll', 'updateStatusBar', '_bgPanelPaint', '_bgRow',
     '_shortCwd', '_fmtMemSize', 'updateCwd'],
 };
 

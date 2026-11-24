@@ -47,7 +47,10 @@ const STATE_REGISTRY=[
       tool_attention:'attn._onToolAttention',
       tool_attention_clear:'attn._onToolAttentionClear',
     },
-    revalidateOn:['chan:open','softreload'],
+    // PERF M1 C3: 재연결의 재조회는 채널 토픽의 재구독이 맡는다 (CHANNEL_PROTOCOL §10.4).
+    topic:'attention',
+    body:(m)=>({toolIds:[...m.keys()].sort()}),
+    revalidateOn:['softreload'],
   },
   {
     id:'tool.activity',
@@ -56,13 +59,10 @@ const STATE_REGISTRY=[
     flight:'activity',
     part:'activity',
     events:{tool_activity:'agents._onToolActivity',tool_subagent_activity:'agents.sub._onToolSubagentActivity'},
-    revalidateOn:['chan:open','softreload'],
-    // 이 상태만 주기를 갖는다. 서버가 활동 변화를 전부 밀지는 않기 때문이다
-    // (AGENT_ACTIVITY_PANEL_SRS) — 주기는 사용자가 정한다.
-    every:(app)=>app.agentsPollMs,
-    // FR-AAP-19 · OPTIMIZE_REFACTOR_SRS FR-OPT-4-6: 읽는 곳이 있을 때만 돈다 — 패널,
-    // 그리고 알림의 detail (`_attnDetail`).
-    when:(app)=>app.agents._agentsPanelShown()||app._attn.size>0,
+    // 사용률·서브에이전트처럼 방송 없이 바뀌는 값도 서버가 토픽으로 민다 — 주기가 없다.
+    topic:'activity',
+    body:(m)=>({activities:stateTopicValues(m,STATE_TOPIC_LIMITS_ID),limits:m.get(STATE_TOPIC_LIMITS_ID)||[]}),
+    revalidateOn:['softreload'],
   },
   {
     /**
@@ -84,28 +84,28 @@ const STATE_REGISTRY=[
   },
   {
     /**
-     * ACTIVITY_RUNS_REFRESH_SRS FR-ARR-1~3 — 멤버 상태·생존은 서버가 물을 때 계산하므로
-     * `run_changed` 로 오지 않는다. 패널이 열린 동안 활동 주기로 다시 받는다.
-     * `run_changed` 구독은 대시보드도 다시 받으므로 `ws-sync-controller.js` 에 남는다 (D-ARR-3).
-     * FR-ARR-6: 새로고침하면 패널이 열린 채로 복원되어 「열 때 받기」를 거치지 않는다 — 구독이 열릴 때 받는다.
+     * ACTIVITY_RUNS_REFRESH_SRS FR-ARR-1~3 — 멤버 상태·생존은 서버가 계산한다.
+     *   이전 동작: 패널이 열린 동안 활동 주기로 `/api/runs` 를 다시 받았다
+     *   새  동작: 서버가 바뀔 때 `runs` 토픽으로 민다 (PERF M1 C3) — 주기가 없다
+     *   이유:     유휴 요청을 없앤다 (FR-CON-7·8)
      */
     id:'run.list',
     restore:'_runsListRestore',
     merge:'latest',
-    revalidateOn:['chan:open','softreload'],
-    every:(app)=>app.agentsPollMs,
-    when:(app)=>app.agents._agentsPanelShown(),
+    topic:'runs',
+    apply:'_runsListApply',
+    body:(m)=>stateTopicValues(m),
+    revalidateOn:['softreload'],
   },
   {
     /**
-     * RUN_VIEW_LIVE_SRS FR-RLV-7 (D-RLV-1 이 FR-RVZ-16 의 "폴링하지 않는다" 를 거뒀다) — 열린
-     * Run 탭의 안전망. 신호가 없는 변화(사용률 숫자, 조용한 죽음)를 활동 주기 안에 고친다.
+     * RUN_VIEW_LIVE_SRS FR-RLV-7 — 신호가 없는 변화(사용률 숫자, 조용한 죽음)를 고치던 안전망
+     * 주기는 없어졌다. 서버가 그 변화마다 `run:<id>` 토픽을 다시 민다 (PERF M1 C3).
      */
     id:'run.views',
     restore:'_runViewsRestore',
     merge:'latest',
-    every:(app)=>app.agentsPollMs,
-    when:(app)=>app._runViewsOpen(),
+    // 열린 Run 화면은 저마다 `run:<id>` 토픽을 구독한다 (`runs-panel.js`).
   },
   {
     id:'tool.background',
@@ -117,11 +117,9 @@ const STATE_REGISTRY=[
     flight:'background',
     part:'background',
     events:{tools_background_changed:'tool.life._bgRefresh'},
-    revalidateOn:['chan:open','softreload'],
-    // UX_BATCH12 FR-LIV-7: 행의 Run 표지와 cwd 는 조회 때 계산된다 — 신호가 없는 변화를
-    // 패널이 열린 동안 활동 주기로 고친다 (`run.list` 와 같은 모양).
-    every:(app)=>app.agentsPollMs,
-    when:(app)=>app.agents._agentsPanelShown(),
+    topic:'background',
+    body:(m)=>({background:stateTopicValues(m)}),
+    revalidateOn:['softreload'],
   },
   {
     /**
@@ -231,7 +229,7 @@ const STATE_REGISTRY=[
     flight:'claudeAccounts',
     events:{claude_accounts_changed:'claude._onClaudeAccountsChanged'},
     revalidateOn:['chan:open','softreload'],
-    every:()=>CLAUDE_ACCT_POLL_MS,
+    every:(_app)=>CLAUDE_ACCT_POLL_MS,
     when:(app)=>app.agents._agentsPanelShown(),
   },
   {
@@ -274,6 +272,7 @@ function wireStateRegistry(app){
     return fn.call(o,args);
   };
 
+  wireStateTopics(app,call);
   for(const d of STATE_REGISTRY){
     for(const [topic,handler] of Object.entries(d.events||{})){
       bus.subscribe(topic,a=>call(handler,a),{owner:'state:'+d.id});
@@ -310,6 +309,47 @@ function wireStateRegistry(app){
       for(const d of due) call(d.restore,d.part?stateSnapshotPart(snap,d.part):undefined);
     },{owner:'state'});
   }
+}
+
+/** `activity` 토픽 맵에서 리밋 목록이 사는 예약 id (서버 `state_topics::LIMITS_ID`). */
+const STATE_TOPIC_LIMITS_ID='_limits';
+
+/** 맵의 값을 id 순서로 — 서버의 맵 순서와 같다. `skip` 은 예약 id 다. */
+function stateTopicValues(m,skip){
+  return [...m.keys()].filter(k=>k!==skip).sort().map(k=>m.get(k));
+}
+
+/**
+ * PERF M1 C3 (CHANNEL_PROTOCOL §10.4): `topic` 을 가진 상태는 채널 토픽을 구독한다. 받은
+ * full·delta 를 토픽 맵에 얹고, 맵으로 GET 과 같은 본문을 만들어 `apply`(본문) 또는
+ * `restore`(GET 과 같은 봉투)에 넘긴다. 채널이 처음 열릴 때 한 번 구독한다 — 재연결의
+ * 재구독은 채널이 한다.
+ */
+function wireStateTopics(app,call){
+  let wired=false;
+  app.bus.subscribe('chan:open',()=>{
+    if(wired||!app.channel) return;
+    wired=true;
+    for(const d of STATE_REGISTRY){
+      if(!d.topic) continue;
+      const m=new Map();
+      let due=null;
+      const flush=()=>{
+        due=null;
+        const body=d.body(m);
+        if(d.apply){ call(d.apply,body); return }
+        call(d.restore,Promise.resolve({ok:true,status:200,data:body,text:JSON.stringify(body),headers:null}));
+      };
+      app.channel.sub(d.topic,(msg)=>{
+        if(msg.kind==='full'){
+          m.clear();
+          for(const [k,v] of Object.entries(msg.data||{})) m.set(k,v);
+        }else if(msg.kind==='delta') chanApply(m,msg.ops||[]);
+        else return;
+        if(!due) due=app.timers.after(STATE_TOPIC_COALESCE_MS,flush,{owner:'state:'+d.id,label:'state-topic'});
+      },{owner:'state:'+d.id});
+    }
+  },{owner:'state'});
 }
 
 /**
