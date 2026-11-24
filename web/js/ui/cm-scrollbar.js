@@ -62,6 +62,27 @@ function edScrollGeo(view) {
   return { scrollTop: s.scrollTop, scrollHeight: s.scrollHeight, clientHeight: s.clientHeight, trackHeight: s.clientHeight };
 }
 
+/**
+ * PERF_OPTIMIZATION_SRS FR-SPA-5 (이슈 3.8): 칠할 사각형. 그리는 순서로 잇단 항목이 lane·색이 같고 세로로 겹치거나
+ * 맞닿으면 하나로 합친다 — 찾기 일치 1만 개가 track 몇 px 에 몰려도 칠하기는 몇 번이다. 사이에 다른 색이 끼면
+ * 건너서 합치지 않는다(나중에 칠한 것이 위에 오는 순서를 지킨다).
+ */
+function edRulerRects(items) {
+  const out = [];
+  let last = null, end = 0;
+  for (const it of items) {
+    if (last && it.lane === last.lane && it.color === last.color && it.y >= last.y && it.y <= end) {
+      end = Math.max(end, it.y + it.h);
+      last.h = end - last.y;
+      continue;
+    }
+    last = { y: it.y, h: it.h, color: it.color, lane: it.lane };
+    end = it.y + it.h;
+    out.push(last);
+  }
+  return out;
+}
+
 // 처음 쓸 때 만든다 — 이 파일은 `CM` 이 실리기 전에 읽힌다 (`cm-buffer.js` 와 같은 이유).
 function edRulerSource() {
   if (!edRulerSource.facet) edRulerSource.facet = CM.Facet.define();
@@ -143,9 +164,11 @@ class EdCmScrollbar {
     if (!ctx) return;
     ctx.scale(dpr, dpr);
     const css = getComputedStyle(this.view.dom);
+    const colors = new Map();
     const half = ED_SCROLL_W / 2;
-    for (const it of items) {
-      ctx.fillStyle = css.getPropertyValue(it.color).trim();
+    for (const it of edRulerRects(items)) {
+      if (!colors.has(it.color)) colors.set(it.color, css.getPropertyValue(it.color).trim());
+      ctx.fillStyle = colors.get(it.color);
       if (it.lane === 'full') ctx.fillRect(0, it.y, ED_SCROLL_W, it.h);
       else ctx.fillRect(it.lane === 'left' ? 0 : half, it.y, half, it.h);
     }
