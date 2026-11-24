@@ -42,7 +42,7 @@ const STATE_REGISTRY=[
       tool_attention:'attn._onToolAttention',
       tool_attention_clear:'attn._onToolAttentionClear',
     },
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
   },
   {
     id:'tool.activity',
@@ -51,7 +51,7 @@ const STATE_REGISTRY=[
     flight:'activity',
     part:'activity',
     events:{tool_activity:'agents._onToolActivity',tool_subagent_activity:'agents.sub._onToolSubagentActivity'},
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
     // 이 상태만 주기를 갖는다. 서버가 활동 변화를 전부 밀지는 않기 때문이다
     // (AGENT_ACTIVITY_PANEL_SRS) — 주기는 사용자가 정한다.
     every:(app)=>app.agentsPollMs,
@@ -87,7 +87,7 @@ const STATE_REGISTRY=[
     id:'run.list',
     restore:'_runsListRestore',
     merge:'latest',
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
     every:(app)=>app.agentsPollMs,
     when:(app)=>app.agents._agentsPanelShown(),
   },
@@ -112,7 +112,7 @@ const STATE_REGISTRY=[
     flight:'background',
     part:'background',
     events:{tools_background_changed:'tool.life._bgRefresh'},
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
     // UX_BATCH12 FR-LIV-7: 행의 Run 표지와 cwd 는 조회 때 계산된다 — 신호가 없는 변화를
     // 패널이 열린 동안 활동 주기로 고친다 (`run.list` 와 같은 모양).
     every:(app)=>app.agentsPollMs,
@@ -151,7 +151,7 @@ const STATE_REGISTRY=[
      * 3초마다 묻게 되고 그건 28,800배의 낭비다 (D-UPD-4). 대신 값이 바뀌면
      * 서버가 `update_changed` 로 민다 (FR-UPD-8a).
      *
-     * 재연결의 재조회는 `update` 토픽의 재구독이 준다 (CHANNEL_PROTOCOL C2b). **서버 쪽 확인을 거는 것은 이쪽이 아니다** — 그건 서버의 SSE 연결
+     * 재연결의 재조회는 `update` 토픽의 재구독이 준다 (CHANNEL_PROTOCOL C2b). **서버 쪽 확인을 거는 것은 이쪽이 아니다** — 그건 서버의 채널 연결
      * 훅이고(FR-UPD-2 ②), 여기서 하는 일은 캐시를 읽는 것뿐이다.
      *
      * `merge:'latest'` 는 `background`·`settings` 와 같은 근거다 — 방송이
@@ -185,7 +185,7 @@ const STATE_REGISTRY=[
     restore:'git.sync._gitObserveRestore',
     merge:'latest',
     events:{git_changed:'git.sync._onGitChanged'},
-    revalidateOn:['sse:open'],
+    revalidateOn:['chan:open'],
   },
   {
     /**
@@ -198,7 +198,7 @@ const STATE_REGISTRY=[
     merge:'latest',
     topic:'fs',
     event:'editor.watch._onFsChanged',
-    revalidateOn:['sse:open'],
+    revalidateOn:['chan:open'],
   },
   {
     /**
@@ -213,7 +213,7 @@ const STATE_REGISTRY=[
     merge:'latest',
     flight:'gitJobs',
     events:{git_jobs_changed:'git.sync._pollGitJobs'},
-    revalidateOn:['sse:open','softreload'],
+    revalidateOn:['chan:open','softreload'],
   },
   {
     id:'window.focus',
@@ -320,14 +320,14 @@ function wireStateRegistry(app){
    *
    * 비행·병합 규약은 그대로다. 복원은 여전히 **부를 때** 자기 비행을 열고(요청이
    * 떠나기 전이다) 응답이 오면 자기 조각을 자기 규약으로 얹는다 — 바뀐 것은 요청을
-   * 누가 내는가뿐이다. `sse:open` 의 첫 연결(`gen===1`)에서는 부팅이 방금 받은
+   * 누가 내는가뿐이다. `chan:open` 의 첫 연결(`gen===1`)에서는 부팅이 방금 받은
    * 상태(`bootCovered`)를 건너뛴다 (FEC-10).
    */
   const topics=new Set();
   for(const d of STATE_REGISTRY) for(const w of d.revalidateOn||[]) topics.add(w);
   for(const topic of topics){
     bus.subscribe(topic,a=>{
-      const first=topic==='sse:open'&&!!a&&a.gen===1;
+      const first=topic==='chan:open'&&!!a&&a.gen===1;
       const due=STATE_REGISTRY.filter(d=>(d.revalidateOn||[]).includes(topic)&&!(first&&d.bootCovered));
       const parts=due.filter(d=>d.part).map(d=>d.part);
       const snap=parts.length?apiGet('/api/snapshot',{query:{parts:parts.join(',')}}):null;

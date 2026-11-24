@@ -84,12 +84,12 @@ test('TC-CH2B-5: 사건은 event 처리기가 본문을 받는다', () => {
   assert.equal(calls[0][1].kind, 'autoswitch');
 });
 
-test('TC-CH2B-7: 옮긴 상태는 sse:open GET 재검증·주기·SSE 방송 구독이 없다', () => {
+test('TC-CH2B-7: 옮긴 상태는 chan:open GET 재검증·주기·SSE 방송 구독이 없다', () => {
   const { ctx } = rig();
   const byId = new Map(ctx.STATE_REGISTRY.map((e) => [e.id, e]));
   for (const id of ['settings', 'update', 'window.focus', 'edges', 'chat', 'claude.accounts']) {
     const e = byId.get(id);
-    assert.ok(!(e.revalidateOn || []).includes('sse:open'), id + ' 가 재연결에 GET 한다');
+    assert.ok(!(e.revalidateOn || []).includes('chan:open'), id + ' 가 재연결에 GET 한다');
     assert.equal(e.every, undefined, id + ' 에 주기가 있다');
   }
   const events = ctx.STATE_REGISTRY.flatMap((e) => Object.keys(e.events || {}));

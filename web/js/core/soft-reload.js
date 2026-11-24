@@ -32,10 +32,7 @@ class SoftReload extends Controller {
     try{
       // ① 구독이 죽어 있으면 되살린다. 이것이 먼저인 이유는, 죽은 채로 두면
       //    지금 받아 온 것이 **다음 변화부터 다시 낡기** 때문이다 (§2.2).
-      this._softStep('sse',()=>{
-        const es=this.app._sse;
-        if(!es||es.readyState===2){ if(this.app._sseKick) this.app._sseKick() }
-      });
+      this._softStep('channel',()=>{ if(this.app.channel) this.app.channel.kick() });
       // ② 워크스페이스. 인자 없이 부르면 rev 비교를 건너뛰고 무조건 받아 온다
       //    (`ws-sync-controller.js` 의 `typeof rev==='number'`).
       await this._softStepAsync('workspace',()=>this.app.wsSync._onWorkspaceChanged());

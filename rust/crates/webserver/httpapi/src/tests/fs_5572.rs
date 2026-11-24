@@ -8,7 +8,7 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
-use http_body_util::{BodyExt, Full};
+use http_body_util::Full;
 use otter_webserver_fswatch::{Change, Kind};
 use serde_json::{Value, json};
 use tokio_util::sync::CancellationToken;
@@ -576,24 +576,22 @@ async fn watch_too_many_dirs_and_unattached_are_400() {
     w.close();
 }
 
-/// SSE 구독이 감시 임대를 쥐고, 끊기면 놓는다. (칸 신원은 채널의 `slots` 로 쥐고 감시 임대는 쥐지 않는다.)
+/// TC-CH2A-1: 채널 `hello.client` 가 감시 임대를 쥐고, 채널이 닫히면 놓는다. 칸 신원(`slots`)은 쥐지 않는다.
 #[tokio::test]
-async fn watch_lease_follows_sse_subscription() {
+async fn watch_lease_follows_channel_client() {
+    use futures_util::SinkExt;
+    use tokio_tungstenite::tungstenite::Message;
     let e = fs_env();
-    *e.srv.hello_every.lock().unwrap() = Some(Duration::from_millis(30));
     let (_d, root) = temp_dir();
-    let open = |q: &'static str| {
-        let srv = e.srv.clone();
-        async move {
-            let r = http::Request::builder()
-                .uri(format!("/api/commands/sse?{q}"))
-                .header("Host", TEST_HOST)
-                .body(Full::new(Bytes::new()))
-                .unwrap();
-            srv.serve_addr(r, LOCAL.to_owned()).await
-        }
-    };
-    let mut full = open("clientId=w1").await.into_body();
+    let port = super::ws::listen(e.srv.clone()).await;
+    let (mut c, _) = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}/channel?v=1"))
+        .await
+        .unwrap();
+    c.send(Message::text(
+        json!({"t":"hello","client":"w1","slots":["s1"]}).to_string(),
+    ))
+    .await
+    .unwrap();
     let body = json!({"clientId":"w1","dirs":[root.clone()]});
     let deadline = Instant::now() + Duration::from_secs(3);
     let mut ok = false;
@@ -604,9 +602,15 @@ async fn watch_lease_follows_sse_subscription() {
         }
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
-    assert!(ok, "SSE 구독이 감시 임대를 쥐지 않았다");
-    let _ = tokio::time::timeout(Duration::from_millis(100), full.frame()).await;
-    drop(full);
+    assert!(ok, "채널 client 가 감시 임대를 쥐지 않았다");
+    assert_eq!(
+        watch(&e, json!({"clientId":"s1","dirs":[root.clone()]}))
+            .await
+            .status,
+        400,
+        "칸 신원이 감시 임대를 쥐었다"
+    );
+    drop(c);
     let deadline = Instant::now() + Duration::from_secs(3);
     while Instant::now() < deadline && watch(&e, body.clone()).await.status == 200 {
         tokio::time::sleep(Duration::from_millis(20)).await;
@@ -614,7 +618,7 @@ async fn watch_lease_follows_sse_subscription() {
     assert_eq!(
         watch(&e, body).await.status,
         400,
-        "끊긴 구독이 임대를 놓지 않았다"
+        "닫힌 채널이 임대를 놓지 않았다"
     );
 }
 

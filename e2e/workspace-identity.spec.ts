@@ -29,10 +29,10 @@ async function sseReady(...pages: Page[]) {
   for (const p of pages) {
     await expect
       .poll(() => p.evaluate(() => {
-        const s = (window as any).app.testing.sse;
-        return s ? s.readyState : -1;
-      }), { timeout: 15000, message: 'SSE 가 열리지 않았다' })
-      .toBe(1);
+        const c = (window as any).app.testing.channel;
+        return !!c && c.alive();
+      }), { timeout: 15000, message: '채널이 열리지 않았다' })
+      .toBe(true);
   }
 }
 

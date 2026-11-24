@@ -816,20 +816,6 @@ test('TC-DLG-1(DL-4): 9f 의 옛 위임자 이름은 App 원형에 없고 소유
   assertWalked(load9f(), DELEGATES_9F, { wsSync: 'WsSyncController', 'wsSync.reload': 'SoftReload' });
 });
 
-test('TC-FEA-1(9f): _sse 접근자 넷은 App 원형에 남아 버스를 읽고 _sseSeen 은 버스에 쓴다', () => {
-  const ctx = load9f();
-  const app = new ctx.App();
-  assert.equal(app._sse, null);
-  assert.equal(app._sseGen, 0);
-  app.bus = { _es: 'es', gen: () => 3, lastSeen: () => 7, _seen: 0 };
-  assert.equal(app._sse, 'es');
-  assert.equal(app._cmdES, 'es');
-  assert.equal(app._sseGen, 3);
-  assert.equal(app._sseSeen, 7);
-  app._sseSeen = 9;
-  assert.equal(app.bus._seen, 9);
-});
-
 test('TC-FEA-1(9f): 저장 경로가 함께 쓰는 필드는 App 에 남는다 — 저장 중 알림의 유예가 App 에 적힌다', async () => {
   const ctx = load9f();
   const app = controllers(ctx, new ctx.App());
@@ -838,7 +824,7 @@ test('TC-FEA-1(9f): 저장 경로가 함께 쓰는 필드는 App 에 남는다 �
   assert.equal(app._wsApplyPending, true);
   assert.equal(app._wsDeferRev, 5);
   assert.equal(Object.hasOwn(app.wsSync, '_wsApplyPending'), false);
-  assert.doesNotMatch(read('core/ws-sync-controller.js'), /(?<![\w$.])this\.(wsETag|_wsDeferRev|_wsApplyPending|_saveInflight|_wsApplyInflight|_sseKick|fgNames)\b/);
+  assert.doesNotMatch(read('core/ws-sync-controller.js'), /(?<![\w$.])this\.(wsETag|_wsDeferRev|_wsApplyPending|_saveInflight|_wsApplyInflight|fgNames)\b/);
 });
 
 // CHANNEL_PROTOCOL C2b TC-CH2B-6: `workspace` 토픽의 본문은 GET 없이 적용하고, 낡은 rev 는 버린다.
