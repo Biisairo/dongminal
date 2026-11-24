@@ -43,7 +43,9 @@ for t in "${TARGETS[@]}"; do
   rustup target list --installed | grep -qx "$t" || rustup target add "$t"
   v="${t//-/_}"
   envs=()
-  if [[ "$t" != "$host" && "$t" != *apple-darwin ]]; then
+  # macOS 호스트는 두 darwin 대상을 자기 툴체인으로 컴파일한다. 그 밖의 호스트(Linux 러너)는
+  # darwin 대상도 clang 으로 돈다 — 시스템 cc(gcc)는 cc 크레이트가 넣는 `-arch` 를 모른다.
+  if [[ "$t" != "$host" && ! ( "$t" == *apple-darwin && "$host" == *apple-darwin ) ]]; then
     ar="$tools/llvm-ar"
     [[ "$t" == *windows-msvc ]] && ar="$tools/llvm-lib"
     cflags="-ffreestanding -isystem $stub"

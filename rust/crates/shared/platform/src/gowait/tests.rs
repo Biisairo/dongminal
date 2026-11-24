@@ -161,11 +161,18 @@ fn real_process_matches_go() {
     ];
     for (script, want_darwin, want_linux) in cases {
         // 코어 파일을 남기지 않게 해 `(core dumped)` 가 붙지 않도록 고정한다.
+        // core_pattern 이 파이프인 호스트(Ubuntu 러너 등)는 `ulimit -c 0` 을 무시하고 코어를
+        // 넘긴다 — 그때 Go 도 ` (core dumped)` 를 붙이므로 기대값에 같은 꼬리를 더한다.
         let st = std::process::Command::new("/bin/sh")
             .args(["-c", &format!("ulimit -c 0; {script}")])
             .status()
             .unwrap();
-        let want = if darwin { want_darwin } else { want_linux };
+        let base = if darwin { want_darwin } else { want_linux };
+        let want = if std::os::unix::process::ExitStatusExt::core_dumped(&st) {
+            format!("{base} (core dumped)")
+        } else {
+            base.to_owned()
+        };
         assert_eq!(crate::exit_status_text(&st), want, "{script}");
     }
 }
