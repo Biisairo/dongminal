@@ -385,7 +385,12 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
 
     // FR-AGG-11: 접힌 채로도 알람 수가 보인다. 알람이 서려면 턴이 먼저 시작되어야
     // 한다 (FR-ATN-4).
+    //
+    // PERF M1 C3: `working` 항목은 PTY 가 바쁠 때만 서버 목록에 든다. 이 셸은 놀고 있으므로
+    // 서버가 곧바로 그 카드를 거둔다 — 종전에는 다음 활동 주기(5초)까지 카드가 남아 있었고
+    // 이 검증이 그 낡은 상태에 기댔다. 턴을 연 뒤 `waiting` 으로 둔다.
     expect(await setActivity(page, pidA, 'working', '', 'a')).toBe(200);
+    expect(await setActivity(page, pidA, 'waiting', '', 'a')).toBe(200);
     await page.evaluate(async (p) => {
       await fetch('/api/tools/attention/set', {
         method: 'POST',

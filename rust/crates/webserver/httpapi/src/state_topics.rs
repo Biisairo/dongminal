@@ -80,7 +80,10 @@ fn flags_of(action: &str) -> u8 {
     match action {
         "tool_attention" | "tool_attention_clear" => T_ATTENTION,
         "tool_activity" | "tool_subagent_activity" => T_ACTIVITY | T_RUNS,
-        "tools_background_changed" | "tool_foreground" => T_BACKGROUND,
+        "tools_background_changed" => T_BACKGROUND,
+        // `working` 항목은 PTY 가 바쁠 때만 보인다(`activity_snapshot` 의 busy 판정). 바쁨이
+        // 바뀌는 사건은 전경 이름의 변화다 — 활동·Run 도 다시 계산한다.
+        "tool_foreground" => T_BACKGROUND | T_ACTIVITY | T_RUNS,
         "run_changed" => T_RUNS | T_BACKGROUND,
         "workspace_changed" => T_ALL,
         _ => 0,
@@ -354,5 +357,17 @@ impl Server {
                 }
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn foreground_change_refreshes_activity() {
+        assert_ne!(flags_of("tool_foreground") & T_ACTIVITY, 0);
+        assert_ne!(flags_of("tool_foreground") & T_RUNS, 0);
+        assert_eq!(flags_of("focus"), 0);
     }
 }
