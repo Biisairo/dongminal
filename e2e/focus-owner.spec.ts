@@ -191,11 +191,11 @@ test.describe('묶음 E — 크로스 기기 창 포커스 소유권', () => {
     await expect.poll(async () => (await owners(request))[w1], { timeout: 10000 }).toBe(idA);
 
     // 구독만 끊는다 (컨텍스트는 살아 있다) → 서버가 즉시 해제해야 한다.
-    await A.page.evaluate(() => (window as any).app.testing.cmdES.close());
+    await A.page.evaluate(() => (window as any).app.testing.channel.close());
     await expect.poll(async () => (await owners(request))[w1], { timeout: 10000 }).toBeUndefined();
 
     // 재연결 → onopen 에서 스냅샷 복원 + 재획득. 이것이 없으면 소유권이 영구히 빈다.
-    await A.page.evaluate(() => { (window as any).app.testing.windowFocused = true; (window as any).app.testing.subscribeCommands(); });
+    await A.page.evaluate(() => { (window as any).app.testing.windowFocused = true; (window as any).app.testing.channel.connect(); });
     await expect.poll(async () => (await owners(request))[w1], { timeout: 10000 }).toBe(idA);
 
     await A.ctx.close();
@@ -209,10 +209,10 @@ test.describe('묶음 E — 크로스 기기 창 포커스 소유권', () => {
     await claim(A.page);
     await expect.poll(async () => (await owners(request))[w1], { timeout: 10000 }).toBe(idA);
 
-    await A.page.evaluate(() => { (window as any).app.testing.windowFocused = false; (window as any).app.testing.cmdES.close(); });
+    await A.page.evaluate(() => { (window as any).app.testing.windowFocused = false; (window as any).app.testing.channel.close(); });
     await expect.poll(async () => (await owners(request))[w1], { timeout: 10000 }).toBeUndefined();
 
-    await A.page.evaluate(() => (window as any).app.testing.subscribeCommands());
+    await A.page.evaluate(() => (window as any).app.testing.channel.connect());
     // **예외 (`TEST-16`)**: 소유를 **주장하지 않음**을 잰다 — 주장했다면 이
     // 창 안에 idA 가 돌아온다.
     await A.page.waitForTimeout(1500);

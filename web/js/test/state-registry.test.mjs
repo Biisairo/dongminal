@@ -5,16 +5,16 @@ import { load, plain } from './harness.mjs';
 
 /**
  * REPO_FIX 02 §3A-2 — 서버가 넘친 구독을 **닫는다**. 그때 잃은 이벤트는 재연결의
- * 재수집이 되돌린다: 등록부의 `revalidateOn:['sse:open']` 가 그 약속이다. 새 코드
+ * 재수집이 되돌린다: 등록부의 `revalidateOn:['chan:open']` 가 그 약속이다. 새 코드
  * 없이 이 선언을 고정한다 — 누가 빼면 넘침 뒤 화면이 안전망까지 낡는다.
  */
-test('재연결(sse:open)이 git·설정·포커스·도구 상태를 다시 받는다', () => {
+test('재연결(chan:open)이 git·설정·포커스·도구 상태를 다시 받는다', () => {
   const ctx = load(['core/state-registry.js'], { expose: ['STATE_REGISTRY'] });
   const byId = new Map(ctx.STATE_REGISTRY.map((e) => [e.id, e]));
   for (const id of ['git.observe', 'settings', 'window.focus']) {
     const e = byId.get(id);
     assert.ok(e, `${id} 선언이 없다`);
-    assert.ok(e.revalidateOn.includes('sse:open'), `${id} 가 재연결에 다시 받지 않는다`);
+    assert.ok(e.revalidateOn.includes('chan:open'), `${id} 가 재연결에 다시 받지 않는다`);
   }
 });
 
@@ -59,7 +59,7 @@ function snapshotRig() {
 
 test('첫 연결: 스냅샷 한 요청, 설정은 건너뛴다, /api/state 는 없다', async () => {
   const { gets, got, fire } = snapshotRig();
-  fire('sse:open', { gen: 1 });
+  fire('chan:open', { gen: 1 });
   assert.equal(gets.length, 1, JSON.stringify(gets));
   assert.equal(gets[0], '/api/snapshot?parts=update,focus,edges');
   assert.equal(got._settingsRestore, undefined, '첫 연결에 설정을 다시 받았다');
@@ -75,7 +75,7 @@ test('첫 연결: 스냅샷 한 요청, 설정은 건너뛴다, /api/state 는 �
 });
 
 test('재연결·소프트 리로드: 설정도 같은 스냅샷에 든다', async () => {
-  for (const [topic, a] of [['sse:open', { gen: 2 }], ['softreload', {}]]) {
+  for (const [topic, a] of [['chan:open', { gen: 2 }], ['softreload', {}]]) {
     const { gets, got, fire } = snapshotRig();
     fire(topic, a);
     assert.equal(gets.length, 1, topic + ' ' + JSON.stringify(gets));
@@ -107,7 +107,7 @@ test('TC-CH3-9: 활동·Runs·Run 화면·Background 에 주기가 없고 토픽
     assert.equal(byId.get(id).every, undefined, id + ' 에 주기가 남았다');
   }
   for (const id of ['tool.attention', 'tool.activity', 'tool.background', 'run.list']) {
-    assert.ok(!(byId.get(id).revalidateOn || []).includes('sse:open'), id);
+    assert.ok(!(byId.get(id).revalidateOn || []).includes('chan:open'), id);
     assert.ok(byId.get(id).topic, id + ' 에 토픽이 없다');
   }
   const jobs = [];
@@ -120,7 +120,11 @@ function topicRig() {
   const chanSubs = new Map();
   const got = [];
   const timers = [];
-  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/channel.js', 'core/state-registry.js'], { expose: ['wireStateRegistry'] });
+  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/channel.js', 'core/state-registry.js'], {
+    expose: ['wireStateRegistry'],
+    // 같은 chan:open 이 다른 상태의 재조회도 부른다 — 이 시험은 토픽 항목만 본다.
+    globals: { apiGet: () => Promise.resolve({ ok: false, status: 0, data: null }), console: { error() {}, log() {} } },
+  });
   const app = {
     bus: { subscribe: (t, fn) => { if (!subs.has(t)) subs.set(t, []); subs.get(t).push(fn) } },
     timers: { every() {}, after: (ms, fn) => { timers.push(fn); return { stop() {} } } },

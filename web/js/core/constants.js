@@ -166,26 +166,6 @@ const RESTORE_PANE_WAIT_TRIES=20;
 const WS_HEALTHY_MS=3000;
 
 
-// RECONNECT_STORM_SRS FR-RCS-6: 커맨드 SSE 의 재접속 백오프. **상한만 있고
-// 포기는 없다.** 종전에는 20회 실패 후 영구히 포기했는데, SSE 가 죽으면
-// `_applyRemoteWorkspace` 의 자가 치유(서버가 모르는 도구를 destroy)가 영영
-// 돌지 않아 죽은 패널이 무한히 재접속한다 (§2.5). 실측으로 그 상태의 브라우저
-// 둘이 초당 91연결을 냈다.
-const SSE_RETRY_MIN_MS=1000;
-const SSE_RETRY_MAX_MS=30000;
-
-// RELOAD_CONTINUITY_SRS FR-RLC-25: 커맨드 SSE 의 **침묵 상한**과 그것을 재는 주기.
-//
-// `readyState` 는 브라우저가 믿는 것이지 사실이 아니다 (D-7). 잠에서 깬 기기의
-// 소켓은 끊긴 줄 모른 채 `OPEN` 으로 남으며(half-open), 그동안 명령도 워크스페이스
-// 갱신도 주의 알림도 오지 않는다. 사실에 가장 가까운 근거는 **최근에 무엇이
-// 왔는가** 하나다.
-//
-// 서버는 인사를 15초마다 보낸다(`sseHelloEvery`). 그 세 배를 상한으로 두어 한두
-// 번 늦는 것(네트워크 지연·탭 스로틀링·GC)을 죽음으로 읽지 않는다.
-const SSE_SILENCE_MS=45000;
-const SSE_SILENCE_CHECK_MS=5000;
-
 // PERF_OPTIMIZATION_SRS FR-CON-7 (`perf/CHANNEL_PROTOCOL.md` §7): 채널의 ping 주기(숨었을 때),
 // 침묵 판정의 유예, 재연결 백오프. 보일 때의 ping 주기는 `statsInterval` 이다.
 const CHAN_PING_HIDDEN_MS=30000;

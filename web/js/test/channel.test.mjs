@@ -164,7 +164,7 @@ test('TC-CH1-12: 서버 hello 가 백오프를 되돌리고 chan:open{gen,epoch}
   open(ws);
   recv(ws, { t: 'hello', epoch: 'e7', server: { assetVersion: 'v' } });
   const opens = pub.filter(([t]) => t === 'chan:open').map(([, a]) => plain(a));
-  assert.deepEqual(opens, [{ gen: 3, epoch: 'e7' }]);
+  assert.deepEqual(opens, [{ gen: 3, epoch: 'e7', server: { assetVersion: 'v' } }]);
   drop(ws);
   await clock.advance(499);
   assert.equal(opened.length, 3);

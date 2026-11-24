@@ -171,6 +171,24 @@
 | 프론트 채널 | 재연결 시 마지막 순번으로 재구독, 빈틈 발견 시 재구독, 침묵 판정, `ping` 주기(보일 때·숨었을 때), `sid` 로 터미널 프레임 나누기 |
 | e2e | 브라우저 탭 하나에 WebSocket 하나, 유휴 1분 동안 상태용 GET 0, 채널을 끊었다 이었을 때 모든 토픽이 서버와 같다(NFR-PRF-15) |
 
+### 10.2 C2a — 명령·사건 스트림을 채널로
+
+| ID | 쪽 | 동작 |
+|---|---|---|
+| TC-CH2A-1 | 서버 | `hello.client` 의 신원은 채널이 열린 동안 포커스 구독·git 감시·파일 감시 임대를 쥔다(`/api/fs/watch` 가 그 `clientId` 를 받는다). 채널이 닫히면 곧바로 풀린다 |
+| TC-CH2A-2 | 서버 | `hello.client` 가 처음 붙을 때 판 확인(`updates.trigger`)을 한 번 건다. `client` 없는 인사는 걸지 않는다 |
+| TC-CH2A-3 | 서버 | 명령 허브의 방송 봉투는 `client` 를 밝힌 채널에 `{"t":"cmd", ...봉투}` 로 온다. `client` 가 없는 채널에는 오지 않는다 |
+| TC-CH2A-4 | 서버 | `client` 가 붙으면 서버 `hello` 뒤에 도구 전경 스냅숏(`tool_foreground`)이 `cmd` 로 온다 |
+| TC-CH2A-5 | 서버 | `cmd.result{reqId, ...}` 는 그 `reqId` 를 기다리던 생성 명령(`POST /api/commands`)의 응답에 실린다 |
+| TC-CH2A-6 | 서버 | 명령 구독 상한(`SUB_CAP`)을 넘으면 `error{code:"subscribe_rejected"}` 를 보낸다. 채널은 유지한다 |
+| TC-CH2A-7 | 서버 | `GET /api/commands/sse` 와 `POST /api/command-result` 는 없다(404) |
+| TC-CH2A-8 | 프론트 | `hello` 에 `client`(앱의 clientId)를 싣는다 |
+| TC-CH2A-9 | 프론트 | 서버 `hello` 는 연결마다 처음 한 번만 재구독과 `chan:open{gen, epoch, server}` 를 낸다. 칸 수가 바뀌어 다시 받은 인사는 아무것도 다시 내지 않는다 |
+| TC-CH2A-10 | 프론트 | `cmd` 프레임은 옛 SSE 수신과 같은 길로 간다: 구독자가 있는 action 은 발행, 없으면 지명(`execClientId`) 검사 뒤 대체 처리기, `reqId` 를 인자에 싣는다 |
+| TC-CH2A-11 | 프론트 | 생성 명령의 결과는 채널 `cmd.result` 로 보낸다 |
+| TC-CH2A-12 | 프론트 | 깨어남(`online`·`focus`·`visible`)은 `channel.kick()` 이다: 닫혀 있으면 백오프를 무시하고 곧바로 연결, 열려 있으면 침묵일 때만 다시 연결 |
+| TC-CH2A-13 | 프론트 | 자산 판 확인은 `chan:open` 의 `server.assetVersion` 으로 한다 |
+
 ### 10.4 C3 — delta 토픽과 stats
 
 | ID | 쪽 | 동작 |
@@ -183,7 +201,7 @@
 | TC-CH3-6 | 서버 | `run_changed` 방송 뒤 `runs` 는 그 Run 의 보기를 `put` 하고, 구독 중인 `run:<id>` 는 새 그래프를 `full` 로 받는다. 없는 Run 의 `run:<id>` 는 `unknown_topic` 이다 |
 | TC-CH3-7 | 서버 | `stats:<ms>` 를 구독하면 곧바로 `full` 을 받고, 구독하는 동안 그 주기로 `full` 이 온다. 1000 보다 작은 주기는 1000 으로 읽는다. 구독자가 없으면 측정이 멈춘다(순번이 오르지 않는다) |
 | TC-CH3-8 | 프론트 | 등록부의 토픽 항목(`tool.attention`·`tool.activity`·`tool.background`·`run.list`)은 첫 `chan:open` 에 채널을 구독한다. `full`·`delta` 를 받으면 토픽 맵에서 GET 과 같은 본문을 만들어 그 상태의 복원(또는 적용)에 넘긴다. 한 틱 안의 변화는 한 번으로 합친다 |
-| TC-CH3-9 | 프론트 | `tool.activity`·`run.list`·`run.views`·`tool.background` 에 주기(`every`)가 없고, 이 넷과 `tool.attention` 의 `revalidateOn` 에 `sse:open` 이 없다 |
+| TC-CH3-9 | 프론트 | `tool.activity`·`run.list`·`run.views`·`tool.background` 에 주기(`every`)가 없고, 이 넷과 `tool.attention` 의 `revalidateOn` 에 `chan:open` 이 없다(재연결은 토픽 재구독이 맞춘다) |
 | TC-CH3-10 | 프론트 | 상태바는 `/api/ping`·`/api/stats` 를 부르지 않는다. `stats:<statsInterval>` 을 구독하고, `full` 마다 지표를 얹고 지연은 `app.channel.latency()` 로 그린다. 주기가 바뀌면 옛 토픽을 해지하고 새 토픽을 구독한다 |
 | TC-CH3-11 | 프론트 | 열린 Run 화면은 `run:<id>` 를 구독해 그래프를 GET 없이 얹고, 화면이 사라지면 해지한다 |
 

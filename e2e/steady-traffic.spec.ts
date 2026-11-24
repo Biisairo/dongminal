@@ -100,7 +100,7 @@ test.describe('터미널 창 하나의 정상 상태 트래픽 (FR-OPT-4-3~4-6)'
     await waitForInit(page);
     await waitSettled(page);
     const box = timeline(page);
-    await page.evaluate(() => (window as any).app.testing.sseKick());
+    await page.evaluate(() => (window as any).app.testing.channel.connect());
     await expect.poll(() => byPath(box)['/api/snapshot'] || 0, { timeout: 15000 }).toBe(1);
     await expect.poll(() => byPath(box)['/api/state'] || 0, { timeout: 15000 }).toBe(1);
     const got = byPath(box);

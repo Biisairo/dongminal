@@ -652,7 +652,7 @@ test.describe('T-13 — 돌지 않은 회차의 마감 (FR-SRA-1·2)', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // T-14 — 생명주기 토픽과 SSE 명령의 이름공간 (GIT_LIVE_TRIGGERS_SRS FR-GLW-8)
 //
-// `_onMessage` 는 **구독자가 있는 action 을 지명 검사 앞에서 가로챈다** (FR-BUS-5):
+// `route` 는 **구독자가 있는 action 을 지명 검사 앞에서 가로챈다** (FR-BUS-5):
 //
 //     if(this.has(m.action)){ this.publish(m.action, m.args||{}); return }
 //
@@ -686,7 +686,7 @@ test.describe('T-14 — 생명주기 토픽은 SSE 명령을 가로채지 않는
       const fell = [];
       bus.setFallback((action) => fell.push(action));
       for (const action of ['focus', 'visible', 'hidden', 'online'])
-        bus._onMessage({ data: JSON.stringify({ action, args: {} }) });
+        bus.route({ t: 'cmd', action, args: {} });
 
       // 계기 자체는 살아 있어야 한다 — 겹침을 없앤 대가로 신호를 잃으면 안 된다.
       window.dispatchEvent(new Event('focus'));

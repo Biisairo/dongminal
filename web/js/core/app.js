@@ -187,7 +187,7 @@ class App {
     this.git._initGitSection();
     this.editor.section._initEditorSection();
     // FR-SRL-8·9: 내부 새로고침의 진입점 둘. 배선은 `_subscribeCommands` **뒤**
-    // 여야 한다 — 그것이 `_sseKick` 을 세운다.
+    // 여야 한다 — 그것이 채널(`app.channel`)을 세운다.
     this.wsSync.reload._initSoftReload();
     // FR-WSL-50: 슬롯 토글 버튼. 다른 `_init*` 과 같은 자리다 (방향 설정은 `DisplaySection`).
     this.slot.ops._initSlots();

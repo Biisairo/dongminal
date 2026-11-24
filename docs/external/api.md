@@ -81,7 +81,7 @@
 
 - **last-focus-wins**: 기존 소유자는 협상 없이 밀려난다. 한 클라이언트는 동시에 한 Window 만 소유한다
 - **in-memory**: 영속화하지 않는다. 서버 재시작이면 전원 해제다
-- **해제**: `/api/commands/sse?clientId=<id>` 구독이 끊기면 그 클라이언트의 소유권을 **즉시** 해제한다. grace period 는 없다. 같은 `clientId` 의 더 새로운 구독이 있으면 옛 구독의 종료는 해제하지 않는다
+- **해제**: 채널 `/channel` 의 `hello.client` 로 그 `clientId` 를 밝힌 연결이 끊기면 그 클라이언트의 소유권을 **즉시** 해제한다. grace period 는 없다. 같은 `clientId` 의 더 새로운 구독이 있으면 옛 구독의 종료는 해제하지 않는다
 - 소유권이 없는 Window 는 모두에게 밝게 보이고 모두가 리사이즈할 수 있다
 
 ### 파일
@@ -96,7 +96,7 @@
 | GET | `/api/fs/list?root=<abs>&path=<abs>&offset=<n>` | 탐색기 한 겹 조회. dot 항목 포함, 정렬은 서버가 한다. 응답 `{path, entries:[{name,dir,link,linkDir}], offset, total, truncated, stamp}`. 한 번에 최대 10,000개이며 `truncated` 는 "이 응답 뒤에 더 있다" 는 뜻이다. `offset`(기본 0, 음수·정수 아님은 0)으로 그 다음 쪽을 받아 **이어 붙인다** — 같은 `offset` 이 같은 자리를 가리키는 것은 순서가 서버의 것이기 때문이다. `offset >= total` 은 오류가 아니라 빈 배열이다. `stamp` 는 **이 응답과 같은 관측**의 변경 표식이다 (아래 `/api/fs/stamp` 와 같은 값) |
 | POST | `/api/fs/stamp` | 겹이 바뀌었는지만 값싸게 묻는다. 본문 `{root, dirs:[<abs>…]}` → `{stamps:{<abs>: "<문자열>"}}`. 값은 그 디렉터리의 mtime 이며 **해석하지 않고 같은지만 본다.** 읽을 수 없거나 루트 밖이거나 디렉터리가 아닌 겹은 오류가 아니라 응답에서 **빠진다.** `dirs` 는 512개까지 |
 | POST | `/api/fs/stamps` | 위 `/api/fs/stamp` 와 `/api/file/stamps` 를 **한 요청**으로 묻는다. 본문 `{trees:[{root, dirs:[<abs>…]}…], paths:[<abs>…]}` → `{trees:{<root>: {stamps:{…}} 또는 {code, status}}, paths:{<abs>: "<문자열>"}}`. 값은 두 종단과 같다. 루트마다 판정이 따로다 — 거부된 루트는 그 자리에 옛 종단이 답했을 `code`·`status` 를 싣고, 다른 루트와 파일의 답은 그대로 나간다. `trees` 는 16개, 루트당 `dirs` 는 512개, `paths` 는 512개까지 |
-| PUT | `/api/fs/watch` | 이 클라이언트가 감시할 디렉터리를 **통째로** 바꾼다. 본문 `{clientId, dirs:[<abs>…]}` → `{watching:[<abs>…]}`. **`root` 를 받지 않는다** — 판정은 파일 읽기(`/api/file/read`)와 같다(절대경로). 없는 경로·디렉터리가 아닌 것·감시를 걸 수 없는 것은 오류가 아니라 `watching` 에서 **빠진다.** `clientId` 는 열려 있는 `/api/commands/sse?clientId=` 구독의 것이어야 하고(아니면 400), 그 구독이 끊기면 등록이 지워진다. 비재귀다 — 디렉터리의 직속 항목만 본다. 변화는 SSE `fs_changed` 로 온다. `dirs` 는 1024개까지 |
+| PUT | `/api/fs/watch` | 이 클라이언트가 감시할 디렉터리를 **통째로** 바꾼다. 본문 `{clientId, dirs:[<abs>…]}` → `{watching:[<abs>…]}`. **`root` 를 받지 않는다** — 판정은 파일 읽기(`/api/file/read`)와 같다(절대경로). 없는 경로·디렉터리가 아닌 것·감시를 걸 수 없는 것은 오류가 아니라 `watching` 에서 **빠진다.** `clientId` 는 열려 있는 채널의 `hello.client` 여야 하고(아니면 400), 그 채널이 끊기면 등록이 지워진다. 비재귀다 — 디렉터리의 직속 항목만 본다. 변화는 채널 `cmd` 의 `fs_changed` 로 온다. `dirs` 는 1024개까지 |
 | POST | `/api/fs/create` | 바디 `{root, parent, name, dir}` — 이름은 `/api/fs/validate-name` 과 같은 판정으로 거절된다. 경로를 뜻하는 `{root, path, dir}` 도 받는다 |
 | POST | `/api/fs/validate-name` | 만들기·이름 바꾸기의 이름 하나. 바디 `{name}` → `{actions:{"fs.name": {ok, why?}}}`. 사유는 `empty_name`·`name_has_separator`(`/`, Windows 의 `\`)·`name_reserved`(`.`·`..`). 앞뒤 공백을 지운 뒤 본다 |
 | POST | `/api/fs/rename` | 바디 `{root, from, to}` 또는 제자리 이름 바꾸기 `{root, from, name}`(이름은 validate-name 과 같은 판정). 이동도 이 종단. 폴더를 자기 자신이나 하위로 옮기면 400 `into_self`(복사도 같다). Editor 루트·홈·파일시스템 루트는 옮길 수 없다(400 `editor_root_protected`·`home_protected`·`filesystem_root_protected`) |
@@ -126,8 +126,6 @@
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | POST | `/api/commands` | 워크스페이스 action 브로드캐스트. 바디 `{action, args?, reqId?}` — `otterctl`·`edit`·`detach` 가 사용 |
-| GET | `/api/commands/sse` | Server-Sent Events. 브라우저가 구독해 다른 도구의 명령을 수신 |
-| POST | `/api/command-result` | 브라우저가 생성 결과(`newWindows`/`newPanes`/`newTabs`)를 `reqId` 로 되돌려주는 경로 |
 
 #### `/api/commands` 허용 action
 
@@ -489,11 +487,11 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 `0x06` 을 모르는 클라이언트는 그 프레임을 무시하면 된다. 그때는 자기가 주인이라고 보고
 종전대로 답한다 — 모르는 것이 오류가 되지 않는다.
 
-## SSE: `/api/commands/sse`
+## 채널의 명령 스트림: `/channel` 의 `cmd`
 
-`/api/commands` 로 들어온 action 을 구독 중인 모든 브라우저에 브로드캐스트. 15s 주기 keep-alive 주석. 브라우저가 여러 탭으로 열려 있으면 모두 동일 action 을 수행.
+브라우저 탭은 WebSocket `/channel?v=1` 하나를 연다(`docs/internal/perf/CHANNEL_PROTOCOL.md`). 첫 프레임 `{"t":"hello","client":<clientId>,"slots":[…]}` 로 신원을 밝히면, `/api/commands` 로 들어온 action 이 그 채널에 `{"t":"cmd", action, args, reqId?, execClientId?}` 로 온다. 브라우저가 여러 탭으로 열려 있으면 모두 같은 action 을 받는다. `client` 를 밝힌 연결이 끊기면 그 클라이언트의 창 포커스 소유권·감시 임대가 풀린다.
 
-`?clientId=<id>` 를 붙이면 서버가 그 구독을 클라이언트와 결선한다 — 구독이 끊길 때 창 포커스 소유권을 해제하기 위한 것이다. 생략해도 스트림은 정상 동작한다 (소유권 결선만 없다).
+생성 명령의 결과는 같은 채널에 `{"t":"cmd.result", reqId, newWindows?, newPanes?, newTabs?, newGroups?, position?, error?}` 로 돌려준다.
 
 서버가 자체적으로 발행하는 이벤트도 같은 스트림을 쓴다:
 

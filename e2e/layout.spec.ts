@@ -377,14 +377,11 @@ test.describe('Layout & navigation', () => {
   });
 
   // REMOTE_COMMAND_RESULT_SRS TC-RCR-9: 생성 명령에 reqId 가 있으면 처리 후
-  // POST /api/command-result 로 새 pane/tab(uuid+toolId) 를 echo.
-  test('remote creating command echoes new ids to command-result', async ({ page }) => {
+  // 채널 `cmd.result` 로 새 pane/tab(uuid+toolId) 를 echo (CHANNEL_PROTOCOL C2a).
+  test('remote creating command echoes new ids to cmd.result', async ({ page }) => {
     await waitForInit(page);
-    const captured: any[] = [];
-    await page.route('**/api/command-result', async (route) => {
-      captured.push(JSON.parse(route.request().postData() || '{}'));
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '' });
-    });
+    await captureEcho(page);
+    const captured = () => page.evaluate(() => (window as any).__echo as any[]);
 
     const coord = await page.evaluate(() => {
       const app = (window as any).app;
@@ -394,8 +391,8 @@ test.describe('Layout & navigation', () => {
     await page.evaluate((c) => (window as any).app.testing.execRemote('splitV',
       { reqId: 'test-req-9', location: c, count: 2, keepFocus: true }), coord);
 
-    await expect.poll(() => captured.length, { timeout: 10000 }).toBeGreaterThan(0);
-    const echo = captured[0];
+    await expect.poll(async () => (await captured()).length, { timeout: 10000 }).toBeGreaterThan(0);
+    const echo = (await captured())[0];
     expect(echo.reqId).toBe('test-req-9');
     expect(echo.newPanes.length).toBeGreaterThanOrEqual(1);
     expect(echo.newTabs.length).toBeGreaterThanOrEqual(1);
@@ -404,12 +401,12 @@ test.describe('Layout & navigation', () => {
     expect(echo.newTabs[0].toolId.length).toBeGreaterThan(0);
   });
 
-  // REMOTE_COMMAND_RESULT_SRS: SSE → _execRemote → echo → long-poll 응답 전 경로.
-  // (reqId 가 broadcast top-level 에서 _execRemote 까지 전달되는지 — SSE 연결 갭 회귀)
-  test('creating command via POST returns newTabs end-to-end through SSE', async ({ page }) => {
+  // REMOTE_COMMAND_RESULT_SRS: 채널 cmd → _execRemote → cmd.result → long-poll 응답 전 경로.
+  // (reqId 가 broadcast top-level 에서 _execRemote 까지 전달되는지 — 연결 갭 회귀)
+  test('creating command via POST returns newTabs end-to-end through channel', async ({ page }) => {
     await waitForInit(page);
-    // 페이지의 SSE 구독이 자리잡도록 잠깐 대기.
-    await page.waitForFunction(() => window.app && window.app.testing.cmdES && window.app.testing.cmdES.readyState === 1, { timeout: 5000 });
+    // 페이지의 채널이 자리잡도록 잠깐 대기.
+    await page.waitForFunction(() => window.app && window.app.testing.channel && window.app.testing.channel.alive(), { timeout: 5000 });
     const resp = await page.evaluate(async () => {
       const r = await fetch('/api/commands', {
         method: 'POST',
@@ -430,11 +427,7 @@ test.describe('Layout & navigation', () => {
   // TC-RCR-10: reqId 없는 명령(단축키/버튼 경로)은 echo 하지 않는다.
   test('remote command without reqId does not echo', async ({ page }) => {
     await waitForInit(page);
-    const captured: any[] = [];
-    await page.route('**/api/command-result', async (route) => {
-      captured.push(1);
-      await route.fulfill({ status: 200, body: '' });
-    });
+    await captureEcho(page);
 
     const before = await page.locator('#area .pn').count();
     const coord = await page.evaluate(() => {
@@ -446,7 +439,7 @@ test.describe('Layout & navigation', () => {
       { location: c, count: 2, keepFocus: true }), coord); // reqId 없음
     await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
     // 분할은 됐지만 echo 는 없어야.
-    expect(captured.length).toBe(0);
+    expect(await page.evaluate(() => (window as any).__echo.length)).toBe(0);
   });
 
   // TC-RST-10: name 64자 절단.
@@ -581,3 +574,14 @@ test('V-CHR-10: 탭줄의 고정 구는 새 탭과 분할뿐이다 — 전역은
     // UX_BATCH12_SRS FR-ACF-7: `Activity` 단추도 없어졌다 — 진입점은 패널의 레일이다.
     await expect(page.locator('#topbar #agents-toggle')).toHaveCount(0);
   });
+
+/** 채널로 나가는 `cmd.result` 를 붙잡는다 — 보내기는 그대로 한다. */
+async function captureEcho(page: any) {
+  await page.evaluate(() => {
+    const w = window as any;
+    const ch = w.app.testing.channel;
+    w.__echo = [];
+    const send = ch.send.bind(ch);
+    ch.send = (v: any) => { if (v && v.t === 'cmd.result') w.__echo.push(v); return send(v) };
+  });
+}

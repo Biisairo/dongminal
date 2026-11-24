@@ -68,14 +68,6 @@ pub(crate) fn mux_table() -> Vec<(Pattern, Handler)> {
         (Pattern::Exact("/channel"), mux_h!(handle_channel)),
         (Pattern::Tree("/api/"), handle_api_entry as Handler),
         (Pattern::Exact("/api/commands"), mux_h!(handle_command_post)),
-        (
-            Pattern::Exact("/api/commands/sse"),
-            mux_h!(handle_command_sse),
-        ),
-        (
-            Pattern::Exact("/api/command-result"),
-            mux_h!(handle_command_result),
-        ),
         // VIEWER_URL_OPEN_SRS FR-VUO-19: 부작용 없는 판정 조회.
         (
             Pattern::Exact("/api/open-url/where"),
