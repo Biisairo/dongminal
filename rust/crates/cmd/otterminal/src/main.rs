@@ -11,7 +11,7 @@ use std::io::Write;
 
 use otter_gocompat::oserr::go_error_string;
 use otter_shared_otterenv as otterenv;
-use otter_shared_otterlog::{self as otterlog, errorf};
+use otter_shared_otterlog::{self as otterlog, errorf, warnf};
 
 use crate::daemon::DAEMON_SUBCOMMAND;
 
@@ -19,6 +19,8 @@ use crate::daemon::DAEMON_SUBCOMMAND;
 const HOME_DIR_PERM: u32 = 0o700;
 
 fn main() {
+    // Go 런타임처럼 열린 파일 수 soft 를 올린다. 헬퍼도 같다. 자식에게는 원래 값을 돌려준다.
+    let nofile = otter_shared_platform::raise_nofile_limit();
     let argv: Vec<OsString> = std::env::args_os().collect();
     if let Some(code) = otter_helper_runtimebin::dispatch(argv.clone()) {
         exit(code);
@@ -30,6 +32,13 @@ fn main() {
         level: std::env::var(otterenv::ENV_LOG_LEVEL).unwrap_or_default(),
         out: None,
     });
+    if let Err(e) = nofile {
+        warnf!(
+            None,
+            "열린 파일 수 상한을 올리지 못했습니다: {}",
+            go_error_string(&e)
+        );
+    }
 
     let args: Vec<String> = argv
         .into_iter()
