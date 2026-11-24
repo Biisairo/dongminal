@@ -301,3 +301,179 @@ test('한 회차의 재예약은 전체 훑기 한 번이다 (IPC-31)', async ()
   // 재무장들을 모은 재예약 한 번. 종전에는 54 번이었다.
   assert.ok(scans <= 3, '한 회차에 전체를 ' + scans + ' 번 훑었다 (job 50)');
 });
+
+/**
+ * PERF_OPTIMIZATION_SRS FR-SPA-4 · D-39 — `frame` 의 합치기 키·우선순위·예산 (이슈 3.6.1).
+ *
+ * 하네스의 rAF 는 16 ms 뒤의 가짜 타이머다. 예산은 `performance.now()` 로 재므로 그 값을
+ * 시험이 쥔다 — 콜백 안에서 `t.ms += …` 로 "오래 걸린 일" 을 흉내 낸다.
+ */
+function frameHub({ inputPending } = {}) {
+  const clock = fakeClock();
+  const t = { ms: 0, input: false };
+  const globals = { performance: { now: () => t.ms } };
+  if (inputPending) globals.navigator = { scheduling: { isInputPending: () => t.input } };
+  const ctx = load(['core/error-log.js', 'core/timer-hub.js'], {
+    clock,
+    globals: { addEventListener() {}, ...globals },
+    expose: ['TimerHub', 'TIMERS', 'ErrorLog'],
+  });
+  return { clock, t, TIMERS: ctx.TIMERS, ErrorLog: ctx.ErrorLog };
+}
+
+test('frame: 옵션 없는 호출은 부른 순서대로 한 프레임에 돈다', async () => {
+  const { clock, TIMERS } = frameHub();
+  const log = [];
+  for (const k of ['a', 'b', 'c']) TIMERS.frame(() => log.push(k));
+  await clock.advance(16);
+  assert.deepEqual(log, ['a', 'b', 'c']);
+});
+
+test('frame: 한 프레임에 rAF 는 하나다', async () => {
+  const { clock, TIMERS } = frameHub();
+  for (let i = 0; i < 5; i++) TIMERS.frame(() => {});
+  assert.equal(clock.pending(), 1, '호출마다 rAF 를 걸었다');
+});
+
+test('frame: 프레임 안에서 건 frame 은 다음 프레임에 돈다', async () => {
+  const { clock, TIMERS } = frameHub();
+  const log = [];
+  TIMERS.frame(() => { log.push('a'); TIMERS.frame(() => log.push('b')) });
+  await clock.advance(16);
+  assert.deepEqual(log, ['a']);
+  await clock.advance(16);
+  assert.deepEqual(log, ['a', 'b']);
+});
+
+test('frame key: 같은 프레임의 같은 키는 마지막 것만 한 번 돈다', async () => {
+  const { clock, TIMERS } = frameHub();
+  const log = [];
+  TIMERS.frame(() => log.push(1), { key: 'k' });
+  TIMERS.frame(() => log.push('other'), { key: 'j' });
+  TIMERS.frame(() => log.push(2), { key: 'k' });
+  await clock.advance(16);
+  assert.deepEqual(log, ['other', 2], '앞의 것을 버리고 마지막 것이 부른 순서의 끝에 선다');
+});
+
+test('frame key: 돈 뒤의 같은 키는 새로 잡힌다', async () => {
+  const { clock, TIMERS } = frameHub();
+  let n = 0;
+  TIMERS.frame(() => n++, { key: 'k' });
+  await clock.advance(16);
+  TIMERS.frame(() => n++, { key: 'k' });
+  await clock.advance(16);
+  assert.equal(n, 2);
+});
+
+test('frame coalesce: 종전대로 먼저 잡힌 예약이 이긴다 (FR-SCH-15)', async () => {
+  const { clock, TIMERS } = frameHub();
+  const log = [];
+  const h1 = TIMERS.frame(() => log.push(1), { owner: 'o', coalesce: 'c' });
+  const h2 = TIMERS.frame(() => log.push(2), { owner: 'o', coalesce: 'c' });
+  assert.equal(h1.id, h2.id);
+  await clock.advance(16);
+  assert.deepEqual(log, [1]);
+});
+
+test('frame prio: input > term > normal > idle 순서로 돈다', async () => {
+  const { clock, TIMERS } = frameHub();
+  const log = [];
+  TIMERS.frame(() => log.push('idle'), { prio: 'idle' });
+  TIMERS.frame(() => log.push('normal'));
+  TIMERS.frame(() => log.push('term'), { prio: 'term' });
+  TIMERS.frame(() => log.push('input'), { prio: 'input' });
+  TIMERS.frame(() => log.push('normal2'), { prio: 'normal' });
+  await clock.advance(16);
+  assert.deepEqual(log, ['input', 'term', 'normal', 'normal2', 'idle']);
+});
+
+test('frame 예산: 8 ms 를 넘으면 남은 idle 은 다음 프레임으로 간다', async () => {
+  const { clock, t, TIMERS } = frameHub();
+  const log = [];
+  TIMERS.frame(() => { log.push('n'); t.ms += 9 });
+  TIMERS.frame(() => log.push('i1'), { prio: 'idle' });
+  TIMERS.frame(() => log.push('i2'), { prio: 'idle' });
+  await clock.advance(16);
+  assert.deepEqual(log, ['n']);
+  assert.equal(TIMERS.pending().filter((p) => p.kind === 'frame').length, 2, '미룬 idle 이 대기 목록에서 사라졌다');
+  await clock.advance(16);
+  assert.deepEqual(log, ['n', 'i1', 'i2']);
+});
+
+test('frame 예산: idle 이 예산을 넘기면 그 뒤의 idle 만 미룬다', async () => {
+  const { clock, t, TIMERS } = frameHub();
+  const log = [];
+  TIMERS.frame(() => { log.push('i1'); t.ms += 8 }, { prio: 'idle' });
+  TIMERS.frame(() => log.push('i2'), { prio: 'idle' });
+  await clock.advance(16);
+  assert.deepEqual(log, ['i1']);
+  await clock.advance(16);
+  assert.deepEqual(log, ['i1', 'i2']);
+});
+
+test('frame 예산: input·term·normal 은 예산을 넘어도 미루지 않는다', async () => {
+  const { clock, t, TIMERS } = frameHub();
+  const log = [];
+  TIMERS.frame(() => { log.push('input'); t.ms += 20 }, { prio: 'input' });
+  TIMERS.frame(() => log.push('term'), { prio: 'term' });
+  TIMERS.frame(() => log.push('normal'));
+  await clock.advance(16);
+  assert.deepEqual(log, ['input', 'term', 'normal']);
+});
+
+test('frame isInputPending: 참이면 idle 을 돌리지 않고, 거짓이 되면 돈다', async () => {
+  const { clock, t, TIMERS } = frameHub({ inputPending: true });
+  const log = [];
+  t.input = true;
+  TIMERS.frame(() => log.push('n'));
+  TIMERS.frame(() => log.push('i'), { prio: 'idle' });
+  await clock.advance(16);
+  assert.deepEqual(log, ['n']);
+  t.input = false;
+  await clock.advance(16);
+  assert.deepEqual(log, ['n', 'i']);
+});
+
+test('frame isInputPending: 없는 환경은 예산만 본다', async () => {
+  const { clock, TIMERS } = frameHub();
+  const log = [];
+  TIMERS.frame(() => log.push('i'), { prio: 'idle' });
+  await clock.advance(16);
+  assert.deepEqual(log, ['i']);
+});
+
+test('frame: 주인을 정리하면 대기 작업이 사라지고 rAF 도 걷힌다', async () => {
+  const { clock, t, TIMERS } = frameHub();
+  const log = [];
+  TIMERS.frame(() => log.push('a'), { owner: 'o' });
+  TIMERS.frame(() => log.push('k'), { owner: 'o', key: 'k', prio: 'idle' });
+  assert.equal(TIMERS.disposeOwner('o'), 2);
+  assert.equal(TIMERS.pending().length, 0);
+  assert.equal(clock.pending(), 0, '할 일이 없는데 rAF 가 남았다');
+  TIMERS.frame(() => { t.ms += 9 });
+  TIMERS.frame(() => log.push('late'), { owner: 'p', prio: 'idle' });
+  await clock.advance(16);
+  assert.equal(TIMERS.disposeOwner('p'), 1, '미룬 idle 이 주인 정리에 잡히지 않았다');
+  await clock.advance(32);
+  assert.deepEqual(log, []);
+});
+
+test('frame: stop 은 그 작업만 걷는다', async () => {
+  const { clock, TIMERS } = frameHub();
+  const log = [];
+  const h = TIMERS.frame(() => log.push('a'));
+  TIMERS.frame(() => log.push('b'));
+  TIMERS.cancel(h);
+  await clock.advance(16);
+  assert.deepEqual(log, ['b']);
+});
+
+test('frame: 하나가 던져도 같은 프레임의 나머지가 돈다', async () => {
+  const { clock, TIMERS, ErrorLog } = frameHub();
+  const log = [];
+  TIMERS.frame(() => { throw new Error('프레임 던짐') });
+  TIMERS.frame(() => log.push('b'));
+  await clock.advance(16);
+  assert.deepEqual(log, ['b']);
+  assert.ok(ErrorLog.items().some((i) => i.kind === 'timer' && /프레임 던짐/.test(i.message)));
+});
