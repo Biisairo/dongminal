@@ -127,11 +127,18 @@ function edLspDiagItems(plugin, items) {
   });
 }
 
-/** 그룹의 모든 칸에 진단을 그린다 — 꺼져 있으면 빈 진단(지운다). 보관분은 그대로 둔다. */
-function edLspDiagShow(buf, on) {
+// PERF 3.5.3 (FR-SPA-3): 잠든 편집기의 칸(`EditorView`). 진단은 버퍼에 보관만 하고, 깰 때 그 칸에 한 번 그린다.
+const ED_LSP_ASLEEP = new WeakSet();
+
+/**
+ * 그룹의 깬 칸에 진단을 그린다 — 꺼져 있으면 빈 진단(지운다). 보관분은 그대로 둔다. `only` 를 주면 그 칸에만
+ * 그린다(깰 때).
+ */
+function edLspDiagShow(buf, on, only) {
   if (!buf) return;
   const list = on ? buf.diagnostics : [];
-  for (const s of buf.sinks) s.dispatch(CM.setDiagnostics(s.state, list));
+  const sinks = only ? [only] : buf.sinks.filter((s) => !ED_LSP_ASLEEP.has(s));
+  for (const s of sinks) s.dispatch(CM.setDiagnostics(s.state, list));
 }
 
 /** showMessage 의 `type` 을 라이브러리와 같은 패널 이름으로 (1 error · 2 warning · 3 info). */
