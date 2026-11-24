@@ -6,13 +6,12 @@
  */
 class EditorSection extends Controller {
   // 진입점은 정적 요소이므로 리스너는 여기서 한 번만 붙인다 (`_initGitSection`
-  // 과 같은 모양). **목록**에는 폴링이 없다 — 변경 계기가 SSE 와 자기 조작뿐이다.
-  // 여기서 거는 폴링은 탐색기의 git 색이며 대상이 다르다 (FR-EDT-77).
+  // 과 같은 모양). 목록에도 탐색기에도 폴링이 없다 — 변경 계기가 채널과 자기 조작뿐이다.
   _initEditorSection(){
     // FR-RTU-5: 진입점은 하나다 — 이 한 번이 목록과 핀을 함께 만든다 (연동).
     const add=document.getElementById(REPO_ADD_ID);
     if(add) add.addEventListener('click',()=>this._edAdd());
-    this.app.editor.pane._edStartGitPoll();
+    this.app.editor.pane._edStartSync();
   }
 
   // FR-EDT-28: `+ Add` 는 지금 터미널의 cwd 를 미리 채운다. 얻지 못하면 빈 칸으로

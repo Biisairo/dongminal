@@ -6,7 +6,7 @@ import { APIRequestContext, Page } from '@playwright/test';
 
 import {
   test, expect, rmTree, switchToEditorRoot, openExplorerSide, addEditor, gotoWithEditors, openExplorerAt, enterExplorer,
-  scopedSettings, nextFrames,
+  scopedSettings, nextFrames, resyncEditor,
 } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
@@ -355,7 +355,7 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
     await expect(page.locator('.ed-tree .ed-more')).toHaveText('40 / 50 — 더 보기');
   });
 
-  test('X7 (V-EDT-46): 폴링이 돌아도 펼침·선택·스크롤이 유지된다', async ({ page, request }) => {
+  test('X7 (V-EDT-46): 다시 맞춰도 펼침·선택·스크롤이 유지된다', async ({ page, request }) => {
     test.setTimeout(60000);
     await enterExplorer(page, request, REPO);
     // 펼침과 선택을 한 번에 만든다. **파일을 고르지 않는다** — 편집기 열기는
@@ -376,12 +376,13 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
       (p) => document.querySelector(`.ed-tree .ed-row[data-path="${String(p).replace(/\\/g, '\\\\')}"]`),
       j(REPO, 'bulk', 'f10.txt'));
 
-    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1 (FR-EDT-77 개정): 틱마다 도는 것은 이제 스탬프
-    // 물음과 캐시로 다시 칠하기다 — status 는 안전망(30초)과 push 뿐이다. 재려는 것은
-    // "틱이 돌아도 시선이 유지된다" 이므로 세는 대상을 그 틱의 요청으로 옮겼다.
-    const poll = await page.evaluate(() => (window as any).gitReposInterval);
+    // 이슈 1.14: 주기 틱이 없다. 맞추기(스탬프 물음 + 캐시로 다시 칠하기)는 사건마다 한 번이다.
+    // 재려는 것은 "맞춰도 시선이 유지된다" 이므로 그 계기를 두 번 내고 그 요청을 센다.
     const c = counter(page, (u) => u.includes('/api/fs/stamps'));
-    await expect.poll(() => c.n, { timeout: poll * 3 + 5000 }).toBeGreaterThanOrEqual(2);
+    await resyncEditor(page);
+    await expect.poll(() => c.n, { timeout: 10000 }).toBeGreaterThanOrEqual(1);
+    await resyncEditor(page);
+    await expect.poll(() => c.n, { timeout: 10000 }).toBeGreaterThanOrEqual(2);
 
     await expect(row(page, j(REPO, 'bulk', 'f59.txt'))).toHaveCount(1);
     await expect(row(page, j(REPO, 'bulk'))).toHaveClass(/sel/);
@@ -505,7 +506,7 @@ test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
     await expect(row(page, j(REPO, 'bulk'))).not.toHaveAttribute('data-st', /./);
   });
 
-  test('X12 (V-EDT-55): 비활성 Editor 창은 폴링하지 않는다', async ({ page, request }) => {
+  test('X12 (V-EDT-55): 비활성 Editor 창은 맞추지 않는다', async ({ page, request }) => {
     test.setTimeout(90000);
     await addEditor(request, REPO);
     await addEditor(request, PLAIN);
@@ -514,16 +515,16 @@ test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
     await openExplorerAt(page, REPO);
     await expect(row(page, j(REPO, 'a.txt'))).toHaveAttribute('data-st', 'M', { timeout: 10000 });
     await openExplorerAt(page, PLAIN);
-    // 틱이 실제로 묻는 것은 `/api/fs/stamps` 다 (FR-OPT-4-1) — status 는 30초 안전망에만
-    // 나가므로(`file-tree-load.js`) 그것을 세면 "비활성 창이 틱을 돈다" 는 회귀를 잡지
-    // 못한다 (E2E_PRUNE_REPORT §8.6). 그래서 본문에 각 루트가 실린 stamps 를 센다.
-    // 활성 창(PLAIN)의 틱이 세 번 지나는 동안 저장소 루트를 묻지 않아야 한다 — 종전
-    // 창(주기×3+1초)과 같은 회차를 고정 시간 없이 지난다.
+    // 맞추기가 묻는 것은 `/api/fs/stamps` 다 — 본문에 각 루트가 실린 stamps 를 센다(E2E_PRUNE_REPORT §8.6).
+    // 이슈 1.14: 주기 틱이 없으므로 맞추기를 세 번 낸다. 그동안 저장소 루트를 묻지 않아야 한다.
     const active = stampsOf(page, PLAIN);
     const idle = stampsOf(page, REPO);
-    await expect.poll(() => active.n, { timeout: 15000, message: '활성 창의 틱이 돌지 않는다' })
-      .toBeGreaterThanOrEqual(3);
-    expect(idle.n, '비활성 창의 루트를 틱이 물었다').toBe(0);
+    for (let i = 1; i <= 3; i++) {
+      await resyncEditor(page);
+      await expect.poll(() => active.n, { timeout: 10000, message: '활성 창을 맞추지 않았다' })
+        .toBeGreaterThanOrEqual(i);
+    }
+    expect(idle.n, '비활성 창의 루트를 물었다').toBe(0);
   });
 
   test('X13 (V-EDT-56): 창 활성화와 저장이 즉시 갱신을 부른다', async ({ page, request }) => {

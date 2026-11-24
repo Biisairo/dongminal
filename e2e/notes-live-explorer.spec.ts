@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree, switchToEditorRoot, openExplorerSide, scopedSettings } from './fixtures';
+import { test, expect, rmTree, switchToEditorRoot, openExplorerSide, scopedSettings, resyncEditor } from './fixtures';
 import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath } from './osenv';
 
@@ -372,12 +372,15 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
     await expect(treeRows(page).first()).toBeVisible({ timeout: 10000 });
 
     // 첫 조회가 끝난 **뒤**부터 센다. 이 구간에 디스크는 그대로다.
-    // 스탬프가 네 번 나갈 때까지 본다 — 앞 세 회차의 답이 부를 목록 요청은 넷째 틱
-    // 전에 나간다. 종전 창(9000ms)에 들던 세 회차를 고정 시간 없이 지난다.
+    // 맞추기를 네 번 낸다(이슈 1.14 — 주기 틱이 없다). 앞 세 회차의 답이 부를 목록 요청은
+    // 넷째 물음 전에 나간다.
     const list = counter(page, (u) => u.includes('/api/fs/list'));
     const stamp = counter(page, (u) => u.includes('/api/fs/stamp'));
-    await expect.poll(() => stamp.n, { timeout: POLL_WAIT, message: '스탬프는 주기마다 물어야 한다' })
-      .toBeGreaterThanOrEqual(4);
+    for (let i = 1; i <= 4; i++) {
+      await resyncEditor(page);
+      await expect.poll(() => stamp.n, { timeout: POLL_WAIT, message: '맞추기는 스탬프를 물어야 한다' })
+        .toBeGreaterThanOrEqual(i);
+    }
     expect(list.n, `변경이 없으면 목록을 다시 읽지 않는다 (list=${list.n})`).toBe(0);
   });
 

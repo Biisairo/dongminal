@@ -16,7 +16,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import {
-  test, expect, waitForInit, addEditorRoot, switchToEditorRoot, rmTree,
+  test, expect, waitForInit, addEditorRoot, switchToEditorRoot, rmTree, resyncEditor,
 } from './fixtures';
 import { TMP, realPath } from './osenv';
 
@@ -147,7 +147,8 @@ test('V-ELR-10: 보이지 않는 창의 파일은 묻지 않는다', async ({ pa
   await openFile(page, saved, 'e.txt');
   const probe = stampsProbe(page);
   // 그 파일을 묻고 있다는 것을 먼저 확인한다 — 확인 없이 "묻지 않는다" 를 재면
-  // 종단이 통째로 죽어 있어도 검사가 통과한다.
+  // 종단이 통째로 죽어 있어도 검사가 통과한다. 주기 틱이 없으므로 맞추기를 낸다(이슈 1.14).
+  await resyncEditor(page);
   await expect.poll(() => probe.bodies.some(b => b.includes('e.txt')), { timeout: POLL_WAIT })
     .toBe(true);
 
@@ -158,6 +159,7 @@ test('V-ELR-10: 보이지 않는 창의 파일은 묻지 않는다', async ({ pa
     if (plain) a.layout.switchWindow(plain.id);
   });
   probe.bodies.length = 0;
+  await resyncEditor(page);
   // **예외 (`TEST-16`)**: 그 경로를 **묻지 않음**을 잰다. 오지 않는 요청을
   // 기다릴 조건은 없다 — 시간을 주고 그래도 비어 있는지가 검사 자체다.
   await page.waitForTimeout(POLL_WAIT);
@@ -169,12 +171,15 @@ test('V-ELR-11: 종단이 없는 서버(404)면 묻기를 멈춘다', async ({ p
   const { saved } = await mkroot(request, page, 'old', { 'f.txt': 'x\n' });
   await openFile(page, saved, 'f.txt');
   const probe = stampsProbe(page);
+  await resyncEditor(page);
   await expect.poll(() => probe.bodies.length, { timeout: POLL_WAIT }).toBeGreaterThan(0);
 
   const after = probe.bodies.length;
+  await resyncEditor(page);
+  await resyncEditor(page);
   // **예외 (`TEST-16`)**: 굳은 뒤로 요청이 **더 나가지 않음**을 잰다.
   await page.waitForTimeout(POLL_WAIT);
-  // 404 를 받은 뒤로는 한 번도 더 묻지 않는다 — 굳히지 않으면 3초마다 404 다.
+  // 404 를 받은 뒤로는 맞추기가 와도 한 번도 더 묻지 않는다.
   expect(probe.bodies.length).toBe(after);
 });
 
@@ -186,7 +191,8 @@ test('V-ELR-12: 표식만 바뀌고 내용이 같으면 넣지 않는다', async
 
   // 같은 내용으로 다시 쓴다 — mtime 이 움직이므로 표식은 달라진다.
   writeFileSync(join(root, 'g.txt'), LONG);
-  await expect.poll(() => probe.bodies.length, { timeout: POLL_WAIT }).toBeGreaterThan(1);
+  await resyncEditor(page);
+  await expect.poll(() => probe.bodies.length, { timeout: POLL_WAIT }).toBeGreaterThan(0);
   // **예외 (`TEST-16`)**: 물음이 오간 뒤에도 `setValue` 가 **일어나지 않음**을
   // 잰다. 커서가 움직이지 않는 것을 기다릴 조건으로는 쓸 수 없다.
   await page.waitForTimeout(2000);

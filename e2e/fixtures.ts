@@ -1365,6 +1365,14 @@ export async function openExplorerAt(page: any, root: string) {
 }
 
 /**
+ * 탐색기·편집기를 한 번 맞추게 한다 (PERF_OPTIMIZATION_SRS 이슈 1.14). 주기 틱이 없으므로
+ * 시험은 실제 계기 하나 — 탭이 다시 보이는 순간(`visibilitychange` → `life:visible`) — 를 낸다.
+ */
+export async function resyncEditor(page: any) {
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+}
+
+/**
  * 루트를 세우고 그 Editor 창의 탐색기로 들어간다 (`TEST-17`).
  *
  * **첫 행이 보이는 것까지가 이 준비다** — 뿌리 조회가 끝났다는 뜻이고, 그 전에

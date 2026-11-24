@@ -15,8 +15,8 @@ import { TMP, realPath, cssPath } from './osenv';
  * **아무것도 하지 않는 30초**의 요청 타임라인을 종단별로 센다.
  *
  *   이전 (0bbd3485): git/status 10 · fs/stamp 10 · file/stamps 10  = 30
- *   이후 (실측):     git/status 0  · fs/stamps 10                   = 10
- *                    (안전망 30초가 창 안에 들면 status 가 1 이다)
+ *   O4a 뒤:          git/status 0  · fs/stamps 10                   = 10
+ *   이슈 1.14 뒤:    0 — 주기 틱이 없다. 변화는 채널의 `fs`·`git:<root>` 토픽이 민다 (D-9)
  *
  * **고정 대기의 예외 (`TEST-16`).** 창 안에 요청이 몇 건 나가는가가 답이므로 기다릴
  * 신호가 없다 — 시간을 주고 그 사이의 수를 센다.
@@ -58,7 +58,7 @@ const count = (box: { path: string }[], p: string) => box.filter((x) => x.path =
 const row = (page: Page, p: string) => page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`);
 
 test.describe('편집기 창의 정상 상태 트래픽 (FR-OPT-4-1 · 4-2)', () => {
-  test('30초 동안: 스탬프는 틱당 한 요청, status 는 안전망뿐이다', async ({ page, request }) => {
+  test('30초 동안 아무것도 바뀌지 않으면 상태를 묻는 요청이 하나도 없다 (이슈 1.14, D-9)', async ({ page, request }) => {
     test.setTimeout(WINDOW_MS + 60000);
     await enterExplorer(page, request, REPO);
     await expect(row(page, path.join(REPO, 'a.txt'))).toHaveAttribute('data-st', 'M', { timeout: 15000 });
@@ -72,8 +72,6 @@ test.describe('편집기 창의 정상 상태 트래픽 (FR-OPT-4-1 · 4-2)', ()
 
     const box = timeline(page);
     await page.waitForTimeout(WINDOW_MS);
-    const poll = await page.evaluate(() => (window as any).gitReposInterval);
-    const ticks = Math.ceil(WINDOW_MS / poll);
     const got = {
       status: count(box, '/api/git/status'),
       stamps: count(box, '/api/fs/stamps'),
@@ -84,11 +82,9 @@ test.describe('편집기 창의 정상 상태 트래픽 (FR-OPT-4-1 · 4-2)', ()
     // 옛 종단 둘은 더는 부르지 않는다 — 한 요청으로 합쳤다 (FR-OPT-4-2).
     expect(got.fsStamp).toBe(0);
     expect(got.fileStamps).toBe(0);
-    // 틱당 하나다. 경계에서 한 틱이 더 들 수 있다.
-    expect(got.stamps).toBeGreaterThanOrEqual(ticks - 1);
-    expect(got.stamps).toBeLessThanOrEqual(ticks + 1);
-    // 안전망(30초) 한 번까지다. 종전에는 틱마다(≈10) 나갔다.
-    expect(got.status, JSON.stringify(got)).toBeLessThanOrEqual(1);
+    // 주기 틱이 없다 — 디스크가 그대로면 묻지 않는다.
+    expect(got.stamps, JSON.stringify(got)).toBe(0);
+    expect(got.status, JSON.stringify(got)).toBe(0);
   });
 
   test('탐색기는 git_changed 로 색을 받는다 — 안전망을 기다리지 않는다 (IPC-8)', async ({ page, request }) => {
