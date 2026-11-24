@@ -38,8 +38,15 @@ class EditorFile extends Controller {
     // addTab 의 editor 분기가 중복 방지와 refresh 를 이미 한다.
     // FR-RTU-40: `preview` 는 그대로 넘긴다 — 미리보기 탭을 만들지 대체할지는
     // addTab 한 자리가 정한다.
+    //
+    // PERF 3.6.3 (FR-SPA-4): 다른 창으로 바꾸면 아래 `switchWindow` 가 그린다. 새 탭을 만드는 `addTab` 의 그리기는
+    // 같은 작업 안에서 덮이므로 건너뛴다.
+    //   이전 동작: 한 작업에서 두 번 그렸다(측정: 71~79 ms 중 ≈22% 가 첫 그리기)
+    //   새  동작: 대상 창이 이미 활성이 아닐 때만 첫 그리기를 건너뛴다. 이미 열린 탭을 드러내는 갈래는 그대로다
+    //   이유:     첫 그리기의 결과는 화면에 나가기 전에 덮인다. 생명주기 전이는 둘째 그리기 한 번에서 난다
+    const switching=this.app.ws.activeWindow!==w.id;
     await this.app.layout.tabAdd.addTab(rid,TAB_TYPE_EDITOR,
-      {filePath,name:(opts||{}).name,windowId:w.id,preview});
+      {filePath,name:(opts||{}).name,windowId:w.id,preview,skipRender:switching});
     // FR-EDT-102: 열면 그 창으로 전환된다. 열었는데 보이지 않으면 사용자는
     // 실패로 읽는다. 사이드바 탭은 FR-EDT-8 로 따라온다.
     this.app.layout.switchWindow(w.id);

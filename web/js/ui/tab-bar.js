@@ -20,6 +20,7 @@ class TabBar extends View {
     this.persistKey=o.persistKey||null;
     this._cur=null;
     this._fitRo=null;
+    this._fitKey='tabsFit:'+(++TabBar.fitSeq);
     this.memo=new ScrollMemo(id=>this.scrollRoot(id));
   }
 
@@ -115,8 +116,18 @@ class TabBar extends View {
     if(bd.shown) g.textContent=bd.text;
   }
 
-  /** 라벨 판정의 한 자리 (FR-FEB-26). 줄이 아직 없으면 잴 것이 없다. */
-  fit(){ if(this.el) UIKit.tabsFit(this.el) }
+  /**
+   * 라벨 판정의 한 자리 (FR-FEB-26). 줄이 아직 없으면 잴 것이 없다.
+   *
+   * PERF 3.6.3 (FR-SPA-4 · D-39): 판정은 레이아웃을 읽으므로 **다음 프레임에 줄마다 한 번** 잰다(`frame` 의 `key`).
+   *   이전 동작: 부를 때마다 곧바로 쟀다. 파일 열기 한 작업에서 쓰기 사이에 여러 번 불려 강제 레이아웃을 냈다(≈11 ms)
+   *   새  동작: 같은 프레임의 부름은 하나로 모여 그 프레임의 쓰기가 끝난 뒤 한 번 잰다
+   *   이유:     레이아웃 읽기를 쓰기 뒤로 모은다(M3_DESIGN §3.6)
+   */
+  fit(){
+    if(!this.el) return;
+    this._hub().frame(()=>{ if(this.el) UIKit.tabsFit(this.el) },{owner:this,key:this._fitKey,label:'tabs-fit'});
+  }
 
   saveScroll(id){ this.memo.save(id) }
   restoreScroll(id){ this.memo.restore(id) }
@@ -145,3 +156,5 @@ class TabBar extends View {
     if(folded) this.setFolded(false);
   }
 }
+/** `fit` 의 합치기 키를 줄마다 나누는 번호. */
+TabBar.fitSeq=0;
