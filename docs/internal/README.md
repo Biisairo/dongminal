@@ -27,6 +27,7 @@ SRS 의 상태 표기는 `승인·구현완료`(끝남) · `승인·구현중`(�
 
 | 문서 | 내용 |
 |------|------|
+| [PERF_OPTIMIZATION_SRS.md](./PERF_OPTIMIZATION_SRS.md) | **성능 최적화 — 프론트·연결·서버·데몬** (IEEE 29148, `FR-CON-*` 외). M1 에서 브라우저 탭의 연결을 채널(`/channel`) 하나로 합치고 SSE·칸별 `/ws`·상태용 주기 GET 을 지웠다(D-9). 하위 설계는 [perf/CHANNEL_PROTOCOL.md](./perf/CHANNEL_PROTOCOL.md). 상태: 승인·구현중 — 남은 것: M2~M4 |
 | [PANEL_TERMS_SRS.md](./PANEL_TERMS_SRS.md) | **사이드 패널의 이름 — 목록 패널과 작업 패널** (IEEE 29148, `FR-PNT-*`). 두 패널을 함께 「사이드 패널」, 창·저장소·채팅 목록 쪽을 「목록 패널」(전의 사이드바·메인 패널), 에이전트·Run·사용량 쪽을 「작업 패널」(전의 Activity)로 부른다. 상태: 승인·구현완료 |
 | [THEME_SEED_COLOR_SRS.md](./THEME_SEED_COLOR_SRS.md) | **메인색 — 색 하나로 테마 전체를 그 방향으로 계산** (IEEE 29148, `FR-SEED-*`). 상태: 승인·구현완료 |
 | [OPTIMIZE_REFACTOR_SRS.md](./OPTIMIZE_REFACTOR_SRS.md) | **통신 최소화·성능·리팩토링 — 프로덕션 승격 2차 감사** (IEEE 29148, `FR-OPT-*`). 상태: 승인·구현완료 |
@@ -213,7 +214,7 @@ SRS 의 상태 표기는 `승인·구현완료`(끝남) · `승인·구현중`(�
 | [GIT_OBSERVE_REVIVE_SRS.md](./GIT_OBSERVE_REVIVE_SRS.md) | **멈춘 git 관측은 실제로 되살아난다 — 워치독의 공회전 교정** (IEEE 29148). 접수는 브라우저 콘솔 한 뭉치였다 — `관측이 멈춰 있어 되살립니다 — age=never` 가 반복되는데 **되살아나지 않았다.** **구현 완료** |
 | [GIT_PUSH_OBSERVE_SRS.md](./GIT_PUSH_OBSERVE_SRS.md) | **git 관측을 서버가 밀어 준다** (IEEE 29148, `FR-BGV-*`). 브라우저가 저장소 하나를 보고 있으면 **60초에 180번** 묻는다(signature 120 · status 60) — 변화가 한 번도 없어도. 그 물음의 답은 **누가 묻든 같고** 서버는 이미 알고 있다. **구현 완료** |
 | [GIT_REFRESH_LIFECYCLE_SRS.md](./GIT_REFRESH_LIFECYCLE_SRS.md) | **git 갱신·수명 규약 — 멈춘 것은 스스로 돌아오고, 멈춘 사실은 보인다** (IEEE 29148, `FR-GLW-*`). 전수 감사 18건 중 **감지가 아니라 갱신**(화면에 오는가) 쪽 결함 아홉을 닫는다. **구현 완료** |
-| [GIT_WATCH_LEASE_SRS.md](./GIT_WATCH_LEASE_SRS.md) | **감시 임대를 SSE 구독에 맡긴다** (IEEE 29148, `FR-GLW-*`). `gitStatusInterval` 을 `끔`이나 `2분`으로 두면 **서버의 자동 push 까지 함께 죽었다** — 요청을 줄이려고 고른 설정이 자동 갱신을 통째로 끄는데 화면에는 아무 표시도 없었다. **구현 완료** |
+| [GIT_WATCH_LEASE_SRS.md](./GIT_WATCH_LEASE_SRS.md) | **감시 임대를 SSE 구독에 맡긴다** (IEEE 29148, `FR-GLW-*`). `gitStatusInterval` 을 `끔`이나 `2분`으로 두면 **서버의 자동 push 까지 함께 죽었다** — 요청을 줄이려고 고른 설정이 자동 갱신을 통째로 끄는데 화면에는 아무 표시도 없었다. **구현 완료**. 2026-11-24 PERF M1 뒤로는 임대를 채널의 `git:<repo>` 토픽 구독이 쥐고, `gitStatusInterval` 은 지웠다 |
 | [HOST_PARITY_SRS.md](./HOST_PARITY_SRS.md) | **훅과 알람이 세 대상에서 같게 동작한다** (IEEE 29148, `FR-HPR-*`). 접수는 "Windows 에서 알람이 모든 명령마다 뜨고 claude 훅이 걸리지 않는다" 였고, 파 내려가 **결함 9건**이 나왔다. 그중 하나는 Windows 가 아니라 **Linux 의 것**이었다 — bash 도구 셸에서 훅이 아예 로드되지 않았고, macOS 가 zsh 기본이라 가려져 있었다. **구현 완료** |
 | [LEAVE_CONFIRM_TOGGLE_SRS.md](./LEAVE_CONFIRM_TOGGLE_SRS.md) | **나가기 확인 토글** (IEEE 29148). 도구가 하나라도 열려 있으면 브라우저의 떠남 확인이 반드시 떴고 **그 가드는 끌 수 없었다.** **구현 완료** |
 | [LSP_PLUGIN_SRS.md](./LSP_PLUGIN_SRS.md) | **언어 서버는 플러그인으로 온다** (IEEE 29148, `FR-LSP-*`). 사용자의 말이 근거다 — *"embedded lsp 는 빼자. 대신 플러그인 형식으로 넣자. 컴퓨터에는 영향을 미치지 않고 이 otterminal 에서만 쓰이도록 격리하자."* 종전 방식은 두 자리에서 그 요구를 어겼다. **구현 완료** |

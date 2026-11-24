@@ -1,6 +1,8 @@
 # 설계 계약 — M3 12·13단계 원격 작업 (묶음 K, FR-GIT-98~112)
 
 GIT_SRS.md §3B 다. 검증은 V40·V41·V42·V43·V44·V62·V63.
+
+> **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1 C4·C6)**: `GET /api/git/job/events` SSE 는 지웠다. 작업 출력은 채널의 `gitjob:<id>` 사건 토픽으로 온다 — `data` 는 `{kind:"line", line}` 들과 마지막 `{kind:"done", job}` 이다. 첫 구독자가 생기면 보존된 줄부터 흘리고, 겹침은 브라우저가 `line.seq` 로 거른다(`after=<seq>` 재연결의 자리). 진행 중 작업 목록은 상태바 폴링 대신 `git.jobs` full 토픽으로 온다. 근거: `docs/internal/perf/CHANNEL_PROTOCOL.md` §5.2. 아래 §1.1·§2.3·§2.4·§3 의 SSE 서술은 당시 계약으로 남기고 줄마다 표시했다
 전제: M2 (9~11단계) 가 끝나 있다 — 원격 작업은 M2 의 안전 정책 위에 얹힌다.
 
 ## 0. 열린 결정 확정 (M3 해당분)
@@ -86,11 +88,11 @@ const (
 | 메서드 | 경로 | 용도 |
 |---|---|---|
 | POST | `/api/git/job/cancel` | `{"id":"…"}` → `{"ok":true,"canceled":true}` |
-| GET | `/api/git/job/events?id=…&after=<seq>` | SSE. `line` 이벤트와 `done` 이벤트 |
-| GET | `/api/git/jobs` | 진행 중 작업 목록 (상태바용, FR-GIT-112) |
+| ~~GET~~ | ~~`/api/git/job/events?id=…&after=<seq>`~~ | ~~SSE. `line` 이벤트와 `done` 이벤트~~ — **지웠다 (PERF M1 C4)**: 채널 `gitjob:<id>` 토픽 |
+| GET | `/api/git/jobs` | 진행 중 작업 목록 (상태바용, FR-GIT-112). 브라우저는 `git.jobs` 토픽으로 받는다 (PERF M1 C4) |
 
 SSE 는 기존 `/api/commands/sse` 의 구현 패턴을 따른다. **새 브로커를 만들기 전에
-`internal/server/commands.go` 의 `CommandHub` 를 먼저 보라.**
+`internal/server/commands.go` 의 `CommandHub` 를 먼저 보라.** (**폐기 2026-11-24, PERF M1** — 두 SSE 모두 없다.)
 
 ## 2. 13단계 — Fetch / Pull / Push (FR-GIT-98~112)
 
@@ -183,7 +185,7 @@ event: done
 data: {job}
 ```
 
-재연결은 `GET /api/git/job/events?id=<id>&after=<seq>` 다.
+재연결은 `GET /api/git/job/events?id=<id>&after=<seq>` 다. (**대체 2026-11-24, PERF M1 C4**: `gitjob:<id>` 토픽을 다시 구독하면 보존된 줄부터 다시 오고, 브라우저가 `line.seq` 로 겹침을 거른다.)
 
 ### 2.4 클라이언트
 
@@ -191,11 +193,11 @@ data: {job}
 - 각 버튼 옆 `▾` 로 다이얼로그를 연다 (FR-GIT-109·110).
 - 진행 중: 버튼이 스피너로 바뀌고 같은 리포의 다른 원격 버튼도 disable 된다
   (FR-GIT-101). `취소` 버튼이 나타난다.
-- 출력은 `.git-job-log` 에 줄 단위로 붙인다 (FR-GIT-103). SSE 로 받는다.
+- 출력은 `.git-job-log` 에 줄 단위로 붙인다 (FR-GIT-103). SSE 로 받는다. (**개정 2026-11-24, PERF M1 C4**: 채널 `gitjob:<id>` 토픽으로 받는다.)
 - 실패: stderr tail 과 복사 버튼 (FR-GIT-108·96). non-fast-forward 면 선택지를
   보인다 (FR-GIT-105).
 - **상태바 (FR-GIT-112)**: 진행 중 작업이 있으면 chip 옆에 `⇅ push…` 를 보인다.
-  `/api/git/jobs` 를 상태바 폴링에 얹는다.
+  `/api/git/jobs` 를 상태바 폴링에 얹는다. (**개정 2026-11-24, PERF M1 C4**: 폴링이 없다. `git.jobs` 토픽으로 받는다.)
 - Pull 충돌 (FR-GIT-111): 작업이 충돌로 끝나면 Changes 탭으로 전환하고 충돌 그룹을
   펼친다. **해결 UI 는 제공하지 않는다.**
 - 취소는 부분 적용 가능성을 알린다 (FR-GIT-102) — 확인 문구에 명시.
@@ -217,7 +219,7 @@ data: {job}
 | R9 | — | `JobLineCap` 초과 시 앞에서 버리고 `Seq` 는 단조 증가 |
 | R10 | V43 | 정적: 자격증명 필드 부재 |
 
-`internal/server`: 라우트 형태·409 `job_busy`·SSE 재연결(`after=<seq>`)·
+`internal/server`: 라우트 형태·409 `job_busy`·SSE 재연결(`after=<seq>`, PERF M1 뒤로는 `gitjob:<id>` 토픽 재구독)·
 `confirm` 없는 `force:"force"` 거부.
 
 e2e (로컬 bare remote 를 테스트가 `git init --bare` 로 만든다):

@@ -1,6 +1,7 @@
 # SRS: 감시 임대를 SSE 구독에 맡긴다 — IEEE 29148
 
 > **문서 상태**: 승인·구현완료
+> **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1 C4·C6, PERF 1.15)**: SSE 가 없어졌다. 감시 임대의 주체는 이제 채널의 `git:<repo>` 토픽 구독이다 — 구독자가 있는 동안 토픽 임차인(`hold_topic`) 하나가 그 저장소를 쥐고, 마지막 구독자가 떠나면 TTL 규칙으로 돌아간다(`hub/src/gitwatch/lease.rs`, `perf/CHANNEL_PROTOCOL.md` §5.2). FR-GWL-1·3·9 의 SSE 결선과 `clientId` 임차는 대체됐고, FR-GWL-11~13 은 `gitStatusInterval` 삭제로 폐기됐다. FR-GWL-2·4~8 의 임차·만료·퇴출 규칙은 그대로다. 각 요구사항에 표시했다
 
 > 상태: **초안**. `GIT_PUSH_OBSERVE_SRS` FR-GPO-10·11 의 개정이며
 > `POLL_INTERVAL_SETTINGS_SRS` FR-PIS-9 의 전제를 고친다.
@@ -204,12 +205,13 @@ FR-GPO-11 은 반대 방향에서 같은 전제를 적었다 — "브라우저�
 **FR-GWL-1** `GitWatcher` 는 저장소마다 **임차인 집합**(`clientId → epoch`)을 든다.
 `NoteFor(repo, obs, clientID)` 는 `clientID` 가 비어 있지 않고 그 신원의 SSE 구독이
 살아 있으면 그 저장소의 임차인 집합에 넣는다.
+**대체 2026-11-24 (PERF M1 C4)**: 임차인은 `git:<repo>` 토픽의 구독이다(`hold_topic`·`release_topic`). SSE 가 없으므로 `clientID` 로 결선된 신원이 없고, `clientID` 를 실은 표명은 TTL 표명과 같다.
 
 **FR-GWL-2** **임차인이 하나라도 있는 저장소는 유휴 시간으로 만료되지 않는다.**
 `evictLocked` 의 TTL 검사는 임차인 집합이 빈 항목에만 적용된다.
 근거는 §1.4 의 사용자 요구다 — 띄워 두고 보기만 하는 동안에도 갱신이 살아 있어야 한다.
 
-**FR-GWL-3** SSE 구독이 열리면 `Attach(clientID) → epoch`, 닫히면
+**FR-GWL-3** (**대체 2026-11-24, PERF M1 C4·C6**: SSE 종단이 없어 `attach`·`detach` 는 제품 경로에서 불리지 않는다. 같은 성질 — 연결이 끝나면 곧 해제, grace period 없음 — 은 채널이 닫히거나 토픽을 해지할 때 `release_topic` 이 진다.) SSE 구독이 열리면 `Attach(clientID) → epoch`, 닫히면
 `Detach(clientID, epoch)` 로 그 신원을 **모든** 저장소의 임차인 집합에서 뺀다.
 **grace period 는 없다** — 구독이 끝나는 것이 곧 해제다 (FR-XDF-9 와 같은 규약).
 `Detach` 는 `ep` 가 그 신원의 최신 구독일 때만 동작한다 — 재연결 뒤 도착한 옛 연결의
@@ -237,22 +239,23 @@ FR-GPO-11 은 반대 방향에서 같은 전제를 적었다 — "브라우저�
 
 **FR-GWL-9** `GET /api/git/status` 가 `clientId` 를 쿼리에 싣는다. 값은 `App.clientId`
 — SSE 를 여는 것과 같은 신원이다 (`app-cmd.js:105`).
+**대체 2026-11-24 (PERF M1 C4)**: 브라우저는 지금도 `clientId` 를 싣지만(`git/git-poll.js`) 임대를 만들지 않는다. 임대는 Git 패널·저장소 목록·탐색기가 구독하는 `git:<repo>` 토픽이 쥔다.
 
 **FR-GWL-10** 응답의 `requested` echo 검증(FR-GIT-16)은 영향받지 않는다. `clientId` 는
 echo 대조 대상이 아니다.
 
 ### 3.3 묶음 S — 설정
 
-**FR-GWL-11** `gitStatusInterval` 의 선택지에서 `1분`(60000)·`2분`(120000)을 뺀다.
+**FR-GWL-11** (**폐기 2026-11-24, PERF 1.15**: `gitStatusInterval` 은 지웠다 — 설정 `RETIRED_KEYS`. 실패 재시도 간격은 고정 상수 `GIT_STATUS_RETRY_MS`(30 s)다.) `gitStatusInterval` 의 선택지에서 `1분`(60000)·`2분`(120000)을 뺀다.
 남는 것은 `[10초, 30초, 끔]` 이다.
 근거: 임대가 폴링에서 풀리면 긴 안전망은 뜻이 없다 — 놓친 것을 줍는 그물이 1~2분에 한
 번이면 그물이라기보다 없는 것에 가깝고, 그 사이는 push 가 이미 덮는다. 짧게 두거나
 끄거나 둘 중 하나다.
 
-**FR-GWL-12** `off:true` 와 `끔`(0)은 유지한다. FR-GWL-1~4 이후 `끔`은 안전하다 —
+**FR-GWL-12** (**폐기 2026-11-24, PERF 1.15**: `끔` 선택지는 설정과 함께 없어졌다. 안전망 폴링 자체가 없다.) `off:true` 와 `끔`(0)은 유지한다. FR-GWL-1~4 이후 `끔`은 안전하다 —
 폴링이 0건이어도 SSE 가 붙어 있는 한 감시가 유지되고 변경 즉시 push 가 온다.
 
-**FR-GWL-13** 저장된 `60000`·`120000` 은 `pollValue` 의 범위 검사에 걸려 기본값
+**FR-GWL-13** (**폐기 2026-11-24, PERF 1.15**: 저장된 `gitStatusInterval` 값은 경고 없이 무시된다.) 저장된 `60000`·`120000` 은 `pollValue` 의 범위 검사에 걸려 기본값
 (`GIT_STATUS_POLL_MS` = 30000)으로 돌아간다. 마이그레이션 코드를 쓰지 않는다 (§2.6).
 
 ### 3.4 비기능 요구 (NFR)

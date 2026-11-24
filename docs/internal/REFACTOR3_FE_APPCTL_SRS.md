@@ -119,7 +119,7 @@
 | `_edDocs` | App | 9k | — | 계약·`core/`(LSP)·단위 | A/9k | — |
 | `edStores` | App | 9k | — | 계약·컨트롤러(claude-maps)·`ui/` | A/9k | — |
 | `_edOff` | App | 9k · `app.js` | — | 계약 | A/9k | — |
-| `_edGitPoll` | App | 9k | — | 계약 | A/9k | — |
+| ~~`_edGitPoll`~~ | App | 9k | — | 계약 | A/9k | — **지웠다 (2026-11-24, PERF 1.14)**: 편집기 주기 폴링이 없어졌다. 계약 이름도 뺐다 |
 | `_edGitHeld` | 9k | 9k(갚을 때 `null`) · 9d `GitSync._onGitChanged`(숨은 동안 쌓는다) | — | 컨트롤러(git-sync) | M/9k | **모은다** — `GitSync` 의 쌓기를 9k 메서드 하나(예: `_edGitHold(repo,mark)`, App 위임자)로 옮기면 필드는 9k 의 것이 된다 |
 | `mPaneIdx` | App | 9i · `app.js` | — | 계약·컨트롤러(모바일 둘)·`ui/` 2·e2e | A/9i | — |
 | `drawerOpen` | App | `app.js` · `ui/drawer-sheet.js` | 9i | 컨트롤러 4·`ui/` 2 | A | — |

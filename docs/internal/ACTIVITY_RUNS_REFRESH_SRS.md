@@ -1,6 +1,7 @@
 # SRS: Activity 패널 Runs 구역의 갱신 — IEEE 29148
 
 > **문서 상태**: 승인·구현완료
+> **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1)**: 이 문서가 적은 것 가운데 M1 에서 지운 것 — 명령·사건 SSE(`/api/commands/sse`, `POST /api/command-result`) · 주기 설정 `agentsPollInterval`(설정 `RETIRED_KEYS`, 저장된 값은 조용히 무시된다). 지금 브라우저 탭은 채널(`/channel`) 하나로 명령(`cmd`)·상태 토픽·터미널을 주고받고, 상태를 알려고 주기적으로 GET 하지 않는다 — 대체 요구사항은 `PERF_OPTIMIZATION_SRS` FR-CON-1·7·8·10 과 D-9, 경로별 대응은 `perf/CHANNEL_PROTOCOL.md` §5.2·§8 이다. 본문의 옛 경로 서술은 당시 구조로 남긴다
 > **확인**: JS 단위(TC-ARR-1~4)와 e2e(TC-ARR-5)가 통과했다(2026-11-11). 관련 e2e 10개 파일 111건이 통과했다. 이 변경으로 `tab-names.spec.ts` V-NAM-4 의 준비 순서를 바꿨다(패널을 먼저 열고 활동을 넣는다)
 > **입력**: 2026-11-11 대화. 사용자 결정 — ① 패널이 열려 있는 동안 Runs 목록을 주기적으로 조회한다 ② 핸들·버튼으로 패널을 열 때도 구역 목록을 다시 받는다. 서버 쪽 `run_changed` 보강은 하지 않는다 (D-ARR-4)
 
