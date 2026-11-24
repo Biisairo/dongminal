@@ -31,7 +31,6 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     · 주석 (`//` 로 시작하는 줄)
     · 테스트 (tests/·tests.rs·#[cfg(test)] 모듈) — 특정 에이전트의 동작을 재는 것은 정당하다
     · 등록부 자신 (`rust/crates/shared/agentadapter/`)
-    · 스크립트의 ALLOW 에 근거와 함께 적은 줄
 
   id 의 진실은 등록부다 — 이 스크립트는 목록을 따로 적지 않고 거기서 읽는다.
 USAGE
@@ -42,17 +41,6 @@ ADAPTER_DIR=rust/crates/shared/agentadapter/src
 source scripts/lib/rs-src.sh
 fail=0
 
-# 예외 — `경로|줄 내용의 정규식`. 사유를 위에 적는다.
-#
-#   helper/runtimebin/src/shim.rs
-#     shim 진입점(`RunFn`)은 함수 포인터라 명령 이름을 붙잡지 못한다. 등록부가 shim 으로
-#     선언한 이름(`shim_commands()`, lib.rs 의 디스패치가 먼저 거른다)을 함수 하나에 잇는
-#     자리다. Go 판은 같은 일을 클로저로 했다.
-ALLOW=(
-  'rust/crates/helper/runtimebin/src/shim.rs|^[[:space:]]*"claude" => Some\(run_claude\),$'
-  'rust/crates/helper/runtimebin/src/shim.rs|run_agent_shim\(ctx, "claude", args\)'
-)
-
 ids=$(grep -hoE '(\bid:[[:space:]]*"[a-z0-9_-]+"|const [A-Z_]*ID: &(\x27static )?str = "[a-z0-9_-]+")' \
         "$ADAPTER_DIR"/*.rs 2>/dev/null |
       grep -oE '"[a-z0-9_-]+"' | tr -d '"' | sort -u)
@@ -62,25 +50,13 @@ if [[ -z "$ids" ]]; then
   exit 1
 fi
 
-allowed() {
-  local line="$1" file content ex
-  file=${line%%:*}
-  content=${line#*:}
-  content=${content#*:}
-  for ex in "${ALLOW[@]}"; do
-    [[ "$file" == "${ex%%|*}" ]] && grep -qE "${ex#*|}" <<<"$content" && return 0
-  done
-  return 1
-}
-
 for id in $ids; do
   # 실행 코드의 리터럴만 본다: 주석 줄과 테스트, 등록부는 제외한다.
   hits=$(grep -rn "\"$id\"" --include='*.rs' rust/crates 2>/dev/null |
          grep -v "^rust/crates/shared/agentadapter/" |
          rs_drop_tests |
          grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' |
-         grep -vE '^[^:]+:[0-9]+:[[:space:]]*\*' |
-         while IFS= read -r l; do allowed "$l" || printf '%s\n' "$l"; done)
+         grep -vE '^[^:]+:[0-9]+:[[:space:]]*\*')
   if [[ -n "$hits" ]]; then
     echo "── 에이전트 이름 \"$id\" 가 등록부 밖의 실행 코드에 있다 (FR-AAC-31)"
     echo "$hits"

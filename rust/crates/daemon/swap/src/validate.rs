@@ -202,24 +202,7 @@ fn run(exe: &str, within: Duration) -> Result<Vec<u8>, String> {
 
 /// Go `*exec.ExitError` 의 문구(`exit status N`·`signal: …`).
 fn exit_string(st: &ExitStatus) -> String {
-    if let Some(c) = st.code() {
-        return format!("exit status {c}");
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::ExitStatusExt;
-        if let Some(sig) = st.signal() {
-            let name = match sig {
-                1 => "hangup".to_owned(),
-                2 => "interrupt".to_owned(),
-                9 => "killed".to_owned(),
-                15 => "terminated".to_owned(),
-                n => format!("signal {n}"),
-            };
-            return format!("signal: {name}");
-        }
-    }
-    st.to_string()
+    dm_shared_platform::exit_status_text(st)
 }
 
 /// 교체가 한 번에 하나만 진행되게 한다 (FR-DSK-11 reload_busy).

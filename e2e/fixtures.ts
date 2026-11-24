@@ -1,10 +1,11 @@
 import { execFileSync, spawn } from 'child_process';
-import { cpSync, mkdirSync, rmSync, writeFileSync } from 'fs';
+import { appendFileSync, cpSync, mkdirSync, rmSync, writeFileSync } from 'fs';
+import { connect } from 'net';
 import { join } from 'path';
 
 import { test as base, expect, Locator } from '@playwright/test';
 
-import { E2E_BIN, E2E_HOME, E2E_PORT0 } from '../playwright.config';
+import { E2E_BIN, E2E_HOME, E2E_HOST, E2E_PORT0 } from '../playwright.config';
 import { stopDaemon } from './daemon-cleanup';
 import { ED_SEL, installEdAdapter } from './editor';
 import { realPath } from './osenv';
@@ -271,16 +272,20 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
         // 서버의 말은 **모아 두었다가 실패했을 때만** 낸다. 그대로 흘리면 워커
         // 수만큼의 요청 로그가 리포터의 줄을 덮어, 무엇이 몇 개 실패했는지 로그만
         // 보고는 알 수 없다 (Windows 1차 실행에서 실측한 그 문제다).
-        stdio: ['ignore', 'ignore', 'pipe'],
+        // RUST_DEFECT_FIX_SRS 10.7b: 전부는 워커 홈의 `server.log` 에 남긴다 — 실패의 근거가 사라지지 않게.
+        stdio: ['ignore', 'pipe', 'pipe'],
       });
+      serverLog = home + '/' + SERVER_LOG;
+      serverPort = port;
       let tail = '';
-      child.stderr?.on('data', (b: any) => { tail = (tail + String(b)).slice(-4000) });
+      child.stdout?.on('data', (b: any) => { appendFileSync(serverLog, b) });
+      child.stderr?.on('data', (b: any) => { tail = (tail + String(b)).slice(-4000); appendFileSync(serverLog, b) });
       let exited: string | null = null;
       child.on('exit', (code, sig) => { exited = `code=${code} signal=${sig}` });
 
       try {
         // 러너의 첫 기동은 느리다 (FR-EPL-5).
-        await pingUntilUp(`http://localhost:${port}/api/ping`, 90_000);
+        await pingUntilUp(`http://${E2E_HOST}:${port}/api/ping`, 90_000);
       } catch (err) {
         throw new Error(
           `워커 ${i} 의 서버 기동 실패 (port=${port}, home=${home})` +
@@ -288,7 +293,7 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
           `\n${err}\n--- 서버 stderr (마지막 4KB) ---\n${tail}`);
       }
 
-      await use({ port, home, baseURL: `http://localhost:${port}` });
+      await use({ port, home, baseURL: `http://${E2E_HOST}:${port}` });
 
       // 데몬을 먼저 세운다 — 웹서버만 죽이면 detach 된 dongminald 가 자기 도구
       // 셸들의 PTY 를 계속 붙든다 (FR-EPL-4).
@@ -353,7 +358,40 @@ test.afterEach(async ({ page }, testInfo) => {
   const line = `[진단:가시성] ${testInfo.title} | 열 때=${JSON.stringify(atOpen)} | 실패 때=${JSON.stringify(now)}`;
   testInfo.annotations.push({ type: 'page-visibility', description: line });
   console.log(line);
+  await noteServerAtFailure(testInfo.title);
 });
+
+/** 워커 서버의 stdout·stderr 를 모으는 파일 이름. 워커 홈 아래에 둔다. */
+const SERVER_LOG = 'server.log';
+let serverLog = '';
+let serverPort = 0;
+
+/**
+ * RUST_DEFECT_FIX_SRS 10.7b: 실패한 순간의 서버를 남긴다 — 로그에 표시 줄, 그 포트의 날 응답 첫 바이트,
+ * 그 포트를 쥔 프로세스. `ERR_INVALID_HTTP_RESPONSE` 처럼 브라우저만 보는 실패의 근거다.
+ */
+async function noteServerAtFailure(title: string) {
+  if (!serverLog || !serverPort) return;
+  const raw = await new Promise<string>((resolve) => {
+    let got = Buffer.alloc(0);
+    const sock = connect(serverPort, E2E_HOST);
+    const done = (why: string) => { sock.destroy(); resolve(why + ' ' + JSON.stringify(got.subarray(0, 512).toString('latin1'))) };
+    sock.setTimeout(3000, () => done('timeout'));
+    sock.on('connect', () => sock.write('GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n'));
+    sock.on('data', (b) => { got = Buffer.concat([got, b]); if (got.length >= 512) done('data') });
+    sock.on('end', () => done('end'));
+    sock.on('error', (e) => done('error ' + e.message));
+  });
+  let owners = '';
+  try {
+    owners = execFileSync('lsof', ['-nP', '-iTCP:' + serverPort, '-sTCP:LISTEN'], { encoding: 'utf8', timeout: 5000 });
+  } catch (e) {
+    owners = 'lsof 실패: ' + String(e);
+  }
+  try {
+    appendFileSync(serverLog, `\n=== [e2e 실패] ${new Date().toISOString()} ${title}\n--- 날 응답: ${raw}\n--- 포트 ${serverPort} 소유:\n${owners}===\n`);
+  } catch { /* 홈이 이미 지워졌다 */ }
+}
 
 /**
  * 화면이 받는 계정 한도(`/api/tools/activity` 의 `limits`)를 비운다 (QUALITY_FLAKY_SRS FR-FLK-12).

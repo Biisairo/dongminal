@@ -175,43 +175,7 @@ async fn run_host(ctx: &Ctx, name: &str, args: &[String], env: &[String], dir: &
 
 /// Go `ProcessState.String()`.
 fn exit_text(st: &std::process::ExitStatus) -> String {
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::ExitStatusExt;
-        if let Some(sig) = st.signal() {
-            let core = if st.core_dumped() {
-                " (core dumped)"
-            } else {
-                ""
-            };
-            return format!("signal: {}{core}", signal_name(sig));
-        }
-    }
-    match st.code() {
-        Some(c) if cfg!(windows) && (c as u32) >= 1 << 16 => {
-            format!("exit status 0x{:x}", c as u32)
-        }
-        Some(c) => format!("exit status {c}"),
-        None => "exit status -1".to_owned(),
-    }
-}
-
-/// Go `syscall.Signal.String()` 의 흔한 것들.
-#[cfg(unix)]
-fn signal_name(sig: i32) -> String {
-    let s = match sig {
-        1 => "hangup",
-        2 => "interrupt",
-        3 => "quit",
-        6 if cfg!(target_os = "linux") => "aborted",
-        6 => "abort trap",
-        9 => "killed",
-        11 => "segmentation fault",
-        13 => "broken pipe",
-        15 => "terminated",
-        _ => return format!("signal {sig}"),
-    };
-    s.to_owned()
+    dm_shared_platform::exit_status_text(st)
 }
 
 /// 조달의 결과 (FR-EXT-18). 사유가 있는 것이 규칙이다.

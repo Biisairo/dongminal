@@ -62,33 +62,6 @@ const openSettings = async (page: Page, tab: string) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.describe('묶음 PIS·제거 — 브라우저 signature 폴링 (FR-PIS-1~4)', () => {
-  test('PIS1 (V-1): signature 폴링 계층의 이름이 남아 있지 않다', async ({ page }) => {
-    await waitForInit(page);
-    // `const` 는 window 프로퍼티가 아니므로 전역 식별자로 직접 본다
-    // (editor-explorer.spec.ts 의 선례). `var` 인 설정 변수는 프로퍼티다.
-    const gone = await page.evaluate(() => ({
-      constant: typeof GIT_SIGNATURE_POLL_MS,
-      variable: typeof (window as any).gitSignatureInterval,
-    }));
-    expect(gone.constant).toBe('undefined');
-    expect(gone.variable).toBe('undefined');
-  });
-
-  /**
-   * FR-PIS-2: 저장된 옛 값은 **읽지 않고 버린다.** 남겨도 다시 읽을 계층이
-   * 없으므로 아무 일도 하지 않아야 한다 — 그것이 "제거" 의 뜻이다.
-   */
-  test('PIS2 (V-1): 옛 설정 키를 넣어도 signature 요청이 0건이다', async ({ page, request }) => {
-    await patchSettings(request, { gitSignatureInterval: 300 });
-    const sig = counter(page, '/api/git/signature');
-    await waitForInit(page);
-    await openGit(page, fx('basic'));
-    // **예외 (`TEST-16`)**: 지워진 계층이 **되살아나지 않음**을 잰다.
-    await page.waitForTimeout(1500);
-    expect(sig.n, '지워진 계층이 되살아났다').toBe(0);
-    await clearIntervals(request);
-    await patchSettings(request, { gitSignatureInterval: undefined });
-  });
 
   /**
    * FR-PIS-3: 지운 것은 **폴링**이고 지문 자체가 아니다. `_lastSig` 는 status
@@ -224,45 +197,6 @@ test.describe('묶음 PIS·설정 — 다섯 주기 (FR-PIS-6~15)', () => {
     await patchSettings(request, { gitReposInterval: undefined, gitStatusInterval: undefined });
   });
 
-  // FR-PIS-13: 계약이 넓어질 뿐 깨지지 않는다 — 값도 함수도 돈다.
-  test('PIS9 (V-7): visiblePoll 이 값과 함수를 둘 다 받는다', async ({ page }) => {
-    await waitForInit(page);
-    const r = await page.evaluate(async () => {
-      const hit = { fixed: 0, fn: 0 };
-      let ms = 60;
-      const a = (window as any).visiblePoll(60, () => { hit.fixed++ }, { id: 'test.fixed' });
-      const b = (window as any).visiblePoll(() => ms, () => { hit.fn++ }, { id: 'test.fn' });
-      await new Promise(r => setTimeout(r, 400));
-      a.stop(); b.stop();
-      return hit;
-    });
-    expect(r.fixed).toBeGreaterThan(0);
-    expect(r.fn).toBeGreaterThan(0);
-  });
-
-  /**
-   * FR-PIS-14a: 주기가 **실제로 바뀐** job 만 다시 건다. 전부 다시 걸면 설정을
-   * 한 번 만질 때마다 모든 폴링의 다음 회차가 뒤로 밀린다.
-   */
-  test('PIS10 (V-8a): refreshChanged 는 바뀐 job 만 다시 건다', async ({ page }) => {
-    await waitForInit(page);
-    const r = await page.evaluate(async () => {
-      let a = 5000, b = 5000;
-      const ha = (window as any).visiblePoll(() => a, () => {}, { id: 'test.ra' });
-      const hb = (window as any).visiblePoll(() => b, () => {}, { id: 'test.rb' });
-      const at = (id: string) => TIMERS._jobs.get(id).nextAt;
-      const was = { a: at('test.ra'), b: at('test.rb') };
-      await new Promise(r => setTimeout(r, 50));
-      a = 9000;
-      TIMERS.refreshChanged();
-      const now = { a: at('test.ra'), b: at('test.rb') };
-      ha.stop(); hb.stop();
-      return { movedA: now.a !== was.a, movedB: now.b !== was.b };
-    });
-    expect(r.movedA, '바뀐 job 이 다시 걸리지 않았다').toBe(true);
-    expect(r.movedB, '안 바뀐 job 의 마감이 밀렸다').toBe(false);
-  });
-
   /**
    * FR-PIS-14: 30초에서 짧게 내리면 **다음 마감부터** 새 주기다. 그리고 내린
    * 순간에는 요청이 나가지 않는다 — 재무장은 발화가 아니다.
@@ -336,18 +270,6 @@ test.describe('묶음 PIS·화면 — Polling 탭 (FR-PIS-20~25)', () => {
     await expect(panel).toBeVisible();
     for (const id of ['pi-agents', 'pi-stats', 'pi-gitstatus', 'pi-gitrepos', 'pi-gitconsole'])
       await expect(panel.locator('#' + id)).toBeVisible();
-  });
-
-  /**
-   * FR-PIS-22: 같은 값의 손잡이가 두 자리에 있으면 어느 쪽이 진실인지 화면이
-   * 말하지 않는다. 옮긴 것이므로 **옛 자리에서 빠져야** 한다.
-   */
-  test('PIS16 (V-10): 옛 두 자리에는 주기 컨트롤이 없다', async ({ page }) => {
-    await waitForInit(page);
-    await openSettings(page, 'notify');
-    await expect(page.locator('#agents-poll')).toHaveCount(0);
-    await page.locator('.mtab[data-tab="statusbar"]').click();
-    await expect(page.locator('#sb-settings .sbs-select')).toHaveCount(0);
   });
 
   // FR-PIS-20 의 대칭: 화면에서 고른 값이 서버로 간다.

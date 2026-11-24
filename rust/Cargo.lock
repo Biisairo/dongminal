@@ -1047,7 +1047,6 @@ dependencies = [
  "dm-shared-diagtail",
  "dm-shared-dmenv",
  "dm-shared-platform",
- "libc",
  "reqwest",
  "rustls",
  "serde",

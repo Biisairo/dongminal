@@ -3,7 +3,7 @@ import { mkdirSync } from 'fs';
 
 import { request as pwRequest, type APIRequestContext } from '@playwright/test';
 
-import { E2E_BIN, E2E_HOME } from '../playwright.config';
+import { E2E_BIN, E2E_HOME, E2E_HOST } from '../playwright.config';
 import { stopDaemon } from './daemon-cleanup';
 import { expect, hermeticEnv, pingUntilUp, test, waitForInit } from './fixtures';
 
@@ -68,8 +68,8 @@ test.describe.serial('설정 ▸ Edges', () => {
       env: { ...hermeticEnv(), DONGMINAL_HOME: aHome, DONGMINAL_TOOL_HOME: aHome + '/tool-home' },
       stdio: ['ignore', 'ignore', 'ignore'],
     });
-    await pingUntilUp(`http://localhost:${aPort}/api/ping`, 90_000);
-    a = await pwRequest.newContext({ baseURL: `http://localhost:${aPort}` });
+    await pingUntilUp(`http://${E2E_HOST}:${aPort}/api/ping`, 90_000);
+    a = await pwRequest.newContext({ baseURL: `http://${E2E_HOST}:${aPort}` });
     const node = (port: number, name: string) => ({
       enabled: true, port, bind: '127.0.0.1', name, advertise: '127.0.0.1',
     });

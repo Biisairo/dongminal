@@ -88,24 +88,7 @@ fn spawn_err_text(e: &std::io::Error) -> String {
 
 /// Go `*exec.ExitError` 의 문구(`exit status N`, `signal: killed` 등).
 pub fn exit_text(st: &ExitStatus) -> String {
-    if let Some(c) = st.code() {
-        return format!("exit status {c}");
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::ExitStatusExt;
-        if let Some(sig) = st.signal() {
-            let name = match sig {
-                libc::SIGHUP => "hangup".to_string(),
-                libc::SIGINT => "interrupt".to_string(),
-                libc::SIGKILL => "killed".to_string(),
-                libc::SIGTERM => "terminated".to_string(),
-                n => format!("signal {n}"),
-            };
-            return format!("signal: {name}");
-        }
-    }
-    st.to_string()
+    dm_shared_platform::exit_status_text(st)
 }
 
 #[cfg(all(test, unix))]

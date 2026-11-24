@@ -28,15 +28,26 @@ const PATH_FOLD_CASE: bool = false;
 
 /// 등록부가 shim 으로 선언한 명령 이름의 진입점이다. 계정 지정(CLAUDE_CONFIG_DIR)은 Claude Code 의
 /// 규약이다 — shim 을 선언한 에이전트는 claude 하나다.
+///
+/// `RunFn` 은 함수 포인터라 명령 이름을 붙잡지 못한다. 등록부 순서의 자리마다 진입점을 하나씩
+/// 두고, 자리 번호로 이름을 다시 읽는다 (Go 판은 클로저로 이름을 붙잡았다).
 pub(crate) fn runner(name: &str) -> Option<RunFn> {
-    match name {
-        "claude" => Some(run_claude),
-        _ => None,
-    }
+    let i = dm_shared_agentadapter::shim_commands()
+        .iter()
+        .position(|c| *c == name)?;
+    SHIM_RUNNERS.get(i).copied()
 }
 
-fn run_claude(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
-    run_agent_shim(ctx, "claude", args)
+/// 등록부의 shim 명령 자리 수의 상한이다. 넘으면 시험 `helper_name_strips_executable_extension_only` 의
+/// "shim 마다 helper 가 있다" 가 깨진다.
+pub(crate) const SHIM_RUNNERS: [RunFn; 4] =
+    [run_shim::<0>, run_shim::<1>, run_shim::<2>, run_shim::<3>];
+
+fn run_shim<const I: usize>(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
+    match dm_shared_agentadapter::shim_commands().get(I) {
+        Some(cmd) => run_agent_shim(ctx, cmd, args),
+        None => 127,
+    }
 }
 
 pub(crate) fn run_agent_shim(ctx: &mut Ctx<'_>, cmd: &str, args: &[String]) -> i32 {
