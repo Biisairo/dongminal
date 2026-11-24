@@ -14,6 +14,10 @@ mod theme;
 
 pub use theme::CUSTOM_THEME_KEY;
 
+/// 표에서 거둔 키다. 저장된 블롭에 남아 있어도 읽을 때 무시한다 — 문제도 경고도 아니다.
+/// `agentsPollInterval`: 활동이 채널 토픽으로 와서 주기가 없어졌다 (PERF_OPTIMIZATION_SRS M1 C6).
+pub const RETIRED_KEYS: &[&str] = &["agentsPollInterval"];
+
 /// 원천 파일의 임베드 안 경로다.
 pub const SCHEMA_PATH: &str = "js/core/settings-schema.js";
 
@@ -192,6 +196,9 @@ pub fn validate_object(
     let mut probs = Vec::new();
     let mut unknown = Vec::new();
     for (k, v) in sorted {
+        if RETIRED_KEYS.contains(&k) {
+            continue;
+        }
         match by.get(k) {
             None => unknown.push(k.to_string()),
             Some(spec) => {

@@ -15,7 +15,6 @@
  *
  * 로드 순서: settings-schema.js 바로 뒤, constants.js 앞.
  */
-const AGENTS_POLL_DEFAULT=SETTINGS_BY_KEY.agentsPollInterval.def;
 const STATS_INTERVAL_DEFAULT=SETTINGS_BY_KEY.statsInterval.def;
 const GIT_STATUS_POLL_MS=SETTINGS_BY_KEY.gitStatusInterval.def;
 const GIT_REPOS_POLL_MS=SETTINGS_BY_KEY.gitReposInterval.def;
@@ -32,11 +31,7 @@ const ATTN_EDGE_LEVEL_MAX=SETTINGS_BY_KEY.attnEdgeLevel.max;
 /**
  * POLL_INTERVAL_SETTINGS_SRS FR-PIS-6·11: **상수는 기본값으로 남고 변수가 설정을
  * 든다.** 값을 얹는 자리는 `_settingsApply` 하나다 (FR-PIS-7).
- *
- * `agentsPollInterval` 의 저장 자리는 서버 설정이다 (FR-PIS-16 / D-3) — 종전의
- * `localStorage` 는 다른 브라우저 창에 전파되지 않았다.
  */
-var agentsPollInterval=AGENTS_POLL_DEFAULT;
 var statsInterval=STATS_INTERVAL_DEFAULT;
 var gitStatusInterval=GIT_STATUS_POLL_MS;
 var gitReposInterval=GIT_REPOS_POLL_MS;

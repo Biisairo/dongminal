@@ -20,8 +20,6 @@ import { tmpPath, realPath } from './osenv';
 declare const GIT_SIGNATURE_POLL_MS: number;
 declare const GIT_REPOS_POLL_MS: number;
 declare const GIT_CON_POLL_MS: number;
-declare const AGENTS_POLL_DEFAULT: number;
-declare const BACKUP_KEYS: { store: string; key: string }[];
 declare const TIMERS: { _jobs: Map<string, { nextAt: number }>; refreshChanged(): void };
 
 const FIXTURES = tmpPath('otter-git-fx-pollint-' + process.pid);
@@ -40,7 +38,8 @@ async function patchSettings(request: APIRequestContext, patch: Record<string, u
   expect(r.ok(), `설정 저장 실패: ${await r.text()}`).toBeTruthy();
 }
 
-const POLL_KEYS = ['agentsPollInterval', 'statsInterval', 'gitStatusInterval',
+// `agentsPollInterval` 은 PERF M1 C6 에서 거뒀다 — 활동은 채널 토픽으로 온다.
+const POLL_KEYS = ['statsInterval', 'gitStatusInterval',
   'gitReposInterval', 'gitConsoleInterval'] as const;
 
 const clearIntervals = (request: APIRequestContext) =>
@@ -83,24 +82,23 @@ test.describe('묶음 PIS·제거 — 브라우저 signature 폴링 (FR-PIS-1~4)
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-test.describe('묶음 PIS·설정 — 다섯 주기 (FR-PIS-6~15)', () => {
+test.describe('묶음 PIS·설정 — 네 주기 (FR-PIS-6~15)', () => {
   test.afterEach(async ({ request }) => { await clearIntervals(request) });
 
-  test('PIS4 (V-4): 다섯 키가 설정에서 화면으로 내려온다', async ({ page, request }) => {
+  test('PIS4 (V-4): 네 키가 설정에서 화면으로 내려온다', async ({ page, request }) => {
     await patchSettings(request, {
-      agentsPollInterval: 10000, statsInterval: 5000, gitStatusInterval: 10000,
+      statsInterval: 5000, gitStatusInterval: 10000,
       gitReposInterval: 10000, gitConsoleInterval: 5000,
     });
     await waitForInit(page);
     const v = await page.evaluate(() => ({
-      agents: (window as any).agentsPollInterval,
       stats: (window as any).statsInterval,
       gitStatus: (window as any).gitStatusInterval,
       gitRepos: (window as any).gitReposInterval,
       gitConsole: (window as any).gitConsoleInterval,
     }));
     expect(v).toEqual({
-      agents: 10000, stats: 5000, gitStatus: 10000, gitRepos: 10000, gitConsole: 5000,
+      stats: 5000, gitStatus: 10000, gitRepos: 10000, gitConsole: 5000,
     });
   });
 
@@ -118,18 +116,16 @@ test.describe('묶음 PIS·설정 — 다섯 주기 (FR-PIS-6~15)', () => {
    */
   test('PIS6 (V-5): 범위 밖 값은 기본값으로 떨어진다', async ({ page, request }) => {
     await patchSettings(request, {
-      gitReposInterval: 1, gitConsoleInterval: 'x', agentsPollInterval: -5,
+      gitReposInterval: 1, gitConsoleInterval: 'x',
     });
     await waitForInit(page);
     const v = await page.evaluate(() => ({
       repos: (window as any).gitReposInterval,
       con: (window as any).gitConsoleInterval,
-      agents: (window as any).agentsPollInterval,
-      dRepos: GIT_REPOS_POLL_MS, dCon: GIT_CON_POLL_MS, dAgents: AGENTS_POLL_DEFAULT,
+      dRepos: GIT_REPOS_POLL_MS, dCon: GIT_CON_POLL_MS,
     }));
     expect(v.repos).toBe(v.dRepos);
     expect(v.con).toBe(v.dCon);
-    expect(v.agents).toBe(v.dAgents);
   });
 
   /**
@@ -224,51 +220,30 @@ test.describe('묶음 PIS·설정 — 다섯 주기 (FR-PIS-6~15)', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-test.describe('묶음 PIS·이사 — agentsPollMs (FR-PIS-16~19)', () => {
+test.describe('PERF M1 C6 — 거둔 설정 agentsPollInterval', () => {
   test.afterEach(async ({ request }) => { await clearIntervals(request) });
 
-  /**
-   * FR-PIS-17: 이사는 한 번이고 조용하다. localStorage 의 옛 값이 서버로 올라가고
-   * 그 자리에서 사라진다.
-   */
-  test('PIS12 (V-9): 옛 localStorage 값이 서버로 이사한다', async ({ page, request }) => {
-    await clearIntervals(request);
-    await waitForInit(page, { beforeGoto: () => localStorage.setItem('agentsPollMs', '10000') });
-    await expect.poll(() => page.evaluate(() => (window as any).agentsPollInterval),
-      { timeout: 10000 }).toBe(10000);
-    await expect.poll(async () => (await (await request.get('/api/settings')).json()).agentsPollInterval,
-      { timeout: 10000 }).toBe(10000);
-    expect(await page.evaluate(() => localStorage.getItem('agentsPollMs'))).toBe(null);
-  });
-
-  // FR-PIS-17: 서버에 값이 있으면 서버가 이긴다 — 여러 기기가 각자 옛 값을 들고
-  // 있을 때 마지막에 뜬 기기가 남의 설정을 덮으면 안 된다.
-  test('PIS13 (V-9): 서버에 값이 있으면 서버가 이긴다', async ({ page, request }) => {
+  // 저장된 옛 값은 읽을 때 무시된다. 화면에 그 주기가 없다.
+  test('PIS12: 옛 agentsPollInterval 이 저장돼 있어도 무시되고 화면에 없다', async ({ page, request }) => {
     await patchSettings(request, { agentsPollInterval: 3000 });
-    await waitForInit(page, { beforeGoto: () => localStorage.setItem('agentsPollMs', '30000') });
-    expect(await page.evaluate(() => (window as any).agentsPollInterval)).toBe(3000);
-    expect(await page.evaluate(() => localStorage.getItem('agentsPollMs'))).toBe(null);
-  });
-
-  // FR-PIS-18: 서버 설정은 이식 표의 대상이 아니다 — 그 표는 localStorage·
-  // sessionStorage 만 담는다 (FR-SPT-3).
-  test('PIS14 (FR-PIS-18): BACKUP_KEYS 에서 빠졌다', async ({ page }) => {
     await waitForInit(page);
-    const has = await page.evaluate(() =>
-      BACKUP_KEYS.some((k: any) => k.key === 'agentsPollMs'));
-    expect(has).toBe(false);
+    expect(await page.evaluate(() => typeof (window as any).agentsPollInterval)).toBe('undefined');
+    await openSettings(page, 'polling');
+    await expect(page.locator('#panel-polling #pi-stats')).toBeVisible();
+    await expect(page.locator('#pi-agents')).toHaveCount(0);
+    await patchSettings(request, { agentsPollInterval: undefined });
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.describe('묶음 PIS·화면 — Polling 탭 (FR-PIS-20~25)', () => {
-  test('PIS15 (V-10): Polling 탭에 컨트롤 다섯이 나란히 선다', async ({ page }) => {
+  test('PIS15 (V-10): Polling 탭에 컨트롤 넷이 나란히 선다', async ({ page }) => {
     await waitForInit(page);
     await openSettings(page, 'polling');
     const panel = page.locator('#panel-polling');
     await expect(panel).toBeVisible();
-    for (const id of ['pi-agents', 'pi-stats', 'pi-gitstatus', 'pi-gitrepos', 'pi-gitconsole'])
+    for (const id of ['pi-stats', 'pi-gitstatus', 'pi-gitrepos', 'pi-gitconsole'])
       await expect(panel.locator('#' + id)).toBeVisible();
   });
 
@@ -292,7 +267,7 @@ test.describe('묶음 PIS·화면 — Polling 탭 (FR-PIS-20~25)', () => {
       return [...el.options].some(o => o.value === '0');
     }, id);
     expect(await has0('pi-gitstatus')).toBe(true);
-    for (const id of ['pi-agents', 'pi-stats', 'pi-gitrepos', 'pi-gitconsole'])
+    for (const id of ['pi-stats', 'pi-gitrepos', 'pi-gitconsole'])
       expect(await has0(id), id + ' 에 뜻 없는 0 이 있다').toBe(false);
   });
 

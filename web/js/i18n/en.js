@@ -1215,8 +1215,6 @@ I18N.register('en', {
   'openurl.title': 'Open here',
 
   // ── poll ──
-  'poll.agents.hint': 'Activity snapshot of running tools — the agent panel\'s cards and the activity marks on tabs',
-  'poll.agents.label': 'Agent activity',
   'poll.git_console.hint': 'Git\'s command history. Polled only while that tab is visible.',
   'poll.git_console.label': 'git console',
   'poll.git_repos.hint': 'The explorer\'s file list and outside changes to open files. The server\'s file watcher normally reports them right away; this interval catches what it misses.',

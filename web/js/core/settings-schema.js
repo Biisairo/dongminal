@@ -31,7 +31,6 @@ const SETTINGS_SCHEMA = [
   {"key":"customTheme","type":"object","def":null,"where":"Theme ▸ 사용자 정의"},
   {"key":"shortcuts","type":"object","def":{},"where":"Shortcuts"},
   {"key":"statusBar","type":"object","def":{},"where":"Status Bar"},
-  {"key":"agentsPollInterval","type":"int","def":5000,"min":2000,"max":30000,"where":"Polling ▸ 에이전트 활동"},
   {"key":"statsInterval","type":"int","def":3000,"min":1000,"max":30000,"where":"Polling ▸ 시스템 통계"},
   {"key":"gitStatusInterval","type":"int","def":30000,"min":10000,"max":30000,"off":true,"where":"Polling ▸ git 상태 안전망"},
   {"key":"gitReposInterval","type":"int","def":3000,"min":1000,"max":30000,"where":"Polling ▸ 탐색기"},

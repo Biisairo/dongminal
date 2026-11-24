@@ -14,9 +14,6 @@
  * 키·범위·기본값은 여기 없다 — `SETTINGS_SCHEMA` 가 갖는다 (FR-CFG-1 · FR-OPT-11-4).
  * 선택지의 최소·최대가 표의 min·max 와 같은지는 `settings-source.test.mjs` 가 본다.
  *
- * 옛 `agentsPollMs` 의 이사(`_pollMigrateAgents`)는 `SettingsApply`(`settings-apply.js`)다
- * (REFACTOR3_FE_APPCTL_SRS 9a). 여기는 표뿐이다.
- *
  * 로드 순서 계약: settings-schema.js **뒤**, settings-table.js **앞**(`_settingsApply`
  * 가 이 표를 지난다).
  */
@@ -32,12 +29,6 @@
  *   opts      선택지 [ms, 라벨]. 주기마다 다르다 (D-6)
  */
 const POLL_SETTINGS=[
-  {
-    key:'agentsPollInterval', id:'pi-agents', label:t('poll.agents.label'),
-    hint:t('poll.agents.hint'),
-    get:()=>agentsPollInterval, set:v=>{agentsPollInterval=v},
-    opts:[[2000,tn('core.dur_sec',2)],[3000,tn('core.dur_sec',3)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
-  },
   {
     key:'statsInterval', id:'pi-stats', label:t('poll.stats.label'),
     hint:t('poll.stats.hint'),

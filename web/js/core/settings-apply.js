@@ -3,8 +3,7 @@
  *
  * `SettingsApply` 는 `SettingsController` 의 부품이다(`settings.apply`, REFACTOR3_FE_APPCTL_SRS 9a). 표
  * `SETTINGS_ACCESS`(`settings-table.js`)를 도는 셋 — 저장(PUT) · 적용 · 복원 — 과, 설정 하나하나가 화면에 붙는
- * 자리(탭 제목 · 열린 편집기·터미널에 값 얹기 · 테마 고르기 · 키바 얹기), 그리고 옛 `agentsPollMs` 의 이사
- * (옛 `app-polling.js`)를 진다. 행의 배선은 설정 섹션이다(`settings-display.js` 등, REFACTOR3_FE_SETTINGS_SRS 8a).
+ * 자리(탭 제목 · 열린 편집기·터미널에 값 얹기 · 테마 고르기 · 키바 얹기)를 진다. 행의 배선은 설정 섹션이다(`settings-display.js` 등, REFACTOR3_FE_SETTINGS_SRS 8a).
  *
  * **모달과 갈린 이유**: 이 메서드들은 설정창이 없어도 돈다 (부팅이 부른다). 그래서 App 생성자가 컨트롤러를
  * 만든다. 부팅의 `_settingsApply`(`main.js`, `/api/settings` 응답 뒤)와 설정창 세우기(`initModal`, 워크스페이스를
@@ -102,17 +101,9 @@ class SettingsApply extends Controller {
      */
     TIMERS.refreshChanged();
     /**
-     * FR-PIS-17 / D-9: `agentsPollMs` 의 이사는 **부팅에서만** 한다.
-     *
-     * `boot` 가 가르는 자리가 바로 이런 것이라고 위 주석이 적어 두었다 — SSE
-     * 방송마다 로컬을 다시 보면, 그 사이 다른 창에서 바꾼 값을 옛 로컬 값이
-     * 덮는다. 이사는 한 번이고 조용하다.
-     */
-    if(opts&&opts.boot) this._pollMigrateAgents(saved);
-    /**
      * 설정창을 칠하는 자리는 여기 하나다 (QUALITY_FIX_SRS FR-QFX-9·11) — 선 섹션마다 `paint()`. 다른 창에서 바뀐
-     * 값이 SSE 로 왔을 때 열려 있는 설정창이 옛 값을 든 채 남지 않는다 (FR-SYN). 맨 끝인 것은 이사가 바꾼 값까지
-     * 싣기 위해서다. 칠하기는 값만 읽으므로 테마·주기를 얹은 뒤여도 결과가 같다.
+     * 값이 SSE 로 왔을 때 열려 있는 설정창이 옛 값을 든 채 남지 않는다 (FR-SYN).
+     * 칠하기는 값만 읽으므로 테마·주기를 얹은 뒤여도 결과가 같다.
      *   이전: 표를 돈 직후에 칠했고, 이사(`_pollMigrateAgents`)와 키바 얹기(`_keybarApply`)가 섹션을 따로 칠했다
      *         — 섹션이 아직 없으면(부팅 적용이 `initModal` 보다 먼저) 아무것도 하지 않는 `_sectionCall` 로 버텼다
      */
@@ -254,24 +245,4 @@ class SettingsApply extends Controller {
   }
 
   // FR-PIS-20: `Polling` 탭의 행은 `PollingSection` 이 표에서 만든다 (REFACTOR3_FE_SETTINGS_SRS 8b·8e).
-
-  /**
-   * FR-PIS-17 / D-9: `agentsPollMs` 의 이사. **한 번이고 조용하다.**
-   *
-   * 서버에 값이 있으면 서버가 이긴다 — 여러 기기가 각자 옛 값을 들고 있을 때
-   * 마지막에 뜬 기기가 남의 설정을 덮으면 안 된다. 어느 쪽이든 로컬의 옛 값은
-   * 지운다: 남겨 두면 다음 부팅이 같은 판단을 다시 하고, 그 사이에 서버 값이
-   * 바뀌었다면 그때는 덮는다.
-   */
-  _pollMigrateAgents(saved){
-    const old=PrefStore.local.get(STORE_KEYS.legacyAgentsPollMs);
-    if(old===null) return;
-    PrefStore.local.remove(STORE_KEYS.legacyAgentsPollMs);
-    if(saved&&saved.agentsPollInterval!==undefined) return;
-    const v=settingValue(parseInt(old,10),SETTINGS_BY_KEY.agentsPollInterval);
-    if(v===agentsPollInterval) return;
-    agentsPollInterval=v;
-    TIMERS.refreshChanged();
-    this.saveSettings();
-  }
 }

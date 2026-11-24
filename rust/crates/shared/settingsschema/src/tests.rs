@@ -125,6 +125,20 @@ fn font_size_bounds() {
 }
 
 // TC-CFG-13: 알 수 없는 키는 경고이며 실패가 아니다.
+/// PERF M1 C6: 거둔 키(`agentsPollInterval`)는 저장된 블롭에 남아 있어도 문제도 경고도 아니다.
+#[test]
+fn retired_key_is_ignored() {
+    let specs = load().unwrap();
+    let (probs, unknown) = validate_object(
+        &specs,
+        &obj(json!({"agentsPollInterval":5000,"themeName":"x"})),
+    );
+    assert!(
+        probs.is_empty() && unknown.is_empty(),
+        "{probs:?} {unknown:?}"
+    );
+}
+
 #[test]
 fn unknown_key_is_warning_only() {
     let specs = [spec("themeName", "string")];
@@ -230,7 +244,7 @@ fn spec_and_problem_wire() {
 #[test]
 fn load_reads_embedded_table() {
     let specs = load().unwrap();
-    assert_eq!(specs.len(), 35, "서술자 {}개, 기대 35개", specs.len());
+    assert_eq!(specs.len(), 34, "서술자 {}개, 기대 34개", specs.len());
     let by = by_key(&specs);
     for k in [
         "themeName",

@@ -1238,8 +1238,6 @@ I18N.register('ko', {
   'openurl.title': '여기서 열기',
 
   // ── poll ──
-  'poll.agents.hint': '실행 중인 도구의 활동 스냅샷 — 에이전트 패널의 카드와 탭의 활동 표시',
-  'poll.agents.label': '에이전트 활동',
   'poll.git_console.hint': 'Git 의 명령 기록. 그 탭을 보고 있는 동안에만 묻습니다.',
   'poll.git_console.label': 'git 콘솔',
   'poll.git_repos.hint': '탐색기의 파일 목록과 열어 둔 파일의 바깥 변경. 평소에는 서버의 파일 감시가 곧바로 알리고, 이 주기는 그 알림이 놓친 것을 맞춥니다.',
