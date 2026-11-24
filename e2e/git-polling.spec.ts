@@ -133,29 +133,28 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     await expect.poll(() => rows.count(), { timeout: 8000 }).toBeGreaterThan(before);
   });
 
-  test('P2 (V6): 다른 창으로 전환하면 status 요청이 0건이 된다', async ({ page, request }) => {
+  // PERF_OPTIMIZATION_SRS M1 C4: 주기 status 는 없다. 보는 동안은 채널의 `git:<root>` 토픽을 구독하고,
+  // 떠나면 그 구독을 놓는다 — 그 뒤로는 서버가 변화를 밀어도 status 요청이 나가지 않는다.
+  test('P2 (V6): 다른 창으로 전환하면 git 토픽을 놓고 status 요청이 0건이 된다', async ({ page, request }) => {
     await defaultIntervals(request);
-    const repo = fx('basic');
+    const repo = copyFx('basic', 'p2-leave');
     await waitForInit(page);
     const c = counter(page, '/api/git/status');
     await openGit(page, repo);
     await expect.poll(() => c.n, { timeout: 5000 }).toBeGreaterThanOrEqual(1);
-    // 안전망(30초)이 창 안에 들지 않으면 아래의 `0` 은 아무것도 재지 않는다 (§8.6).
-    // 주기를 줄이고, 떠나기 전에 실제로 도는 것을 먼저 본다.
-    await setSafetyNet(page, FAST_SAFETY_MS);
-    const lit = c.n;
-    await expect.poll(() => c.n - lit, { timeout: 5000 }).toBeGreaterThanOrEqual(2);
+    const watching = () => page.evaluate(() => [...(window as any).app.git.topics._m.keys()].length);
+    await expect.poll(watching, { timeout: 5000 }).toBeGreaterThanOrEqual(1);
 
     const other = await otherWindowId(page, repo);
     expect(other, '비교할 다른 창이 없다').toBeTruthy();
     await switchToWindow(page, other!);
+    await expect.poll(watching, { timeout: 5000 }).toBe(0);
 
-    // 떠나는 순간 진행 중이던 요청이 하나 남을 수 있다 — 끝나기를 기다린다.
     await quiet(c);
     const base = c.n;
-    // 주기의 4배 남짓 — 타이머가 살아 있으면 여기서 서너 건이 나간다.
-    await page.waitForTimeout(FAST_SAFETY_MS * 4);
-    expect(c.n - base, '창을 떠난 뒤에도 폴링이 돈다 (타이머가 살아 있다)').toBe(0);
+    writeFileSync(join(repo, 'p2-after-leave.txt'), 'x');
+    await page.waitForTimeout(3000);
+    expect(c.n - base, '창을 떠난 뒤에도 status 를 묻는다').toBe(0);
   });
 
   test('P3 (V6): Git 창으로 돌아오면 즉시 1건이 온다', async ({ page, request }) => {
@@ -359,10 +358,9 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     const repo = copyFx('basic', 'p9-paint');
     await waitForInit(page);
     await openGit(page, repo);
-    // **다음 관측**이 필요한 검사다. 푸시는 변화가 있을 때만 오므로, 예외로
-    // 놓친 그 회차를 메우는 것은 안전망이다 — 그 주기를 검사용으로 줄인다.
-    // 재는 것은 "다시 그리는가" 이지 안전망이 30초인가가 아니다.
-    await fastSafetyNet(page);
+    // **다음 관측**이 필요한 검사다. 주기 status 는 없으므로(PERF_OPTIMIZATION_SRS M1 C4) 다음
+    // 관측은 다음 변화가 부른다 — 예외 뒤에 변화를 하나 더 만든다. 재는 것은 "한 번 터진 그리기가
+    // 뒤의 관측을 잠그지 않는가" 다.
 
     const view = page.locator('#area .ed-side .git-view.git-changes');
     // 첫 관측이 그려진 뒤부터 시작한다 — 그래야 뒤이은 변경이 "새 관측" 이다.
@@ -385,6 +383,9 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     }, 'after-paint-throw.txt');
 
     writeFileSync(join(repo, 'after-paint-throw.txt'), 'x');
+    await expect.poll(() => page.evaluate(() => JSON.stringify((window as any).app.gitPanel._status || {})
+      .includes('after-paint-throw.txt')), { timeout: 10000 }).toBe(true);
+    writeFileSync(join(repo, 'after-paint-throw-2.txt'), 'x');
 
     await expect(view.locator('.git-file[data-path="after-paint-throw.txt"]'),
       '_paint 가 한 번 터진 뒤 화면이 낡은 채로 굳었다')

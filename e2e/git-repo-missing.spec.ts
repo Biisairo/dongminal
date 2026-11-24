@@ -336,13 +336,17 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
 
     failing = true;
     const c = counter(page, '/api/git/status');
+    // 평상시에는 주기가 없다(PERF_OPTIMIZATION_SRS M1 C4) — 첫 실패는 사용자 계기로 만든다. 그 뒤의
+    // 회복용 재시도가 백오프를 탄다.
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
     await page.waitForTimeout(BACKOFF_BASE_MS * 7);
     // 백오프가 없으면 기준 주기로 7회다. 2·4·8배로 늘면 3~4회에 그친다.
     expect(c.n, '실패가 이어지는데 주기가 그대로다').toBeLessThanOrEqual(4);
     expect(c.n, '아예 멈춰 버렸다 — 백오프는 중단이 아니다').toBeGreaterThanOrEqual(1);
   });
 
-  test('B2 (V-RMS-17): 실패가 그치면 주기가 즉시 기준으로 돌아온다', async ({ page }) => {
+  // PERF_OPTIMIZATION_SRS M1 C4 개정: 평상시에는 주기가 없다 — 실패가 그치면 회복용 재시도를 걷는다.
+  test('B2 (V-RMS-17): 실패가 그치면 회복용 재시도를 걷는다', async ({ page }) => {
     const repo = copyFx('b2');
     await waitForInit(page);
     let failing = false;
@@ -353,15 +357,17 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
     await backoffBase(page);
 
     failing = true;
+    await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
     await page.waitForTimeout(BACKOFF_BASE_MS * 6);
     failing = false;
     // 사용자의 계기는 백오프를 기다리지 않는다 (V-RMS-19) — 이것으로 성공 하나를 만든다.
     await page.evaluate(() => (window as any).app.gitPanel.viewReload.refresh());
 
+    await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel._failStreak), { timeout: 5000 }).toBe(0);
+    await page.waitForTimeout(BACKOFF_BASE_MS);
     const c = counter(page, '/api/git/status');
-    await page.waitForTimeout(BACKOFF_BASE_MS * 3);
-    // 기준으로 돌아왔으면 3회 안팎이다.
-    expect(c.n, '성공했는데 주기가 기준으로 돌아오지 않았다').toBeGreaterThanOrEqual(2);
+    await page.waitForTimeout(BACKOFF_BASE_MS * 6);
+    expect(c.n, '회복했는데 재시도가 남았다').toBe(0);
   });
 
   // B3 (V-RMS-18·26 · V-GRF-13) 은 `_cadence` 값만 읽었다 — 단위 시험으로 옮겼다

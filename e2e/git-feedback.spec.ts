@@ -107,7 +107,8 @@ test('F-9.3: 확인창이 열리는 중·열린 뒤의 두 번째 요청은 창�
 test('F-9.4: 결과를 모르는 done 은 성공으로 보이지 않는다', async ({ page, request }) => {
   const repo = makeRepo('fb4');
   await enter(page, request, repo);
-  await page.route('**/api/git/job/events**', async () => { /* 답하지 않는다 — 스트림이 열린 채 선다 */ });
+  // 출력 스트림(채널의 `gitjob:<id>`)이 열린 채 선다 — 없는 잡이라 그대로 두면 곧바로 실패로 끝난다.
+  await page.evaluate(() => { (window as any).app.git.topics.followJob = () => ({ stop() {} }) });
   await page.evaluate((r: string) => {
     const jobs = (window as any).app.gitPanel.views._remote();
     const v = jobs.views.index;

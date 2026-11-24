@@ -192,7 +192,16 @@ class GitJobs {
     if(jb.kind==='commit'&&gitJobOutcome(jb)==='ok') this.panel.views._commit().adoptJobDone(jb);
   }
 
-  adoptJobs(jobs){this._jobs=jobs;this._each(v=>v.adoptJobs(jobs))}
+  /**
+   * 서버의 진행 중 목록(`git.jobs` 토픽)을 딛는다. 이 패널이 띄우는 중이면(시작 응답 전) 딛지 않는다 —
+   * 그 잡은 시작 응답이 붙이고(`track`), 토픽이 먼저 오면 시작 중인 박스와 잡 박스가 함께 선다
+   * (PERF_OPTIMIZATION_SRS M1 C4 — 토픽은 종전의 신호 뒤 GET 보다 빨리 온다).
+   */
+  adoptJobs(jobs){
+    this._jobs=jobs;
+    if(Object.values(this.views).some(v=>v._busy)) return;
+    this._each(v=>v.adoptJobs(jobs));
+  }
 
   // ── 패널이 부르는 나머지 — 두 칸에 그대로 넘긴다 ──
 

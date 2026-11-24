@@ -57,7 +57,8 @@ test('허브가 대기 타이머와 topic 을 찍는다', async ({ page }) => {
   /**
    * **덤프는 그 순간의 스냅샷이다 — 기다린다고 바뀌지 않는다.**
    *
-   * `git_changed` 는 그 채널이 **등록된 뒤**에야 찍힌다. 부팅 직후 한 번 찍으면
+   * `settings_changed` 는 그 구독이 **등록된 뒤**에야 찍힌다(git 변화는 이제 채널 토픽이라 버스 topic 이 아니다 —
+   * PERF_OPTIMIZATION_SRS M1 C4). 부팅 직후 한 번 찍으면
    * 아직 `commands` 하나뿐인 순간을 잡을 수 있고, 그때 `toContainText` 는 같은
    * 줄을 20초 동안 다시 읽으며 진다 (2026-09-16 Windows 실측: `extra=0` ·
    * `git: - obs=never`). 부하가 있는 러너에서만 그 창이 벌어진다.
@@ -68,6 +69,6 @@ test('허브가 대기 타이머와 topic 을 찍는다', async ({ page }) => {
   await expect.poll(async () => {
     await page.locator('#diag-ov .dg-b[data-a="hub"]').click();
     return log.innerText();
-  }, { timeout: 20000, message: 'git_changed 채널이 끝내 등록되지 않았다' })
-    .toContain('git_changed');
+  }, { timeout: 20000, message: 'settings_changed 구독이 끝내 등록되지 않았다' })
+    .toContain('settings_changed');
 });

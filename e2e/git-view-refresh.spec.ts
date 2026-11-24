@@ -161,13 +161,20 @@ function counter(page: Page, pred: (url: string) => boolean) {
 
 const isStatus = (u: string) => u.includes('/api/git/status');
 
-// 안전망 회차 `k` 개가 끝날 때까지. 수집은 single-flight 라 요청 `k+1` 번째가 나갔으면
-// 앞선 `k` 회차의 적용(뷰 다시 받기 판단 포함)은 끝났다.
+// 변화 없는 관측 회차 `k` 개가 끝날 때까지. 주기 status 는 없으므로(PERF_OPTIMIZATION_SRS M1 C4)
+// 서버가 미는 변화 알림을 흉내 내어 회차를 만든다. 수집은 single-flight 라 요청 `k+1` 번째가
+// 나갔으면 앞선 `k` 회차의 적용(뷰 다시 받기 판단 포함)은 끝났다.
 const SAFETY_MS = 300;
 async function safetyRounds(page: Page, k: number) {
   const st = counter(page, isStatus);
-  await setSafetyNet(page, SAFETY_MS);
-  await expect.poll(() => st.n, { timeout: 10000 }).toBeGreaterThanOrEqual(k + 1);
+  for (let i = 0; i <= k; i++) {
+    const want = i + 1;
+    await page.evaluate((m: string) => {
+      const app = (window as any).app;
+      app.git.sync._onGitChanged({ repo: app.gitPanel._status.repo, mark: m });
+    }, 'round-' + i + '-' + Date.now());
+    await expect.poll(() => st.n, { timeout: 10000 }).toBeGreaterThanOrEqual(want);
+  }
 }
 
 // 새 파일·내용 변경은 서버의 워크트리 회차가 잡는다 — 기본 4초를 하한 1초로 줄인다 (§8.2 (b)).
@@ -363,7 +370,9 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
    * 그래서 두 축을 나눈다: **관측은 살아 있다**(안전망을 줄여 짧은 창에서 확인)와
    * **가만히 있으면 뷰 조회가 늘지 않는다**(원래의 계약).
    */
-  test('G8 (V-GVR-8 / FR-GVR-7): 관측은 살아 있고 뷰 조회는 늘지 않는다', async ({ page }) => {
+  // PERF_OPTIMIZATION_SRS M1 C4 개정: 관측은 주기가 아니라 서버의 변화 알림(`git:<root>` 토픽)으로 산다.
+  // 가만히 있으면 status 도 뷰 조회도 나가지 않는다.
+  test('G8 (V-GVR-8 / FR-GVR-7): 가만히 있으면 관측도 뷰 조회도 늘지 않는다', async ({ page }) => {
     const { repo } = copyPair('g8');
     await waitForInit(page);
     const status = counter(page, (u) => u.includes('/api/git/status'));
@@ -371,18 +380,14 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
 
     await openGit(page, repo);
     await ready(page);
-    await setSafetyNet(page, SAFETY_MS);
     // **예외 (`TEST-16`)**: 창을 여는 동안의 요청이 가라앉을 여유를 준다 —
     // 아래가 세는 것은 그 뒤의 증가분이다.
-    await page.waitForTimeout(SAFETY_MS);
+    await page.waitForTimeout(SAFETY_MS * 3);
     const stBase = status.n;
     const vBase = views.n;
-    // 주기의 4배 남짓(종전 600ms 주기에 2.6초와 같은 비율)이다.
     await page.waitForTimeout(SAFETY_MS * 13 / 3);
 
-    // 관측이 멎지도, 폭주하지도 않는다.
-    expect(status.n - stBase, '관측이 멎었다').toBeGreaterThanOrEqual(2);
-    expect(status.n - stBase, '관측이 폭주한다').toBeLessThanOrEqual(8);
+    expect(status.n - stBase, '가만히 있는데 status 를 물었다').toBe(0);
     // 갱신은 계기가 있을 때만 한다 — 아무 일도 없는 동안 뷰 조회가 늘지 않는다.
     expect(views.n - vBase, '가만히 있는데 뷰 조회가 늘었다').toBe(0);
   });

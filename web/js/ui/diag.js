@@ -379,6 +379,8 @@ class DiagOverlay {
     }else this.put('HUB timers 없음');
     if(app.bus){
       const s=app.bus.stats();
+      const ch=app.channel;
+      if(ch) this.put('HUB channels open='+ch._open()+' latency='+ch.latency());
       // 온 적 없는 topic 이 곧 "안 오는 이벤트" 다 — 그것부터 보이게 둔다.
       s.topics.slice().sort((a,b)=>a.count-b.count).forEach(x=>
         this.put('  · '+x.topic+' subs='+x.subs+' n='+x.count

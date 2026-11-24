@@ -69,7 +69,8 @@ test.describe('FR-GRF 묶음 B — git 이 돌아온다', () => {
       await expect.poll(
         () => page.evaluate(() => {
           const p = (window as any).app.gitPanel;
-          return { missing: p._gitMissing, armed: !!p._stPoll };
+          // 자동 갱신은 주기 타이머가 아니라 `git:<root>` 토픽 구독이다 (PERF_OPTIMIZATION_SRS M1 C4).
+          return { missing: p._gitMissing, armed: !!p.obs._gitTopic };
         }),
         { timeout: 20000 },
       ).toEqual({ missing: false, armed: true });

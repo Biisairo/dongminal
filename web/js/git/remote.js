@@ -151,7 +151,9 @@ class GitRemote {
       Object.assign({repo},body||{}));
     this._busy=false; this._busyKey='';
     const job=res.data&&res.data.job;
-    if(res.ok&&job&&job.id){this.router.track(job,this);return res}
+    // 잡은 다른 칸의 표시기에 붙을 수 있다(pull·fetch 는 그 칸) — 시작 중이던 이 박스는 스스로
+    // 걷는다. 종전에는 주기 status 의 다시 그리기가 대신 걷었다 (PERF_OPTIMIZATION_SRS M1 C4).
+    if(res.ok&&job&&job.id){this._paint();this.router.track(job,this);return res}
     // Publish 는 서버가 실행 **전에** 되묻는다 (FR-GIT-100, 계약 §2.3.1 ①).
     if(kind==='push'&&res.data&&res.data.error==='publish_required'){
       this._paint();
