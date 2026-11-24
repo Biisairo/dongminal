@@ -43,7 +43,7 @@ function setup() {
   const app = {
     timers, bus, channel,
     render() { calls.render++ },
-    runsPanel: () => ({ runViewEl() { calls.runView++; return runEl } }),
+    runsPanel: () => ({ runViewEl() { calls.runView++; return runEl }, runViewOwner() { return null } }),
   };
   ctx.app = app;
   ctx.Screens.register('tscreen', { tab: (at) => at.type === 'run' });
