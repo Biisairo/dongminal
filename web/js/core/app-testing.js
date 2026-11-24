@@ -112,8 +112,6 @@ const APP_TESTING_NAMES = [
   'wsSync._onWorkspaceTopic', 'settings.apply._settingsRestore',
   // CLAUDE_ACCOUNTS_SRS FR-CAC-94a: 계정 변경 신호(SSE)를 받은 것처럼 — 입력 중 다시 그리기를 잰다.
   'claude._onClaudeAccountsChanged',
-  // CHANNEL_PROTOCOL C2b: 채팅 상태는 `chat` 토픽으로 온다 — 시험의 가짜 `/api/chat` 을 GET 으로 다시 얹는다.
-  'chat._onChatChanged',
   // 같은 구멍 (FR-FMB-45a). 저장의 **비행 중**과 **대기 중**은 다른 사실이다.
   'wsSync._applyRemoteWorkspace', '_saveInflight', '_savePending',
   // OPTIMIZE_REFACTOR_SRS D-OPT-7: 자기 에코가 설정을 다시 얹지 않는지 센다.
