@@ -478,3 +478,27 @@ test('frame: 하나가 던져도 같은 프레임의 나머지가 돈다', async
   assert.deepEqual(log, ['b']);
   assert.ok(ErrorLog.items().some((i) => i.kind === 'timer' && /프레임 던짐/.test(i.message)));
 });
+
+/** PERF 3.6.4: `coalesce` 는 **주인마다** 접는다. 주인이 객체면 종전 키가 모두 "[object Object]" 로 같아졌다. */
+test('frame coalesce: 다른 주인 둘이 같은 이름으로 같은 프레임에 걸면 둘 다 돈다', async () => {
+  const { clock, TIMERS } = frameHub();
+  const log = [];
+  const a = {}, b = {};
+  TIMERS.frame(() => log.push('a'), { owner: a, coalesce: 'diff-fold' });
+  TIMERS.frame(() => log.push('b'), { owner: b, coalesce: 'diff-fold' });
+  await clock.advance(16);
+  assert.deepEqual(log, ['a', 'b']);
+});
+
+test('frame coalesce: 같은 주인은 여전히 하나로 접히고, 문자열 주인도 같다', async () => {
+  const { clock, TIMERS } = frameHub();
+  const log = [];
+  const a = {};
+  TIMERS.frame(() => log.push('a1'), { owner: a, coalesce: 'c' });
+  TIMERS.frame(() => log.push('a2'), { owner: a, coalesce: 'c' });
+  TIMERS.frame(() => log.push('s1'), { owner: 'ui-kit', coalesce: 'c' });
+  TIMERS.frame(() => log.push('s2'), { owner: 'ui-kit', coalesce: 'c' });
+  await clock.advance(16);
+  assert.deepEqual(log, ['a1', 's1']);
+  assert.equal(TIMERS.disposeOwner(a), 0);
+});

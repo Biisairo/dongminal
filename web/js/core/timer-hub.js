@@ -36,6 +36,7 @@ class TimerHub {
     this._nextAt=0;
     this._hidden=()=>document.hidden;
     this._raf=null;           // 프레임 묶음의 rAF 하나 (D-39)
+    this._ownerIds=new WeakMap();   // coalesce 주인 객체 → 번호 (PERF 3.6.4)
     this._now=typeof performance==='object'?()=>performance.now():()=>Date.now();
     // FR-BUS-8: 생명주기 신호를 듣는 자리는 앱 전체에 하나다. 종전에는 네 곳이
     // 각자 `visibilitychange` 를 듣고 각자 해석했고, 그래서 순서 보장이 없었다
@@ -258,10 +259,8 @@ class TimerHub {
    * 값어치는 지연이 아니라 소유권에 있다. 15개 중 11개가 id 를 붙들지 않는
    * fire-and-forget 이었고, 화면이 파괴된 뒤 죽은 DOM 을 만졌다.
    *
-   * `coalesce` 는 같은 키의 프레임을 하나로 접는다 — `_wheelRaf`·`_mFitRaf`·
-   * `_docRenderRaf` 가 손으로 하던 일이다. **먼저 잡힌 예약이 이긴다.** 나중이
-   * 이기면 연속 입력(터치 스크롤·리사이즈)에서 재예약이 프레임보다 잦을 때 영영
-   * 실행되지 않는다. 접힌 동안의 변화는 누적 상태(`_wheelPend` 같은)가 들고 있다.
+   * `coalesce` 는 **주인마다** 같은 이름의 프레임을 하나로 접는다(`_wheelRaf`·`_mFitRaf`·`_docRenderRaf` 가 손으로
+   * 하던 일). **먼저 잡힌 예약이 이긴다** — 나중이 이기면 재예약이 프레임보다 잦은 연속 입력에서 영영 돌지 않는다.
    *
    * PERF_OPTIMIZATION_SRS FR-SPA-4 · D-39 — 한 프레임의 작업은 **rAF 하나**에 묶여 `_flushFrame` 에서 돈다.
    *   key   같은 키가 또 오면 앞의 것을 버리고 마지막 것만 돈다(묶음 안에서 콜백만 바뀌므로 굶지 않는다)
@@ -273,7 +272,7 @@ class TimerHub {
     const owner=opts.owner||null;
     let id;
     if(opts.coalesce){
-      id='frame:'+(owner||'')+':'+opts.coalesce;
+      id='frame:'+this._ownerKey(owner)+':'+opts.coalesce;
       // 이미 잡혀 있으면 그것을 돌려준다. 새 콜백은 버린다 — 누적 상태를 읽는
       // 콜백이므로 어느 쪽이 실행돼도 최신을 본다.
       if(this._ones.has(id)) return {id, stop:()=>this._cancelOne(id)};
@@ -287,10 +286,7 @@ class TimerHub {
     return {id, stop:()=>this._cancelOne(id)};
   }
 
-  /**
-   * 이 프레임의 묶음을 돌린다. 도는 동안 새로 건 `frame` 은 다음 프레임이다 —
-   * rAF 안에서 건 rAF 가 다음 프레임에 도는 것과 같다.
-   */
+  /** 이 프레임의 묶음을 돌린다. 도는 동안 새로 건 `frame` 은 다음 프레임이다(rAF 안의 rAF 와 같다). */
   _flushFrame(ts){
     this._raf=null;
     const t0=typeof ts==='number'?ts:this._now();
@@ -304,6 +300,13 @@ class TimerHub {
       this._safe(r.label||id,r.fn);
     }
     if(this._raf==null&&this._hasFrame()) this._raf=requestAnimationFrame(ts2=>this._flushFrame(ts2));
+  }
+
+  /** PERF 3.6.4: `coalesce` 의 주인 이름. 객체를 이으면 모두 "[object Object]" 였다 — 객체마다 번호를 준다. */
+  _ownerKey(o){
+    if(o==null||(typeof o!=='object'&&typeof o!=='function')) return 's:'+(o??'');
+    if(!this._ownerIds.has(o)) this._ownerIds.set(o,++this._seq);
+    return 'o:'+this._ownerIds.get(o);
   }
 
   _hasFrame(){
