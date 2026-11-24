@@ -376,3 +376,15 @@ test('disposeOwner: 그 owner 의 구독과 수신을 걷고 빈 토픽은 unsub
   assert.deepEqual(got, ['other']);
   assert.equal(c.disposeOwner(null), 0);
 });
+
+test('stats: 구독 중인 토픽마다 구독자 수·마지막 순번·받은 epoch 를 준다 (진단, FR-BUS-9)', () => {
+  const { c, ws } = ready();
+  c.sub('settings', () => {});
+  c.sub('settings', () => {});
+  c.sub('chat', () => {});
+  recv(ws, { t: 'full', topic: 'settings', seq: 3, data: {} });
+  assert.deepEqual(plain(c.stats()), [
+    { topic: 'chat', subs: 1, seq: null, epoch: null, waiting: false },
+    { topic: 'settings', subs: 2, seq: 3, epoch: 'e1', waiting: false },
+  ]);
+});

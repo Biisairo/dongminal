@@ -101,7 +101,9 @@ Object.assign(SettingsSync.prototype, {
    * 부르는 자리는 `_settingsRestore` 다.
    */
   _settingsAcceptRemote(r){
-    if(this._settingsLocalPending()) this._settingsEchoMissed=true;
-    else if(!(r.ok&&r.text===this._settingsLastSent)) this.app.settings.apply._settingsApply(r.ok?r.data:null);
+    // 토픽은 본문을 싣는다(CHANNEL_PROTOCOL C2b) — 보낸 본문과 같으면 비행 중에 와도 자기 에코다.
+    const own=r.ok&&r.text===this._settingsLastSent;
+    if(this._settingsLocalPending()){ if(!own) this._settingsEchoMissed=true }
+    else if(!own) this.app.settings.apply._settingsApply(r.ok?r.data:null);
   },
 });

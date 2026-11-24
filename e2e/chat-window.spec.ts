@@ -1,7 +1,7 @@
 // CHAT_WINDOW_SRS — 채팅 창 (TC-CW-1·2·7·8·9·10)
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, refetchChat } from './fixtures';
 
 const MOBILE = { width: 412, height: 839 };
 
@@ -40,6 +40,7 @@ test.describe('채팅 창 (CHAT_WINDOW_SRS)', () => {
   test('TC-CW-1: 메인 패널의 셋째 탭이 채팅이고, 고르면 빈 채팅 창으로 간다', async ({ page }) => {
     await mockChat(page);
     await waitForInit(page);
+    await refetchChat(page);
     const ids = await page.evaluate(() => [...document.querySelectorAll('#sb-tabs .sb-tab')].map((e) => (e as HTMLElement).dataset.panel));
     expect(ids).toEqual(['windows', 'repo', 'chat']);
     await chatTab(page).click();
@@ -53,6 +54,7 @@ test.describe('채팅 창 (CHAT_WINDOW_SRS)', () => {
   test('TC-CW-2·9: 방을 누르면 채팅 창에 그 방 탭이 하나 열리고, 마지막 탭을 닫으면 빈 창이 남는다', async ({ page }) => {
     await mockChat(page);
     await waitForInit(page);
+    await refetchChat(page);
     await chatTab(page).click();
     const row = page.locator('#sb-panel-chat .chat-room[data-room="r1"]');
     await row.click();
@@ -70,6 +72,7 @@ test.describe('채팅 창 (CHAT_WINDOW_SRS)', () => {
   test('TC-CW-7: 방 행의 ⋯ → 나가기는 방에서 나가고 그 탭을 닫는다', async ({ page }) => {
     await mockChat(page);
     await waitForInit(page);
+    await refetchChat(page);
     await chatTab(page).click();
     const row = page.locator('#sb-panel-chat .chat-room[data-room="r1"]');
     await row.click();
@@ -84,6 +87,7 @@ test.describe('채팅 창 (CHAT_WINDOW_SRS)', () => {
   test('TC-CW-10: 모바일은 서랍의 채팅 탭에서 방을 열고, 서랍이 닫힌다', async ({ page }) => {
     await mockChat(page);
     await waitForInit(page, { mode: 'mobile', viewport: MOBILE });
+    await refetchChat(page);
     await page.click('#m-drawer-toggle');
     await expect(page.locator('body')).toHaveClass(/drawer-open/);
     await chatTab(page).click();
