@@ -98,10 +98,32 @@ function edFindSources() {
   };
   return [
     edRulerSource().of((st) => hits(st).map((h) => ({ from: h.from, to: h.to, lane: 'right', color: h.color, cls: h.cls }))),
-    // 같은 줄에 일치가 여럿이면 현재 일치의 색이 이긴다 — 미니맵은 줄마다 한 색이다.
-    edMinimapSource().of((st) => hits(st).sort((a, b) => a.cur - b.cur)
-      .map((h) => ({ line: st.doc.lineAt(h.from).number, kind: 'mark', color: h.color, cls: h.cls }))),
+    edMinimapSource().of(edFindMinimapMarks(hits)),
   ];
+}
+
+/**
+ * 미니맵은 줄마다 한 색이다 — 표식도 줄마다 하나만 넘긴다(이슈 3.8). 같은 줄에 일치가 여럿이면 현재 일치가 이기고,
+ * 현재 일치의 줄은 맨 뒤에 둔다(종전 정렬과 같은 칠하기 순서).
+ */
+function edFindMinimapMarks(hits) {
+  return (st) => {
+    const out = [];
+    let line = null, last = null, cur = null;
+    for (const h of hits(st)) {
+      if (!line || h.from > line.to) line = st.doc.lineAt(h.from);
+      if (!last || last.line !== line.number) {
+        last = { line: line.number, kind: 'mark', color: h.color, cls: h.cls };
+        out.push(last);
+      } else if (h.cur) {
+        last.color = h.color;
+        last.cls = h.cls;
+      }
+      if (h.cur) cur = last;
+    }
+    if (cur) out.push(...out.splice(out.indexOf(cur), 1));
+    return out;
+  };
 }
 
 /**

@@ -1,12 +1,15 @@
 /**
- * PERF_OPTIMIZATION_SRS FR-SPA-5 · OQ-2 (이슈 3.3) — 큰 파일에서 찾기 입력이 메인 스레드를 16 ms 넘게 잡지 않는다.
+ * PERF_OPTIMIZATION_SRS FR-SPA-5 · OQ-2 (이슈 3.3·3.8) — 큰 파일에서 찾기 입력이 메인 스레드를 16 ms 넘게 잡지 않는다.
  *
  * 2만 줄 파일을 열고 찾기 칸에 글자를 하나씩 친다. 그동안 Chromium 트레이스(`devtools.timeline`)를 켜서
- * 렌더러 메인 스레드의 작업(`RunTask`) 길이를 잰다. 첫 글자부터 마지막 일치 수가 나올 때까지 **찾기 계산 작업**
- * (입력 처리·디바운스 뒤의 조각 — 화면 프레임 `FireAnimationFrame` 을 품지 않는 작업)은 16 ms 이하여야 한다.
+ * 렌더러 메인 스레드의 작업(`RunTask`) 길이를 잰다. 첫 글자부터 마지막 일치 수가 나온 뒤 프레임 둘까지,
+ * 찾기 계산 작업(입력 처리·디바운스 뒤의 조각)과 화면 프레임(`FireAnimationFrame` 을 품은 작업 — 다 센 일치를
+ * 칠한 뒤 눈금·미니맵을 다시 그리는 프레임 포함) 모두 16 ms 이하여야 한다.
  *
- * 화면 프레임은 재기만 한다. 다 센 일치를 칠한 뒤의 프레임 한 번은 눈금·미니맵이 일치 전체를 다시 그려
- * 일치 수에 비례한다(1만 1천 개에서 약 22 ms, 1천 1백 개에서 16 ms 이하). 그 몫은 이 시험의 범위가 아니다.
+ * 유휴 콜백(`FireIdleCallback`)을 품은 작업은 재기만 한다. 큰 파일을 연 뒤 CodeMirror 언어 파서가 유휴 시간에
+ * 배경 파싱을 이어 가며(한 번에 최대 약 50 ms), 찾기와 무관하게 측정 창에 걸린다(이슈 3.8 진행 기록).
+ *
+ * 시간을 재는 시험이라 기계 부하에 흔들린다. 평소 e2e 에서는 건너뛰고 `OTTER_E2E_PERF=1` 일 때만 돈다(이슈 3.8).
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -14,7 +17,7 @@ import * as path from 'path';
 import { APIRequestContext, CDPSession, Page } from '@playwright/test';
 
 import { ED_SEL } from './editor';
-import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
+import { test, expect, rmTree, switchToEditorRoot, openExplorerSide, nextFrames } from './fixtures';
 import { TMP, realPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
@@ -77,26 +80,30 @@ async function traceStop(cdp: CDPSession): Promise<TraceEvent[]> {
   return (JSON.parse(raw).traceEvents || []) as TraceEvent[];
 }
 
-// 렌더러 메인 스레드(`CrRendererMain`)의 작업 길이(ms)를 화면 프레임과 그 밖으로 나눈다. 긴 것부터.
-function mainTasks(events: TraceEvent[]): { work: number[]; frame: number[] } {
+// 렌더러 메인 스레드(`CrRendererMain`)의 작업 길이(ms)를 화면 프레임·유휴 콜백·그 밖으로 나눈다. 긴 것부터.
+function mainTasks(events: TraceEvent[]): { work: number[]; frame: number[]; idle: number[] } {
   const main = new Set(events
     .filter((e) => e.ph === 'M' && e.name === 'thread_name' && e.args?.name === 'CrRendererMain')
     .map((e) => `${e.pid}:${e.tid}`));
   const on = (e: TraceEvent) => main.has(`${e.pid}:${e.tid}`);
-  const raf = events.filter((e) => e.name === 'FireAnimationFrame' && on(e));
-  const out = { work: [] as number[], frame: [] as number[] };
+  const inside = (name: string) => {
+    const xs = events.filter((e) => e.name === name && on(e));
+    return (t: TraceEvent) => xs.some((f) => f.ts >= t.ts && f.ts <= t.ts + (t.dur || 0));
+  };
+  const isFrame = inside('FireAnimationFrame');
+  const isIdle = inside('FireIdleCallback');
+  const out = { work: [] as number[], frame: [] as number[], idle: [] as number[] };
   for (const t of events.filter((e) => e.ph === 'X' && e.name === 'RunTask' && on(e))) {
-    const end = t.ts + (t.dur || 0);
-    const isFrame = raf.some((f) => f.ts >= t.ts && f.ts <= end);
-    (isFrame ? out.frame : out.work).push((t.dur || 0) / 1000);
+    (isFrame(t) ? out.frame : isIdle(t) ? out.idle : out.work).push((t.dur || 0) / 1000);
   }
-  out.work.sort((a, b) => b - a);
-  out.frame.sort((a, b) => b - a);
+  for (const xs of Object.values(out)) xs.sort((a, b) => b - a);
   return out;
 }
 
 test.describe('큰 파일 찾기의 메인 스레드 작업', () => {
-  test('2만 줄 파일에서 찾기 입력 글자마다 찾기 계산 작업이 16 ms 이하다', async ({ page, request }) => {
+  test.skip(process.env.OTTER_E2E_PERF !== '1', '성능 시험은 OTTER_E2E_PERF=1 일 때만 돈다');
+
+  test('2만 줄 파일에서 찾기 입력 글자마다 메인 스레드 작업이 16 ms 이하다', async ({ page, request }) => {
     test.setTimeout(120000);
     await enter(page, request);
     await page.keyboard.press('Control+f');
@@ -107,11 +114,13 @@ test.describe('큰 파일 찾기의 메인 스레드 작업', () => {
     await cdp.send('Tracing.start', { categories: 'toplevel,devtools.timeline,disabled-by-default-devtools.timeline', transferMode: 'ReturnAsStream' });
     await page.keyboard.type(QUERY, { delay: TYPE_DELAY_MS });
     await expect(count).toHaveText(`1/${QUERY_HITS}`, { timeout: 20000 });
-    const { work, frame } = mainTasks(await traceStop(cdp));
+    await nextFrames(page, 2);
+    const { work, frame, idle } = mainTasks(await traceStop(cdp));
 
     const top = (xs: number[]) => xs.slice(0, 5).map((d) => d.toFixed(1)).join(',');
-    console.log(`find-main-task-ms work=${top(work)} frame=${top(frame)}`);
-    const over = work.filter((d) => d > TASK_BUDGET_MS).map((d) => d.toFixed(1));
-    expect(over, `16 ms 를 넘은 찾기 계산 작업: ${over.join(', ')}`).toEqual([]);
+    console.log(`find-main-task-ms work=${top(work)} frame=${top(frame)} idle=${top(idle)}`);
+    const over = (xs: number[]) => xs.filter((d) => d > TASK_BUDGET_MS).map((d) => d.toFixed(1));
+    expect(over(work), `16 ms 를 넘은 찾기 계산 작업: ${over(work).join(', ')}`).toEqual([]);
+    expect(over(frame), `16 ms 를 넘은 화면 프레임: ${over(frame).join(', ')}`).toEqual([]);
   });
 });
