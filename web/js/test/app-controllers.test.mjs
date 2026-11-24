@@ -837,8 +837,8 @@ test('TC-CH2B-6: workspace 토픽 본문은 GET 없이 적용한다', async () =
   app.wsSync._fgApply = () => {};
   app.bus = { beginSnapshot: () => new Set(), isLive: () => true, endSnapshot() {}, noteTouched() {} };
   app.wsETag = '3';
-  const env = (rev) => Promise.resolve({ ok: true, status: 200, headers: null,
-    data: { rev, tools: [], workspace: { windows: [{ id: 'w' + rev }] } } });
+  const env = (rev) => Promise.resolve({ ok: true, status: 200, headers: { get: (k) => (k === 'ETag' ? String(rev) : null) },
+    data: { tools: [], workspace: { windows: [{ id: 'w' + rev }] } } });
   await app.wsSync._onWorkspaceTopic(env(2));
   assert.equal(applied.length, 0, '낡은 rev 를 적용했다');
   await app.wsSync._onWorkspaceTopic(env(4));

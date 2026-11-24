@@ -361,10 +361,19 @@ function stateCall(app,name,args){
  * 결과는 서버가 `{"$http": 상태, "body": 본문}` 으로 싣는다 (CHANNEL_PROTOCOL C2b).
  */
 function stateEnvelope(data){
-  if(data&&typeof data==='object'&&Object.prototype.hasOwnProperty.call(data,'$http')){
+  const has=(k)=>!!data&&typeof data==='object'&&Object.prototype.hasOwnProperty.call(data,k);
+  if(has('$http')){
     return Promise.resolve({ok:false,status:data.$http,data:data.body===undefined?null:data.body,text:'',headers:null});
   }
-  return Promise.resolve({ok:true,status:200,data,text:JSON.stringify(data),headers:null});
+  // GET 의 ETag 는 `$etag` 로 온다 — 머리로 되돌려 지문 판정(설정 패널·워크스페이스 rev)이 그대로 돈다.
+  let headers=null;
+  if(has('$etag')){
+    const tag=String(data.$etag);
+    data=Object.assign({},data);
+    delete data.$etag;
+    headers={get:(k)=>String(k).toLowerCase()==='etag'?tag:null};
+  }
+  return Promise.resolve({ok:true,status:200,data,text:JSON.stringify(data),headers});
 }
 
 /**

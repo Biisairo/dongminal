@@ -194,12 +194,12 @@
 
 | ID | 쪽 | 동작 |
 |---|---|---|
-| TC-CH2B-1 | 서버 | `workspace`·`settings`·`edges`·`chat`·`update`·`claude.accounts`·`focus`·`telegram` 을 구독하면 `full.data` 는 그 GET 종단(`/api/state`·`/api/settings`·`/api/edges`·`/api/chat`·`/api/update`·`/api/claude-accounts`·`/api/focus`·`/api/telegram`)의 본문이다. `workspace` 는 여기에 `rev`(그 GET 의 ETag 값)를 더한다 |
+| TC-CH2B-1 | 서버 | `workspace`·`settings`·`edges`·`chat`·`update`·`claude.accounts`·`focus`·`telegram` 을 구독하면 `full.data` 는 그 GET 종단(`/api/state`·`/api/settings`·`/api/edges`·`/api/chat`·`/api/update`·`/api/claude-accounts`·`/api/focus`·`/api/telegram`)의 본문이다. GET 에 ETag 가 있으면 `$etag` 로 더한다(브라우저는 그것을 응답 머리로 되돌린다 — 워크스페이스 rev·설정 패널의 지문) |
 | TC-CH2B-2 | 서버 | 상태가 바뀌는 자리(설정 PUT, 워크스페이스 저장, 포커스 주장, 간선·채팅 변화, 판 확인, 계정 변화, 텔레그램 짝맞춤·저장)에서 그 토픽의 `full` 이 나간다. 본문이 지난 발행과 같으면 나가지 않는다 |
 | TC-CH2B-3 | 서버 | 사건 토픽: `alert`(계정 알림 본문), `fs`(파일 변화 본문), `edges.notice`(간선 변화의 `paired`·`removed`·`byPeer`·`invited`) |
 | TC-CH2B-4 | 서버 | 옮긴 방송(`workspace_changed`·`settings_changed`·`update_changed`·`window_focus`·`edges_changed`·`chat_changed`·`claude_accounts_changed`·`claude_account_alert`·`fs_changed`)은 명령 SSE 로 가지 않는다 |
 | TC-CH2B-5 | 프론트 | 등록부의 `topic` 항목은 채널에 구독한다. 연결(`chan:open`)마다 첫 `full` 은 `restore` 에, 그 뒤 `full` 은 `change`(없으면 `restore`)에 봉투(`{ok, status:200, data, text, headers}`)로 넘긴다. 사건은 `event` 처리기에 본문을 넘긴다 |
-| TC-CH2B-6 | 프론트 | `workspace` full 은 GET 없이 적용한다. `rev` 가 `wsETag` 이하이면 버리고, 저장 비행 중이면 유예했다가 받은 본문으로 적용한다 |
+| TC-CH2B-6 | 프론트 | `workspace` full 은 GET 없이 적용한다. `$etag`(rev)가 `wsETag` 이하이면 버리고, 저장 비행 중이면 유예했다가 받은 본문으로 적용한다 |
 | TC-CH2B-7 | 프론트 | 이 상태들의 `sse:open` GET 재검증, Claude 계정 30초 폴링, 텔레그램 짝맞춤 읽기 폴링이 없다(짝맞춤 남은 시간 그리기는 남는다) |
 
 ### 10.6 C5 — 터미널

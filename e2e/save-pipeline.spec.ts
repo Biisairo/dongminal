@@ -54,24 +54,29 @@ const BG = 0, SIDEBAR = 1, BORDER = 2;
 
 test.describe('설정 저장 파이프라인 (FR-OPT-5-2)', () => {
   /**
-   * FEC-4 재현: 색 입력 사이에 settings_changed 가 끼면 두 번째 편집이 사라졌다.
+   * FEC-4 재현: 색 입력 사이에 다른 화면의 설정 변화가 끼면 두 번째 편집이 사라졌다.
    *
-   * 에코가 `customTheme` 을 새 객체로 갈아 끼우고, 편집기는 옛 객체를 고쳤다.
-   * 방송은 같은 본문을 다시 PUT 해 일으킨다 — 서버가 보기에는 다른 화면의 저장이다.
+   * 변화가 `customTheme` 을 새 객체로 갈아 끼우고, 편집기는 옛 객체를 고쳤다. 같은 본문의 재저장은
+   * 이제 토픽이 내지 않으므로(CHANNEL_PROTOCOL C2b), 테마와 무관한 키를 바꿔 `settings` 토픽을 일으킨다.
    */
-  test('FEC-4 색 입력 사이의 settings_changed 가 다음 편집을 끊지 않는다', async ({ page, request }) => {
+  test('FEC-4 색 입력 사이의 설정 변화가 다음 편집을 끊지 않는다', async ({ page, request }) => {
     await waitForInit(page);
     await openCustomEditor(page);
 
     await pickColor(page, BG, '#111111');
     await expect.poll(() => serverUi(page, 'bg'), { timeout: 10000 }).toBe('#111111');
 
-    // 같은 본문을 다시 넣어 방송을 일으키고, 이 화면이 그것을 다시 받는 것을 기다린다.
+    // 다른 화면의 저장을 흉내 내고, 이 화면이 그 토픽 본문을 받는 것을 기다린다.
+    await page.evaluate(() => {
+      const t = (window as any).app.testing;
+      (window as any).__restored = 0;
+      const orig = t.settingsRestore;
+      t.settingsRestore = function (src: unknown) { (window as any).__restored++; return orig(src); };
+    });
     const blob = await (await request.get('/api/settings')).json();
-    const echoed = page.waitForResponse((r) =>
-      new URL(r.url()).pathname === '/api/settings' && r.request().method() === 'GET');
+    blob.fec4Probe = Date.now();
     await request.put('/api/settings', { data: blob });
-    await echoed;
+    await expect.poll(() => page.evaluate(() => (window as any).__restored), { timeout: 10000 }).toBeGreaterThan(0);
 
     await pickColor(page, SIDEBAR, '#222222');
     await expect.poll(() => serverUi(page, 'sidebarBg'), { timeout: 10000 }).toBe('#222222');
@@ -132,8 +137,8 @@ test.describe('설정 저장 파이프라인 (FR-OPT-5-2)', () => {
     expect(puts.n).toBe(2);
   });
 
-  // FEC-M3 · D-OPT-7: 자기 저장의 방송은 GET 도 재적용도 부르지 않는다
-  // (O5 전 GET 1 · 재적용 1 → O5 GET 1 · 재적용 0 → 지금 GET 0 · 재적용 0).
+  // D-OPT-7: 자기 저장의 에코(`settings` 토픽)는 GET 도 재적용도 부르지 않는다
+  // (O5 전 GET 1 · 재적용 1 → O5 GET 1 · 재적용 0 → 지금 GET 0 · 재적용 0, CHANNEL_PROTOCOL C2b).
   test('D-OPT-7 자기 저장의 에코는 화면에 다시 얹지 않는다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate(() => {
@@ -143,16 +148,15 @@ test.describe('설정 저장 파이프라인 (FR-OPT-5-2)', () => {
       const t = w.app.testing;
       const apply = t.settingsApply;
       t.settingsApply = function (...args: unknown[]) { w.__applied++; return apply(...args); };
-      const onChanged = t.onSettingsChanged;
-      t.onSettingsChanged = function (a: any) { w.__echo.push(a && a.origin); return onChanged(a); };
+      const restore = t.settingsRestore;
+      t.settingsRestore = function (src: unknown) { w.__echo.push('echo'); return restore(src); };
     });
     const gets = countRequests(page, 'GET', '/api/settings');
     await page.evaluate(() => {
       (window as any).tabWidthPx = 160;
       return (window as any).app.testing.saveSettings();
     });
-    const self = await page.evaluate(() => (window as any).app.clientId);
-    await expect.poll(() => page.evaluate(() => (window as any).__echo), { timeout: 5000 }).toContain(self);
+    await expect.poll(() => page.evaluate(() => (window as any).__echo), { timeout: 5000 }).toContain('echo');
     // **예외 (`TEST-16`)**: 방송 뒤에 GET 이 **나가지 않음**을 잰다.
     await page.waitForTimeout(300);
     expect(gets.n).toBe(0);

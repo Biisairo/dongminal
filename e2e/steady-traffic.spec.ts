@@ -65,7 +65,8 @@ test.describe('터미널 창 하나의 정상 상태 트래픽 (FR-OPT-4-3~4-6)'
     const got = byPath(box);
     const rps = box.length / (WINDOW_MS / 1000);
     console.log('[steady-traffic]', JSON.stringify(got), 'rps=' + rps.toFixed(2));
-    for (const p of ['/api/git/jobs', '/api/state', '/api/settings']) {
+    // CHANNEL_PROTOCOL C2b (D-9): 워크스페이스·설정·Claude 계정은 채널 토픽으로 온다 — 주기 GET 이 없다.
+    for (const p of ['/api/git/jobs', '/api/state', '/api/settings', '/api/claude-accounts', '/api/claude-accounts/mappings']) {
       expect(got[p] || 0, `${p} — ${JSON.stringify(got)}`).toBe(0);
     }
     // 저장소 목록은 안전망(gitStatusInterval, 기본 30초)만 남는다.
@@ -75,19 +76,14 @@ test.describe('터미널 창 하나의 정상 상태 트래픽 (FR-OPT-4-3~4-6)'
     /**
      * **Activity 의 주기 조회는 남는다** (UX_BATCH12_SRS FR-ACF-9 가 FR-OPT-4-6 을 개정).
      * 데스크톱에서는 접힌 Activity 도 레일로 목록을 보이므로 "패널이 보인다" 에 들고,
-     * 그 목록을 고치는 주기가 돈다. 셋은 활동 주기(`agentsPollMs`), 계정 둘은
-     * `CLAUDE_ACCT_POLL_MS` 마다다 — 회차마다 계정 목록과 매핑을 한 번씩 받는다.
+     * 그 목록을 고치는 주기가 돈다. 셋은 활동 주기(`agentsPollMs`)다. 계정은 채널의 `claude.accounts`
+     * 토픽이 준다(CHANNEL_PROTOCOL C2b) — 주기가 없다.
      */
-    const { agents, acct } = await page.evaluate(() => ({
-      agents: (window as any).app.agentsPollMs as number,
-      acct: (0, eval)('CLAUDE_ACCT_POLL_MS') as number,
-    }));
+    const agents = await page.evaluate(() => (window as any).app.agentsPollMs as number);
     const RAIL: Record<string, number> = {
       '/api/tools/activity': ticksOf(agents),
       '/api/runs': ticksOf(agents),
       '/api/tools/background': ticksOf(agents),
-      '/api/claude-accounts': ticksOf(acct),
-      '/api/claude-accounts/mappings': ticksOf(acct),
     };
     for (const [p, cap] of Object.entries(RAIL)) {
       expect(got[p] || 0, `${p} — ${JSON.stringify(got)}`).toBeLessThanOrEqual(cap);
@@ -101,20 +97,19 @@ test.describe('터미널 창 하나의 정상 상태 트래픽 (FR-OPT-4-3~4-6)'
     expect(got['/api/ping'] || 0, JSON.stringify(got)).toBeLessThanOrEqual(ticks);
   });
   /**
-   * FR-OPT-4-5 (IPC-6 · FEC-11): 구독이 **다시** 열리면 복원이 요청 둘이다 — 워크스페이스
-   * (전경 이름을 함께 나른다)와 스냅샷 하나. 이전에는 /api/state 2 · attention · activity ·
-   * background · settings · update · focus = 8 이었다.
+   * FR-OPT-4-5 (IPC-6 · FEC-11): 구독이 **다시** 열리면 복원은 스냅샷 하나다. 워크스페이스·설정·판·
+   * 포커스는 채널 토픽의 재구독이 준다(CHANNEL_PROTOCOL C2b) — /api/state 도 없다. 이전에는 /api/state 2 ·
+   * attention · activity · background · settings · update · focus = 8 이었다.
    */
-  test('재연결의 복원은 /api/state 하나와 /api/snapshot 하나다', async ({ page }) => {
+  test('재연결의 복원은 /api/snapshot 하나다 — 워크스페이스는 토픽이 준다', async ({ page }) => {
     await waitForInit(page);
     await waitSettled(page);
     const box = timeline(page);
     await page.evaluate(() => (window as any).app.testing.channel.connect());
     await expect.poll(() => byPath(box)['/api/snapshot'] || 0, { timeout: 15000 }).toBe(1);
-    await expect.poll(() => byPath(box)['/api/state'] || 0, { timeout: 15000 }).toBe(1);
     const got = byPath(box);
     console.log('[reconnect]', JSON.stringify(got));
-    for (const p of ['/api/tools/attention', '/api/tools/activity', '/api/tools/background',
+    for (const p of ['/api/state', '/api/tools/attention', '/api/tools/activity', '/api/tools/background',
       '/api/settings', '/api/update', '/api/focus', '/api/git/jobs']) {
       expect(got[p] || 0, `${p} — ${JSON.stringify(got)}`).toBe(0);
     }

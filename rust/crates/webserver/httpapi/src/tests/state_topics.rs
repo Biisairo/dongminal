@@ -117,7 +117,7 @@ async fn full_topics_carry_their_get_body() {
     let ws = sub_full(&mut c, "workspace").await;
     let st = get(&e.srv, "/api/state").await;
     let mut want = body_json(&st.body);
-    want["rev"] = json!(st.header("ETag").parse::<u64>().unwrap());
+    want["$etag"] = json!(st.header("ETag"));
     assert_eq!(ws, want);
 }
 
@@ -158,8 +158,11 @@ async fn settings_put_publishes_once_per_change() {
 async fn workspace_put_publishes_new_rev() {
     let e = env().await;
     let mut c = dial(e.port).await;
-    let before = sub_full(&mut c, "workspace").await["rev"].as_u64().unwrap();
-    let rev = before.to_string();
+    let rev = sub_full(&mut c, "workspace").await["$etag"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let before: u64 = rev.parse().unwrap();
     let r = call(
         &e.srv,
         "PUT",
@@ -173,7 +176,8 @@ async fn workspace_put_publishes_new_rev() {
     let v = next_of(&mut c, "workspace", WAIT)
         .await
         .expect("full 이 없다");
-    assert!(v["data"]["rev"].as_u64().unwrap() > before, "{v}");
+    let after: u64 = v["data"]["$etag"].as_str().unwrap().parse().unwrap();
+    assert!(after > before, "{v}");
     assert_eq!(v["data"]["workspace"]["windows"][0]["id"], "w1", "{v}");
 }
 
@@ -206,6 +210,23 @@ async fn tool_create_publishes_workspace() {
         .await
         .expect("full 이 없다");
     assert_ne!(v["data"]["tools"], before["tools"], "{v}");
+}
+
+/// TC-CH2B-2: 런타임 밖의 스레드(데몬 push 의 읽기 루프)에서 불러도 full 이 나간다.
+#[tokio::test]
+async fn refresh_from_plain_thread_publishes() {
+    let e = env().await;
+    let mut c = dial(e.port).await;
+    sub_full(&mut c, "focus").await;
+    let s = e.srv.clone();
+    std::thread::spawn(move || {
+        s.focus.claim("cliT", "WT");
+        s.broadcast_focus_owners();
+    })
+    .join()
+    .unwrap();
+    let v = next_of(&mut c, "focus", WAIT).await.expect("full 이 없다");
+    assert_eq!(v["data"]["owners"]["WT"], "cliT", "{v}");
 }
 
 /// TC-CH2B-2: 포커스 주장은 소유 맵 full 을 낸다.

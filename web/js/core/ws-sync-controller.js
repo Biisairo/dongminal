@@ -148,7 +148,8 @@ class WsSyncController extends Controller {
     const r=await src;
     if(!r.ok||!r.data) return;
     this.app._wsTopicSrc=r;
-    return this._onWorkspaceChanged(typeof r.data.rev==='number'?r.data.rev:undefined);
+    const et=this.app.wsSave._etagOf(r);
+    return this._onWorkspaceChanged(et?parseInt(et,10):undefined);
   }
 
   async _onWorkspaceChanged(rev){
@@ -175,7 +176,7 @@ class WsSyncController extends Controller {
         const r=this.app._wsTopicSrc||await apiGet('/api/state');
         this.app._wsTopicSrc=null;
         if(!r.ok){ this._restoreEnd('fg',fgT); break }
-        const et=this.app.wsSave._etagOf(r)||(r.data&&typeof r.data.rev==='number'?String(r.data.rev):null);
+        const et=this.app.wsSave._etagOf(r);
         const st=r.data;
         const sv=st&&st.workspace;
         const sp=(st&&st.tools)||[];

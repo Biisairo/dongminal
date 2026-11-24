@@ -38,6 +38,9 @@ const INTERNAL_HOST: &str = "127.0.0.1";
 
 /// 200 이 아닌 GET 의 결과를 싣는 키다. `{"$http": 상태, "body": 본문}`.
 const HTTP_STATUS_KEY: &str = "$http";
+/// GET 의 ETag 를 싣는 키다. 받는 쪽은 그것을 응답 머리로 되돌린다 — 지문으로 "내 변경인가" 를 가리는
+/// 화면(설정 패널·워크스페이스 rev)이 그대로 돈다.
+const ETAG_KEY: &str = "$etag";
 
 /// 토픽 하나의 다시 만들기 자리. `last` 는 마지막으로 낸 본문이고, 다시 만들기를 줄 세운다.
 /// `queued` 는 아직 시작하지 않은 다시 만들기가 있다는 뜻이다 — 몰려 온 요청은 하나로 합친다.
@@ -50,6 +53,8 @@ struct Slot {
 #[derive(Default)]
 pub(crate) struct StateTopics {
     slots: Mutex<HashMap<&'static str, Arc<Slot>>>,
+    /// 등록할 때의 런타임. 데몬 push 처럼 런타임 밖의 스레드에서 불려도 다시 만들기를 건다.
+    rt: std::sync::OnceLock<tokio::runtime::Handle>,
 }
 
 impl StateTopics {
@@ -84,6 +89,9 @@ fn internal_get(path: &str) -> Option<Req> {
 impl Server {
     /// full·사건 토픽의 seed 를 건다. `Server::new` 가 한 번 부른다.
     pub(crate) fn register_state_topics(self: &Arc<Self>) {
+        if let Ok(h) = tokio::runtime::Handle::try_current() {
+            let _ = self.state_topics.rt.set(h);
+        }
         for &(topic, _) in FULL_TOPICS {
             let me = Arc::downgrade(self);
             self.topics.register_seed(topic, move |_| {
@@ -105,9 +113,12 @@ impl Server {
     }
 
     /// 토픽의 지금 본문을 다시 만들어, 지난번과 다르면 `full` 로 낸다 (TC-CH2B-2).
-    /// 런타임 밖에서 부르면 아무것도 하지 않는다.
+    /// 지금 스레드의 런타임, 없으면 등록할 때의 런타임에 건다. 둘 다 없으면 아무것도 하지 않는다.
     pub(crate) fn refresh_state_topic(&self, topic: &'static str) {
-        let (Some(me), Ok(rt)) = (self.arc(), tokio::runtime::Handle::try_current()) else {
+        let rt = tokio::runtime::Handle::try_current()
+            .ok()
+            .or_else(|| self.state_topics.rt.get().cloned());
+        let (Some(me), Some(rt)) = (self.arc(), rt) else {
             return;
         };
         let slot = self.state_topics.slot(topic);
@@ -134,9 +145,9 @@ impl Server {
         self.refresh_state_topic("update");
     }
 
-    /// 토픽의 지금 본문이다. `workspace` 는 그 GET 의 ETag 를 `rev` 로 더한다.
+    /// 토픽의 지금 본문이다. GET 에 ETag 가 있으면 `$etag` 로 더한다.
     async fn state_body(&self, topic: &str) -> Option<Value> {
-        let (topic, path) = path_of(topic)?;
+        let (_, path) = path_of(topic)?;
         let mut r = internal_get(path)?;
         let res: Response = match topic {
             "workspace" => self.api_state_get(&mut r).await,
@@ -150,21 +161,19 @@ impl Server {
             _ => return None,
         };
         let status = res.status();
-        let rev = res
+        let etag = res
             .headers()
             .get("ETag")
             .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.parse::<u64>().ok());
+            .map(str::to_owned);
         let body = res.into_body().collect().await.ok()?.to_bytes();
         let parsed: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
         if status != StatusCode::OK {
             return Some(json!({HTTP_STATUS_KEY: status.as_u16(), "body": parsed}));
         }
         let mut v = parsed;
-        if topic == "workspace"
-            && let (Some(o), Some(rev)) = (v.as_object_mut(), rev)
-        {
-            o.insert("rev".to_owned(), json!(rev));
+        if let (Some(o), Some(etag)) = (v.as_object_mut(), etag) {
+            o.insert(ETAG_KEY.to_owned(), json!(etag));
         }
         Some(v)
     }

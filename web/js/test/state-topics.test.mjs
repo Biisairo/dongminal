@@ -101,3 +101,14 @@ test('TC-CH2B-7: 옮긴 상태는 chan:open GET 재검증·주기·SSE 방송 �
   assert.doesNotMatch(ws, /subscribe\('(workspace_changed|claude_account_alert)'/);
   assert.doesNotMatch(src('core/settings-telegram.js'), /run:\(\)=>this\._tgRead\(\)/, '짝맞춤 읽기 폴링이 남았다');
 });
+
+test('TC-CH2B-1·5: $etag 는 본문에서 빠지고 응답 머리 ETag 로 온다', async () => {
+  const { calls, push } = rig();
+  push('settings', { kind: 'full', data: { a: 1, $etag: '7' }, seq: 1 });
+  const env = await calls[0][1];
+  assert.equal(env.headers.get('ETag'), '7');
+  assert.equal(env.headers.get('etag'), '7');
+  assert.equal(env.headers.get('X'), null);
+  assert.equal(JSON.stringify(env.data), JSON.stringify({ a: 1 }));
+  assert.equal(env.text, JSON.stringify({ a: 1 }));
+});

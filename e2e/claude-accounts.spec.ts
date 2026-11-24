@@ -1,4 +1,4 @@
-import { test, expect, waitForInit, stubEmptyLimits } from './fixtures';
+import { test, expect, waitForInit, stubEmptyLimits, refetchClaudeAccounts } from './fixtures';
 
 /**
  * CLAUDE_ACCOUNTS_SRS TC-CAC-27 — 계정 둘 → foot 두 묶음 + statusLine 줄 → 전환 → 활성 표식 이동 →
@@ -77,6 +77,7 @@ test.describe('Claude 계정 (TC-CAC-27)', () => {
     const st = mockState();
     await installMock(page, st);
     await waitForInit(page);
+    await refetchClaudeAccounts(page);
 
     await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
