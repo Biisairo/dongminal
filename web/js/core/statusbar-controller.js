@@ -17,8 +17,7 @@ class StatusBarController extends Controller {
     this.app._stats={};this.app._latency=null;
     // FR-GIT-101a (개정 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-4): 진행 중인 원격 작업 목록.
     // **표시용이 아니다** — 다른 브라우저 창이 띄운 작업도 같은 리포의 원격 버튼을
-    // 막아야 한다(FR-GIT-101). 목록은 `git_jobs_changed` 가 밀고, 상태바 틱이 stats 에
-    // 실어 안전망으로 받는다. Git 패널이 없으면 받지 않는다 — 쓸 곳이 없다.
+    // 막아야 한다(FR-GIT-101). 목록은 채널의 `git.jobs` 토픽이 민다 (PERF_OPTIMIZATION_SRS M1 C4).
     this.app._gitJobs=[];
     /**
      * UIUX_OVERHAUL_SRS FR-CHR-15 (D-7): **`#bg-btn` 이 없어졌다.**
@@ -68,7 +67,7 @@ class StatusBarController extends Controller {
    *             ping 응답이 온 때까지이고, stats 가 늦어도 늘지 않는다
    *   이유:     두 요청은 따로 간다(연결 여럿·다중화). 서버의 stats 계산은 ping 처리를 막지 않는다
    *
-   * 처리는 두 응답을 다 받은 뒤 종전 순서대로다: 지연 → 작업 목록 정산 → 지표 → 다시 그리기 한 번.
+   * 처리는 두 응답을 다 받은 뒤 종전 순서대로다: 지연 → 지표 → 다시 그리기 한 번.
    * 회차 겹침 가드를 더하지 않는다 — `TimerHub` 의 `overlap:'drop'` 기본값이
    * 이미 막는다 (`timer-hub.js:148`).
    */
@@ -78,17 +77,11 @@ class StatusBarController extends Controller {
     let t1=t0;
     const pingP=apiGet('/api/ping').then(r=>{t1=performance.now();return r});
     // 통계는 따로 받는다 — ping 을 순수한 지연 측정으로 남겨 두려는 것이다.
-    // git 작업 목록은 같은 요청에 싣는다 (FR-OPT-4-4 — 회차당 3r → 2r).
-    const jt=this.app.git.sync._gitJobsBegin();
-    const statsP=apiGet('/api/stats',jt?{query:{jobs:'1'}}:undefined);
+    const statsP=apiGet('/api/stats');
     const [ping,st]=await Promise.all([pingP,statsP]);
     // 망 실패는 status 0 이다 — 그때 지연은 숫자가 아니라 "없음" 이다.
     this.app._latency=ping.status?Math.round(t1-t0):null;
-    if(jt) this.app.git.sync._gitJobsSettle(jt,st.ok&&st.data?st.data.jobs:null);
-    if(st.ok&&st.data){
-      delete st.data.jobs;
-      this.app._stats=st.data;
-    }
+    if(st.ok&&st.data) this.app._stats=st.data;
     this.updateStatusBar();
   }
   /**

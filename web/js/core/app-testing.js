@@ -72,7 +72,7 @@ const APP_TESTING_NAMES = [
   //
   // 관측기·패널은 (루트, 칸)마다 하나다 — e2e 가 그 모양을 알아야 재는 것이 있다.
   '_gitObservers', 'git.gitOpenFile', 'git.surfaces.gitPanelAt', 'gitPanels', 'git.sync.gitPin',
-  'gitRepos', 'git.sync.gitReposRefresh', 'git.surfaces._gitRootOfActive', 'git.gitSignal', 'git.sync.gitUnpin', '_gitWdAt',
+  'gitRepos', 'git.sync.gitReposRefresh', 'git.surfaces._gitRootOfActive', 'git.gitSignal', 'git.sync.gitUnpin',
   'git.gitWindow',
   // 같은 구멍 (FR-FMB-45a).
   'git.surfaces._gitPanelRoot', 'git.sync._onGitChanged',

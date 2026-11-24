@@ -7,12 +7,12 @@
 class EditorPane extends Controller {
   /**
    * FR-EDT-77 (개정 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-1): 틱의 주기는 `gitReposInterval`
-   * 이고, 그 틱이 묻는 것은 **스탬프**다. git status 는 `git_changed` 가 본줄이고
-   * 주기로는 안전망(`gitStatusInterval`)에만 묻는다 (`gitDue`).
+   * 이고, 그 틱이 묻는 것은 **스탬프**다. git status 는 채널의 `git:<root>` 토픽이 본줄이고
+   * 주기로는 관측이 없을 때만 묻는다 (`gitDue`, PERF_OPTIMIZATION_SRS M1 C4).
    *
    *   이전 동작: 틱마다 보이는 루트의 status 전량 + 루트마다 fs/stamp + file/stamps
    *   새  동작: 틱마다 `/api/fs/stamps` 하나. 색은 hub 가 가진 관측으로 **같은 틱에**
-   *             다시 칠한다(요청 없음). status 는 안전망이 찼거나 관측이 없을 때만
+   *             다시 칠한다(요청 없음). status 는 관측이 없을 때만
    *   이유:     서버가 변화를 밀어 준다 (IPC-8 · FEC-12). 변화가 없는 틱에 status
    *             전량을 받을 까닭이 없다
    *
@@ -44,6 +44,7 @@ class EditorPane extends Controller {
     const stores=new Map();
     for(const tree of this.app.editor.open._edVisibleTrees()) if(tree.store&&!stores.has(tree.store)) stores.set(tree.store,tree);
     for(const tree of stores.values()){ if(tree.loader.gitDue()) tree.loader.pollGit(); else tree.loader.paintGitCached() }
+    this._edGitWatchSync(stores.keys());
     // EDITOR_LIVE_RELOAD_SRS FR-ELR-10: **열어 둔 파일의 내용도 같은 틱이다.**
     // 트리와 갈라 두면 사용자는 "목록은 바뀌었는데 열어 둔 내용은 그대로인"
     // 중간 상태를 본다 — 위 주석이 색과 목록에 대해 적은 것과 같은 근거다.
@@ -52,6 +53,19 @@ class EditorPane extends Controller {
     this.app.editor.open.edStampTick([...stores.keys()]);
     // EDITOR_LIVE_RELOAD_SRS FR-ELR-66: 감시 집합의 안전망 — 다른 계기가 놓친 변화를 맞춘다.
     this.app.editor.watch.edWatchSync();
+  }
+
+  /**
+   * PERF_OPTIMIZATION_SRS M1 C4: 보이는 탐색기의 저장소마다 채널의 `git:<root>` 토픽을 구독한다 —
+   * 구독이 서버 감시의 임대이고, 바뀐 mark 는 `git_changed` 와 같은 길(`_edOnGitChanged`)로 온다.
+   * 보이지 않게 된 저장소는 놓는다.
+   */
+  _edGitWatchSync(stores){
+    const want=new Set();
+    for(const st of stores) if(st&&st.gitRepo) want.add(st.gitRepo);
+    const m=this._edGitWatch||(this._edGitWatch=new Map());
+    for(const [root,w] of m) if(!want.has(root)){ w.stop(); m.delete(root) }
+    for(const root of want) if(!m.has(root)) m.set(root,this.app.git.topics.watch(root));
   }
 
   /**

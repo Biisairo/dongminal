@@ -308,7 +308,7 @@ fn lease_server(dir: &std::path::Path) -> Arc<Server> {
         },
         Deps::default(),
         |s| {
-            s.git_watch = Some(GitWatcher::new(None, None));
+            s.git_watch = Some(GitWatcher::new(None));
             // 끊긴 구독은 다음 쓰기에서 드러난다 — 인사를 자주 보내 해제를 앞당긴다.
             *s.hello_every.lock().unwrap() = Some(Duration::from_millis(50));
         },
@@ -356,14 +356,14 @@ async fn wait_leases(s: &Server, want: usize) {
     panic!("임대 수 {}, 기대 {want} (FR-GWL-3)", w.leases());
 }
 
-// TC-GWL-9: clientId 를 실은 SSE 를 열면 임대가 생기고, 끊으면 사라진다.
+// TC-CH4-10 (TC-GWL-9 대체): git 감시 임대는 채널의 `git:<repo>` 토픽이 쥔다 — clientId 를
+// 실은 SSE 도 임대를 만들지 않는다.
 #[tokio::test]
-async fn git_watch_lease_attaches_and_detaches_with_sse() {
+async fn git_watch_lease_not_held_by_sse() {
     let d = tempfile::tempdir().unwrap();
     let s = lease_server(d.path());
-    let body = open_sse(&s, "c1").await;
-    wait_leases(&s, 1).await;
-    drop(body);
+    let _body = open_sse(&s, "c1").await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     wait_leases(&s, 0).await;
 }
 

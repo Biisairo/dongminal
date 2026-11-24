@@ -11,7 +11,6 @@ class GitSync extends Controller {
     if(!this._reposList) this._reposList=new GitReposList(this.app);
     return this._reposList;
   }
-  _startGitReposPoll(){ return this._gitReposList()._startGitReposPoll() }
   gitReposKick(){ return this._gitReposList().gitReposKick() }
   _gitReposOnChanged(repo){ return this._gitReposList()._gitReposOnChanged(repo) }
 
@@ -103,22 +102,6 @@ class GitSync extends Controller {
     }
   }
 
-  /**
-   * 구독이 열렸다 (FR-GPO-23). 끊겨 있던 동안의 변화는 방송으로 오지 않았으므로
-   * 한 번 받아 온다. `_reschedule` 이 아니라 `collect` 인 이유는 주기를 다시
-   * 걸 일이 없기 때문이다 — 주기는 `_applyCadence` 의 것이고 그것은 이미 서 있다.
-   */
-  _gitObserveRestore(){
-    // FR-OPT-4-3: 저장소 목록도 같다 — 끊긴 동안의 배지 변화를 갚고, 끊김이 푼 핀 임대를
-    // 새 구독에 다시 세운다. 안전망이 꺼져 있으면 그 밖의 계기가 없다.
-    if(this._gitObserveOk()) this.gitReposKick();
-    if(!this.app._gitObservers) return;
-    for(const o of this.app._gitObservers.values()){
-      const p=o.any();
-      if(p) p.poll.collect();
-    }
-  }
-
   gitReposRefresh(){ return this._gitReposList().gitReposRefresh() }
 
   // gitPin 은 경로를 검증해 핀한다. 저장소가 아니면 사유를 보인다 (FR-GIT-12) —
@@ -170,70 +153,16 @@ class GitSync extends Controller {
   }
 
   /**
-   * FR-GIT-101a (개정 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-4): 진행 중 원격 작업 목록.
+   * FR-GIT-101a (개정 — PERF_OPTIMIZATION_SRS M1 C4): 진행 중 원격 작업 목록.
    *
-   * Git 창의 폴링(FR-GIT-22)은 창이 활성일 때만 돌므로 그것에 얹으면 다른 창이
-   * 띄운 작업을 놓친다. 이 호출은 git 을 실행하지 않는다 — 서버가 들고 있는
-   * 목록이다.
+   * 목록의 임자는 Git 패널이다: 다른 브라우저 창이 띄운 작업도 같은 리포의 원격 버튼을 막아야
+   * 한다 (FR-GIT-101).
    *
-   * 목록의 임자는 Git 패널이다: 다른 브라우저 창이 띄운 작업도 같은 리포의 원격
-   * 버튼을 막아야 한다 (FR-GIT-101).
-   *
-   *   이전 동작: 상태바 틱마다 `/api/git/jobs` 를 따로 물었다 — 패널이 없어도
-   *   새  동작: 서버가 작업의 시작·끝을 `git_jobs_changed` 로 밀고 여기가 받는다.
-   *             틱은 `/api/stats?jobs=1` 로 같은 목록을 안전망으로 싣는다.
-   *             **Git 패널이 하나도 없으면 묻지 않는다**
-   *   이유:     시작·끝은 서버가 안다. 목록을 쓰는 곳은 패널뿐이다 (FEC-15 · IPC-9)
-   *
-   * `state-registry` 의 `git.jobs` — `merge:'latest'`. 방송은 목록을 나르지 않는다.
+   *   이전 동작: 서버가 `git_jobs_changed` 신호를 밀면 `/api/git/jobs` 를 다시 받았고, 상태바 틱이
+   *             `/api/stats?jobs=1` 로 같은 목록을 안전망으로 실었다
+   *   새  동작: 채널의 `git.jobs` 토픽이 목록 자체를 민다 (`GitTopics`)
+   *   이유:     상태용 주기 GET 을 없앤다 (D-9). 시작·끝은 서버가 안다
    */
-  async _pollGitJobs(){
-    if(!this._gitJobsWanted()) return;
-    const flight=this.app.wsSync._restoreBegin('gitJobs');
-    // 전역 조회다 — 리포에 매이지 않으므로 echo 가 없다 (FR-DPN-33).
-    const res=await gitFetch(GIT_API.jobs,null);
-    const d=res.data;
-    if(!this.app.wsSync._restoreLive('gitJobs',flight)) return;
-    this.app.wsSync._restoreEnd('gitJobs',flight);
-    // 받지 못했으면 이전 목록을 유지한다 — 한 번의 실패로 목록이 사라지면
-    // "작업이 끝났다" 와 "모른다" 가 같아진다.
-    if(!res.ok||!Array.isArray(d.jobs)) return;
-    this._gitJobsAdopt(d.jobs);
-  }
-
-  // 목록을 쓸 곳이 있는가 — 저장소를 가진 Git 패널이 있을 때뿐이다 (`gitPanelAt`).
-  // 부팅이 세우는 옛 Git 창 자리의 패널(root '')은 저장소가 없으면 원격 버튼도 없다.
-  _gitJobsWanted(){
-    if(!this.app.gitPanels) return false;
-    for(const p of this.app.gitPanels.values()) if(p&&p.repo) return true;
-    return false;
-  }
-
-  /**
-   * 상태바 틱이 싣는 목록도 `_pollGitJobs` 와 같은 `gitJobs` 비행에 선다 (Ofix2) — 틱이
-   * 떠난 뒤 떠난 조회의 새 목록을 늦게 온 틱의 응답이 덮지 않는다 (`merge:'latest'`).
-   * 목록을 쓸 곳이 없으면 비행을 열지 않는다 — 그때 틱은 목록을 묻지 않는다.
-   *
-   * 비행 중인 조회를 밀어낸 틱이 목록을 받지 못하면 다시 조회한다 (Ofix3) — 밀려난
-   * 조회의 답은 이미 버려졌으므로, 그대로 두면 그 목록이 다음 방송·틱까지 사라진다.
-   */
-  _gitJobsBegin(){
-    if(!this._gitJobsWanted()) return null;
-    const displaced=this.app.bus.inFlight('gitJobs');
-    const flight=this.app.wsSync._restoreBegin('gitJobs');
-    this._gitJobsDisplacer=displaced?flight:null;
-    return flight;
-  }
-
-  _gitJobsSettle(flight,jobs){
-    if(!this.app.wsSync._restoreLive('gitJobs',flight)) return;
-    this.app.wsSync._restoreEnd('gitJobs',flight);
-    const requery=this._gitJobsDisplacer===flight;
-    this._gitJobsDisplacer=null;
-    if(Array.isArray(jobs)) this._gitJobsAdopt(jobs);
-    else if(requery) this._pollGitJobs();
-  }
-
   _gitJobsAdopt(jobs){
     this.app._gitJobs=jobs;
     if(this.app.gitPanel) this.app.gitPanel.views.adoptJobs(jobs);
@@ -242,5 +171,5 @@ class GitSync extends Controller {
   // U-19 ①: `_gitJobSeen`·`_gitJobEnded`·`_gitJobChip` 은 **제거됐다.** 셋 다
   // 상태바 chip 을 즉시 갱신하기 위한 것이었고(FR-GIT-112), 그 chip 이 철회되며
   // 쓰임이 사라졌다. 작업의 진행·종료는 그것을 띄운 패널이 스트림으로 알고
-  // (FR-GIT-103), 남의 작업은 `_pollGitJobs` → `adoptJobs` 가 받는다.
+  // (FR-GIT-103), 남의 작업은 `git.jobs` 토픽 → `adoptJobs` 가 받는다.
 }

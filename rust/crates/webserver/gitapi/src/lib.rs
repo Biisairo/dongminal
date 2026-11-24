@@ -18,6 +18,7 @@ mod history;
 mod ignore;
 mod init;
 mod job;
+mod job_feed;
 mod judge;
 mod lock;
 mod lock_remove;
@@ -48,6 +49,7 @@ use otter_webserver_domain_git_store::{Observation, Store};
 use otter_webserver_domain_submodule::Manager as SubmoduleManager;
 use otter_webserver_domain_worktree::Service as WorktreeService;
 
+pub use job_feed::JobFeed;
 pub use otter_webserver_domain_wsentry::{Broadcaster, WorkspaceStore};
 pub use req::{BodyError, ReqBody};
 
@@ -89,6 +91,8 @@ pub struct GitServer {
     pub submodules: Option<Arc<SubmoduleManager>>,
     /// Run 격리 영역의 root 경로다 — worktree 소유 판정에만 쓴다 (FR-GIT-240).
     pub run_worktree_root: String,
+    /// 원격 작업의 시작·끝을 알린다 — `git.jobs` 토픽 발행 (CHANNEL_PROTOCOL C4).
+    pub on_jobs_changed: Option<Arc<dyn Fn() + Send + Sync>>,
     diffs: OnceLock<Arc<Service>>,
     own_exclusion: OnceLock<Exclusion>,
     jobs: Mutex<Option<Jobs>>,

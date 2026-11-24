@@ -111,12 +111,14 @@ pub fn foreground_snapshot(tools: &[ToolInfo]) -> Vec<Vec<u8>> {
         .collect()
 }
 
+#[cfg(test)]
 #[derive(Serialize)]
 struct GitChanged<'a> {
     mark: &'a str,
     repo: &'a str,
 }
 
+#[cfg(test)]
 /// `git_changed` 본문이다. status·signature 를 싣지 않는다 (FR-GPO-4).
 pub(crate) fn git_changed_payload(repo: &str, mark: &str) -> Vec<u8> {
     payload("git_changed", Some(&GitChanged { mark, repo }))

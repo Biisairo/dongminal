@@ -226,55 +226,34 @@ class GitSubmodules extends GitListTab {
       return {ok:false,reason:this.panel.write.writeReason({data:d}),stderrTail:d.message||''};
     }
     this._job=job; this._jobOk=okMsg; this._jobFail=failMsg;
-    this._lines=0; this._after=0; this._retries=0; this._canceling=false;
+    this._lines=0; this._after=0; this._canceling=false;
     this._note={kind:'run',msg:GIT_SUB_UPDATING};
     if(this.el){this._paintNote();this._paintHead()}
     this._openStream();
     return {ok:true};
   }
 
+  /** 출력 스트림 — 채널의 `gitjob:<id>` 토픽이다 (PERF_OPTIMIZATION_SRS M1 C4). */
   _openStream(){
     const job=this._job;
-    if(!job||typeof EventSource==='undefined') return;
-    const id=job.id;
-    // 채널은 버스가 연다 (FR-BUS-7). 원격 탭의 `git-job` 과 다른 id 다 — 같은 id 는
-    // 서로를 닫는다.
-    const es=this.app.bus.openChannel('git-sub-job',
-      apiUrl(GIT_API.jobEvents,{id,after:this._after}),{owner:this});
-    if(!es) return;
-    this._stream=es;
-    es.addEventListener('line',ev=>{
-      if(this._stream!==es) return;
-      let ln=null; try{ln=JSON.parse(ev.data)}catch{ln=null}
-      if(!ln||(ln.seq!=null&&ln.seq<=this._after)) return;
-      if(ln.seq!=null) this._after=ln.seq;
-      this._lines++; this._retries=0;
-      // 진행은 줄 수로 말한다 — 서브모듈 탭에 로그 상자는 없다. 원문은 Console 에 남는다.
-      this._note={kind:'run',msg:GIT_SUB_UPDATING+' ('+this._lines+')'};
-      if(this.el) this._paintNote();
+    if(!job) return;
+    this._stream=this.app.git.topics.followJob(job.id,{
+      line:ln=>{
+        if(!ln||(ln.seq!=null&&ln.seq<=this._after)) return;
+        if(ln.seq!=null) this._after=ln.seq;
+        this._lines++;
+        // 진행은 줄 수로 말한다 — 서브모듈 탭에 로그 상자는 없다. 원문은 Console 에 남는다.
+        this._note={kind:'run',msg:GIT_SUB_UPDATING+' ('+this._lines+')'};
+        if(this.el) this._paintNote();
+      },
+      done:jb=>{ this._stream=null; this._finishJob(jb) },
+      fail:()=>{ this._stream=null; this._finishJob(Object.assign({},job,{done:true,err:GIT_JOB_STREAM_FAIL})) },
     });
-    es.addEventListener('done',ev=>{
-      if(this._stream!==es) return;
-      let jb=null; try{jb=JSON.parse(ev.data)}catch{jb=null}
-      this._finishJob(jb||{id,done:true});
-    });
-    es.onerror=()=>{
-      if(this._stream!==es) return;
-      this._closeStream();
-      if(this._retries>=GIT_JOB_RETRY_MAX){
-        this._finishJob(Object.assign({},job,{done:true,err:GIT_JOB_STREAM_FAIL}));
-        return;
-      }
-      this._retries++;
-      TIMERS.after(GIT_JOB_RETRY_MS,()=>{
-        if(this._job&&this._job.id===id&&!this._stream) this._openStream();
-      },{owner:this,label:'sub-job-retry'});
-    };
   }
 
   _closeStream(){
     if(!this._stream) return;
-    this._stream.close();
+    this._stream.stop();
     this._stream=null;
   }
 

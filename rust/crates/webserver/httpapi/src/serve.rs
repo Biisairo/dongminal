@@ -40,6 +40,11 @@ pub trait GitHandler: Send + Sync {
     fn active_jobs(&self) -> Option<Vec<otter_webserver_domain_git_jobs::Job>> {
         None
     }
+
+    /// 잡 하나의 출력 흐름이다 (`gitjob:<id>` 토픽). 잡이나 git 이 없으면 `None` 이다.
+    fn job_feed(&self, _id: &str) -> Option<otter_webserver_gitapi::JobFeed> {
+        None
+    }
 }
 
 /// mux 의 패턴 (Go `ServeMux` 의 메서드 없는 패턴).

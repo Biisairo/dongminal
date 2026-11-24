@@ -2421,7 +2421,6 @@ dependencies = [
  "otter-webserver-domain-worktree",
  "otter-webserver-domain-wsentry",
  "otter-webserver-httproute",
- "otter-webserver-sse",
  "serde",
  "serde_json",
  "sha2",

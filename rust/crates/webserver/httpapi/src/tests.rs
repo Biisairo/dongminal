@@ -12,6 +12,7 @@ mod fsapi;
 mod fsenv;
 mod fsops;
 mod gate;
+mod git_topics;
 mod gitwire;
 mod golden;
 mod golden_552;

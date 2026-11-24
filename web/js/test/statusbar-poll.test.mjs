@@ -20,16 +20,12 @@ function setup() {
       apiGet: (path, opts) => new Promise((resolve) => calls.push({ path, opts, resolve })),
     },
   });
-  const settles = [];
   let updates = 0;
-  const app = {
-    _stats: { cpu: 1 }, _latency: 5,
-    git: { sync: { _gitJobsBegin: () => 7, _gitJobsSettle: (jt, jobs) => settles.push([jt, jobs]) } },
-  };
+  const app = { _stats: { cpu: 1 }, _latency: 5 };
   const sb = new ctx.StatusBarController(app);
   app.statusbar = sb;
   sb.updateStatusBar = () => { updates++ };
-  return { sb, app, calls, clock, settles, updates: () => updates };
+  return { sb, app, calls, clock, updates: () => updates };
 }
 const tick = () => new Promise((r) => setImmediate(r));
 const req = (calls, p) => calls.find((c) => c.path === p);
@@ -39,14 +35,15 @@ test('TC-FR1-9: ping 응답 전에 stats 를 보낸다', async () => {
   const done = sb._pollStats();
   await tick();
   assert.deepEqual(calls.map((c) => c.path), ['/api/ping', '/api/stats']);
-  assert.equal(JSON.stringify(req(calls, '/api/stats').opts), JSON.stringify({ query: { jobs: '1' } }));
+  // PERF_OPTIMIZATION_SRS M1 C4: git 작업 목록은 `git.jobs` 토픽이 싣는다 — stats 에 묻지 않는다.
+  assert.equal(req(calls, '/api/stats').opts, undefined);
   req(calls, '/api/ping').resolve({ ok: true, status: 200 });
   req(calls, '/api/stats').resolve({ ok: true, status: 200, data: {} });
   await done;
 });
 
 test('TC-FR1-9: 지연은 ping 의 왕복만 잰다 — stats 가 늦어도 늘지 않는다', async () => {
-  const { sb, app, calls, clock, settles, updates } = setup();
+  const { sb, app, calls, clock, updates } = setup();
   clock.now = 100;
   const done = sb._pollStats();
   await tick();
@@ -55,10 +52,9 @@ test('TC-FR1-9: 지연은 ping 의 왕복만 잰다 — stats 가 늦어도 늘�
   await tick();
   assert.equal(updates(), 0, '두 응답 전에는 그리지 않는다');
   clock.now = 400;
-  req(calls, '/api/stats').resolve({ ok: true, status: 200, data: { cpu: 9, jobs: [{ id: 'j' }] } });
+  req(calls, '/api/stats').resolve({ ok: true, status: 200, data: { cpu: 9 } });
   await done;
   assert.equal(app._latency, 30);
-  assert.deepEqual(settles, [[7, [{ id: 'j' }]]]);
   assert.deepEqual(app._stats, { cpu: 9 });
   assert.equal(updates(), 1);
 });
@@ -91,28 +87,15 @@ test('TC-FR1-9: ping 이 망 실패면 지연은 null 이고 stats 는 그대로
   assert.equal(updates(), 1);
 });
 
-test('TC-FR1-9: stats 가 실패하면 지표를 두고 작업 목록은 null 로 정산한다', async () => {
-  const { sb, app, calls, settles, updates } = setup();
+test('TC-FR1-9: stats 가 실패하면 지표를 둔다', async () => {
+  const { sb, app, calls, updates } = setup();
   const done = sb._pollStats();
   await tick();
   req(calls, '/api/ping').resolve({ ok: true, status: 200 });
   req(calls, '/api/stats').resolve({ ok: false, status: 0 });
   await done;
   assert.deepEqual(app._stats, { cpu: 1 });
-  assert.deepEqual(settles, [[7, null]]);
   assert.equal(updates(), 1);
-});
-
-test('TC-FR1-9: git 패널이 없으면(작업 표 없음) stats 에 jobs 를 묻지 않는다', async () => {
-  const { sb, app, calls, settles } = setup();
-  app.git.sync._gitJobsBegin = () => 0;
-  const done = sb._pollStats();
-  await tick();
-  assert.equal(req(calls, '/api/stats').opts, undefined);
-  req(calls, '/api/ping').resolve({ ok: true, status: 200 });
-  req(calls, '/api/stats').resolve({ ok: true, status: 200, data: {} });
-  await done;
-  assert.deepEqual(settles, []);
 });
 
 test('TC-ATF-44: 메모리는 사용량이 숫자일 때만 그린다(총량만 오면 그리지 않는다)', async () => {

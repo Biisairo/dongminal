@@ -17,9 +17,6 @@ use crate::answers::slots_answer;
 use crate::reply::{Bare, Obj, git_error_code, git_json, git_tail, obj};
 use crate::write::{GitWrite, git_status_delta};
 
-/// `git_jobs_changed` SSE 본문이다 — 목록을 싣지 않는 "다시 받으라" 신호다 (FR-OPT-4-4).
-const JOBS_CHANGED_PAYLOAD: &[u8] = br#"{"action":"git_jobs_changed"}"#;
-
 /// 그 종류의 잡이 index 칸을 쥐는가 — 잡이 끝난 뒤 상태를 다시 찍을지의 근거다.
 pub(crate) fn uses_index(kind: &str) -> bool {
     jobs::slots_of(kind).iter().any(|s| s == SLOT_INDEX)
@@ -38,14 +35,14 @@ impl GitServer {
             return j.clone();
         }
         let store = Arc::clone(git);
-        let commands = self.commands.clone();
+        let changed = self.on_jobs_changed.clone();
         let j = Jobs::new(
             Arc::clone(git.service()),
             JobsOptions {
                 on_done: Some(Arc::new(move |jb: &Job| store.invalidate(&jb.repo))),
                 on_change: Some(Arc::new(move || {
-                    if let Some(c) = &commands {
-                        c.broadcast(JOBS_CHANGED_PAYLOAD);
+                    if let Some(f) = &changed {
+                        f();
                     }
                 })),
                 exclusion: Some(self.exclusion()),

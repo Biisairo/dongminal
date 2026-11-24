@@ -91,16 +91,14 @@ test('스탬프 틱의 재칠은 요청 없이 hub 의 관측으로 칠하고, �
   assert.equal(t.store.gitOkAt, first, '오래된 캐시를 지금 칠해도 지금 관측한 것이 되지 않는다');
 });
 
-test('안전망: 관측이 없으면 매 틱, 있으면 gitStatusInterval 뒤에만 묻는다', async () => {
+test('TC-CH4-19: 관측이 없으면 매 틱 묻고, 관측한 뒤에는 주기로 묻지 않는다 (git:<root> 토픽이 민다)', async () => {
   const t = tree([status('m1', 1)]);
   assert.equal(t.loader.gitDue(), true, '관측 전');
   await t.loader.pollGit();
   assert.equal(t.store.gitRepo, '/r');
   assert.equal(t.loader.gitDue(), false, '방금 관측했다');
-  await t.clock.advance(29999);
-  assert.equal(t.loader.gitDue(), false);
-  await t.clock.advance(1);
-  assert.equal(t.loader.gitDue(), true, '안전망 주기가 지났다');
+  await t.clock.advance(3600000);
+  assert.equal(t.loader.gitDue(), false, '관측한 뒤 주기로 다시 묻는다');
 });
 
 test('안전망을 끄면(0) 관측 뒤에는 주기로 묻지 않는다', async () => {

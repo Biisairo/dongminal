@@ -87,8 +87,7 @@ export const GITVIEW = ['git/git-view.js'];
  */
 export const GITPANEL = ['git/git-part.js', 'git/panel.js', 'git/git-changes.js',
   'git/git-change-rows.js', 'git/git-views.js', 'git/git-view-roots.js', 'git/git-write.js', 'git/git-files.js', 'git/git-selection.js',
-  'git/git-diff-pane.js', 'git/git-blame.js', 'git/git-hunks.js', 'git/git-poll.js', 'git/git-view-reload.js',
-  'git/git-watchdog.js'];
+  'git/git-diff-pane.js', 'git/git-blame.js', 'git/git-hunks.js', 'git/git-poll.js', 'git/git-view-reload.js'];
 
 /**
  * 설정 섹션 한 벌 — index.html 의 순서다 (REFACTOR3_FE_SETTINGS_SRS FR-FES-8). `BASE` 뒤에 싣는다. 섹션 기반과 행이
@@ -111,7 +110,7 @@ export const SETTINGS = ['core/settings-apply.js', 'core/settings-section.js', '
 export const AGENTS = ['core/agents-controller.js', 'core/agents-sub.js', 'core/activity-list.js'];
 export const CHAT = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js'];
 export const MOBILE = ['core/mobile-controller.js', 'core/mobile-sheets.js', 'core/mobile-nav.js'];
-export const GIT = ['core/git-repos-list.js', 'core/git-controller.js', 'core/git-surfaces.js', 'core/git-sync.js'];
+export const GIT = ['core/git-repos-list.js', 'core/git-topics.js', 'core/git-controller.js', 'core/git-surfaces.js', 'core/git-sync.js'];
 export const WS_SYNC = ['core/ws-sync-controller.js', 'core/ws-save-controller.js', 'core/soft-reload.js'];
 export const FOCUS = ['core/focus-controller.js', 'core/focus-highlight.js', 'core/focus-owner.js'];
 export const SLOTS = ['core/slots-controller.js', 'core/slot-ops.js'];

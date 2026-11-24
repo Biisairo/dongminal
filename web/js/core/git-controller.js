@@ -4,7 +4,7 @@
  * `GitController` 가 창 종류의 판정·Git 표면으로 가기·파일과 터미널 열기·GIT 섹션 배선·즉시 신호를 진다.
  * App 은 이것을 `git` 으로 든다(REFACTOR3_FE_APPCTL_SRS 9d, 옛 `app-git.js`). 부품 둘 — 패널과 관측기의 등록부
  * `GitSurfaces`(`git-surfaces.js`) `.surfaces` · Repo 목록·핀·변화 관측·작업 `GitSync`(`git-sync.js`) `.sync`.
- * 패널 맵 `gitPanels`·관측기 `_gitObservers`·워치독 문턱 `_gitWdAt`·작업 `_gitJobs` 는 App 에 남는다 — 렌더러·계약·e2e 가 읽는다.
+ * 패널 맵 `gitPanels`·관측기 `_gitObservers`·작업 `_gitJobs` 는 App 에 남는다 — 렌더러·계약·e2e 가 읽는다.
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
 class GitController extends Controller {
@@ -12,6 +12,8 @@ class GitController extends Controller {
     super(app);
     this.surfaces=new GitSurfaces(app);
     this.sync=new GitSync(app);
+    // PERF_OPTIMIZATION_SRS M1 C4: 저장소 변화와 원격 작업 목록은 채널의 git 토픽으로 온다.
+    this.topics=new GitTopics({onChange:a=>this.sync._onGitChanged(a),onJobs:j=>this.sync._gitJobsAdopt(j)});
   }
 
   // gitWindow 는 워크스페이스의 Git 창이다. 없으면 null (FR-GIT-26).
@@ -100,7 +102,7 @@ class GitController extends Controller {
     // FR-RTU-5: `+ Add` 는 Repo 탭 하나이고 그 배선은 `editor-section.js` 가 든다 —
     // 두 목록이 한 종단(`/api/editors/add`)으로 함께 바뀌므로 진입점도 하나다.
     // 옛 `#git-add-repo` 는 사라졌다.
-    this.sync._startGitReposPoll();
+    this.sync.gitReposKick();
     this.app.gitPanel.poll.init();
     /**
      * GIT_LIVE_TRIGGERS_SRS FR-GLW-1~3: 가시성·포커스 복귀의 계기.
@@ -124,26 +126,6 @@ class GitController extends Controller {
      */
     for(const [topic,kind] of [[LIFE_VISIBLE,'visible'],[LIFE_FOCUS,'focus'],[LIFE_HIDDEN,null]])
       this.app.bus.subscribe(topic,()=>this._gitLifecycle(kind),{owner:'git:lifecycle'});
-    /**
-     * FR-GLW-4·5: 워치독의 **주기** 계기.
-     *
-     * 렌더 훅(renderer.js)은 그대로 남는다 (D-5) — 표면이 막 바뀐 직후를 가장
-     * 이르게 잡는 것은 여전히 렌더다. 모자랐던 것은 렌더가 **주기적이지 않다**는
-     * 것이다: 사용자 조작과 `workspace_changed` 로만 돈다.
-     *
-     * `when` 은 주지 않는다 — 판정은 `gitWatchdogAll` 자신이 하고(문턱 → 나이),
-     * 그것을 스케줄러로 옮기면 같은 판단이 두 곳에 선다 (FR-SCH-4).
-     *
-     * `whenHidden:'pause'` 인 것은 git status job(`'run'`)과 근거가 다르다. 그쪽은
-     * "조건이 참이 된 순간 즉시 1회 수집" 을 스케줄러에 넘길 수 없어서 `'run'`
-     * 이고, 이쪽은 숨김 중에 모든 `_pollOk()` 가 거짓이라 되살릴 것이 정의상
-     * 없다 — 다시 보이는 순간은 바로 위 `visible` 구독이 든다.
-     */
-    this.app.timers.every({
-      id:'git.watchdog', owner:'git:lifecycle', whenHidden:'pause',
-      every:()=>GIT_WATCHDOG_CHECK_MS,
-      run:()=>this.app.git.surfaces.gitWatchdogAll(),
-    });
   }
 
   /**
@@ -162,6 +144,8 @@ class GitController extends Controller {
   _gitLifecycle(kind){
     this.app.git.surfaces._gitRescheduleAll();
     if(kind) this.gitSignal(kind);
+    // PERF_OPTIMIZATION_SRS M1 C4: 숨은 동안의 배지 변화는 미뤄 두었다 — 돌아오면 목록을 받는다.
+    if(kind==='visible'&&this.sync._gitObserveOk()) this.sync.gitReposKick();
   }
 
   // gitSignal 은 즉시 신호의 단일 진입점이다 (FR-GIT-18). 어디서 왔는지는 라벨로만

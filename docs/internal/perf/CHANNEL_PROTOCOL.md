@@ -100,9 +100,9 @@
 | `run:<id>` | full | 열린 Run 화면의 `/graph` 5초 | Run 탭이 열린 동안만 구독한다 |
 | `focus` | full | `window_focus` | |
 | `stats` | full | `/api/stats` 3초 | 서버가 구독자가 있을 때만 `stats` 주기로 잰다. 주기는 구독자의 요청 중 가장 짧은 것, 하한 1초 |
-| `git.jobs` | full | `git_jobs_changed` + `/api/stats?jobs=1` | |
-| `git:<repo>` | full | `git_changed` + git status 폴링 | 서버 gitwatch 의 관측을 그대로 민다. 저장소 목록·편집기 git 도 같은 토픽을 구독한다 |
-| `gitjob:<id>` | event | git job SSE | 작업이 끝나면 서버가 마지막 `event` 뒤에 구독을 닫는다 |
+| `git.jobs` | full | `git_jobs_changed` + `/api/stats?jobs=1` | `data` 는 `{jobs:[…]}` (`/api/git/jobs` 와 같은 목록) |
+| `git:<repo>` | full | `git_changed` + git status 폴링 | `data` 는 `{repo, mark}` — 서버 gitwatch 관측의 식별자다(관측 실패는 빈 mark). 구독자가 있는 동안 서버가 그 저장소를 감시한다(임대). status 본문은 싣지 않는다 — 본문이 요청 경로(`requested`)와 동작 판정(`actions`)에 매여 구독자마다 다르고, 바뀔 때만 브라우저가 `ifMark` 로 한 번 받는다(주기 없음). Git 패널·저장소 목록·탐색기가 같은 토픽을 구독한다 |
+| `gitjob:<id>` | event | git job SSE | `data` 는 `{kind:"line", line}` 들과 마지막 `{kind:"done", job}`. 첫 구독자가 생기면 보존된 줄부터 흘린다(겹침은 브라우저가 `line.seq` 로 거른다). 브라우저는 `done` 을 받으면 해지하고, 마지막 구독자가 떠나면 서버가 토픽을 잊는다. 없는 잡은 `unknown_topic` 이다 |
 | `fs` | event | `fs_changed` | |
 | `alert` | event | `claude_account_alert` | |
 
@@ -145,6 +145,34 @@
 - **OQ-C1** 텔레그램 페어링 확인을 어느 토픽에 실을지(§5.2).
 
 ## 10. 시험 (단계마다 구현 전에 쓴다)
+
+### 10.5 C4 — git 토픽
+
+| ID | 쪽 | 동작 |
+|---|---|---|
+| TC-CH4-1 | 서버(hub) | `git:<repo>` 구독이 쥐는 감시 임대는 TTL 로 걷히지 않고, 구독자 수와 무관하게 임차인은 하나다. 놓으면 그때부터 TTL 이다 |
+| TC-CH4-2 | 서버(hub) | 감시가 잡은 관측 변화는 mark 훅(토픽 발행)으로만 나간다 — `git_changed` 방송은 없다 |
+| TC-CH4-3 | 서버(gitapi) | 잡의 흐름(`job_feed`)은 보존된 줄 전부와 끝 하나이고, 진행 중인 잡은 나중 줄과 끝을 이어 준다 |
+| TC-CH4-4 | 서버(gitapi) | 없는 잡의 흐름은 없다 |
+| TC-CH4-5 | 서버(gitapi) | 작업의 시작·끝은 `on_jobs_changed` 로 알린다(`git.jobs` 발행). `git_jobs_changed` 방송은 없다 |
+| TC-CH4-6 | 서버 | `/api/stats?jobs=1` 은 작업 목록을 싣지 않는다 |
+| TC-CH4-7 | 서버 | `git:<root>` 구독은 `{repo, mark}` full 을 받고, 서버가 그 저장소를 감시하며, 바뀌면 새 mark 의 full 을 민다 |
+| TC-CH4-8 | 서버 | `git.jobs` 구독은 `{jobs:[]}` full 을 받는다 |
+| TC-CH4-9 | 서버 | 없는 잡의 `gitjob:<id>` 는 `unknown_topic` 이고 연결은 남는다 |
+| TC-CH4-10 | 서버 | clientId 를 실은 명령 SSE 는 git 감시 임대를 만들지 않는다 |
+| TC-CH4-11 | 프론트 | 같은 루트를 여럿이 봐도 구독은 하나, 마지막이 놓으면 해지한다. 한 쪽이 두 번 놓아도 남의 구독은 남는다 |
+| TC-CH4-12 | 프론트 | 채널이 서기 전의 `watch` 는 `bind` 때 구독한다 |
+| TC-CH4-13 | 프론트 | `git:<root>` full 은 `{repo, mark}` 변화(`GitSync._onGitChanged`)로 넘어간다 |
+| TC-CH4-14 | 프론트 | `git.jobs` 는 `bind` 와 함께 구독하고 목록을 넘긴다 |
+| TC-CH4-15 | 프론트 | Git 패널이 토픽을 보고, 원격·서브모듈 탭이 SSE 를 열지 않고, 저장소 목록 폴링·git 감시견 주기·상태바의 작업 목록 조회·등록부의 옛 git 방송이 없다 |
+| TC-CH4-16 | 프론트 | Git 패널은 평상시 `git:<root>`(서버가 푼 루트)를 구독하고 주기 타이머를 걸지 않는다. 보는 표면이 없으면 해지한다 |
+| TC-CH4-17 | 프론트 | 실패·소실 동안에만 회복용 주기(백오프·고정)를 건다 |
+| TC-CH4-18 | 프론트 | `followJob` 은 줄을 넘기고 끝에서 해지하며, 그 토픽의 `unknown_topic` 오류에만 `fail` 이다 |
+| TC-CH4-19 | 프론트 | 탐색기는 관측이 없을 때만 매 틱 묻고, 관측한 뒤에는 주기로 묻지 않는다 |
+
+남는 서버 내부 주기 (FR-SRV-2): gitwatch 회차 `GIT_WATCH_INTERVAL`(1초). 감시 대상(임차인이 있거나 TTL 안의 저장소)이 있을 때만 돌며 git 을 실행하지 않는 signature 검사를 하고, 워크트리 검사는 `GIT_WATCH_WORKTREE_EVERY`(4) 회차마다 한다. 이유: 저장소의 변화는 다른 프로세스(터미널의 git, 편집기)가 만들고 서버가 받을 사건이 없다. M4 에서 파일 감시(`.git`·워크트리)로 바꿀 대상이다.
+
+C4 에 남긴 것: Git Console 탭의 기록 주기(`git/console.js`, 탭이 보일 때만)는 그대로다 — 기록은 git 실행 층(`domain/git/core` Service)이 쌓고 변화 훅이 없어 토픽을 세우려면 그 층을 고쳐야 한다. 편집기 틱(`_edTick`)의 `/api/fs/stamps` 주기는 파일 감시(`fs`) 몫이다.
 
 ### 10.1 C1 — 채널 뼈대
 

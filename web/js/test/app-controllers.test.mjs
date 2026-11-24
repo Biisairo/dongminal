@@ -644,11 +644,11 @@ const DELEGATES_9D = {
   git: ['gitWindow', 'isGitWin', 'isChatWin', 'isKindWin', 'plainWindows', 'gitBackTarget', '_migrateGitWindow', 'openGitWindow',
     '_initGitSection', 'gitSignal', 'gitStatusHub', 'gitOpenFile', 'gitOpenFileHead', 'gitOpenTerminal', 'gitBadgeFor', 'gitPinEntry',
     '_gitTermToolId'],
-  'git.surfaces': ['gitObs', '_gitRescheduleAll', 'gitWatchdogAll', '_gitNotifyPinsAll', 'gitPanelAt', '_gitDropView',
+  'git.surfaces': ['gitObs', '_gitRescheduleAll', '_gitNotifyPinsAll', 'gitPanelAt', '_gitDropView',
     '_gitViewDirty', '_gitDiffDocPaths', '_gitViewSave', 'gitSurfaceOn', '_gitPanelKey', '_gitPanelRoot', '_gitPanelReap',
     '_gitRootOfActive'],
-  'git.sync': ['gitReposKick', '_gitObserveOk', '_onGitChanged', '_gitObserveRestore', 'gitReposRefresh', 'gitPin', 'gitUnpin',
-    '_gitPinsApply', '_pollGitJobs', '_gitJobsBegin', '_gitJobsSettle'],
+  'git.sync': ['gitReposKick', '_gitObserveOk', '_onGitChanged', 'gitReposRefresh', 'gitPin', 'gitUnpin',
+    '_gitPinsApply', '_gitJobsAdopt'],
 };
 
 function load9d(globals = {}) {
@@ -718,10 +718,7 @@ test('TC-FEA-2(9d): 갈아 끼운 plainWindows·gitReposRefresh·gitSignal·_git
   app.git.gitSignal = (k) => log.push('signal:' + k);
   app.gitPanels = new Map();
   app.git._gitLifecycle('focus');
-  app._gitObservers = new Map([['/r', { any: () => ({ poll: { collect: () => log.push('collect') } }) }]]);
-  app._gitOff = true;
-  app.git.sync._gitObserveRestore();
-  assert.deepEqual(log, ['plain', 'refresh', 'signal:focus', 'collect']);
+  assert.deepEqual(log, ['plain', 'refresh', 'signal:focus']);
 });
 
 test('FR-FEA-5(9d): gitSignal 은 허브 무효화 → 포커스 패널 신호 → 편집기 후속 순서다 — 로드 시점 감싸기가 없다', () => {

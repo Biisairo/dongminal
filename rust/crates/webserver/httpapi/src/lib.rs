@@ -41,6 +41,7 @@ mod fs_stamp;
 mod fs_transfer;
 mod fs_watch;
 mod fs_zip;
+mod git_topics;
 mod gitwire;
 mod go_embed;
 mod handlers_diag;
@@ -334,7 +335,18 @@ impl Server {
         let statics = cfg.static_fs.clone().map(static_assets::StaticHandler::new);
         let git_watch = gitwire::new_git_watch(&deps);
         if deps.git.is_none() {
-            let g = gitwire::new_git_server(&deps, limits.file_read_max, git_watch.as_ref());
+            let me = me.clone();
+            let on_jobs: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
+                if let Some(s) = me.upgrade() {
+                    s.topics.publish_full("git.jobs", s.git_jobs_value());
+                }
+            });
+            let g = gitwire::new_git_server(
+                &deps,
+                limits.file_read_max,
+                git_watch.as_ref(),
+                Some(on_jobs),
+            );
             deps.git = Some(Arc::new(gitwire::GitApi(Arc::new(g))));
         }
         let deps_commands = deps.commands.clone();
@@ -377,6 +389,7 @@ impl Server {
         if let Some(hub) = own_hub {
             srv.wire_telegram_attention(&hub);
         }
+        srv.wire_git_topics();
         srv
     }
 

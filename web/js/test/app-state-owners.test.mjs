@@ -57,9 +57,9 @@ test('FR-ASE-7: 지연 생성한 LspClient 는 하나이고 거기 갈아 끼운
 
 // ── FR-ASE-8 · Repo 목록 ──
 
-const REPOS_METHODS = ['_startGitReposPoll', 'gitReposKick', '_gitReposOnChanged', 'gitReposRefresh', '_gitReposSigOf'];
+const REPOS_METHODS = ['_gitPinsWatchSync', 'gitReposKick', '_gitReposOnChanged', 'gitReposRefresh', '_gitReposSigOf'];
 // REFACTOR3_FE_APPCTL_SRS 9d: 껍데기와 지연 생성은 `GitSync`(`git.sync`)로 옮겼다.
-const REPOS_SHELLS = ['_startGitReposPoll', 'gitReposKick', '_gitReposOnChanged', 'gitReposRefresh', '_gitReposList'];
+const REPOS_SHELLS = ['gitReposKick', '_gitReposOnChanged', 'gitReposRefresh', '_gitReposList'];
 
 function loadRepos(globals = {}) {
   return load([...BASE, 'core/constants-api.js', ...GIT], {
@@ -146,7 +146,7 @@ test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·필드이거나 �
   const read = (rel) => readFileSync(join(root, rel), 'utf8');
   const contract = [...read('core/app-testing.js').match(/const APP_TESTING_NAMES = \[([\s\S]*?)\];/)[1].matchAll(/'([^']+)'/g)]
     .map((m) => m[1]);
-  assert.equal(contract.length, 148);
+  assert.equal(contract.length, 147);
   const appFiles = ['core/app.js', ...readdirSync(join(root, 'core')).map((n) => 'core/' + n),
     ...readdirSync(join(root, 'ui')).map((n) => 'ui/' + n)]
     .filter((f) => f.endsWith('.js') && (f === 'core/app.js' || /Object\.(assign|defineProperties)\(App\.prototype/.test(read(f))));

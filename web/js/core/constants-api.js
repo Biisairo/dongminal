@@ -32,7 +32,6 @@ const GIT_API=Object.freeze({
   ignore:'/api/git/ignore',
   init:'/api/git/init',
   jobCancel:'/api/git/job/cancel',
-  jobEvents:'/api/git/job/events',
   jobs:'/api/git/jobs',
   lockRemove:'/api/git/lock/remove',
   log:'/api/git/log',

@@ -173,28 +173,6 @@ const STATE_REGISTRY=[
   },
   {
     /**
-     * GIT_PUSH_OBSERVE_SRS — **서버가 밀어 준다.**
-     *
-     * `every` 가 없다. 종전에는 브라우저가 signature 를 500ms 마다 물어 변화를
-     * 스스로 찾았고, 60초에 180번(sig 120 + status 60)이 나갔다. 이제 서버가
-     * 그것을 확인하고 바뀌었을 때만 알린다 (FR-GPO-1).
-     *
-     * 안전망 폴링은 여기 없고 `GitObserver` 의 `_applyCadence` 가 갖는다 —
-     * 그 계층은 백오프(FR-RMS-22)·소실 고정 주기(FR-RMS-6)·활성 저장소 판정
-     * (`_pollOk`)을 함께 쥐고 있어서, 주기만 떼어 올 수 없다.
-     *
-     * `restore` 도 그쪽 손잡이를 부른다. 재검증 계기는 하나뿐이다 —
-     * 구독이 열린 순간, 끊겨 있던 동안의 변화는 방송으로 오지 않았다
-     * (FR-GPO-23).
-     */
-    id:'git.observe',
-    restore:'git.sync._gitObserveRestore',
-    merge:'latest',
-    events:{git_changed:'git.sync._onGitChanged'},
-    revalidateOn:['sse:open'],
-  },
-  {
-    /**
      * EDITOR_LIVE_RELOAD_SRS 묶음 W·C — **서버가 밀어 준다.** 보이는 디렉터리의 변화가
      * `fs_changed` 로 온다. 등록의 수명은 SSE 구독이므로(FR-ELR-52) 구독이 열리면
      * 지금의 집합을 다시 등록한다. 안전망은 편집기 틱(`_edTick`)이다 (FR-ELR-61).
@@ -204,21 +182,6 @@ const STATE_REGISTRY=[
     merge:'latest',
     events:{fs_changed:'editor.watch._onFsChanged'},
     revalidateOn:['sse:open'],
-  },
-  {
-    /**
-     * OPTIMIZE_REFACTOR_SRS FR-OPT-4-4 (FR-GIT-101a 개정) — **서버가 밀어 준다.**
-     *
-     * 작업의 시작·끝을 서버가 `git_jobs_changed` 로 알린다. `every` 는 없다 — 상태바
-     * 틱이 `/api/stats?jobs=1` 로 같은 목록을 안전망으로 싣는다. Git 패널이 없으면
-     * `restore` 가 묻지 않는다 (`_gitJobsWanted`).
-     */
-    id:'git.jobs',
-    restore:'git.sync._pollGitJobs',
-    merge:'latest',
-    flight:'gitJobs',
-    events:{git_jobs_changed:'git.sync._pollGitJobs'},
-    revalidateOn:['sse:open','softreload'],
   },
   {
     id:'window.focus',

@@ -362,6 +362,14 @@ impl TopicHub {
         }
     }
 
+    /// 구독자가 없는 토픽을 잊는다 — 끝난 잡처럼 다시 오지 않을 토픽의 링을 놓는다.
+    pub(crate) fn forget_idle(&self, topic: &str) {
+        let mut ts = lock(&self.topics);
+        if ts.get(topic).is_some_and(|t| t.subs.is_empty()) {
+            ts.remove(topic);
+        }
+    }
+
     fn notify_demand(&self, topic: &str, active: bool) {
         let fs: Vec<DemandFn> = lock(&self.demand)
             .iter()

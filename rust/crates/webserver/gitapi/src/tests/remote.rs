@@ -2,15 +2,13 @@
 //! `handlers_git_remote_split_test.go` 의 이식.
 //!
 //! 옮기지 않은 것:
-//! - 없음. `TestGitJobEvents_QueuedLinesOneFlush` 의 flush 수는 응답 본문의 프레임 수로 본다
-//!   (Rust 의 `sse::Stream::flush` 한 번이 프레임 하나다).
+//! - 잡 출력 SSE(`/api/git/job/events`)의 시험. 그 종단은 채널의 `gitjob:<id>` 토픽으로
+//!   옮겨 갔다(CHANNEL_PROTOCOL C4) — 흐름은 `GitServer::job_feed` 로 잰다.
 //! - split 시험은 Go 처럼 실제 git 과 로컬 bare 저장소를 쓴다(네트워크를 타지 않는다).
 
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use http::Method;
-use http_body_util::{BodyExt, Full};
 use otter_webserver_apierr as apierr;
 use otter_webserver_domain_git_core::{self as core, Output, Service};
 use otter_webserver_domain_git_jobs::JobRunner;
@@ -228,7 +226,6 @@ fn remote_endpoints() -> Vec<(&'static str, String, String)> {
             "/api/git/job/cancel".to_owned(),
             r#"{"id":"x"}"#.to_owned(),
         ),
-        ("GET", "/api/git/job/events?id=x".to_owned(), String::new()),
         ("GET", "/api/git/jobs".to_owned(), String::new()),
     ]
 }
@@ -457,127 +454,64 @@ async fn git_push_no_remote() {
     );
 }
 
-/// SSE 응답의 Content-Type 과 프레임들. 끝난 작업의 스트림은 done 뒤에 닫힌다.
-async fn sse(s: &Arc<GitServer>, target: &str) -> (String, Vec<String>) {
-    let r = http::Request::builder()
-        .method(Method::GET)
-        .uri(target)
-        .body(Full::new(bytes::Bytes::new()))
-        .unwrap();
-    let res = s.handle(r, None).await.expect("처리되지 않았다");
-    let ct = res
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or_default()
-        .to_owned();
-    let mut body = res.into_body();
-    let mut frames = Vec::new();
-    let deadline = Instant::now() + Duration::from_secs(3);
-    loop {
-        let left = deadline.saturating_duration_since(Instant::now());
-        let next = tokio::time::timeout(left, body.frame())
-            .await
-            .expect("스트림이 닫히지 않았다");
-        let Some(fr) = next else { break };
-        if let Ok(d) = fr.unwrap().into_data() {
-            frames.push(String::from_utf8_lossy(&d).into_owned());
-        }
+/// 잡 하나의 흐름을 끝까지 모은다.
+async fn feed_all(s: &Arc<GitServer>, id: &str) -> Vec<Value> {
+    let mut f = s.job_feed(id).expect("잡이 없다");
+    let mut out = Vec::new();
+    while let Some(v) = tokio::time::timeout(Duration::from_secs(5), f.next())
+        .await
+        .expect("흐름이 끝나지 않았다")
+    {
+        out.push(v);
     }
-    (ct, frames)
+    out
 }
 
-/// Go `gitParseSSE`: line 이벤트 목록과 done 이벤트.
-fn parse_sse(body: &str) -> (Vec<Value>, Option<Value>) {
-    let (mut lines, mut done) = (Vec::new(), None);
-    for block in body.split("\n\n") {
-        let (mut name, mut payload) = ("", "");
-        for l in block.split('\n') {
-            if let Some(v) = l.strip_prefix("event: ") {
-                name = v;
-            } else if let Some(v) = l.strip_prefix("data: ") {
-                payload = v;
-            }
-        }
-        if name.is_empty() || payload.is_empty() {
-            continue;
-        }
-        let m: Value = serde_json::from_str(payload)
-            .unwrap_or_else(|_| panic!("{name} 이벤트가 JSON 이 아니다: {payload:?}"));
-        match name {
-            "line" => lines.push(m),
-            "done" => done = Some(m),
-            _ => {}
-        }
-    }
-    (lines, done)
-}
-
-async fn sse_body(s: &Arc<GitServer>, target: &str) -> String {
-    let (ct, frames) = sse(s, target).await;
-    let body = frames.concat();
-    assert_eq!(ct, "text/event-stream", "body = {body:?}");
-    body
-}
-
-// K7 (V42, FR-GIT-103): SSE 가 줄 이벤트와 종료 이벤트를 준다. after=<seq> 는 재연결 지점이다.
+// TC-CH4-3 (FR-GIT-103 · CHANNEL_PROTOCOL C4): 흐름은 보존된 줄 전부와 끝 하나다.
 #[tokio::test]
-async fn git_job_events_replay_after_seq() {
-    let e = rserver(
-        &RemoteFake::new(false),
-        remote_emit(&["한 줄", "두 줄", "세 줄"]),
-    );
-    let (_, out) = jreq(&e.s, "POST", "/api/git/fetch", &repo_body("")).await;
-    let id = job_id(&out);
-    wait_done(&e.s, &id).await;
-
-    let body = sse_body(&e.s, &format!("/api/git/job/events?id={id}&after=1")).await;
-    let (lines, done) = parse_sse(&body);
-    assert!(
-        lines.len() == 2 && lines[0]["text"] == "두 줄" && lines[1]["text"] == "세 줄",
-        "line 이벤트 = {lines:?}"
-    );
-    assert_eq!(lines[0]["stream"], "stderr", "진행은 stderr 로 온다");
-    let done = done.expect("done 이벤트가 없다");
-    assert!(
-        done["done"] == true && done["id"] == id.as_str(),
-        "done = {done}"
-    );
-}
-
-// 처음 연결은 보존된 줄 전부를 받는다.
-#[tokio::test]
-async fn git_job_events_from_start() {
+async fn git_job_feed_lines_then_done() {
     let e = rserver(&RemoteFake::new(false), remote_emit(&["가", "나"]));
     let (_, out) = jreq(&e.s, "POST", "/api/git/pull", &repo_body("")).await;
     let id = job_id(&out);
     wait_done(&e.s, &id).await;
-
-    let (lines, done) = parse_sse(&sse_body(&e.s, &format!("/api/git/job/events?id={id}")).await);
+    let got = feed_all(&e.s, &id).await;
+    assert_eq!(got.len(), 3, "{got:?}");
+    assert_eq!(got[0]["kind"], "line");
+    assert_eq!(got[0]["line"]["seq"], 1);
+    assert_eq!(got[1]["line"]["text"], "나");
+    assert_eq!(got[0]["line"]["stream"], "stderr", "진행은 stderr 로 온다");
+    assert_eq!(got[2]["kind"], "done");
     assert!(
-        lines.len() == 2 && lines[0]["seq"] == 1,
-        "line 이벤트 = {lines:?}"
+        got[2]["job"]["done"] == true && got[2]["job"]["id"] == id.as_str(),
+        "{}",
+        got[2]
     );
-    assert!(done.is_some(), "done 이벤트가 없다");
 }
 
-// 없는 작업의 스트림은 404 다.
+// TC-CH4-3: 진행 중인 잡의 흐름은 나중 줄과 끝을 이어 준다.
 #[tokio::test]
-async fn git_job_events_unknown_job() {
+async fn git_job_feed_follows_running_job() {
+    let release = Arc::new(tokio::sync::Semaphore::new(0));
+    let e = rserver(&RemoteFake::new(false), remote_hold(release.clone()));
+    let (_, out) = jreq(&e.s, "POST", "/api/git/fetch", &repo_body("")).await;
+    let id = job_id(&out);
+    let mut f = e.s.job_feed(&id).expect("잡이 없다");
+    release.add_permits(1);
+    let mut last = Value::Null;
+    while let Some(v) = tokio::time::timeout(Duration::from_secs(5), f.next())
+        .await
+        .expect("흐름이 끝나지 않았다")
+    {
+        last = v;
+    }
+    assert_eq!(last["kind"], "done", "{last}");
+}
+
+// TC-CH4-4: 없는 잡의 흐름은 없다.
+#[tokio::test]
+async fn git_job_feed_unknown_job() {
     let e = rserver(&RemoteFake::new(false), remote_emit(&[]));
-    let (code, out) = jreq(
-        &e.s,
-        "GET",
-        &format!("/api/git/job/events?id={}", qe("없는것")),
-        "",
-    )
-    .await;
-    assert_eq!(
-        (code, out["error"].clone()),
-        (404, json!(apierr::CODE_JOB_NOT_FOUND))
-    );
-    let (code, out) = jreq(&e.s, "GET", "/api/git/job/events", "").await;
-    assert_eq!(code, 400, "id 없는 요청: {out}");
+    assert!(e.s.job_feed("없는것").is_none());
 }
 
 // K8 (FR-GIT-102): 취소는 작업을 끝내고 부분 적용 가능성을 남긴다.
@@ -655,57 +589,41 @@ async fn git_remote_invalidates_status_cache_on_done() {
     );
 }
 
-// OPTIMIZE_REFACTOR_SRS FR-OPT-4-4: 작업의 시작·끝을 `git_jobs_changed` 로 민다.
+// TC-CH4-5 (FR-OPT-4-4 · CHANNEL_PROTOCOL C4): 작업의 시작·끝을 `on_jobs_changed` 로 알린다
+// (`git.jobs` 토픽). 방송은 없다.
 #[tokio::test]
-async fn git_jobs_changed_broadcast() {
+async fn git_jobs_changed_hook() {
     let release = Arc::new(tokio::sync::Semaphore::new(0));
-    let e = rserver(&RemoteFake::new(false), remote_hold(release.clone()));
+    let hits = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let mut e = rserver(&RemoteFake::new(false), remote_hold(release.clone()));
+    let h2 = hits.clone();
+    Arc::get_mut(&mut e.s).unwrap().on_jobs_changed = Some(Arc::new(move || {
+        h2.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    }));
     let cb = e.cb.clone();
-    let count = move || {
-        cb.published
-            .lock()
-            .unwrap()
-            .iter()
-            .filter(|p| p.as_slice() == br#"{"action":"git_jobs_changed"}"#)
-            .count()
-    };
+    let count = move || hits.load(std::sync::atomic::Ordering::SeqCst);
     let (code, out) = jreq(&e.s, "POST", "/api/git/fetch", &repo_body("")).await;
     assert_eq!(code, 200, "{out}");
-    assert_eq!(count(), 1, "시작 뒤 방송");
+    assert_eq!(count(), 1, "시작 뒤 알림");
     release.add_permits(1);
     wait_done(&e.s, &job_id(&out)).await;
     let deadline = Instant::now() + Duration::from_secs(3);
     while count() < 2 && Instant::now() < deadline {
         tokio::time::sleep(Duration::from_millis(2)).await;
     }
-    assert_eq!(count(), 2, "끝난 뒤 방송");
+    assert_eq!(count(), 2, "끝난 뒤 알림");
+    assert!(
+        !cb.published
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|p| p.as_slice() == br#"{"action":"git_jobs_changed"}"#),
+        "옛 방송이 남았다"
+    );
     assert!(
         e.s.active_jobs().unwrap().is_empty(),
         "ActiveJobs 가 비지 않았다"
     );
-}
-
-// FR-OPT-8-1 · HTTP-10: 쌓인 줄과 종료는 flush 한 번으로 나간다.
-#[tokio::test]
-async fn git_job_events_queued_lines_one_flush() {
-    let e = rserver(
-        &RemoteFake::new(false),
-        remote_emit(&["가", "나", "다", "라"]),
-    );
-    let (_, out) = jreq(&e.s, "POST", "/api/git/fetch", &repo_body("")).await;
-    let id = job_id(&out);
-    wait_done(&e.s, &id).await;
-
-    let (_, frames) = sse(&e.s, &format!("/api/git/job/events?id={id}")).await;
-    let body = frames.concat();
-    let (lines, done) = parse_sse(&body);
-    assert!(
-        lines.len() == 4 && done.is_some(),
-        "line = {lines:?}, done = {done:?}"
-    );
-    assert!(body.starts_with(": connected\n\n"), "첫 프레임 = {body:?}");
-    // 연결 주석 1 + 줄 4·종료 1.
-    assert_eq!(frames.len(), 2, "frames = {frames:?}");
 }
 
 // ── handlers_git_remote_actions_test.go ──
@@ -1083,29 +1001,4 @@ async fn refs_carry_remote_name() {
         }
     }
     assert!(seen > 0, "원격 ref 가 없다");
-}
-
-/// FR-RDF-4 (Go `apiGitJobEvents` 의 `r.Context().Done()`): 클라이언트가 끊으면 다음 줄이나
-/// keep-alive(15초)를 기다리지 않고 루프를 끝내고 구독을 놓는다.
-#[tokio::test]
-async fn job_events_close_releases_subscription_without_waiting() {
-    let e = rserver(&RemoteFake::new(false), remote_emit(&[]));
-    let hub = e.s.jobs_hub(e.s.git.as_ref().unwrap());
-    let (res, st) = otter_webserver_sse::start(Duration::ZERO);
-    let (tx, rx) = tokio::sync::mpsc::channel(1);
-    let h = tokio::spawn(crate::remote::job_event_loop(
-        st,
-        rx,
-        hub,
-        "x".to_owned(),
-        core::Ctx::background(),
-    ));
-    tokio::task::yield_now().await;
-    assert!(!h.is_finished(), "클라이언트가 있는 동안은 기다린다");
-    drop(res);
-    tokio::time::timeout(Duration::from_secs(1), h)
-        .await
-        .expect("끊긴 구독이 남았다")
-        .unwrap();
-    assert!(tx.is_closed(), "구독 채널을 놓지 않았다");
 }

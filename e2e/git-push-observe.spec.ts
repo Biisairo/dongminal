@@ -86,7 +86,7 @@ test.describe('GIT_PUSH_OBSERVE — 서버가 밀어 준다', () => {
     // 남의 저장소를 가리키는 방송을 직접 먹인다 — 서버를 거치지 않고 그
     // 갈림길만 시험한다.
     await page.evaluate((repo) => {
-      (window as any).app.bus.publish('git_changed', { repo, mark: 'zzz' });
+      (window as any).app.git.sync._onGitChanged({ repo, mark: 'zzz' });
     }, other);
     await page.waitForTimeout(500);
 
@@ -108,7 +108,7 @@ test.describe('GIT_PUSH_OBSERVE — 서버가 밀어 준다', () => {
 
     // 첫 알림을 받아 `mark` 를 세운다 — 그것이 "이미 본 것" 의 기준이다.
     await page.evaluate((repo) => {
-      (window as any).app.bus.publish('git_changed', { repo, mark: 'M1' });
+      (window as any).app.git.sync._onGitChanged({ repo, mark: 'M1' });
     }, repo);
     await page.waitForTimeout(300);
 
@@ -119,14 +119,14 @@ test.describe('GIT_PUSH_OBSERVE — 서버가 밀어 준다', () => {
     });
 
     await page.evaluate((repo) => {
-      (window as any).app.bus.publish('git_changed', { repo, mark: 'M1' });
+      (window as any).app.git.sync._onGitChanged({ repo, mark: 'M1' });
     }, repo);
     await page.waitForTimeout(500);
     expect(statusReqs, '이미 본 알림으로 다시 받았다 (FR-GPO-22)').toBe(0);
 
     // 다른 mark 면 받는다 — 위 0 이 "그냥 안 도는 것" 이 아님을 보인다.
     await page.evaluate((repo) => {
-      (window as any).app.bus.publish('git_changed', { repo, mark: 'M2' });
+      (window as any).app.git.sync._onGitChanged({ repo, mark: 'M2' });
     }, repo);
     await expect.poll(() => statusReqs, { timeout: 5000 }).toBeGreaterThan(0);
   });

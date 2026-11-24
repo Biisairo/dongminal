@@ -8,10 +8,11 @@ import { load } from './harness.mjs';
  * 재수집이 되돌린다: 등록부의 `revalidateOn:['sse:open']` 가 그 약속이다. 새 코드
  * 없이 이 선언을 고정한다 — 누가 빼면 넘침 뒤 화면이 안전망까지 낡는다.
  */
-test('재연결(sse:open)이 git·설정·포커스·도구 상태를 다시 받는다', () => {
+test('재연결(sse:open)이 설정·포커스·도구 상태를 다시 받는다 (git 은 채널 토픽, CHANNEL_PROTOCOL C4)', () => {
   const ctx = load(['core/state-registry.js'], { expose: ['STATE_REGISTRY'] });
   const byId = new Map(ctx.STATE_REGISTRY.map((e) => [e.id, e]));
-  for (const id of ['git.observe', 'settings', 'window.focus', 'tool.attention', 'tool.activity', 'tool.background']) {
+  assert.ok(!byId.has('git.observe') && !byId.has('git.jobs'), 'git 상태가 아직 등록부에 있다');
+  for (const id of ['settings', 'window.focus', 'tool.attention', 'tool.activity', 'tool.background']) {
     const e = byId.get(id);
     assert.ok(e, `${id} 선언이 없다`);
     assert.ok(e.revalidateOn.includes('sse:open'), `${id} 가 재연결에 다시 받지 않는다`);
@@ -72,7 +73,7 @@ function snapshotRig() {
   };
   // 등록부는 주인까지의 점 경로로 부른다 (REFACTOR3_FE_DELEG_SRS FR-DLG-3).
   for (const path of ['attn._attnRestore', 'agents._activityRestore', 'tool.life._bgRefresh', 'settings.apply._settingsRestore',
-    'update._updateRestore', 'focus.owner._focusRestore', 'git.sync._gitObserveRestore', 'git.sync._pollGitJobs',
+    'update._updateRestore', 'focus.owner._focusRestore',
     'edges._edgesRestore', '_runsListRestore']) {
     const keys = path.split('.');
     const name = keys.pop();
@@ -97,7 +98,6 @@ test('첫 연결: 스냅샷 한 요청, 설정은 건너뛴다, /api/state 는 �
   // 조각이 없으면(503 인 update) 실패 봉투다 — 종단이 실패한 것과 같다.
   const up = await got._updateRestore;
   assert.equal(up.ok, false);
-  assert.ok('_gitObserveRestore' in got, 'git 관측 재검증이 빠졌다');
 });
 
 test('재연결·소프트 리로드: 설정도 같은 스냅샷에 든다', async () => {
