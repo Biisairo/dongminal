@@ -11,7 +11,7 @@ use base64::Engine;
 use http::{HeaderValue, Method, StatusCode, header};
 use hyper_util::rt::TokioIo;
 use otter_shared_httpresp::{self as httpresp, Response};
-use otter_shared_toolhub::{self as th, OutChunk};
+use otter_shared_toolhub::{OutChunk, ToolScreen};
 use regex::bytes::Regex;
 use sockudo_ws::deflate::{DeflateNegotiation, DeflateWindowBits, negotiate_server_deflate};
 use sockudo_ws::stream::{CompressedSplitReader, CompressedSplitWriter, CompressedWebSocketStream};
@@ -20,18 +20,14 @@ use sockudo_ws::{Config as WsConfig, DeflateConfig};
 use crate::Server;
 use crate::req::Req;
 
-/// 정렬을 위해 줄 끝을 찾는 범위다 (Go `trsAlignScan`).
-pub(crate) const TRS_ALIGN_SCAN: usize = 4 << 10;
-
 /// 같은 없는 도구를 다시 물으면 늦춘다 (Go `MissRepeatWindow`·`MissDelay`).
 pub(crate) const MISS_REPEAT_WINDOW: Duration = Duration::from_secs(10);
 pub(crate) const MISS_DELAY: Duration = Duration::from_secs(2);
 
-pub(crate) const TERM_RESET: &[u8] = b"\x1b[?9l\x1b[?1000l\x1b[?1001l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?1047l\x1b[?25h\x1b[?12l\x1b[20l";
-pub(crate) const TERM_HARD_CLEAR: &[u8] = b"\x1b[?1049l\x1b[H\x1b[2J\x1b[3J";
-const TERM_ALT_ON: &[u8] = b"\x1b[?1049h";
 const SEQ_FLAG_FULL: u8 = 1 << 0;
 const SEQ_FLAG_ALT: u8 = 1 << 1;
+/// 앞의 `OUTPUT` 이 화면 상태 스냅숏이다 (PERF D-19). FULL 과 함께 선다.
+const SEQ_FLAG_SNAP: u8 = 1 << 2;
 
 const BAD_HANDSHAKE: &str = "websocket: the client is not using the websocket protocol: ";
 
@@ -126,41 +122,27 @@ pub(crate) fn strip_snapshot_queries(b: &[u8]) -> Vec<u8> {
     SNAPSHOT_QUERY.replace_all(b, &b""[..]).into_owned()
 }
 
-pub(crate) fn align_head(b: &[u8]) -> &[u8] {
-    let scan = b.len().min(TRS_ALIGN_SCAN);
-    match b[..scan].iter().position(|&c| c == b'\n') {
-        Some(i) => &b[i + 1..],
-        None => b,
-    }
+/// 링에서 이어 붙이는 바이트 — 알림 OSC 와 시작 질의를 뺀다.
+pub(crate) fn replay_delta(data: &[u8]) -> Vec<u8> {
+    strip_snapshot_queries(&strip_osc777(data))
 }
 
-/// Go `buildReplay`: 전량 재생이면 터미널을 초기화하고 첫 줄 끝까지 버린다.
-pub(crate) fn build_replay(data: &[u8], full: bool, alt: bool) -> Vec<u8> {
-    let body = strip_snapshot_queries(&strip_osc777(data));
-    if !full {
-        return body;
-    }
-    let body = align_head(&body);
-    let mut out = Vec::with_capacity(TERM_RESET.len() + TERM_HARD_CLEAR.len() + 8 + body.len());
-    out.extend_from_slice(TERM_RESET);
-    out.extend_from_slice(TERM_HARD_CLEAR);
-    if th::alt_screen_at_head(body, alt) {
-        out.extend_from_slice(TERM_ALT_ON);
-    }
-    out.extend_from_slice(body);
-    out
-}
-
-/// Go `seqPayload`: 8바이트 오프셋(빅엔디언) + 깃발.
-pub(crate) fn seq_payload(offset: i64, full: bool, alt: bool) -> [u8; 9] {
+/// Go `seqPayload`: 8바이트 오프셋(빅엔디언) + 깃발. 링에서 이어 붙인 뒤의 좌표다.
+pub(crate) fn seq_payload(offset: i64, alt: bool) -> [u8; 9] {
     let mut p = [0u8; 9];
     p[..8].copy_from_slice(&offset.to_be_bytes());
-    if full {
-        p[8] |= SEQ_FLAG_FULL;
-    }
     if alt {
         p[8] |= SEQ_FLAG_ALT;
     }
+    p
+}
+
+/// 스냅숏 뒤의 좌표 (PERF D-19): `seq_payload` + FULL·SNAP 깃발 + 첫 기록 줄 번호(u64 BE) + cwd(UTF-8).
+pub(crate) fn snap_seq_payload(s: &ToolScreen) -> Vec<u8> {
+    let mut p = seq_payload(s.end, s.alt).to_vec();
+    p[8] |= SEQ_FLAG_FULL | SEQ_FLAG_SNAP;
+    p.extend_from_slice(&s.first_line.to_be_bytes());
+    p.extend_from_slice(s.cwd.as_bytes());
     p
 }
 

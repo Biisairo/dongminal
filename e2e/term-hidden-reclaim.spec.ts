@@ -64,10 +64,21 @@ test('TC-OTR-10: 다른 기기가 쥔 창의 탭을 오가도 탭마다 전량 �
     await waitSettled(remote);
   }
   const narrow = await remote.evaluate(() => (window as any).app.testing.focusedTerminal().term.cols);
-  await expect.poll(() => local.evaluate((c) => [...(window as any).app.tools.values()].every((p: any) => p.term && p.term.cols === c), narrow), { timeout: 10000 }).toBe(true);
+  // PERF D-16(2.5): 잠든 터미널은 구독하지 않아 크기 통보도 받지 않는다 — 깨어 있는 것만 지금 그 폭을 따른다. 잠든 것은
+  // 깰 때 `SIZE` → 스냅숏으로 그때의 폭을 받는다.
+  await expect.poll(() => local.evaluate((c) => [...(window as any).app.tools.values()].filter((p: any) => p._sock.live).every((p: any) => p.term && p.term.cols === c), narrow), { timeout: 10000 }).toBe(true);
 
   // PERF C5: 탭마다의 붙음은 채널의 `term.open` 이다 — 옛 칸별 소켓 하나와 같다.
   await trackTermAttach(local);
+  // PERF D-16(2.5): 깨울 때의 붙음은 재생이 아니라 깨움이다 — 따로 세어 뺀다.
+  await local.evaluate(() => {
+    const w = window as any;
+    w.__wakes = {};
+    for (const p of w.app.tools.values()) {
+      const wake = p.wake.bind(p);
+      p.wake = () => { w.__wakes[p.id] = (w.__wakes[p.id] || 0) + 1; wake() };
+    }
+  });
   for (let round = 0; round < 2; round++) {
     for (const id of all) {
       await local.evaluate((tid) => {
@@ -86,8 +97,18 @@ test('TC-OTR-10: 다른 기기가 쥔 창의 탭을 오가도 탭마다 전량 �
   const perTool = new Map<string, number>();
   for (const s of socks) perTool.set(s.tool, (perTool.get(s.tool) || 0) + 1);
   const summary = JSON.stringify([...perTool.entries()].map(([t, n]) => [t.slice(-6), n]));
-  // 탭마다 정확히 한 벌 — 둘 이상이면 재생이 되풀이된 것이고, 0 이면 보일 때 빚을 갚지 않은 것이다.
-  for (const id of all) expect(perTool.get(id) || 0, `${id.slice(-6)} 의 전량 재생 횟수: ${summary}`).toBe(1);
-  const twins = socks.filter((s) => s.closed && s.bytes === 0);
-  expect(twins.length, '붙자마자 버려진 붙음이 있다').toBe(0);
+  // PERF D-16(2.5): 탭 하나를 1.5초씩 도는 동안 나머지 탭은 2초를 넘게 가려져 잠들고, 다시 보일 때 깨며 스냅숏을
+  // 받는다. 깨움으로 붙은 것을 빼면 재생은 탭마다 많아야 한 벌(폭 빚 갚기)이다 — 그보다 많으면 재생이 되풀이된 것이다.
+  // 붙음이 0 이면 보일 때 붙지 않은 것이다.
+  const wakes: Record<string, number> = await local.evaluate(() => (window as any).__wakes);
+  for (const id of all) {
+    const n = perTool.get(id) || 0;
+    expect(n, `${id.slice(-6)} 의 붙음 수: ${summary}`).toBeGreaterThanOrEqual(1);
+    expect(n - (wakes[id] || 0), `${id.slice(-6)} 의 깨움 밖 재생 수: ${summary} 깨움 ${JSON.stringify(wakes)}`).toBeLessThanOrEqual(1);
+  }
+  // PERF 2.5: 깨자마자 소유가 바뀌어 폭 빚을 갚으면(FR-OTR) 깨움의 붙음은 바이트 없이 닫히고 곧 다시 붙는다 — 서버가 옛
+  // 세션의 프레임을 버리므로 재생이 낭비되지 않는다. 그 경우만 뺀다.
+  const twins = socks.filter((s, i) => s.closed && s.bytes === 0
+    && !((wakes[s.tool] || 0) > 0 && socks.slice(i + 1).some((x) => x.tool === s.tool && x.bytes > 0)));
+  expect(twins.length, '붙자마자 버려진 붙음이 있다: ' + JSON.stringify(socks.map((x: any) => [x.sid, x.tool.slice(-6), x.bytes, x.closed]))).toBe(0);
 });

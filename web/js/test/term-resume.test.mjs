@@ -54,11 +54,12 @@ function outFrame(OP, bytes) {
 
 // ── FR-TRS-3: since ──────────────────────────────────────────────────────
 
-test('좌표를 모르면 since 를 붙이지 않는다 — 서버가 전량을 뿌린다', () => {
+test('좌표를 모르면 since 를 붙이지 않고 스냅숏을 달라고 한다', () => {
   const { ctx, p } = pane();
   ctx.location = { protocol: 'http:', host: 'h' };
   assert.equal(p._seq, -1);
   assert.equal(p._termOpenArgs().since, undefined);
+  assert.equal(p._termOpenArgs().snap, true);
 });
 
 test('좌표를 알면 since 로 이어 붙여 달라고 한다', () => {
@@ -66,6 +67,7 @@ test('좌표를 알면 since 로 이어 붙여 달라고 한다', () => {
   ctx.location = { protocol: 'http:', host: 'h' };
   p._onOp(seqFrame(OP, 4242, false));
   assert.equal(p._termOpenArgs().since, 4242);
+  assert.equal(p._termOpenArgs().snap, undefined);
 });
 
 // ── FR-TRS-6: OpSeq 해석 ─────────────────────────────────────────────────
@@ -128,52 +130,13 @@ test('새 소켓이 열리면 통보 전까지 다시 세지 않는다', () => {
   assert.equal(p._seq, 700);
 });
 
-// ── FR-TRS-18~20: 재그리기 넛지 ──────────────────────────────────────────
+// ── PERF D-19: 넛지는 없다 ───────────────────────────────────────────────
 
-// FR-TRS-18a: **alt screen 일 때만** 흔든다. 그쪽 앱은 화면 전체를 자기가
-// 관리하므로 다시 그리면 제자리를 찾는다.
-test('alt screen 앱은 전량 재생 뒤 rows 를 흔들어 전체를 다시 그리게 한다', async () => {
+// 링 전량 재생이 사라졌다. 버퍼를 통째로 바꾸는 것은 화면 상태 스냅숏뿐이고, 스냅숏은 대체 화면·모드까지
+// 정확하므로 넛지(rows 를 흔드는 SIGWINCH 두 번)를 걸지 않는다 (`web/js/test/term-wake.test.mjs` 가 SNAP 깃발을 잰다).
+test('버퍼를 바꾼 SEQ 뒤에도 rows 를 흔들지 않는다', async () => {
   const { p, clock, OP } = pane();
   p._onOp(seqFrame(OP, 0, true, true));
-  await clock.advance(50);
-  const sizes = p.sent.filter((m) => m[0] === OP.RESIZE)
-    .map((m) => new DataView(m.buffer).getUint16(3, false));
-  assert.deepEqual(sizes, [29, 30]);
-});
-
-/**
- * FR-TRS-18a: main screen 앱은 흔들지 않는다 — 접수된 렌더 잔재의 원인이었다.
- *
- * 넛지는 `SIGWINCH` 를 두 번 일으켜 앱을 두 번 그리게 한다. **화면을 지우지 않고
- * 커서만 올려 덮어쓰는 앱**(claude 가 그 방식)은 그때마다 어긋난 그림을 하나씩 더
- * 쌓는다 (`M11_SRS` §2.4f: 표식 6 대 2).
- */
-test('main screen 앱은 전량 재생 뒤에도 흔들지 않는다', async () => {
-  const { p, clock, OP } = pane();
-  p._onOp(seqFrame(OP, 0, true, false));
-  await clock.advance(50);
-  assert.equal(p.sent.filter((m) => m[0] === OP.RESIZE).length, 0);
-});
-
-test('델타 재개 뒤에는 흔들지 않는다 — 화면이 이미 맞아 있다', async () => {
-  const { p, clock, OP } = pane();
-  // alt screen 이어도 델타면 걸지 않는다 — 가르는 것은 전량 재생 여부다.
-  p._onOp(seqFrame(OP, 0, false, true));
-  await clock.advance(50);
-  assert.equal(p.sent.filter((m) => m[0] === OP.RESIZE).length, 0);
-});
-
-test('크기의 주인이 아니면 흔들지 않는다', async () => {
-  const { p, clock, OP } = pane({ owner: false });
-  p._onOp(seqFrame(OP, 0, true, true));
-  await clock.advance(50);
-  assert.equal(p.sent.filter((m) => m[0] === OP.RESIZE).length, 0);
-});
-
-test('한 행짜리 터미널은 흔들 여지가 없다', async () => {
-  const { p, clock, OP } = pane();
-  p.term.rows = 1;
-  p._onOp(seqFrame(OP, 0, true));
   await clock.advance(50);
   assert.equal(p.sent.filter((m) => m[0] === OP.RESIZE).length, 0);
 });

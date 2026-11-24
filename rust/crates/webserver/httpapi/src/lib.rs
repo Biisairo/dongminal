@@ -233,6 +233,8 @@ pub struct Server {
     pub(crate) hosts: HostAllow,
     pub(crate) conn: ConnStats,
     pub(crate) browser_in: ws::BrowserInputs,
+    /// 깨움 스냅숏을 도구마다 한 번만 묻는다 (PERF M2 §2.5).
+    pub(crate) screens: channel::ScreenFlights,
     /// 채널 토픽의 상태·순번·구독 (`perf/CHANNEL_PROTOCOL.md` §11.1).
     pub(crate) topics: channel::TopicHub,
     /// delta 토픽·Run 그래프·지표의 계산 (`perf/CHANNEL_PROTOCOL.md` §10.4).
@@ -371,6 +373,7 @@ impl Server {
             hosts,
             conn: ConnStats::default(),
             browser_in: ws::BrowserInputs::default(),
+            screens: channel::ScreenFlights::default(),
             topics: channel::TopicHub::default(),
             state_topics: state_topics::StateTopics::default(),
             full_topics: full_topics::FullTopics::default(),

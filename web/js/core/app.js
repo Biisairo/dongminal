@@ -286,7 +286,8 @@ class App {
 
   // FR-WSL-20: 슬롯을 명시하지 않으면 슬롯 0 이다 — 단일 슬롯 모드의 호출부가
   // 한 글자도 바뀌지 않아야 한다. 같은 도구를 두 슬롯에 그리면 인스턴스가 둘이고
-  // WebSocket 도 둘이다 (§7 R-1, 회수는 _slotReap).
+  // 붙음도 둘이다 (§7 R-1, 회수는 _slotReap). PERF D-16: 여기서 붙지 않는다 — 처음 보일 때
+  // 렌더러가 `wake()` 를 부른다.
   mkTool(id,name,slot){
     const key=this.slot.slotKey(id,slot||0);
     if(this.tools.has(key)) return this.tools.get(key);
@@ -295,7 +296,6 @@ class App {
     this.toolIds.add(id);
     if(this._toolsBoot.delete(id)){p._reconnecting=true;p.el.style.opacity='0'}
     document.getElementById('area').appendChild(p.el);
-    p.connect();
     this.tools.set(key,p);
     this.focus.owner.applyFocusOverlay();
     return p;

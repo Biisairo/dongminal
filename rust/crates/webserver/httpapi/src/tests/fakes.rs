@@ -7,7 +7,8 @@ use std::time::Duration;
 
 use otter_shared_sandbox::{self as sandbox, ProfileInfo};
 use otter_shared_toolhub::{
-    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolInfo, ToolSnapshot,
+    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolInfo, ToolScreen,
+    ToolSnapshot,
 };
 use otter_shared_workspace::{Error as WorkspaceError, TabEntry, WindowInfo};
 use otter_webserver_domain_sysstat::Snapshot;
@@ -48,6 +49,12 @@ pub(crate) struct FakeHub {
     /// 같은 도구의 나중 구독에 밀려난 구독 — 살려 두어 앞 구독자의 출력이 끊기지 않게 한다.
     pub(crate) replaced_subs: Mutex<Vec<(Sender<OutChunk>, CancellationToken)>>,
     pub(crate) snaps: Mutex<HashMap<String, ToolSnapshot>>,
+    /// 도구마다 화면 상태 스냅숏 (`screen_tool` 의 답).
+    pub(crate) screens: Mutex<HashMap<String, ToolScreen>>,
+    /// `screen_tool` 을 부른 수.
+    pub(crate) screen_calls: AtomicUsize,
+    /// `screen_tool` 이 답하기 전에 기다리는 시간 — 동시 깨움을 겹치게 한다.
+    pub(crate) screen_delay: Duration,
     pub(crate) inputs: Mutex<Vec<(String, Vec<u8>)>>,
     pub(crate) resizes: Mutex<Vec<(String, u16, u16)>>,
     /// 데몬이 hello 에서 말한 판 (Go `infoHub`).
@@ -92,12 +99,27 @@ impl ToolHub for FakeHub {
             .get(id)
             .cloned()
             .unwrap_or_default();
-        if since >= 0 && since <= snap.end {
+        let start = snap.end - snap.data.len() as i64;
+        if since >= start && since <= snap.end {
             let keep = crate::ws::trim_overlap(&snap.data, snap.end, since).to_vec();
             snap.data = keep;
             snap.resumed = true;
         }
         Ok(snap)
+    }
+    fn screen_tool(&self, id: &str, _history: usize) -> Result<ToolScreen, ToolError> {
+        if !self.has(id) {
+            return Err(ToolError::NotFound(format!("tool {id} not found")));
+        }
+        std::thread::sleep(self.screen_delay);
+        self.screen_calls.fetch_add(1, Ordering::SeqCst);
+        Ok(self
+            .screens
+            .lock()
+            .unwrap()
+            .get(id)
+            .cloned()
+            .unwrap_or_default())
     }
     fn daemon_info(&self) -> DaemonInfo {
         self.daemon.clone()

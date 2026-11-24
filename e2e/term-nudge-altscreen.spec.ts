@@ -1,7 +1,8 @@
 import { test, expect, waitForInit, waitShellReady } from './fixtures';
 
 /**
- * 넛지는 alt screen 인 앱에만 건다 (TERMINAL_RESUME_SRS FR-TRS-18a · V-TRS-17a·17b).
+ * 넛지는 alt screen 인 앱에만 건다 (TERMINAL_RESUME_SRS FR-TRS-18a · V-TRS-17a·17b). PERF D-19(2.5) 뒤로는 버퍼를
+ * 통째로 바꾸는 것이 화면 상태 스냅숏뿐이라 넛지가 없다 — 두 시험은 "넛지 없이도 맞다" 를 잰다.
  *
  * 접수된 렌더 잔재(`M11-B1`)의 원인이 이것이었다. 넛지는 `SIGWINCH` 를 두 번
  * 일으켜 앱을 두 번 그리게 하는데, **화면을 지우지 않고 커서만 올려 덮어쓰는 앱**은
@@ -74,16 +75,23 @@ test('V-TRS-17a: main screen 앱은 전량 재생 뒤에도 넛지를 받지 않
   expect(await resizesAfterReplay(page)).toBeLessThan(3);
 });
 
-test('V-TRS-17b: alt screen 앱은 전량 재생 뒤 넛지를 받는다', async ({ page }) => {
+/**
+ * PERF D-19 (2.5): 이전 — alt screen 앱은 전량 재생 뒤 넛지를 받았다(V-TRS-17b). 새 — 다시 붙으면 화면 상태 스냅숏이
+ * 오고, 스냅숏은 대체 화면까지 정확하므로 넛지를 걸지 않는다. 이유 — 링 전량 재생이 사라졌다.
+ */
+test('V-TRS-17b: alt screen 앱도 스냅숏으로 다시 붙으면 넛지 없이 대체 화면이다', async ({ page }) => {
   await page.goto('/');
   await ready(page);
   await runIn(page, ALT_APP);
-  // 서버가 그 모드를 관측할 때까지 기다린다 — PTY 를 왕복한 뒤라야 안다.
-  await expect.poll(() => paneEval(page, `p => p.term.buffer.active.length > 0`),
-    { timeout: 20000 }).toBe(true);
-  await page.waitForTimeout(1000);
+  await expect.poll(() => paneEval(page, `p => p.term.buffer.active.type`), { timeout: 20000 }).toBe('alternate');
 
-  expect(await resizesAfterReplay(page)).toBeGreaterThanOrEqual(3);
+  expect(await resizesAfterReplay(page)).toBeLessThan(3);
+  expect(await paneEval(page, `p => p.term.buffer.active.type`)).toBe('alternate');
+  expect(await paneEval(page, `p => {
+    const b = p.term.buffer.active;
+    for (let i = 0; i < b.length; i++) if ((b.getLine(i)?.translateToString(true) || '').includes('alt-ready')) return true;
+    return false;
+  }`), '스냅숏이 대체 화면 내용을 싣지 않았다').toBe(true);
 });
 
 /**
