@@ -1471,3 +1471,34 @@ export async function setConsoleInterval(page: any, ms: number) {
 }
 
 export { expect };
+
+/**
+ * PERF_OPTIMIZATION_SRS C5: 터미널은 칸마다 WebSocket 을 열지 않고 탭의 채널에 `term.open` 으로 붙는다.
+ * 이미 열린 채널에 붙은 것을 재려고 페이지 안의 `app.channel` 을 감싼다 — `term.open` 마다 한 줄,
+ * 그 sid 로 받은 바이너리 바이트, `term.close` 여부.
+ */
+export type TermAttach = { sid: number; tool: string; bytes: number; closed: boolean };
+
+export async function trackTermAttach(page: any): Promise<void> {
+  await page.evaluate(() => {
+    const w = window as any;
+    if (w.__termTrack) return;
+    const rec: any[] = [];
+    w.__termTrack = rec;
+    const ch = w.app.channel;
+    const send = ch.send.bind(ch);
+    ch.send = (v: any) => {
+      if (v && v.t === 'term.open') rec.push({ sid: v.sid, tool: v.tool || '', bytes: 0, closed: false });
+      if (v && v.t === 'term.close') for (const r of rec) if (r.sid === v.sid) r.closed = true;
+      return send(v);
+    };
+    ch.onBinary((u8: Uint8Array) => {
+      const sid = new DataView(u8.buffer, u8.byteOffset, u8.length).getUint32(1, false);
+      const r = rec.filter((x) => x.sid === sid).at(-1);
+      if (r) r.bytes += u8.length;
+    });
+  });
+}
+
+export const termAttaches = (page: any): Promise<TermAttach[]> =>
+  page.evaluate(() => (window as any).__termTrack || []);

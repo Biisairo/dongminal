@@ -14,17 +14,18 @@ import { test, expect, liveRegionOf } from './fixtures';
 //
 // 이 저장소에 JS 단위 테스트 러너가 없으므로 web/js/ui/term-pane.js 를 빈 페이지에
 // 넣고 page.evaluate 로 계약만 시험한다 (repaint.spec.ts·git-lanes.spec.ts 와 같은
-// 방식). 실서버를 태우지 않는 이유는 이 결함이 **소켓을 몇 개 여는가**로만 판정되고,
-// 그것은 WebSocket 생성자를 세는 것으로 결정적으로 관측되기 때문이다.
+// 방식). 실서버를 태우지 않는 이유는 이 결함이 **몇 번 다시 붙으려 하는가**로만 판정되고,
+// 그것은 채널에 보낸 `term.open` 을 세는 것으로 결정적으로 관측되기 때문이다
+// (PERF_OPTIMIZATION_SRS C5 — 터미널은 칸마다 소켓을 열지 않고 탭의 채널 하나에 붙는다).
 
 // `core/api.js` 는 이 겹을 쓰는 어떤 스크립트보다 **앞**에 실어야 한다
 // (CLIENT_API_SRS FR-CAPI-1). 합성 페이지는 index.html 의 로드 순서를 물려받지
 // 않으므로, 빠뜨리면 `apiGet is not defined` 로 그 자리에서 터진다.
 const API_JS = join(process.cwd(), 'web', 'js', 'core', 'api.js');
 const TERM_PANE_JS = join(process.cwd(), 'web', 'js', 'ui', 'term-pane.js');
-// OPTIMIZE_REFACTOR_SRS FR-OPT-12-1·12-4: WS 배선(`TermSocket`)과 입력 증강이 갈라졌다.
-// 재는 것은 그대로다 — 소켓을 몇 개 여는가. 싣는 파일만 셋이 됐다.
-const TERM_SOCKET_JS = join(process.cwd(), 'web', 'js', 'ui', 'term-socket.js');
+// OPTIMIZE_REFACTOR_SRS FR-OPT-12-1·12-4: 연결 배선(`TermChannel`)과 입력 증강이 갈라졌다.
+// 재는 것은 그대로다 — 몇 번 붙으려 하는가. 싣는 파일만 셋이 됐다.
+const TERM_CHANNEL_JS = join(process.cwd(), 'web', 'js', 'ui', 'term-channel.js');
 const TERM_INPUT_JS = join(process.cwd(), 'web', 'js', 'ui', 'term-input.js');
 // FR-OPT-12-3: 종료 오버레이의 출구 버튼은 `UIKit.button` 이 만든다 (의존 없는 파일이다).
 const UI_KIT_JS = join(process.cwd(), 'web', 'js', 'ui', 'ui-kit.js');
@@ -42,7 +43,7 @@ const TERM_PARTS_JS = ['term-transfer.js', 'term-held.js', 'term-output.js', 'te
   .map((f) => join(process.cwd(), 'web', 'js', 'ui', f));
 
 // term-pane.js 가 기대하는 전역 중 재연결 경로가 쓰는 것만 세운다.
-// WebSocket 은 생성 횟수를 세고 마지막 인스턴스를 노출하는 가짜다.
+// 채널은 `term.open` 시도마다 의사 소켓 하나를 세우는 가짜다 — 시도 수가 곧 옛 소켓 수다.
 async function loadTermPane(page: Page) {
   await page.setContent('<!doctype html><title>term-pane</title><div id="area"></div>');
   await page.evaluate(() => {
@@ -75,33 +76,14 @@ async function loadTermPane(page: Page) {
     (window as any).t = (k: string) => k;
     (window as any).DROP_FILES_HINT = 'Drop files here';
 
-    const opened: any[] = [];
-    (window as any).__opened = opened;
-    class FakeWS {
-      static OPEN = 1;
-      url: string;
-      binaryType = '';
-      readyState = 0;
-      onopen: any = null;
-      onclose: any = null;
-      onerror: any = null;
-      onmessage: any = null;
-      constructor(url: string) {
-        this.url = url;
-        opened.push(this);
-      }
-      send() {}
-      close() {
-        this.readyState = 3;
-      }
-    }
-    (window as any).WebSocket = FakeWS;
+    (window as any).TERM_HELD_MAX = 64 * 1024;
+    (window as any).TERM_HELD_PREVIEW_CHARS = 120;
   });
   await page.addScriptTag({ path: TIMER_HUB_JS });
   await page.addScriptTag({ path: API_JS });
   await page.addScriptTag({ path: DROP_ENTRIES_JS });
   await page.addScriptTag({ path: UI_KIT_JS });
-  await page.addScriptTag({ path: TERM_SOCKET_JS });
+  await page.addScriptTag({ path: TERM_CHANNEL_JS });
   for (const path of BASE_JS) await page.addScriptTag({ path });
   await page.addScriptTag({ path: TERM_PANE_JS });
   for (const path of TERM_PARTS_JS) await page.addScriptTag({ path });
@@ -111,6 +93,31 @@ async function loadTermPane(page: Page) {
   // eval 의 인자는 고정 리터럴이고 외부 입력이 닿지 않는다 — 테스트 전용 배선이다.
   await page.evaluate(() => {
     (window as any).TerminalTool = eval('TerminalTool');
+    const opened: any[] = [];
+    (window as any).__opened = opened;
+    const raw = new Map<string, any[]>();
+    const bins: any[] = [];
+    let accept: any = null;
+    const fire = (t: string, m: any) => { for (const fn of raw.get(t) || []) fn(Object.assign({ t }, m)) };
+    const ch = {
+      ready: () => true,
+      send(v: any) {
+        if (v.t !== 'term.open') return true;
+        if (accept) { accept.readyState = 1; accept.sid = v.sid; accept = null; return true }
+        opened.push({ sid: v.sid, readyState: 0 });
+        return false;
+      },
+      sendBinary: () => true,
+      on(t: string, fn: any) { if (!raw.has(t)) raw.set(t, []); raw.get(t)!.push(fn); return { stop() {} } },
+      onBinary(fn: any) { bins.push(fn); return { stop() {} } },
+    };
+    (window as any).__accept = (w: any) => { accept = w; fire('hello', {}); accept = null };
+    (window as any).__drop = (w: any) => { w.readyState = 3; fire('term.lost', { sid: w.sid }) };
+    (window as any).__frame = (w: any, op: number) => {
+      const b = new Uint8Array(5); b[0] = op; new DataView(b.buffer).setUint32(1, w.sid, false);
+      for (const fn of bins) fn(b);
+    };
+    eval('TERM_MUX').attach(ch);
   });
 }
 
@@ -122,21 +129,17 @@ async function connectPane(page: Page) {
     (window as any).__pane = t;
     document.getElementById('area')!.appendChild(t.el);
     t.connect();
-    const ws = (window as any).__opened.at(-1);
-    ws.readyState = 1;
-    ws.onopen();
+    (window as any).__accept((window as any).__opened.at(-1));
     return (window as any).__opened.length;
   });
 }
 
-// 서버가 OP.EXIT 을 보내고 소켓을 닫는 장면. 실서버의 Go 기준선 handlers_ws.go 가
-// 없는 도구에 대해 정확히 이 순서로 행동한다.
+// 서버가 OP.EXIT 을 보내고 그 터미널을 놓는 장면. 실서버가 없는 도구에 대해 이 순서로 행동한다.
 const sendExitThenClose = (page: Page) =>
   page.evaluate(() => {
     const ws = (window as any).__opened.at(-1);
-    ws.onmessage({ data: new Uint8Array([(window as any).OP.EXIT]).buffer });
-    ws.readyState = 3;
-    ws.onclose();
+    (window as any).__frame(ws, (window as any).OP.EXIT);
+    (window as any).__drop(ws);
   });
 
 const socketCount = (page: Page) => page.evaluate(() => (window as any).__opened.length);
@@ -166,16 +169,12 @@ test.describe('재연결 폭주 차단 (RECONNECT_STORM_SRS 묶음 R)', () => {
 
     // 유효 판정이 서기 전에 끊는다 → 재연결이 걸린다.
     await page.evaluate(() => {
-      const ws = (window as any).__opened.at(-1);
-      ws.readyState = 3;
-      ws.onclose();
+      (window as any).__drop((window as any).__opened.at(-1));
     });
     await expect.poll(() => socketCount(page), { timeout: 3000 }).toBe(2);
 
     await page.evaluate(() => {
-      const ws = (window as any).__opened.at(-1);
-      ws.readyState = 1;
-      ws.onopen();
+      (window as any).__accept((window as any).__opened.at(-1));
     });
     await sendExitThenClose(page);
     await page.waitForTimeout(500);
@@ -191,16 +190,12 @@ test.describe('재연결 폭주 차단 (RECONNECT_STORM_SRS 묶음 R)', () => {
     const delays: number[] = [];
     for (let i = 0; i < 4; i++) {
       await page.evaluate(() => {
-        const ws = (window as any).__opened.at(-1);
-        ws.readyState = 3;
-        ws.onclose();
+        (window as any).__drop((window as any).__opened.at(-1));
       });
       await expect.poll(() => socketCount(page), { timeout: 5000 }).toBe(i + 2);
       delays.push(await page.evaluate(() => (window as any).__pane._retryDelay));
       await page.evaluate(() => {
-        const ws = (window as any).__opened.at(-1);
-        ws.readyState = 1;
-        ws.onopen();
+        (window as any).__accept((window as any).__opened.at(-1));
       });
     }
     // 매 사이클 자란다. 하나라도 0 이면 백오프가 리셋된 것이다.

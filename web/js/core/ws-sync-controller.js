@@ -119,6 +119,7 @@ class WsSyncController extends Controller {
     ch.on('cmd',m=>bus.route(m),{owner:'app'});
     bus.setWake(()=>ch.kick());
     ch.connect();
+    TERM_MUX.attach(ch);
     // C2b: full·사건 토픽 (TC-CH2B-5).
     wireStateTopics(this.app);
     this.app.slot._slotSyncSubs();

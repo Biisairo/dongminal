@@ -106,7 +106,7 @@ const MOBILE_KB_UP_PX=80;
 // 스크롤 제스처 뒤에 오는 합성 마우스 이벤트를 무시하는 창 (FR-MTI-29).
 const MTI_SYNTH_MOUSE_MS=700;
 
-// OPTIMIZE_REFACTOR_SRS FR-OPT-12-1: 터미널 WS 재접속 백오프(`TermSocket`). 첫 시도는 즉시,
+// OPTIMIZE_REFACTOR_SRS FR-OPT-12-1: 터미널 재접속 백오프(`TermChannel`). 첫 시도는 즉시,
 // 이후 200 → ×2.5(500 까지는 빠르게, 1000 상한) → ×1.2(10 s 상한). 기다리는 시간에만 ±20%
 // 지터를 얹는다 — 서버가 다시 뜬 뒤 모든 탭이 같은 순간에 몰리지 않게 한다. 다음 지연 값
 // 자체(`_retryDelay`)에는 얹지 않는다: 백오프가 자라는지(FR-RCS-3)는 그 값으로 잰다.

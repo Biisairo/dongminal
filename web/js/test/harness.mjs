@@ -36,13 +36,13 @@ export const CONSTANTS = ['core/constants.js', 'core/constants-term.js', 'core/c
 
 /**
  * 터미널 칸 한 벌 — index.html 의 순서다 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-1·12-4). WS 배선
- * (`term-socket.js`)과 입력·IME(`term-input.js`)가 `term-pane.js` 에서 갈라졌다. 복사·텍스트 시트
+ * (`term-channel.js`)과 입력·IME(`term-input.js`)가 `term-pane.js` 에서 갈라졌다. 복사·텍스트 시트
  * (`term-clip.js`)와 터치 스크롤(`term-touch.js`)은 `term-input.js` 에서 갈라졌다 (UX_BATCH11_SRS).
  *
  * REFACTOR3_FE_REST5_SRS D-FR5-9: 부품 넷(`term-{transfer,held,output,fit}.js`)이 `term-pane.js` 에서 갈라졌다.
  * 부품이 `Controller`·`Component` 를 상속하므로 기반 클래스 둘을 앞에 싣는다.
  */
-export const TERM_PANE = ['core/base/component.js', 'core/base/controller.js', 'ui/term-socket.js', 'ui/term-pane.js',
+export const TERM_PANE = ['core/base/component.js', 'core/base/controller.js', 'ui/term-channel.js', 'ui/term-pane.js',
   'ui/term-transfer.js', 'ui/term-held.js', 'ui/term-output.js', 'ui/term-fit.js', 'ui/term-input.js', 'ui/term-clip.js',
   'ui/term-touch.js'];
 
@@ -337,4 +337,55 @@ export function load(files, opts = {}) {
  */
 export function plain(v) {
   return structuredClone(v);
+}
+
+/**
+ * 터미널 칸의 채널 대역 (PERF_OPTIMIZATION_SRS M1 C5). 옛 칸별 소켓 시험이 쓰던 모양을 그대로 준다 —
+ * `term.open` 시도마다 의사 소켓 하나가 `opened` 에 서고, `openSock(ws)` 가 그 시도를 받아들이며
+ * (`readyState` 1, 서버 `hello`), `dropSock(ws)` 가 그 터미널만 끊는다(`term.lost`). `ws.sent` 에는
+ * sid 를 뗀 옛 프레임(`[op][payload]`)이 쌓이고, `ws.open` 은 보낸 `term.open` 본문이다.
+ *
+ * `load` 의 `expose` 에 `'TERM_MUX'` 를 넣어야 한다.
+ */
+export function fakeTermChannel(ctx) {
+  const opened = [];
+  const raw = new Map();
+  const bins = [];
+  let accept = null;
+  const fire = (t, m) => { for (const fn of raw.get(t) || []) fn(Object.assign({ t }, m)) };
+  const ch = {
+    ready: () => true,
+    send(v) {
+      if (v.t === 'term.close') { const w = opened.find((x) => x.sid === v.sid && x.readyState === 1); if (w) { w.readyState = 3; w.closed++ } return true }
+      if (v.t !== 'term.open') return true;
+      if (accept && accept.sid === undefined) {
+        accept.sid = v.sid; accept.open = v; accept.readyState = 1; accept = null;
+        return true;
+      }
+      opened.push({ sid: v.sid, open: v, readyState: 0, closed: 0, sent: [] });
+      return false;
+    },
+    sendBinary(u8) {
+      const sid = new DataView(u8.buffer, u8.byteOffset, u8.length).getUint32(1, false);
+      const w = opened.findLast((x) => x.sid === sid && x.readyState === 1);
+      if (!w) return false;
+      const m = new Uint8Array(u8.length - 4);
+      m[0] = u8[0]; m.set(u8.subarray(5), 1);
+      w.sent.push(m);
+      return true;
+    },
+    on(t, fn) { if (!raw.has(t)) raw.set(t, []); raw.get(t).push(fn); return { stop() {} } },
+    onBinary(fn) { bins.push(fn); return { stop() {} } },
+  };
+  ctx.TERM_MUX.attach(ch);
+  return {
+    ch, opened,
+    openSock(w) { accept = w; w.sid = undefined; fire('hello', {}); if (accept === w) accept = null },
+    dropSock(w) { w.readyState = 3; fire('term.lost', { sid: w.sid }) },
+    frame(w, op, payload = []) {
+      const b = new Uint8Array(5 + payload.length);
+      b[0] = op; new DataView(b.buffer).setUint32(1, w.sid, false); b.set(payload, 5);
+      for (const fn of bins) fn(b);
+    },
+  };
 }

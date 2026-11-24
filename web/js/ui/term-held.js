@@ -1,5 +1,5 @@
 /**
- * TerminalTool — 끊긴 동안의 입력 배너 (UX_BATCH11_SRS FR-HIN-4~8). 보류함 자체는 `TermSocket` 이 갖는다.
+ * TerminalTool — 끊긴 동안의 입력 배너 (UX_BATCH11_SRS FR-HIN-4~8). 보류함 자체는 `TermChannel` 이 갖는다.
  *
  * 부품 `TermHeld`(터미널의 `heldBar`) 이다 (REFACTOR3_FE_REST5_SRS D-FR5-9). 상태를 갖지 않는다 — 필드는 종전대로 터미널 인스턴스에
  * 있고 이 부품은 그것을 `this.pane` 으로 읽고 쓴다. 부르는 쪽은 이 부품을 소유 경로로 부른다
