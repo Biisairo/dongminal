@@ -25,7 +25,7 @@
 | 터미널 출력 — TUI, 보이는 칸 | 0 | — | — |
 | git 창 열기 | 0 | — | — |
 | 마크다운 파일을 편집기로 열기 | 3건 | 24 ms | `FileEditor._mountView`·`dispatchTransactions`, 탭 배치 |
-| 큰 파일(2만 3천 줄 JS)을 편집기로 열기 | 5건 | **79 ms** | CodeMirror 언어 파서(vendor `nextInner`·`addActions`) 79 ms, 미니맵 `edMinimapScale` + canvas `fillText` 38 ms, 첫 트랜잭션 21 ms |
+| 큰 파일(2만 3천 줄 JS)을 편집기로 열기 | 5건 | **79 ms** | CodeMirror 언어 파서(vendor `nextInner`·`addActions`, 유휴 콜백 `ParseWorker.work`) 79 ms, 미니맵 38 ms, 첫 트랜잭션 21 ms. 미니맵 시간은 미니맵 포크의 칸 수 세기 `lineColumns`(`edMinimapScale` 이 부른다)와 줄 훑기 `updateMapImpl` 이 대부분이고, `fillText` 는 일부다 (3.7 에서 바로잡음) |
 | 큰 파일에서 찾기(글자 하나마다) | 16건 | **62 ms** | **`edFindHits`(js/ui/cm-find.js) 가 작업의 86%**. 글자를 칠 때마다 50~60 ms |
 
 재지 못한 것:
@@ -40,8 +40,8 @@
 | 후보 | 파일 | 1회 시간 | 빈도 | DOM 접근 | Worker 로 옮길 수 있나 | 권장 |
 |---|---|---|---|---|---|---|
 | 찾기 일치 계산 `edFindHits` | `js/ui/cm-find.js:13` | 50~60 ms (2만 3천 줄) | 찾기 입력의 글자마다 | 없음 — CodeMirror 문서 텍스트만 훑는다 | **예**. 다만 매번 문서 전체를 Worker 로 보내면 그 복사가 비싸다. Worker 가 문서 사본을 들고 변경분만 받아야 한다 | 먼저 **입력 지연(디바운스) + 보이는 구간 먼저·나머지는 나눠 계산** 으로 16 ms 아래로 내린다. 그래도 넘으면 Worker |
-| 언어 파싱 | vendor CodeMirror(lezer) | 79 ms(처음 열 때 1회) | 큰 파일을 열 때 | 없음 | 어렵다 — 파서 상태를 편집기가 직접 쓴다 | CodeMirror 의 시간 나눔 파싱 설정(작업 예산)을 확인한다. Worker 대상 아님 |
-| 미니맵 그리기 | `js/ui/cm-scrollbar.js:43` + canvas | 38 ms | 큰 파일을 열 때·스크롤 | 있음 — 레이아웃을 읽고 canvas 에 그린다 | OffscreenCanvas 라면 가능하지만 레이아웃 읽기는 남는다 | Worker 대상 아님. 큰 파일에서 미니맵 그리기를 나눠 하거나 늦춘다 |
+| 언어 파싱 | vendor CodeMirror(lezer) | 79 ms(처음 열 때 1회) | 큰 파일을 열 때 | 없음 | 어렵다 — 파서 상태를 편집기가 직접 쓴다 | Worker 대상 아님. 시간 나눔은 이미 켜져 있고, 설정으로 바꿀 수 있는 값이 없다. 예산은 모듈 안의 상수다(첫 트랜잭션 `Work.Apply` 20 ms, 유휴 콜백은 `isInputPending` 이 있으면 최대 100 ms). 입력이 들어오면 멈추므로 입력 지연은 막는다 (3.7 에서 바로잡음) |
+| 미니맵 그리기 | 미니맵 포크 `scripts/codemirror/minimap/index.js` 의 `lineColumns`·`updateMapImpl` + canvas (`js/ui/cm-scrollbar.js:43` 의 `edMinimapScale` 은 부르는 자리다, 3.7 에서 바로잡음) | 38 ms | 큰 파일을 열 때·스크롤 | 있음 — 레이아웃을 읽고 canvas 에 그린다 | OffscreenCanvas 라면 가능하지만 레이아웃 읽기는 남는다 | Worker 대상 아님. 큰 파일에서 미니맵 그리기를 나눠 하거나 늦춘다 |
 | 부팅의 WebGL 붙이기 | `js/ui/term-gpu.js:61` | 12 ms 안팎(28 ms 작업의 42%) | 부팅 때 보이는 칸마다 | 있음 | 아니다 | M3 스케줄러로 첫 페인트 뒤로 미룬다 |
 
 **결론(OQ-2)**: 지금 측정에서 Worker 로 옮길 만한 비 DOM 계산은 **찾기 일치 계산 하나**다. 터미널 출력(보이는 칸)과 부팅에는 Worker 대상이 없다. 터미널 출력의 해석 비용은 잠든 터미널이 원인이고, 이것은 M2(구독 해지)가 없앤다.
