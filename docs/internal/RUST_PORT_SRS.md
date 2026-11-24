@@ -7,7 +7,7 @@
 - 요구사항 접두어: `FR-RSP-n`(기능), `NFR-RSP-n`(비기능), `C-RSP-n`(제약), `V-RSP-n`(검증)
 - 기준선: Go 구현 커밋 `127ff7d9`(v1.3.7)를 **go1.27.2 툴체인, GOEXPERIMENT 기본값**(JSONv2 위의 encoding/json v1 호환층 포함)으로 빌드한 바이너리. 운영 바이너리와 같은 판이다. 릴리즈·CI 가 쓰는 go.mod 의 go 1.26.11 은 기준이 아니다(사용자 결정, 2026-11-23). Go 참조 바이너리와 Go 테스트는 이 툴체인으로 만든다
 - 작업 브랜치: `rust-port`(통합), `rp/<이슈 ID>`(이슈별)
-- 이슈 관리: `rust-port/issues/`(파일 하나가 이슈 하나)
+- 이슈 관리: `docs/internal/archive/rust-port/issues/`(파일 하나가 이슈 하나)
 
 ## 1. 소개
 
@@ -39,7 +39,7 @@
 | 동등 | 같은 입력과 같은 환경에서 두 구현의 관측 동작을 사용자가 구별할 수 없는 상태 |
 | 운영 인스턴스 | 이 기계에서 지금 돌고 있는 Go 서버·데몬·특권 헬퍼와, 이들이 쓰는 `~/.dongminal` 홈 |
 | 격리 실행 | 임시 `DONGMINAL_HOME`, 운영과 겹치지 않는 포트, `DONGMINAL_*` 환경변수를 지운 환경에서 바이너리를 실행하는 것 |
-| 이슈 | `rust-port/issues/` 아래의 파일 하나. 2.6 절의 형식을 따른다 |
+| 이슈 | `docs/internal/archive/rust-port/issues/` 아래의 파일 하나. 2.6 절의 형식을 따른다 |
 
 ### 1.4 참고 문서
 
@@ -91,7 +91,7 @@ Go 구현과 같다. 기능 목록의 근거는 `architecture.md` 의 패키지 
 
 ### 2.6 이슈 파일 형식
 
-- 경로: `rust-port/issues/<ID>-<짧은 이름>.md`. ID 는 점으로 이은 트리 경로다(예: `2.3.1`). 부모는 ID 의 마지막 조각을 뗀 것이다.
+- 경로: `docs/internal/archive/rust-port/issues/<ID>-<짧은 이름>.md`. ID 는 점으로 이은 트리 경로다(예: `2.3.1`). 부모는 ID 의 마지막 조각을 뗀 것이다.
 - 머리말(YAML):
 
 ```yaml

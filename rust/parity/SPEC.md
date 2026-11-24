@@ -2,7 +2,7 @@
 
 - 문서 형식: ISO/IEC/IEEE 29148:2018 SRS (축약판)
 - 상위 문서: `docs/internal/RUST_PORT_SRS.md` V-RSP-2, FR-RSP-3, FR-RSP-31, C-RSP-1
-- 이슈: `rust-port/issues/0.2-차분-실행기와-e2e-바이너리-경로.md`
+- 이슈: `docs/internal/archive/rust-port/issues/0.2-차분-실행기와-e2e-바이너리-경로.md`
 - 요구사항 접두어: `FR-PAR-n`, `C-PAR-n`, `V-PAR-n`
 
 ## 1. 소개
@@ -89,5 +89,5 @@
 - **V-PAR-1** 단위 테스트: 정규화(기본·기성·사용자 규칙, 범위 좁히기), HTTP 응답 해석(chunked, Content-Length, 닫힘까지), 헤더 선택, 차이 보고 형식, 포트 거절.
 - **V-PAR-2** 통합 테스트(unix): 가짜 바이너리(셸 스크립트) 두 개로 같음·다름(stdout, 종료 코드, 홈 파일)을 판정하고, 자식 환경의 격리(C-PAR-1)를 확인한다.
 - **V-PAR-3** 자기 검증(`rust/parity/run.sh --self-test`, Go 참조는 FR-PAR-41 로 얻는다): `DM_PARITY_GO_BIN` 이 있으면 등록 시나리오 전부를 Go 대 Go 로 돌려 차이가 없고 정리 뒤 데몬이 남지 않아야 한다. 또 Go 쪽 관측값이 시나리오의 의도와 맞아야 한다: `error` 관측값이 없고 서버 준비가 `ok`, `cli-*-args` 의 종료 코드는 모두 2, `cli-*-help` 는 모두 0 이고 stdout 이 비어 있지 않음, `helper-*` 의 종료 코드는 0 또는 2.
-- **V-PAR-4** 목록 검사: 등록 시나리오는 모두 검증(`validate`)을 통과하고, 이름이 겹치지 않으며, 담당 이슈가 `rust-port/issues` 에 있다.
+- **V-PAR-4** 목록 검사: 등록 시나리오는 모두 검증(`validate`)을 통과하고, 이름이 겹치지 않으며, 담당 이슈가 `docs/internal/archive/rust-port/issues` 에 있다.
 - **V-PAR-5** 표면 목록: `rust/parity/SURFACE.md` 의 모든 항목에 담당 이슈가 있다.

@@ -19,7 +19,7 @@
 - 넣는다: 잘못된 동작, 보안·가용성 약점, Go 와 사용자에게 보이게 다른 동작, 흔들리는 시험, 실패하는 시험, 공급망 경고(chrono RUSTSEC-2026-0543).
 - 뺀다: `RUST_PORT_SRS.md` 3.7 의 "알려진 차이"·"구현 차이", 실기 환경이 없어 못 한 검증(Windows·linux/amd64), 기능 설계 결정, 이미 고친 것. 뺀 것은 6절에 사유와 함께 적는다.
 - Go 는 고치지 않는다(C-RSP-2). 운영 전환 뒤에는 Go 를 쓰지 않는다.
-- 조사 방법: `int/rust-port/issues/*.md` 의 진행 기록에서 "남은 위험"·"보안 검토"·"조정자 판단"·"흔들"·"미검증"·"미이식"이 들어간 절과 문단을 모두 뽑았다(약 1,200줄). 항목마다 rp/10 의 코드와 git 기록에서 아직 남아 있는지 확인했다.
+- 조사 방법: `docs/internal/archive/rust-port/issues/*.md` 의 진행 기록에서 "남은 위험"·"보안 검토"·"조정자 판단"·"흔들"·"미검증"·"미이식"이 들어간 절과 문단을 모두 뽑았다(약 1,200줄). 항목마다 rp/10 의 코드와 git 기록에서 아직 남아 있는지 확인했다.
 
 ### 1.3 정의
 
@@ -35,9 +35,9 @@
 ### 1.4 참고 문서
 
 - `docs/internal/RUST_PORT_SRS.md` (3.7 DIFF-1~32)
-- `int/rust-port/AGENT_RULES.md`
-- `int/rust-port/STATUS.md`
-- 이슈 진행 기록 `int/rust-port/issues/*.md`
+- `docs/internal/archive/rust-port/AGENT_RULES.md`
+- `docs/internal/archive/rust-port/STATUS.md`
+- 이슈 진행 기록 `docs/internal/archive/rust-port/issues/*.md`
 
 ## 2. 전체 설명
 

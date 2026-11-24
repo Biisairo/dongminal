@@ -50,7 +50,7 @@
 - `docs/internal/RELEASE_SRS.md` — 판 각인(FR-RVN-2/4), 산출물·서명
 - `docs/internal/DAEMON_STALENESS_SRS.md` — 데몬 지문(FR-DFP-1·3·7·11)
 - `docs/internal/building.md` — 빌드 안내
-- `rust-port/AGENT_RULES.md` — 운영 보호, 커밋 규칙
+- `docs/internal/archive/rust-port/AGENT_RULES.md` — 운영 보호, 커밋 규칙
 
 ## 2. 전체 설명
 

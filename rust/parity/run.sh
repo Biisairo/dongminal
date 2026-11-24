@@ -15,7 +15,7 @@ hermetic="$rust_dir/scripts/hermetic.sh"
 go_bin="$rust_dir/target/go-ref/dongminal"
 rust_bin="$rust_dir/target/debug/dongminal"
 # 담당 이슈의 상태를 읽을 폴더. 이슈 worktree 의 사본은 낡을 수 있으므로 통합 worktree 를 줄 수 있다.
-issues="${DM_PARITY_ISSUES:-$repo/rust-port/issues}"
+issues="${DM_PARITY_ISSUES:-$repo/docs/internal/archive/rust-port/issues}"
 
 case "${1:-}" in
   --go-bin)

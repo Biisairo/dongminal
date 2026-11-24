@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 이슈 트리와 상태를 찍는다. 사용: rust-port/tree.sh [상태...]   예: rust-port/tree.sh ready todo
+# 이슈 트리와 상태를 찍는다. 사용: docs/internal/archive/rust-port/tree.sh [상태...]   예: docs/internal/archive/rust-port/tree.sh ready todo
 cd "$(dirname "$0")/issues"
 for f in *.md; do
   id=$(sed -n 's/^id: "\(.*\)"/\1/p' "$f" | head -1)

@@ -23,7 +23,7 @@ rust/parity/run.sh --go-bin <경로> …     # 미리 만든 Go 참조 바이너
 
 1. Go 참조 바이너리를 정한다. 첫 인자가 `--go-bin <경로>`(또는 `--go-bin=<경로>`)이면 그 파일을 쓴다. 아니면 `DM_GO_REF_SRC`(Go 소스가 있는 `main` 의 worktree)에서 `rust/scripts/go-ref.sh` 로 `rust/target/go-ref/dongminal` 에 빌드한다. 저장소 루트에는 만들지 않는다 (C-RSP-1). 둘 다 없거나 바이너리가 없으면 `parity: Go 참조가 없다 …` 를 찍고 종료 2 다 (GO_REMOVAL_SRS G-65).
 2. `cargo build -p dongminal -p dm-parity` 를 실행한다.
-3. `rust/scripts/hermetic.sh` 아래에서 `dm-parity --go … --rust … --issues <이슈 폴더>` 를 실행한다. 이슈 폴더는 `DM_PARITY_ISSUES` 가 있으면 그것을 쓰고, 없으면 `<저장소>/rust-port/issues` 를 쓴다. 이슈 worktree 의 사본은 낡을 수 있으므로, 최신 상태로 판정하려면 `DM_PARITY_ISSUES=/Users/dykim/personal/dongminal-rust/int/rust-port/issues` 처럼 통합 worktree 의 폴더를 준다.
+3. `rust/scripts/hermetic.sh` 아래에서 `dm-parity --go … --rust … --issues <이슈 폴더>` 를 실행한다. 이슈 폴더는 `DM_PARITY_ISSUES` 가 있으면 그것을 쓰고, 없으면 `<저장소>/docs/internal/archive/rust-port/issues` 를 쓴다. 이슈 worktree 의 사본은 낡을 수 있으므로, 최신 상태로 판정하려면 `DM_PARITY_ISSUES=/Users/dykim/personal/dongminal-rust/int/rust-port/issues` 처럼 통합 worktree 의 폴더를 준다.
 
 시나리오마다 결과를 하나 찍는다.
 
