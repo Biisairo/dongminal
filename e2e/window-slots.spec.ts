@@ -251,20 +251,7 @@ test.describe('묶음 S·R — 슬롯 모델과 렌더링', () => {
 });
 
 test.describe('묶음 I — 슬롯 신원과 소유권', () => {
-  test('TC-WSL-5: 포커스 슬롯이 activeWindow 를 정한다 (FR-WSL-3)', async ({ page }) => {
-    await waitForInit(page);
-    const [w1, , w3] = await slotsWith(page, 3);
-
-    expect(await activeWindowOf(page)).toBe(w1);
-    await focusSlot(page, 2);
-    expect(await activeWindowOf(page)).toBe(w3);
-    const awId = await page.evaluate(() => (window as any).app.testing.aw().id);
-    expect(awId).toBe(w3);
-
-    await focusSlot(page, 0);
-    expect(await activeWindowOf(page)).toBe(w1);
-  });
-
+  // TC-WSL-5(포커스 칸이 activeWindow 를 정한다)는 단위로 옮겼다 — `web/js/test/slots-model.test.mjs`.
   test('TC-WSL-6: 서로 다른 창이면 어느 pane 도 dim 되지 않는다 (FR-WSL-12/13)', async ({ page }) => {
     await waitForInit(page);
     await slotsWith(page, 3);
@@ -323,32 +310,8 @@ test.describe('묶음 I — 슬롯 신원과 소유권', () => {
 });
 
 test.describe('묶음 N — 슬롯 간 이동', () => {
-  test('TC-WSL-11: 창의 끝에서 한 번 더 누르면 옆 칸으로 간다 (FR-WSL-40/43)', async ({ page }) => {
-    await waitForInit(page);
-    const [, w2] = await slotsWith(page, 2);
-
-    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('right'));
-    expect((await slotsState(page)).focused).toBe(1);
-    expect(await activeWindowOf(page)).toBe(w2);
-
-    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('left'));
-    expect((await slotsState(page)).focused).toBe(0);
-  });
-
-  test('TC-WSL-11b: 칸이 셋이면 한 칸씩 건너간다 (FR-WSL-40)', async ({ page }) => {
-    await waitForInit(page);
-    await slotsWith(page, 3);
-
-    for (const want of [1, 2]) {
-      await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('right'));
-      expect((await slotsState(page)).focused).toBe(want);
-    }
-    for (const want of [1, 0]) {
-      await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('left'));
-      expect((await slotsState(page)).focused).toBe(want);
-    }
-  });
-
+  // TC-WSL-11·11b·13·14·26(경계 넘침의 방향·끝·축)은 단위로 옮겼다 — `web/js/test/slots-model.test.mjs`.
+  // 여기에는 실제 창(Repo)과 포커스 pane 을 보는 둘이 남는다.
   test('TC-WSL-12: 분할 없는 창(Repo)에서도 경계를 넘는다 (FR-WSL-41)', async ({ page }) => {
     await waitForInit(page);
     await slotAdd(page);
@@ -368,30 +331,6 @@ test.describe('묶음 N — 슬롯 간 이동', () => {
     await focusSlot(page, 1);
     await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('left'));
     expect((await slotsState(page)).focused).toBe(0);
-  });
-
-  test('TC-WSL-13: 가로 배치에서 위아래는 칸을 넘지 않는다 (FR-WSL-42)', async ({ page }) => {
-    await waitForInit(page);
-    await slotsWith(page, 2);
-
-    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('down'));
-    expect((await slotsState(page)).focused).toBe(0);
-    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('up'));
-    expect((await slotsState(page)).focused).toBe(0);
-  });
-
-  test('TC-WSL-14: 단일 칸·가장자리에서는 무동작이고 순환하지 않는다 (FR-WSL-44/46)', async ({ page }) => {
-    await waitForInit(page);
-    const before = await activeWindowOf(page);
-    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('right'));
-    expect(await slotCount(page)).toBe(1);
-    expect(await activeWindowOf(page)).toBe(before);
-
-    await slotsWith(page, 2);
-    await focusSlot(page, 1);
-    // 마지막 칸에서 오른쪽 — 첫 칸으로 돌아오지 않는다.
-    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('right'));
-    expect((await slotsState(page)).focused).toBe(1);
   });
 
   test('TC-WSL-15: 경계 넘침이 activeWindow 와 포커스 pane 을 옮긴다 (FR-WSL-45)', async ({ page }) => {
@@ -455,31 +394,7 @@ test.describe('묶음 T — 도구 인스턴스', () => {
 });
 
 test.describe('묶음 U·M — 진입점과 모바일', () => {
-  test('TC-WSL-18: + 는 포커스 칸 뒤에 같은 창으로 서고 포커스를 가져간다 (FR-WSL-52)', async ({ page }) => {
-    await waitForInit(page);
-    const wins = await slotsWith(page, 3);
-    await focusSlot(page, 1);
-
-    await slotAdd(page);
-    const st = await slotsState(page);
-    expect(st.windows).toHaveLength(4);
-    expect(st.focused).toBe(2);                 // 포커스 칸 **바로 뒤**
-    expect(st.windows[2]).toBe(wins[1]);        // 같은 창
-    expect(st.windows[3]).toBe(wins[2]);        // 뒤의 칸은 밀린다
-  });
-
-  test('TC-WSL-18b: − 는 포커스 칸을 없애고 포커스를 이웃으로 옮긴다 (FR-WSL-53)', async ({ page }) => {
-    await waitForInit(page);
-    const wins = await slotsWith(page, 3);
-    await focusSlot(page, 1);
-
-    await slotRemove(page);
-    const st = await slotsState(page);
-    expect(st.windows).toEqual([wins[0], wins[2]]);
-    expect(st.focused).toBe(1);
-    expect(await activeWindowOf(page)).toBe(wins[2]);
-  });
-
+  // TC-WSL-18·18b(+ · − 의 칸 모델)는 단위로 옮겼다 — `web/js/test/slots-model.test.mjs`.
   test('TC-WSL-19: 사이드바 클릭은 포커스 칸에만 연다 (FR-WSL-54)', async ({ page }) => {
     await waitForInit(page);
     const wins = await slotsWith(page, 3);
@@ -603,21 +518,6 @@ test.describe('묶음 D — 슬롯 방향', () => {
     expect(await slotDirOf(page)).toBe('vertical');
   });
 
-  test('TC-WSL-26: 세로에서는 위아래가 칸을 넘는다 (FR-WSL-42)', async ({ page }) => {
-    await waitForInit(page);
-    await setSlotDir(page, 'vertical');
-    await slotsWith(page, 2);
-
-    // 좌우는 넘지 않는다 — 칸이 위아래로 놓였다.
-    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('right'));
-    expect((await slotsState(page)).focused).toBe(0);
-
-    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('down'));
-    expect((await slotsState(page)).focused).toBe(1);
-    await page.evaluate(() => (window as any).app.layout.tabOps.paneNavigate('up'));
-    expect((await slotsState(page)).focused).toBe(0);
-  });
-
   test('TC-WSL-27: 설정의 토글로 방향을 바꾼다 (FR-WSL-81 · FR-SCT-5)', async ({ page }) => {
     await waitForInit(page);
     await slotAdd(page);
@@ -658,41 +558,8 @@ test.describe('묶음 D — 슬롯 방향', () => {
 test.describe('묶음 N — 칸 사이의 직접 이동 (FR-WSL-56)', () => {
   const focusedSlot = (page) => page.evaluate(() => (window as any).app.testing.slotFocused());
 
-  test('TC-WSL-28: 다음·이전 칸으로 옮기고 끝에서 감긴다', async ({ page }) => {
-    await waitForInit(page);
-    const wins = await slotsWith(page, 3);
-    expect(await focusedSlot(page)).toBe(0);
-
-    await page.evaluate(() => (window as any).app.executeAction('slotNext'));
-    expect(await focusedSlot(page)).toBe(1);
-    expect(await activeWindowOf(page)).toBe(wins[1]);
-
-    await page.evaluate(() => (window as any).app.executeAction('slotNext'));
-    expect(await focusedSlot(page)).toBe(2);
-
-    // 끝에서 한 번 더 — 첫 칸으로 감긴다.
-    await page.evaluate(() => (window as any).app.executeAction('slotNext'));
-    expect(await focusedSlot(page)).toBe(0);
-    expect(await activeWindowOf(page)).toBe(wins[0]);
-
-    // 반대 방향도 같은 규약이다.
-    await page.evaluate(() => (window as any).app.executeAction('slotPrev'));
-    expect(await focusedSlot(page)).toBe(2);
-    expect(await activeWindowOf(page)).toBe(wins[2]);
-
-    // 포커스 칸의 강조도 따라온다 — 클릭과 같은 길(`slotFocusTo`)을 지난다.
-    await expect(page.locator('#area .slot[data-slot="2"]')).toHaveClass(/slot-focused/);
-  });
-
-  test('TC-WSL-28b: 칸이 하나면 두 액션 모두 무동작이다', async ({ page }) => {
-    await waitForInit(page);
-    expect(await slotCount(page)).toBe(1);
-    await page.evaluate(() => (window as any).app.executeAction('slotNext'));
-    await page.evaluate(() => (window as any).app.executeAction('slotPrev'));
-    expect(await slotCount(page)).toBe(1);
-    expect(await focusedSlot(page)).toBe(0);
-  });
-
+  // TC-WSL-28·28b(다음·이전과 감김, 단일 칸 무동작)는 단위로 옮겼다 — `web/js/test/slots-model.test.mjs`.
+  // 포커스 칸의 강조는 묶음 S 의 TC-WSL-28(머리글)이 잰다.
   // 기본 바인딩이 실제로 그 액션에 닿는가 — 표에만 있고 배선이 없으면 설정
   // 화면에는 보이는데 눌러도 아무 일이 없다.
   test('TC-WSL-28c: 기본 키가 칸을 옮긴다', async ({ page }) => {
