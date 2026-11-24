@@ -8,8 +8,7 @@ use otter_shared_toolhub::{OP_ERROR, OP_EXIT, OP_OUTPUT, OP_SEQ, OP_TOOL_ID, Out
 
 use crate::ws::{
     BrowserInputs, MISS_REPEAT_WINDOW, MissTracker, TERM_HARD_CLEAR, TERM_RESET, TRS_ALIGN_SCAN,
-    align_head, build_replay, parse_since, relay_joinable, seq_payload, strip_snapshot_queries,
-    trim_overlap,
+    align_head, build_replay, relay_joinable, seq_payload, strip_snapshot_queries, trim_overlap,
 };
 
 fn contains(h: &[u8], n: &[u8]) -> bool {
@@ -154,22 +153,6 @@ fn trim_overlap_cases() {
 }
 
 #[test]
-fn parse_since_cases() {
-    let cases = [
-        ("", None),
-        ("abc", None),
-        ("-1", None),
-        ("0", Some(0)),
-        ("1048576", Some(1048576)),
-        ("9007199254740991", Some(9007199254740991)),
-        ("99999999999999999999", None),
-    ];
-    for (q, want) in cases {
-        assert_eq!(parse_since(q), want, "{q:?}");
-    }
-}
-
-#[test]
 fn relay_joinable_cases() {
     let c = |data: &[u8], end: i64, size: Option<TermSize>| OutChunk {
         data: data.to_vec(),
@@ -208,29 +191,6 @@ fn miss_tracker_prunes_stale_entries() {
     }
     mt.repeat("late", base + MISS_REPEAT_WINDOW * 10);
     assert!(mt.size() <= 1, "낡은 항목이 {}개 남았다", mt.size());
-}
-
-#[test]
-fn miss_tracker_count() {
-    let base = Instant::now();
-    let ms = Duration::from_millis;
-    let mt = MissTracker::default();
-    for i in 1..=4 {
-        assert_eq!(mt.count("tool-a", base + ms(i)), i as usize);
-    }
-    let mt = MissTracker::default();
-    for i in 0..10 {
-        mt.count("tool-a", base + ms(i));
-    }
-    assert_eq!(
-        mt.count("tool-a", base + MISS_REPEAT_WINDOW + Duration::from_secs(1)),
-        1
-    );
-    let mt = MissTracker::default();
-    for i in 0..5 {
-        mt.count("tool-a", base + ms(i));
-    }
-    assert_eq!(mt.count("tool-b", base + ms(6)), 1);
 }
 
 #[test]

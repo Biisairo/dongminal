@@ -49,16 +49,20 @@ async function seedHidden(page: Page, request: any): Promise<{ first: string; hi
 
 type Boot = { ws: string[]; bytes: number };
 
-// 새로고침 한 번에 열린 터미널 WS 와 그 WS 로 받은 바이트.
+// 새로고침 한 번에 붙은 터미널(채널의 `term.open`, PERF C5)과 그 터미널 프레임으로 받은 바이트.
 async function measureBoot(page: Page): Promise<Boot> {
   const box: Boot = { ws: [], bytes: 0 };
   page.on('websocket', (ws) => {
-    const u = new URL(ws.url());
-    if (u.pathname !== '/ws') return;
-    box.ws.push(u.searchParams.get('tool') || '');
+    if (new URL(ws.url()).pathname !== '/channel') return;
+    ws.on('framesent', (f) => {
+      if (typeof f.payload !== 'string') return;
+      let m: any = null;
+      try { m = JSON.parse(f.payload) } catch { return }
+      if (m && m.t === 'term.open') box.ws.push(m.tool || '');
+    });
     ws.on('framereceived', (f) => {
       const p: any = f.payload;
-      box.bytes += typeof p === 'string' ? p.length : p.byteLength;
+      if (typeof p !== 'string') box.bytes += p.byteLength;
     });
   });
   await page.reload();

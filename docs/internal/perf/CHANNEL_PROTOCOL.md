@@ -155,7 +155,7 @@
 | TC-CH1-3 | 서버 | `hello` 에 `hello{epoch, server}` 로 답한다. `epoch` 는 비어 있지 않고 같은 프로세스의 채널끼리 같다. `server.assetVersion` 은 지금 `server_hello` 와 같다 |
 | TC-CH1-4 | 서버 | `slots` 의 신원은 채널이 열린 동안 포커스 구독으로 산다(`focus.live_count`). 채널이 닫히면 곧바로 풀린다. `hello` 를 다시 보내 빠진 신원은 풀리고 새 신원은 붙는다 |
 | TC-CH1-5 | 서버 | `ping{n}` 에 `pong{n}` 으로 답한다 |
-| TC-CH1-6 | 서버 | 깨진 JSON·모르는 `t`·바이너리 프레임에는 `error` 를 보내고 연결은 유지한다 |
+| TC-CH1-6 | 서버 | 깨진 JSON·모르는 `t`·머리(5바이트)보다 짧은 바이너리 프레임에는 `error` 를 보내고 연결은 유지한다 (C5 부터 바이너리 프레임은 터미널 입력이다) |
 | TC-CH1-7 | 서버 | `presence=1` 명령 SSE 가 없어졌다 — 그 파라미터는 일반 구독으로 읽힌다 |
 | TC-CH1-8 | 프론트 | 연결은 `ws(s)://<host>/channel?v=1` 이고, 열리면 `hello{slots}` 를 보낸다 |
 | TC-CH1-9 | 프론트 | `setSlots` 는 열려 있으면 `hello` 를 다시 보내고, 닫혀 있으면 다음 연결에 싣는다 |
@@ -171,6 +171,31 @@
 | 프론트 채널 | 재연결 시 마지막 순번으로 재구독, 빈틈 발견 시 재구독, 침묵 판정, `ping` 주기(보일 때·숨었을 때), `sid` 로 터미널 프레임 나누기 |
 | e2e | 브라우저 탭 하나에 WebSocket 하나, 유휴 1분 동안 상태용 GET 0, 채널을 끊었다 이었을 때 모든 토픽이 서버와 같다(NFR-PRF-15) |
 
+### 10.6 C5 — 터미널
+
+서버→브라우저 텍스트 프레임에 `term.lost{sid}` 를 더한다: 그 터미널의 붙음이 서버 쪽 사정(도구 구독이 끊김, 데몬 재연결 중 조회)으로 끝났다. 브라우저는 옛 `/ws` 가 닫혔을 때와 같이 백오프 뒤 `term.open{since}` 로 다시 붙는다. 옛 `/ws` 의 "없는 도구를 거듭 묻는 연결 붙잡기"(hold)는 두지 않는다 — 채널은 다시 연결하지 않고 `EXIT` 를 받은 칸은 다시 열지 않는다. 반복 조회의 지연(`MISS_DELAY`)은 남긴다.
+
+| ID | 쪽 | 동작 |
+|---|---|---|
+| TC-CH5-1 | 서버 | `term.open` 에 `tool` 이 없으면 `cols`·`rows` 로 도구를 만들고 `[TOOLID][sid]` 로 id 를 알린다 |
+| TC-CH5-2 | 서버 | 있는 도구: `TOOLID` → `SIZE` → `REPLY_SEAT(1)` → 재생 `OUTPUT`(전량이면 초기화·클리어, 첫 줄까지 버림) → `SEQ(full)` 순서다. 모든 프레임 앞에 그 `sid` 가 붙는다 |
+| TC-CH5-3 | 서버 | `since` 가 보유 창 안이면 그 뒤만 보내고 `SEQ` 의 full 비트가 0 이다. 크기를 모르면 `SIZE` 를 보내지 않는다 |
+| TC-CH5-4 | 서버 | `[INPUT][sid]`·`[RESIZE][sid]` 는 그 sid 의 도구로 간다(브라우저 입력 시각도 남는다). 모르는 sid 는 버린다 |
+| TC-CH5-5 | 서버 | 없는 도구는 그 sid 에 `EXIT` 이고 채널은 남는다 |
+| TC-CH5-6 | 서버 | 출력은 보낸 끝을 따라 겹침을 잘라 이어 보내고, 크기 통보 앞의 출력을 먼저 보낸다 |
+| TC-CH5-7 | 서버 | 출력에 틈이 생기면 채널을 닫지 않고 그 sid 만 `since=보낸 끝` 재생 + `SEQ` 로 다시 맞춘다 |
+| TC-CH5-8 | 서버 | 도구가 끝나면 그 sid 에 `EXIT` 이고 같은 채널의 다른 sid 는 계속 받는다 |
+| TC-CH5-9 | 서버 | 같은 도구에 두 채널이 붙으면 먼저 붙은 쪽이 좌석 주인이고, 그쪽이 `term.close` 하면 남은 쪽이 `REPLY_SEAT(1)` 을 받는다 |
+| TC-CH5-10 | 서버 | `term.close` 뒤에는 그 sid 로 아무것도 오지 않는다 |
+| TC-CH5-11 | 서버 | Outbox 는 sid 마다 브라우저가 가진 좌표(`SEQ` 로 세우고 그 뒤 `OUTPUT` 길이를 더함)를 꺼낸 프레임으로 따라간다. sid 의 밀린 양이 `TERM_PENDING_MAX`(1 MB)를 넘으면 그 sid 의 밀린 프레임만 버리고 그 좌표부터 다시 재생한다 |
+| TC-CH5-12 | 서버 | 도구 구독이 끊기면 `term.lost{sid}` 를 보낸다 |
+| TC-CH5-13 | 서버 | 옛 `/ws` 종단이 없다 |
+| TC-CH5-14 | 프론트 | `open` 은 채널이 준비됐을 때 `term.open{sid,tool,cols,rows,since?}` 를 보내고, 아니면 다음 서버 `hello` 때 보낸다. 자기 sid 의 바이너리 프레임만 앞 5바이트를 뗀 꼴로 `_onOp` 에 넘긴다 |
+| TC-CH5-15 | 프론트 | `send` 는 `[op][sid]` 머리를 붙인다. 붙는 중이면 큐(`TERM_SEND_QUEUE_MAX`)에 담고, 끊겼으면 버리며 센다. 열리면 큐를 비운다 |
+| TC-CH5-16 | 프론트 | 채널이 끊기면 열린 터미널 모두가 `_wsLost('close')` 를 받고, 다시 붙으면 백오프 뒤 `term.open{since}` 로 다시 연다 |
+| TC-CH5-17 | 프론트 | `ws.close()`(손잡이)와 서버 `term.lost` 는 그 터미널만 끊긴 것으로 다룬다: `term.close` → `_wsLost` → 백오프(종전 수열) → 다시 연다 |
+| TC-CH5-18 | 프론트 | 한 번 열린 뒤 끊긴 동안의 사용자 입력은 보류함에 담긴다(FR-HIN) |
+
 ## 11. 구현 계약 (토픽 기반 — C2~C5 가 딛는다)
 
 ### 11.1 서버 (`rust/crates/webserver/httpapi/src/channel/`)
@@ -180,6 +205,7 @@
 - 처음 상태: `register_seed(prefix, f)` — 상태가 아직 없는 토픽을 처음 구독할 때 `f(topic: String) -> BoxFuture<'static, Option<Seed>>` 를 불러 채운다(`Seed::Full(Value)` · `Seed::Map(BTreeMap<String,Value>)` · `Seed::Event` — 사건 토픽을 이름으로 등록한다). 서버가 필요하면 등록하는 쪽이 `Weak<Server>` 를 잡는다. seed 전에 들어온 delta 는 상태에 적용하지 않고(순번·링은 오른다), seed 하는 사이에 발행이 끼면 seed 를 다시 부른다(최대 3회). full 을 보낼 때 그 full 에 이미 든 밀린 변화는 버린다. `prefix` 는 `"workspace"` 처럼 정확한 이름이거나 `"git:"` 처럼 `:` 로 끝난다. seed 가 없는 토픽을 구독하면 `error{code:"unknown_topic"}` 다.
 - 채널 쪽: 채널마다 `Outbox` 하나. 차선 셋 — 제어 > 터미널 > 상태(§6). 상태 차선은 토픽마다 합친다(full 은 최신만, delta 가 `TOPIC_PENDING_MAX`=64 를 넘으면 full 로 바꾼다). 채널 전체 `CHANNEL_PENDING_MAX`=8 MB 를 넘으면 닫는다. 쓰기 태스크 하나가 Outbox 를 비운다.
 - 메시지 처리: `sub`·`unsub` 을 C1 의 읽기 루프에 더한다. 재구독 판정은 §5.1(epoch 다름·링 밖 → full/reset, 링 안 → 이어지는 것, 같으면 없음).
+- 터미널 차선(C5): `term_begin(sid) -> 세션 번호`(밀린 프레임·좌표를 잊고 번호를 올린다), `push_term_as(번호, op, sid, payload)`(지금 세션이 아니면 버린다 — 바뀐 세션의 늦은 프레임이 새 재생 사이에 끼지 않는다), `term_state(sid) -> (밀린 바이트, 브라우저 좌표)`, `drop_term(sid)`, `forget_term(sid)`. 세션 코드는 `channel/term.rs` 다.
 - 구독자가 생기고 없어지는 순간을 알 수 있게 `on_demand(prefix, f(topic, active: bool))` 를 둔다(`stats` 측정·git 감시 임대가 쓴다).
 
 ### 11.2 프론트 (`web/js/core/channel.js`)

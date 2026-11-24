@@ -4,6 +4,7 @@
 // 발행하는 쪽(C2~C5)이 붙기 전까지 제품 빌드에서 쓰이지 않는 표면이 있다. 첫 발행자가 붙으면 지운다.
 #[cfg_attr(not(test), allow(dead_code))]
 mod outbox;
+mod term;
 #[cfg_attr(not(test), allow(dead_code))]
 mod topics;
 
@@ -120,10 +121,12 @@ impl Server {
         ));
         let ping = tokio::spawn(ping_loop(conn.clone(), done.clone()));
         let mut slots: HashMap<String, Release> = HashMap::new();
+        let terms = Arc::new(term::Terms::default());
         self.channel_hello(&out, &hello, &mut slots, remote);
-        self.channel_read_loop(chan, &out, &mut reader, &mut slots, remote, &done)
+        self.channel_read_loop(chan, &out, &terms, &mut reader, &mut slots, remote, &done)
             .await;
         done.cancel();
+        terms.close_all();
         let _ = writer.await;
         let _ = ping.await;
         self.topics.unsubscribe_all(chan);
@@ -132,10 +135,12 @@ impl Server {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn channel_read_loop(
         self: &Arc<Self>,
         chan: u64,
         out: &Arc<Outbox>,
+        terms: &Arc<term::Terms>,
         reader: &mut Reader,
         slots: &mut HashMap<String, Release>,
         remote: &str,
@@ -151,7 +156,11 @@ impl Server {
             };
             let reply = match frame {
                 Frame::Alive => continue,
-                Frame::Binary => error("unsupported"),
+                Frame::Binary(b) if b.len() >= term::HEAD => {
+                    self.term_input(terms, &b);
+                    continue;
+                }
+                Frame::Binary(_) => error("bad_frame"),
                 Frame::Text(_) => match frame.json() {
                     None => error("bad_json"),
                     Some(v) => match v["t"].as_str().unwrap_or_default() {
@@ -164,6 +173,14 @@ impl Server {
                             Ok(()) => continue,
                             Err(e) => e,
                         },
+                        "term.open" => {
+                            self.term_open(terms, out, &v);
+                            continue;
+                        }
+                        "term.close" => {
+                            self.term_close(terms, out, &v);
+                            continue;
+                        }
                         "unsub" => {
                             self.topics
                                 .unsubscribe(chan, v["topic"].as_str().unwrap_or_default());
@@ -266,7 +283,7 @@ async fn write_loop(srv: Arc<Server>, conn: Arc<Conn>, out: Arc<Outbox>, done: C
 
 enum Frame {
     Text(String),
-    Binary,
+    Binary(Vec<u8>),
     /// 핑·퐁 — 살아 있다는 뜻만 있다.
     Alive,
 }
@@ -284,7 +301,7 @@ impl Frame {
 async fn next_frame(reader: &mut Reader) -> Option<Frame> {
     match reader.next().await? {
         Ok(Message::Text(t)) => Some(Frame::Text(t.as_str().to_owned())),
-        Ok(Message::Binary(_)) => Some(Frame::Binary),
+        Ok(Message::Binary(b)) => Some(Frame::Binary(b.to_vec())),
         Ok(Message::Ping(_) | Message::Pong(_) | Message::Frame(_)) => Some(Frame::Alive),
         Ok(Message::Close(_)) | Err(_) => None,
     }

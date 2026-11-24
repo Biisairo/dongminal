@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, addEditorRoot, rmTree, openExplorerSide } from './fixtures';
+import { test, expect, addEditorRoot, rmTree, openExplorerSide, trackTermAttach, termAttaches } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // SOFT_RELOAD_SRS §5 — V-SRL-1~9.
@@ -45,12 +45,12 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
     });
     expect(marked, '검사할 터미널이 없다').toBeGreaterThan(0);
 
-    const opened: string[] = [];
-    page.on('websocket', ws => opened.push(ws.url()));
+    // PERF C5: 다시 붙는 것은 채널의 `term.open` 이다 (칸마다 소켓을 열지 않는다).
+    await trackTermAttach(page);
 
     await btn(page).click();
     // V-SRL-4: 전부 다시 붙는다 (D-2).
-    await expect.poll(() => opened.length, { timeout: 20000 }).toBeGreaterThan(0);
+    await expect.poll(async () => (await termAttaches(page)).length, { timeout: 20000 }).toBeGreaterThan(0);
 
     // 표식이 남아 있어야 한다.
     const kept = await page.evaluate(() => {

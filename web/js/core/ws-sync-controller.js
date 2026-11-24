@@ -149,6 +149,7 @@ class WsSyncController extends Controller {
     // PERF_OPTIMIZATION_SRS M1 (C1): 채널. 칸 i>0 의 소유권을 `slots` 로 쥔다 (TC-CH1-13).
     this.app.channel=new Channel(bus,{after:(ms,fn,o)=>this.app.timers.after(ms,fn,o)},{pingMs:()=>statsInterval});
     this.app.channel.connect();
+    TERM_MUX.attach(this.app.channel);
     this.app.slot._slotSyncSubs();
 
     // FR-SRL-3: 강제 재연결의 손잡이. 백오프 대기 중이면 그것을 취소하고 지금
