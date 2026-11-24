@@ -485,19 +485,17 @@ impl Server {
         })
     }
 
-    /// Go `claudeAccountsChanged`: 계정 상태가 바뀌었다고 브라우저에 알린다 (FR-CAC-122).
+    /// Go `claudeAccountsChanged`: 계정 상태가 바뀌었다고 브라우저에 알린다 — `claude.accounts`
+    /// 토픽 (FR-CAC-122, CHANNEL_PROTOCOL C2b).
     pub(crate) fn claude_accounts_changed(&self) {
-        if let Some(c) = self.commands() {
-            c.broadcast(&otter_webserver_hub::claude_accounts_changed_payload());
-        }
+        self.refresh_full_topic("claude.accounts");
     }
 
-    /// Go `claudeAccountAlert`: 계정 알림을 브라우저(SSE)와, 켜져 있으면 Telegram 으로 보낸다
+    /// Go `claudeAccountAlert`: 계정 알림을 브라우저(`alert` 토픽)와, 켜져 있으면 Telegram 으로 보낸다
     /// (FR-CAC-100a).
     pub(crate) fn claude_account_alert(&self, a: &ca::Alert) {
-        if let Some(c) = self.commands() {
-            c.broadcast(&otter_webserver_hub::claude_account_alert_payload(a));
-        }
+        self.topics
+            .publish_event("alert", serde_json::to_value(a).unwrap_or_default());
         if let Some(b) = self.tg.as_ref().and_then(|tg| tg.bridge.as_ref()) {
             let text = a.text();
             if !text.is_empty() {

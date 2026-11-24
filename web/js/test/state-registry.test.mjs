@@ -8,15 +8,13 @@ import { load, plain } from './harness.mjs';
  * 재수집이 되돌린다: 등록부의 `revalidateOn:['chan:open']` 가 그 약속이다. 새 코드
  * 없이 이 선언을 고정한다 — 누가 빼면 넘침 뒤 화면이 안전망까지 낡는다.
  */
-test('재연결(chan:open)이 설정·포커스·도구 상태를 다시 받는다 (git 은 채널 토픽, CHANNEL_PROTOCOL C4)', () => {
+test('설정·포커스·도구·git 은 채널 토픽이 준다 — 재연결 재검증 목록에 없다 (C2b·C3·C4)', () => {
   const ctx = load(['core/state-registry.js'], { expose: ['STATE_REGISTRY'] });
   const byId = new Map(ctx.STATE_REGISTRY.map((e) => [e.id, e]));
-  assert.ok(!byId.has('git.observe') && !byId.has('git.jobs'), 'git 상태가 아직 등록부에 있다');
-  for (const id of ['settings', 'window.focus']) {
-    const e = byId.get(id);
-    assert.ok(e, `${id} 선언이 없다`);
-    assert.ok(e.revalidateOn.includes('chan:open'), `${id} 가 재연결에 다시 받지 않는다`);
+  for (const id of ['settings', 'window.focus', 'tool.attention', 'tool.activity', 'tool.background']) {
+    assert.ok(byId.get(id).topic, id + ' 에 토픽이 없다');
   }
+  assert.ok(!byId.has('git.observe') && !byId.has('git.jobs'), 'git 상태가 아직 등록부에 있다');
 });
 
 /**
@@ -58,31 +56,28 @@ function snapshotRig() {
   return { gets, got, fire };
 }
 
-test('첫 연결: 스냅샷 한 요청, 설정은 건너뛴다, /api/state 는 없다', async () => {
+test('첫 연결: 스냅샷이 없다 — 토픽 상태는 채널이 주고, git 관측만 다시 받는다 (C2b·C3)', async () => {
   const { gets, got, fire } = snapshotRig();
   fire('chan:open', { gen: 1 });
-  assert.equal(gets.length, 1, JSON.stringify(gets));
-  assert.equal(gets[0], '/api/snapshot?parts=update,focus,edges');
+  assert.deepEqual(gets, [], JSON.stringify(gets));
   assert.equal(got._settingsRestore, undefined, '첫 연결에 설정을 다시 받았다');
   assert.equal(got._attnRestore, undefined, '채널 토픽인 알람을 재연결에 다시 받았다 (TC-CH3-9)');
-  const fo = await got._focusRestore;
-  assert.equal(fo.ok, true);
-  assert.equal(fo.data.part, 'focus');
-  assert.equal(fo.text, JSON.stringify({ part: 'focus' }));
+  assert.equal(got._focusRestore, undefined, '채널 토픽인 포커스를 다시 받았다 (C2b)');
+});
+
+test('소프트 리로드: 설정도 같은 스냅샷에 든다 — 재연결은 토픽이 준다 (C2b)', async () => {
+  const { gets, got, fire } = snapshotRig();
+  fire('softreload', {});
+  assert.equal(gets.length, 1, JSON.stringify(gets));
+  assert.ok(gets[0].includes('settings'), gets[0]);
+  const st = await got._settingsRestore;
+  assert.equal(st.data.part, 'settings');
   // 조각이 없으면(503 인 update) 실패 봉투다 — 종단이 실패한 것과 같다.
   const up = await got._updateRestore;
   assert.equal(up.ok, false);
-});
-
-test('재연결·소프트 리로드: 설정도 같은 스냅샷에 든다', async () => {
-  for (const [topic, a] of [['chan:open', { gen: 2 }], ['softreload', {}]]) {
-    const { gets, got, fire } = snapshotRig();
-    fire(topic, a);
-    assert.equal(gets.length, 1, topic + ' ' + JSON.stringify(gets));
-    assert.ok(gets[0].includes('settings'), topic + ' ' + gets[0]);
-    const st = await got._settingsRestore;
-    assert.equal(st.data.part, 'settings');
-  }
+  const r = snapshotRig();
+  r.fire('chan:open', { gen: 2 });
+  assert.deepEqual(r.gets, [], '재연결에 스냅샷을 받았다');
 });
 
 /**
@@ -148,7 +143,9 @@ test('TC-CH3-8: 토픽 항목은 첫 chan:open 에 구독하고 GET 모양 본�
   assert.equal(chanSubs.size, 0, '연결 전에 구독했다');
   fire('chan:open', { gen: 1 });
   fire('chan:open', { gen: 2 });
-  assert.deepEqual([...chanSubs.keys()].sort(), ['activity', 'attention', 'background', 'runs']);
+  // delta 맵 토픽(C3)과 full·사건 토픽(C2b)을 모두 한 번씩 구독한다.
+  assert.deepEqual([...chanSubs.keys()].sort(), ['activity', 'alert', 'attention', 'background', 'chat', 'claude.accounts',
+    'edges', 'edges.notice', 'focus', 'fs', 'runs', 'settings', 'telegram', 'update', 'workspace']);
 
   chanSubs.get('activity')({ kind: 'full', data: { t2: { toolId: 't2', state: 'idle' }, _limits: [{ k: 1 }] } });
   chanSubs.get('activity')({ kind: 'delta', ops: [{ op: 'put', id: 't1', v: { toolId: 't1', state: 'working' } }] });

@@ -86,10 +86,8 @@ impl Server {
                 }
             };
             match work.save(&out, &rev.to_string()) {
-                Ok(new_rev) => {
-                    if let Some(c) = self.commands() {
-                        c.broadcast(&otter_webserver_sse::workspace_changed(new_rev));
-                    }
+                Ok(_) => {
+                    self.refresh_full_topic("workspace");
                     return;
                 }
                 Err(e) if e.is_stale() => {}

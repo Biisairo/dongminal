@@ -175,11 +175,11 @@ const CLASSES_9A = ['EdgesController', 'UpdateController', 'SettingsController',
 
 /** 위임자 → 컨트롤러의 자리. `settings` 의 부품은 `settings.<부품>` 이다. */
 const DELEGATES_9A = {
-  edges: ['_edgesRestore', '_onEdgesChanged', '_egMeshPaint', '_egInvitesPaint', '_egInviteSend', '_egNotify'],
+  edges: ['_edgesRestore', '_onEdgesNotice', '_egMeshPaint', '_egInvitesPaint', '_egInviteSend', '_egNotify'],
   update: ['_updateRestore', '_updateRender'],
   'settings.apply': ['_applyPageTitle', '_saveSettingsSoon', '_saveSettingsNow', '_localeMirror', '_edApplyWordWrap',
     '_edApplyMinimap', '_edApplyFontSize', '_termApplyFontSize', '_applyThemeChoice', '_keybarApply', 'saveSettings',
-    '_onSettingsChanged', '_settingsBody', '_settingsLocalPending', '_settingsApply', '_settingsRestore'],
+    '_settingsBody', '_settingsLocalPending', '_settingsApply', '_settingsRestore'],
   'settings.live': ['_liveMark', '_liveOpts', '_liveOpen', '_liveChanged', '_liveStale', '_liveNotice'],
   'settings.saveState': ['_saveBtnsPaint', 'initSaveButtons'],
   settings: ['_openSettings'],
@@ -329,7 +329,7 @@ test('TC-FEA-2(9a): 갈아 끼운 _edgesRestore·_restore*·_liveOpen·_liveNoti
   const sections = { edges: {}, profile: {} };
   app.settings = { live: new ctx.SettingsLive(app), apply: { _applyPageTitle() {} }, section: (t) => sections[t] };
   app.edges._edgesRestore = () => { log.push('edgesRestore'); return 'R' };
-  assert.equal(app.edges._onEdgesChanged({}), 'R');
+  assert.equal(app.edges._onEdgesNotice({}), undefined);
   delete app.edges._edgesRestore;
   app.wsSync._restoreBegin = (k) => { log.push('begin:' + k); return 7 };
   app.wsSync._restoreLive = (k, f) => { log.push('live:' + k + f); return true };
@@ -339,7 +339,7 @@ test('TC-FEA-2(9a): 갈아 끼운 _edgesRestore·_restore*·_liveOpen·_liveNoti
   sections.profile._pfFollow = () => log.push('pfFollow');
   await app.edges._edgesRestore();
   await app.update._updateRestore();
-  assert.deepEqual(log, ['edgesRestore', 'begin:edges', 'live:edges7', 'pfFollow', 'edgesPaint', 'liveOpen', 'end:edges7',
+  assert.deepEqual(log, ['begin:edges', 'live:edges7', 'pfFollow', 'edgesPaint', 'liveOpen', 'end:edges7',
     'begin:update', 'live:update7', 'end:update7']);
 
   const live = app.settings.live;
@@ -368,7 +368,7 @@ test('TC-FEA-3(9a): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
 test('TC-FEA-3(9a): 옮긴 묶음의 계약 이름이 App 원형에서 함수로 읽힌다', () => {
   const ctx = load9a();
   const contract = contractNames();
-  const names = ['_savePreset', '_renderPresets', 'saveSettings', '_settingsApply', '_onSettingsChanged', '_applyPageTitle',
+  const names = ['_savePreset', '_renderPresets', 'saveSettings', '_settingsApply', '_applyPageTitle',
     '_openSettings', 'themeSlots', 'setThemeSlots'];
   for (const n of names) {
     assert.ok(contract.has(n), '계약에 없다: ' + n);
@@ -822,6 +822,35 @@ test('TC-FEA-1(9f): 저장 경로가 함께 쓰는 필드는 App 에 남는다 �
   assert.equal(app._wsDeferRev, 5);
   assert.equal(Object.hasOwn(app.wsSync, '_wsApplyPending'), false);
   assert.doesNotMatch(read('core/ws-sync-controller.js'), /(?<![\w$.])this\.(wsETag|_wsDeferRev|_wsApplyPending|_saveInflight|_wsApplyInflight|fgNames)\b/);
+});
+
+// CHANNEL_PROTOCOL C2b TC-CH2B-6: `workspace` 토픽의 본문은 GET 없이 적용하고, 낡은 rev 는 버린다.
+test('TC-CH2B-6: workspace 토픽 본문은 GET 없이 적용한다', async () => {
+  const gets = [];
+  const ctx = load9f({ apiGet: (p) => { gets.push(p); return Promise.resolve({ ok: false }) } });
+  const app = controllers(ctx, new ctx.App());
+  const applied = [];
+  app.wsSync._applyRemoteWorkspace = (sv) => applied.push(sv);
+  app.wsSync._fgApply = () => {};
+  app.bus = { beginSnapshot: () => new Set(), isLive: () => true, endSnapshot() {}, noteTouched() {} };
+  app.wsETag = '3';
+  const env = (rev) => Promise.resolve({ ok: true, status: 200, headers: { get: (k) => (k === 'ETag' ? String(rev) : null) },
+    data: { tools: [], workspace: { windows: [{ id: 'w' + rev }] } } });
+  await app.wsSync._onWorkspaceTopic(env(2));
+  assert.equal(applied.length, 0, '낡은 rev 를 적용했다');
+  await app.wsSync._onWorkspaceTopic(env(4));
+  assert.equal(applied.length, 1);
+  assert.equal(applied[0].windows[0].id, 'w4');
+  assert.equal(app.wsETag, '4');
+  // 저장 비행 중에는 유예하고, 비행이 끝난 뒤 받은 본문으로 적용한다.
+  app._saveInflight = true;
+  await app.wsSync._onWorkspaceTopic(env(5));
+  assert.equal(applied.length, 1);
+  app._saveInflight = false;
+  await app.wsSync._onWorkspaceChanged(app._wsDeferRev);
+  assert.equal(applied.length, 2);
+  assert.equal(applied[1].windows[0].id, 'w5');
+  assert.deepEqual(gets, [], 'GET 을 냈다');
 });
 
 test('TC-FEA-2(9f): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {

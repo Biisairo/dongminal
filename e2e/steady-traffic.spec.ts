@@ -65,47 +65,40 @@ test.describe('터미널 창 하나의 정상 상태 트래픽 (FR-OPT-4-3~4-6)'
     const got = byPath(box);
     const rps = box.length / (WINDOW_MS / 1000);
     console.log('[steady-traffic]', JSON.stringify(got), 'rps=' + rps.toFixed(2));
-    for (const p of ['/api/git/jobs', '/api/state', '/api/settings']) {
+    // CHANNEL_PROTOCOL C2b (D-9): 워크스페이스·설정·Claude 계정은 채널 토픽으로 온다 — 주기 GET 이 없다.
+    for (const p of ['/api/git/jobs', '/api/state', '/api/settings', '/api/claude-accounts', '/api/claude-accounts/mappings']) {
       expect(got[p] || 0, `${p} — ${JSON.stringify(got)}`).toBe(0);
     }
     // 저장소 목록은 안전망(gitStatusInterval, 기본 30초)만 남는다.
     expect(got['/api/git/repos'] || 0, JSON.stringify(got)).toBeLessThanOrEqual(1);
-    // 창의 양 끝에 회차가 하나씩 걸릴 수 있다.
-    const ticksOf = (ms: number) => Math.ceil(WINDOW_MS / ms) + 1;
     /**
      * PERF M1 C3 (CHANNEL_PROTOCOL §10.4): 활동·Runs·Background·지표·지연은 채널 토픽으로 온다 —
-     * 주기 GET 이 0 이다. Claude 계정 둘은 `CLAUDE_ACCT_POLL_MS` 마다 남는다(C2b 의 `claude.accounts` 토픽 몫).
+     * 주기 GET 이 0 이다. Claude 계정은 `claude.accounts` 토픽이 준다(C2b) — 역시 0 이다.
      */
     for (const p of ['/api/tools/activity', '/api/runs', '/api/tools/background', '/api/stats', '/api/ping']) {
       expect(got[p] || 0, `${p} — ${JSON.stringify(got)}`).toBe(0);
     }
-    const acct = await page.evaluate(() => (0, eval)('CLAUDE_ACCT_POLL_MS') as number);
-    const RAIL: Record<string, number> = {
-      '/api/claude-accounts': ticksOf(acct),
-      '/api/claude-accounts/mappings': ticksOf(acct),
-    };
-    for (const [p, cap] of Object.entries(RAIL)) {
-      expect(got[p] || 0, `${p} — ${JSON.stringify(got)}`).toBeLessThanOrEqual(cap);
-    }
-    const known = ['/api/git/repos', ...Object.keys(RAIL)];
+    const known = ['/api/git/repos'];
     const other = box.filter((p) => !known.includes(p));
     expect(other, JSON.stringify(got)).toEqual([]);
   });
   /**
-   * FR-OPT-4-5 (IPC-6 · FEC-11): 구독이 **다시** 열리면 복원이 요청 둘이다 — 워크스페이스
-   * (전경 이름을 함께 나른다)와 스냅샷 하나. 이전에는 /api/state 2 · attention · activity ·
-   * background · settings · update · focus = 8 이었다.
+   * FR-OPT-4-5 (IPC-6 · FEC-11): 구독이 **다시** 열리면 복원은 채널 토픽의 재구독이 준다 — 상태를 다시 받는
+   * GET 이 없다(CHANNEL_PROTOCOL C2b·C3). 이전에는 /api/state 2 · attention · activity · background ·
+   * settings · update · focus = 8, 그다음 /api/state 1 · /api/snapshot 1 이었다.
    */
-  test('재연결의 복원은 /api/state 하나와 /api/snapshot 하나다', async ({ page }) => {
+  test('재연결의 복원은 GET 없이 토픽 재구독이다', async ({ page }) => {
     await waitForInit(page);
     await waitSettled(page);
     const box = timeline(page);
+    const gen = await page.evaluate(() => (window as any).app.testing.channel.gen());
     await page.evaluate(() => (window as any).app.testing.channel.connect());
-    await expect.poll(() => byPath(box)['/api/snapshot'] || 0, { timeout: 15000 }).toBe(1);
-    await expect.poll(() => byPath(box)['/api/state'] || 0, { timeout: 15000 }).toBe(1);
+    await expect.poll(() => page.evaluate(() => (window as any).app.testing.channel.alive()), { timeout: 15000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => (window as any).app.testing.channel.gen()), { timeout: 15000 }).toBeGreaterThan(gen);
+    await page.waitForTimeout(1000); // TEST-16: 재연결 뒤 GET 이 **없음**을 잰다
     const got = byPath(box);
     console.log('[reconnect]', JSON.stringify(got));
-    for (const p of ['/api/tools/attention', '/api/tools/activity', '/api/tools/background',
+    for (const p of ['/api/snapshot', '/api/state', '/api/tools/attention', '/api/tools/activity', '/api/tools/background',
       '/api/settings', '/api/update', '/api/focus', '/api/git/jobs']) {
       expect(got[p] || 0, `${p} — ${JSON.stringify(got)}`).toBe(0);
     }

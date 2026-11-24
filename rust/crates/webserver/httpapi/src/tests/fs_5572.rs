@@ -19,7 +19,7 @@ use crate::fs_search::{
     FS_GREP_MAX_LINE, FindHit, GREP_ENGINE_GO, GREP_ENGINE_RIPGREP, GrepMatch, find_files,
     grep_with_go, grep_with_ripgrep, look_ripgrep, parse_ripgrep_json,
 };
-use crate::fs_watch::{FS_WATCH_DIRS_MAX, fs_changed_payload, git_worktree_rounds};
+use crate::fs_watch::{FS_WATCH_DIRS_MAX, fs_changed_args, git_worktree_rounds};
 use crate::fs_zip::{ZIP_MAX_CONCURRENT, zip_download_name, zip_many_name};
 use crate::routes::API_ROUTES;
 use crate::{Deps, Server};
@@ -623,23 +623,20 @@ async fn watch_lease_follows_channel_client() {
 }
 
 #[test]
-fn fs_changed_payload_shape() {
+fn fs_changed_args_shape() {
     let c = vec![
         Change::new("/a", Kind::Added),
         Change::new("/b<", Kind::Deleted),
     ];
     assert_eq!(
-        String::from_utf8(fs_changed_payload(&c, false)).unwrap(),
-        r#"{"action":"fs_changed","args":{"changes":[{"path":"/a","type":"added"},{"path":"/b\u003c","type":"deleted"}]}}"#
+        fs_changed_args(&c, false).to_string(),
+        r#"{"changes":[{"path":"/a","type":"added"},{"path":"/b<","type":"deleted"}]}"#
     );
     assert_eq!(
-        String::from_utf8(fs_changed_payload(&c, true)).unwrap(),
-        r#"{"action":"fs_changed","args":{"overflow":true}}"#
+        fs_changed_args(&c, true).to_string(),
+        r#"{"overflow":true}"#
     );
-    assert_eq!(
-        String::from_utf8(fs_changed_payload(&[], false)).unwrap(),
-        r#"{"action":"fs_changed","args":{"changes":[]}}"#
-    );
+    assert_eq!(fs_changed_args(&[], false).to_string(), r#"{"changes":[]}"#);
 }
 
 /// V-ELR-35 (FR-ELR-76).

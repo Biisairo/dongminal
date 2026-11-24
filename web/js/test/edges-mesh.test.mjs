@@ -120,7 +120,7 @@ test('초대 보내기·맺기·거절 (FR-EGM-53·55)', async () => {
 test('invited 방송은 보낸 노드의 핸들로 알림을 띄운다 (FR-EGM-55)', async () => {
   const { app, shown } = setup();
   app.settings.section('edges')._edgesPaint = () => {};
-  await app.edges._onEdgesChanged({ invited: { fp: B, name: 'b', tag: '0003' } });
+  await app.edges._onEdgesNotice({ invited: { fp: B, name: 'b', tag: '0003' } });
   assert.equal(shown.length, 1);
   assert.match(shown[0].text, /^edge\.invited_notice/);
   assert.match(shown[0].text, /"name":"b#0003"/);

@@ -392,6 +392,18 @@ async function noteServerAtFailure(title: string) {
 }
 
 /**
+ * CHANNEL_PROTOCOL C2b: Claude 계정 목록은 채널의 `claude.accounts` 토픽으로 온다 — `page.route` 가 가로채지
+ * 못한다. 토픽의 첫 본문이 닿은 뒤 GET 으로 다시 받게 해 가짜 목록을 얹는다. `waitForInit` 뒤에 부른다.
+ */
+export async function refetchClaudeAccounts(page: any) {
+  await page.waitForFunction(() => {
+    const e = (window as any).app?.channel?._topics?.get('claude.accounts');
+    return !!e && e.seq > 0;
+  });
+  await page.evaluate(() => (window as any).app.testing.onClaudeAccountsChanged());
+}
+
+/**
  * 화면이 받는 계정 한도(`/api/tools/activity` 의 `limits`)를 비운다 (QUALITY_FLAKY_SRS FR-FLK-12).
  *
  * 한도는 서버의 에이전트별 값이라 도구가 죽어도 남는다(ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-20). 워커의

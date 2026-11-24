@@ -31,11 +31,6 @@
  * 증분 자체가 없어 `touched` 가 성립하지 않는 상태였다. **진단이 틀렸던 것도
  * 나란히 놓아서 알았다.**
  */
-/**
- * CLAUDE_ACCOUNTS_SRS FR-CAC-122: 패널이 열린 동안 계정 목록을 다시 받는 주기. 서버의 조회 주기(최소 180초)보다
- * 짧아 변화를 놓치지 않는다. 등록부만 싣는 페이지(e2e 합성 페이지)에서도 정의돼야 하므로 여기 둔다.
- */
-const CLAUDE_ACCT_POLL_MS=30*1000;
 const STATE_REGISTRY=[
   {
     id:'tool.attention',
@@ -143,8 +138,8 @@ const STATE_REGISTRY=[
     // FR-OPT-4-5 (FEC-10): 첫 연결의 재검증은 건너뛴다 — 부팅(`main.js`)이 방금 받았다.
     // 부팅 조회와 구독 사이의 짧은 틈에 바뀐 값은 다음 방송·재연결이 준다.
     bootCovered:true,
-    events:{settings_changed:'settings.apply._onSettingsChanged'},
-    revalidateOn:['chan:open','softreload'],
+    topic:'settings',
+    revalidateOn:['softreload'],
   },
   {
     /**
@@ -154,8 +149,7 @@ const STATE_REGISTRY=[
      * 3초마다 묻게 되고 그건 28,800배의 낭비다 (D-UPD-4). 대신 값이 바뀌면
      * 서버가 `update_changed` 로 민다 (FR-UPD-8a).
      *
-     * `revalidateOn:['chan:open']` 이 페이지 로드와 재연결의 재조회를 그대로
-     * 준다. **서버 쪽 확인을 거는 것은 이쪽이 아니다** — 그건 서버의 SSE 연결
+     * 재연결의 재조회는 `update` 토픽의 재구독이 준다 (CHANNEL_PROTOCOL C2b). **서버 쪽 확인을 거는 것은 이쪽이 아니다** — 그건 서버의 채널 연결
      * 훅이고(FR-UPD-2 ②), 여기서 하는 일은 캐시를 읽는 것뿐이다.
      *
      * `merge:'latest'` 는 `background`·`settings` 와 같은 근거다 — 방송이
@@ -166,8 +160,8 @@ const STATE_REGISTRY=[
     merge:'latest',
     flight:'update',
     part:'update',
-    events:{update_changed:'update._updateRestore'},
-    revalidateOn:['chan:open','softreload'],
+    topic:'update',
+    revalidateOn:['softreload'],
   },
   {
     /**
@@ -178,7 +172,8 @@ const STATE_REGISTRY=[
     id:'fs.watch',
     restore:'editor.watch._edWatchRestore',
     merge:'latest',
-    events:{fs_changed:'editor.watch._onFsChanged'},
+    topic:'fs',
+    event:'editor.watch._onFsChanged',
     revalidateOn:['chan:open'],
   },
   {
@@ -189,8 +184,9 @@ const STATE_REGISTRY=[
     merge:'latest',
     flight:'focus',
     part:'focus',
-    events:{window_focus:'focus.owner._onWindowFocus'},
-    revalidateOn:['chan:open','softreload'],
+    topic:'focus',
+    change:'focus.owner._onWindowFocusSrc',
+    revalidateOn:['softreload'],
   },
   {
     /**
@@ -202,9 +198,11 @@ const STATE_REGISTRY=[
     merge:'latest',
     flight:'edges',
     part:'edges',
-    events:{edges_changed:'edges._onEdgesChanged'},
-    revalidateOn:['chan:open','softreload'],
+    topic:'edges',
+    revalidateOn:['softreload'],
   },
+  /** CHANNEL_PROTOCOL C2b — 간선을 맺거나 지운 알림(토스트). 상태는 위 `edges` 토픽이 준다. */
+  {id:'edges.notice', topic:'edges.notice', event:'edges._onEdgesNotice'},
   {
     /**
      * PEER_CHAT_SRS §3.11 — 채팅의 나·온라인 목록·방. `every` 가 없다 — 바뀌면 서버가
@@ -214,24 +212,29 @@ const STATE_REGISTRY=[
     restore:'chat._chatRestore',
     merge:'latest',
     flight:'chat',
-    events:{chat_changed:'chat._onChatChanged',chat_message:'chat._onChatMessage'},
-    revalidateOn:['chan:open','softreload'],
+    topic:'chat',
+    events:{chat_message:'chat._onChatMessage'},
+    revalidateOn:['softreload'],
   },
   {
     /**
-     * CLAUDE_ACCOUNTS_SRS FR-CAC-122 — Claude 계정과 그 사용량. 상태가 바뀌면 서버가
-     * `claude_accounts_changed` 를 민다. 사용량은 서버의 조회기가 신호 없이 고치므로
-     * 패널이 열린 동안 주기로도 다시 받는다 (`run.list` 와 같은 모양).
+     * CLAUDE_ACCOUNTS_SRS FR-CAC-122 — Claude 계정과 그 사용량. 사용량 조회 결과도 계정 변화로
+     * 잡히므로(`set_row` → on_change) 서버가 `claude.accounts` 토픽으로 민다 — 주기가 없다 (D-9).
      */
     id:'claude.accounts',
     restore:'claude._claudeAcctRestore',
     merge:'latest',
     flight:'claudeAccounts',
-    events:{claude_accounts_changed:'claude._onClaudeAccountsChanged'},
-    revalidateOn:['chan:open','softreload'],
-    every:(_app)=>CLAUDE_ACCT_POLL_MS,
-    when:(app)=>app.agents._agentsPanelShown(),
+    topic:'claude.accounts',
+    change:'claude._onClaudeAccountsChanged',
+    revalidateOn:['softreload'],
   },
+  /** CLAUDE_ACCOUNTS_SRS FR-CAC-100a — 계정 알림은 상태가 아니라 사건이다. */
+  {id:'claude.alert', topic:'alert', event:'claude._onClaudeAccountAlert'},
+  /** CHANNEL_PROTOCOL C2b (OQ-C1) — 텔레그램 짝맞춤이 끝나면 열린 설정 화면이 따라간다. */
+  {id:'telegram', topic:'telegram', restore:'settings.section(telegram)._tgTopic'},
+  /** CHANNEL_PROTOCOL C2b — 워크스페이스. 본문은 `/api/state` 에 `rev` 를 더한 것이다. */
+  {id:'workspace', topic:'workspace', restore:'wsSync._onWorkspaceTopic'},
   {
     /**
      * UX_BATCH12 FR-LIV-4 — 열린 설정 패널이 다른 곳의 저장을 따라간다. 패널이 닫혀 있으면
@@ -255,24 +258,8 @@ const STATE_REGISTRY=[
  */
 function wireStateRegistry(app){
   const bus=app.bus;
-  // 이름은 앱에서 주인까지의 점 경로다(`'git.sync._onGitChanged'`, REFACTOR3_FE_DELEG_SRS FR-DLG-3). `section(tab)` 마디는
-  // 설정 섹션이고, 섹션이 아직 없으면(설정창을 세우기 전) 아무것도 하지 않는다.
-  const call=(name,args)=>{
-    const keys=name.split('.'), last=keys.pop();
-    let o=app;
-    for(const k of keys){
-      const m=/^(\w+)\((\w+)\)$/.exec(k);
-      o=m?o[m[1]](m[2]):o&&o[k];
-      if(m&&!o) return;
-    }
-    const fn=o&&o[last];
-    // 이름이 사라졌으면 **소리를 낸다.** 종전의 `&&` 가드는 같은 상황을 조용히
-    // 삼켰고, 그래서 한 상태만 갱신되지 않는 채로 배포됐다 (FR-WBR-95).
-    if(typeof fn!=='function'){ console.error('[state]',name,'이 없다'); return }
-    return fn.call(o,args);
-  };
-
-  wireStateTopics(app,call);
+  const call=(name,args)=>stateCall(app,name,args);
+  wireStateTopics(app);
   for(const d of STATE_REGISTRY){
     for(const [topic,handler] of Object.entries(d.events||{})){
       bus.subscribe(topic,a=>call(handler,a),{owner:'state:'+d.id});
@@ -319,37 +306,103 @@ function stateTopicValues(m,skip){
   return [...m.keys()].filter(k=>k!==skip).sort().map(k=>m.get(k));
 }
 
+
 /**
- * PERF M1 C3 (CHANNEL_PROTOCOL §10.4): `topic` 을 가진 상태는 채널 토픽을 구독한다. 받은
- * full·delta 를 토픽 맵에 얹고, 맵으로 GET 과 같은 본문을 만들어 `apply`(본문) 또는
- * `restore`(GET 과 같은 봉투)에 넘긴다. 채널이 처음 열릴 때 한 번 구독한다 — 재연결의
- * 재구독은 채널이 한다.
+ * 등록부의 처리기 이름을 부른다. 이름은 앱에서 주인까지의 점 경로다(`'git.sync._onGitChanged'`,
+ * REFACTOR3_FE_DELEG_SRS FR-DLG-3). `section(tab)` 마디는 설정 섹션이고, 섹션이 아직 없으면(설정창을
+ * 세우기 전) 아무것도 하지 않는다.
  */
-function wireStateTopics(app,call){
+function stateCall(app,name,args){
+  const keys=name.split('.'), last=keys.pop();
+  let o=app;
+  for(const k of keys){
+    const m=/^(\w+)\((\w+)\)$/.exec(k);
+    o=m?o[m[1]](m[2]):o&&o[k];
+    if(m&&!o) return;
+  }
+  const fn=o&&o[last];
+  // 이름이 사라졌으면 **소리를 낸다.** 종전의 `&&` 가드는 같은 상황을 조용히
+  // 삼켰고, 그래서 한 상태만 갱신되지 않는 채로 배포됐다 (FR-WBR-95).
+  if(typeof fn!=='function'){ console.error('[state]',name,'이 없다'); return }
+  return fn.call(o,args);
+}
+
+/**
+ * 토픽 본문을 복원이 읽는 봉투로 만든다 — 그 종단을 직접 부른 것과 같은 모양이다. 200 이 아닌
+ * 결과는 서버가 `{"$http": 상태, "body": 본문}` 으로 싣는다 (CHANNEL_PROTOCOL C2b).
+ */
+function stateEnvelope(data){
+  const has=(k)=>!!data&&typeof data==='object'&&Object.prototype.hasOwnProperty.call(data,k);
+  if(has('$http')){
+    return Promise.resolve({ok:false,status:data.$http,data:data.body===undefined?null:data.body,text:'',headers:null});
+  }
+  // GET 의 ETag 는 `$etag` 로 온다 — 머리로 되돌려 지문 판정(설정 패널·워크스페이스 rev)이 그대로 돈다.
+  let headers=null;
+  if(has('$etag')){
+    const tag=String(data.$etag);
+    data=Object.assign({},data);
+    delete data.$etag;
+    headers={get:(k)=>String(k).toLowerCase()==='etag'?tag:null};
+  }
+  return Promise.resolve({ok:true,status:200,data,text:JSON.stringify(data),headers});
+}
+
+/**
+ * PERF_OPTIMIZATION_SRS M1 — `topic` 을 가진 상태는 채널 토픽을 구독한다. 채널이 처음 열릴 때 한 번
+ * 구독한다 — 재연결의 재구독은 채널이 한다.
+ *
+ * - `body` 가 있는 항목(C3, §10.4)은 delta 맵 토픽이다. full·delta 를 토픽 맵에 얹고, 맵으로 GET 과
+ *   같은 본문을 만들어 `apply`(본문) 또는 `restore`(GET 과 같은 봉투)에 넘긴다.
+ * - 그 밖의 항목(C2b, TC-CH2B-5)은 full·사건 토픽이다. 연결(`chan:open`)마다 첫 `full` 은 `restore` 가
+ *   받는다 — 끊긴 동안을 메우는 합류이므로 소유권 재주장 같은 합류 일이 그쪽에 있다. 그 뒤의 `full` 은
+ *   `change`(없으면 `restore`)가 받는다. 사건은 `event` 가 본문을 받는다.
+ */
+function wireStateTopics(app){
+  const call=(name,args)=>stateCall(app,name,args);
   let wired=false;
   app.bus.subscribe('chan:open',()=>{
     if(wired||!app.channel) return;
     wired=true;
     for(const d of STATE_REGISTRY){
       if(!d.topic) continue;
-      const m=new Map();
-      let due=null;
-      const flush=()=>{
-        due=null;
-        const body=d.body(m);
-        if(d.apply){ call(d.apply,body); return }
-        call(d.restore,Promise.resolve({ok:true,status:200,data:body,text:JSON.stringify(body),headers:null}));
-      };
-      app.channel.sub(d.topic,(msg)=>{
-        if(msg.kind==='full'){
-          m.clear();
-          for(const [k,v] of Object.entries(msg.data||{})) m.set(k,v);
-        }else if(msg.kind==='delta') chanApply(m,msg.ops||[]);
-        else return;
-        if(!due) due=app.timers.after(STATE_TOPIC_COALESCE_MS,flush,{owner:'state:'+d.id,label:'state-topic'});
-      },{owner:'state:'+d.id});
+      if(d.body) wireMapTopic(app,d,call);
+      else wireFullTopic(app,d,call);
     }
   },{owner:'state'});
+}
+
+function wireMapTopic(app,d,call){
+  const m=new Map();
+  let due=null;
+  const flush=()=>{
+    due=null;
+    const body=d.body(m);
+    if(d.apply){ call(d.apply,body); return }
+    call(d.restore,Promise.resolve({ok:true,status:200,data:body,text:JSON.stringify(body),headers:null}));
+  };
+  app.channel.sub(d.topic,(msg)=>{
+    if(msg.kind==='full'){
+      m.clear();
+      for(const [k,v] of Object.entries(msg.data||{})) m.set(k,v);
+    }else if(msg.kind==='delta') chanApply(m,msg.ops||[]);
+    else return;
+    if(!due) due=app.timers.after(STATE_TOPIC_COALESCE_MS,flush,{owner:'state:'+d.id,label:'state-topic'});
+  },{owner:'state:'+d.id});
+}
+
+function wireFullTopic(app,d,call){
+  const owner='state:'+d.id;
+  let fresh=true;
+  app.bus.subscribe('chan:open',()=>{ fresh=true },{owner});
+  app.channel.sub(d.topic,m=>{
+    if(m.kind==='full'){
+      const name=(fresh||!d.change)?d.restore:d.change;
+      fresh=false;
+      call(name,stateEnvelope(m.data));
+    }else if(m.kind==='event'){
+      call(d.event,m.data);
+    }
+  },{owner});
 }
 
 /**

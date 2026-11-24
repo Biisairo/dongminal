@@ -212,19 +212,6 @@ fn payload_bytes() {
         background_changed_payload(),
         br#"{"action":"tools_background_changed"}"#
     );
-    assert_eq!(update_changed_payload(), br#"{"action":"update_changed"}"#);
-    assert_eq!(
-        claude_accounts_changed_payload(),
-        br#"{"action":"claude_accounts_changed"}"#
-    );
-    #[derive(serde::Serialize)]
-    struct Alert {
-        name: &'static str,
-    }
-    assert_eq!(
-        claude_account_alert_payload(&Alert { name: "a" }),
-        br#"{"action":"claude_account_alert","args":{"name":"a"}}"#
-    );
     assert!(valid_activity_state("working") && !valid_activity_state("bogus"));
 }
 

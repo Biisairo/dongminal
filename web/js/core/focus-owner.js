@@ -125,6 +125,11 @@ class FocusOwner extends Controller {
     if(!same) this._onLifeResume();
   }
 
+  /** CHANNEL_PROTOCOL C2b: 합류 뒤의 `focus` 토픽 full — 방송과 같은 처리다. */
+  _onWindowFocusSrc(src){
+    return src.then(r=>{ if(r.ok) this._onWindowFocus(r.data) });
+  }
+
   /**
    * 합류·복귀 시의 스냅샷. `state-registry` 의 `merge:'latest'` — 추월만 막는다.
    */

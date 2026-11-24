@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, stubEmptyLimits } from './fixtures';
+import { test, expect, waitForInit, stubEmptyLimits, refetchClaudeAccounts } from './fixtures';
 
 /**
  * RAIL_CHAT_USAGE_SRS — 레일의 채팅 목록과 Claude 사용량.
@@ -80,6 +80,7 @@ test.describe('RAIL_CHAT_USAGE 레일의 채팅·사용량', () => {
   for (const acct of ['업무 계정', 'Claude Max 업무용 공유 계정 alice@example.com']) test(`TC-RCU-2: Activity 레일에 사용량 요약이 작게 보인다 (${acct})`, async ({ page }) => {
     await installUsageMock(page, acct, 100);
     await waitForInit(page, { mode: 'desktop' });
+    await refetchClaudeAccounts(page);
     const panel = page.locator('#agents-panel');
     if (await panel.evaluate((e) => e.classList.contains('open'))) await panel.locator('.ag-collapse').click();
     await expect(panel).not.toHaveClass(/\bopen\b/);
@@ -240,6 +241,7 @@ test.describe('UX_AUDIT_FIX_SRS FR-UXF-73a 좁은 작업 패널의 요약 줄', 
     await stubEmptyLimits(page);
     await installUsageMock(page, '업무 계정', 34);
     await waitForInit(page, { mode: 'desktop', viewport: { width: 1280, height: 720 } });
+    await refetchClaudeAccounts(page);
     const panel = page.locator('#agents-panel');
     if (!(await panel.evaluate((e) => e.classList.contains('open')))) await panel.locator('.ag-collapse').click();
     await page.evaluate((px) => document.documentElement.style.setProperty('--ag-w', px + 'px'), w);

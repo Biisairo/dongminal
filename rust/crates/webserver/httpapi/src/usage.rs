@@ -372,6 +372,8 @@ impl Server {
         let acc = body.account.as_ref().filter(|a| !a.email.is_empty());
         if let (Some(acc), Some(ca)) = (acc, &self.ca) {
             ca.sl.put(acc, u.usage.rate_limits.as_ref(), now);
+            // 계정 목록이 statusLine 의 사용량을 싣는다 — 바뀌었으면 `claude.accounts` 가 낸다 (C2b).
+            self.claude_accounts_changed();
         } else if let (Some(agent), Some(limits)) =
             (otter_shared_agentadapter::status_line_reporter(), limits)
         {

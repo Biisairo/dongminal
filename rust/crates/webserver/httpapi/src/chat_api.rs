@@ -3,8 +3,6 @@
 //! 채팅은 데몬에 있다(NFR-PCH-5). 서버는 화면의 요청을 데몬의 사람 참가자 연산 하나로 넘기고,
 //! 데몬이 민 글과 바뀜을 SSE 로 방송한다. 서버는 글을 들지 않는다 (FR-PCH-85).
 
-use std::collections::BTreeMap;
-
 use http::{HeaderValue, StatusCode, header};
 use otter_gocompat::json::{self, RawMessage};
 use otter_shared_chatwire as chatwire;
@@ -141,8 +139,14 @@ impl Server {
             }
             p.args = RawMessage(raw.to_vec());
         }
+        let changes = op != chatwire::OP_STATE;
         let res = match off_thread(move || d.chat(p)).await {
-            Some(Ok(res)) => res,
+            Some(Ok(res)) => {
+                if changes && res.error.is_none() {
+                    self.refresh_full_topic("chat");
+                }
+                res
+            }
             Some(Err(e)) => {
                 return code_fail(
                     StatusCode::BAD_GATEWAY,
@@ -168,26 +172,23 @@ impl Server {
     /// Go `ChatPushed`: 데몬의 chat push 다. 글은 chat_message 로, 바뀜은 chat_changed 로 방송한다.
     /// 읽기 루프에서 불리므로 데몬 RPC 를 기다리지 않는다.
     pub fn chat_pushed(&self, ev: &ChatEvent) {
-        let Some(c) = self.commands() else {
-            return;
-        };
         if ev.chat_kind == CHAT_KIND_MSG {
-            if let Some(m) = &ev.chat {
+            if let Some(m) = &ev.chat
+                && let Some(c) = self.commands()
+            {
                 c.broadcast(&otter_webserver_sse::payload(
                     "chat_message",
                     Some(&ChatMsgArgs { msg: m }),
                 ));
             }
         } else if ev.chat_kind == CHAT_KIND_CHANGED {
-            c.broadcast(&chat_changed());
+            self.refresh_full_topic("chat");
         }
     }
 
     /// Go `ChatResync`: 데몬에 다시 붙은 뒤다. 끊긴 동안의 바뀜을 잃었으므로 화면이 다시 읽게 한다.
     pub fn chat_resync(&self) {
-        if let Some(c) = self.commands() {
-            c.broadcast(&chat_changed());
-        }
+        self.refresh_full_topic("chat");
     }
 }
 
@@ -197,8 +198,4 @@ fn chat_restart() -> Response {
         apierr::CODE_CHAT_DAEMON_RESTART,
         "restart the daemon to use chat",
     )
-}
-
-fn chat_changed() -> Vec<u8> {
-    otter_webserver_sse::payload("chat_changed", Some(&BTreeMap::<String, String>::new()))
 }

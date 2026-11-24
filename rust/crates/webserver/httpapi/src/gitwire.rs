@@ -68,10 +68,16 @@ pub(crate) fn new_git_server(
     deps: &Deps,
     file_read_max: i64,
     watch: Option<&Arc<GitWatcher>>,
-    on_jobs_changed: Option<Arc<dyn Fn() + Send + Sync>>,
+    me: &std::sync::Weak<crate::Server>,
 ) -> GitServer {
     let mut g = GitServer::default();
-    g.on_jobs_changed = on_jobs_changed;
+    // 원격 작업의 시작·끝은 `git.jobs` 토픽으로 민다 (CHANNEL_PROTOCOL C4).
+    let jobs_me = me.clone();
+    g.on_jobs_changed = Some(Arc::new(move || {
+        if let Some(s) = jobs_me.upgrade() {
+            s.topics.publish_full("git.jobs", s.git_jobs_value());
+        }
+    }));
     g.watch = watch.map(|w| Arc::new(WatchNote(w.clone())) as Arc<dyn RepoWatcher>);
     g.git = deps.git_store.clone();
     g.exclusion = deps.git_exclusion.clone();
@@ -82,7 +88,7 @@ pub(crate) fn new_git_server(
     g.commands = deps
         .commands
         .clone()
-        .map(|c| Arc::new(BrokerCast(c)) as Arc<dyn wsentry::Broadcaster>);
+        .map(|c| Arc::new(BrokerCast(c, me.clone())) as Arc<dyn wsentry::Broadcaster>);
     g.tools = deps
         .tools
         .clone()

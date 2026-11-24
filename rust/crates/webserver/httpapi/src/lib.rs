@@ -41,6 +41,7 @@ mod fs_stamp;
 mod fs_transfer;
 mod fs_watch;
 mod fs_zip;
+mod full_topics;
 mod git_topics;
 mod gitwire;
 mod go_embed;
@@ -233,6 +234,8 @@ pub struct Server {
     pub(crate) topics: channel::TopicHub,
     /// delta 토픽·Run 그래프·지표의 계산 (`perf/CHANNEL_PROTOCOL.md` §10.4).
     pub(crate) state_topics: state_topics::StateTopics,
+    /// full·사건 토픽의 마지막 본문 (`perf/CHANNEL_PROTOCOL.md` §10.3 C2b).
+    pub(crate) full_topics: full_topics::FullTopics,
     /// `PUT /api/sandbox/config` 의 지문 검사와 저장을 한 덩이로 묶는다 (FR-LIV-2).
     pub(crate) sandbox_put: tokio::sync::Mutex<()>,
     me: Weak<Server>,
@@ -286,11 +289,20 @@ pub(crate) struct FsState {
     pub(crate) ops: Arc<std::sync::Mutex<()>>,
 }
 
-/// 명령 허브를 Editor 목록 저장소의 방송 자리로 잇는다.
-struct BrokerCast(Arc<dyn CommandBroker>);
+/// 명령 허브를 Editor 목록 저장소의 방송 자리로 잇는다. 워크스페이스 변화는 방송하지 않고
+/// `workspace` 토픽으로 낸다 (CHANNEL_PROTOCOL C2b).
+struct BrokerCast(Arc<dyn CommandBroker>, Weak<Server>);
+
+const WORKSPACE_CHANGED_HEAD: &[u8] = br#"{"action":"workspace_changed""#;
 
 impl wsentry::Broadcaster for BrokerCast {
     fn broadcast(&self, payload: &[u8]) -> usize {
+        if payload.starts_with(WORKSPACE_CHANGED_HEAD) {
+            if let Some(s) = self.1.upgrade() {
+                s.refresh_full_topic("workspace");
+            }
+            return 0;
+        }
         self.0.broadcast(payload)
     }
 }
@@ -300,6 +312,7 @@ impl Server {
     pub fn new(cfg: Config, deps: Deps) -> Arc<Server> {
         let s = Arc::new_cyclic(|me| Server::build(cfg, deps, me.clone()));
         s.wire_state_topics();
+        s.register_full_topics();
         s
     }
 
@@ -312,6 +325,7 @@ impl Server {
             srv
         });
         s.wire_state_topics();
+        s.register_full_topics();
         s
     }
 
@@ -334,26 +348,15 @@ impl Server {
         // (FR-ACL-5a).
         access.refresh();
         let hosts = HostAllow::new(Some(access.clone()), cfg.allowed_hosts.clone());
-        let entries = Arc::new(new_entry_store(&cfg, &deps));
+        let entries = Arc::new(new_entry_store(&cfg, &deps, &me));
         let limits = ServerLimits::default();
         let statics = cfg.static_fs.clone().map(static_assets::StaticHandler::new);
         let git_watch = gitwire::new_git_watch(&deps);
         if deps.git.is_none() {
-            let me = me.clone();
-            let on_jobs: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
-                if let Some(s) = me.upgrade() {
-                    s.topics.publish_full("git.jobs", s.git_jobs_value());
-                }
-            });
-            let g = gitwire::new_git_server(
-                &deps,
-                limits.file_read_max,
-                git_watch.as_ref(),
-                Some(on_jobs),
-            );
+            let g = gitwire::new_git_server(&deps, limits.file_read_max, git_watch.as_ref(), &me);
             deps.git = Some(Arc::new(gitwire::GitApi(Arc::new(g))));
         }
-        let deps_commands = deps.commands.clone();
+        let me_fs = me.clone();
         let tg = telegram_api::init_telegram(&cfg, me.clone());
         let ca = claude_accounts::init_claude_accounts(&cfg, &deps.claude, me.clone());
         let srv = Server {
@@ -367,13 +370,14 @@ impl Server {
             browser_in: ws::BrowserInputs::default(),
             topics: channel::TopicHub::default(),
             state_topics: state_topics::StateTopics::default(),
+            full_topics: full_topics::FullTopics::default(),
             sandbox_put: tokio::sync::Mutex::new(()),
             me,
             started: Instant::now(),
             entries,
             limits,
             fs: FsState {
-                watch: Some(fs_watch::new_fs_watch(deps_commands, git_watch.clone())),
+                watch: Some(fs_watch::new_fs_watch(me_fs, git_watch.clone())),
                 ..FsState::default()
             },
             agents: usage::AgentStores::default(),
@@ -428,7 +432,7 @@ impl Server {
 }
 
 /// Go `newEntryStore`: Editor·메모·플러그인 목록의 저장소다.
-fn new_entry_store(cfg: &Config, deps: &Deps) -> wsentry::Store {
+fn new_entry_store(cfg: &Config, deps: &Deps, me: &Weak<Server>) -> wsentry::Store {
     let (notes_dir, plugins_dir) = data_dir_layout(&cfg.data_dir.to_string_lossy());
     let mut st = wsentry::Store::default();
     st.work = deps
@@ -438,7 +442,7 @@ fn new_entry_store(cfg: &Config, deps: &Deps) -> wsentry::Store {
     st.commands = deps
         .commands
         .clone()
-        .map(|c| Arc::new(BrokerCast(c)) as Arc<dyn wsentry::Broadcaster>);
+        .map(|c| Arc::new(BrokerCast(c, me.clone())) as Arc<dyn wsentry::Broadcaster>);
     st.repo_root = deps.repo_root.clone();
     st.notes_dir = notes_dir;
     st.plugins_dir = plugins_dir;

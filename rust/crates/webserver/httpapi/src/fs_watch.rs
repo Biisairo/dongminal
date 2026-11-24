@@ -10,9 +10,7 @@ use http::StatusCode;
 use otter_gocompat::filepath;
 use otter_shared_httpresp::{self as httpresp, Response};
 use otter_webserver_fswatch::{self as fswatch, Change, Manager, ManagerOptions};
-use otter_webserver_hub::{
-    CommandBroker, GIT_WATCH_INTERVAL, GIT_WATCH_WORKTREE_EVERY, GitWatcher,
-};
+use otter_webserver_hub::{GIT_WATCH_INTERVAL, GIT_WATCH_WORKTREE_EVERY, GitWatcher};
 use serde::{Deserialize, Serialize};
 
 use crate::Server;
@@ -57,19 +55,29 @@ struct Overflow {
     overflow: bool,
 }
 
-/// Go `fsChangedPayload`: `fs_changed` 방송 본문이다 (FR-ELR-59).
-pub(crate) fn fs_changed_payload(changes: &[Change], overflow: bool) -> Vec<u8> {
-    if overflow {
-        return otter_webserver_sse::payload("fs_changed", Some(&Overflow { overflow: true }));
+/// 파일 변화 사건의 본문이다 (FR-ELR-59). 채널의 `fs` 사건 토픽이 싣는다 (CHANNEL_PROTOCOL C2b).
+pub(crate) fn fs_changed_args(changes: &[Change], overflow: bool) -> serde_json::Value {
+    let v = if overflow {
+        serde_json::to_value(Overflow { overflow: true })
+    } else {
+        let out = changes
+            .iter()
+            .map(|c| ChangeOut {
+                path: &c.path,
+                kind: c.kind.as_str(),
+            })
+            .collect();
+        serde_json::to_value(Changes { changes: out })
+    };
+    v.unwrap_or_default()
+}
+
+impl crate::Server {
+    /// 파일 변화를 `fs` 사건 토픽으로 낸다.
+    pub(crate) fn publish_fs_changed(&self, changes: &[Change], overflow: bool) {
+        self.topics
+            .publish_event("fs", fs_changed_args(changes, overflow));
     }
-    let out = changes
-        .iter()
-        .map(|c| ChangeOut {
-            path: &c.path,
-            kind: c.kind.as_str(),
-        })
-        .collect();
-    otter_webserver_sse::payload("fs_changed", Some(&Changes { changes: out }))
 }
 
 /// Go `newFSWatch`: 감시자를 세운다. 이벤트는 방송하고, 같은 경로로 git 관측을 당긴다
@@ -78,14 +86,14 @@ pub(crate) fn fs_changed_payload(changes: &[Change], overflow: bool) -> Vec<u8> 
 /// 감시 이벤트는 tokio 밖의 스레드에서 오고, git 의 계기 관측은 tokio 타이머를 건다 — 세운 순간의
 /// 런타임에 들어가 부른다. 런타임 밖에서 세웠으면 계기 관측만 빠진다(회차 관측은 그대로다).
 pub(crate) fn new_fs_watch(
-    cmds: Option<Arc<dyn CommandBroker>>,
+    me: std::sync::Weak<crate::Server>,
     git: Option<Arc<GitWatcher>>,
 ) -> Manager {
     let rt = tokio::runtime::Handle::try_current().ok();
     Manager::new(ManagerOptions::defaults(Arc::new(
         move |c: &[Change], overflow: bool| {
-            if let Some(cmds) = &cmds {
-                cmds.broadcast(&fs_changed_payload(c, overflow));
+            if let Some(s) = me.upgrade() {
+                s.publish_fs_changed(c, overflow);
             }
             if let (Some(git), Some(rt)) = (&git, &rt)
                 && !c.is_empty()

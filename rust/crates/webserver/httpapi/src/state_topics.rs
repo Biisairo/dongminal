@@ -28,7 +28,7 @@ pub(crate) const T_ATTENTION: u8 = 1;
 pub(crate) const T_ACTIVITY: u8 = 1 << 1;
 pub(crate) const T_BACKGROUND: u8 = 1 << 2;
 pub(crate) const T_RUNS: u8 = 1 << 3;
-const T_ALL: u8 = T_ATTENTION | T_ACTIVITY | T_BACKGROUND | T_RUNS;
+pub(crate) const T_ALL: u8 = T_ATTENTION | T_ACTIVITY | T_BACKGROUND | T_RUNS;
 
 const MAP_TOPICS: [(u8, &str); 4] = [
     (T_ATTENTION, "attention"),

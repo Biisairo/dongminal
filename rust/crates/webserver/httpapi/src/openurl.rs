@@ -112,19 +112,9 @@ impl Server {
         httpresp::json(StatusCode::OK, &body)
     }
 
-    /// Go `broadcastFocusOwners` (focus.go).
+    /// Go `broadcastFocusOwners` (focus.go). 소유 맵은 `focus` 토픽으로 낸다 (CHANNEL_PROTOCOL C2b).
     pub(crate) fn broadcast_focus_owners(&self) {
-        if let Some(c) = self.commands() {
-            let mut m = BTreeMap::new();
-            m.insert(
-                "owners",
-                self.focus
-                    .snapshot()
-                    .into_iter()
-                    .collect::<BTreeMap<_, _>>(),
-            );
-            c.broadcast(&otter_webserver_sse::payload("window_focus", Some(&m)));
-        }
+        self.refresh_full_topic("focus");
     }
 
     /// GET /api/focus.
