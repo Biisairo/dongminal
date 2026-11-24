@@ -1,7 +1,7 @@
 ---
 id: "3"
 title: SPA 런타임 (M3, FR-SPA-1~6)
-status: in-progress
+status: split
 deps: ["1"]
 owner: ""
 branch: pf/3
