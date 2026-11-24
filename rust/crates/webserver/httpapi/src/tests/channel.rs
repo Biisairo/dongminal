@@ -196,9 +196,7 @@ async fn bad_frames_get_error_and_connection_stays() {
     let v = next_json(&mut c).await.unwrap();
     assert_eq!(v["t"], "error", "{v}");
 
-    c.send(Message::binary(vec![0u8, 0, 0, 0, 1]))
-        .await
-        .unwrap();
+    c.send(Message::binary(vec![0u8, 0, 0])).await.unwrap();
     let v = next_json(&mut c).await.unwrap();
     assert_eq!(v["t"], "error", "{v}");
 
@@ -551,4 +549,39 @@ async fn ws_on_demand_follows_subscribers() {
             ("test.runs".to_owned(), false)
         ]
     );
+}
+
+/// TC-CH5-11: sid 마다 브라우저가 가진 좌표를 꺼낸 프레임으로 따라가고, 밀린 프레임은 sid 단위로 버린다.
+#[test]
+fn outbox_term_mirror_and_drop() {
+    use otter_shared_toolhub::{OP_OUTPUT, OP_SEQ, OP_SIZE};
+    let o = Outbox::new();
+    o.push_term(OP_OUTPUT, 1, b"replay");
+    assert_eq!(o.term_state(1), (11, None));
+    let _ = o.pop();
+    assert_eq!(o.term_state(1), (0, None), "SEQ 전의 출력은 재생분이다");
+    let mut seq = 100i64.to_be_bytes().to_vec();
+    seq.push(0);
+    o.push_term(OP_SEQ, 1, &seq);
+    o.push_term(OP_OUTPUT, 1, b"abc");
+    o.push_term(OP_OUTPUT, 2, b"other");
+    o.push_term(OP_SIZE, 1, &[0, 80, 0, 24]);
+    o.push_term(OP_OUTPUT, 1, b"defg");
+    let _ = o.pop();
+    let _ = o.pop();
+    assert_eq!(o.term_state(1).1, Some(103));
+    let dropped = o.drop_term(1);
+    assert!(dropped > 0);
+    assert_eq!(
+        o.term_state(1),
+        (0, Some(103)),
+        "버린 것은 좌표에 들지 않는다"
+    );
+    match o.pop() {
+        Some(Out::Binary(b)) => assert_eq!(&b[..5], &[OP_OUTPUT, 0, 0, 0, 2]),
+        _ => panic!("다른 sid 의 프레임이 남아야 한다"),
+    }
+    assert!(o.pop().is_none());
+    o.forget_term(1);
+    assert_eq!(o.term_state(1), (0, None));
 }

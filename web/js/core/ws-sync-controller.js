@@ -150,6 +150,7 @@ class WsSyncController extends Controller {
     ch.on('cmd',m=>bus.route(m),{owner:'app'});
     bus.setWake(()=>ch.kick());
     ch.connect();
+    TERM_MUX.attach(ch);
     this.app.slot._slotSyncSubs();
   }
 

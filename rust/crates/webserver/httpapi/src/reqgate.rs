@@ -121,7 +121,7 @@ pub(crate) fn gate_exempt(method: &Method, path: &str) -> bool {
     if path == "/api/ping" {
         return true;
     }
-    !path.starts_with("/api/") && path != "/ws" && path != "/channel"
+    !path.starts_with("/api/") && path != "/channel"
 }
 
 fn is_state_changing(method: &Method) -> bool {

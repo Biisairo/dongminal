@@ -64,7 +64,6 @@ macro_rules! mux_h {
 pub(crate) fn mux_table() -> Vec<(Pattern, Handler)> {
     vec![
         (Pattern::Tree("/"), mux_h!(handle_static)),
-        (Pattern::Exact("/ws"), mux_h!(handle_ws)),
         (Pattern::Exact("/channel"), mux_h!(handle_channel)),
         (Pattern::Tree("/api/"), handle_api_entry as Handler),
         (Pattern::Exact("/api/commands"), mux_h!(handle_command_post)),

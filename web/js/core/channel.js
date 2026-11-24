@@ -70,6 +70,9 @@ class Channel {
 
   gen(){ return this._gen }
 
+  /** 서버 `hello` 를 받았고 소켓이 열려 있다. */
+  ready(){ return this._ready&&this._open() }
+
   send(v){
     if(!this._open()) return false;
     this._ws.send(JSON.stringify(v));
@@ -234,6 +237,10 @@ class Channel {
     if(this._tickT){ this._tickT.stop(); this._tickT=null }
     const ws=this._ws;
     this._ws=null;
+    const was=this._ready;
+    this._ready=false;
+    // 준비됐던 연결을 잃었다 — 원시 수신 `lost` 로 알린다(터미널이 다시 붙는다, C5).
+    if(was) for(const r of Array.from(this._raw.get('lost')||[])) r.fn({t:'lost'});
     if(!ws) return;
     ws.onopen=null; ws.onclose=null; ws.onerror=null; ws.onmessage=null;
     try{ ws.close() }catch{ /* 이미 닫혔다 */ }

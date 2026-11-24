@@ -58,14 +58,14 @@ test('좌표를 모르면 since 를 붙이지 않는다 — 서버가 전량을 
   const { ctx, p } = pane();
   ctx.location = { protocol: 'http:', host: 'h' };
   assert.equal(p._seq, -1);
-  assert.ok(!p._wsURL().includes('since='));
+  assert.equal(p._termOpenArgs().since, undefined);
 });
 
 test('좌표를 알면 since 로 이어 붙여 달라고 한다', () => {
   const { ctx, p, OP } = pane();
   ctx.location = { protocol: 'http:', host: 'h' };
   p._onOp(seqFrame(OP, 4242, false));
-  assert.ok(p._wsURL().includes('since=4242'), p._wsURL());
+  assert.equal(p._termOpenArgs().since, 4242);
 });
 
 // ── FR-TRS-6: OpSeq 해석 ─────────────────────────────────────────────────

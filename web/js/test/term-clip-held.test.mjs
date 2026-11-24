@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { CONSTANTS, load, fakeClock, TERM_PANE } from './harness.mjs';
+import { CONSTANTS, load, fakeClock, fakeTermChannel, TERM_PANE } from './harness.mjs';
 
 /**
  * UX_BATCH11_SRS — 터미널 복사·붙여넣기 키 규칙(FR-TCP)과 끊긴 동안의 입력 보류(FR-HIN).
@@ -9,24 +9,21 @@ import { CONSTANTS, load, fakeClock, TERM_PANE } from './harness.mjs';
  * 클립보드 쓰기·토스트는 대역이다. 재는 것은 **어느 키가 무엇이 되는가**와 **무엇이 언제
  * 소켓으로 나가는가**다 — 클립보드 3단 자체는 FR-ETR-40 의 검사가 잰다.
  */
+let F = null;
 function pane() {
   const clock = fakeClock();
-  const opened = [];
-  class FakeWS {
-    constructor(url) { this.url = url; this.readyState = 0; this.closed = 0; this.sent = []; opened.push(this) }
-    send(m) { this.sent.push(m) }
-    close() { this.closed++; this.readyState = 3 }
-  }
   const toasts = [];
   const ctx = load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS, 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', ...TERM_PANE], {
     clock,
     globals: {
-      WebSocket: FakeWS, location: { protocol: 'http:', host: 'h' },
+      location: { protocol: 'http:', host: 'h' },
       Toast: { show: (text, kind) => { toasts.push([text, kind]); return {} } },
       ErrorLog: { quiet: (_k, fn) => { try { fn() } catch { /* 대역 */ } } },
     },
-    expose: ['TerminalTool', 'OP', 'TOPTS', 'ClipboardWriter', 'TERM_HELD_MAX', 'TERM_OVERLAY_HIDE_MS', 'termHeldPreview'],
+    expose: ['TerminalTool', 'OP', 'TOPTS', 'ClipboardWriter', 'TERM_HELD_MAX', 'TERM_OVERLAY_HIDE_MS', 'termHeldPreview', 'TERM_MUX'],
   });
+  F = fakeTermChannel(ctx);
+  const opened = F.opened;
   ctx.app = { isMobile: false, focus: { owner: { resizeCheck: () => false } } };
   const copied = [];
   let copyOk = true;
@@ -51,8 +48,8 @@ function pane() {
   };
 }
 
-const openSock = (ws) => { ws.readyState = 1; ws.onopen() };
-const dropSock = (ws) => { ws.readyState = 3; ws.onclose() };
+const openSock = (ws) => F.openSock(ws);
+const dropSock = (ws) => F.dropSock(ws);
 const texts = (ws) => ws.sent.filter((m) => m[0] === 0).map((m) => new TextDecoder().decode(m.subarray(1)));
 const key = (k, m = {}) => Object.assign({ key: k, type: 'keydown', ctrlKey: false, shiftKey: false, altKey: false, metaKey: false }, m);
 

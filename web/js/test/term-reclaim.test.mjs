@@ -187,7 +187,7 @@ test('전량 재생 요청은 좌표를 버린다 — since 가 있으면 서버
   const h = pane({ owner: true });
   h.p._seq = 4096;
   h.p._seqLive = true;
-  h.p.ws = { close() {} };
+  h.p._sock.want = true;              // 붙어 있다(또는 붙는 중이다)
   h.p.reconnectNow = () => true;   // 소켓을 실제로 열지 않는다
   h.p.sizer._refreshForWidth();
   assert.equal(h.p._seq, -1, '좌표를 들고 재연결하면 델타가 와서 스크롤백이 그대로다');
@@ -196,7 +196,7 @@ test('전량 재생 요청은 좌표를 버린다 — since 가 있으면 서버
 
 test('전량 재생 요청은 재연결 오버레이를 띄우지 않는다 — 우리가 거는 갱신이다', () => {
   const h = pane({ owner: true });
-  h.p.ws = { close() {} };
+  h.p._sock.want = true;              // 붙어 있다(또는 붙는 중이다)
   let opts = null;
   h.p.reconnectNow = (o) => { opts = o; return true };
   h.p.sizer._refreshForWidth();
@@ -205,7 +205,7 @@ test('전량 재생 요청은 재연결 오버레이를 띄우지 않는다 — 
 
 test('종료·파괴된 pane 은 다시 붙지 않는다', () => {
   const h = pane({ owner: true });
-  h.p.ws = { close() {} };
+  h.p._sock.want = true;              // 붙어 있다(또는 붙는 중이다)
   h.p.reconnectNow = () => { throw new Error('불리면 안 된다') };
   h.p._exited = true;
   assert.equal(h.p.sizer._refreshForWidth(), false);
@@ -243,7 +243,7 @@ test('V-M11-1: 소켓이 없어도 폭이 바뀌면 좌표를 버린다', () => 
   const h = pane({ owner: true });
   h.p._seq = 4096;
   h.p._seqLive = true;
-  h.p.ws = null;
+  // 붙은 적이 없다 — 손잡이(`ws`)가 없다.
   h.p.reconnectNow = () => { throw new Error('소켓이 없는데 다시 붙이려 했다 (D-M11-1)') };
   assert.equal(h.p.sizer._refreshForWidth(), false, '반환값의 뜻은 "지금 다시 붙였는가" 다');
   assert.equal(h.p._seq, -1, '좌표를 들고 있으면 다음 접속이 델타가 된다 — M11-B1 의 자리다');
@@ -254,7 +254,7 @@ test('V-M11-2: 좌표를 버리는 갈래는 디코더 판정을 지난다', () 
   const h = pane({ owner: true });
   h.p._seq = 4096;
   h.p._outputBuf = '반쪽';
-  h.p.ws = null;
+  // 붙은 적이 없다 — 손잡이(`ws`)가 없다.
   h.p.sizer._refreshForWidth();
   assert.equal(h.p._outputBuf, '', '반쪽 멀티바이트가 전량 재생의 첫 바이트에 이어 붙는다 (FR-TRS-4)');
 });
@@ -264,7 +264,7 @@ test('V-M11-3: 종료·파괴된 pane 은 좌표조차 버리지 않는다', () 
     const h = pane({ owner: true });
     h.p._seq = 4096;
     h.p._seqLive = true;
-    h.p.ws = null;
+    // 붙은 적이 없다 — 손잡이(`ws`)가 없다.
     h.p[flag] = true;
     assert.equal(h.p.sizer._refreshForWidth(), false);
     assert.equal(h.p._seq, 4096, `${flag} 인데 좌표를 건드렸다`);
@@ -276,7 +276,7 @@ test('V-M11-4: 소켓이 있을 때의 동작은 종전과 같다', () => {
   const h = pane({ owner: true });
   h.p._seq = 4096;
   h.p._seqLive = true;
-  h.p.ws = { close() {} };
+  h.p._sock.want = true;              // 붙어 있다(또는 붙는 중이다)
   let opts = null;
   h.p.reconnectNow = (o) => { opts = o; return true };
   assert.equal(h.p.sizer._refreshForWidth(), true);
@@ -296,7 +296,7 @@ test('V-M11-5: 되찾기가 소켓 없이 폭 전환을 만나면 보일 때 다
   h.p._seqLive = true;
   h.hide();                             // 숨은 pane — doFit 을 돌리지 않는다
   h.claim();                            // 포커스가 돌아온다
-  h.p.ws = null;                        // 그런데 소켓은 재접속 중이다
+  h.p._sock.want = true; h.p._sock.retryArmed = true;   // 그런데 재접속이 백오프로 돌고 있다
   h.p.reconnectNow = () => { throw new Error('백오프가 도는 중에 하나를 더 걸었다') };
   h.ctx.location = { protocol: 'http:', host: 'h' };
   const s = h.p.sizer.ptySize();
@@ -305,5 +305,5 @@ test('V-M11-5: 되찾기가 소켓 없이 폭 전환을 만나면 보일 때 다
   h.show();
   h.p.sizer.doFit();
   h.p.sizer.ptySize();
-  assert.ok(!/since=/.test(h.p._wsURL()), 'since 를 달고 붙으면 델타가 와서 옛 폭의 그림이 남는다 (M11-B1)');
+  assert.equal(h.p._termOpenArgs().since, undefined, 'since 를 달고 붙으면 델타가 와서 옛 폭의 그림이 남는다 (M11-B1)');
 });
