@@ -1,9 +1,8 @@
-//! 원격 명령 허브의 HTTP 표면 (Go `commands.go`): `/api/commands`(POST)·`/api/commands/sse`·
-//! `/api/command-result`. otterctl 이 POST 하고, 브라우저가 SSE 로 받아 실행한다.
+//! 원격 명령 허브의 HTTP 표면 (Go `commands.go`): `/api/commands`(POST). otterctl 이 POST 하고,
+//! 브라우저가 채널의 `cmd` 로 받아 실행한다 (`perf/CHANNEL_PROTOCOL.md` C2a).
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::time::Duration;
 
 use http::{Method, StatusCode};
 use otter_shared_httpresp::{self as httpresp, Response};
@@ -15,12 +14,9 @@ use serde_json::Value;
 
 use crate::Server;
 use crate::entity_name::{command_name_answer, reject_command_answer};
-use crate::httperr::{BodyRead, fail, fail_read, http_err, read_body_http};
+use crate::httperr::{fail, fail_read, http_err};
 use crate::openurl::{OPEN_URL_ACTION, WHERE_LOCAL, open_url_target};
 use crate::req::Req;
-
-/// SSE 인사의 주기다 (FR-RLC-20a).
-pub(crate) const SSE_HELLO_EVERY: Duration = Duration::from_secs(15);
 
 /// uuid 를 좌표로 바꾸지 않고 그대로 넘기는 명령이다(이름 바꾸기는 uuid 로 탭을 찾는다).
 const UUID_LOCATION_ACTIONS: &[&str] = &["renameTab", "renameWindow"];
@@ -110,24 +106,6 @@ struct CommandResp {
     timed_out: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     r#where: Option<String>,
-}
-
-/// POST /api/command-result 의 본문.
-#[derive(Deserialize, Default)]
-#[serde(default)]
-struct CommandResultBody {
-    #[serde(rename = "reqId")]
-    req_id: String,
-    #[serde(rename = "newWindows")]
-    new_windows: Option<Vec<String>>,
-    #[serde(rename = "newPanes")]
-    new_panes: Option<Vec<String>>,
-    #[serde(rename = "newTabs")]
-    new_tabs: Option<Vec<TabRef>>,
-    #[serde(rename = "newGroups")]
-    new_groups: Option<Vec<String>>,
-    position: Option<CmdPosition>,
-    error: String,
 }
 
 fn not_allowed() -> Response {
@@ -221,89 +199,6 @@ impl Server {
         );
     }
 
-    /// POST /api/command-result: 브라우저가 생성 명령의 결과를 돌려준다.
-    pub(crate) async fn handle_command_result(&self, r: &mut Req) -> Response {
-        if r.method != Method::POST {
-            return not_allowed();
-        }
-        let body: CommandResultBody = match read_body_http(r).await {
-            BodyRead::Ok(b) => b,
-            BodyRead::Answered(res) => return res,
-            BodyRead::NotJson => {
-                return http_err(
-                    "invalid json",
-                    StatusCode::BAD_REQUEST,
-                    apierr::CODE_INVALID_JSON,
-                );
-            }
-        };
-        if !body.req_id.is_empty()
-            && let Some(c) = self.commands()
-        {
-            c.deliver_result(
-                &body.req_id,
-                CmdResult {
-                    new_windows: body.new_windows,
-                    new_panes: body.new_panes,
-                    new_tabs: body.new_tabs,
-                    new_groups: body.new_groups,
-                    position: body.position,
-                    error: body.error,
-                },
-            );
-        }
-        http::Response::new(httpresp::empty())
-    }
-
-    /// GET /api/commands/sse: 명령 방송을 받는다. 칸 소유권(옛 `?presence=1`)은 채널의 `slots` 가
-    /// 쥔다 (`perf/CHANNEL_PROTOCOL.md` C1).
-    pub(crate) async fn handle_command_sse(&self, r: &mut Req) -> Response {
-        let q = r.query();
-        let cid = q.get_or_empty("clientId");
-        let (res, mut st) = otter_webserver_sse::start(otter_webserver_sse::WRITE_TIMEOUT);
-        let Some(sub) = self.commands().and_then(|c| c.add()) else {
-            reject_sub(st);
-            return res;
-        };
-        let Some(me) = self.arc() else {
-            return res;
-        };
-        let remote = r.remote_addr.clone();
-        tokio::spawn(async move {
-            let release = me.attach_sse_leases(&cid, &remote, false);
-            if let Some(u) = me.deps.updates.clone() {
-                tokio::task::spawn_blocking(move || u.trigger());
-            }
-            let hello = me.hello_event();
-            st.comment("connected");
-            st.data(&hello);
-            if st.flush().await && (!me.foreground_on_connect(&mut st) || st.flush().await) {
-                me.pump_command_sse(&mut st, &sub, &hello).await;
-            }
-            release();
-            if let Some(c) = me.commands() {
-                c.remove(&sub);
-            }
-        });
-        res
-    }
-
-    fn foreground_on_connect(&self, st: &mut otter_webserver_sse::Stream) -> bool {
-        let Some(t) = &self.deps.tools else {
-            return false;
-        };
-        let Some(tools) = t.list_ok() else {
-            return false;
-        };
-        if tools.is_empty() {
-            return false;
-        }
-        for ev in hub::foreground_snapshot(&tools) {
-            st.data(&ev);
-        }
-        true
-    }
-
     /// Go `attachSSELeases`: 이 구독이 붙어 있는 동안의 임대(포커스 소유 등)다. 역순으로 푼다.
     pub(crate) fn attach_sse_leases(
         self: &Arc<Self>,
@@ -347,62 +242,6 @@ impl Server {
             }
         }
     }
-
-    async fn pump_command_sse(
-        &self,
-        st: &mut otter_webserver_sse::Stream,
-        s: &Arc<hub::CmdSub>,
-        hello: &[u8],
-    ) {
-        let mut keep = tokio::time::interval_at(
-            tokio::time::Instant::now() + self.hello_interval(),
-            self.hello_interval(),
-        );
-        let gone = st.closed();
-        tokio::pin!(gone);
-        loop {
-            tokio::select! {
-                _ = &mut gone => return,
-                _ = s.closed() => return,
-                m = s.recv() => match m {
-                    Some(msg) => {
-                        st.data(&msg);
-                        st.drain_data(|| s.try_recv());
-                    }
-                    None => return,
-                },
-                _ = keep.tick() => st.data(hello),
-            }
-            if !st.flush().await {
-                return;
-            }
-        }
-    }
-
-    pub(crate) fn hello_interval(&self) -> Duration {
-        match *self.hello_every.lock().unwrap_or_else(|e| e.into_inner()) {
-            Some(d) if !d.is_zero() => d,
-            _ => SSE_HELLO_EVERY,
-        }
-    }
-
-    /// Go `helloEvent`: 판을 알면 `assetVersion` 을 싣는다 (FR-AVS-3).
-    pub(crate) fn hello_event(&self) -> Vec<u8> {
-        let v = self.asset_version();
-        if v.is_empty() {
-            return otter_webserver_sse::payload::<()>("server_hello", None);
-        }
-        let mut m = BTreeMap::new();
-        m.insert("assetVersion", v);
-        otter_webserver_sse::payload("server_hello", Some(&m))
-    }
-}
-
-fn reject_sub(mut st: otter_webserver_sse::Stream) {
-    tokio::spawn(async move {
-        st.data(br#"{"action":"subscribeRejected"}"#);
-        st.flush().await;
-    });
 }
 
 async fn parse_command_post(r: &Req) -> Result<CommandPostReq, Response> {

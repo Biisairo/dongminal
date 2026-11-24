@@ -12,7 +12,7 @@ Otterminal 서버는 기동 시 `$OTTERMINAL_HOME/bin/` 에 헬퍼를 설치하�
 
 ## `otterctl` — 워크스페이스 원격 제어
 
-실행 중인 브라우저(들)에게 `/api/commands` 로 명령을 브로드캐스트합니다. SSE (`/api/commands/sse`) 로 구독 중인 모든 탭이 동일한 동작을 수행합니다.
+실행 중인 브라우저(들)에게 `/api/commands` 로 명령을 브로드캐스트합니다. 채널(`/channel`, `hello.client` 를 밝힌 연결)로 구독 중인 모든 탭이 동일한 동작을 수행합니다.
 
 ### 서브커맨드
 

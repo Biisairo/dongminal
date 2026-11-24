@@ -54,15 +54,16 @@ test('TC-AVS-10 (FR-AVS-4·5): 서빙된 문서의 판은 치환된 해시다', 
 const triggerCheck = (page: Page) =>
   page.evaluate(() => {
     const w = window as any;
-    try { w.app.bus._es.close() } catch {}
+    try { w.app.testing.channel._ws.close() } catch {}
     document.dispatchEvent(new Event('visibilitychange'));
   });
 
 // 인사가 닿았다 — 그 뒤의 탭 복귀는 보조 확인을 내지 않는다.
 const helloSeen = (page: Page) =>
   page.waitForFunction(() => {
-    const st = (window as any).app?.bus?.stats?.();
-    return !!st && st.topics.some((t: any) => t.topic === 'server_hello' && t.count > 0) && st.channel.alive;
+    const app = (window as any).app;
+    const st = app?.bus?.stats?.();
+    return !!st && st.topics.some((t: any) => t.topic === 'chan:open' && t.count > 0) && !!app.channel?.alive();
   }, undefined, { timeout: 10000 });
 
 // 문서가 다시 뜨면 사라지는 표식. 새로고침의 유일한 관측 수단이다.
@@ -149,7 +150,7 @@ test.describe('묶음 P — 새 버전 자동 새로고침', () => {
     // 저절로 되풀이되는지만 봤는데, 다시 선 문서는 스스로 확인을 내지 않아 고리가 열려
     // 있어도 드러나지 않았다.
     await page.waitForFunction(
-      () => typeof (window as any).__otterAssetVersion === 'function' && !!(window as any).app?.bus?._es,
+      () => typeof (window as any).__otterAssetVersion === 'function' && !!(window as any).app?.channel,
       undefined, { timeout: 15000 });
     await probeChecks(page);
     await triggerCheck(page);
@@ -306,11 +307,11 @@ test('TC-RLC-10b (FR-RLC-5a): 만진 적 있는 페이지에서도 대화가 뜨
 
 // ── 묶음 S — 서버의 인사 (TC-RLC-22·23) ──
 //
-// 서버가 SSE 연결 직후 자기 판을 말한다 (FR-RLC-20). 화면은 그것을 자기 것과
+// 서버가 채널 인사에서 자기 판을 말한다 (FR-RLC-20, CHANNEL_PROTOCOL C2a). 화면은 그것을 자기 것과
 // 견주고, 다르면 그 자리에서 다시 연다 — 주기적으로 물어볼 필요가 없다.
 
-// SSE 가 나르는 인사를 흉내낸다. 실제 서버가 그 모양으로 보내는지는 Go 쪽
-// TestHandleCommandSSE_ServerHello 가 따로 잰다.
+// 채널이 나르는 인사를 흉내낸다. 실제 서버가 그 모양으로 보내는지는 Rust 쪽
+// `tests/channel.rs` hello_answers_epoch_and_server_info 가 따로 잰다.
 const sendHello = (page: Page, v: string) =>
   page.evaluate((ver) => {
     const f = (window as any).__otterAssetVersion;
@@ -350,80 +351,55 @@ test('TC-RLC-22b (FR-RLC-23): 인사도 되풀이 방지를 따른다', async ({
   expect(await survived(page)).toBe(true);
 });
 
-// ── FR-RLC-25~28: SSE 의 침묵 (TC-RLC-25·26·27) ──
+// ── FR-RLC-25~28: 채널의 침묵 (TC-RLC-25·26·27) ──
 //
 // 접수한 물음이 이 묶음의 이유다 — *"잠자기 중에 업데이트되면 모를 거 아니냐."*
 // 잠에서 깬 기기의 소켓은 **끊긴 줄 모른 채 `OPEN` 으로 남는다**. 그때
 // `readyState` 는 1 이라 기존 깨어남 처리가 건드리지 않고, 재연결이 없으니
 // 인사도 오지 않는다 — 판 소식만이 아니라 명령·워크스페이스도 함께 멎는다.
+// 판정은 채널이 한다 (CHANNEL_PROTOCOL §7 · C2a).
 
-// 지금 구독이 몇 번째로 열린 것인지. 다시 열렸는지를 이 수로 판정한다.
-const sseGen = (page: Page) => page.evaluate(() => (window as any).app.testing.sseGen || 0);
+// 지금 연결이 몇 번째로 열린 것인지. 다시 열렸는지를 이 수로 판정한다.
+const chanGen = (page: Page) => page.evaluate(() => (window as any).app.testing.channel.gen() || 0);
 
-// 침묵을 흉내낸다 — 실제로 45초를 기다릴 수는 없다.
-//
-// QUALITY_FIX_SRS FR-QFX-2: 시각만 밀면 흉내가 아니다. 다음 감시 틱(5초) 전에 실제 수신이 오면
-// FR-RLC-28 대로 시각이 지금으로 돌아오고, 구독은 침묵하지 않은 것이 된다 — 셸이 뜬 직후의 전경
-// 이름 알림(UX_AUDIT_FIX_SRS FR-UXF-65, `"" → "~"`)이 바로 그 수신이라 TC-RLC-25 가 늘 실패했다.
-// 그래서 지금 구독의 수신 처리기를 뗀다: half-open 소켓처럼 아무것도 앱에 닿지 않는다(D-QFX-2).
-// 다시 연 구독은 새 `EventSource` 라 처리기가 새로 붙는다.
+// 침묵을 흉내낸다 — half-open 소켓처럼 아무것도 앱에 닿지 않게 수신 처리기를 떼고(D-QFX-2),
+// 마지막 수신 시각을 민다. 다시 연 소켓은 새 처리기를 붙인다.
 const fakeSilence = (page: Page, ms: number) =>
   page.evaluate((back) => {
-    const t = (window as any).app.testing;
-    t.cmdES.onmessage = null;
-    t.sseSeen = Date.now() - back;
+    const ch = (window as any).app.testing.channel;
+    ch._ws.onmessage = null;
+    ch._seen = Date.now() - back;
   }, ms);
 
 test('TC-RLC-27 (FR-RLC-25·28): 수신이 이어지는 동안에는 끊지 않는다', async ({ page }) => {
   await waitForInit(page);
-  const gen = await sseGen(page);
-  expect(gen, '구독 세대를 셀 수 없다').toBeGreaterThan(0);
-  // 서버가 인사를 15초마다 보내므로 그동안은 침묵이 아니다. 종전 3초 창은 감시 주기
-  // (`SSE_SILENCE_CHECK_MS`=5초)보다 짧아 감시가 한 번도 돌지 않을 수 있었다
-  // (E2E_PRUNE_REPORT §8.6). 감시 job 을 직접 한 번 돌리고, 돌았음을 확인한 뒤 본다.
-  const ran = await page.evaluate(() => {
-    const app = (window as any).app;
-    const job = app.timers._jobs.get('sse.silence');
-    const before = job.runs;
-    app.bus._silentJob.poke();
-    return job.runs - before;
-  });
-  expect(ran, '침묵 감시가 돌지 않았다').toBe(1);
-  expect(await sseGen(page), '멀쩡한 구독을 끊었다').toBe(gen);
+  const gen = await chanGen(page);
+  expect(gen, '연결 세대를 셀 수 없다').toBeGreaterThan(0);
+  // 감시 한 번을 직접 돌린다 — 주기를 기다리면 돌았는지 알 수 없다.
+  await page.evaluate(() => (window as any).app.testing.channel._tick());
+  expect(await chanGen(page), '멀쩡한 연결을 끊었다').toBe(gen);
 });
 
 test('TC-RLC-26 (FR-RLC-26): 깨어남의 계기에서 침묵을 즉시 판정한다', async ({ page }) => {
   await waitForInit(page);
-  const gen = await sseGen(page);
+  const gen = await chanGen(page);
 
   // 잠에서 깬 half-open 소켓 — 브라우저는 여전히 OPEN 이라고 믿는다.
-  expect(await page.evaluate(() => (window as any).app.testing.cmdES?.readyState)).toBe(1);
+  expect(await page.evaluate(() => (window as any).app.testing.channel.alive())).toBe(true);
   await fakeSilence(page, 120000);
 
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-  await page.waitForFunction((g) => ((window as any).app.testing.sseGen || 0) > g, gen, { timeout: 10000 });
-  expect(await sseGen(page)).toBeGreaterThan(gen);
+  await page.waitForFunction((g) => ((window as any).app.testing.channel.gen() || 0) > g, gen, { timeout: 10000 });
+  expect(await chanGen(page)).toBeGreaterThan(gen);
 });
 
 test('TC-RLC-25 (FR-RLC-25): 침묵이 상한을 넘으면 스스로 다시 연다', async ({ page }) => {
   await waitForInit(page);
-  const gen = await sseGen(page);
-
-  // FR-EQS-8: 초기 트래픽이 흐르는 동안 침묵을 흉내내면 **곧바로 덮인다** —
-  // 어떤 수신이든 `_sseSeen` 을 현재로 되돌린다 (FR-RLC-28). 조작 직전에 화면이
-  // 멎기를 기다린다 (E2E_QUIESCENCE_SRS §2.3).
+  const gen = await chanGen(page);
+  // FR-EQS-8: 초기 트래픽이 흐르는 동안 침묵을 흉내내면 곧바로 덮인다 — 화면이 멎기를 기다린다.
   await waitSettled(page);
-
-  // 감시 주기(5초)를 200ms 로 당긴다 — 재는 것은 "주기가 돌면 되살린다" 이지 주기의 길이가
-  // 아니다 (E2E_PRUNE_REPORT §8.2 (a′)). job 은 주기를 함수로 읽으므로 그것을 바꾸고 다시 건다.
-  await page.evaluate(() => {
-    const t = (window as any).app.timers;
-    t._jobs.get('sse.silence').every = () => 200;
-    t.refreshChanged();
-  });
-
-  // 깨어남의 계기 없이도 감시가 돈다 — 화면을 보고 있지 않아도 되살아나야 한다.
+  // 깨어남의 계기 없이도 ping 주기의 감시가 돈다 — 화면을 보고 있지 않아도 되살아나야 한다.
   await fakeSilence(page, 120000);
-  await page.waitForFunction((g) => ((window as any).app.testing.sseGen || 0) > g, gen, { timeout: 20000 });
-  expect(await sseGen(page)).toBeGreaterThan(gen);
+  await page.waitForFunction((g) => ((window as any).app.testing.channel.gen() || 0) > g, gen, { timeout: 20000 });
+  expect(await chanGen(page)).toBeGreaterThan(gen);
 });
