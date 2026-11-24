@@ -42,7 +42,7 @@
 | `t` | 필드 | 뜻 |
 |---|---|---|
 | `hello` | `client?`, `slots:[칸 신원...]` | 첫 프레임. 이 채널이 대표하는 신원이다. 서버는 `client` 에 포커스·git·파일 감시 임대를, `slots` 의 신원마다 포커스·git 임대를 쥔다(지금 `attach_sse_leases` 의 일반 구독과 presence 구독). 칸 수가 바뀌면 `hello` 를 다시 보내고, 서버는 빠진 신원의 임대를 푼다. `client` 는 명령 SSE 를 지우는 C2 부터 싣는다 — 그 전에는 같은 신원의 임대를 SSE 와 채널이 나눠 쥐어 먼저 끊긴 쪽이 소유권을 풀어 버린다 |
-| `sub` | `topic`, `seq?` | 토픽을 구독한다. `seq` 는 브라우저가 가진 마지막 순번이다(§5) |
+| `sub` | `topic`, `seq?`, `epoch?` | 토픽을 구독한다. `seq` 는 브라우저가 가진 마지막 순번이고 `epoch` 는 그 순번을 받은 서버의 `epoch` 다(§5) |
 | `unsub` | `topic` | 구독을 해지한다 |
 | `ping` | `n` | 생존 확인과 지연 측정(§7) |
 | `cmd.result` | `reqId`, 결과 필드 | 서버→브라우저 명령의 결과(지금 `POST /api/command-result` 본문과 같다) |
@@ -170,3 +170,23 @@
 | 서버 채널 | 구독·해지, 구독하지 않은 토픽은 오지 않는다, 순번 단조 증가, 링 안 재구독은 변화량만, 링 밖·epoch 다름은 full, 우선순위 큐, 상한(토픽 합치기·터미널 재스냅숏·채널 닫기), 신원 임대가 채널 수명과 같다 |
 | 프론트 채널 | 재연결 시 마지막 순번으로 재구독, 빈틈 발견 시 재구독, 침묵 판정, `ping` 주기(보일 때·숨었을 때), `sid` 로 터미널 프레임 나누기 |
 | e2e | 브라우저 탭 하나에 WebSocket 하나, 유휴 1분 동안 상태용 GET 0, 채널을 끊었다 이었을 때 모든 토픽이 서버와 같다(NFR-PRF-15) |
+
+## 11. 구현 계약 (토픽 기반 — C2~C5 가 딛는다)
+
+### 11.1 서버 (`rust/crates/webserver/httpapi/src/channel/`)
+
+- `TopicHub` 하나를 `Server` 가 갖는다(`self.topics`). 토픽마다 **지금 상태**를 든다: full 토픽은 마지막 값, delta 토픽은 `id → 값` 맵, event 토픽은 상태가 없다. 그래서 `full` 은 언제나 허브가 가진 상태에서 만든다.
+- 발행: `publish_full(topic, Value)`, `publish_delta(topic, Vec<DeltaOp>)`(`DeltaOp::Put{id,v}` · `DeltaOp::Del{id}`, 상태 맵에 적용한다), `publish_event(topic, Value)`. 발행마다 순번이 1 오르고 링(`TOPIC_RING`=64)에 들어간다. 구독자가 없어도 상태와 순번은 갱신한다.
+- 처음 상태: `register_seed(prefix, f)` — 상태가 아직 없는 토픽을 처음 구독할 때 `f(&Server, topic) -> BoxFuture<Option<Seed>>` 를 한 번 불러 채운다(`Seed::Full(Value)` · `Seed::Map(BTreeMap<String,Value>)`). `prefix` 는 `"workspace"` 처럼 정확한 이름이거나 `"git:"` 처럼 `:` 로 끝난다. seed 가 없는 토픽을 구독하면 `error{code:"unknown_topic"}` 다.
+- 채널 쪽: 채널마다 `Outbox` 하나. 차선 셋 — 제어 > 터미널 > 상태(§6). 상태 차선은 토픽마다 합친다(full 은 최신만, delta 가 `TOPIC_PENDING_MAX`=64 를 넘으면 full 로 바꾼다). 채널 전체 `CHANNEL_PENDING_MAX`=8 MB 를 넘으면 닫는다. 쓰기 태스크 하나가 Outbox 를 비운다.
+- 메시지 처리: `sub`·`unsub` 을 C1 의 읽기 루프에 더한다. 재구독 판정은 §5.1(epoch 다름·링 밖 → full/reset, 링 안 → 이어지는 것, 같으면 없음).
+- 구독자가 생기고 없어지는 순간을 알 수 있게 `on_demand(prefix, f(topic, active: bool))` 를 둔다(`stats` 측정·git 감시 임대가 쓴다).
+
+### 11.2 프론트 (`web/js/core/channel.js`)
+
+- `sub(topic, fn, {owner})` → `{stop()}`. 같은 토픽에 구독자가 여럿일 수 있고, 첫 구독자가 서버 `sub` 를, 마지막 해지가 서버 `unsub` 를 보낸다.
+- `fn(msg)` 의 `msg`: `{kind:'full', data, seq}` · `{kind:'delta', ops, seq}` · `{kind:'event', data, seq}` · `{kind:'reset'}`.
+- 토픽마다 마지막 `seq` 와 그것을 받은 `epoch` 를 든다. 빈틈이면 `sub{topic, seq, epoch}` 를 다시 보내고 그 사이의 프레임은 버린다. 다시 연결하면 서버 `hello` 뒤에 구독 중인 토픽 전부를 `sub{topic, seq, epoch}` 로 다시 보낸다.
+- 도우미 `chanApply(map, ops)` — delta 를 `Map` 에 적용한다. `full` 이 delta 토픽에 오면 `data` 는 `{id: 값}` 객체다.
+- 원시 수신: `on(t, fn)` — `cmd` 처럼 토픽이 아닌 종류(C2), `onBinary(fn)` — 터미널 프레임(C5).
+- 보내기: `send(v)`(열려 있을 때만, 아니면 false), `sendBinary(u8)`.
