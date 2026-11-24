@@ -10,15 +10,6 @@ publish = false
 workspace = true
 
 [dependencies]
-bytes = { workspace = true }
 otter-gocompat = { path = "../../gocompat" }
 otter-shared-otterlog = { path = "../../shared/otterlog" }
-otter-shared-httpresp = { path = "../../shared/httpresp" }
-http = { workspace = true }
-http-body-util = { workspace = true }
-hyper = { workspace = true }
 serde = { workspace = true }
-tokio = { workspace = true }
-
-[dev-dependencies]
-hyper-util = { workspace = true }

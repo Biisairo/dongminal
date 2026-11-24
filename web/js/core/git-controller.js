@@ -161,10 +161,9 @@ class GitController extends Controller {
     this.app.editor.pane._edAfterGitSignal(kind);
   }
 
-  // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 탐색기·dirty-diff 가 나눠 쓰는 status. 요청은
-  // 이 탭의 신원을 싣는다 — 탐색기도 서버 감시의 임대를 쥔다 (IPC-8).
+  // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 탐색기·dirty-diff 가 나눠 쓰는 status.
   gitStatusHub(){
-    if(!this._gitHub) this._gitHub=new GitStatusHub({clientId:()=>this.app.clientId||''});
+    if(!this._gitHub) this._gitHub=new GitStatusHub();
     return this._gitHub;
   }
 

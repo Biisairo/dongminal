@@ -2570,16 +2570,9 @@ dependencies = [
 name = "otter-webserver-sse"
 version = "1.3.7"
 dependencies = [
- "bytes",
- "http",
- "http-body-util",
- "hyper",
- "hyper-util",
  "otter-gocompat",
- "otter-shared-httpresp",
  "otter-shared-otterlog",
  "serde",
- "tokio",
 ]
 
 [[package]]

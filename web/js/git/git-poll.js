@@ -252,14 +252,8 @@ class GitPoll extends GitPart {
     // 타이머는 살아 있는데 status 만 멎는 모양이다 (TC-SVS-64 · Windows 러너 실측:
     // 46초 동안 signature 요청만 돌았다). 넘기면 망 실패와 같은 길을 간다 — 이전
     // 화면을 지키고 백오프를 지난다.
-    // GIT_WATCH_LEASE_SRS FR-GWL-9: **누가 보는지를 함께 말한다.**
-    //
-    // 종전에는 이 요청 자체가 서버 감시의 수명이었다 — 90초 안에 다음 요청이 오지
-    // 않으면 감시가 걷히고 `git_changed` 방송이 멎었다. 그래서 안전망을 끄면 본줄이
-    // 끊겼다 (GP-1). `clientId` 를 실으면 그 신원의 SSE 구독이 임대를 쥐므로,
-    // 이 요청이 뜸해져도 아예 끊겨도 감시가 산다.
+    // 감시의 임대는 채널의 `git:<root>` 토픽 구독이 쥔다 — 이 요청은 신원을 싣지 않는다.
     const q={repo};
-    if(this.app&&this.app.clientId) q.clientId=this.app.clientId;
     /**
      * OPTIMIZE_REFACTOR_SRS FR-OPT-4-7 (IPC-30): **가진 관측의 mark 를 싣는다.**
      *

@@ -158,10 +158,8 @@ const SB_TAB_DEFS=[
     // FR-GOB-9: 들어간 순간 등록된 리포 전부를 관측한다. 다음 폴링(3초)을
     // 기다리면 사용자는 낡은 배지를 먼저 본다.
     //
-    // 둘 다 합치는 줄(`gitReposKick`)로 보낸다 — 들고 나기를 빨리 되풀이하면 `observe=1`
-    // 과 `observe=0` 이 동시에 떠 서버에 뒤바뀐 순서로 닿고, 임대가 남거나 사라진다.
+    // 둘 다 합치는 줄(`gitReposKick`)로 보낸다 — 들고 나기를 빨리 되풀이해도 요청이 겹치지 않는다.
     onEnter:app=>{if(app.git.sync.gitReposKick)app.git.sync.gitReposKick()},
-    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-3: 떠나면 핀 임대를 놓는다 (`observe=0`).
     onLeave:app=>{if(app.git.sync.gitReposKick)app.git.sync.gitReposKick()},
     list:{
       containerId:REPO_LIST_ID,

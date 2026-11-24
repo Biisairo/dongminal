@@ -206,7 +206,7 @@ class FileTreeLoad {
     if(!(opts&&opts.now)&&this.tree._gitRetryAt&&now<this.tree._gitRetryAt) return;
     this.tree._gitBusy=true;
     // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 같은 root 의 물음은 GitStatusHub 가 한 벌로
-    // 나눠 쓴다 (FEU-5). 요청은 clientId 를 실어 서버 감시의 임대를 쥔다 (IPC-8).
+    // 나눠 쓴다 (FEU-5).
     // 즉시 계기는 방금 한 일(저장·조작·활성화) **뒤의** 답이어야 하므로 캐시를 넘는다 —
     // 그 뒤에 묻는 소비자(열린 문서들)는 이 요청을 나눠 쓴다.
     const hub=this.tree.app.git.gitStatusHub();

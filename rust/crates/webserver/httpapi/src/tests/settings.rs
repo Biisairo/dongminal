@@ -7,18 +7,17 @@
 
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 use otter_webserver_domain_git_core::Service;
 use otter_webserver_domain_git_store::{Store, StoreOptions};
-use otter_webserver_hub::{CommandBroker, GitWatcher};
+use otter_webserver_hub::CommandBroker;
 
 use super::fakes::{FakeBroker, FakeSettings};
 use super::support::{LOCAL, call, get, server};
 use crate::agent_render_env::CLAUDE_NO_FLICKER_ENV;
 use crate::deps::SettingsStore;
 use crate::settings::{FileSettings, parse_fg_tab_names};
-use crate::{Config, Deps, Server};
+use crate::{Deps, Server};
 
 async fn put(s: &Arc<Server>, target: &str, body: &str) -> super::support::Resp {
     call(
@@ -289,76 +288,4 @@ async fn start_git_watch_without_watcher_is_noop() {
     let d = tempfile::tempdir().unwrap();
     let s = server(d.path(), Deps::default());
     s.start_git_watch(tokio_util::sync::CancellationToken::new());
-}
-
-fn lease_server(dir: &std::path::Path) -> Arc<Server> {
-    Server::new_with(
-        Config {
-            data_dir: dir.to_path_buf(),
-            ..Config::default()
-        },
-        Deps::default(),
-        |s| {
-            s.git_watch = Some(GitWatcher::new(None));
-        },
-    )
-}
-
-type Chan = super::wsc::Client;
-
-/// 채널을 열고 인사한다. `cid` 가 비면 `client` 를 싣지 않는다.
-async fn open_channel(s: &Arc<Server>, cid: &str) -> Chan {
-    use super::wsc::{Message, TextOf};
-    use futures_util::{SinkExt, StreamExt};
-    let port = super::ws::listen(s.clone()).await;
-    let mut c = super::wsc::dial(port, "/channel?v=1").await;
-    let mut h = serde_json::json!({"t":"hello","slots":[]});
-    if !cid.is_empty() {
-        h["client"] = serde_json::json!(cid);
-    }
-    c.send(Message::text(h.to_string())).await.unwrap();
-    loop {
-        match tokio::time::timeout(Duration::from_secs(3), c.next()).await {
-            Ok(Some(Ok(Message::Text(t)))) if t.as_str().contains(r#""t":"hello""#) => break,
-            Ok(Some(Ok(_))) => continue,
-            other => panic!("채널 인사가 없다: {other:?}"),
-        }
-    }
-    c
-}
-
-async fn wait_leases(s: &Server, want: usize) {
-    let w = s.git_watch.as_ref().unwrap();
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
-    while tokio::time::Instant::now() < deadline {
-        if w.leases() == want {
-            return;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
-    panic!("임대 수 {}, 기대 {want} (FR-GWL-3)", w.leases());
-}
-
-// TC-CH4-10 (TC-GWL-9 대체): git 감시 임대는 채널의 `git:<repo>` 토픽 구독이 쥔다 — `client` 를
-// 밝힌 채널도 그것만으로는 임대를 만들지 않는다.
-#[tokio::test]
-async fn git_watch_lease_not_held_by_channel_client() {
-    let d = tempfile::tempdir().unwrap();
-    let s = lease_server(d.path());
-    let _body = open_channel(&s, "c1").await;
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    wait_leases(&s, 0).await;
-}
-
-// TC-GWL-10: `client` 없는 채널은 임대를 만들지 않는다.
-#[tokio::test]
-async fn git_watch_lease_anonymous_subscription_holds_nothing() {
-    let d = tempfile::tempdir().unwrap();
-    let s = lease_server(d.path());
-    let _body = open_channel(&s, "").await;
-    assert_eq!(
-        s.git_watch.as_ref().unwrap().leases(),
-        0,
-        "익명 구독이 임대를 얻었다 (FR-GWL-10)"
-    );
 }

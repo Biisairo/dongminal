@@ -34,7 +34,7 @@ test('F-6.2: 비저장소 루트에서는 워치독이 status 폴링을 되살�
   await enter(page, request, root);
   await expect(page.locator('#area .ed-side .git-init')).toBeVisible({ timeout: 15000 });
   const seen: string[] = [];
-  page.on('request', (r) => { if (r.url().includes('/api/git/status?') && r.url().includes('clientId=')) seen.push(r.url()) });
+  page.on('request', (r) => { if (r.url().includes('/api/git/status?')) seen.push(r.url()) });
   // **예외 (`TEST-16`)**: 재는 것이 "일어나지 않음" 이다 — 워치독 회차(렌더 1초)와 기본
   // 주기를 여러 번 넘긴다. 되살아나면 이 사이에 나간다.
   await page.waitForTimeout(7000);

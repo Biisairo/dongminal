@@ -5,7 +5,7 @@
 //!
 //! 이 crate 는 서버 전체의 응답 타입을 정한다. 핸들러는 [`Response`] 를 돌려준다.
 //! 본문은 [`Body`](`BoxBody<Bytes, BoxError>`)이며, 한 번에 쓰는 본문은 [`full`] 로,
-//! 스트림은 `otter-webserver-sse` 처럼 자기 `http_body::Body` 를 [`Body`] 로 감싸 만든다.
+//! 스트림은 자기 `http_body::Body` 를 [`Body`] 로 감싸 만든다.
 
 use bytes::Bytes;
 use http::{HeaderValue, StatusCode, header};
