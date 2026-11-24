@@ -138,6 +138,9 @@ build_one() {
   [[ "$tdir" == /* ]] || tdir="rust/$tdir"
   local ext=""
   [[ "$os" == "windows" ]] && ext=".exe"
+  # 덮어쓰지 않고 지운 뒤 복사한다. macOS 는 서명을 inode 단위로 캐시해서, 같은
+  # 자리에 덮어쓴 바이너리는 서명 불일치로 SIGKILL(Killed: 9) 된다.
+  rm -f "$out"
   cp "$tdir/$triple/release/otterminal$ext" "$out"
   echo "  ✓ $out"
 }
