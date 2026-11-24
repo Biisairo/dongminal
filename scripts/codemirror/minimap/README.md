@@ -31,3 +31,17 @@ CODEMIRROR_MIGRATION_SRS FR-CMR-60~63 · §11.3. `scripts/build-codemirror.mjs` 
 6. `minimapScale(view)` 를 내보낸다 — 미니맵 자체 배치의 좌표 `{slider, fromSlider, posTop, posBottom}`. 앱의 스크롤바가
    미니맵이 켜져 있을 때 thumb · ruler · 끌기에 이것을 쓴다. 줄바꿈 문서에서도 슬라이더와 thumb 가 같은 자리에 선다
    (EDITOR_LINK_LSP_SRS FR-ELS-64).
+7. perf 3.7 — 큰 문서를 열 때 모든 줄을 한 번에 훑지 않는다.
+   - 줄의 span 은 그 줄을 그릴 때 만든다(`TextState.get` → `lineSpans`). 원본 `updateMapImpl` 은 문서 전체를 훑었다.
+     강조가 겹치지 않고 차례대로라는 성질로, 줄마다 따로 만들어도 원본의 한 번 훑기와 결과가 같다.
+   - 칸 수(`lineColumns`)는 줄바꿈이 켜져 있을 때만 센다. 처음 셀 때는 배치를 처음 물은 자리에서 4 ms, 그 뒤로는 이 플러그인의
+     프레임 콜백에서 한 프레임에 8 ms 만큼만 세고, 다 셀 때까지
+     배치가 없다(미니맵은 지난 그림을 두고, 스크롤바는 CM 높이를 쓴다). 다 세면 빈 효과(`columnsCounted`)를 보낸다.
+     한 번 다 센 뒤 문서·접힘이 바뀌면 원본처럼 곧바로 다시 센다.
+   - 줄 그리기(`render` → `drawRows`)는 화면 밖 캔버스에 하고, 다 그리면 보이는 캔버스로 한 번에 옮긴다. 그리는 동안에는
+     지난 그림이 그대로 보인다. 그릴 줄이 256 개 이하면 측정 프레임에서 곧바로 그리고(원본과 같다), 그보다 많으면 다음 프레임부터
+     한 프레임에 8 ms 만큼씩 그린다. 새로 그리면 남은 일은 버린다. 다 그린 그림은 한 번에 그린 것과 같다. `drawnRows` 는 그리기를
+     시작할 때 한 번에 정한다.
+   - 문서 문자열(`doc.toString()`)은 파서가 있을 때만 만든다.
+   - `minimapDrawn` 이 `built`(span 을 만든 줄 수)를 함께 돌려준다. `lineSpans`·`lineColumns` 를 `minimapLineSpans`·
+     `minimapLineColumns` 로 내보낸다(단위 시험용).
