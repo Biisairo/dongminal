@@ -1009,3 +1009,18 @@ fn env_overlay_reaches_tool_shell() {
     assert!(out.contains(&want_home), "{out}");
     assert!(out.contains(&want_bin), "{out}");
 }
+
+/// 기록 줄 수 설정(D-25)은 있는 도구와 뒤에 오는 도구의 줄 저장소 상한이 된다.
+#[test]
+fn history_lines_setting_reaches_every_screen() {
+    let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));
+    let (a, _) = written_tool("a");
+    m.adopt(Arc::clone(&a));
+    let cap = |p: &Tool| p.with_screen(|s, _| s.store().cap()).unwrap();
+    assert_eq!(cap(&a), otter_shared_termstate::HISTORY_CAP);
+    m.set_history_lines(2_000);
+    assert_eq!(cap(&a), 2_000);
+    let (b, _) = written_tool("b");
+    m.adopt(Arc::clone(&b));
+    assert_eq!(cap(&b), 2_000, "뒤에 온 도구도 설정을 따른다");
+}

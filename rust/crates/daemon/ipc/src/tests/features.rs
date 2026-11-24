@@ -128,6 +128,25 @@ async fn attn_config_applies_to_tools() {
     assert!(p.attention(), "attnconfig 의 BEL 허용이 도구에 닿지 않았다");
 }
 
+/// 기록 줄 수 설정(D-25)은 매니저에 얹히고, 범위 밖 값은 거절한다.
+#[tokio::test(flavor = "multi_thread")]
+async fn screen_config_sets_history_lines_and_rejects_out_of_range() {
+    let (d, mut c) = connected(&[], &["t1"]);
+    let pm = &d.srv.inner.pm;
+    assert_eq!(
+        c.call(r#"{"id":1,"method":"screenconfig","params":{"historyLines":2000}}"#),
+        r#"{"id":1,"result":{}}"#
+    );
+    assert_eq!(pm.history_lines(), 2_000);
+    for (id, n) in [(2, 999), (3, 200_001), (4, 0)] {
+        let r = c.call(&format!(
+            r#"{{"id":{id},"method":"screenconfig","params":{{"historyLines":{n}}}}}"#
+        ));
+        assert!(r.contains(r#""code":-32602"#), "{n}: {r}");
+    }
+    assert_eq!(pm.history_lines(), 2_000, "거절한 값은 얹지 않는다");
+}
+
 /// 서버 HTTP 로 온 보고는 report 로 넘어와 보고 소켓과 같은 길을 탄다 — 판정 push, report push,
 /// 응답 순이다.
 #[tokio::test(flavor = "multi_thread")]

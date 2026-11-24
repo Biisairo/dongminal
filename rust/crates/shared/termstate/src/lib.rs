@@ -22,6 +22,17 @@ pub struct Snapshot {
     pub first_line: u64,
 }
 
+/// 데몬 교체(D-27)로 넘기는 화면 상태다. [`Screen::handover`] 가 만들고 [`Screen::restore`] 가 받는다.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Handover {
+    /// 에뮬레이터의 화면·기록(저장소 줄은 빼고)을 다시 그리는 ANSI 다.
+    pub snapshot: Vec<u8>,
+    /// 끝나지 않은 시퀀스·UTF-8 글자의 바이트 수다. 받는 쪽은 출력 원본의 마지막 `back` 바이트를 이어 넣는다.
+    pub back: usize,
+    /// 줄 저장소 그림이다(블록과 절대 줄 번호).
+    pub store: Vec<u8>,
+}
+
 /// 셀의 색이다. 16색 이름 색도 번호로 적는다(xterm.js 와 같은 꼴).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Color {

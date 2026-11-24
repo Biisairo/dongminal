@@ -240,3 +240,105 @@ fn measure_twelve_terminals_of_fifty_thousand_lines() {
     );
     assert!(per_rss <= 8 * 1024 * 1024);
 }
+
+#[test]
+fn lowering_the_cap_drops_old_blocks_at_once_and_raising_it_keeps_more() {
+    let mut s = LineStore::new(5_000);
+    for i in 0..5_000 {
+        s.push(plain(&format!("n{i}")));
+    }
+    assert!(s.len() >= 5_000);
+    s.set_cap(1_000);
+    assert_eq!(s.cap(), 1_000);
+    assert!(
+        s.len() >= 1_000 && s.len() < 1_000 + BLOCK_LINES,
+        "{}",
+        s.len()
+    );
+    assert_eq!(s.end(), 5_000, "번호는 그대로다");
+    let (from, got) = s.lines(s.first(), 1);
+    assert_eq!(got, vec![plain(&format!("n{from}"))]);
+
+    let before = (s.first(), s.len());
+    s.set_cap(3_000);
+    assert_eq!(
+        (s.first(), s.len()),
+        before,
+        "올려도 버린 줄은 돌아오지 않는다"
+    );
+    for i in 5_000..8_000 {
+        s.push(plain(&format!("n{i}")));
+    }
+    assert!(
+        s.len() >= 3_000 && s.len() < 3_000 + BLOCK_LINES,
+        "{}",
+        s.len()
+    );
+}
+
+// ── 인계 (D-27): 블록과 번호를 그대로 넘긴다 ──
+
+#[test]
+fn export_and_import_keep_lines_and_numbers() {
+    let mut s = LineStore::new(1_000);
+    for i in 0..1_700u32 {
+        s.push(rich_line(i));
+    }
+    s.clear();
+    for i in 0..(BLOCK_LINES as u32 * 2 + 7) {
+        s.push(rich_line(i));
+    }
+    let img = s.export();
+    let t = LineStore::import(1_000, &img).expect("되읽기");
+    assert_eq!((t.first(), t.end(), t.cap()), (s.first(), s.end(), 1_000));
+    assert_eq!(t.lines(t.first(), t.len()), s.lines(s.first(), s.len()));
+    let mut t = t;
+    assert_eq!(t.push(plain("next")), s.end(), "번호가 이어진다");
+}
+
+#[test]
+fn import_applies_the_new_cap() {
+    let mut s = LineStore::new(5_000);
+    for i in 0..5_000 {
+        s.push(plain(&format!("n{i}")));
+    }
+    let t = LineStore::import(1_000, &s.export()).unwrap();
+    assert!(
+        t.len() >= 1_000 && t.len() < 1_000 + BLOCK_LINES,
+        "{}",
+        t.len()
+    );
+    assert_eq!(t.end(), 5_000);
+}
+
+#[test]
+fn empty_store_round_trips() {
+    let mut s = LineStore::new(1_000);
+    for i in 0..10 {
+        s.push(plain(&format!("n{i}")));
+    }
+    s.clear();
+    let t = LineStore::import(1_000, &s.export()).unwrap();
+    assert!(t.is_empty());
+    assert_eq!((t.first(), t.end()), (10, 10));
+}
+
+#[test]
+fn broken_images_are_refused() {
+    let mut s = LineStore::new(1_000);
+    for i in 0..300 {
+        s.push(plain(&format!("n{i}")));
+    }
+    let img = s.export();
+    assert!(LineStore::import(1_000, &[]).is_none());
+    assert!(
+        LineStore::import(1_000, &img[..img.len() - 1]).is_none(),
+        "잘린 자료"
+    );
+    let mut other = img.clone();
+    other[0] = 99;
+    assert!(LineStore::import(1_000, &other).is_none(), "모르는 형식");
+    let mut long = img.clone();
+    long.push(0);
+    assert!(LineStore::import(1_000, &long).is_none(), "남는 바이트");
+}

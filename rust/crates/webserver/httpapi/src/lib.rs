@@ -76,6 +76,7 @@ mod runs_recover;
 mod runs_tree;
 mod runs_worktree;
 mod sandbox_api;
+mod screen_config;
 mod serve;
 mod serve_content;
 mod settings;
@@ -116,6 +117,7 @@ pub use lspsvc::LspService;
 pub use migration_advice::{MigrationConf, parse_migration_conf};
 pub use req::{BodyError, ReqBody};
 pub use run::SHUTDOWN_GRACE;
+pub use screen_config::ScreenDaemon;
 pub use serve::GitHandler;
 pub use static_assets::{AssetEntry, StaticAssets, WebAssets};
 pub use toolhub::{ToolError, ToolHub, ToolIdentity, Unsubscribe};
@@ -182,6 +184,8 @@ pub struct Deps {
     pub records: Option<Arc<dyn RecordSink>>,
     /// 데몬의 알람 판정이다 (§3.3a). 없거나 판정하지 않으면 추적기가 판정한다.
     pub attn_daemon: Option<Arc<dyn AttentionDaemon>>,
+    /// 데몬의 화면 상태 설정이다 (PERF D-25). 없으면 기록 줄 수를 보내지 않는다.
+    pub screen_daemon: Option<Arc<dyn ScreenDaemon>>,
     /// 데몬의 노드다 (PEER_DAEMON_SRS §3.5a). 없으면 간선 API 는 503 이다 (FR-DMR-21).
     pub edge_daemon: Option<Arc<dyn EdgeDaemon>>,
     /// 데몬의 채팅 사람 참가자다 (PEER_CHAT_SRS §3.11). 없으면 준비되지 않은 데몬과 같다 (FR-DMR-22).

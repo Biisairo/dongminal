@@ -23,8 +23,9 @@ use otter_webserver_domain_lsp::{
 };
 use otter_webserver_domain_sysstat::{Sampler, Snapshot as StatsSnapshot};
 use otter_webserver_httpapi::{
-    ChatDaemon, DaemonCallError, EdgeDaemon, LspService, RecordSink, SandboxReaper, Server,
-    StatsSnapshotter, ToolError, ToolHub, ToolIdentity, Unsubscribe, UpdateService, WorkspaceStore,
+    ChatDaemon, DaemonCallError, EdgeDaemon, LspService, RecordSink, SandboxReaper, ScreenDaemon,
+    Server, StatsSnapshotter, ToolError, ToolHub, ToolIdentity, Unsubscribe, UpdateService,
+    WorkspaceStore,
 };
 use otter_webserver_hub::ForegroundSource;
 use otter_webserver_recordsync::Writer;
@@ -325,6 +326,12 @@ impl ChatDaemon for Daemon {
     }
     fn chat(&self, p: ChatParams) -> Result<ChatResult, String> {
         self.0.chat(&p).map_err(|e| e.to_string())
+    }
+}
+
+impl ScreenDaemon for Daemon {
+    fn set_history_lines(&self, lines: usize) -> Result<(), DaemonCallError> {
+        self.0.screen_config(lines).map_err(call_err)
     }
 }
 

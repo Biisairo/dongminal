@@ -18,6 +18,8 @@ pub const METHOD_LIST: &str = "list";
 pub const METHOD_SNAPSHOT: &str = "snapshot";
 /// 화면 상태 스냅숏 (PERF FR-TRM-4). FEATURE_SCREEN_STATE 를 말한 데몬에만 보낸다.
 pub const METHOD_SCREEN: &str = "screen";
+/// 화면 상태 설정(기록 줄 수, D-25).
+pub const METHOD_SCREEN_CONFIG: &str = "screenconfig";
 pub const METHOD_CWD: &str = "cwd";
 pub const METHOD_BUSY: &str = "busy";
 pub const METHOD_BUSY_MANY: &str = "busymany";
@@ -90,7 +92,7 @@ pub const FEATURE_CHAT: &str = "chat";
 /// shellprobe 를 안다 (FR-RRC-10).
 pub const FEATURE_SHELL_PROBE: &str = "shellprobe";
 
-/// 화면 상태 스냅숏(`screen`)을 안다 (PERF FR-TRM-4, D-18).
+/// 화면 상태 스냅숏(`screen`)과 그 설정(`screenconfig`)을 안다 (PERF FR-TRM-4, D-18·D-25).
 pub const FEATURE_SCREEN_STATE: &str = "screen";
 
 /// 이 데몬이 hello 에서 말하는 기능이다.
@@ -249,6 +251,18 @@ pub struct ScreenResult {
     #[serde(rename = "firstLine")]
     pub first_line: u64,
     pub rows: u16,
+}
+
+/// 설정 `termHistoryLines` 의 범위다(D-25). 웹 설정 서술자와 같은 수다.
+pub const HISTORY_LINES_MIN: usize = 1_000;
+pub const HISTORY_LINES_MAX: usize = 200_000;
+
+/// 도구마다 줄 저장소에 남길 기록 줄 수다. 범위 밖이면 데몬이 거절한다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.ScreenConfigParams")]
+pub struct ScreenConfigParams {
+    #[serde(rename = "historyLines")]
+    pub history_lines: usize,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

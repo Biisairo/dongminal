@@ -12,10 +12,11 @@ use otter_shared_toolipc::{
     CODE_TOOL_CAP, CreateParams, CreateResult, CwdResult, FEATURE_BUSY_MANY, FEATURE_NOTIFY,
     FEATURE_SHELL_PROBE, IdParams, METHOD_BACKGROUND_LIST, METHOD_BUSY, METHOD_BUSY_MANY,
     METHOD_CREATE, METHOD_CWD, METHOD_INPUT, METHOD_KILL, METHOD_LIST, METHOD_PASTE, METHOD_RESIZE,
-    METHOD_RESIZE_NOTIFY, METHOD_RESTORE, METHOD_SCREEN, METHOD_SET_BACKGROUND, METHOD_SHELL_PROBE,
-    METHOD_SNAPSHOT, METHOD_TERMINATE, METHOD_WRITE, PasteParams, ResizeParams, RestoreParams,
-    ScreenParams, ScreenResult, SetBackgroundParams, SetBackgroundResult, ShellProbeParams,
-    ShellProbeResult, SnapshotParams, SnapshotResult, TerminateParams, WriteParams,
+    METHOD_RESIZE_NOTIFY, METHOD_RESTORE, METHOD_SCREEN, METHOD_SCREEN_CONFIG,
+    METHOD_SET_BACKGROUND, METHOD_SHELL_PROBE, METHOD_SNAPSHOT, METHOD_TERMINATE, METHOD_WRITE,
+    PasteParams, ResizeParams, RestoreParams, ScreenConfigParams, ScreenParams, ScreenResult,
+    SetBackgroundParams, SetBackgroundResult, ShellProbeParams, ShellProbeResult, SnapshotParams,
+    SnapshotResult, TerminateParams, WriteParams,
 };
 
 use crate::client::{Inner, TOOL_CALL_TIMEOUT, TOOL_CREATE_TIMEOUT, ToolClient, lock, result_key};
@@ -382,6 +383,12 @@ impl ToolClient {
             first_line: r.first_line,
             cwd: r.cwd,
         })
+    }
+
+    /// 기록 줄 수 설정을 보낸다 (D-25).
+    pub fn screen_config(&self, history_lines: usize) -> Result<(), Error> {
+        self.call_raw(METHOD_SCREEN_CONFIG, &ScreenConfigParams { history_lines })
+            .map(drop)
     }
 
     pub fn snapshot_tool(&self, id: &str) -> Result<ToolSnapshot, Error> {

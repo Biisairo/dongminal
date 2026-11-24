@@ -21,8 +21,9 @@ use tokio_util::sync::CancellationToken;
 
 use crate::tool::{ActivityFn, AttentionFn, ClearFn, ExitFn, SizeFn, attn_busy_many, attn_now};
 use crate::{
-    ActivitySnap, AgentState, BUF_MAX, BackgroundEntry, ShellState, Tool, ToolHooks, ToolInfo,
-    ToolScreen, ToolSnapshot, attention_allow_bell, attention_idle_threshold, judge_shell,
+    ActivitySnap, AgentState, BUF_MAX, BackgroundEntry, HISTORY_CAP, ShellState, Tool, ToolHooks,
+    ToolInfo, ToolScreen, ToolSnapshot, attention_allow_bell, attention_idle_threshold,
+    judge_shell,
 };
 
 /// 도구 수 상한이다 (M8 D-A-16).
@@ -117,6 +118,15 @@ pub struct HandoverTool {
     #[serde(with = "json::bytes", skip_serializing_if = "json::is_empty")]
     pub screen: Vec<u8>,
     pub offset: i64,
+    /// 화면 상태 스냅숏(PERF D-27, 인계 판 2).
+    #[serde(rename = "screenState", with = "json::bytes")]
+    pub screen_state: Vec<u8>,
+    /// 스냅숏이 싣지 않은 끝나지 않은 바이트 수다. 링의 마지막 그만큼을 이어 넣는다.
+    #[serde(rename = "screenBack")]
+    pub screen_back: u64,
+    /// 줄 저장소 그림(블록과 절대 줄 번호).
+    #[serde(with = "json::bytes")]
+    pub history: Vec<u8>,
     #[serde(skip_serializing_if = "json::is_empty")]
     pub modes: u64,
     #[serde(skip_serializing_if = "json::is_empty")]
@@ -157,6 +167,8 @@ struct State {
     placer: Option<PlacerFn>,
     idle_threshold: i64,
     allow_bell: bool,
+    /// 줄 저장소 상한(D-25 `termHistoryLines`). 도구를 등록할 때마다 얹는다.
+    history_lines: usize,
     attn_notify: Option<AttentionFn>,
     attn_clear: Option<ClearFn>,
     activity_notify: Option<ActivityFn>,
@@ -243,6 +255,7 @@ impl ToolManager {
                     idle_threshold: i64::try_from(attention_idle_threshold().as_nanos())
                         .unwrap_or(i64::MAX),
                     allow_bell: attention_allow_bell(),
+                    history_lines: HISTORY_CAP,
                     attn_notify: None,
                     attn_clear: None,
                     activity_notify: None,
@@ -441,7 +454,9 @@ impl ToolManager {
         p.set_sandboxed(!place.profile.is_empty());
         st.tools.insert(id.clone(), Arc::clone(&p));
         infof!(None, "[tool {id}] registered total={}", st.tools.len());
+        let cap = st.history_lines;
         drop(st);
+        p.set_history_lines(cap);
         self.mark_mutated();
         self.save_async();
         // 등록보다 먼저 끝난 프로세스는 종료 경로를 한 번 더 지나게 한다.
@@ -534,7 +549,9 @@ impl ToolManager {
         let p = res?;
         st.tools.insert(id.to_string(), Arc::clone(&p));
         infof!(None, "[tool {id}] restored total={}", st.tools.len());
+        let cap = st.history_lines;
         drop(st);
+        p.set_history_lines(cap);
         self.reap_if_exited(&p);
         Ok(())
     }
@@ -544,7 +561,12 @@ impl ToolManager {
         if p.id.is_empty() {
             return;
         }
-        self.wr().tools.insert(p.id.clone(), p);
+        let cap = {
+            let mut st = self.wr();
+            st.tools.insert(p.id.clone(), Arc::clone(&p));
+            st.history_lines
+        };
+        p.set_history_lines(cap);
     }
 
     /// 프로세스 없는 도구를 만들어 등록한다.
@@ -1003,6 +1025,22 @@ impl ToolManager {
         }
     }
 
+    pub fn history_lines(&self) -> usize {
+        self.rd().history_lines
+    }
+
+    /// 기록 줄 수 설정(D-25)을 모든 도구의 줄 저장소 상한으로 얹는다. 뒤에 등록되는 도구도 따른다.
+    pub fn set_history_lines(&self, lines: usize) {
+        let tools: Vec<Arc<Tool>> = {
+            let mut st = self.wr();
+            st.history_lines = lines;
+            st.tools.values().cloned().collect()
+        };
+        for p in tools {
+            p.set_history_lines(lines);
+        }
+    }
+
     /// 주의가 선 도구 전부를 주목 처리하고 그 수를 돌려준다.
     pub fn clear_all_attention(&self) -> i64 {
         let mut n = 0;
@@ -1246,6 +1284,7 @@ impl ToolManager {
             let (screen, offset) = p
                 .stream()
                 .map_or((Vec::new(), 0), |s| (s.snapshot().0, s.offset()));
+            let sh = p.screen_handover().unwrap_or_default();
             out.push(HandoverTool {
                 id: p.id.clone(),
                 name: p.name.clone(),
@@ -1257,6 +1296,9 @@ impl ToolManager {
                 sandboxed: p.sandboxed(),
                 screen,
                 offset,
+                screen_state: sh.snapshot,
+                screen_back: sh.back as u64,
+                history: sh.store,
                 modes: p.modes_packed(),
                 cwd: p.reported_cwd(),
                 agent: p.agent_state(),
@@ -1297,6 +1339,13 @@ impl ToolManager {
             Some(hooks),
             stream,
         );
+        p.adopt_screen(
+            &ht.screen,
+            &ht.screen_state,
+            usize::try_from(ht.screen_back).unwrap_or(0),
+            &ht.history,
+            self.history_lines(),
+        );
         p.set_modes_packed(ht.modes);
         p.note_cwd_report(&ht.cwd);
         p.restore_agent_state(&ht.agent);
@@ -1304,13 +1353,15 @@ impl ToolManager {
         for (kind, v) in &ht.records {
             p.set_record(kind, &v.0);
         }
-        {
+        let cap = {
             let mut st = self.wr();
             st.tools.insert(ht.id.clone(), Arc::clone(&p));
             if ht.background {
                 st.background.insert(ht.id.clone(), now_nanos());
             }
-        }
+            st.history_lines
+        };
+        p.set_history_lines(cap);
         self.mark_mutated();
         p.spawn_reader();
         infof!(

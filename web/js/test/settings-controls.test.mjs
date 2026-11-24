@@ -13,6 +13,8 @@ import { BASE, SETTINGS, load, plain } from './harness.mjs';
 const CTLS = {
   'ds-tabfix': 'check', 'ds-tabw': 'number', 'ds-uifs': 'number', 'ds-fgnames': 'check', 'ds-confirmleave': 'check', 'ds-attnfavicon': 'check',
   'ds-claudefs': 'check', 'ds-termfs': 'number', 'ds-scrollspeed': 'number',
+  // PERF D-25
+  'ds-termhist': 'number', 'ds-termsb': 'number',
   // ISSUE_TREE_OPS_SRS FR-ITM-1
   'ds-mighook': 'check', 'ds-mighookpct': 'number', 'ds-treemig': 'check', 'ds-treemigpct': 'number',
   'ds-wordwrap': 'check', 'ds-minimap': 'check',
@@ -29,7 +31,7 @@ function setup() {
       // 설정 전역 — 부팅 전의 값이다(`settings-state.js`). 숫자 넷은 블롭이 오기 전까지 비어 있다.
       fgTabNames: true, claudeFullscreen: true, confirmLeave: false, attnFavicon: true, editorWordWrap: false, editorMinimap: true,
       tabFixedWidth: false, tabWidthPx: 160, uiFontSize: undefined, termFontSize: undefined,
-      claudeScrollSpeed: undefined, migrationHook: undefined, migrationHookCtxPct: undefined,
+      claudeScrollSpeed: undefined, termHistoryLines: undefined, termScrollback: undefined, migrationHook: undefined, migrationHookCtxPct: undefined,
       issueTreeMigration: undefined, issueTreeCtxPct: undefined, focusEdgeLevel: 0, attnEdgeLevel: 5,
       UFE_LEVEL_MAX: 10, ATTN_EDGE_LEVEL_MAX: 10,
     },
@@ -58,7 +60,7 @@ test('FEC-26: 컨트롤이 섹션의 행 선언에 한 번씩 있고, 포커스 
   }
   assert.deepEqual(plain(got), CTLS);
   // REFACTOR3_FE_FIX_SRS FR-FFX-7 개정 — 이전: 탭 폭 하나(`ds-tabw`) / 새: 숫자 행 여섯 / 이유: 다섯이 입력 중 방송에 덮였다(실측)
-  assert.deepEqual(plain(guarded.sort()), ['ds-mighookpct', 'ds-scrollspeed', 'ds-tabw', 'ds-termfs', 'ds-treemigpct', 'ds-uifs']);
+  assert.deepEqual(plain(guarded.sort()), ['ds-mighookpct', 'ds-scrollspeed', 'ds-tabw', 'ds-termfs', 'ds-termhist', 'ds-termsb', 'ds-treemigpct', 'ds-uifs']);
 });
 
 test('FEC-26: _paintSettingControls 가 전역 값으로 칠하고, 치는 중인 탭 폭은 덮지 않는다', () => {

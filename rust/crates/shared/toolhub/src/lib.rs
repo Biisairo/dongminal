@@ -32,6 +32,7 @@ pub use manager::{
     Placement, PlacerFn, StartFn, StartReq, TOOL_CAP, ToolManager, ToolState, parse_size,
     wrap_paste,
 };
+pub use otter_shared_termstate::HISTORY_CAP;
 pub use records::{AgentState, ExitInfo};
 pub use shellprobe::{ShellState, judge_shell};
 pub use termmodes::{MODE_MAX_CARRY, ModeObserver, TermModes, alt_screen_at_head, scan_modes};

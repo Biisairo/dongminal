@@ -17,7 +17,7 @@ use otter_shared_linestore::{LineStore, split_for_rows};
 use crate::hist;
 use crate::scan::Scan;
 use crate::snap::{self, CursorState, GridState, Pen, State};
-use crate::{Attrs, Cell, Color, Cursor, Link, Modes, MouseMode, Row, Snapshot};
+use crate::{Attrs, Cell, Color, Cursor, Handover, Link, Modes, MouseMode, Row, Snapshot};
 
 type Title = Arc<Mutex<Option<String>>>;
 
@@ -206,7 +206,7 @@ impl Screen {
     /// 새 터미널에 `bytes` 를 넣고, 이어서 원래 출력을 지금까지 넣은 끝에서 `back` 바이트 앞부터
     /// 넣으면 이 화면에서 그대로 이어진다.
     pub fn snapshot(&mut self, history: usize) -> Snapshot {
-        let st = self.state(history);
+        let st = self.state_from(history, true);
         Snapshot {
             bytes: snap::encode(&st),
             back: st.back,
@@ -214,7 +214,50 @@ impl Screen {
         }
     }
 
+    /// 데몬 교체로 넘길 화면 상태다. 에뮬레이터 기록은 모두 스냅숏에, 저장소는 그림으로 담는다.
+    pub fn handover(&mut self) -> Handover {
+        let st = self.state_from(usize::MAX, false);
+        Handover {
+            snapshot: snap::encode(&st),
+            back: st.back,
+            store: self.store.export(),
+        }
+    }
+
+    /// [`handover`](Self::handover) 의 스냅숏과 저장소 그림으로 되세운다. 그림이 깨졌으면 저장소는 비운 채
+    /// 시작한다(화면은 되세운다).
+    pub fn restore(cols: u16, rows: u16, store_cap: usize, snapshot: &[u8], store: &[u8]) -> Self {
+        Self::restore_with_keep(cols, rows, EMU_KEEP, store_cap, snapshot, store)
+    }
+
+    pub(crate) fn restore_with_keep(
+        cols: u16,
+        rows: u16,
+        keep: usize,
+        store_cap: usize,
+        snapshot: &[u8],
+        store: &[u8],
+    ) -> Self {
+        let mut s = Self::with_keep(cols, rows, keep, store_cap);
+        s.feed(snapshot);
+        // 스냅숏을 넣는 동안 `keep` 을 넘어 옮겨진 줄은 넘겨받은 저장소 뒤에 잇는다.
+        let moved = s.store.lines(s.store.first(), s.store.len()).1;
+        let mut st =
+            LineStore::import(store_cap, store).unwrap_or_else(|| LineStore::new(store_cap));
+        for l in moved {
+            st.push(l);
+        }
+        s.store = st;
+        s
+    }
+
+    #[cfg(test)]
     pub(crate) fn state(&mut self, history: usize) -> State {
+        self.state_from(history, true)
+    }
+
+    /// `from_store` 가 거짓이면 에뮬레이터 기록만 싣는다.
+    fn state_from(&mut self, history: usize, from_store: bool) -> State {
         let back = self.scan.rewind();
         let (main, alt) = if self.term.mode().contains(TermMode::ALT_SCREEN) {
             let alt = grid_state(self.term.grid(), 0);
@@ -235,7 +278,11 @@ impl Screen {
         } else {
             (grid_state(self.term.grid(), history), None)
         };
-        let want = history.saturating_sub(main.history.len());
+        let want = if from_store {
+            history.saturating_sub(main.history.len())
+        } else {
+            0
+        };
         let (first_line, older) = hist::newest_rows(&self.store, want, usize::from(self.size().0));
         State {
             first_line,
@@ -291,6 +338,11 @@ impl Screen {
     /// 줄 저장소다(위로 받기 FR-TRM-5 가 읽는다).
     pub fn store(&self) -> &LineStore {
         &self.store
+    }
+
+    /// 줄 저장소 상한을 바꾼다(D-25 `termHistoryLines`). 줄이면 곧바로 버린다.
+    pub fn set_store_cap(&mut self, cap: usize) {
+        self.store.set_cap(cap);
     }
 
     pub fn cursor(&self) -> Cursor {

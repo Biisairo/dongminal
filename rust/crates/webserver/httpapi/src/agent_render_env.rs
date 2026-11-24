@@ -42,16 +42,18 @@ pub(crate) fn fullscreen_default_from(specs: Option<&[Spec]>) -> bool {
 /// Go `scrollSpeed`: 언제나 값을 낸다. 읽을 것이 없거나 범위를 벗어나면 표의 기본값이다
 /// (FR-ARE-9). 표가 없으면 `None` 이다.
 fn scroll_speed(m: Option<&Map<String, Value>>) -> Option<i64> {
-    let spec = &*SCROLL_SPEED_SPEC;
+    int_setting(&SCROLL_SPEED_SPEC, m.and_then(|m| m.get(SCROLL_SPEED_KEY)))
+}
+
+/// `int` 서술자 하나의 값이다. 범위 안의 정수만 받고, 그 밖은 표의 기본값이다(FR-CFG-3).
+/// 서술자가 비었으면 `None` 이다.
+pub(crate) fn int_setting(spec: &Spec, v: Option<&Value>) -> Option<i64> {
     if spec.key.is_empty() {
         return None;
     }
     let def = spec.def.as_f64()?;
     let mut n = go_int(def);
-    if let Some(v) = m
-        .and_then(|m| m.get(SCROLL_SPEED_KEY))
-        .and_then(Value::as_f64)
-    {
+    if let Some(v) = v.and_then(Value::as_f64) {
         // 정수만 받는다 — 표가 `int` 로 선언하고, 실수는 그 선언 밖이다.
         let i = go_int(v);
         if i as f64 == v && spec.min.is_none_or(|lo| i >= lo) && spec.max.is_none_or(|hi| i <= hi) {
