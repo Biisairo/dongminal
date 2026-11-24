@@ -1,0 +1,7 @@
+# 지연 묶음의 동기 진입점 (PERF M3 §3.4, scripts/check-lazy-boundary.mjs).
+#
+# 부팅 코드는 화면 묶음의 전역을 `await Screens.load(…)` 뒤에서만 읽는다. 렌더러처럼 동기로
+# 남아야 하는 자리는 `Screens.ready` 로 가린 뒤 여기에 적는다. 적힌 함수는 Screens.load·
+# Screens.ready 를 불러야 하고, 그 안(클로저 포함)의 참조는 게이트가 넘긴다.
+#
+# 형식: <web/ 기준 파일> <함수 이름>   함수 이름은 `f`, `Class.method`, `A.prototype.m` 꼴이다.
