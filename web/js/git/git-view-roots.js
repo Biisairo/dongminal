@@ -38,6 +38,12 @@ class GitViewRoots extends GitPart {
     // (FR-STAT-17 과 같은 원칙).
     if(view==='branches'||view==='stash'||view==='console'||view==='worktrees'||view==='submodules')
       this._render(view);
+    // PERF_OPTIMIZATION_SRS M1 (1.10.3): Console 은 **보이는 동안** `gitconsole:<root>` 를 구독한다. 위의
+    // `_render` 는 루트가 본문에 붙기 전이라 보이지 않는 것으로 읽힌다 — 붙은 뒤에 한 번 더 칠해 구독을 건다.
+    //   이전: 주기 타이머가 다음 회차에 다시 받았으므로 이 빈틈이 드러나지 않았다
+    //   이유: 주기가 없어지자 처음 연 Console 은 다른 곳에서 생긴 기록을 받지 못했다
+    if(view==='console')
+      TIMERS.frame(()=>{if(!this.p._missing&&this.p._consoleView) this.p._consoleView.paint()},{owner:this.p,label:'console-paint'});
     // FR-OPT-4-9 (FR-GVR-4 개정): 보이지 않는 동안 지나간 변화를 지금 받는다.
     this.p.viewReload._staleTake(view,before);
     return el;

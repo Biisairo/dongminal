@@ -62,6 +62,9 @@ const EVENT_BUS_JS = join(WEB, 'core', 'event-bus.js');
 const COMPONENT_JS = join(WEB, 'core', 'base', 'component.js');
 const GIT_PART_JS = join(WEB, 'git', 'git-part.js');
 const GIT_POLL_JS = join(WEB, 'git', 'git-poll.js');
+// PERF_OPTIMIZATION_SRS M1 C4: 폴링 계층은 보는 동안 `git:<root>` 토픽을 구독한다. 채널 없이 세운
+// `GitTopics` 는 구독 손잡이만 돌려준다 — 여기서 재는 주기·잠금 계약에는 끼지 않는다.
+const GIT_TOPICS_JS = join(WEB, 'core', 'git-topics.js');
 // OPTIMIZE_REFACTOR_SRS FR-OPT-4-7: collect 가 `unchanged` 답을 채우는 함수
 // (`gitStatusMerge`)가 여기 산다. index.html 에서도 git-poll 앞이다.
 const STATUS_HUB_JS = join(WEB, 'git', 'status-hub.js');
@@ -262,7 +265,10 @@ async function loadPanelPoll(page: Page) {
       // 넷 다 승격된 이름이다 (FE_MODULE_BOUNDARY_SRS FR-FMB-40).
       app = {
         // 소유 경로의 대역 (REFACTOR3_FE_DELEG_SRS FR-DLG-5).
-        git: { gitWindow: () => ({ id: 'w1' }), surfaces: { gitSurfaceOn: () => true } },
+        git: {
+          gitWindow: () => ({ id: 'w1' }), surfaces: { gitSurfaceOn: () => true },
+          topics: new ((window as any).eval('GitTopics'))({ onChange() {}, onJobs() {} }),
+        },
         editor: { edWindowFor: () => ({ id: 'w1' }) },
         slot: { windowVisible: () => true },
       };
@@ -285,6 +291,7 @@ async function loadPanelPoll(page: Page) {
   await page.addScriptTag({ path: COMPONENT_JS });
   await page.addScriptTag({ path: GIT_PART_JS });
   await page.addScriptTag({ path: GIT_POLL_JS });
+  await page.addScriptTag({ path: GIT_TOPICS_JS });
   await page.evaluate(() => {
     const p = new (window as any).GitPanel();
     // 클래식 스크립트의 `class` 는 window 의 속성이 아니다 — 이름으로 읽는다.
