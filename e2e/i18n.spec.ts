@@ -105,6 +105,30 @@ test.describe('축 B — 국제화', () => {
     await expect.poll(() => warned.some((w) => w.includes('probe.only_ko'))).toBe(true);
   });
 
+  // PERF D-34 (3.4.5): 언어 파일은 활성 로케일 하나만 싣는다. 바꾸기는 새로고침이다.
+  test('활성 언어 파일 하나만 싣고, 언어를 바꾸면 새로고침 뒤 그 파일 하나만 싣는다', async ({ page, request }) => {
+    await seedLocale(request, null);
+    const seen: string[] = [];
+    page.on('request', (r) => {
+      const m = r.url().match(/\/js\/i18n\/(\w+)\.js/);
+      if (m) seen.push(m[1]);
+    });
+    await waitForInit(page);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ko');
+    expect(seen).toEqual(['ko']);
+
+    seen.length = 0;
+    await switchLocale(page, 'en');
+    expect(seen).toEqual(['en']);
+
+    seen.length = 0;
+    await page.reload();
+    await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    expect(seen).toEqual(['en']);
+    for (const s of await sampleTexts(page)) expect(s).not.toMatch(KO);
+  });
+
   // TC-B-3 · FR-B-5
   test('<html lang> 은 활성 로케일이고 영어가 섞인 요소에는 lang 이 붙는다', async ({ page, request }) => {
     await seedLocale(request, null);
