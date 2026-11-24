@@ -47,7 +47,7 @@ hits="$(git grep -n -I -E "$pattern" -- . \
       my ($loc, $text) = /^([^:]+:\d+):(.*)$/ or next;
       $text =~ s{archive/[^\s)`\x27"\]>,]*}{}g;
       $text =~ s{personal/[d]ongminal(?:/[d]ongminal)?(?![A-Za-z0-9_-])}{}g;
-      $text =~ s{[d]ongminal-rust}{}g;
+      $text =~ s{[d]ongminal-(?:rust|perf|pf)(?![A-Za-z0-9_])}{}g;
       next unless $text =~ /(?i:[d]ongminal|[d]mctl)|(?:^|[^A-Za-z0-9])(?:[d]m[_-][A-Za-z0-9]|[D]M_[A-Z0-9]|[d]m(?:env|log)(?![a-z]))/;
       print "$loc\n";
     ' || true)"
