@@ -129,7 +129,7 @@ async function connectPane(page: Page) {
   });
 }
 
-// 서버가 OP.EXIT 을 보내고 소켓을 닫는 장면. 실서버의 handlers_ws.go 가
+// 서버가 OP.EXIT 을 보내고 소켓을 닫는 장면. 실서버의 Go 기준선 handlers_ws.go 가
 // 없는 도구에 대해 정확히 이 순서로 행동한다.
 const sendExitThenClose = (page: Page) =>
   page.evaluate(() => {

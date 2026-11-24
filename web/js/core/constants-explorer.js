@@ -300,7 +300,7 @@ const EDITOR_HELD_DIRTY=t('editor.held_dirty');
 // ── 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS) ──
 //
 // 기준은 **index** 다 (FR-EDD-1 / D-2). 서버의 부분 스테이징이 op 마다 축을
-// 못박으므로(`write/patch.go:105`) 화면과 서버가 같은 축을 봐야 조각의 경계가
+// 못박으므로(Go 기준선 `write/patch.go:105`) 화면과 서버가 같은 축을 봐야 조각의 경계가
 // 어긋나지 않는다. VSCode 도 스테이지하면 이 표시가 사라지는 index 기준이다.
 const ED_DD_AXIS=GIT_AXIS.UNSTAGED;
 

@@ -183,7 +183,7 @@ test.describe('묶음 M — I7 Worktrees 목록 (FR-GIT-240)', () => {
   // E2E_HOME 이 `/tmp/dongminal-e2e-…` 이고 macOS 는 `/tmp` → `/private/tmp` 심링크다.
   // 따로 심링크 픽스처를 만들지 않았다: Run 것(runPath, addRunWorktree)의 소유가
   // `run`(=outside 로 잘못 떨어지지 않음)으로 정확히 나오는 것 자체가 심링크를 지나는
-  // 환경에서 `gitWorktreeOwner`(handlers_git_worktree.go)의 소유 판정이 옳다는 증거다.
+  // 환경에서 `gitWorktreeOwner`(Go 기준선 handlers_git_worktree.go)의 소유 판정이 옳다는 증거다.
   test('V146 (FR-GIT-241 개정 · FR-WRA-7 · V163): Run 것·바깥 것에도 제거가 있고 main 엔 없다', async ({ page, request }) => {
     const repo = await wtRepo(request, 'v146');
     addOutsideWorktree(repo, 'v146-outside');
@@ -317,7 +317,7 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
   // 이 테스트가 **V163 의 e2e 절반**이다(조정자 판단, FR-WKT-13 전제) — 특히 더
   // 무거운 쪽이다: 실제 제거(`.gc-go` 한 번)가 성공해 `existsSync(wtPath)` 가
   // false 로 떨어지는 것 자체가, 심링크를 지나는 데이터 디렉터리 위에서
-  // `Manager.checkPath`(worktree.go:501-522)가 정당한 사용자 worktree 를
+  // `Manager.checkPath`(Go 기준선 worktree.go:501-522)가 정당한 사용자 worktree 를
   // `unsafe_path` 로 잘못 거부하지 않는다는 증거다(V146 발견 당시엔 이 자리가
   // 30초 타임아웃으로 막혀 있었다 — remove 버튼 자체가 안 떴다).
   test('V150 (FR-GIT-243 · V163): 제거는 확인을 거친다 · 취소하면 남는다 · 브랜치 삭제 옵션이 이 경로엔 없다', async ({ page, request }) => {

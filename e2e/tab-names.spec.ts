@@ -69,7 +69,7 @@ async function firstTab(page) {
  * 서버가 보내는 renameTab 명령을 흉내낸다.
  *
  * **좌표를 넘긴다.** dmctl 은 uuid 를 보내지만 서버의 `translateLocationUUID`
- * (commands.go)가 그것을 좌표(`W1.P1.T1`)로 바꿔 SSE 에 싣는다 — 브라우저의
+ * (Go 기준선 commands.go)가 그것을 좌표(`W1.P1.T1`)로 바꿔 SSE 에 싣는다 — 브라우저의
  * `_resolveLocation` 이 푸는 것은 좌표뿐이다. 여기서 uuid 를 그대로 넣으면
  * 서버 한 단계를 건너뛴 채 "대상 없음" 으로 조용히 끝난다.
  */

@@ -163,7 +163,7 @@ function apiErrText(r, what) {
 }
 
 /**
- * 상태에서 파생되는 코드 — `apierr/codes_core.go` 의 "상태에서 파생되는 기본값" 묶음과
+ * 상태에서 파생되는 코드 — Go 기준선 `apierr/codes_core.go` 의 "상태에서 파생되는 기본값" 묶음과
  * 같다. 이 코드가 온 응답의 본문은 호출자가 적은 **사유**이므로 카탈로그가 덮지 않는다.
  */
 const API_ERR_DERIVED = new Set(['bad_request', 'not_found', 'forbidden', 'internal_error', 'conflict', 'method_not_allowed']);

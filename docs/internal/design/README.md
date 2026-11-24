@@ -72,7 +72,7 @@ e2e 에서 쓸 때는 `test.beforeAll` 에서 한 번 만들고 `test.afterAll` 
 ## 검증 게이트
 
 ```bash
-go build ./... && go vet ./... && go test ./... -race -count=1 && gofmt -l . | grep -v node_modules
+make gates && make test   # cargo fmt·clippy·build + 게이트, cargo test --workspace (Go 판은 go build·vet·test -race·gofmt 였다)
 npm run e2e          # Playwright. 포트 58147 을 쓰므로 **동시에 두 번 돌릴 수 없다**
 ```
 

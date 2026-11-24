@@ -12,7 +12,7 @@
 # `git-worktrees/`(사용자 콘텐츠)는 `backup` 이 담지 않고 `ext/`(언어 서버,
 # 수백 MB)는 `uninstall --purge` 가 "전부 지웠습니다" 하고 남겼다.
 #
-# **기존 검사가 왜 못 잡았나.** `homelayout_test.go` 는 `rollbackTargets` 와
+# **기존 검사가 왜 못 잡았나.** Go 기준선 `homelayout_test.go` 는 `rollbackTargets` 와
 # `homeLogs` 가 **표에 포함되는지만** 본다 — 둘 다 이미 표에 있는 것들이다.
 # **표 밖에서 홈에 쓰는 코드가 있는지**는 아무도 묻지 않았다.
 #

@@ -140,7 +140,7 @@ const TERM_KEY_MAP={meta:{ArrowLeft:'lineStart',ArrowRight:'lineEnd'},alt:{Arrow
  *   곱하기     **칸(슬롯)마다 인스턴스가 따로다.** 같은 도구를 두 칸에 보이면
  *             xterm 도 둘이고 버퍼도 둘이다 (`slotBase` 가 그 복합키를 가른다)
  *
- * 서버가 보관하는 것은 도구당 **1 MiB** 다 (`toolhub/conn.go` 의 `bufMax`).
+ * 서버가 보관하는 것은 도구당 **1 MiB** 다 (Go 기준선 `toolhub/conn.go` 의 `bufMax`).
  * 그 둘은 다른 것을 답한다 — 서버의 것은 *재접속이 되감을 수 있는 창*이고
  * (`TERMINAL_RESUME_SRS`), 이 값은 *이 화면이 위로 스크롤할 수 있는 범위*다.
  * 그래서 같은 값일 필요가 없고, 같게 맞추면 화면의 역사가 1 MiB 로 잘린다.

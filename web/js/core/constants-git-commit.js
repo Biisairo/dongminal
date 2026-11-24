@@ -65,7 +65,7 @@ const GIT_PREFLIGHT_COPY=t('git.act.preflight_copy');
 const GIT_ACT_DETACHED='commit_detached';
 const GIT_DETACHED_TITLE=t('git.detached_title');
 const GIT_DETACHED_NOTE=t('git.detached_note');
-// preflight 의 코드값. 서버(internal/git/preflight.go)와 같은 문자열이다.
+// preflight 의 코드값. 서버(Go 기준선 internal/git/preflight.go)와 같은 문자열이다.
 const GIT_WARN_DETACHED='detached_head';
 const GIT_ERR_PREFLIGHT='preflight_blocked';
 const GIT_ERR_UNDO_EXPIRED='undo_expired';

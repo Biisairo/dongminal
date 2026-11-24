@@ -7,7 +7,7 @@
 # Go 의 `r.Body`)는 `httpreq` 를 지난다. 거기에 상한이 있다.
 #
 # 왜: `io.ReadAll(r.Body)` 가 10곳, 무제한 `json.NewDecoder(r.Body)` 가 일곱이었다
-# (`httpreq/body.go` 머리말). 1MiB 를 넘는 본문을 받아 처리하고 200 을 답한 종단이
+# (Go 기준선 `httpreq/body.go` 머리말). 1MiB 를 넘는 본문을 받아 처리하고 200 을 답한 종단이
 # 셋이었다. 옮긴 뒤에도 새 종단이 `r.Body` 를 직접 읽으면 같은 결손이 조용히 돌아온다.
 #
 # 사용: scripts/check-body-limit.sh

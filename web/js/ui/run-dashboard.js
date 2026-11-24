@@ -482,7 +482,7 @@ Object.assign(RunsPanel.prototype, {
   },
 
 
-  // 서버 시각은 Unix **초**다 (run/store.go 의 now()).
+  // 서버 시각은 Unix **초**다 (Go 기준선 run/store.go 의 now()).
   _runAgo(ts) {
     if (!ts) return '';
     const s = Math.max(0, Math.floor(Date.now() / MS_PER_SEC - ts));

@@ -23,7 +23,7 @@ function _closeOpts(args){
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-11-2 (FEC-23 · IPC-17): 원격 action → 처리기.
  *
- * **이름의 집합은 서버의 허용 표(`hub/commands.go` `cmdActions`)와 같다** —
+ * **이름의 집합은 서버의 허용 표(Go 기준선 `hub/commands.go` `cmdActions`)와 같다** —
  * `remote-actions.test` 가 두 표를 대조한다. 서버가 받는 action 을 더하면 여기에도
  * 처리기를 더해야 검사가 통과한다.
  *

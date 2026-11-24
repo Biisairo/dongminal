@@ -11,7 +11,7 @@
 #
 # 이 검사가 없던 동안 실제로 일어난 일 (DRIFT_RECLAIM_SRS §2.2):
 #
-#   - `handlers_git_submodule.go` 의 쓰기 둘이 사다리를 통째로 복제했다
+#   - Go 기준선 `handlers_git_submodule.go` 의 쓰기 둘이 사다리를 통째로 복제했다
 #     (104-119 ≡ 140-155, 16줄 완전 중복). 그 표면에는 단위 테스트도 0개였다.
 #   - 복제본은 이미 갈라져 있었다 — 같은 "confirm 이 없다" 가 한쪽은
 #     `bad_request`, 다른 쪽은 `confirmation_required` 로 나갔고, 화면은 그
