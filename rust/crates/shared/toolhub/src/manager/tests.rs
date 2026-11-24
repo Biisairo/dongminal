@@ -710,7 +710,7 @@ fn handover_tool_json_shape() {
     };
     assert_eq!(
         String::from_utf8(json::marshal(&ht).unwrap()).unwrap(),
-        r#"{"id":"a","name":"S","fd":7,"pid":9,"cols":80,"rows":24,"offset":0,"agent":{"agentSeen":false,"armed":false,"attention":false,"lastOutputAt":0,"rearmLocked":false,"turn":{"inProgress":false,"waitingSignaled":false,"turnRan":false}}}"#
+        r#"{"id":"a","name":"S","fd":7,"pid":9,"cols":80,"rows":24,"offset":0,"screenState":"","screenBack":0,"history":"","agent":{"agentSeen":false,"armed":false,"attention":false,"lastOutputAt":0,"rearmLocked":false,"turn":{"inProgress":false,"waitingSignaled":false,"turnRan":false}}}"#
     );
     let full = HandoverTool {
         screen: b"hi".to_vec(),
@@ -721,7 +721,7 @@ fn handover_tool_json_shape() {
     };
     let s = String::from_utf8(json::marshal(&full).unwrap()).unwrap();
     assert!(
-        s.contains(r#""background":true,"screen":"aGk=","offset":0,"modes":4294967296,"cwd":"/c""#),
+        s.contains(r#""background":true,"screen":"aGk=","offset":0,"screenState":"","screenBack":0,"history":"","modes":4294967296,"cwd":"/c""#),
         "{s}"
     );
     let back: HandoverTool = json::unmarshal(s.as_bytes()).unwrap();

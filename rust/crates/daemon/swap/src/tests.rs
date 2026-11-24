@@ -280,12 +280,12 @@ fn state_write_read_anonymous() {
     assert_eq!(read_state(f).unwrap(), st);
 }
 
-const GO_EMPTY: &str = r#"{"version":1,"tools":null,"panedFd":0,"reportFd":0}"#;
-const GO_FULL: &str = r#"{"version":1,"tools":[{"id":"t1","name":"sh","fd":12,"pid":345,"cols":80,"rows":24,"background":true,"screen":"aGkbWzBt","offset":9,"modes":3,"cwd":"/tmp/x","agent":{"agentSeen":false,"armed":false,"attention":false,"lastOutputAt":0,"rearmLocked":false,"turn":{"inProgress":false,"waitingSignaled":false,"turnRan":false}},"records":{"k":{"a":1}}}],"global":{"g":[1,2]},"panedFd":7,"reportFd":8}"#;
+const STATE_EMPTY: &str = r#"{"version":2,"tools":null,"panedFd":0,"reportFd":0}"#;
+const STATE_FULL: &str = r#"{"version":2,"tools":[{"id":"t1","name":"sh","fd":12,"pid":345,"cols":80,"rows":24,"background":true,"screen":"aGkbWzBt","offset":9,"screenState":"G1swbVM=","screenBack":1,"history":"SA==","modes":3,"cwd":"/tmp/x","agent":{"agentSeen":false,"armed":false,"attention":false,"lastOutputAt":0,"rearmLocked":false,"turn":{"inProgress":false,"waitingSignaled":false,"turnRan":false}},"records":{"k":{"a":1}}}],"global":{"g":[1,2]},"panedFd":7,"reportFd":8}"#;
 
 fn full_state() -> State {
     State {
-        version: 1,
+        version: handover::VERSION,
         tools: Some(vec![HandoverTool {
             id: "t1".into(),
             name: "sh".into(),
@@ -296,6 +296,9 @@ fn full_state() -> State {
             background: true,
             screen: b"hi\x1b[0m".to_vec(),
             offset: 9,
+            screen_state: b"\x1b[0mS".to_vec(),
+            screen_back: 1,
+            history: b"H".to_vec(),
             modes: 3,
             cwd: "/tmp/x".into(),
             records: BTreeMap::from([("k".into(), RawMessage(br#"{"a":1}"#.to_vec()))]),
@@ -307,27 +310,28 @@ fn full_state() -> State {
     }
 }
 
-/// FR-RSP-22: Rust 가 쓴 인계 상태는 Go 와 바이트가 같고, Go 가 쓴 인계 상태를 Rust 가 읽는다.
+/// 인계 상태의 바이트 꼴(판 2, PERF D-27). 판 1 까지는 Go 와 같은 바이트였다(FR-RSP-22). 판 2 는 도구마다
+/// 화면 상태 필드 셋을 늘 싣는다.
 #[test]
-fn state_json_matches_go() {
+fn state_json_shape() {
     assert_eq!(
         String::from_utf8(
             json::marshal(&State {
-                version: 1,
+                version: handover::VERSION,
                 ..State::default()
             })
             .unwrap()
         )
         .unwrap(),
-        GO_EMPTY
+        STATE_EMPTY
     );
     assert_eq!(
         String::from_utf8(json::marshal(&full_state()).unwrap()).unwrap(),
-        GO_FULL
+        STATE_FULL
     );
     let d = TempDir::new().unwrap();
-    let p = d.path().join("go-state");
-    std::fs::write(&p, GO_FULL).unwrap();
+    let p = d.path().join("state");
+    std::fs::write(&p, STATE_FULL).unwrap();
     assert_eq!(read_state(File::open(&p).unwrap()).unwrap(), full_state());
 }
 
