@@ -51,7 +51,23 @@ async function measure(page: Page) {
   });
 }
 
+/**
+ * RUST_DEFECT_FIX_SRS 10.7b: 가동 시간은 호스트가 정한다. 420px 에서 지표 줄의 폭은 154px 이고,
+ * `↑ 시스템 13d 17h│서버 27m` 이 꼭 그만큼이라 왼쪽 테두리 1px 만큼 눌린 것으로 잡혔다(실측
+ * scrollWidth 154 · clientWidth 153). 한 줄에 넉넉히 드는 값으로 고정해 재는 것을 CSS 로 돌려놓는다.
+ */
+const FIXED_UPTIME = { sysUptime: '1h', srvUptime: '1m' };
+
+async function fixUptime(page: Page) {
+  await page.route('**/api/stats**', async (route) => {
+    const res = await route.fetch();
+    return route.fulfill({ response: res, json: { ...(await res.json()), ...FIXED_UPTIME } });
+  });
+}
+
 test.describe('상태바 줄바꿈', () => {
+  test.beforeEach(async ({ page }) => { await fixUptime(page) });
+
   // V-SBR-1 · V-SBR-2
   test('좁혀도 지표가 잘리거나 눌리지 않고 줄이 늘어난다', async ({ page }) => {
     await waitForInit(page);
