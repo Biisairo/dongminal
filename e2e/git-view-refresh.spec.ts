@@ -6,7 +6,7 @@ import { Page } from '@playwright/test';
 
 import {
   test, expect, waitForInit, GIT_VIEW_TABS, openGit, clickGitView, gitFixture, cleanGitFixture, copyDir, rmTree, freshDir, makeCopyFx, nextFrames,
-  setSafetyNet, setConsoleInterval, scopedSettings,
+  setSafetyNet, scopedSettings,
 } from './fixtures';
 import { ED_SEL } from './editor';
 import { TMP, tmpPath, realPath } from './osenv';
@@ -392,33 +392,72 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     expect(views.n - vBase, '가만히 있는데 뷰 조회가 늘었다').toBe(0);
   });
 
-  test('G9 (D-7): Console 탭을 떠나면 기록 폴링이 멈춘다', async ({ page }) => {
+  /**
+   * G9 (D-7) — PERF_OPTIMIZATION_SRS M1 C6 로 개정.
+   *   이전: Console 주기를 줄이고, 떠난 뒤 1초 동안 기록 요청이 0 인지 셌다
+   *   지금: 주기는 없다. 보이는 Console 은 `gitconsole:<root>` 토픽의 새 기록 신호에만 받는다. 떠난
+   *         Console 은 다음 신호에서 받지 않고 구독을 놓는다(지연 해지)
+   *   이유: 재던 성질("떠난 탭은 기록을 받지 않는다")은 그대로이고, 그것을 부르는 계기가 주기에서
+   *         서버 신호로 바뀌었다. 같은 신호가 보이는 동안에는 받는다는 것을 양성 대조로 함께 잰다 —
+   *         그래야 떠난 뒤의 0 이 "신호가 오지 않았다" 가 아님을 안다
+   */
+  test('G9 (D-7): Console 탭을 떠나면 새 기록 신호가 와도 받지 않고 구독을 놓는다', async ({ page, request }) => {
     const { repo } = copyPair('g9');
+    const subs: string[] = [];
+    const unsubs: string[] = [];
+    page.on('websocket', (ws) => {
+      if (new URL(ws.url()).pathname !== '/channel') return;
+      ws.on('framesent', (f) => {
+        if (typeof f.payload !== 'string') return;
+        let m: any = null;
+        try { m = JSON.parse(f.payload) } catch { return }
+        if (!m || typeof m.topic !== 'string' || !m.topic.startsWith('gitconsole:')) return;
+        if (m.t === 'sub') subs.push(m.topic);
+        if (m.t === 'unsub') unsubs.push(m.topic);
+      });
+    });
     await waitForInit(page);
-    // Console 주기(2초)를 줄인다 — 아래 창에 회차가 여럿 들게 한다 (§8.2 (a′)).
-    await setConsoleInterval(page, 300);
-    await openGit(page, repo);
-    // Console 을 한 번 열어 폴링을 건다. **한 건이 실제로 온 것**이 그 신호다 —
-    // 폴링이 걸리지 않았는데 떠나면 아래의 `0` 은 아무것도 말하지 않는다.
+    // Console 은 처음 만들어질 때 한 번 받는다 — 만드는 때가 창을 열 때일 수 있으므로 그 앞부터 센다.
     const lit = counter(page, (u) => u.includes('/api/git/records'));
-    await openTab(page, 'console');
-    await expect.poll(() => lit.n, { timeout: 10000, message: 'Console 폴링이 걸리지 않았다' })
-      .toBeGreaterThan(0);
+    await openGit(page, repo);
+    // 기록을 하나 만든다 — git 을 실제로 돌리는 쓰기를 **이 패널 밖에서** 한다(다른 브라우저·에이전트).
+    // 이 패널의 쓰기는 Console 을 직접 다시 받으므로(`git-write.js`) 토픽 신호를 재지 못한다.
+    let k = 0;
+    const record = async () => {
+      const f = `g9-${++k}.txt`;
+      writeFileSync(join(repo, f), 'x');
+      const r = await request.post('/api/git/stage', { data: { repo, paths: [f] } });
+      expect(r.ok(), `stage 실패: ${await r.text()}`).toBeTruthy();
+    };
 
-    // 다른 탭으로 떠난다. 본문은 버려지지만 요소의 `vis` 클래스는 남는다 —
-    // 그것만 보면 폴링이 계속 돈다.
+    await openTab(page, 'console');
+    await expect.poll(() => lit.n, { timeout: 10000, message: 'Console 이 처음 기록을 받지 않았다' })
+      .toBeGreaterThan(0);
+    await expect.poll(() => subs.length, { timeout: 10000, message: 'Console 이 gitconsole 토픽을 구독하지 않았다' })
+      .toBeGreaterThan(0);
+    const topic = subs[subs.length - 1];
+
+    // 양성 대조: 보이는 동안 새 기록 신호가 오면 받는다.
+    const before = lit.n;
+    await record();
+    await expect.poll(() => lit.n, { timeout: 10000, message: '보이는 Console 이 새 기록 신호에 받지 않았다' })
+      .toBeGreaterThan(before);
+
+    // 다른 탭으로 떠난다. 본문은 버려지지만 요소의 `vis` 클래스는 남는다 — 그것만 보면 계속 받는다.
     //
-    // **떠나는 자리는 본문의 다른 뷰여야 한다** (FR-RTU-32): `Changes` 는 이제
-    // 사이드에 있어 그리로 가는 것이 본문 탭을 바꾸지 않는다 — Console 은 계속
-    // 활성이고, 그때 폴링이 도는 것은 옳다.
+    // **떠나는 자리는 본문의 다른 뷰여야 한다** (FR-RTU-32): `Changes` 는 사이드에 있어 그리로 가는
+    // 것이 본문 탭을 바꾸지 않는다 — Console 은 계속 활성이고, 그때 받는 것은 옳다.
     await openTab(page, 'history');
     await expect(page.locator('#area .pn-body .git-view.git-history')).toHaveClass(/vis/, { timeout: 10000 });
 
     let n = 0;
     const onReq = (r: any) => { if (r.url().includes('/api/git/records')) n++ };
     page.on('request', onReq);
-    // **예외 (`TEST-16`)**: 이 창 동안 몇 건인지가 답이다.
-    await page.waitForTimeout(1000); // 줄인 주기(300ms)의 세 배 남짓
+    await record();
+    // 신호가 실제로 닿았다는 증거는 지연 해지다 — 그때까지 기다린 뒤에 센다.
+    await expect.poll(() => unsubs.filter((t) => t === topic).length,
+      { timeout: 10000, message: '떠난 Console 이 신호를 받고도 구독을 놓지 않았다' }).toBeGreaterThan(0);
+    await nextFrames(page, 2);
     page.off('request', onReq);
     expect(n, `떠난 Console 이 ${n}건을 더 받았다`).toBe(0);
   });
