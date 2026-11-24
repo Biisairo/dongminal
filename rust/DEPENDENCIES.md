@@ -18,6 +18,7 @@ crate 의 Cargo.toml 에서는 언제나 `foo = { workspace = true }` 로 참조
 | 파일 감시 | notify | fsnotify 대응 |
 | OS | libc, nix(unix), windows-sys(windows), socket2 | `unsafe` 는 C-RSP-4 범위에서만. socket2 는 Go `net.Listen` 의 이중 스택 리슨(IPV6_V6ONLY 명시)에만 쓴다. tokio·hyper-util 이 이미 끌어오는 crate 다(Cargo.lock 0.6.5) |
 | 정규식 | regex | |
+| 터미널 에뮬레이터 | alacritty_terminal(`=0.26.0`) | 데몬 화면 상태(D-13). `otter-shared-termstate` 한 crate 에서만 쓴다. 판 올림은 비교 시험(`termstate/testdata`)을 다시 돌린 뒤에 한다 |
 | 유니코드 정규화 | icu_normalizer | Go `golang.org/x/text/unicode/norm` 대응(NFC). url→idna 가 이미 끌어오는 crate 다. 정규화는 이것 하나만 쓴다(fswatch·claudeacct) |
 | 자산 임베드 | rust-embed | `web/` 임베드 |
 | 테스트 전용 | tempfile | dev-dependencies 에서만 |

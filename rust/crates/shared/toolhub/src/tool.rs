@@ -12,16 +12,20 @@ use otter_shared_activity as activity;
 use otter_shared_otterlog::{errorf, infof};
 use otter_shared_outbuf::Stream;
 use otter_shared_platform::{ProcSpec, Terminal};
+use otter_shared_termstate::Screen;
 use tokio_util::sync::CancellationToken;
 
 use crate::env::{Getenv, tool_bin_dir, tool_env, tool_start_dir};
 use crate::{
-    ATTN_MAX_CARRY, ActivityState, AgentState, AgentTurn, EscClass, ExitInfo, ModeObserver,
-    TermModes, activity_still_working, classify_esc, detect_attention_signal, detect_cwd_report,
+    ATTN_MAX_CARRY, ActivityState, AgentState, AgentTurn, DEFAULT_COLS, DEFAULT_ROWS, EscClass,
+    ExitInfo, ModeObserver, TermModes, activity_still_working, classify_esc,
+    detect_attention_signal, detect_cwd_report,
 };
 
 /// 출력 링버퍼의 크기다(1MB).
 pub const BUF_MAX: usize = 1 << 20;
+/// 화면 상태가 화면 위에 드는 기록 줄 수다(PERF M2 §2.2, EMULATOR §6).
+const SCREEN_HISTORY: usize = 1_000;
 /// kill 이 SIGTERM 뒤 SIGKILL 까지 기다리는 시간이다.
 pub const TERMINATE_GRACE: Duration = Duration::from_millis(50);
 const READ_BUF: usize = 8192;
@@ -56,6 +60,13 @@ struct ReadState {
     attn_carry: Vec<u8>,
     modes: ModeObserver,
     scratch: Vec<u8>,
+}
+
+/// `cmu` 가 지키는 것이다. 링과 화면 상태는 이 잠금 아래에서 함께 나아간다.
+#[derive(Default)]
+struct Cmu {
+    exited: bool,
+    screen: Option<Screen>,
 }
 
 #[derive(Default)]
@@ -127,8 +138,8 @@ pub struct Tool {
     term: Option<Arc<dyn Terminal>>,
     stream: Option<Stream>,
     sandboxed: AtomicBool,
-    /// exited 표시. 출력 공급(feed)도 이 잠금 아래에서 한다.
-    cmu: Mutex<bool>,
+    /// exited 표시와 화면 상태. 출력 공급(feed)도 이 잠금 아래에서 한다.
+    cmu: Mutex<Cmu>,
     done: CancellationToken,
     killed: Once,
     last_output_at: AtomicI64,
@@ -160,13 +171,20 @@ impl Tool {
         stream: Option<Stream>,
         hooks: ToolHooks,
     ) -> Self {
+        let screen = term.as_ref().map(|t| {
+            let (c, r) = t.size().unwrap_or((DEFAULT_COLS, DEFAULT_ROWS));
+            Screen::new(c, r, SCREEN_HISTORY)
+        });
         Self {
             id: id.to_string(),
             name: name.to_string(),
             term,
             stream,
             sandboxed: AtomicBool::new(false),
-            cmu: Mutex::new(false),
+            cmu: Mutex::new(Cmu {
+                exited: false,
+                screen,
+            }),
             done: CancellationToken::new(),
             killed: Once::new(),
             last_output_at: AtomicI64::new(0),
@@ -378,8 +396,19 @@ impl Tool {
     }
 
     fn feed(&self, chunk: &[u8]) -> i64 {
-        let _g = lock(&self.cmu);
+        let mut g = lock(&self.cmu);
+        if let Some(s) = g.screen.as_mut() {
+            s.feed(chunk);
+        }
         self.stream.as_ref().map_or(0, |s| s.feed(chunk).1)
+    }
+
+    /// 화면 상태와 그 화면이 반영한 누적 오프셋(`end`)을 한 잠금 안에서 읽는다.
+    /// 터미널이 없는 도구는 `None` 이다.
+    pub fn with_screen<R>(&self, f: impl FnOnce(&Screen, i64) -> R) -> Option<R> {
+        let g = lock(&self.cmu);
+        let end = self.stream.as_ref().map_or(0, Stream::offset);
+        g.screen.as_ref().map(|s| f(s, end))
     }
 
     fn exit_after_read(self: &Arc<Self>) {
@@ -458,7 +487,7 @@ impl Tool {
     }
 
     pub fn exited_now(&self) -> bool {
-        *lock(&self.cmu)
+        lock(&self.cmu).exited
     }
 
     // ── 제어 ──
@@ -483,7 +512,7 @@ impl Tool {
     }
 
     fn kill_once(&self) {
-        *lock(&self.cmu) = true;
+        lock(&self.cmu).exited = true;
         infof!(
             None,
             "[tool {}] killing pid={}",
@@ -577,6 +606,7 @@ impl Tool {
             )));
         }
         let old = term.size().ok();
+        let mut g = lock(&self.cmu);
         if let Err(e) = term.resize(c, r) {
             errorf!(
                 None,
@@ -584,6 +614,9 @@ impl Tool {
                 self.id
             );
             return Err(e);
+        }
+        if let Some(s) = g.screen.as_mut() {
+            s.resize(c, r);
         }
         Ok(old != Some((c, r)))
     }

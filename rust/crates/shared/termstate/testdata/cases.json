@@ -1,0 +1,20 @@
+[
+  { "name": "vectors", "input": "vectors.bin", "cols": 80, "rows": 24 },
+  { "name": "unicode", "input": "unicode.bin", "cols": 80, "rows": 24 },
+  { "name": "emoji-new", "input": "emoji-new.bin", "cols": 80, "rows": 24 },
+  { "name": "alt-roundtrip", "input": "alt-roundtrip.bin", "cols": 80, "rows": 24 },
+  { "name": "decstbm", "input": "decstbm.bin", "cols": 80, "rows": 24 },
+  { "name": "vim", "input": "vim.bin", "cols": 100, "rows": 30 },
+  { "name": "vim-live", "input": "vim-live.bin", "cols": 100, "rows": 30 },
+  { "name": "less", "input": "less.bin", "cols": 100, "rows": 30 },
+  { "name": "less-live", "input": "less-live.bin", "cols": 100, "rows": 30 },
+  { "name": "top", "input": "top.bin", "cols": 100, "rows": 30 },
+  { "name": "top-live", "input": "top-live.bin", "cols": 100, "rows": 30 },
+  { "name": "sim-line", "input": "sim-line.bin", "cols": 120, "rows": 40 },
+  { "name": "sim-tui", "input": "sim-tui.bin", "cols": 120, "rows": 40 },
+  { "name": "resize-wrap-grow", "input": "wrap.bin", "cols": 40, "rows": 10, "resize": [100, 20] },
+  { "name": "resize-wrap-shrink", "input": "wrap.bin", "cols": 100, "rows": 20, "resize": [33, 12] },
+  { "name": "resize-sim-line", "input": "sim-line.bin", "cols": 120, "rows": 40, "resize": [80, 30] },
+  { "name": "resize-vim-live", "input": "vim-live.bin", "cols": 100, "rows": 30, "resize": [80, 24] },
+  { "name": "resize-then-feed", "input": "wrap.bin", "cols": 60, "rows": 15, "resize": [45, 18], "after": "decstbm.bin" }
+]

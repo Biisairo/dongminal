@@ -49,7 +49,7 @@ impl ProcInfo for FakeInfo {
 struct PidTerm {
     pid: i32,
     size: StdMutex<(u16, u16)>,
-    written: StdMutex<Vec<u8>>,
+    written: Arc<StdMutex<Vec<u8>>>,
     fg: Option<i32>,
 }
 
@@ -58,7 +58,7 @@ impl PidTerm {
         Box::new(Self {
             pid,
             size: StdMutex::new((80, 24)),
-            written: StdMutex::default(),
+            written: Arc::default(),
             fg: None,
         })
     }
@@ -462,6 +462,91 @@ fn load_all_rules() {
     );
 }
 
+fn written_tool(id: &str) -> (Arc<Tool>, Arc<StdMutex<Vec<u8>>>) {
+    let written = Arc::<StdMutex<Vec<u8>>>::default();
+    let term = PidTerm {
+        pid: 1001,
+        size: StdMutex::new((80, 24)),
+        written: Arc::clone(&written),
+        fg: None,
+    };
+    let p = Tool::on_term(
+        id,
+        id,
+        Box::new(term),
+        false,
+        None,
+        None,
+        Stream::new(BUF_MAX),
+    );
+    (p, written)
+}
+
+fn screen_text(s: &otter_shared_termstate::Screen, line: i32) -> String {
+    let r = s.row(line).unwrap();
+    let t: String = r.cells.iter().map(|c| c.text.as_str()).collect();
+    t.trim_end().to_string()
+}
+
+#[test]
+fn screen_is_fed_once_per_chunk_for_any_number_of_subscribers() {
+    let (p, _) = written_tool("a");
+    let seen = Arc::new(StdMutex::new(Vec::<String>::new()));
+    let subs: Vec<Arc<StdMutex<Vec<String>>>> = vec![Arc::clone(&seen), Arc::clone(&seen)];
+    assert!(p.wire_relay_once(|exit| {
+        let relay: crate::OutputFn = Arc::new(move |_, d: &[u8], _| {
+            for s in &subs {
+                s.lock()
+                    .unwrap()
+                    .push(String::from_utf8_lossy(d).into_owned());
+            }
+        });
+        (Some(relay), exit)
+    }));
+    p.handle_chunk(b"ab");
+    assert_eq!(seen.lock().unwrap().len(), 2);
+    assert_eq!(p.with_screen(|s, _| screen_text(s, 0)).unwrap(), "ab");
+}
+
+#[test]
+fn screen_and_offset_are_read_together() {
+    let (p, _) = written_tool("a");
+    p.handle_chunk(b"hello");
+    p.handle_chunk(b"\r\nworld");
+    let (first, second, end) = p
+        .with_screen(|s, end| (screen_text(s, 0), screen_text(s, 1), end))
+        .unwrap();
+    assert_eq!(
+        (first.as_str(), second.as_str(), end),
+        ("hello", "world", 12)
+    );
+}
+
+#[test]
+fn screen_does_not_write_replies_to_pty() {
+    let (p, written) = written_tool("a");
+    p.handle_chunk(b"\x1b[c\x1b[>c\x1b[5n\x1b[6n\x1b]11;?\x07\x1b[18t\x1b[14t\x1b]52;c;?\x07");
+    assert_eq!(p.with_screen(|s, _| s.cursor().col), Some(0));
+    assert!(written.lock().unwrap().is_empty());
+}
+
+#[test]
+fn screen_follows_pty_size() {
+    let (p, _) = written_tool("a");
+    assert_eq!(p.with_screen(|s, _| s.size()), Some((80, 24)));
+    p.resize(100, 30).unwrap();
+    assert_eq!(p.with_screen(|s, _| s.size()), Some((100, 30)));
+}
+
+#[test]
+fn detached_tool_has_no_screen() {
+    assert!(
+        Tool::new_detached("x", None)
+            .with_screen(|s, _| s.size())
+            .is_none()
+    );
+}
+
 #[test]
 fn snapshot_since_resumes_or_replays() {
     let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));
@@ -762,7 +847,7 @@ async fn terminate_unknown_is_not_found_and_paste() {
     let term = PidTerm {
         pid: 1001,
         size: StdMutex::new((80, 24)),
-        written: StdMutex::default(),
+        written: Arc::default(),
         fg: None,
     };
     let p = Tool::on_term(

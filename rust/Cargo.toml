@@ -52,6 +52,7 @@ members = [
     "crates/shared/serverconf",
     "crates/shared/settingsschema",
     "crates/shared/statusline",
+    "crates/shared/termstate",
     "crates/shared/termtext",
     "crates/shared/testpath",
     "crates/shared/textenc",
@@ -108,6 +109,7 @@ unimplemented = "deny"
 # 허용 목록은 DEPENDENCIES.md 다. 여기에 없는 crate 를 쓰려면 그 문서를 먼저 고친다 (C-RSP-3).
 [workspace.dependencies]
 aes-gcm = "0.11.1"
+alacritty_terminal = { version = "=0.26.0", default-features = false }
 axum = "0.8.9"
 base64 = "0.23.1"
 bytes = "1.12.2"

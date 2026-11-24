@@ -16,6 +16,7 @@ otter-shared-otterlog = { path = "../otterlog" }
 otter-shared-outbuf = { path = "../outbuf" }
 otter-shared-platform = { path = "../platform" }
 otter-shared-pollwait = { path = "../pollwait" }
+otter-shared-termstate = { path = "../termstate" }
 otter-shared-uuid = { path = "../uuid" }
 otter-gocompat = { path = "../../gocompat" }
 serde = { workspace = true }
