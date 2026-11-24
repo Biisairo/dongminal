@@ -139,8 +139,14 @@ impl Server {
             }
             p.args = RawMessage(raw.to_vec());
         }
+        let changes = op != chatwire::OP_STATE;
         let res = match off_thread(move || d.chat(p)).await {
-            Some(Ok(res)) => res,
+            Some(Ok(res)) => {
+                if changes && res.error.is_none() {
+                    self.refresh_state_topic("chat");
+                }
+                res
+            }
             Some(Err(e)) => {
                 return code_fail(
                     StatusCode::BAD_GATEWAY,

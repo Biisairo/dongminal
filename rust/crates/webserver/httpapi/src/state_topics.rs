@@ -4,6 +4,7 @@
 //! (`snapshot.rs` 와 같은 근거). 상태가 바뀌는 자리는 [`Server::refresh_state_topic`] 을 부른다.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use bytes::Bytes;
@@ -38,17 +39,22 @@ const INTERNAL_HOST: &str = "127.0.0.1";
 /// 200 이 아닌 GET 의 결과를 싣는 키다. `{"$http": 상태, "body": 본문}`.
 const HTTP_STATUS_KEY: &str = "$http";
 
-type Last = Arc<tokio::sync::Mutex<Option<String>>>;
+/// 토픽 하나의 다시 만들기 자리. `last` 는 마지막으로 낸 본문이고, 다시 만들기를 줄 세운다.
+/// `queued` 는 아직 시작하지 않은 다시 만들기가 있다는 뜻이다 — 몰려 온 요청은 하나로 합친다.
+#[derive(Default)]
+struct Slot {
+    last: tokio::sync::Mutex<Option<String>>,
+    queued: AtomicBool,
+}
 
-/// 토픽마다 마지막으로 낸 본문이다. 같은 본문은 다시 내지 않고, 다시 만들기를 줄 세운다.
 #[derive(Default)]
 pub(crate) struct StateTopics {
-    last: Mutex<HashMap<&'static str, Last>>,
+    slots: Mutex<HashMap<&'static str, Arc<Slot>>>,
 }
 
 impl StateTopics {
-    fn slot(&self, topic: &'static str) -> Last {
-        let mut m = self.last.lock().unwrap_or_else(|e| e.into_inner());
+    fn slot(&self, topic: &'static str) -> Arc<Slot> {
+        let mut m = self.slots.lock().unwrap_or_else(|e| e.into_inner());
         m.entry(topic).or_default().clone()
     }
 }
@@ -85,7 +91,7 @@ impl Server {
                 Box::pin(async move {
                     let s = me.upgrade()?;
                     let slot = s.state_topics.slot(topic);
-                    let mut last = slot.lock().await;
+                    let mut last = slot.last.lock().await;
                     let v = s.state_body(topic).await?;
                     *last = Some(v.to_string());
                     Some(Seed::Full(v))
@@ -105,8 +111,12 @@ impl Server {
             return;
         };
         let slot = self.state_topics.slot(topic);
+        if slot.queued.swap(true, Ordering::AcqRel) {
+            return;
+        }
         rt.spawn(async move {
-            let mut last = slot.lock().await;
+            let mut last = slot.last.lock().await;
+            slot.queued.store(false, Ordering::Release);
             let Some(v) = me.state_body(topic).await else {
                 return;
             };

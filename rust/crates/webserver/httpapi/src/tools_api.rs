@@ -267,10 +267,14 @@ impl Server {
             .await
             .unwrap_or_else(|| Err(ToolError::Other("create cancelled".to_owned())));
         match created {
-            Ok(t) => write_json(&Created {
-                id: t.id,
-                name: t.name,
-            }),
+            Ok(t) => {
+                // `/api/state` 가 도구 목록을 싣는다 — 새 도구가 `workspace` 토픽에 보이게 한다 (C2b).
+                self.refresh_state_topic("workspace");
+                write_json(&Created {
+                    id: t.id,
+                    name: t.name,
+                })
+            }
             // 상한 초과는 429 다 (04-secops P1-4) — 문구에 할 일이 있다.
             Err(ToolError::ToolCap(m)) => fail(StatusCode::TOO_MANY_REQUESTS, &m, None),
             // 그 밖의 실패 문구에는 절대경로가 실린다 — 로그에만 남긴다.

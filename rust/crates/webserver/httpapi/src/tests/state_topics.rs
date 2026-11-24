@@ -23,17 +23,19 @@ struct Env {
     _dir: tempfile::TempDir,
     srv: Arc<Server>,
     broker: Arc<FakeBroker>,
+    hub: Arc<FakeHub>,
     port: u16,
 }
 
 async fn env() -> Env {
     let dir = tempfile::tempdir().unwrap();
     let broker = Arc::new(FakeBroker::default());
+    let hub = Arc::new(FakeHub::default());
     let srv = server(
         dir.path(),
         Deps {
             commands: Some(broker.clone()),
-            tools: Some(Arc::new(FakeHub::default())),
+            tools: Some(hub.clone()),
             work: Some(Arc::new(FakeWork::default())),
             settings: Some(Arc::new(FileSettings::new(
                 dir.path().join("settings.json"),
@@ -46,6 +48,7 @@ async fn env() -> Env {
         _dir: dir,
         srv,
         broker,
+        hub,
         port,
     }
 }
@@ -172,6 +175,37 @@ async fn workspace_put_publishes_new_rev() {
         .expect("full 이 없다");
     assert!(v["data"]["rev"].as_u64().unwrap() > before, "{v}");
     assert_eq!(v["data"]["workspace"]["windows"][0]["id"], "w1", "{v}");
+}
+
+/// TC-CH2B-2: 도구를 만들면 `/api/state` 의 도구 목록이 바뀐 `workspace` full 이 나간다.
+#[tokio::test]
+async fn tool_create_publishes_workspace() {
+    let e = env().await;
+    let mut c = dial(e.port).await;
+    let before = sub_full(&mut c, "workspace").await;
+    // 데몬이 새 도구를 들게 된 것을 흉내 낸다 — 가짜 허브의 create 는 목록을 바꾸지 않는다.
+    e.hub
+        .tools
+        .lock()
+        .unwrap()
+        .push(otter_shared_toolhub::ToolInfo {
+            id: "t-new".into(),
+            ..Default::default()
+        });
+    let r = call(
+        &e.srv,
+        "POST",
+        "/api/tools",
+        &[("Content-Type", "application/json")],
+        "{}",
+        LOCAL,
+    )
+    .await;
+    assert_eq!(r.status, 200, "{}", r.body);
+    let v = next_of(&mut c, "workspace", WAIT)
+        .await
+        .expect("full 이 없다");
+    assert_ne!(v["data"]["tools"], before["tools"], "{v}");
 }
 
 /// TC-CH2B-2: 포커스 주장은 소유 맵 full 을 낸다.

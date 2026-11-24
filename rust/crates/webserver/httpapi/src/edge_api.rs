@@ -205,7 +205,14 @@ impl Server {
             }
         }
         match off_thread(move || d.edge(p)).await {
-            Some(Ok(res)) => write_edge_response(&res),
+            Some(Ok(res)) => {
+                // 바꾸는 연산은 데몬이 push 하지 않을 수도 있다(이름 바꾸기) — `edges` 토픽을 다시
+                // 만든다. 같은 본문이면 나가지 않는다 (CHANNEL_PROTOCOL C2b).
+                if with_body && (200..300).contains(&res.status) {
+                    self.refresh_state_topic("edges");
+                }
+                write_edge_response(&res)
+            }
             Some(Err(e)) => code_fail(
                 StatusCode::BAD_GATEWAY,
                 apierr::CODE_EDGE_UNREACHABLE,
