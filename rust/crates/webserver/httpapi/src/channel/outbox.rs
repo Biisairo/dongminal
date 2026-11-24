@@ -86,6 +86,7 @@ impl Outbox {
         self.inner.lock().unwrap_or_else(|e| e.into_inner())
     }
 
+    #[cfg(test)]
     pub(crate) fn is_closed(&self) -> bool {
         self.inner().closed
     }

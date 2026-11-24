@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
 
 use futures_util::future::BoxFuture;
-use tokio_tungstenite::tungstenite::Error as WsError;
 
 use crate::*;
 
@@ -54,15 +53,11 @@ struct Rec {
 }
 
 impl SeatConn for Rec {
-    fn send<'a>(&'a self, op: u8, payload: &'a [u8]) -> BoxFuture<'a, Result<(), WsError>> {
+    fn send<'a>(&'a self, op: u8, payload: &'a [u8]) -> BoxFuture<'a, Result<(), SeatClosed>> {
         Box::pin(async move {
             assert_eq!(op, otter_shared_toolhub::OP_REPLY_SEAT);
             crate::lock(&self.got).push(payload[0]);
-            if self.fail {
-                Err(WsError::ConnectionClosed)
-            } else {
-                Ok(())
-            }
+            if self.fail { Err(SeatClosed) } else { Ok(()) }
         })
     }
 }

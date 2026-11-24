@@ -4,16 +4,15 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use super::wsc::{Message, TextOf};
 use futures_util::{SinkExt, StreamExt};
 use http::Method;
 use serde_json::{Value, json};
-use tokio_tungstenite::tungstenite::Message;
 
 use super::ws::listen;
 use crate::{Config, Deps, Server};
 
-type Client =
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+type Client = super::wsc::Client;
 
 const WAIT: Duration = Duration::from_secs(5);
 
@@ -41,10 +40,7 @@ async fn env() -> Env {
 }
 
 async fn dial(port: u16) -> Client {
-    let (c, _) = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}/channel?v=1"))
-        .await
-        .unwrap();
-    c
+    super::wsc::dial(port, "/channel?v=1").await
 }
 
 async fn send(c: &mut Client, v: Value) {
@@ -584,4 +580,40 @@ fn outbox_term_mirror_and_drop() {
     assert!(o.pop().is_none());
     o.forget_term(1);
     assert_eq!(o.term_state(1), (0, None));
+}
+
+/// TC-CH6-1: 채널은 permessage-deflate 를 협상한다. 서버 압축기의 창은 13 비트다.
+#[tokio::test]
+async fn channel_negotiates_deflate_with_small_server_window() {
+    let e = env().await;
+    let d = super::wsc::dial_with(e.port, "/channel?v=1", Some(super::wsc::OFFER), &[]).await;
+    assert_eq!(d.status, 101);
+    let ext = d.header("Sec-WebSocket-Extensions").unwrap_or_default();
+    assert!(ext.starts_with("permessage-deflate"), "{ext}");
+    assert!(ext.contains("server_max_window_bits=13"), "{ext}");
+    assert!(
+        !ext.contains("no_context_takeover"),
+        "문맥 유지가 꺼졌다: {ext}"
+    );
+}
+
+/// TC-CH6-2: 압축을 제안하지 않는 연결은 받지 않는다 — 모든 연결이 같은 스트림이다 (D-12).
+#[tokio::test]
+async fn channel_without_deflate_offer_is_400() {
+    let e = env().await;
+    let d = super::wsc::dial_with(e.port, "/channel?v=1", None, &[]).await;
+    assert_eq!(d.status, 400);
+}
+
+/// TC-CH6-3: 큰 텍스트 프레임이 압축된 채로 오가고 내용이 같다.
+#[tokio::test]
+async fn compressed_frames_round_trip() {
+    let e = env().await;
+    let mut c = dial(e.port).await;
+    hello(&mut c, &[]).await;
+    let n = "x".repeat(200_000);
+    send(&mut c, json!({"t":"ping","n":n})).await;
+    let v = next_json(&mut c).await.unwrap();
+    assert_eq!(v["t"], "pong");
+    assert_eq!(v["n"].as_str().map(str::len), Some(200_000));
 }

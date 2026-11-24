@@ -28,7 +28,7 @@
 
 - 종단: `GET /channel?v=1` (WebSocket 업그레이드). 출처 판정은 지금 `/ws` 와 같은 출처 게이트를 지난다(`reqgate.rs`).
 - 브라우저 탭 하나가 채널 하나를 연다. 칸 소유권용 presence SSE 와 git job SSE 도 이 채널로 합친다.
-- 압축(FR-CON-9): 원격 주소(루프백이 아닌 주소)에서만 `permessage-deflate` 를 협상한다. tungstenite 0.30 이 이것을 지원하는지 시험 단계에서 먼저 확인한다(A-C1). 지원하지 않으면 멈추고 알린다.
+- 압축(FR-CON-9, D-12): 로컬·원격을 가리지 않고 모든 연결에서 `permessage-deflate` 를 협상한다. 서버 WebSocket(채널·편집기 LSP)은 sockudo-ws 하나로 통일했다. 압축을 제안하지 않는 업그레이드는 400 이다 — 그래서 스트림 종류가 하나다. 설정은 context takeover 켬, 단계 6, 최소 크기 임계값 없음, 서버 압축기 창 13비트(`perf/COMPRESSION_2026-11-24.md` §9).
 - 브라우저→서버 메시지 상한은 지금 `/ws` 와 같은 1 MB(`WS_READ_LIMIT`).
 
 ## 4. 프레임
@@ -120,7 +120,7 @@
 
 ## 7. 생존 확인과 지연 (FR-CON-7)
 
-- 서버: WebSocket ping 을 지금 `/ws` 와 같은 주기로 보내고, 퐁이 `PONG_WAIT` 안에 없으면 닫는다(`toolhub` 상수 그대로).
+- 서버: WebSocket 핑·퐁과 무응답 마감은 sockudo-ws 의 쓰기 구동기가 한다(받은 것이 30초 없으면 핑, 퐁을 10초 기다림, 무엇도 120초 받지 못하면 닫음 — 라이브러리 기본값). 앱의 `ping_loop`·`PONG_WAIT` 는 지웠다(C6).
 - 브라우저: 앱 수준 `ping` 을 보낸다. 브라우저 JS 는 WebSocket ping 을 볼 수 없기 때문이다. 주기는 **탭이 보일 때 `statsInterval`(기본 3초), 숨었을 때 30초**다. `pong` 왕복이 상태바의 지연 값이 된다.
 - 브라우저는 `pong` 을 포함한 아무 프레임도 `주기 × 2 + 5초` 동안 받지 못하면 다시 연결한다(지금 SSE 침묵 감시의 자리).
 
@@ -141,7 +141,7 @@
 
 ## 9. 가정과 미결
 
-- **A-C1** tungstenite 0.30 이 `permessage-deflate` 를 지원한다. C6 전에 확인한다.
+- **A-C1** (해소) tungstenite 0.30 은 `permessage-deflate` 를 지원하지 않았다. D-11·D-12 로 sockudo-ws 로 바꿨다.
 - **A-C2** 지금 `/api/state` 본문 크기가 바뀔 때마다 모든 채널에 밀어도 될 만큼 작다. C2 시험에서 창 5 × 탭 3 기준 크기를 잰다.
 - ~~**OQ-C1** 텔레그램 페어링 확인을 어느 토픽에 실을지~~ → `telegram` full 토픽(C2b).
 
@@ -278,6 +278,24 @@ C4 에 남긴 것: Git Console 탭의 기록 주기(`git/console.js`, 탭이 보
 | TC-CH5-16 | 프론트 | 채널이 끊기면 열린 터미널 모두가 `_wsLost('close')` 를 받고, 다시 붙으면 백오프 뒤 `term.open{since}` 로 다시 연다 |
 | TC-CH5-17 | 프론트 | `ws.close()`(손잡이)와 서버 `term.lost` 는 그 터미널만 끊긴 것으로 다룬다: `term.close` → `_wsLost` → 백오프(종전 수열) → 다시 연다 |
 | TC-CH5-18 | 프론트 | 한 번 열린 뒤 끊긴 동안의 사용자 입력은 보류함에 담긴다(FR-HIN) |
+
+### 10.7 C6 — 압축과 WebSocket 구현 통일 (D-12)
+
+| ID | 쪽 | 동작 |
+|---|---|---|
+| TC-CH6-1 | 서버 | 채널 업그레이드 응답에 `Sec-WebSocket-Extensions: permessage-deflate; server_max_window_bits=13` 이 붙는다. context takeover 를 끄지 않는다 |
+| TC-CH6-2 | 서버 | 압축을 제안하지 않는 채널 업그레이드는 400 이다 |
+| TC-CH6-3 | 서버 | 큰 텍스트 프레임(200 KB)이 압축된 채로 오가고 내용이 같다. 나머지 채널 시험도 모두 압축된 클라이언트로 돈다 |
+| TC-CH6-4 | 서버 | 편집기 LSP WebSocket 도 같은 구현으로 압축을 협상하고, 제안이 없으면 400 이다. 메시지 상한을 넘으면 연결이 끝나고 통로도 닫힌다(1009 는 싣지 못한다 — 아래 동작 변경) |
+| TC-CH6-5 | e2e | 실제 Chromium 의 채널 핸드셰이크 응답에 `permessage-deflate` 가 있고, 그 위로 `ping`·`pong` 이 오간다 |
+
+동작 변경:
+- 이전: LSP WebSocket 에 상한을 넘는 메시지가 오면 서버가 닫힘 코드 1009 를 보냈다.
+- 새 동작: 연결이 닫힘 코드 없이 끝난다(브라우저에는 1006). 통로는 전과 같이 닫힌다.
+- 이유: sockudo-ws 는 읽기 오류 뒤 쓰기를 막아 닫힘 프레임을 보낼 수 없다. 브라우저(`cm-lsp.js`)는 1009 를 따로 다루지 않는다.
+- 이전: 진단 한 줄(`diag …`)에 `hold=` 와 그 경고가 있었다.
+- 새 동작: 없다.
+- 이유: 그 값을 올리던 옛 `/ws` 의 연결 붙잡기가 C5 에서 사라져 늘 0 이었다.
 
 ## 11. 구현 계약 (토픽 기반 — C2~C5 가 딛는다)
 

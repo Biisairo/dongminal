@@ -12,10 +12,9 @@ use otter_shared_toolhub::{
     self as th, OP_ERROR, OP_EXIT, OP_INPUT, OP_OUTPUT, OP_RESIZE, OP_SEQ, OP_SIZE, OP_TOOL_ID,
     OutChunk, Placement, ToolSnapshot,
 };
-use otter_webserver_hub::SeatConn;
+use otter_webserver_hub::{SeatClosed, SeatConn};
 use serde_json::{Value, json};
 use tokio::sync::mpsc;
-use tokio_tungstenite::tungstenite::Error as WsError;
 use tokio_util::sync::CancellationToken;
 
 use super::outbox::Outbox;
@@ -76,7 +75,7 @@ struct SidSeat {
 }
 
 impl SeatConn for SidSeat {
-    fn send<'a>(&'a self, op: u8, payload: &'a [u8]) -> BoxFuture<'a, Result<(), WsError>> {
+    fn send<'a>(&'a self, op: u8, payload: &'a [u8]) -> BoxFuture<'a, Result<(), SeatClosed>> {
         self.out.push_term_as(self.og, op, self.sid, payload);
         Box::pin(async { Ok(()) })
     }

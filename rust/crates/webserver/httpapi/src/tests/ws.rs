@@ -5,6 +5,7 @@ use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
 
+use super::wsc::{Message, TextOf};
 use futures_util::{SinkExt, StreamExt};
 use hyper_util::rt::TokioIo;
 use otter_shared_toolhub::{
@@ -12,14 +13,12 @@ use otter_shared_toolhub::{
     ToolSnapshot, size_payload,
 };
 use serde_json::{Value, json};
-use tokio_tungstenite::tungstenite::Message;
 
 use super::fakes::*;
 use crate::ws::{TERM_HARD_CLEAR, TERM_RESET};
 use crate::{Config, Deps, Server};
 
-type Client =
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+type Client = super::wsc::Client;
 
 const PORT_MIN: u16 = 60147;
 const PORT_MAX: u16 = 64999;
@@ -83,9 +82,7 @@ async fn env(hub: FakeHub) -> Env {
 
 /// 인사까지 마친 채널.
 async fn chan(port: u16) -> Client {
-    let (mut c, _) = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}/channel?v=1"))
-        .await
-        .unwrap();
+    let mut c = super::wsc::dial(port, "/channel?v=1").await;
     send_json(&mut c, json!({"t":"hello","slots":[]})).await;
     loop {
         if let Some(Frame::Text(v)) = next(&mut c).await
@@ -318,8 +315,8 @@ async fn missing_tool_gets_exit_and_channel_stays() {
 #[tokio::test]
 async fn old_ws_endpoint_is_gone() {
     let e = env(FakeHub::default()).await;
-    let r = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{}/ws?tool=t1", e.port)).await;
-    assert!(r.is_err(), "옛 /ws 가 아직 업그레이드된다");
+    let d = super::wsc::dial_with(e.port, "/ws?tool=t1", Some(super::wsc::OFFER), &[]).await;
+    assert_ne!(d.status, 101, "옛 /ws 가 아직 업그레이드된다");
 }
 
 async fn relay_env(

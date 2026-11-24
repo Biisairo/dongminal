@@ -2,39 +2,35 @@
 //! `docs/internal/perf/CHANNEL_PROTOCOL.md`). 인사·생존 확인·칸 신원 임대(C1), 토픽 구독(§11.1).
 
 mod cmd;
-// 발행하는 쪽(C2~C5)이 붙기 전까지 제품 빌드에서 쓰이지 않는 표면이 있다. 첫 발행자가 붙으면 지운다.
-#[cfg_attr(not(test), allow(dead_code))]
 mod outbox;
 mod term;
-#[cfg_attr(not(test), allow(dead_code))]
 mod topics;
 
-#[cfg_attr(not(test), allow(unused_imports))]
-pub(crate) use outbox::{CHANNEL_PENDING_MAX, Out, Outbox, TOPIC_PENDING_MAX};
-#[cfg_attr(not(test), allow(unused_imports))]
-pub(crate) use topics::{DeltaOp, Seed, SubError, TOPIC_RING, TopicHub};
+#[cfg(test)]
+pub(crate) use outbox::{CHANNEL_PENDING_MAX, TOPIC_PENDING_MAX};
+pub(crate) use outbox::{Out, Outbox};
+#[cfg(test)]
+pub(crate) use topics::TOPIC_RING;
+pub(crate) use topics::{DeltaOp, Seed, SubError, TopicHub};
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-use futures_util::StreamExt;
-use http::{HeaderValue, StatusCode, header};
-use hyper_util::rt::TokioIo;
-use otter_shared_httpresp::{self as httpresp, Response};
+use bytes::Bytes;
+use http::StatusCode;
+use otter_shared_httpresp::Response;
 use otter_shared_otterlog::infof;
-use otter_shared_toolhub::{self as th, SafeConn};
+use otter_shared_toolhub as th;
 use serde_json::{Value, json};
-use tokio_tungstenite::WebSocketStream;
-use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::tungstenite::protocol::{Role, WebSocketConfig};
+use sockudo_ws::Message;
 use tokio_util::sync::CancellationToken;
 
 use crate::Server;
 use crate::httperr::http_err;
 use crate::req::Req;
-use crate::ws::{Conn, Reader, check_handshake, handshake_error, ping_loop};
+use crate::ws::{WsReader, WsWriter, handshake_error, ws_accept};
 use otter_webserver_apierr as apierr;
 
 /// 브라우저가 보내는 메시지 하나의 상한이다 (`/ws` 의 `WS_READ_LIMIT` 와 같다).
@@ -57,8 +53,8 @@ struct Who {
 impl Server {
     /// GET /channel?v=1.
     pub(crate) async fn handle_channel(&self, r: &mut Req) -> Response {
-        let key = match check_handshake(r) {
-            Ok(k) => k,
+        let accept = match ws_accept(r) {
+            Ok(a) => a,
             Err((status, why)) => {
                 infof!(None, "channel upgrade addr={}: {why}", r.remote_addr);
                 return handshake_error(status);
@@ -75,6 +71,7 @@ impl Server {
             );
         };
         let remote = r.remote_addr.clone();
+        let res = accept.response();
         tokio::spawn(async move {
             let upgraded = match on_upgrade.await {
                 Ok(u) => u,
@@ -83,38 +80,34 @@ impl Server {
                     return;
                 }
             };
-            let cfg = WebSocketConfig::default()
-                .max_message_size(Some(CHANNEL_READ_LIMIT))
-                .max_frame_size(Some(CHANNEL_READ_LIMIT));
-            let ws =
-                WebSocketStream::from_raw_socket(TokioIo::new(upgraded), Role::Server, Some(cfg))
-                    .await;
-            let (sink, reader) = ws.split();
-            let conn = Arc::new(SafeConn::new(sink, remote.clone()));
+            let (reader, writer) = accept.open(upgraded, CHANNEL_READ_LIMIT);
             me.conn.ws_open.fetch_add(1, Ordering::SeqCst);
-            me.channel_session(conn.clone(), reader, &remote).await;
-            conn.close().await;
+            me.channel_session(writer, reader, &remote).await;
             me.conn.ws_open.fetch_sub(1, Ordering::SeqCst);
         });
-        let mut res = http::Response::new(httpresp::empty());
-        *res.status_mut() = StatusCode::SWITCHING_PROTOCOLS;
-        let h = res.headers_mut();
-        h.insert(header::UPGRADE, HeaderValue::from_static("websocket"));
-        h.insert(header::CONNECTION, HeaderValue::from_static("Upgrade"));
-        let accept = tokio_tungstenite::tungstenite::handshake::derive_accept_key(key.as_bytes());
-        if let Ok(v) = HeaderValue::from_str(&accept) {
-            h.insert(header::SEC_WEBSOCKET_ACCEPT, v);
-        }
         res
     }
 
-    async fn channel_session(self: &Arc<Self>, conn: Arc<Conn>, mut reader: Reader, remote: &str) {
+    async fn channel_session(
+        self: &Arc<Self>,
+        mut writer: WsWriter,
+        mut reader: WsReader,
+        remote: &str,
+    ) {
         let first = match tokio::time::timeout(HELLO_WAIT, next_frame(&mut reader)).await {
             Ok(Some(f)) => f,
-            _ => return,
+            _ => {
+                let _ = writer.close(1000, "").await;
+                return;
+            }
         };
         let Some(hello) = first.json().filter(|v| v["t"] == "hello") else {
-            let _ = send(&conn, error("hello_required")).await;
+            let _ = write(
+                &mut writer,
+                Message::text(error("hello_required").to_string()),
+            )
+            .await;
+            let _ = writer.close(1000, "").await;
             return;
         };
         infof!(None, "channel connected addr={remote}");
@@ -123,11 +116,10 @@ impl Server {
         let done = CancellationToken::new();
         let writer = tokio::spawn(write_loop(
             Arc::clone(self),
-            conn.clone(),
+            writer,
             out.clone(),
             done.clone(),
         ));
-        let ping = tokio::spawn(ping_loop(conn.clone(), done.clone()));
         let mut who = Who::default();
         let terms = Arc::new(term::Terms::default());
         self.channel_hello(&out, &hello, &mut who.slots, remote);
@@ -137,7 +129,6 @@ impl Server {
         done.cancel();
         terms.close_all();
         let _ = writer.await;
-        let _ = ping.await;
         self.topics.unsubscribe_all(chan);
         if let Some(l) = who.client.take() {
             self.channel_client_drop(l);
@@ -153,7 +144,7 @@ impl Server {
         chan: u64,
         out: &Arc<Outbox>,
         terms: &Arc<term::Terms>,
-        reader: &mut Reader,
+        reader: &mut WsReader,
         who: &mut Who,
         remote: &str,
         done: &CancellationToken,
@@ -161,9 +152,9 @@ impl Server {
         loop {
             let frame = tokio::select! {
                 _ = done.cancelled() => return,
-                r = tokio::time::timeout(th::PONG_WAIT, next_frame(reader)) => match r {
-                    Ok(Some(f)) => f,
-                    _ => return,
+                f = next_frame(reader) => match f {
+                    Some(f) => f,
+                    None => return,
                 },
             };
             let reply = match frame {
@@ -272,30 +263,44 @@ impl Server {
 }
 
 /// Outbox 를 비우는 쓰기 태스크 하나. 쓰기에 실패하거나 상한을 넘으면 세션을 끝낸다.
-async fn write_loop(srv: Arc<Server>, conn: Arc<Conn>, out: Arc<Outbox>, done: CancellationToken) {
+async fn write_loop(
+    srv: Arc<Server>,
+    mut writer: WsWriter,
+    out: Arc<Outbox>,
+    done: CancellationToken,
+) {
     loop {
         let next = tokio::select! {
             _ = done.cancelled() => return,
             o = out.next() => o,
         };
         let msg = match next {
-            Out::Text(t) => Message::text(t.as_ref()),
-            Out::Binary(b) => Message::binary(b),
+            Out::Text(t) => Message::Text(Bytes::copy_from_slice(t.as_bytes())),
+            Out::Binary(b) => Message::Binary(Bytes::from(b)),
             Out::NeedFull(topic) => match srv.topics.full_item(&topic) {
                 Some(it) => {
                     out.drop_upto(&topic, it.seq);
-                    Message::text(it.frame.as_ref())
+                    Message::Text(Bytes::copy_from_slice(it.frame.as_bytes()))
                 }
                 None => continue,
             },
             Out::Close => break,
         };
-        if conn.write_msg(msg).await.is_err() {
+        if write(&mut writer, msg).await.is_err() {
             break;
         }
     }
     done.cancel();
-    conn.close().await;
+    let _ = writer.close(1000, "").await;
+}
+
+/// 쓰기 한 번. 마감(`WRITE_WAIT`) 안에 끝나지 않으면 실패다 — 읽지 않는 상대가 쓰기 태스크를
+/// 영영 붙잡지 않게 한다.
+async fn write(writer: &mut WsWriter, msg: Message) -> Result<(), ()> {
+    match tokio::time::timeout(th::WRITE_WAIT, writer.send(msg)).await {
+        Ok(Ok(())) => Ok(()),
+        _ => Err(()),
+    }
 }
 
 enum Frame {
@@ -315,19 +320,15 @@ impl Frame {
 }
 
 /// 다음 프레임. 닫혔거나 읽기 오류면 `None`.
-async fn next_frame(reader: &mut Reader) -> Option<Frame> {
+async fn next_frame(reader: &mut WsReader) -> Option<Frame> {
     match reader.next().await? {
-        Ok(Message::Text(t)) => Some(Frame::Text(t.as_str().to_owned())),
+        Ok(Message::Text(t)) => Some(Frame::Text(String::from_utf8_lossy(&t).into_owned())),
         Ok(Message::Binary(b)) => Some(Frame::Binary(b.to_vec())),
-        Ok(Message::Ping(_) | Message::Pong(_) | Message::Frame(_)) => Some(Frame::Alive),
+        Ok(Message::Ping(_) | Message::Pong(_)) => Some(Frame::Alive),
         Ok(Message::Close(_)) | Err(_) => None,
     }
 }
 
 fn error(code: &str) -> Value {
     json!({"t":"error","code":code})
-}
-
-async fn send(conn: &Conn, v: Value) -> Result<(), tokio_tungstenite::tungstenite::Error> {
-    conn.write_msg(Message::text(v.to_string())).await
 }

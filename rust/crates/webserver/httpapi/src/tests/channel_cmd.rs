@@ -4,19 +4,18 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
+use super::wsc::{Message, TextOf};
 use futures_util::{SinkExt, StreamExt};
 use otter_shared_toolhub::ToolInfo;
 use otter_webserver_hub::{CommandBroker, CommandHub, SUB_CAP};
 use serde_json::{Value, json};
-use tokio_tungstenite::tungstenite::Message;
 
 use super::fakes::*;
 use super::support::*;
 use super::ws::listen;
 use crate::{Deps, Server};
 
-type Client =
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+type Client = super::wsc::Client;
 
 const WAIT: Duration = Duration::from_secs(5);
 
@@ -38,10 +37,7 @@ async fn env(deps: Deps) -> Env {
 }
 
 async fn dial(port: u16) -> Client {
-    let (c, _) = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}/channel?v=1"))
-        .await
-        .unwrap();
-    c
+    super::wsc::dial(port, "/channel?v=1").await
 }
 
 async fn send(c: &mut Client, v: Value) {

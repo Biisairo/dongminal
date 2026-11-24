@@ -4,20 +4,18 @@
 //! 출처 판정은 출처 게이트가 이미 끝냈다 (FR-RQG-11).
 
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use base64::Engine;
-use futures_util::stream::{SplitSink, SplitStream};
-use http::{HeaderValue, Method, StatusCode};
+use http::{HeaderValue, Method, StatusCode, header};
 use hyper_util::rt::TokioIo;
 use otter_shared_httpresp::{self as httpresp, Response};
-use otter_shared_otterlog::errorf;
-use otter_shared_toolhub::{self as th, OutChunk, SafeConn};
+use otter_shared_toolhub::{self as th, OutChunk};
 use regex::bytes::Regex;
-use tokio_tungstenite::WebSocketStream;
-use tokio_tungstenite::tungstenite::Message;
-use tokio_util::sync::CancellationToken;
+use sockudo_ws::deflate::{DeflateNegotiation, DeflateWindowBits, negotiate_server_deflate};
+use sockudo_ws::stream::{CompressedSplitReader, CompressedSplitWriter, CompressedWebSocketStream};
+use sockudo_ws::{Config as WsConfig, DeflateConfig};
 
 use crate::Server;
 use crate::req::Req;
@@ -37,9 +35,73 @@ const SEQ_FLAG_ALT: u8 = 1 << 1;
 
 const BAD_HANDSHAKE: &str = "websocket: the client is not using the websocket protocol: ";
 
-pub(crate) type Ws = WebSocketStream<TokioIo<hyper::upgrade::Upgraded>>;
-pub(crate) type Conn = SafeConn<SplitSink<Ws, Message>>;
-pub(crate) type Reader = SplitStream<Ws>;
+pub(crate) type WsIo = TokioIo<hyper::upgrade::Upgraded>;
+pub(crate) type WsReader = CompressedSplitReader<WsIo>;
+pub(crate) type WsWriter = CompressedSplitWriter<WsIo>;
+
+/// 서버 압축기의 창 크기다. 15 → 13 비트로 연결당 압축기 메모리가 338 → 242 KB 로 줄고 압축 후
+/// 크기는 TUI 출력 +9%·줄 출력 +5% 다 (`perf/COMPRESSION_2026-11-24.md` §9).
+const DEFLATE_SERVER_WINDOW: DeflateWindowBits = DeflateWindowBits::Bits13;
+/// 압축 단계다 (zlib 기본, §8).
+const DEFLATE_LEVEL: u32 = 6;
+const NO_DEFLATE: &str = "websocket: permessage-deflate offer required";
+
+/// 업그레이드를 받아들인 WebSocket 하나 — 압축이 협상됐다 (PERF_OPTIMIZATION_SRS D-12).
+pub(crate) struct WsAccept {
+    key: String,
+    neg: DeflateNegotiation,
+}
+
+/// 업그레이드 판정 + permessage-deflate 협상. 압축을 제안하지 않는 연결은 400 이다 — 모든 연결을
+/// 압축하므로 스트림 종류가 하나다 (D-12).
+pub(crate) fn ws_accept(r: &Req) -> Result<WsAccept, (StatusCode, String)> {
+    let key = check_handshake(r)?;
+    let policy = DeflateConfig {
+        server_max_window_bits: DEFLATE_SERVER_WINDOW,
+        compression_level: DEFLATE_LEVEL,
+        compression_threshold: 0,
+        ..DeflateConfig::default()
+    };
+    let offers = r.header("Sec-Websocket-Extensions");
+    match negotiate_server_deflate(&offers, &policy) {
+        Some(neg) => Ok(WsAccept { key, neg }),
+        None => Err((StatusCode::BAD_REQUEST, NO_DEFLATE.to_owned())),
+    }
+}
+
+impl WsAccept {
+    /// 101 응답이다.
+    pub(crate) fn response(&self) -> Response {
+        let mut res = http::Response::new(httpresp::empty());
+        *res.status_mut() = StatusCode::SWITCHING_PROTOCOLS;
+        let h = res.headers_mut();
+        h.insert(header::UPGRADE, HeaderValue::from_static("websocket"));
+        h.insert(header::CONNECTION, HeaderValue::from_static("Upgrade"));
+        let accept = sockudo_ws::handshake::generate_accept_key(&self.key);
+        if let Ok(v) = HeaderValue::from_str(&accept) {
+            h.insert(header::SEC_WEBSOCKET_ACCEPT, v);
+        }
+        if let Ok(v) = HeaderValue::from_str(&self.neg.to_response_header()) {
+            h.insert(header::SEC_WEBSOCKET_EXTENSIONS, v);
+        }
+        res
+    }
+
+    /// 업그레이드된 소켓을 압축 스트림으로 세워 읽기·쓰기 반쪽으로 나눈다. 생존 확인(핑·퐁·
+    /// 무응답 마감)은 라이브러리의 쓰기 구동기가 한다.
+    pub(crate) fn open(
+        self,
+        up: hyper::upgrade::Upgraded,
+        max_message: usize,
+    ) -> (WsReader, WsWriter) {
+        let cfg = WsConfig {
+            max_message_size: max_message,
+            max_frame_size: max_message,
+            ..WsConfig::default()
+        };
+        CompressedWebSocketStream::server(TokioIo::new(up), cfg, self.neg.config).split()
+    }
+}
 
 static OSC777: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?-u)\x1b\]777;[^\x07]*\x07").unwrap_or_else(|e| unreachable!("{e}"))
@@ -236,24 +298,5 @@ impl Server {
     /// Go `LastBrowserInput`.
     pub fn last_browser_input(&self, tool_id: &str) -> Option<SystemTime> {
         self.browser_in.last(tool_id)
-    }
-}
-
-/// Go `pingLoop`.
-pub(crate) async fn ping_loop(conn: Arc<Conn>, done: CancellationToken) {
-    let mut t = tokio::time::interval_at(
-        tokio::time::Instant::now() + th::PING_PERIOD,
-        th::PING_PERIOD,
-    );
-    loop {
-        tokio::select! {
-            _ = done.cancelled() => return,
-            _ = t.tick() => {
-                if let Err(e) = conn.write_ping().await {
-                    errorf!(None, "pingLoop error addr={}: {e}", conn.remote_addr());
-                    return;
-                }
-            }
-        }
     }
 }

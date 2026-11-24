@@ -526,12 +526,10 @@ async fn served_version_matches_hello() {
     assert_eq!(s.asset_version(), v[0]);
 
     // 판은 채널 인사의 `server.assetVersion` 으로 간다 (C2a).
+    use super::wsc::{Message, TextOf};
     use futures_util::{SinkExt, StreamExt};
-    use tokio_tungstenite::tungstenite::Message;
     let port = super::ws::listen(s.clone()).await;
-    let (mut c, _) = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}/channel?v=1"))
-        .await
-        .unwrap();
+    let mut c = super::wsc::dial(port, "/channel?v=1").await;
     c.send(Message::text(r#"{"t":"hello","slots":[]}"#))
         .await
         .unwrap();

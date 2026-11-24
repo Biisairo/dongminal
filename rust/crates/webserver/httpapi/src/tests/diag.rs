@@ -36,7 +36,6 @@ fn snapshot_has_all_fields() {
         "ws=",
         "tools=",
         "miss=",
-        "hold=",
         "goroutines=",
         "allocMB=",
     ] {
@@ -107,14 +106,6 @@ fn age_of_truncates_to_seconds() {
     assert_eq!(age_of(now + 10_000_000_000), "0s");
 }
 
-// FR-CNR-8: 붙잡은 수가 실린다.
-#[test]
-fn snapshot_reports_holds() {
-    let (_d, s) = bare();
-    s.conn.holds.store(7, Ordering::Relaxed);
-    assert!(s.diag_line(&DIAG_WARN).contains("hold=7"));
-}
-
 // V-CNR-10 (FR-CNR-12): 문맥이 끝나면 회차도 끝난다.
 #[tokio::test]
 async fn loop_stops_with_context() {
@@ -168,10 +159,10 @@ fn snapshot_warns_over_threshold() {
         ..DIAG_WARN
     };
     // 런타임 밖이라 task 수가 0 이다 — 판정은 순수 함수로 본다.
-    assert_eq!(diag_warnings(&th, 1, 0, 0, 0), "goroutines");
+    assert_eq!(diag_warnings(&th, 1, 0, 0), "goroutines");
     assert_eq!(
-        diag_warnings(&DIAG_WARN, 501, 257, 101, 33),
-        "goroutines,allocMB,ws,hold"
+        diag_warnings(&DIAG_WARN, 501, 257, 101),
+        "goroutines,allocMB,ws"
     );
     s.conn.ws_open.store(1, Ordering::Relaxed);
     let line = s.diag_line(&DiagWarn { ws: 0, ..DIAG_WARN });
@@ -185,15 +176,6 @@ fn snapshot_quiet_when_normal() {
     assert!(!s.diag_line(&DIAG_WARN).contains("warn="));
 }
 
-// 붙잡힌 대기가 임계를 넘으면 그것도 경고다.
-#[test]
-fn snapshot_warns_on_holds() {
-    let (_d, s) = bare();
-    s.conn.holds.store(DIAG_WARN.hold + 1, Ordering::Relaxed);
-    let line = s.diag_line(&DIAG_WARN);
-    assert!(line.contains(" warn=hold"), "{line}");
-}
-
 #[test]
 fn diag_warn_defaults() {
     assert_eq!(
@@ -201,8 +183,7 @@ fn diag_warn_defaults() {
         DiagWarn {
             goroutines: 500,
             alloc_mb: 256,
-            ws: 100,
-            hold: 32
+            ws: 100
         }
     );
 }

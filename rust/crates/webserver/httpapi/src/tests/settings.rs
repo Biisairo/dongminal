@@ -304,17 +304,14 @@ fn lease_server(dir: &std::path::Path) -> Arc<Server> {
     )
 }
 
-type Chan =
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+type Chan = super::wsc::Client;
 
 /// 채널을 열고 인사한다. `cid` 가 비면 `client` 를 싣지 않는다.
 async fn open_channel(s: &Arc<Server>, cid: &str) -> Chan {
+    use super::wsc::{Message, TextOf};
     use futures_util::{SinkExt, StreamExt};
-    use tokio_tungstenite::tungstenite::Message;
     let port = super::ws::listen(s.clone()).await;
-    let (mut c, _) = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}/channel?v=1"))
-        .await
-        .unwrap();
+    let mut c = super::wsc::dial(port, "/channel?v=1").await;
     let mut h = serde_json::json!({"t":"hello","slots":[]});
     if !cid.is_empty() {
         h["client"] = serde_json::json!(cid);

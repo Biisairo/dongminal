@@ -211,8 +211,6 @@ pub(crate) struct ConnStats {
     pub(crate) last_ws: AtomicI64,
     /// 열린 WS 수.
     pub(crate) ws_open: AtomicI64,
-    /// 붙잡힌 WS 수 (ws_miss).
-    pub(crate) holds: AtomicI64,
     pub(crate) misses: ws::MissTracker,
 }
 

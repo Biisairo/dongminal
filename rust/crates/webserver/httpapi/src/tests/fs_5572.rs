@@ -579,14 +579,12 @@ async fn watch_too_many_dirs_and_unattached_are_400() {
 /// TC-CH2A-1: 채널 `hello.client` 가 감시 임대를 쥐고, 채널이 닫히면 놓는다. 칸 신원(`slots`)은 쥐지 않는다.
 #[tokio::test]
 async fn watch_lease_follows_channel_client() {
+    use super::wsc::Message;
     use futures_util::SinkExt;
-    use tokio_tungstenite::tungstenite::Message;
     let e = fs_env();
     let (_d, root) = temp_dir();
     let port = super::ws::listen(e.srv.clone()).await;
-    let (mut c, _) = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}/channel?v=1"))
-        .await
-        .unwrap();
+    let mut c = super::wsc::dial(port, "/channel?v=1").await;
     c.send(Message::text(
         json!({"t":"hello","client":"w1","slots":["s1"]}).to_string(),
     ))

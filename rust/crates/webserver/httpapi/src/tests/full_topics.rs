@@ -3,9 +3,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use super::wsc::{Message, TextOf};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{Value, json};
-use tokio_tungstenite::tungstenite::Message;
 
 use super::fakes::{FakeBroker, FakeHub, FakeWork};
 use super::support::{LOCAL, call, get, server};
@@ -13,8 +13,7 @@ use super::ws::listen;
 use crate::settings::FileSettings;
 use crate::{Deps, Server};
 
-type Client =
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+type Client = super::wsc::Client;
 
 const WAIT: Duration = Duration::from_secs(5);
 const QUIET: Duration = Duration::from_millis(300);
@@ -54,9 +53,7 @@ async fn env() -> Env {
 }
 
 async fn dial(port: u16) -> Client {
-    let (mut c, _) = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}/channel?v=1"))
-        .await
-        .unwrap();
+    let mut c = super::wsc::dial(port, "/channel?v=1").await;
     send(&mut c, json!({"t":"hello","slots":[]})).await;
     assert_eq!(next(&mut c, WAIT).await.unwrap()["t"], "hello");
     c

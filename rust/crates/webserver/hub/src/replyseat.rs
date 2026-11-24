@@ -4,25 +4,18 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use futures_util::Sink;
 use futures_util::future::BoxFuture;
-use otter_shared_toolhub::{OP_REPLY_SEAT, SafeConn};
-use tokio_tungstenite::tungstenite::{Error as WsError, Message};
+use otter_shared_toolhub::OP_REPLY_SEAT;
 
 use crate::lock;
 
-/// 좌석 통보를 받을 수 있는 연결이다. `SafeConn` 이 이것을 만족한다.
-pub trait SeatConn: Send + Sync {
-    fn send<'a>(&'a self, op: u8, payload: &'a [u8]) -> BoxFuture<'a, Result<(), WsError>>;
-}
+/// 좌석 통보를 보낼 연결이 이미 닫혔다.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SeatClosed;
 
-impl<S> SeatConn for SafeConn<S>
-where
-    S: Sink<Message, Error = WsError> + Unpin + Send + Sync,
-{
-    fn send<'a>(&'a self, op: u8, payload: &'a [u8]) -> BoxFuture<'a, Result<(), WsError>> {
-        Box::pin(SafeConn::send(self, op, payload))
-    }
+/// 좌석 통보를 받을 수 있는 연결이다. 채널의 터미널 sid 하나가 이것을 만족한다.
+pub trait SeatConn: Send + Sync {
+    fn send<'a>(&'a self, op: u8, payload: &'a [u8]) -> BoxFuture<'a, Result<(), SeatClosed>>;
 }
 
 /// 도구마다 붙은 연결을 붙은 순서대로 든다. 좌석의 주인은 언제나 첫 번째다 (FR-RPS-1).

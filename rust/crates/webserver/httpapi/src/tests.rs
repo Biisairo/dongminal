@@ -49,3 +49,4 @@ mod tools_api;
 mod transfer;
 mod usage;
 mod ws;
+mod wsc;

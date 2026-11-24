@@ -35,7 +35,7 @@ pub use gitwatch::{
     start_git_watch,
 };
 pub use payloads::{background_changed_payload, foreground_snapshot, valid_activity_state};
-pub use replyseat::{ReplySeats, SeatConn};
+pub use replyseat::{ReplySeats, SeatClosed, SeatConn};
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
