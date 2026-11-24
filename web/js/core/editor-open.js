@@ -169,6 +169,13 @@ class EditorOpen extends Controller {
    * 게이트는 **탐색기의 사정**이지 열린 파일의 사정이 아니다 — 사이드를 바꿨다고
    * 보고 있는 파일이 낡아도 되는 것은 아니다.
    */
+  /** PERF 3.5.3: 문서의 뷰가 있고 모두 잠들었는가. 생명주기가 없는 뷰(git Diff)는 깬 것으로 본다. */
+  edDocAsleep(d){
+    if(!d||!d.views||!d.views.size) return false;
+    for(const v of d.views) if(v.asleep!==true) return false;
+    return true;
+  }
+
   _edVisibleDocPaths(){
     const seen=new Set();
     for(const s of (this.app.ws&&this.app.ws.windows)||[]){
@@ -177,7 +184,9 @@ class EditorOpen extends Controller {
       // 첫 회차가 낡음을 갚는다 (`visiblePoll` 의 복귀 갱신).
       if(!this.app.slot.windowVisible(s.id)) continue;
       for(const n of panesOf(s.layout)) for(const tab of (n.tabs||[])){
-        if(tab&&tab.type===TAB_TYPE_EDITOR&&tab.filePath) seen.add(tab.filePath);
+        // PERF 3.5.3 (FR-SPA-3): 모든 뷰가 잠든 문서는 묻지 않는다 — 첫 뷰가 깨면 한 번 묻는다(`ui/editor-view-life.js`).
+        if(tab&&tab.type===TAB_TYPE_EDITOR&&tab.filePath&&!this.edDocAsleep(this.app._edDocs&&this.app._edDocs.get(tab.filePath)))
+          seen.add(tab.filePath);
         // REPO_FIX 05 §3A-3: git Diff 탭의 작업 트리 쪽도 편집기 문서다 — 바깥 변경은
         // 문서 refresh 가 나른다(03). 빼면 Diff 만 연 파일이 낡는다.
         if(tab&&tab.type===TAB_TYPE_GIT&&tab.gitView==='diff')

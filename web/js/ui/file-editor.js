@@ -229,7 +229,7 @@ class FileEditor {
     else this.__dirty = true;
     if (!was && this._dirty) this._tabLabelAll();
     // FR-EFP-17: 편집하는 동안 낡은 하이라이트가 남으면 그것이 거짓말이 된다.
-    if (this._findVis()) this._findRun(true);
+    if (this._findVis()) { if (this.asleep) this._findStale = true; else this._findRun(true) }
     // FR-EDD-53: 변경 표시도 같은 계기다. 디바운스는 관리자가 갖는다 — 계산은 한
     // 번이어야 한다.
     if (this._dd) this._dd.schedule();
@@ -459,5 +459,6 @@ class FileEditor {
       app.editor.open.edDocDrop(this.filePath, this);
     }
     this._doc = null;
+    if (typeof app !== 'undefined' && app && app.renderer) app.renderer.life.unmount(this);
   }
 }

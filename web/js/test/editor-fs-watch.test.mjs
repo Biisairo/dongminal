@@ -45,7 +45,7 @@ function app(opts = {}) {
   let release = null;
   a._edDocs = new Map();
   const ticks = [];
-  a.editor = { pane: { _edTick: () => { ticks.push(1) }, _edGitWatchSync: () => {} }, open: {}, doc: {} };
+  a.editor = { pane: { _edTick: () => { ticks.push(1) }, _edGitWatchSync: () => {} }, open: { edDocAsleep: () => false }, doc: {} };
   a.editor.doc.edDocRefresh = (p) => {
     refreshed.push(p);
     return opts.slowRefresh ? new Promise((res) => { release = res }) : Promise.resolve(true);

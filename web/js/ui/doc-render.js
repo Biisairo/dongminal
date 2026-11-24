@@ -85,11 +85,13 @@ class DocRender {
   _bindBuf(b) {
     if (this._sub) { this._sub(); this._sub = null }
     this._buf = b || null;
-    // FR-DRV-42: 편집을 구독한다. 지연은 `_schedule` 이 준다.
-    if (b) this._sub = b.onChange(() => this._schedule());
+    // FR-DRV-42: 편집을 구독한다. 지연은 `_schedule` 이 준다. 잠든 뷰는 깰 때 구독한다(PERF 3.5.3).
+    if (b && !this.asleep) this._sub = b.onChange(() => this._schedule());
   }
 
   _schedule(ms) {
+    // PERF 3.5.3: 잠든 뷰는 예약하지 않고 깰 때 그린다(`ui/editor-view-life.js`).
+    if (this.asleep) { this._sleptVer = -1; return }
     TIMERS.cancel(this._timer);
     this._timer = TIMERS.after(ms == null ? DOC_RENDER_DEBOUNCE_MS : ms, () => this._paintIfShown(), {owner:this, label:'doc-paint'});
   }
@@ -459,5 +461,6 @@ class DocRender {
       app.editor.open.edDocDrop(this.filePath, this);
     }
     this._doc = null;
+    if (typeof app !== 'undefined' && app && app.renderer) app.renderer.life.unmount(this);
   }
 }
