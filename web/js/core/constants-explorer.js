@@ -91,8 +91,8 @@ const REPO_PREVIEW_TITLE=t('editor.repo_preview_title');
 
 // POLL_INTERVAL_SETTINGS_SRS FR-PIS-12: **별칭이 사라졌다.** `EDITOR_GIT_POLL_MS`
 // 는 `GIT_REPOS_POLL_MS` 의 다른 이름일 뿐이었고, 주기가 설정이 되면 그 별칭만
-// 로드 시점 값에 굳는다. 소비 지점(`_edStartGitPoll`)이 `gitReposInterval` 을
-// 직접 읽으므로 "둘이 같아야 한다"(FR-EDT-77)는 요구가 **한 이름**으로 지켜진다.
+// 로드 시점 값에 굳는다. 소비 지점이 `gitReposInterval` 을 직접 읽는다. 탐색기의 주기
+// 틱은 없어졌고(PERF_OPTIMIZATION_SRS 이슈 1.14) 지금 읽는 곳은 git 실패 백오프뿐이다.
 
 // GIT_DIR_ENTRY_SRS FR-DIR-31 / D-DIR-7: **`_gitOff` 는 사유마다 수명이 다르다.**
 //

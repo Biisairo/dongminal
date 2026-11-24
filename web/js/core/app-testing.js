@@ -63,7 +63,7 @@ const APP_TESTING_NAMES = [
   // M9_SRS FR-M9-24: 보던 자리의 기록. 검사가 재는 것은 **자리 셋**과 두 더미의
   // 길이다 — 화면만 보면 "돌아갔다" 와 "새로 갔다" 를 가를 수 없다.
   'focus._navPlace', 'focus._navCounts',
-  'editor.pane.edEnsurePane', '_edGitPoll', 'editor.pane.edSideOf', 'editor.pane.edSideWidth',
+  'editor.pane.edEnsurePane', 'editor.pane.edSideOf', 'editor.pane.edSideWidth',
   'editor.pane.edSetSideWidth', 'editor.pane._edMigrateSideWidth', 'editor.open.edStore', 'editor.open.edTree',
   // UI_POLISH_SRS TC-UIP-10: 저장소 추가 후보의 첫 줄이 될 포커스 터미널의 cwd.
   'editor.section._edTermCwd',
