@@ -77,7 +77,10 @@ fn common(home: &Path, port: &str) -> Common {
 #[test]
 fn isolated_tool_home_paths() {
     let iso = format!("/tmp/{ISOLATED_HOME_PREFIX}abc123");
-    assert_eq!(isolated_tool_home(&iso), format!("{iso}/tool-home"));
+    assert_eq!(
+        isolated_tool_home(&iso),
+        dm_gocompat::filepath::join(&[iso.as_str(), "tool-home"])
+    );
     assert_eq!(isolated_tool_home("/Users/someone/.dongminal"), "");
 }
 

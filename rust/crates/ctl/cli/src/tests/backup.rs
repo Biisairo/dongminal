@@ -177,8 +177,16 @@ fn restore_rejects_path_escape() {
 
 #[test]
 fn safe_join_cases() {
-    assert_eq!(safe_join("/h", "a/b.json").as_deref(), Some("/h/a/b.json"));
-    assert_eq!(safe_join("/h", "a/../b.json").as_deref(), Some("/h/b.json"));
+    // 홈 아래 경로는 OS 구분자로 잇는다 (Go `filepath.Join` — Windows 는 `\h\a\b.json`).
+    let want = |parts: &[&str]| dm_gocompat::filepath::join(parts);
+    assert_eq!(
+        safe_join("/h", "a/b.json"),
+        Some(want(&["/h", "a", "b.json"]))
+    );
+    assert_eq!(
+        safe_join("/h", "a/../b.json"),
+        Some(want(&["/h", "b.json"]))
+    );
     for bad in ["", "/x", "..", "../x", "a/../../x"] {
         assert_eq!(safe_join("/h", bad), None, "{bad}");
     }

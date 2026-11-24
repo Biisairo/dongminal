@@ -28,16 +28,22 @@ pub fn thread_count() -> Option<usize> {
 /// 프로세스 환경에 `key=value` 를 넣는다. 이 뒤에 띄우는 자식 프로세스가 물려받는다.
 ///
 /// **호출 조건**: 프로세스에 이 스레드 하나만 있을 때만 부른다 — tokio 런타임·작업 스레드·
-/// 로그 스레드 등 어떤 스레드도 세우기 전이다. 스레드를 셀 수 있는 OS(macOS·Linux·Windows)에서는
+/// 로그 스레드 등 어떤 스레드도 세우기 전이다. 스레드를 셀 수 있는 OS(macOS·Linux)에서는
 /// 둘 이상이면 쓰지 않고 [`ThreadsRunning`] 을 돌려준다. 셀 수 없는 OS 에서는 호출 조건을 믿는다.
+///
+/// Windows 는 세지 않고 쓴다. 프로세스가 뜰 때 로더가 작업 스레드를 미리 세우므로 `main` 첫 줄에서도
+/// 스레드가 여럿이고, 환경 쓰기(`SetEnvironmentVariableW`)는 OS 가 잠그므로 여러 스레드에서도
+/// 안전하다(`std::env::set_var` 문서).
 pub fn set_env_before_threads(key: &str, value: &str) -> Result<(), ThreadsRunning> {
-    if let Some(n) = thread_count()
+    if !cfg!(windows)
+        && let Some(n) = thread_count()
         && n > 1
     {
         return Err(ThreadsRunning(n));
     }
-    // SAFETY: 다른 스레드가 없을 때만 부른다(위에서 센 수가 1 이거나, 셀 수 없으면 호출 조건).
-    // 환경을 동시에 읽거나 쓸 스레드가 없으므로 경쟁이 없다.
+    // SAFETY: Unix 는 다른 스레드가 없을 때만 부른다(위에서 센 수가 1 이거나, 셀 수 없으면 호출
+    // 조건) — 환경을 동시에 읽거나 쓸 스레드가 없으므로 경쟁이 없다. Windows 는 OS 가 환경 접근을
+    // 잠그므로 스레드가 있어도 안전하다.
     unsafe { std::env::set_var(key, value) };
     Ok(())
 }

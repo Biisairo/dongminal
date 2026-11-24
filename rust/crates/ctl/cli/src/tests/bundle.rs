@@ -149,8 +149,14 @@ fn cannot_create() {
     let (code, so, se) = run(h.path(), Path::new("/없는/곳/b.zip"));
     assert_eq!(code, 1);
     assert!(so.is_empty());
+    // 끝의 OS 오류 문구는 Go 와 같이 OS 의 것이다.
+    let os_msg = if cfg!(windows) {
+        "The system cannot find the path specified."
+    } else {
+        "no such file or directory"
+    };
     assert_eq!(
         se,
-        "번들을 만들 수 없습니다: open /없는/곳/b.zip: no such file or directory\n"
+        format!("번들을 만들 수 없습니다: open /없는/곳/b.zip: {os_msg}\n")
     );
 }

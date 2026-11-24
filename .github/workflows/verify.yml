@@ -55,8 +55,9 @@ jobs:
       # `--workspace` 인 것은 Go 판이 `./web/...` 를 빠뜨렸던 것과 같은 구멍을 막기 위해서다
       # (05-test TEST-4). Go 판의 `-race -shuffle=on` 에 해당하는 것은 안정 Rust 하니스에 없다
       # (GO_REMOVAL_SRS DIFF-GRM-5) — 데이터 경합은 타입 체계가 막는다.
+      # --no-fail-fast: 한 crate 가 실패해도 나머지를 돈다 — 한 번의 실행에서 실패를 모두 본다.
       - name: unit tests
-        run: cargo test --workspace --locked
+        run: cargo test --workspace --locked --no-fail-fast
 
   # 이음매와 크로스 컴파일 게이트 (CROSS_PLATFORM_SRS FR-XBD-2·3).
   #

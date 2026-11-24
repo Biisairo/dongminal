@@ -48,7 +48,7 @@ fn thread_count_sees_new_thread() {
 }
 
 // 다른 스레드가 있으면 환경을 바꾸지 않는다.
-#[cfg(any(target_os = "linux", target_os = "macos", windows))]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
 fn set_env_refuses_with_other_threads() {
     const KEY: &str = "DM_PLATFORM_ENVSET_TEST";
@@ -60,4 +60,14 @@ fn set_env_refuses_with_other_threads() {
     assert!(std::env::var_os(KEY).is_none());
     let msg = ThreadsRunning(3).to_string();
     assert_eq!(msg, "다른 스레드가 있어 환경을 바꾸지 않았다 (스레드 3개)");
+}
+
+// Windows 는 다른 스레드가 있어도 환경을 바꾼다 — 로더 스레드가 늘 있어 세면 한 번도 쓰지 못한다.
+#[cfg(windows)]
+#[test]
+fn set_env_writes_on_windows_with_other_threads() {
+    const KEY: &str = "DM_PLATFORM_ENVSET_WIN_TEST";
+    let res = with_extra_thread(|| set_env_before_threads(KEY, "x"));
+    assert_eq!(res, Ok::<(), ThreadsRunning>(()));
+    assert_eq!(std::env::var(KEY).as_deref(), Ok("x"));
 }
