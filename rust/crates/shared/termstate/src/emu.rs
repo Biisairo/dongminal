@@ -130,7 +130,19 @@ impl Screen {
         for piece in split_for_rows(bytes, cols, SLACK) {
             self.feed_piece(piece);
             self.settle_history();
+            if self.scan.take_reset() {
+                // RIS 는 alacritty 의 제목을 지우지만 사건을 보내지 않는다. 설정을 다시 걸면 지금 제목을 보낸다.
+                self.reload_options();
+            }
         }
+    }
+
+    fn reload_options(&mut self) {
+        let cfg = Config {
+            scrolling_history: emu_cap(self.keep, self.size().1),
+            ..Config::default()
+        };
+        self.term.set_options(cfg);
     }
 
     /// 에뮬레이터 기록이 `keep` 을 넘으면 넘는 만큼 오래된 논리 줄을 저장소로 옮긴다.
@@ -187,11 +199,7 @@ impl Screen {
     pub fn resize(&mut self, cols: u16, rows: u16) {
         self.term.resize(Size::new(cols, rows));
         self.scan.resized();
-        let cfg = Config {
-            scrolling_history: emu_cap(self.keep, rows.max(1)),
-            ..Config::default()
-        };
-        self.term.set_options(cfg);
+        self.reload_options();
     }
 
     /// 지금 화면을 다시 그리는 ANSI 다(화면 + 기록 `history` 줄, 대체 화면이면 가려진 주 화면도).
@@ -211,10 +219,16 @@ impl Screen {
         let (main, alt) = if self.term.mode().contains(TermMode::ALT_SCREEN) {
             let alt = grid_state(self.term.grid(), 0);
             // alacritty 는 가려진 주 화면을 내지 않는다. 화면을 바꿔 읽고 되돌린다.
-            // 두 번째 바꾸기가 고치는 주 화면의 저장 커서는 대체 화면 동안 커서와 늘 같다.
+            // 대체 화면에서 주 화면으로 가는 바꾸기는 격자만 바꾼다. 되돌아가는 바꾸기는 대체 화면을
+            // 지우고(복사본을 되씌움) 주 화면의 저장 커서를 커서로 덮는다. 대체 화면에 들어갈 때
+            // 저장 커서 = 커서이므로 보통은 바뀌는 것이 없다. 대체 화면 안에서 크기를 바꾸면 재흐름이
+            // 커서만 옮겨 둘이 갈리고, 이때 저장 커서가 커서로 바뀐다. alacritty 는 1049l 에서 커서를
+            // 되돌리지 않으므로(커서가 그대로) 나간 뒤 화면은 같다. 바뀐 저장 커서는 주 화면에서 DECRC 를
+            // 쓸 때만 드러난다(`known_gap_main_saved_cursor_after_resize_in_alt`).
             let keep: Grid<ACell> = self.term.grid().clone();
             self.term.swap_alt();
-            let main = grid_state(self.term.grid(), history);
+            let mut main = grid_state(self.term.grid(), history);
+            main.saved = main.cursor.clone();
             self.term.swap_alt();
             *self.term.grid_mut() = keep;
             (main, Some(alt))

@@ -36,6 +36,8 @@ pub(crate) struct Scan {
     shift_out: bool,
     /// 지난번 [`Scan::take_history_cleared`] 뒤로 ED3(CSI 3 J) 이나 RIS 가 왔다.
     history_cleared: bool,
+    /// 지난번 [`Scan::take_reset`] 뒤로 RIS 가 왔다.
+    reset: bool,
 }
 
 const CAN: u8 = 0x18;
@@ -75,6 +77,11 @@ impl Scan {
     /// 기록을 지우는 시퀀스가 왔는지 읽고 지운다.
     pub(crate) fn take_history_cleared(&mut self) -> bool {
         std::mem::take(&mut self.history_cleared)
+    }
+
+    /// RIS 가 왔는지 읽고 지운다.
+    pub(crate) fn take_reset(&mut self) -> bool {
+        std::mem::take(&mut self.reset)
     }
 
     /// 크기가 바뀌면 alacritty 는 스크롤 영역을 화면 전체로 되돌린다.
@@ -241,6 +248,7 @@ impl Scan {
             self.region = None;
             self.shift_out = false;
             self.history_cleared = true;
+            self.reset = true;
         }
         self.enter_ground();
     }
@@ -260,11 +268,23 @@ impl Scan {
         let Some(args) = self.pending.get(2..) else {
             return;
         };
-        if !args.iter().all(|c| c.is_ascii_digit() || *c == b';') {
+        if !args
+            .iter()
+            .all(|c| c.is_ascii_digit() || *c == b';' || *c == b':')
+        {
             return;
         }
         let mut it = std::str::from_utf8(args).unwrap_or("").split(';');
-        let num = |s: Option<&str>| s.and_then(|v| v.parse::<u32>().ok()).filter(|v| *v != 0);
+        // vte 는 하위 인자(`:`) 중 첫 값을 인자로 쓰고, 넘치는 값은 u16 에서 멈춘다.
+        let num = |s: Option<&str>| {
+            s.and_then(|v| v.split(':').next())
+                .map(|v| {
+                    v.bytes().fold(0u32, |n, d| {
+                        (n * 10 + u32::from(d - b'0')).min(u32::from(u16::MAX))
+                    })
+                })
+                .filter(|v| *v != 0)
+        };
         let top = num(it.next()).unwrap_or(1);
         let bottom = num(it.next()).unwrap_or(u32::from(rows));
         if top >= bottom {

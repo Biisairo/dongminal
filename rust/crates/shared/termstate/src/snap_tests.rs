@@ -142,10 +142,25 @@ fn check_points_keep(
     keep: usize,
     ks: impl Iterator<Item = usize>,
 ) {
-    let mut whole = Screen::with_keep(cols, rows, keep, HIST);
+    check_points_from(
+        &|| Screen::with_keep(cols, rows, keep, HIST),
+        keep,
+        data,
+        ks,
+    );
+}
+
+/// `setup` 이 만든 화면(크기를 바꾼 뒤 등)에서 시작해 `data` 를 나눠 넣는다.
+fn check_points_from(
+    setup: &dyn Fn() -> Screen,
+    keep: usize,
+    data: &[u8],
+    ks: impl Iterator<Item = usize>,
+) {
+    let mut whole = setup();
     whole.feed(data);
     let full = norm(whole.state(HIST));
-    let mut a = Screen::with_keep(cols, rows, keep, HIST);
+    let mut a = setup();
     let mut fed = 0;
     let mut errs = Vec::new();
     let sparse = data.len() > DENSE_MAX;
@@ -156,6 +171,7 @@ fn check_points_keep(
             continue;
         }
         let snap = a.snapshot(HIST);
+        let (cols, rows) = a.size();
         let mut b = Screen::with_keep(cols, rows, keep, HIST);
         b.feed(&snap.bytes);
         let mid = !a.unfinished().is_empty();
@@ -360,6 +376,139 @@ fn alt_screen_keeps_main_screen() {
         ],
         (20, 6),
     );
+}
+
+/// 가려진 주 화면 읽기(swap_alt 왕복)가 저장 커서를 건드리지 않는가: 대체 화면 안팎의 DECSC·DECRC.
+#[test]
+fn alt_screen_round_trip_keeps_saved_cursors() {
+    round_trip(
+        &[
+            b"main\x1b[2;3H\x1b[32m\x1b7\x1b[5;1H\x1b[?47hA\x1b[?47l\x1b8m",
+            b"main\x1b[2;3H\x1b7\x1b[?1049h\x1b[4;6H\x1b[33m\x1b7\x1b[1;1Hx\x1b8y\x1b[?1049lz",
+            b"\x1b[?1047h\x1b[2;2Ha\x1b7\x1b[?1047l\x1b8b",
+        ],
+        (20, 6),
+    );
+}
+
+/// 대체 화면 안에서 크기를 바꾼 뒤의 스냅숏이다. 가려진 주 화면도 새 크기로 재흐름된다.
+#[test]
+fn alt_screen_after_resize() {
+    let pre: &[u8] = b"main1\r\nmain2\x1b[2;2H\x1b7\x1b[?1049h\x1b[Halt\x1b[3;3H";
+    let setup = || {
+        let mut s = Screen::with_keep(20, 6, EMU_KEEP, HIST);
+        s.feed(pre);
+        s.resize(13, 8);
+        s
+    };
+    let data = b"\x1b[2;5Hxy\x1b7\x1b[1;1H\x1b8z\x1b[?1049lback";
+    check_points_from(&setup, EMU_KEEP, data, 0..=data.len());
+    let setup_main = || {
+        let mut s = Screen::with_keep(20, 6, EMU_KEEP, HIST);
+        s.feed(b"\x1b[?1049hA\x1b[?1049l0123456789012345678901234\r\nq\x1b[2;5r");
+        s.resize(9, 4);
+        s
+    };
+    check_points_from(
+        &setup_main,
+        EMU_KEEP,
+        b"\x1b[?1049hB\x1b[?1049lC\n\n\nD",
+        0..=19,
+    );
+}
+
+// ── 스캐너가 alacritty 와 어긋날 수 있는 자리 ──
+
+/// DECSTBM 인자에 하위 인자(`:`)가 섞이면 vte 는 첫 하위 인자를 쓴다. 스캐너도 같아야 한다.
+#[test]
+fn scanner_follows_decstbm_with_subparams() {
+    check_every(b"\x1b[2:1;4r\x1b[4;1H\n\nab", (20, 6));
+    check_every(b"\x1b[;5r\x1b[5;1H\n\ncd\x1b[1:9:9;3:1r\n\nef", (20, 6));
+}
+
+/// RIS 는 alacritty 의 제목을 지우지만 제목 사건을 보내지 않는다. 사본도 지워야 한다.
+#[test]
+fn scanner_resets_title_on_ris() {
+    let mut s = Screen::new(20, 3, HIST);
+    s.feed(b"\x1b]2;old\x07ab\x1bc");
+    assert_eq!(s.state(0).title, None);
+    s.feed(b"\x1b]2;new\x07\x1bc\x1b]2;after\x07");
+    assert_eq!(s.state(0).title.as_deref(), Some("after"));
+}
+
+/// 알려진 빈틈: 사용자 탭 정지(HTS·TBC)는 alacritty 가 공개하지 않아 스냅숏에 싣지 않는다.
+/// 바뀐 탭 정지를 쓰는 출력은 스냅숏 뒤에서 기본 탭(8칸)으로 간다.
+#[test]
+fn known_gap_custom_tab_stops_are_not_carried() {
+    let pre: &[u8] = b"\x1b[3g\x1b[1;5H\x1bH\r";
+    let rest: &[u8] = b"\tX";
+    let mut a = Screen::new(20, 3, HIST);
+    a.feed(pre);
+    let mut b = Screen::new(20, 3, HIST);
+    b.feed(&a.snapshot(HIST).bytes);
+    a.feed(rest);
+    b.feed(rest);
+    let x = |s: &Screen| s.row(0).unwrap().cells.iter().position(|c| c.text == "X");
+    assert_eq!((x(&a), x(&b)), (Some(4), Some(8)));
+}
+
+/// 알려진 빈틈: 지난 대체 화면에서 DECSC 한 자리는 대체 화면 격자에 남아, 다음 대체 화면의 DECRC 가
+/// 그리로 간다(alacritty·xterm.js 둘 다). 주 화면에 있는 동안의 스냅숏은 가려진 대체 화면 격자를 싣지 않는다.
+#[test]
+fn known_gap_alt_saved_cursor_from_previous_alt_session() {
+    let pre: &[u8] = b"\x1b[?1049h\x1b[3;3H\x1b7\x1b[?1049l";
+    let rest: &[u8] = b"\x1b[?1049h\x1b8q";
+    let mut a = Screen::new(20, 6, HIST);
+    a.feed(pre);
+    let mut b = Screen::new(20, 6, HIST);
+    b.feed(&a.snapshot(HIST).bytes);
+    a.feed(rest);
+    b.feed(rest);
+    let q = |s: &Screen| {
+        (0..6).find_map(|y| {
+            let x = s.row(y)?.cells.iter().position(|c| c.text == "q")?;
+            Some((x, y))
+        })
+    };
+    assert_eq!((q(&a), q(&b)), (Some((2, 2)), Some((0, 0))));
+}
+
+/// 알려진 빈틈: 대체 화면 안에서 크기를 바꿔 주 화면 커서가 재흐름으로 옮겨진 뒤 스냅숏을 만들면,
+/// 주 화면의 저장 커서(대체 화면에 들어갈 때의 자리)가 지금 커서로 바뀐다(원본과 스냅숏 모두).
+/// 대체 화면을 나온 뒤 화면은 같고, 주 화면에서 DECRC 를 쓸 때만 다르다.
+#[test]
+fn known_gap_main_saved_cursor_after_resize_in_alt() {
+    let pre: &[u8] = b"main line one that wraps around\r\nmain2\x1b[2;2H\x1b[?1049h\x1b[Halt";
+    let mut whole = Screen::new(20, 6, HIST);
+    whole.feed(pre);
+    whole.resize(13, 8);
+    let mut a = Screen::new(20, 6, HIST);
+    a.feed(pre);
+    a.resize(13, 8);
+    let mut b = Screen::new(13, 8, HIST);
+    b.feed(&a.snapshot(HIST).bytes);
+    let exit: &[u8] = b"\x1b[?1049l";
+    for s in [&mut whole, &mut a, &mut b] {
+        s.feed(exit);
+    }
+    assert_eq!(whole.cursor(), b.cursor());
+    let saved = |s: &mut Screen| {
+        let c = s.state(0).main.saved;
+        (c.col, c.row)
+    };
+    assert_ne!(saved(&mut whole), saved(&mut b));
+    assert_eq!(saved(&mut a), saved(&mut b));
+}
+
+/// 알려진 빈틈: 화면 밖을 가리키는 DECSTBM(위 ≥ 화면 행 수)은 alacritty 가 빈 영역으로 둔다.
+/// DECSTBM 으로 다시 만들 수 없어 스냅숏을 받은 쪽은 앞 영역을 그대로 둔다.
+#[test]
+fn known_gap_scroll_region_below_screen() {
+    let mut a = Screen::new(20, 6, HIST);
+    a.feed(b"\x1b[2;4r\x1b[99;100r");
+    let mut b = Screen::new(20, 6, HIST);
+    b.feed(&a.snapshot(HIST).bytes);
+    assert_eq!((a.state(0).region, b.state(0).region), (Some((7, 6)), None));
 }
 
 /// 에뮬레이터 기록을 짧게 두어 줄 저장소를 거치는 분할점 시험이다.
