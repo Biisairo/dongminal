@@ -174,7 +174,7 @@ claude 같은 TUI 는 **델타만** 보낸다. 자기 화면 상자를 상대 �
 | `off > end` | `ok=false` (데몬 재시작 등으로 좌표계가 바뀜) |
 | `off < 0` | `ok=false` |
 
-**FR-TRS-3.** 브라우저는 `/ws` 에 `since=<정수>` 를 실어 붙는다. 값이 없거나
+**FR-TRS-3.** 브라우저는 `/ws` 에 `since=<정수>` 를 실어 붙는다. (**개정 2026-11-24, PERF M1 C5**: `/ws` 는 없다. 채널의 `term.open` 프레임에 `since` 를 싣는다 — `perf/CHANNEL_PROTOCOL.md` §4.1, `docs/external/api.md` 「WebSocket: `/channel?v=1` — 터미널」. 갈래와 좌표 규칙은 이 SRS 그대로다.) 값이 없거나
 정수로 파싱되지 않으면 **전량 재생**이다 — 오류가 아니다.
 
 **FR-TRS-4.** 델타 재개가 성립하면 서버는 델타만 `OpOutput` 으로 보낸다.

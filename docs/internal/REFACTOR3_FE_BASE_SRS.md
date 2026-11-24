@@ -109,7 +109,7 @@ FR-FEB-26 — 라벨 판정 시점 (단계 2 착수 시 코드와 임시 e2e 실
 | 배지 변화 | `updateBadges` → fit | `agentsRender` → fit | `paintBadges` → `fit` |
 | 폭 변화 | `#sb-tabs`(탭 줄) 관측 | `#agents-head`(머리 전체) 관측 | 자기 탭 줄 관측 → `fit` |
 | 탭 전환 | `setTab` → `paint` → fit | `_actTabSelect` → `agentsRender` → fit | `select` → `paint` → `fit` |
-| 다시 그리기 | `paint`(렌더마다) | `agentsRender` 끝에서 직접(주기·SSE 마다) | `paint` → `fit` |
+| 다시 그리기 | `paint`(렌더마다) | `agentsRender` 끝에서 직접(주기·SSE 마다. 2026-11-24 PERF M1 뒤로는 채널 `activity` 토픽마다) | `paint` → `fit` |
 | 레일에서 펼치기·접기 | 관측만 기다렸다 | `agentsRender` 로 바로 | `Panel.setOpen` → `tabs.fit` |
 | 서랍·시트 열기 | 재지 않았다 | `agentsRender` 로 바로 | `Panel.setOpen` → `tabs.fit` |
 | 모바일 진입 | 렌더(`paint`)와 관측 | 패널이 닫혀 있으면 `agentsRender` 가 일찍 돌아가 관측만 | `applyMobileMode` → 두 `tabs.fit` |

@@ -1,6 +1,6 @@
 // otterminal 포크 — 원본 @replit/codemirror-minimap 0.5.2 (dist/index.js). 고친 자리는 README.md 에 있다.
 // [otterminal] 표식이 붙은 곳이 고친 자리다.
-import { Facet, combineConfig, StateField } from '@codemirror/state';
+import { Facet, combineConfig, StateField, StateEffect } from '@codemirror/state';
 import { EditorView, ViewPlugin } from '@codemirror/view';
 import crelt from 'crelt';
 import { setDiagnosticsEffect, diagnosticCount, forEachDiagnostic } from '@codemirror/lint';
@@ -738,9 +738,9 @@ class TextState extends LineBasedState {
             treeFragments = TreeFragment.applyChanges(previousFragments, changedRanges);
         }
         /* Parse the document into a lezer tree */
-        const docToString = state.doc.toString();
         const parser = (_a = state.facet(language)) === null || _a === void 0 ? void 0 : _a.parser;
-        const tree = parser ? parser.parse(docToString, treeFragments) : undefined;
+        // [otterminal] perf 3.7: 문서 문자열은 파서가 있을 때만 만든다.
+        const tree = parser ? parser.parse(state.doc.toString(), treeFragments) : undefined;
         this._previousTree = tree;
         /* Highlight the document, and store the text and tags for each line */
         const highlighter = {
@@ -814,60 +814,21 @@ class TextState extends LineBasedState {
                 ? requestIdleCallback(highlightingCallback)
                 : setTimeout(highlightingCallback);
     }
+    // [otterminal] perf 3.7: 줄의 span 은 그 줄을 그릴 때 만든다(`get`). 큰 문서를 열 때 모든 줄을 한 번에 훑지 않는다 —
+    // 결과는 원본의 차례 훑기와 같다(`lineSpans`).
     updateMapImpl(state, highlights) {
         this.map.clear();
-        const docToString = state.doc.toString();
-        const highlightsIterator = highlights.values();
-        let highlightPtr = highlightsIterator.next();
-        for (const [index, line] of state.field(LinesState).entries()) {
-            const spans = [];
-            for (const span of line) {
-                // Skip if it's a 0-length span
-                if (span.from === span.to) {
-                    continue;
-                }
-                // Append a placeholder for a folded span
-                if (span.folded) {
-                    spans.push({ text: "…", tags: "" });
-                    continue;
-                }
-                let position = span.from;
-                while (!highlightPtr.done && highlightPtr.value.from < span.to) {
-                    const { from, to, tags } = highlightPtr.value;
-                    // Iterate until our highlight is over the current span
-                    if (to < position) {
-                        highlightPtr = highlightsIterator.next();
-                        continue;
-                    }
-                    // Append unstyled text before the highlight begins
-                    if (from > position) {
-                        spans.push({ text: docToString.slice(position, from), tags: "" });
-                    }
-                    // A highlight may start before and extend beyond the current span
-                    const start = Math.max(from, span.from);
-                    const end = Math.min(to, span.to);
-                    // Append the highlighted text
-                    spans.push({ text: docToString.slice(start, end), tags });
-                    position = end;
-                    // If the highlight continues beyond this span, break from this loop
-                    if (to > end) {
-                        break;
-                    }
-                    // Otherwise, move to the next highlight
-                    highlightPtr = highlightsIterator.next();
-                }
-                // If there are remaining spans that did not get highlighted, append them unstyled
-                if (position !== span.to) {
-                    spans.push({
-                        text: docToString.slice(position, span.to),
-                        tags: "",
-                    });
-                }
-            }
-            // Lines are indexed beginning at 1 instead of 0
-            const lineNumber = index + 1;
+        this._doc = state.doc;
+        this._lines = state.field(LinesState);
+        this._highlights = highlights;
+    }
+    get(lineNumber) {
+        let spans = this.map.get(lineNumber);
+        if (spans === undefined && this._lines && lineNumber >= 1 && lineNumber <= this._lines.length) {
+            spans = lineSpans(this._doc, this._lines, this._highlights, lineNumber - 1);
             this.map.set(lineNumber, spans);
         }
+        return spans;
     }
     measure(context) {
         const { color, font, lineHeight } = this.getFontInfo("");
@@ -985,15 +946,80 @@ class TextState extends LineBasedState {
 function text(view) {
     return new TextState(view);
 }
+/**
+ * [otterminal] perf 3.7: 줄 하나(LinesState 의 `index`)의 span — 원본 `updateMapImpl` 의 한 줄 몫이다. 강조는 겹치지 않고
+ * 차례대로이므로(`highlightTree`), 원본의 강조 포인터는 이 줄 앞에서 "앞 줄 끝을 넘는 첫 강조"에 서 있다. 그보다 앞의 강조는
+ * 이 줄에서 아무것도 내지 않는다.
+ */
+function lineSpans(doc, lines, highlights, index) {
+    let ptr = 0;
+    if (index > 0) {
+        const prev = lines[index - 1];
+        const end = prev[prev.length - 1].to;
+        let hi = highlights.length;
+        while (ptr < hi) {
+            const mid = (ptr + hi) >> 1;
+            if (highlights[mid].to > end) hi = mid;
+            else ptr = mid + 1;
+        }
+    }
+    const spans = [];
+    for (const span of lines[index]) {
+        if (span.from === span.to) {
+            continue;
+        }
+        if (span.folded) {
+            spans.push({ text: "…", tags: "" });
+            continue;
+        }
+        let position = span.from;
+        while (ptr < highlights.length && highlights[ptr].from < span.to) {
+            const { from, to, tags } = highlights[ptr];
+            if (to < position) {
+                ptr++;
+                continue;
+            }
+            if (from > position) {
+                spans.push({ text: doc.sliceString(position, from), tags: "" });
+            }
+            const start = Math.max(from, span.from);
+            const end = Math.min(to, span.to);
+            spans.push({ text: doc.sliceString(start, end), tags });
+            position = end;
+            if (to > end) {
+                break;
+            }
+            ptr++;
+        }
+        if (position !== span.to) {
+            spans.push({ text: doc.sliceString(position, span.to), tags: "" });
+        }
+    }
+    return spans;
+}
 
 const GUTTER_WIDTH = 4;
+// [otterminal] perf 3.7: 칸 수를 처음 셀 때 프레임 콜백 한 번에 쓰는 시간(ms), 배치를 처음 물을 때 곧바로 세는 시간(ms),
+// 시간을 재는 사이의 줄 수.
+const COLUMN_BUDGET_MS = 8;
+const COLUMN_SYNC_MS = 4;
+const COLUMN_CHUNK = 512;
+// [otterminal] perf 3.7: 미니맵 줄 그리기에 한 프레임에 쓰는 시간(ms)과, 시간을 재는 간격(64줄마다).
+const DRAW_BUDGET_MS = 8;
+const DRAW_CHECK_MASK = 63;
+// [otterminal] perf 3.7: 이 줄 수 이하면 측정 프레임에서 곧바로 그린다.
+const DRAW_SYNC_ROWS = 256;
+// [otterminal] perf 3.7: 칸 수를 다 셌다 — 미니맵과 스크롤바가 배치를 다시 잰다.
+const columnsCounted = /*@__PURE__*/StateEffect.define();
 // [otterminal] EDITOR_LINK_LSP_SRS FR-ELS-60: 동아시아 넓은 글자 — 2칸으로 센다.
 const WIDE_CHAR = /[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6\u{1F300}-\u{1FAFF}\u{20000}-\u{3FFFD}]/u;
-/** [otterminal] FR-ELS-60: 줄마다의 칸 수 — 넓은 글자 2칸, 탭은 다음 멈춤까지, 접힌 구간 1칸. */
-function lineColumns(state, lines) {
+/**
+ * [otterminal] FR-ELS-60: 줄마다의 칸 수 — 넓은 글자 2칸, 탭은 다음 멈춤까지, 접힌 구간 1칸.
+ * perf 3.7: `[from, to)` 줄만 세어 `out` 에 적는다 — 큰 문서는 여러 프레임에 나눠 센다.
+ */
+function lineColumns(state, lines, out = new Int32Array(lines.length), from = 0, to = lines.length) {
     const tab = state.tabSize;
-    const out = new Int32Array(lines.length);
-    for (let i = 0; i < lines.length; i++) {
+    for (let i = from; i < to; i++) {
         let col = 0;
         for (const span of lines[i]) {
             if (span.folded) {
@@ -1010,9 +1036,10 @@ function lineColumns(state, lines) {
     return out;
 }
 /** [otterminal] FR-ELS-60: 화면 줄 수의 누적 — `acc[i]` 는 줄 i 앞까지의 화면 줄 수다. */
-function visualAccum(cols, wrapCols) {
-    const acc = new Float64Array(cols.length + 1);
-    for (let i = 0; i < cols.length; i++) {
+// perf 3.7: 줄바꿈이 꺼져 있으면(`wrapCols` 0) 칸 수를 읽지 않는다 — 줄 수 `n` 만 쓴다.
+function visualAccum(cols, wrapCols, n) {
+    const acc = new Float64Array(n + 1);
+    for (let i = 0; i < n; i++) {
         acc[i + 1] = acc[i] + (wrapCols ? Math.max(1, Math.ceil(cols[i] / wrapCols)) : 1);
     }
     return acc;
@@ -1159,6 +1186,54 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
         return Scale.MaxWidth;
     }
     /**
+     * [otterminal] perf 3.7: 칸 수를 예산만큼 이어 센다. 다 셌으면 true 다. 덜 셌으면 다음 프레임에 이어 세고, 다 세면 빈
+     * 효과를 보내 미니맵과 스크롤바가 배치를 다시 재게 한다. 칸 수는 문서만 읽으므로 측정 단계 밖에서 세도 된다.
+     * 배치를 묻는 쪽(`first`)은 처음 한 번만 `COLUMN_SYNC_MS` 만큼 센다 — 작은 문서는 그 자리에서 끝난다. 그 뒤로는 이 플러그인의
+     * 프레임 콜백만 센다. 한 프레임에 여러 곳(스크롤바·미니맵)이 배치를 물어도 예산을 겹쳐 쓰지 않는다.
+     */
+    countColumns(first) {
+        const c = this._ownCache;
+        const state = this.view.state;
+        const lines = c.lines;
+        let budget = COLUMN_BUDGET_MS;
+        if (!c.partial || c.partial.lines !== lines || c.partial.tab !== c.tab) {
+            c.partial = { lines, tab: c.tab, cols: new Int32Array(lines.length), done: 0 };
+            budget = COLUMN_SYNC_MS;
+        }
+        else if (first) {
+            this.scheduleColumns();
+            return false;
+        }
+        const p = c.partial;
+        const until = Date.now() + budget;
+        do {
+            const next = Math.min(lines.length, p.done + COLUMN_CHUNK);
+            lineColumns(state, lines, p.cols, p.done, next);
+            p.done = next;
+        } while (p.done < lines.length && Date.now() < until);
+        if (p.done < lines.length) {
+            this.scheduleColumns();
+            return false;
+        }
+        c.cols = p.cols;
+        c.partial = null;
+        c.counted = true;
+        return true;
+    }
+    scheduleColumns() {
+        if (this._columnFrame) {
+            return;
+        }
+        this._columnFrame = requestAnimationFrame(() => {
+            this._columnFrame = 0;
+            const c = this._ownCache;
+            if (!c || !c.partial || c.lines !== this.view.state.field(LinesState) || !this.countColumns()) {
+                return;
+            }
+            this.view.dispatch({ effects: columnsCounted.of(null) });
+        });
+    }
+    /**
      * [otterminal] EDITOR_LINK_LSP_SRS FR-ELS-60·65: 미니맵 자체 배치 — 문서 내용과 편집기 폭으로만 정한다. 칸 수는 문서(LinesState)가
      * 바뀔 때만, 누적은 칸 수 · 한 줄 칸 수가 바뀔 때만 다시 센다. 레이아웃을 읽으므로 측정의 read 단계에서 부른다.
      */
@@ -1169,7 +1244,7 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
         if (c.lines !== lines || c.tab !== view.state.tabSize) {
             c.lines = lines;
             c.tab = view.state.tabSize;
-            c.cols = lineColumns(view.state, lines);
+            c.cols = null;
             c.acc = null;
         }
         let wrapCols = 0;
@@ -1179,9 +1254,20 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
             const pad = st ? (parseFloat(st.paddingLeft) || 0) + (parseFloat(st.paddingRight) || 0) : 0;
             wrapCols = Math.max(1, Math.floor((view.contentDOM.clientWidth - pad) / Math.max(1, view.defaultCharacterWidth)));
         }
+        // [otterminal] perf 3.7: 칸 수는 줄바꿈 배치에만 쓴다 — 줄바꿈이 꺼져 있으면 세지 않는다. 처음 셀 때는 한 번에
+        // `COLUMN_BUDGET_MS` 만큼만 세고, 덜 셌으면 배치가 없다(null). 나머지는 다음 프레임들이 센다(`countColumns`).
+        // 한 번 다 센 뒤 문서·접힘이 바뀌면 원본처럼 그 자리에서 다시 센다.
+        if (wrapCols && !c.cols) {
+            if (c.counted) {
+                c.cols = lineColumns(view.state, lines);
+            }
+            else if (!this.countColumns(true)) {
+                return null;
+            }
+        }
         if (!c.acc || c.wrapCols !== wrapCols) {
             c.wrapCols = wrapCols;
-            c.acc = visualAccum(c.cols, wrapCols);
+            c.acc = visualAccum(c.cols, wrapCols, lines.length);
         }
         const acc = c.acc;
         const lh = view.defaultLineHeight;
@@ -1242,6 +1328,10 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
         const view = this.view;
         const lines = view.state.field(LinesState);
         const own = this.ownLayout();
+        // [otterminal] perf 3.7: 칸 수를 아직 다 세지 않았다 — 지난 그림을 두고, 다 세면 다시 그린다.
+        if (!own) {
+            return { skip: true };
+        }
         const height = view.scrollDOM.clientHeight * Scale.PixelMultiplier;
         const k = height / Math.max(1, own.denom);
         const boxOf = (i) => ({ y: own.top(i) * k, h: own.height(i) * k });
@@ -1291,18 +1381,20 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
         this.updateBoxShadow();
         this.dom.style.width = this.getWidth() + "px";
         this.canvas.style.maxWidth = this.getWidth() + "px";
-        this.canvas.width = this.getWidth() * Scale.PixelMultiplier;
         // [otterminal] 높이는 스크롤 영역의 것이다. 편집기 상자(소수 높이)를 쓰면 문서 끝에서 sticky 가 덜 붙어
         // 뷰포트 표시가 스크롤바 thumb 보다 반 픽셀 위에 선다.
         const domHeight = this.view.scrollDOM.clientHeight;
         this.inner.style.minHeight = domHeight + "px";
-        this.canvas.height = domHeight * Scale.PixelMultiplier;
         this.canvas.style.height = domHeight + "px";
-        const context = this.canvas.getContext("2d");
+        // [otterminal] perf 3.7: 화면 밖 캔버스에 그리고, 다 그리면 보이는 캔버스로 한 번에 옮긴다 — 여러 프레임에 나눠 그리는
+        // 동안에도 지난 그림이 그대로 보인다.
+        const back = this._back || (this._back = document.createElement("canvas"));
+        back.width = this.getWidth() * Scale.PixelMultiplier;
+        back.height = domHeight * Scale.PixelMultiplier;
+        const context = back.getContext("2d");
         if (!context) {
             return;
         }
-        context.clearRect(0, 0, this.canvas.width, this.canvas.height);
         /* We need to get the correct font dimensions before this to measure characters */
         const { charWidth, lineHeight } = this.text.measure(context);
         // [otterminal] 줄 표식 층. 받은 것 전부를 남긴다 — 화면 밖 줄도 스크롤하면 그려진다.
@@ -1314,8 +1406,33 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
         const dynGutter = {};
         for (const g of this.drawnGutter) dynGutter[g.line] = color(g.color);
         const gutterX = cfg.gutters.length || this.drawnGutter.length ? 2 + (cfg.gutters.length + (this.drawnGutter.length ? 1 : 0)) * GUTTER_WIDTH + 2 : 0;
-        this.drawnRows = [];
-        for (const { i, y, h } of m.rows) {
+        this.drawnRows = m.rows.map(({ i, y, h }) => ({ line: i + 1, y: y / Scale.PixelMultiplier, h: h / Scale.PixelMultiplier }));
+        // [otterminal] perf 3.7: 줄 그리기는 한 프레임에 `DRAW_BUDGET_MS` 만큼만 하고 나머지는 다음 프레임에 잇는다. 새로 그리면
+        // 남은 일은 버린다 — 캔버스를 다시 지우고 처음부터 그리기 때문이다. 다 그린 그림은 한 번에 그린 것과 같다.
+        if (this._drawFrame) {
+            cancelAnimationFrame(this._drawFrame);
+            this._drawFrame = 0;
+        }
+        const job = { m, context, charWidth, lineHeight, cfg, color, dynGutter, gutterX, next: 0 };
+        // 줄이 적으면 곧바로 그린다(원본과 같다). 많으면 다음 프레임부터 그린다 — 측정 프레임에는 CM 자신의 일이 크다.
+        if (m.rows.length <= DRAW_SYNC_ROWS) {
+            this.drawRows(job);
+        }
+        else {
+            this.continueRows(job);
+        }
+    }
+    continueRows(job) {
+        this._drawFrame = requestAnimationFrame(() => {
+            this._drawFrame = 0;
+            this.drawRows(job);
+        });
+    }
+    drawRows(job) {
+        const { m, context, charWidth, lineHeight, cfg, color, dynGutter, gutterX } = job;
+        const until = Date.now() + DRAW_BUDGET_MS;
+        while (job.next < m.rows.length) {
+            const { i, y, h } = m.rows[job.next++];
             const dc = { offsetX: 0, offsetY: y, context, lineHeight: h, charWidth };
             if (cfg.gutters.length) {
                 dc.offsetX += 2;
@@ -1333,7 +1450,10 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
             context.restore();
             this.selection.drawLine(dc, i + 1);
             this.diagnostic.drawLine(dc, i + 1);
-            this.drawnRows.push({ line: i + 1, y: y / Scale.PixelMultiplier, h: h / Scale.PixelMultiplier });
+            if (job.next < m.rows.length && (job.next & DRAW_CHECK_MASK) === 0 && Date.now() >= until) {
+                this.continueRows(job);
+                return;
+            }
         }
         // 표식은 행에 겹쳐 빠진 줄도 그 줄의 자리에 그린다.
         const markAt = new Map();
@@ -1354,6 +1474,13 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
             drawLineGutter(dynGutter, { offsetX: gx, offsetY: box.y, context, lineHeight: Math.max(1, box.h), charWidth }, g.line);
         }
         context.restore();
+        const back = context.canvas;
+        this.canvas.width = back.width;
+        this.canvas.height = back.height;
+        const front = this.canvas.getContext("2d");
+        if (front) {
+            front.drawImage(back, 0, 0);
+        }
     }
     updateBoxShadow() {
         if (!this.canvas) {
@@ -1368,6 +1495,12 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
         }
     }
     destroy() {
+        if (this._columnFrame) {
+            cancelAnimationFrame(this._columnFrame);
+        }
+        if (this._drawFrame) {
+            cancelAnimationFrame(this._drawFrame);
+        }
         this.remove();
     }
 }, {
@@ -1410,7 +1543,8 @@ const showMinimap = /*@__PURE__*/Facet.define({
 });
 
 /**
- * [otterminal] 미니맵이 받은 줄 표식과 그린 줄의 자리 — `{marks, gutter, rows}` (rows 는 CSS px, FR-ELS-56).
+ * [otterminal] 미니맵이 받은 줄 표식과 그린 줄의 자리 — `{marks, gutter, rows, built}` (rows 는 CSS px, FR-ELS-56).
+ * `built` 는 span 을 만든 줄 수다 (perf 3.7).
  * 미니맵이 없으면 `null` 이다.
  */
 function minimapDrawn(view) {
@@ -1418,7 +1552,7 @@ function minimapDrawn(view) {
     if (!p || !p.dom) {
         return null;
     }
-    return { marks: p.drawnMarks || [], gutter: p.drawnGutter || [], rows: p.drawnRows || [] };
+    return { marks: p.drawnMarks || [], gutter: p.drawnGutter || [], rows: p.drawnRows || [], built: p.text.map.size };
 }
 
 /**
@@ -1454,4 +1588,5 @@ function minimapScale(view) {
     };
 }
 
-export { showMinimap, minimapDrawn, minimapScale };
+// [otterminal] perf 3.7: 줄 단위 계산 — 단위 시험(web/js/test/cm-minimap.test.mjs)이 원본의 한 번 훑기와 견준다.
+export { showMinimap, minimapDrawn, minimapScale, lineSpans as minimapLineSpans, lineColumns as minimapLineColumns };

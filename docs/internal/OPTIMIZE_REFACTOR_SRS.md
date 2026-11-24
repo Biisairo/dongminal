@@ -1,6 +1,7 @@
 # SRS: 통신 최소화·성능·리팩토링 — 프로덕션 승격 2차 감사 (IEEE 29148)
 
 > **문서 상태**: 승인·구현완료
+> **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1)**: 브라우저 연결이 채널(`/channel`) 하나로 바뀌어 아래 요구사항의 수단이 폐기되거나 바뀌었다 — FR-OPT-4-1·4-3·4-4·4-5·4-6·4-11·4-12, FR-OPT-8-1, FR-OPT-12-1, ~~D-OPT-3~~·~~D-OPT-4~~(결정 철회). 각 행에 표시했다. 대체 요구사항은 `PERF_OPTIMIZATION_SRS` FR-CON-1·7·8·10 과 D-9 다. 실측 기록(§6 등)은 당시 값으로 남긴다
 
 - 접수: 2026-09-25 · 기준 커밋 `67261463` (v1.1.7)
 - 요청: 데몬-서버-클라이언트 통신 요소 최소화, 그 밖의 성능 개선, 하드코딩·중복·상수·복잡도·크기·추상화·가독성
@@ -50,7 +51,7 @@
 | **정상 상태 트래픽** | 사용자가 아무것도 하지 않을 때 타이머가 내는 요청. 초당 요청 수로 센다 |
 | **안전망 주기** | 푸시로 전환한 뒤에도 푸시 유실에 대비해 남기는 긴 주기 폴링 (기본 30 s) |
 | **기능 협상** | 데몬은 서버 업그레이드를 넘어 오래 산다. 그래서 IPC 에 새 메서드를 더할 때 `ProtocolVersion` 을 올리지 않고 `hello` 의 `features` 로 알린다. 모르는 쪽은 옛 경로로 강등한다 |
-| **자기 에코** | 브라우저가 PUT 한 결과가 SSE 방송으로 자기에게 되돌아오는 것 |
+| **자기 에코** | 브라우저가 PUT 한 결과가 SSE 방송(지금은 채널 토픽)으로 자기에게 되돌아오는 것 |
 
 ### 1.4 참조
 
@@ -171,18 +172,18 @@ rev-parse 와 status 를 실행한다(IPC-7).
 
 | FR | 요구 | 등록부 | 개정 대상 |
 |---|---|---|---|
-| FR-OPT-4-1 | **GitStatusHub**(FE): 요청 root 별 single-flight 와 짧은 TTL 을 둔다. 탐색기·dirty-diff·패널 주기 소비자가 공유한다. 탐색기는 `git_changed` 를 구독하고, 주기 폴은 안전망으로 내린다. 스탬프 틱에서는 캐시로 git 색을 다시 칠해 "같은 틱" 요구를 지킨다. | FEU-5 · FEU-M1 · IPC-8 · FEC-12 · FEU-4 | FR-EDT-77 · FR-FSL-7 · FR-ELR-10 |
+| FR-OPT-4-1 | **GitStatusHub**(FE): 요청 root 별 single-flight 와 짧은 TTL 을 둔다. 탐색기·dirty-diff·패널 주기 소비자가 공유한다. 탐색기는 `git_changed` 를 구독하고, 주기 폴은 안전망으로 내린다. 스탬프 틱에서는 캐시로 git 색을 다시 칠해 "같은 틱" 요구를 지킨다. **개정 2026-11-24 (PERF 1.14, D-9)**: 주기 폴 안전망과 스탬프 틱은 없어졌다. 탐색기는 `git:<root>` 토픽이 오면 다시 칠하고, 탭이 다시 보일 때·채널이 다시 붙을 때·감시가 넘쳤을 때만 한 번 맞춘다 | FEU-5 · FEU-M1 · IPC-8 · FEC-12 · FEU-4 | FR-EDT-77 · FR-FSL-7 · FR-ELR-10 |
 | FR-OPT-4-2 | `fs/stamp` 와 `file/stamps` 를 요청 하나(`POST /api/fs/stamps`)로 합친다. | IPC-8 | |
-| FR-OPT-4-3 | `/api/git/repos`: Repo 탭이 보이면 핀을 GitWatcher 에 임대하고 `git_changed` 로 갱신한다. 주기는 안전망으로 내린다. 응답 서명이 같으면 다시 칠하지 않는다. | IPC-7 · FEC-13 | POLL_INTERVAL_SETTINGS (`gitReposInterval` 의미) |
-| FR-OPT-4-4 | 상태바 틱: git jobs 를 `/api/stats` 에 합치고, 잡 시작·종료는 `git_jobs_changed` 로 push 한다. Git 패널이 없으면 조회하지 않는다. ping 은 분리 유지(FR-PRF-36~38). | IPC-9 · FEC-15 | FR-GIT-101a |
-| FR-OPT-4-5 | **SSE 열림 스냅샷**: `GET /api/snapshot?parts=…` 하나로 복원 7종을 받는다. 첫 open 에서는 부팅 GET 과 겹치는 재검증을 건너뛴다. `_fgRestore` 는 워크스페이스 적용 경로에 흡수한다. | IPC-6 · FEC-10 · FEC-11 | RESTORE_FLIGHT (FR-RSF-3 경로 명시) |
-| FR-OPT-4-6 | activity 폴은 패널이 열려 있거나 알림이 있을 때만 돈다. 빈 껍데기 함수는 지운다. | FEC-9 · IPC-29 | (FR-AAP-19 회복) |
+| FR-OPT-4-3 | `/api/git/repos`: Repo 탭이 보이면 핀을 GitWatcher 에 임대하고 `git_changed` 로 갱신한다. 주기는 안전망으로 내린다. 응답 서명이 같으면 다시 칠하지 않는다. **개정 2026-11-24 (PERF M1 C4·1.15, D-9)**: 안전망 주기는 없어졌다. Repo 탭이 보이는 동안 핀마다 `git:<root>` 토픽을 구독하고, 바뀐 mark 가 오면 목록을 받는다(`core/git-repos-list.js`) | IPC-7 · FEC-13 | POLL_INTERVAL_SETTINGS (`gitReposInterval` 의미) |
+| FR-OPT-4-4 | 상태바 틱: git jobs 를 `/api/stats` 에 합치고, 잡 시작·종료는 `git_jobs_changed` 로 push 한다. Git 패널이 없으면 조회하지 않는다. ping 은 분리 유지(FR-PRF-36~38). **개정 2026-11-24 (PERF M1 C3·C4, D-9)**: 상태바 틱과 `/api/stats?jobs=1` 은 없어졌다. 잡 목록은 `git.jobs` 토픽, 지표는 `stats:<ms>` 토픽, 지연은 채널 ping/pong 이다(FR-CON-7) | IPC-9 · FEC-15 | FR-GIT-101a |
+| FR-OPT-4-5 | **SSE 열림 스냅샷**(**개정 2026-11-24, PERF M1**: 계기는 채널 재연결 `chan:open` 이다): `GET /api/snapshot?parts=…` 하나로 복원 7종을 받는다. 첫 open 에서는 부팅 GET 과 겹치는 재검증을 건너뛴다. `_fgRestore` 는 워크스페이스 적용 경로에 흡수한다. | IPC-6 · FEC-10 · FEC-11 | RESTORE_FLIGHT (FR-RSF-3 경로 명시) |
+| FR-OPT-4-6 | activity 폴은 패널이 열려 있거나 알림이 있을 때만 돈다. 빈 껍데기 함수는 지운다. **폐기 2026-11-24 (PERF M1 C3, D-9)**: activity 폴은 없다. `activity` 토픽으로 온다 | FEC-9 · IPC-29 | (FR-AAP-19 회복) |
 | FR-OPT-4-7 | **조건부 응답**: `GET /api/git/status?ifMark=` 는 mark 가 같으면 `unchanged:true` 만 답한다. 파일 읽기의 304 회피는 유지한다. | HTTP-7 · IPC-30 | |
 | FR-OPT-4-8 | 증분 조회: Console 기록은 `after=<seq>` 와 `lastSeq`·`gap`(Ofix2 확정: 응답은 기록 링의 세대 `epoch` 를 싣고 클라이언트가 `epoch=` 로 되돌려 준다 — 서버가 다시 떠 새 Seq 가 옛 커서를 넘어서도 세대가 다르면 gap 이다. 세대를 싣지 않은 물음은 종전 판정), History 는 `stop=<oid>` 로 머리만 받는다. 머리가 이어지지 않으면 전량으로 돌아간다. (O4c 구현 중 확정: 인자 이름은 `until` 이 아니라 `stop` 이다 — `until` 은 이미 날짜 필터(FR-GIT-130)다. 뒷부분은 `tail` 요약(개수·oid 다이제스트·배지)으로 오고, 클라이언트는 자기 목록 앞이 그 다이제스트와 같을 때만 잇는다 — 날짜가 같은 커밋의 순서가 바뀌면 전량이다) | DOM-27 · FEU-10 | |
 | FR-OPT-4-9 | Git 뷰: refs 는 회차당 한 번 받아 공유한다. 보이지 않는 뷰는 표식만 남기고 활성화할 때 받는다. (O4c 구현 중 확정: 표식은 자동 회차의 것이다 — 사용자가 누른 새로고침은 FR-GIT-238 대로 보이지 않는 뷰까지 받는다) | FEU-6 · FEU-7 | FR-GVR-4 |
 | FR-OPT-4-10 | 소통신: `/api/cwd` 는 포커스가 바뀌었을 때만, OSC 값이 없을 때만 묻는다. 포커스 아닌 터미널의 OSC 는 상태바를 덮지 않는다. run 목록 재조회는 합친다. 판 확인은 인사를 받았으면 건너뛴다. | FEC-3 · FEC-M1 · FEU-8 · FEU-9 · FEU-M3 | |
-| FR-OPT-4-11 | **터미널 지연 연결**: 처음 그려질 때 WS 를 연다. 숨은 도구는 붙이지 않는다. **D-OPT-2** 로 결정한다. | IPC-5 | handlers_ws 주석 |
-| FR-OPT-4-12 | **칸 SSE 경량화**: `?presence=1` 구독은 소유권 수명에만 쓰고 방송을 싣지 않는다. **D-OPT-4** 로 결정한다. | IPC-11 · FEC-16 | FR-WSL-11 · D-3 |
+| FR-OPT-4-11 | **터미널 지연 연결**: 처음 그려질 때 WS 를 연다. 숨은 도구는 붙이지 않는다. **D-OPT-2** 로 결정한다. **개정 2026-11-24 (PERF M1 C5)**: 칸별 WS 는 없다. 처음 그려질 때 탭 채널에 `term.open` 을 보낸다 | IPC-5 | handlers_ws 주석 |
+| ~~FR-OPT-4-12~~ | ~~**칸 SSE 경량화**: `?presence=1` 구독은 소유권 수명에만 쓰고 방송을 싣지 않는다. **D-OPT-4** 로 결정한다.~~ **폐기 2026-11-24 (PERF M1 C1)**: presence SSE 는 없다. 칸 신원은 탭 채널의 `hello.slots` 로 밝힌다(`perf/CHANNEL_PROTOCOL.md` §4.1) | IPC-11 · FEC-16 | FR-WSL-11 · D-3 |
 
 > **FR-OPT-4-6 개정 (2026-11-13, UX_BATCH12_SRS FR-ACF-9).**
 > 이전 동작: activity 폴은 패널이 **열려 있거나** 알림이 있을 때만 돌았다. 데스크톱 유휴 30초의 요청은 ping·stats·repos 뿐이었다.
@@ -227,7 +228,7 @@ e2e 요청 타임라인으로 잰다.
 > 부팅 실측(`e2e/term-lazy-connect.spec.ts` TLC1, 도구 5 · 보이는 것 1, 도구마다 재생 약 39 KB):
 > WS 5 → 1 · snapshot RPC 5 → 1(WS 연결당 1, FR-OPT-2) · WS 수신 197084 B → 39419 B.
 >
-> **O4d — 칸 SSE (D-OPT-4).** `?presence=1` 이면 서버는 `Focus.AttachFrom`·`gitWatch.Attach` 만 하고
+> **O4d — 칸 SSE (D-OPT-4).** (**폐기 2026-11-24, PERF M1 C1** — 아래는 당시 구현 기록이다.) `?presence=1` 이면 서버는 `Focus.AttachFrom`·`gitWatch.Attach` 만 하고
 > `Commands.Add`·`Updates.Trigger` 를 건너뛴다. 인사(keepalive)는 그대로 보낸다. 허브에 등록되지 않으므로
 > 구독 상한(04-secops P1-4 `SubCap`)은 서버가 presence 구독을 따로 세어 지킨다(`TestSSE_PresenceSubCap`). 칸 하나당 방송 1벌이 0 이
 > 된다 (`commands_presence_test.go`, TLC4). 옛 서버는 파라미터를 무시하고 전부 보내며 칸 채널은 그것을 버린다.
@@ -260,7 +261,7 @@ e2e 요청 타임라인으로 잰다.
 
 ### 3.8 O8 — 서버 내부 성능·SSE
 
-- **FR-OPT-8-1** SSE 작성기를 하나로 모은다: 쓰기 시한, 쌓인 이벤트를 합쳐 한 번에 Flush, payload 빌더 한 벌. 큐 상한은 버스트 실측으로 정한다. (HTTP-10 · HTTP-M2 · IPC-12 · IPC-20 · HTTP-15)
+- **FR-OPT-8-1** SSE 작성기를 하나로 모은다: 쓰기 시한, 쌓인 이벤트를 합쳐 한 번에 Flush, payload 빌더 한 벌. 큐 상한은 버스트 실측으로 정한다. (HTTP-10 · HTTP-M2 · IPC-12 · IPC-20 · HTTP-15) **개정 2026-11-24 (PERF M1 C6)**: SSE 종단은 없다. 명령·사건은 채널 `cmd` 프레임으로 간다(`httpapi/src/channel/cmd.rs`). payload 빌더(`otter-webserver-sse::payload`)와 큐 상한은 그대로 쓴다
 - **FR-OPT-8-2** 요청 경로 캐시: access 매처 스냅샷(설정이 바뀔 때만 다시 만든다), settings 뷰 캐시, `wsentry.Roots` 캐시(workspace rev 로 무효화), 라우팅 인덱스(접두 맵). (HTTP-4 · HTTP-26 · DOM-25 · HTTP-25)
   - *개정 메모 (2026-09-26, Ofix3·Ofix4):* `wsentry.Roots` 가 rev 로 기억하는 것은 workspace.json 의 **파싱 결과(editors.list)뿐**이다. 정규화(`NormalizePath` — EvalSymlinks)와 메모·플러그인 자리 보장(`ensureRoot`)은 **호출마다** 한다 — 요청 경로가 요청 시점에 정규화되므로(`fsRootOf`) 루트도 같은 시점의 파일시스템을 따라야 루트 가드(FR-EDT-113)·다른 루트 삭제 가드(FR-EDT-114)가 어긋나지 않는다(`wsentry.go` `rootsMemo`).
 - **FR-OPT-8-3** fork 일괄화: BackgroundList 의 cwd 와 ActivitySnapshot 의 busy 를 한 번의 lsof·pgrep 으로 조회한다. `/api/runs/context` 는 비멤버를 빠른 경로로 처리한다. (SHR-8 · SHR-28 · HTTP-3)
@@ -354,7 +355,7 @@ e2e 요청 타임라인으로 잰다.
 
 ### 3.12 O12 — FE ui/git
 
-- **FR-OPT-12-1** TermPane 의 WS 배선을 `TermSocket` 하나로 모은다. 백오프는 상수로 두고 지터를 더한다. 키 매핑·큐 상한을 상수로 옮긴다. (FEU-14 · IPC-16 · FEU-15)
+- **FR-OPT-12-1** TermPane 의 WS 배선을 `TermSocket` 하나로 모은다. 백오프는 상수로 두고 지터를 더한다. 키 매핑·큐 상한을 상수로 옮긴다. (FEU-14 · IPC-16 · FEU-15) **개정 2026-11-24 (PERF M1 C5)**: `TermSocket`(`ui/term-socket.js`)은 `ui/term-channel.js` 로 바뀌었다. 소켓을 열지 않고 탭 채널에 `term.open` 으로 붙는다. 주인에게 주는 표면과 백오프 상수·지터는 그대로다
 - **FR-OPT-12-2** GitDialog 와 GitConfirm 의 모달 골격을 공통 기반으로 모은다. panel-views 렌더를 서술자 표로 바꾼다. (FEU-12 · FEU-13)
 - **FR-OPT-12-3** 버튼 38곳을 `UIKit.button` 으로 옮기고, 아이콘 버튼에 type·aria-label 을 단다. (FEU-16)
   - *개정 메모 (2026-09-26, Ofix4):* 달성은 **36/38** 이다. 예외 둘은 `check-button-kit.mjs` 의 `FACTORY_EXEMPT` 에 사유와 함께 있다 — 칸 표식(`slot-marker-cell`: 만들 때 이름이 없어 킷이 던진다, FR-UIK-21 · FR-SMK-13)과 사이드 탭(`ui-tab`: `UIKit.tab` 은 role=tab·aria-selected 를 세워 그 줄의 뜻이 바뀐다).
@@ -488,8 +489,8 @@ diff 는 요청이 끊기면 git 실행이 함께 죽는다. 셋이 겹친 최�
 |---|---|---|---|
 | **D-OPT-1** | IPC 확장 방식 | `hello.features` 로 기능을 협상하고 `ProtocolVersion` 은 올리지 않는다 (데몬은 PTY 를 잃지 않고 살아남는다) | 2-2 · 2-4 · 2-5 |
 | **D-OPT-2** | 숨은 터미널의 지연 연결 | 채택한다. 단 숨은 도구의 OSC 부수효과(cwd·클립보드) 소비자를 먼저 조사하고, 필요한 것은 서버 경로로 옮긴다 | 4-11 |
-| **D-OPT-3** | 폴링→푸시 전환에 따른 SRS 개정 | FR-EDT-77 · FR-GIT-101a · FR-GVR-4 · 저장소 목록(`/api/git/repos`)의 주기를 안전망 `gitStatusInterval`(기본 30 s)로 옮기고, `gitReposInterval` 은 탐색기 틱으로 남긴다 (O4b 구현 중 확정 — 그 틱은 FR-OPT-4-1 이후 스탬프 물음이라 30 s 로 내리면 바깥 변경 감지가 느려진다). 탐색기 git 색의 안전망도 `gitStatusInterval` 이다 — FR-FSL-7 · FR-ELR-10 의 "같은 틱" 은 스탬프 물음과 캐시 재칠의 틱이 된다 | 4-1 · 4-3 · 4-4 · 4-9 |
-| **D-OPT-4** | 칸 SSE | 1단계로 `presence=1`(방송 없음)만 한다. 연결 수를 줄이는 다중 신원 SSE 는 비목표 | 4-12 |
+| **D-OPT-3** | 폴링→푸시 전환에 따른 SRS 개정 | FR-EDT-77 · FR-GIT-101a · FR-GVR-4 · 저장소 목록(`/api/git/repos`)의 주기를 안전망 `gitStatusInterval`(기본 30 s)로 옮기고, `gitReposInterval` 은 탐색기 틱으로 남긴다 (O4b 구현 중 확정 — 그 틱은 FR-OPT-4-1 이후 스탬프 물음이라 30 s 로 내리면 바깥 변경 감지가 느려진다). 탐색기 git 색의 안전망도 `gitStatusInterval` 이다 — FR-FSL-7 · FR-ELR-10 의 "같은 틱" 은 스탬프 물음과 캐시 재칠의 틱이 된다. **개정 2026-11-24 (PERF 1.14·1.15, D-9)**: `gitStatusInterval`·`gitReposInterval` 은 지웠다(설정 `RETIRED_KEYS`). 안전망 주기와 탐색기 틱은 없고, 실패 재시도 간격은 고정 상수 `GIT_STATUS_RETRY_MS`·`EDITOR_GIT_BACKOFF_MS`(각 30 s)다 | 4-1 · 4-3 · 4-4 · 4-9 |
+| **D-OPT-4** | 칸 SSE | 1단계로 `presence=1`(방송 없음)만 한다. 연결 수를 줄이는 다중 신원 SSE 는 비목표. **폐기 2026-11-24 (PERF M1 C1)**: 채널 하나가 `hello.slots` 로 여러 신원을 밝힌다 — 이 결정의 비목표가 M1 에서 이뤄졌다 | 4-12 |
 | **D-OPT-5** | 상태 파일 지연 쓰기 | 이번에는 하지 않는다. 동일 내용 건너뛰기와 락 밖 쓰기만 한다 (FBE-17 · FR-SFD-1 유지) | 5-3 · 5-4 |
 | **D-OPT-6** | exit stderr 사유 | 폐기한다. 필드와 주석을 지운다 | 2-8 |
 | **D-OPT-7** | 설정 자기 에코 | 보낸 본문과 같거나 로컬 저장이 대기 중이면 적용하지 않는다 | 5-2 |

@@ -331,8 +331,8 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
     await page.locator('.ed-tree .ed-more').click();
     await expect(rows(page)).toHaveCount(40);
 
-    // 폴링 한 번이 사용자의 "더 보기" 를 되돌리면 그 기능은 쓸 수 없다 —
-    // 갱신 회차가 올 때마다 목록이 20으로 접힌다.
+    // 다시 읽기 한 번이 사용자의 "더 보기" 를 되돌리면 그 기능은 쓸 수 없다 —
+    // 감시 신호나 맞추기가 올 때마다 목록이 20으로 접힌다.
     await page.evaluate(async () => {
       const t = (window as any).app.testing.edActiveTree();
       await t.loader.reload(t.root);
@@ -346,7 +346,7 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
     await enterExplorer(page, request, REPO);
     // 펼침과 선택을 한 번에 만든다. **파일을 고르지 않는다** — 편집기 열기는
     // 아직 root 에디터로 가고(M2 의 폴백, 라우팅은 FR-EDT-95~99 의 것이다) 그러면
-    // 활성 창이 바뀌어 여기서 재려는 폴링 자체가 멈춘다 (FR-EDT-76).
+    // 활성 창이 바뀌어 여기서 재려는 맞추기 자체가 이 창에 닿지 않는다 (FR-EDT-76).
     await row(page, j(REPO, 'bulk')).click();
     await expect(row(page, j(REPO, 'bulk', 'f59.txt'))).toHaveCount(1);
     await expect(row(page, j(REPO, 'bulk'))).toHaveClass(/sel/);
@@ -554,7 +554,7 @@ test.describe('묶음 X — 다시 그리기와 실패의 회복 (FR-EDT-66·69)
         (document.querySelector('.ed-input') as HTMLInputElement).setSelectionRange(1, 3);
       });
 
-      // SSE·폴링이 부르는 것과 같은 자리다.
+      // 채널 사건이 부르는 것과 같은 자리다.
       await page.evaluate(() => (window as any).app.render());
 
       await expect(inp).toBeFocused();
@@ -570,8 +570,8 @@ test.describe('묶음 X — 다시 그리기와 실패의 회복 (FR-EDT-66·69)
   test('X15 (FR-EDT-69): 5xx 한 번이 창의 git 색을 영구히 죽이지 않는다',
     async ({ page, request }) => {
       test.setTimeout(60000);
-      // 이 루트의 첫 status 만 500 이다. 판정이 아니라 **이번 회차 건너뛰기**여야
-      // 하므로 다음 폴링이 색을 입힌다.
+      // 이 루트의 첫 status 만 500 이다. 판정이 아니라 **이번 관측 건너뛰기**여야
+      // 하므로 백오프 뒤의 다시 묻기가 색을 입힌다.
       let failed = false;
       await page.route('**/api/git/status**', async (route) => {
         if (!failed && route.request().url().includes(encodeURIComponent(REPO))) {

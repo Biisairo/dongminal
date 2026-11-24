@@ -453,3 +453,52 @@ test('V-MMP-2b: Diff 에는 미니맵이 없고 Diff 의 눈금은 있다', asyn
   await expect(view.locator(ED_SEL.diffRuler), 'Diff 의 눈금이 없다 (FR-DOR-1 을 잃는다)').toBeVisible();
   await expect(view.locator(ED_SEL.minimap), 'Diff 칸에 미니맵이 섰다').toHaveCount(0);
 });
+
+/**
+ * V-PF37 (perf 3.7) — 큰 문서를 열 때 미니맵이 모든 줄을 한 번에 훑지 않는다.
+ *
+ * 줄의 span 은 그 줄을 그릴 때 만든다 — 만든 줄 수는 그린 줄(캔버스 픽셀 행) 몇 벌 몫이고 문서 줄 수에 비례하지 않는다. 칸 수는 줄바꿈이 켜져 있을 때만 세고,
+ * 큰 문서면 여러 프레임에 나눠 센다. 다 센 뒤에는 스크롤바 thumb 가 미니맵 슬라이더와 같은 자리에 선다.
+ */
+const PF37_LINES = 20000;
+const PF37_DOC = Array.from({ length: PF37_LINES }, (_, i) => (i % 9 === 0 ? `para ${i} ` + 'word '.repeat(40) : `line ${i + 1}`)).join('\n');
+
+test('V-PF37: 2만 줄 문서 — 미니맵은 그린 줄만 훑고, 편집을 따라간다', async ({ page, request }) => {
+  const root = await enterDocRoot(page, request, BASE, 'pf37-big');
+  writeFileSync(join(root, 'doc.md'), PF37_DOC);
+  await openDocFile(page, root);
+  const read = () => page.evaluate(() => {
+    const v = [...(window as any).app.fileEditors.values()].find((e: any) => edT.has(e) && e.name === 'doc.md') as any;
+    const ed = edT.of(v);
+    const rows = edT.minimapRows(ed);
+    return { lines: edT.lineCount(ed), rows: rows.length, last: rows.length ? rows[rows.length - 1].line : 0, built: edT.minimapBuilt(ed) };
+  });
+  await expect.poll(async () => (await read()).rows).toBeGreaterThan(0);
+  const a = await read();
+  expect(a.built, `문서 ${a.lines} 줄 가운데 ${a.built} 줄의 span 을 만들었다 (그린 줄 ${a.rows})`).toBeLessThan(a.lines / 4);
+  expect(a.last, '문서 끝까지 그리지 않았다').toBeGreaterThan(a.lines - 2 * a.lines / a.rows);
+
+  // 편집: 맨 위에 100줄을 넣으면 미니맵이 새 문서로 다시 그린다.
+  await page.evaluate(() => {
+    const v = [...(window as any).app.fileEditors.values()].find((e: any) => edT.has(e) && e.name === 'doc.md') as any;
+    edT.insert(edT.of(v), 1, 1, 'added\n'.repeat(100));
+  });
+  await expect.poll(async () => (await read()).lines).toBe(PF37_LINES + 100);
+  await expect.poll(async () => { const b = await read(); return b.last > b.lines - 2 * b.lines / b.rows && b.built > 0 && b.built < b.lines / 4 }).toBe(true);
+
+});
+
+test('V-PF37b: 줄바꿈이 켜진 2만 줄 문서 — 칸 수를 나눠 센 뒤 thumb 와 미니맵 슬라이더가 같은 자리다', async ({ page, request }) => {
+  const wrapRoot = await enterDocRoot(page, request, BASE, 'pf37-wrap');
+  writeFileSync(join(wrapRoot, 'doc.md'), PF37_DOC);
+  await page.evaluate(() => { (window as any).editorWordWrap = true });
+  await openDocFile(page, wrapRoot);
+  await expect.poll(() => page.evaluate(() => {
+    const v = [...(window as any).app.fileEditors.values()].find((e: any) => edT.has(e) && e.name === 'doc.md') as any;
+    const ed = edT.of(v);
+    const rect = (sel: string) => v.el.querySelector(sel)?.getBoundingClientRect();
+    const sl = rect(edT.sel.minimapSlider), th = rect(edT.sel.scrollThumb);
+    if (edT.option(ed, 'wordWrap') !== 'on' || !sl || !th || !edT.minimapRows(ed).length) return 'not yet';
+    return Math.abs(sl.top - th.top) <= 1 && Math.abs(sl.bottom - th.bottom) <= 1 ? 'same' : `slider ${sl.top}~${sl.bottom} thumb ${th.top}~${th.bottom}`;
+  }), { timeout: 10000 }).toBe('same');
+});
