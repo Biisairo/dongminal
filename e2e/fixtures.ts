@@ -391,28 +391,17 @@ async function noteServerAtFailure(title: string) {
   serverLog.write(`\n=== [e2e 실패] ${new Date().toISOString()} ${title}\n--- 날 응답: ${raw}\n--- 포트 ${serverPort} 소유:\n${owners}===\n`);
 }
 
-/**
- * CHANNEL_PROTOCOL C2b: Claude 계정 목록은 채널의 `claude.accounts` 토픽으로 온다 — `page.route` 가 가로채지
- * 못한다. 토픽의 첫 본문이 닿은 뒤 GET 으로 다시 받게 해 가짜 목록을 얹는다. `waitForInit` 뒤에 부른다.
- */
-export async function refetchClaudeAccounts(page: any) {
-  await page.waitForFunction(() => {
-    const e = (window as any).app?.channel?._topics?.get('claude.accounts');
-    return !!e && e.seq > 0;
-  });
-  await page.evaluate(() => (window as any).app.testing.onClaudeAccountsChanged());
-}
-
-const TOPIC_STUBS = new WeakMap<any, Map<string, () => unknown>>();
+const TOPIC_STUBS = new WeakMap<any, Map<string, (server: any) => unknown>>();
 
 /**
  * CHANNEL_PROTOCOL C2b: full 토픽은 채널로 와서 `page.route` 가 닿지 않는다. 채널을 실제 서버에 잇되 그 토픽의
  * `full` 프레임 `data` 만 바꾼다 — 화면은 실제 토픽 경로(프레임 → 등록부 → 그리기)를 지난다. `data` 가 함수면
- * 프레임마다 불러 지금 값을 싣는다. 200 이 아닌 결과는 서버처럼 `{ $http: 상태, body }` 로 준다.
+ * 프레임마다 서버가 보낸 `data` 를 넘겨 불러 지금 값을 싣는다(서버 값을 고쳐 쓸 수 있다). 200 이 아닌 결과는
+ * 서버처럼 `{ $http: 상태, body }` 로 준다. 변화량(`delta`)은 바꾸지 않는다 — 시험 중의 변화는 그대로 온다.
  * 페이지를 열기 전에 부른다. 한 페이지에서 여러 토픽을 바꿀 수 있다.
  */
 export async function stubTopic(page: any, topic: string, data: unknown) {
-  const make = typeof data === 'function' ? (data as () => unknown) : () => data;
+  const make = typeof data === 'function' ? (data as (server: any) => unknown) : () => data;
   const have = TOPIC_STUBS.get(page);
   if (have) { have.set(topic, make); return }
   const stubs = new Map([[topic, make]]);
@@ -424,26 +413,13 @@ export async function stubTopic(page: any, topic: string, data: unknown) {
       if (typeof m !== 'string') return ws.send(m);
       const f = JSON.parse(m);
       const stub = f.t === 'full' ? stubs.get(f.topic) : undefined;
-      ws.send(stub ? JSON.stringify({ ...f, data: stub() }) : m);
+      ws.send(stub ? JSON.stringify({ ...f, data: stub(f.data) }) : m);
     });
   });
 }
 
 /**
- * 채팅 상태는 `chat` 토픽으로 온다(CHANNEL_PROTOCOL C2b) — `page.route` 로 가로챌 수 없다. 토픽의 첫 값이
- * 닿은 뒤 `/api/chat` GET 으로 다시 얹어, 시험이 둔 가짜 상태를 화면이 쓰게 한다. 그 뒤 서버 상태가 바뀌지
- * 않으면 토픽은 다시 오지 않는다.
- */
-export async function refetchChat(page: any) {
-  await page.waitForFunction(() => {
-    const e = (window as any).app?.channel?._topics?.get('chat');
-    return !!e && e.seq != null;
-  });
-  await page.evaluate(() => (window as any).app.testing.onChatChanged());
-}
-
-/**
- * 화면이 받는 계정 한도(`/api/tools/activity` 의 `limits`)를 비운다 (QUALITY_FLAKY_SRS FR-FLK-12).
+ * 화면이 받는 계정 한도(`activity` 토픽의 `_limits`)를 비운다 (QUALITY_FLAKY_SRS FR-FLK-12).
  *
  * 한도는 서버의 에이전트별 값이라 도구가 죽어도 남는다(ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-20). 워커의
  * 서버는 시험끼리 공유되므로, 같은 워커의 앞 시험이 `POST /api/tools/usage` 로 보낸 한도가 뒤 시험의
@@ -451,50 +427,21 @@ export async function refetchChat(page: any) {
  * `waitForInit` 전에 이것을 부른다. 활동 목록은 서버 값 그대로다. 실행 파일에 시험용 입구를 두지 않는다.
  */
 export async function stubEmptyLimits(page: any) {
-  // 활동은 두 길로 온다 — 그 종단(`/api/tools/activity`)과 재연결 묶음(`/api/snapshot` 의 `activity` 조각).
-  await page.route('**/api/tools/activity', async (route: any) => {
-    if (route.request().method() !== 'GET') return route.fallback();
-    const res = await route.fetch();
-    const body = await res.json();
-    return route.fulfill({ response: res, json: { ...body, limits: [] } });
-  });
-  await page.route('**/api/snapshot?**', async (route: any) => {
-    const res = await route.fetch();
-    const body = await res.json();
-    if (body && body.activity) body.activity = { ...body.activity, limits: [] };
-    return route.fulfill({ response: res, json: body });
-  });
+  // PERF M1 C3: 한도는 `activity` 토픽 맵의 예약 id `_limits` 로 온다.
+  await stubTopic(page, 'activity', (d: any) => ({ ...d, _limits: [] }));
 }
 
 /**
  * 작업 패널 탭 배지의 세 원천을 비운다 — 활동(`working` 수)·백그라운드 도구·Run (RUST_DEFECT_FIX_SRS FR-RDF-6).
  *
  * 셋 다 워커의 서버에 남으므로 같은 워커의 앞 시험이 남긴 열린 Run·바쁜 도구 하나가 배지를 켠다. 배지를 포함한
- * 기본 화면을 재는 시험이 `waitForInit` 전에 부른다. 한도도 함께 비운다(활동 토픽의 `_limits` 가 같은 본문이므로
+ * 기본 화면을 재는 시험이 `waitForInit` 전에 부른다. 한도도 함께 비운다(활동 토픽의 `_limits` 가 같은 맵이므로
  * `stubEmptyLimits` 와 함께 부르지 않는다). 시험 중에 새로 오는 변화량은 막지 않는다 — 막는 것은 시험 전에 남은 것이다.
  *
- * PERF M1 C3: 셋은 GET 이 아니라 채널 토픽(`activity`·`background`·`runs`)으로 온다 — `page.route` 가 닿지 않는다.
- * 그래서 그 토픽의 `full` 프레임(처음 받는 상태와 재동기)만 빈 맵으로 바꾼다.
+ * PERF M1 C3: 셋은 채널 토픽(`activity`·`background`·`runs`)으로 온다 — 그 토픽의 `full` 프레임만 빈 맵으로 바꾼다.
  */
 export async function stubEmptyActivityCounts(page: any) {
-  await page.addInitScript((topics: string[]) => {
-    const empty = new Set(topics);
-    const Base = window.WebSocket;
-    class Stubbed extends Base {
-      set onmessage(fn: any) {
-        super.onmessage = fn && ((e: MessageEvent) => {
-          if (typeof e.data === 'string' && e.data.includes('"full"')) {
-            let m: any = null;
-            try { m = JSON.parse(e.data) } catch { /* 토픽 프레임이 아니다 */ }
-            if (m && m.t === 'full' && empty.has(m.topic)) return fn.call(this, { data: JSON.stringify({ ...m, data: {} }) });
-          }
-          return fn.call(this, e);
-        });
-      }
-      get onmessage() { return super.onmessage }
-    }
-    (window as any).WebSocket = Stubbed;
-  }, ['activity', 'background', 'runs']);
+  for (const topic of ['activity', 'background', 'runs']) await stubTopic(page, topic, {});
 }
 
 export async function clickGitView(page: any, view: string) {

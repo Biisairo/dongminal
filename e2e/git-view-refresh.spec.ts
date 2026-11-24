@@ -128,28 +128,9 @@ async function jobEnded(page: Page, state: string) {
   await expect(job(page).locator('.git-job-state')).toHaveText(state, { timeout: 30000 });
 }
 
-// console.js 의 자체 폴링 주기(GIT_CON_POLL_MS). 여기서 다시 적는 이유는 아래
-// `stopConsolePoll` 의 여유를 그것에서 끌어오기 때문이다.
-const CON_POLL_MS = 2000;
-const CON_BUDGET_MS = CON_POLL_MS / 2;
-
-/**
- * Console 의 자체 폴링을 끊는다.
- *
- * Console 은 탭을 떠나도 폴링을 멈추지 않는다 — 떠난 탭의 본문에서 `vis` 가
- * 지워지지 않아 `console.js` 의 `_start` 가드가 그대로 통과한다(이 SRS 의 범위
- * 밖이다). 그것이 살아 있으면 "원격 작업이 Console 을 갱신했는가" 를 **잴 수
- * 없다**: 고치지 않아도 2초 안에 어차피 채워진다.
- *
- * 그래서 재는 동안만 타이머를 끊는다. 탭을 다시 열 때 `paint()` 가 새 주기로 다시
- * 걸므로, 거기서부터 CON_POLL_MS 만큼의 여유가 생기고 그 안에서 단정한다.
- */
-async function stopConsolePoll(page: Page) {
-  await page.evaluate(() => {
-    const c = (window as any).app.gitPanel._consoleView;
-    if (c && c._timer) { clearInterval(c._timer); c._timer = null }
-  });
-}
+// Console 은 주기로 다시 받지 않는다(PERF M1 — `gitconsole:<root>` 토픽). 작업이 끝날 때 받아 둔 기록은
+// 탭을 다시 열자마자 보여야 한다 — 그 여유다.
+const CON_BUDGET_MS = 1000;
 
 // 요청 수는 가로채기로 센다 — 클라이언트 내부 카운터를 믿으면 "요청을 실제로
 // 보내지 않았다"를 증명할 수 없다 (git-polling.spec.ts 와 같은 기법).
@@ -237,14 +218,12 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await expect(con(page).locator('.git-con-list')).toBeVisible({ timeout: 20000 });
 
     await openTab(page, 'changes');
-    await stopConsolePoll(page);
     await ready(page);
     await btn(page, 'push').click();
     await jobEnded(page, '완료');
 
     // 탭을 다시 여는 것은 기록을 다시 받지 않는다(mount 는 한 번뿐이다). 보이는
-    // 것은 작업이 끝날 때 `afterRemoteJob` 이 받아 둔 것이며, 새 폴링 주기가
-    // 차기 전에 단정하므로 폴링이 대신 채워 준 것일 수 없다.
+    // 것은 작업이 끝날 때 `afterRemoteJob` 이 받아 둔 것이다.
     await openTab(page, 'console');
     await expect(conRows(page).first().locator('.git-con-argv'))
       .toHaveText(/^git push/, { timeout: CON_BUDGET_MS });
@@ -284,7 +263,6 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await expect(con(page).locator('.git-con-list')).toBeVisible({ timeout: 20000 });
 
     await openTab(page, 'changes');
-    await stopConsolePoll(page);
     await ready(page);
     await btn(page, 'push').click();
     await jobEnded(page, '실패');
