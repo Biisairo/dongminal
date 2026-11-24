@@ -452,7 +452,7 @@ impl Server {
     pub(crate) async fn handle_static(&self, r: &mut Req) -> Response {
         match &self.statics {
             Some(h) => h.serve(r),
-            None => httpresp::http_error(StatusCode::NOT_FOUND, "404 page not found"),
+            None => httpresp::not_found(),
         }
     }
 }

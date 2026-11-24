@@ -267,7 +267,7 @@ impl Server {
                 redirect(&r.method, &with_query(&format!("{escaped}/"), &r.raw_query))
             }
             Some((_, h)) => h(self, r).await,
-            None => httpresp::http_error(StatusCode::NOT_FOUND, "404 page not found"),
+            None => httpresp::not_found(),
         }
     }
 

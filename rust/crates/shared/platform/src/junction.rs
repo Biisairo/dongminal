@@ -30,10 +30,7 @@ pub fn junction(target: &Path, link: &Path) -> io::Result<()> {
         return Ok(());
     }
     // Go *exec.ExitError 의 문구.
-    Err(io::Error::other(match status.code() {
-        Some(c) => format!("exit status {c}"),
-        None => "exit status 1".to_owned(),
-    }))
+    Err(io::Error::other(crate::exit_status_text(&status)))
 }
 
 /// Windows 가 아니면 언제나 실패다.

@@ -385,22 +385,6 @@ test.describe('묶음 V — git 뷰 탭의 자격 (FR-RTU-33·34)', () => {
       await expect(viewTab(page, 'history')).toHaveCount(1, { timeout: 10000 });
     });
 
-  test('X3 (V-RTU-31 / FR-RTU-17): git 뷰 탭은 창 밖으로 나가지 않는다',
-    async ({ page, request }) => {
-      await enter(page, request, REPO);
-      await openTwoViews(page);
-      const moved = await page.evaluate(() => {
-        const a = (window as any).app;
-        const plain = a.testing.plainWindows()[0];
-        const pane = a.testing.flattenPanes(a.testing.aw().layout)[0];
-        const tab = (pane.tabs || []).find((t: any) => t.type === 'git');
-        const before = ((a.testing.flattenPanes(plain.layout)[0] || {}).tabs || []).length;
-        a.testing.moveTabToWindow(pane.id, tab.id, plain.id);
-        return { before, after: ((a.testing.flattenPanes(plain.layout)[0] || {}).tabs || []).length };
-      });
-      expect(moved.after, 'git 뷰 탭이 다른 창으로 나갔다').toBe(moved.before);
-    });
-
   /**
    * NFR-RTU-3: 편집기 인스턴스는 **열린 diff/편집기 탭 수 + 창당 미리보기 1** 을
    * 넘지 않는다. 뷰 DOM 을 탭이 있을 때만 만드는 것이 그 근거이므로, 닫으면

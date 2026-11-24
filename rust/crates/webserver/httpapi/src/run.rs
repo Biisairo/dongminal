@@ -23,15 +23,6 @@ pub const SHUTDOWN_GRACE: Duration = Duration::from_secs(2);
 pub(crate) const READ_HEADER_TIMEOUT: Duration = Duration::from_secs(10);
 pub(crate) const IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
-/// Go `net.JoinHostPort`.
-pub(crate) fn join_host_port(host: &str, port: &str) -> String {
-    if host.contains(':') {
-        format!("[{host}]:{port}")
-    } else {
-        format!("{host}:{port}")
-    }
-}
-
 /// Go `r.Host`: 절대 형식 요청 대상이면 그 authority, 아니면 `Host` 머리다.
 pub(crate) fn request_host<B>(req: &http::Request<B>) -> String {
     if let Some(a) = req.uri().authority() {
@@ -124,7 +115,7 @@ pub(crate) fn host_check<B>(req: &http::Request<B>) -> Option<Response> {
 pub(crate) fn bound_addr(addr: &str, ln: &std::net::TcpListener) -> String {
     let host = split_host_port(addr).map_or("", |(h, _)| h);
     match ln.local_addr() {
-        Ok(a) => join_host_port(host, &a.port().to_string()),
+        Ok(a) => dm_shared_dmenv::join_host_port(host, &a.port().to_string()),
         Err(_) => addr.to_owned(),
     }
 }
@@ -156,7 +147,7 @@ impl Server {
         ctx.cancelled().await;
         b.stop(SHUTDOWN_GRACE).await;
         let st = b.lock();
-        serverconf::remove_addr(&home, &join_host_port(&st.host, &st.port));
+        serverconf::remove_addr(&home, &dm_shared_dmenv::join_host_port(&st.host, &st.port));
         Ok(())
     }
 }

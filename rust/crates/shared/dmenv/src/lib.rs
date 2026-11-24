@@ -8,7 +8,8 @@ mod names;
 mod tuning;
 
 pub use host::{
-    base_url, dial_host, exposure_label, is_exposed_host, is_unspecified_host, listen_addr,
+    base_url, dial_host, exposure_label, is_exposed_host, is_unspecified_host, join_host_port,
+    listen_addr,
 };
 pub use names::*;
 pub use tuning::{flag_env, millis_env, or};

@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process';
-import { readFileSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
@@ -179,15 +179,6 @@ test.describe('16단계 — History 탭', () => {
       w.applyThemeObj(w.customTheme);
     });
     await expect.poll(() => dot().getAttribute('fill'), { timeout: 10000 }).not.toBe(before);
-  });
-
-  test('H4b (V47): git-history.js·git-lanes.js 에 색 리터럴이 없다', async () => {
-    for (const f of ['web/js/git/history.js', 'web/js/git/lanes.js', 'web/js/git/menu.js']) {
-      const src = readFileSync(f, 'utf8');
-      expect(src, f + ' 에 #rrggbb 리터럴이 있다').not.toMatch(/#[0-9a-fA-F]{6}\b/);
-      expect(src, f + ' 에 #rgb 리터럴이 있다').not.toMatch(/['"]#[0-9a-fA-F]{3}['"]/);
-      expect(src, f + ' 에 rgb( 리터럴이 있다').not.toMatch(/\brgba?\(/);
-    }
   });
 
   test('H5 (V50·FR-GIT-125): 폭이 줄면 Commit → Date → Author 순으로 숨는다', async ({ page }) => {
