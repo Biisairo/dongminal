@@ -833,9 +833,10 @@ export async function nextFrames(page: any, n = 2, capMs = 2000) {
  * status 안전망 폴링의 주기를 **그 자리에서** 바꾼다 (`TEST-17`·`TEST-19`).
  *
  * 기본은 30초다 (`GIT_STATUS_POLL_MS`) — 서버가 변화를 방송하므로 브라우저의
- * 폴링은 안전망으로 남았다 (`GIT_PUSH_OBSERVE_SRS`). 그래서 **방송이 닿지 않는
- * 사건**은 그 30초를 실제로 기다려야 화면에 오른다: 저장소 폴더가 사라지는
- * 것이 그렇다.
+ * 폴링은 안전망으로 남았다 (`GIT_PUSH_OBSERVE_SRS`). 저장소 폴더가 사라지는
+ * 사건도 서버 감시자가 감시에서 빼며 `git_changed`(mark `""`)를 한 번 방송하지만
+ * (FR-RMS-6, `gitwatch/round.rs` 의 `drop_repo`), 그 방송은 감시 회차가 돌아야
+ * 나간다. 그래서 소실을 기다리는 검사는 방송에 기대지 않고 안전망을 줄여 둔다.
  *
  * **설정으로는 못 넣는다.** 주기가 사용자 설정이 되면서 하한이 10초이고
  * (`settings-schema.js`), 그 밖의 값은 저장하면 기본값으로 되돌아간다 —
