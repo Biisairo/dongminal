@@ -1431,4 +1431,37 @@ export function makeCopyFx(root: string) {
   };
 }
 
+/**
+ * 사용자 설정 몇 개를 바꾸고, 원래 블롭으로 되돌리는 함수를 돌려준다.
+ *
+ * 기존 설정 값(`gitWorktreeInterval`·`gitReposInterval` 등)으로 주기를 줄이는 자리다
+ * (E2E_PRUNE_REPORT §8.2 (b)). `cleanTools` 는 설정을 되돌리지 않으므로 시험이 끝날 때
+ * 돌려받은 함수를 반드시 부른다 — 다음 스펙이 줄어든 주기를 물려받지 않게 한다.
+ * `undefined` 는 그 키를 지운다(서버 기본값).
+ */
+export async function scopedSettings(request: any, patch: Record<string, unknown>): Promise<() => Promise<void>> {
+  const saved = await (await request.get('/api/settings')).json();
+  const cur = { ...saved };
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === undefined) delete cur[k];
+    else cur[k] = v;
+  }
+  const r = await request.put('/api/settings', { data: cur });
+  expect(r.ok(), `설정 저장 실패: ${await r.text()}`).toBeTruthy();
+  return async () => {
+    const back = await request.put('/api/settings', { data: saved });
+    expect(back.ok(), `설정 복원 실패: ${await back.text()}`).toBeTruthy();
+  };
+}
+
+/**
+ * Console 폴링 주기를 **그 자리에서** 바꾼다 (E2E_PRUNE_REPORT §8.2 (a′)).
+ *
+ * `gitConsoleInterval` 은 `var` 전역이고 Console 이 다시 무장할 때마다 읽는다.
+ * 설정으로 넣으면 하한(1000ms)에 걸리므로 `setSafetyNet` 과 같은 방식으로 넣는다.
+ */
+export async function setConsoleInterval(page: any, ms: number) {
+  await page.evaluate((v: number) => { (window as any).gitConsoleInterval = v }, ms);
+}
+
 export { expect };
