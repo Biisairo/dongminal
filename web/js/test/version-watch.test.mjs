@@ -24,8 +24,8 @@ function setup({ self = SELF, tried = null, dirty = false, page = null } = {}) {
   };
   const document = {
     hidden: false,
-    querySelector: (sel) => (sel === 'script[src*="core/main.js"]' && self !== undefined
-      ? { getAttribute: () => (self ? 'js/core/main.js?v=' + self : 'js/core/main.js') } : null),
+    querySelector: (sel) => (sel === 'script[src*="b/boot.js"]' && self !== undefined
+      ? { getAttribute: () => (self ? 'b/boot.js?v=' + self : 'b/boot.js') } : null),
     getElementById: (id) => byId.get(id) || null,
     createElement: mk,
     addEventListener: (t, fn) => { if (t === 'visibilitychange') vis = fn },
@@ -122,7 +122,7 @@ test('TC-FR5-10: 살아 있는 인사가 있으면 탭 복귀에 묻지 않고 �
 });
 
 test('TC-FR5-10: 인사가 없으면 탭 복귀에 / 를 받아 판을 읽는다', async () => {
-  const s = setup({ page: { ok: true, text: '<script src="js/core/main.js?v=ddd444"></script>' } });
+  const s = setup({ page: { ok: true, text: '<script src="b/boot.js?v=ddd444"></script>' } });
   s.fireVisible();
   await new Promise((r) => setImmediate(r));
   assert.deepEqual(s.log, ['get:/:no-store:false:number', 'set:{"from":"aaa111","to":"ddd444"}', 'boot:step-version', 'reload']);

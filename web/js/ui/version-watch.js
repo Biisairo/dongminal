@@ -34,7 +34,7 @@ class VersionWatch {
    * 판정에 쓰이지 않는다. 판이 없으면 아무것도 걸지 않는다.
    */
   static start(){
-    const el=document.querySelector('script[src*="core/main.js"]');
+    const el=document.querySelector('script[src*="b/boot.js"]');
     const m=el&&(el.getAttribute('src')||'').match(/[?&]v=([0-9a-f]+)/);
     const self=m?m[1]:null;
     if(!self) return null;
@@ -145,7 +145,7 @@ class VersionWatch {
     if(this.greeted&&this.greeted.live()){ this.saw(this.greeted.v); return }
     const r=await apiGet('/',{query:{_v:Date.now()},cache:'no-store',parse:false});
     if(!r.ok) return;
-    const m=r.text.match(/core\/main\.js\?v=([0-9a-f]+)/);
+    const m=r.text.match(/b\/boot\.js\?v=([0-9a-f]+)/);
     if(m) this.saw(m[1]);
   }
 

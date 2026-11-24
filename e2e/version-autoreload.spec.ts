@@ -18,7 +18,7 @@ import { test, expect, waitForInit, waitSettled } from './fixtures';
 async function stubVersion(page: Page, ver: string) {
   await page.route(/\/\?_v=\d+/, async (route) => {
     const res = await route.fetch();
-    const body = (await res.text()).replace(/core\/main\.js\?v=[0-9a-f]+/, 'core/main.js?v=' + ver);
+    const body = (await res.text()).replace(/b\/boot\.js\?v=[0-9a-f]+/, 'b/boot.js?v=' + ver);
     await route.fulfill({ response: res, body, headers: { ...res.headers(), 'content-type': 'text/html' } });
   });
 }
@@ -28,7 +28,7 @@ async function stubVersion(page: Page, ver: string) {
 // 또 바뀔 때 고칠 곳이 하나여야 한다 (FR-AVS-13).
 const currentVersion = (page: Page) =>
   page.evaluate(() => {
-    const el = document.querySelector('script[src*="core/main.js"]');
+    const el = document.querySelector('script[src*="b/boot.js"]');
     return (el?.getAttribute('src') || '').match(/[?&]v=([0-9a-f]+)/)?.[1] || '';
   });
 

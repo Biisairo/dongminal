@@ -15,6 +15,7 @@ mod agent_render_env;
 mod ansi;
 mod asset_version;
 mod attention;
+mod bundles;
 mod carry;
 mod channel;
 mod chat_api;
