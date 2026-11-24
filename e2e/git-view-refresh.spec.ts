@@ -6,7 +6,7 @@ import { Page } from '@playwright/test';
 
 import {
   test, expect, waitForInit, GIT_VIEW_TABS, openGit, clickGitView, gitFixture, cleanGitFixture, copyDir, rmTree, freshDir, makeCopyFx, nextFrames,
-  setSafetyNet, setConsoleInterval, scopedSettings,
+  setSafetyNet, scopedSettings,
 } from './fixtures';
 import { ED_SEL } from './editor';
 import { TMP, tmpPath, realPath } from './osenv';
@@ -395,8 +395,6 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
   test('G9 (D-7): Console 탭을 떠나면 기록 폴링이 멈춘다', async ({ page }) => {
     const { repo } = copyPair('g9');
     await waitForInit(page);
-    // Console 주기(2초)를 줄인다 — 아래 창에 회차가 여럿 들게 한다 (§8.2 (a′)).
-    await setConsoleInterval(page, 300);
     await openGit(page, repo);
     // Console 을 한 번 열어 폴링을 건다. **한 건이 실제로 온 것**이 그 신호다 —
     // 폴링이 걸리지 않았는데 떠나면 아래의 `0` 은 아무것도 말하지 않는다.

@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, clickRowAct, nextFrames, setConsoleInterval, scopedSettings } from './fixtures';
+import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, clickRowAct, nextFrames, scopedSettings } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 /**
@@ -214,8 +214,6 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
   test('P8 (V110 / FR-RPT-7 #4): Console 기록 행과 펼친 상세가 폴링에 살아남는다', async ({ page }) => {
     const repo = copyFx('basic', 'p8');
     await waitForInit(page);
-    // Console 의 주기(2초)를 줄인다 — 다시 무장할 때마다 읽는 전역이다 (§8.2 (a′)).
-    await setConsoleInterval(page, 300);
     const rec = counter(page, '/api/git/records');
     await openGit(page, repo);
     // 쓰기 하나가 기록을 만든다 — Console 은 쓰기와 실패만 기본으로 보인다.

@@ -22,7 +22,6 @@ const DERIVED = {
   STATS_INTERVAL_DEFAULT: ['statsInterval', 'def'],
   GIT_STATUS_POLL_MS: ['gitStatusInterval', 'def'],
   GIT_REPOS_POLL_MS: ['gitReposInterval', 'def'],
-  GIT_CON_POLL_MS: ['gitConsoleInterval', 'def'],
   TAB_WIDTH_DEFAULT: ['tabWidthPx', 'def'],
   TAB_WIDTH_MIN: ['tabWidthPx', 'min'],
   TAB_WIDTH_MAX: ['tabWidthPx', 'max'],
@@ -36,12 +35,21 @@ const DERIVED = {
 const VARS = {
   statsInterval: 'statsInterval',
   gitStatusInterval: 'gitStatusInterval', gitReposInterval: 'gitReposInterval',
-  gitConsoleInterval: 'gitConsoleInterval', tabWidthPx: 'tabWidthPx',
+  tabWidthPx: 'tabWidthPx',
   focusEdgeLevel: 'focusEdgeLevel', attnEdgeLevel: 'attnEdgeLevel',
 };
 
 const defaults = () => load(['core/settings-schema.js', 'core/settings-defaults.js'], {
   expose: ['SETTINGS_BY_KEY', ...Object.keys(DERIVED)],
+});
+
+test('PERF 1.9: git 콘솔 주기 설정(gitConsoleInterval)은 없다 — Console 은 gitconsole 토픽으로 온다', () => {
+  const c = defaults();
+  assert.equal(c.SETTINGS_BY_KEY.gitConsoleInterval, undefined, '표에 남았다');
+  for (const rel of [...jsFiles('core'), ...jsFiles('ui'), ...jsFiles('git')]) {
+    assert.ok(!/gitConsoleInterval|GIT_CON_POLL_MS|pi-gitconsole/.test(code(read(rel))), rel);
+  }
+  for (const rel of ['i18n/ko.js', 'i18n/en.js']) assert.ok(!/poll\.git_console\./.test(read(rel)), rel);
 });
 
 test('PERF M1 C6: 에이전트 활동 주기 설정(agentsPollInterval)은 없다 — 활동은 채널 토픽으로 온다', () => {

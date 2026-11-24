@@ -51,7 +51,6 @@ const SETTINGS_ACCESS={
   gitStatusInterval:{get:()=>gitStatusInterval,set:v=>POLL_BY_KEY.gitStatusInterval.set(v)},
   gitReposInterval:{get:()=>gitReposInterval,set:v=>POLL_BY_KEY.gitReposInterval.set(v)},
   gitWorktreeInterval:{get:()=>gitWorktreeInterval,set:v=>POLL_BY_KEY.gitWorktreeInterval.set(v)},
-  gitConsoleInterval:{get:()=>gitConsoleInterval,set:v=>POLL_BY_KEY.gitConsoleInterval.set(v)},
   layoutPresets:{get:()=>layoutPresets,set(v){layoutPresets=v;this.layout.winState._presetButtonPaint()}},
   defaultPreset:{get:()=>defaultPreset,set(v){defaultPreset=v;this.layout.winState._presetButtonPaint()}},
   // FR-TAN-19

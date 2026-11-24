@@ -61,12 +61,6 @@ const POLL_SETTINGS=[
     get:()=>gitWorktreeInterval, set:v=>{gitWorktreeInterval=v},
     opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[4000,tn('core.dur_sec',4)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
   },
-  {
-    key:'gitConsoleInterval', id:'pi-gitconsole', label:t('poll.git_console.label'),
-    hint:t('poll.git_console.hint'),
-    get:()=>gitConsoleInterval, set:v=>{gitConsoleInterval=v},
-    opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)]],
-  },
 ];
 
 const POLL_BY_KEY=Object.fromEntries(POLL_SETTINGS.map(s=>[s.key,s]));

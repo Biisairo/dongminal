@@ -19,7 +19,6 @@ const STATS_INTERVAL_DEFAULT=SETTINGS_BY_KEY.statsInterval.def;
 const GIT_STATUS_POLL_MS=SETTINGS_BY_KEY.gitStatusInterval.def;
 const GIT_REPOS_POLL_MS=SETTINGS_BY_KEY.gitReposInterval.def;
 const GIT_WORKTREE_POLL_MS=SETTINGS_BY_KEY.gitWorktreeInterval.def;
-const GIT_CON_POLL_MS=SETTINGS_BY_KEY.gitConsoleInterval.def;
 const TAB_WIDTH_DEFAULT=SETTINGS_BY_KEY.tabWidthPx.def;
 const TAB_WIDTH_MIN=SETTINGS_BY_KEY.tabWidthPx.min;
 const TAB_WIDTH_MAX=SETTINGS_BY_KEY.tabWidthPx.max;
@@ -37,7 +36,6 @@ var gitStatusInterval=GIT_STATUS_POLL_MS;
 var gitReposInterval=GIT_REPOS_POLL_MS;
 // EDITOR_LIVE_RELOAD_SRS FR-ELR-76: 이 값을 쓰는 것은 서버다(워크트리 회차). 브라우저는 들고 저장할 뿐이다.
 var gitWorktreeInterval=GIT_WORKTREE_POLL_MS;
-var gitConsoleInterval=GIT_CON_POLL_MS;
 /**
  * UNFOCUSED_EDGE_SRS FR-UFE-10·12·13 / ALERT_MOBILE_CONTEXT_SRS FR-AED-8·9: 가장자리
  * 표시 둘의 세기(0~10). `/api/settings` blob 에 실린다 — 취향 스위치가 기기마다

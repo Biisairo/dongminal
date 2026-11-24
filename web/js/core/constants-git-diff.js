@@ -121,5 +121,4 @@ const GIT_CON_CWD='cwd';
 const GIT_CON_LIMIT=500;
 // 쓰기가 끝나면 곧바로 다시 읽는다 — 방금 한 일이 이력의 맨 위에 있어야 한다.
 // 그 밖에는 탭이 활성일 때만 받는다 (History·Branches·Stash 와 같은 규약).
-// 주기의 기본값 `GIT_CON_POLL_MS` 와 설정 변수 `gitConsoleInterval` 은
-// settings-defaults.js 에 있다 (FR-PIS-6·11 · FR-OPT-11-4).
+// 새 기록은 `gitconsole:<root>` 토픽이 알린다 — 주기가 없다 (PERF_OPTIMIZATION_SRS 1.9).

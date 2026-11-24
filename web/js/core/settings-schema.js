@@ -35,7 +35,6 @@ const SETTINGS_SCHEMA = [
   {"key":"gitStatusInterval","type":"int","def":30000,"min":10000,"max":30000,"off":true,"where":"Polling ▸ git 상태 안전망"},
   {"key":"gitReposInterval","type":"int","def":3000,"min":1000,"max":30000,"where":"Polling ▸ 탐색기"},
   {"key":"gitWorktreeInterval","type":"int","def":4000,"min":1000,"max":30000,"where":"Polling ▸ git 작업 트리"},
-  {"key":"gitConsoleInterval","type":"int","def":2000,"min":1000,"max":10000,"where":"Polling ▸ git 콘솔"},
   {"key":"layoutPresets","type":"array","def":[],"where":"Presets"},
   {"key":"defaultPreset","type":"int","def":-1,"min":-1,"max":999,"where":"Presets ▸ 기본"},
   {"key":"fgTabNames","type":"bool","def":true,"where":"Display ▸ 프로세스 이름을 탭 이름으로"},
