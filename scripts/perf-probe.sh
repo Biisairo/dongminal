@@ -53,7 +53,7 @@ if [[ -z "$PORT" ]]; then
   # **격리가 기본이다.** 운영 인스턴스에 대고 재면 그쪽 부하가 값에 섞이고,
   # 반대로 측정이 그쪽을 느리게 만든다.
   echo "── 격리 인스턴스를 띄운다"
-  go build -o dongminal ./cmd/dongminal || exit 1
+  BINARY=dongminal scripts/build.sh >/dev/null || exit 1
   HOME_DIR=$(mktemp -d)
   # **자기 전제를 스스로 세운다.** 이 스크립트는 dongminal 도구 안에서 돌 수 있고,
   # 그 셸에는 사용자의 실제 인스턴스를 가리키는 `DONGMINAL_*` 가 심겨 있다
@@ -99,10 +99,11 @@ echo
 echo "── 자원 (GET /api/diag)"
 diag=$(curl -s "$BASE/api/diag")
 if [[ -n "$diag" ]]; then
+  # `allocMB` 는 Rust 판에서 늘 0 이라 재지 못한다 (RUST_PORT_SRS DIFF-27).
   echo "$diag" | tr ',' '\n' | grep -E '"(goroutines|allocMB|tools|ws|reconnects|uptime)"' \
-    | sed 's/[{"]//g; s/^/   /'
+    | sed 's/[{"]//g; s/^allocMB:.*/allocMB:측정 안 됨/; s/^/   /'
   echo
-  echo "   예산: goroutines 500 (도구 10개 기준) · allocMB 100 (유휴)"
+  echo "   예산: goroutines 500 (도구 10개 기준) · allocMB 100 (유휴, 측정 안 됨)"
 else
   echo "   진단을 읽지 못했습니다"
 fi
