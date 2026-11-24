@@ -122,6 +122,13 @@ const ED_FIND_WORD_SEPARATORS='`~!@#$%^&*()-=+[{]}\\|;:\'",.<>/?';
 // 한 문서에서 셀 일치의 상한. 넘으면 거기서 끊는다 — 수십만 건을 세는
 // 동안 화면이 멎는 것보다 낫다.
 const ED_FIND_MAX_HITS=20000;
+// PERF_OPTIMIZATION_SRS FR-SPA-5 (이슈 3.3): 큰 문서의 찾기는 나눠 센다. 묶음 하나(줄 수)로 끝나는 문서는
+// 입력 즉시 센다. 그보다 크면 입력이 멎은 뒤(디바운스) 한 조각이 예산(ms)을 넘지 않게 묶음을 이어 센다.
+const ED_FIND_CHUNK_LINES=1000;
+const ED_FIND_SLICE_MS=8;
+const ED_FIND_DEBOUNCE_MS=100;
+// 다 세기 전에 수 칸에 보이는 표시.
+const ED_FIND_BUSY='…';
 
 // CODEMIRROR_MIGRATION_SRS FR-CMR-74: 직접 그리는 세로 스크롤바. 폭·thumb 최소 높이는 옛 엔진의 기본값이다
 // (`verticalScrollbarSize` 14 · 슬라이더 최소 20).
