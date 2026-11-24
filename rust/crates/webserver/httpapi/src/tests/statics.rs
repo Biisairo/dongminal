@@ -129,7 +129,11 @@ fn precompressed_fs(plain: &str) -> MapFs {
 }
 
 /// 본문을 바이트로 받는다 (gzip 본문은 UTF-8 이 아니다).
-async fn get_raw(s: &Arc<Server>, target: &str, headers: &[(&str, &str)]) -> (Resp, Vec<u8>) {
+pub(crate) async fn get_raw(
+    s: &Arc<Server>,
+    target: &str,
+    headers: &[(&str, &str)],
+) -> (Resp, Vec<u8>) {
     let mut b = http::Request::builder()
         .method("GET")
         .uri(target)

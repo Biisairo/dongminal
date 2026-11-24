@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { BASE, GITPANEL, load } from './harness.mjs';
+import { repoLoadOrder } from '../../../scripts/bundles-def.mjs';
 
 /**
  * REFACTOR3_FE_GITPANEL_SRS — Git 패널 mixin 을 부품 클래스로.
@@ -174,10 +175,8 @@ test('TC-FEP-2 옮긴 mixin 파일이 없고 Object.assign(GitPanel.prototype �
   let n = 0;
   for (const f of readdirSync(GIT)) n += (readFileSync(join(GIT, f), 'utf8').match(/^Object\.assign\(GitPanel\.prototype/gm) || []).length;
   assert.equal(n, ASSIGNS_LEFT);
-  const html = read('../index.html');
-  const order = [...html.matchAll(/<script src="js\/(git\/(?:git-part|git-[a-z-]+|panel[a-z-]*)\.js)/g)]
-    .map((m) => m[1]).filter((f) => GITPANEL.includes(f));
-  assert.deepEqual(order, GITPANEL, 'index.html 의 순서가 하네스 묶음과 다르다');
+  const order = repoLoadOrder(join(JS, '..', '..')).map((f) => f.slice('js/'.length)).filter((f) => GITPANEL.includes(f));
+  assert.deepEqual(order, GITPANEL, '로드 순서가 하네스 묶음과 다르다');
 });
 
 test('TC-FEP-3 부품 소유 필드가 패널 원형·생성자에 없고 패널 쪽 파일이 읽지 않는다', () => {

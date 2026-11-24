@@ -19,6 +19,7 @@ use sha2::{Digest, Sha256};
 use crate::Server;
 use crate::access_denied::CSP_REST;
 use crate::asset_version::{ASSET_VER_PLACEHOLDER, INDEX_PAGE, compute_asset_version};
+use crate::bundles::Bundles;
 use crate::httperr::http_err;
 use crate::req::Req;
 use crate::serve_content::{
@@ -168,7 +169,7 @@ fn etag_of(sum: &[u8]) -> String {
     format!("\"{}\"", &hx[..32])
 }
 
-fn hash_bytes(b: &[u8]) -> String {
+pub(crate) fn hash_bytes(b: &[u8]) -> String {
     etag_of(&Sha256::digest(b))
 }
 
@@ -212,6 +213,8 @@ pub(crate) struct StaticHandler {
     etags: RwLock<HashMap<String, String>>,
     /// 사전압축 자산의 담긴 바이트다 (FR-PRF-50). 해제본은 담지 않는다 (D-PRF-7).
     blobs: RwLock<HashMap<String, Bytes>>,
+    /// 묶음 `/b/<name>.js` (D-29).
+    bundles: Bundles,
 }
 
 impl StaticHandler {
@@ -227,6 +230,7 @@ impl StaticHandler {
         });
         let index_etag = index.as_deref().map(hash_bytes).unwrap_or_default();
         let csp = csp_for(index.as_deref().unwrap_or_default());
+        let bundles = Bundles::build(fsys.as_ref());
         StaticHandler {
             fsys,
             version,
@@ -235,6 +239,7 @@ impl StaticHandler {
             index_etag,
             etags: RwLock::new(HashMap::new()),
             blobs: RwLock::new(HashMap::new()),
+            bundles,
         }
     }
 
@@ -255,6 +260,10 @@ impl StaticHandler {
         {
             return serve_content(r, h, INDEX_PAGE, index.clone());
         }
+        let h = match self.bundles.serve(r, h) {
+            Ok(res) => return res,
+            Err(h) => h,
+        };
         let h = match self.serve_precompressed(r, h) {
             Ok(res) => return res,
             Err(h) => h,

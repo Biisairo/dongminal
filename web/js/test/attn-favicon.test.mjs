@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
+import { repoLoadOrder } from '../../../scripts/bundles-def.mjs';
 import { load } from './harness.mjs';
 
 /**
@@ -83,9 +84,9 @@ test('FR-FAV-4: 설정 표에 attnFavicon 이 Display 불리언 기본 켬으로
   assert.match(src, /\{"key":"attnFavicon","type":"bool","def":true,"where":"Display ▸ [^"]+"\}/);
 });
 
-test('FR-FAV-4: index.html 이 attn-favicon.js 를 settings-apply.js 보다 먼저 싣는다', () => {
-  const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  const a = html.indexOf('js/core/attn-favicon.js');
-  const b = html.indexOf('js/core/settings-apply.js');
-  assert.ok(a > 0 && a < b, `${a} < ${b}`);
+test('FR-FAV-4: attn-favicon.js 가 settings-apply.js 보다 먼저 실린다', () => {
+  const order = repoLoadOrder(REPO);
+  const a = order.indexOf('js/core/attn-favicon.js');
+  const b = order.indexOf('js/core/settings-apply.js');
+  assert.ok(a >= 0 && a < b, `${a} < ${b}`);
 });

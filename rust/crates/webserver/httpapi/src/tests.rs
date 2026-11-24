@@ -1,6 +1,7 @@
 mod access;
 mod attention;
 mod attnenv;
+mod bundles;
 mod channel;
 mod channel_cmd;
 mod claude_accounts;

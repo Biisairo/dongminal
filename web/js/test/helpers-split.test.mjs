@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { repoLoadOrder } from '../../../scripts/bundles-def.mjs';
 import { CONSTANTS, HELPERS, load } from './harness.mjs';
 
 /**
@@ -11,7 +12,6 @@ import { CONSTANTS, HELPERS, load } from './harness.mjs';
  * index.html 은 그 파일들을 옛 helpers.js 자리에 같은 순서로 싣는다.
  */
 const JS = join(dirname(fileURLToPath(import.meta.url)), '..');
-const HTML = readFileSync(join(JS, '..', 'index.html'), 'utf8');
 const lines = (f) => readFileSync(join(JS, f), 'utf8').split('\n').length;
 
 const HELPER_FILES = HELPERS;
@@ -21,8 +21,8 @@ test('주제 파일이 있고 helpers.js 는 작다', () => {
   assert.ok(lines('core/helpers.js') < 250, 'helpers.js 가 ' + lines('core/helpers.js') + '줄이다');
 });
 
-test('index.html 이 주제 파일을 contrast.js 와 git-path.js 사이에 순서대로 싣는다', () => {
-  const src = [...HTML.matchAll(/<script src="js\/([^"?]+)/g)].map((m) => m[1]);
+test('주제 파일이 contrast.js 와 git-path.js 사이에 순서대로 실린다', () => {
+  const src = repoLoadOrder(join(JS, '..', '..')).map((f) => f.slice('js/'.length));
   const i = src.indexOf('core/contrast.js');
   assert.deepEqual(src.slice(i + 1, i + 1 + HELPER_FILES.length), HELPER_FILES);
   assert.equal(src[i + 1 + HELPER_FILES.length], 'core/git-path.js');
