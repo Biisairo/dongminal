@@ -120,10 +120,14 @@ impl Server {
     }
 }
 
+/// 허브가 구독을 닫으면(큐 넘침) 채널을 닫는다 — 브라우저가 다시 연결해 새로 구독한다.
 async fn pump(s: Arc<CmdSub>, out: Arc<Outbox>) {
     loop {
         tokio::select! {
-            _ = s.closed() => return,
+            _ = s.closed() => {
+                out.close();
+                return;
+            }
             m = s.recv() => match m {
                 Some(msg) => out.push_control(cmd_frame(&msg)),
                 None => return,

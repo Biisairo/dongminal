@@ -56,14 +56,18 @@ impl Inner {
     fn add(&mut self, n: usize) {
         self.bytes += n;
         if self.bytes > CHANNEL_PENDING_MAX {
-            self.closed = true;
-            self.control.clear();
-            self.term.clear();
-            self.terms.clear();
-            self.order.clear();
-            self.state.clear();
-            self.bytes = 0;
+            self.close();
         }
+    }
+
+    fn close(&mut self) {
+        self.closed = true;
+        self.control.clear();
+        self.term.clear();
+        self.terms.clear();
+        self.order.clear();
+        self.state.clear();
+        self.bytes = 0;
     }
 }
 
@@ -89,6 +93,12 @@ impl Outbox {
     #[cfg(test)]
     pub(crate) fn is_closed(&self) -> bool {
         self.inner().closed
+    }
+
+    /// 밀린 것을 버리고 채널을 닫는다. 쓰기 태스크가 다음에 꺼낼 때 세션을 끝낸다.
+    pub(crate) fn close(&self) {
+        self.inner().close();
+        self.ready.notify_one();
     }
 
     pub(crate) fn push_control(&self, frame: String) {

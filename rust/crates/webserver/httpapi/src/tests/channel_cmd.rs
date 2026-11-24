@@ -7,7 +7,7 @@ use std::time::Duration;
 use super::wsc::{Message, TextOf};
 use futures_util::{SinkExt, StreamExt};
 use otter_shared_toolhub::ToolInfo;
-use otter_webserver_hub::{CommandBroker, CommandHub, SUB_CAP};
+use otter_webserver_hub::{CMD_SUB_QUEUE, CommandBroker, CommandHub, SUB_CAP};
 use serde_json::{Value, json};
 
 use super::fakes::*;
@@ -242,6 +242,36 @@ async fn command_sub_cap_is_error_and_channel_stays() {
     assert_eq!(v["code"], "subscribe_rejected");
     send(&mut c, json!({"t":"ping","n":3})).await;
     assert_eq!(until(&mut c, |v| v["t"] == "pong").await.unwrap()["n"], 3);
+}
+
+/// 1.17: 큐가 넘쳐 허브가 명령 구독을 닫으면 채널도 닫는다 — 브라우저가 다시 연결해 새로 구독한다.
+#[tokio::test]
+async fn overflowed_command_sub_closes_channel() {
+    let h: Arc<dyn CommandBroker> = CommandHub::new();
+    let e = env(Deps {
+        commands: Some(h.clone()),
+        ..Deps::default()
+    })
+    .await;
+    let mut c = dial(e.port).await;
+    hello(&mut c, Some("cliA")).await;
+    eventually("명령 구독이 붙지 않았다", || {
+        h.broadcast(br#"{"action":"noop-probe"}"#) == 1
+    })
+    .await;
+    // 단일 스레드 런타임이라 펌프가 끼어들지 못해 큐가 넘친다.
+    for _ in 0..=CMD_SUB_QUEUE {
+        h.broadcast(br#"{"action":"flood"}"#);
+    }
+    assert_eq!(h.broadcast(br#"{"action":"after"}"#), 0);
+    let closed = loop {
+        match tokio::time::timeout(WAIT, c.next()).await {
+            Ok(Some(Ok(Message::Close(_)))) | Ok(None) | Ok(Some(Err(_))) => break true,
+            Ok(Some(Ok(_))) => continue,
+            Err(_) => break false,
+        }
+    };
+    assert!(closed, "명령 구독을 잃은 채널이 열린 채 남았다");
 }
 
 /// TC-CH2A-7
