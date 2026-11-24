@@ -66,3 +66,14 @@ test('FR-AST-2: README 맨 위 배너는 otter-02 다', () => {
   const first = read('README.md').split('\n').find((l) => l.trim() !== '');
   assert.match(first, /web\/assets\/brand\/otter-02\.svg/);
 });
+
+test('FR-AST-5: 부팅 화면의 브랜드 색은 테마 강조색에서 파생한다 — 고정 색이 없다', () => {
+  const css = read('web/style-system.css');
+  const root = css.slice(css.indexOf(':root{'), css.indexOf('}', css.indexOf(':root{')));
+  for (const k of ['--boot-brand', '--boot-brand-dk', '--boot-brand-lit']) {
+    const m = root.match(new RegExp(k + ':([^;]+);'));
+    assert.ok(m, k + ' 가 없다');
+    assert.match(m[1], /var\(--accent\)/, k);
+    assert.doesNotMatch(m[1], /^#[0-9a-fA-F]{3,8}$/, k);
+  }
+});

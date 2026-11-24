@@ -77,10 +77,6 @@ const SKIP_LINES = [
 const ROOT_EXEMPT = {
   // `style-docrender.css` 의 `--doc-paper` 주석이 근거를 적었다. 문서 렌더가 테마를 주입하게 되면 없어진다.
   '--doc-paper': '남의 HTML 문서를 그리는 자리 — 그 문서는 흰 바탕을 전제로 쓰였다',
-  // `--boot-brand` 를 세우는 CSS 의 주석이 근거를 적었다. 브랜드 자산이 한 파일에서 생성되면 없어진다.
-  '--boot-brand': '브랜드 — 파비콘 타일과 **같은 값**이어야 부팅 화면과 탭 아이콘이 한 물건으로 보인다',
-  '--boot-brand-dk': '브랜드 — 타일 그라데이션의 어두운 쪽',
-  '--boot-brand-lit': '브랜드 — 진행 바 하이라이트',
 };
 
 if (process.argv.includes('-h') || process.argv.includes('--help')) {

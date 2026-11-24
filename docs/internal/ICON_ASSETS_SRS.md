@@ -1,6 +1,8 @@
 # Otterminal 아이콘·파비콘 자산 SRS
 
 > **문서 상태**: 승인·구현완료
+>
+> 자산은 OTTERMINAL_RENAME_SRS D-6 으로 수달 그림으로 바뀌었다. 파일 이름·크기·선언(FR-ICON-2~5)은 그대로이고, FR-ICON-1 의 `favicon.svg` 는 `assets/brand/otter-15.svg` 로 대체되었다. PNG 는 `scripts/gen-brand-icons.mjs` 로 만든다.
 
 - 준수 표준: IEEE/ISO/IEC 29148:2018
 - 작성일: 2026-08-25

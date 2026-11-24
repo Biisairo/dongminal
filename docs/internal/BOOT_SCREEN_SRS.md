@@ -20,7 +20,7 @@
 - **테마 변수**: `applyThemeObj` 가 `documentElement.style` 에 세우는 CSS 커스텀 프로퍼티 전부
   (`--bg` 외 파생값 `--border-strong`·`--slot-edge`·`--accent-*`·`--attn-*` 포함).
 - **선주입(pre-seed)**: 첫 페인트 **이전에** head 의 인라인 스크립트가 테마 변수를 세우는 것.
-- **부팅 화면(boot screen)**: `#boot` 오버레이. 로고 · 워드마크 · 진행 바 · 단계 텍스트로 구성한다. 로고와 브랜드 색은 파비콘(`assets/favicon.svg`)의 것과 같다.
+- **부팅 화면(boot screen)**: `#boot` 오버레이. 로고 · 워드마크 · 진행 바 · 단계 텍스트로 구성한다. 로고는 수달 그림 `assets/brand/otter-04.svg` 이고, 진행 바·발광의 브랜드 색은 테마 강조색에서 파생한다 (OTTERMINAL_RENAME_SRS D-6·D-9). 이전에는 로고와 브랜드 색이 옛 파비콘(`assets/favicon.svg`)과 같았다.
 - **준비 완료(boot ready)**: 테마 결정(설정 응답의 성공 또는 실패)과 `app.init()` 완료가 **모두** 끝난 상태.
 
 ## 2. 현황 (Current State)
@@ -56,7 +56,7 @@
 | FR-BTS-3 | `index.html` head 의 인라인 스크립트는 `otter.themeVars` 를 읽어 `documentElement.style` 에 그대로 세운다. 파생값을 다시 계산하지 않는다. | 필수 |
 | FR-BTS-4 | 캐시가 없거나 JSON 이 깨졌거나 값이 객체가 아니면 아무것도 세우지 않는다 — 첫 페인트는 `:root` 기본값이다 (D-2). | 필수 |
 | FR-BTS-5 | 선주입은 CSS 커스텀 프로퍼티(`--` 로 시작하는 키)만 세운다. 그 밖의 키는 무시한다. | 필수 |
-| FR-BTS-6 | `index.html` 은 `#boot` 오버레이를 **정적 마크업**으로 가진다. 로고(인라인 SVG) · 워드마크 · 진행 바 · 단계 텍스트(`#boot-step`)를 포함한다. | 필수 |
+| FR-BTS-6 | `index.html` 은 `#boot` 오버레이를 **정적 마크업**으로 가진다. 로고(`<img class="boot-logo">`, `assets/brand/otter-04.svg` — OTTERMINAL_RENAME_SRS D-6. 이전에는 인라인 SVG) · 워드마크 · 진행 바 · 단계 텍스트(`#boot-step`)를 포함한다. | 필수 |
 | FR-BTS-7 | `#boot` 는 화면 전체를 덮고(모든 UI 위: `z-index` 1000) 배경은 `var(--bg)`, 텍스트는 `var(--text-muted)` 다 — 선주입된 테마를 따른다. | 필수 |
 | FR-BTS-8 | `#boot` 는 걷히기 전 포인터 입력을 받는다(아래 UI 로 새지 않는다). | 필수 |
 | FR-BTS-9 | `#boot-step` 의 초기 문구는 마크업에 있다("설정을 불러옵니다") — JS 가 돌기 전에도 보인다. | 필수 |
