@@ -186,6 +186,8 @@ js/ui/file-editor-keys.js
 js/ui/file-editor-find.js
 js/ui/doc-render-util.js
 js/ui/doc-render.js
+# 편집기·문서 렌더 뷰의 생명주기 (PERF 3.5.3). file-editor-find.js·doc-render.js 뒤다 — 두 prototype 에 얹는다.
+js/ui/editor-view-life.js
 # 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS). 칸 하나의 클릭·팝업은 FileEditor 의 부품 `EdDiffPeek` 다
 # (REFACTOR3_FE_REST5_SRS FR-FR5-23 — 종전에는 `FileEditor.prototype` 을 확장했다).
 js/ui/file-editor-diff.js
@@ -279,6 +281,8 @@ js/ui/run-dashboard.js
 js/ui/run-tree-cam.js
 js/ui/run-tree.js
 js/ui/run-recover.js
+# 화면 등록부와 묶음 로더 (PERF M3 §3.4, D-30). 렌더러가 `forTab`·`ready` 를 묻으므로 그 앞이다.
+js/core/screens.js
 # 탭 본문 주인의 생명주기 (PERF M3 §3.5). `Component` 를 잇고, 렌더러가 세운다.
 js/ui/screen-life.js
 js/ui/renderer.js

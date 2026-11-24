@@ -142,9 +142,8 @@ class TerminalTool {
 
   _termOpenArgs(){
     const a={tool:this.id,cols:(this.term&&this.term.cols)||120,rows:(this.term&&this.term.rows)||40};
-    // FR-TRS-3: 좌표를 알면 **이어 붙여** 달라고 한다. 모르면 싣지 않는다 —
-    // 서버는 그것을 전량 재생으로 읽는다.
-    if(this._seq>=0) a.since=this._seq;
+    // FR-TRS-3: 좌표를 알면 **이어 붙여** 달라고 한다. 모르면(처음·잠든 뒤) 화면 상태 스냅숏을 달라고 한다 (PERF D-19).
+    if(this._seq>=0) a.since=this._seq; else a.snap=true;
     return a;
   }
   // FR-RCS-1: 최초 연결과 재연결이 **같은 판정**을 하도록 수신 처리를 한 곳에
@@ -229,51 +228,47 @@ class TerminalTool {
   }
 
   /**
-   * FR-TRS-6·7·18: 서버가 통보한 좌표를 세우고, 전량 재생이었으면 넛지를 건다.
+   * FR-TRS-6·7: 서버가 통보한 좌표를 세운다.
    *
    * 오프셋은 8 바이트 빅엔디언이다. `getBigUint64` 를 쓰지 않는 이유는 BigInt 를
    * 끌어들이지 않기 위해서다 — 32 비트 둘로 읽으면 2^53 까지 정확하고, PTY 가
    * 그만큼을 내려면 페타바이트가 필요하다.
+   *
+   * PERF D-19: 버퍼를 통째로 바꾸는 것은 화면 상태 스냅숏뿐이다. 스냅숏은 모드·대체 화면까지 정확하므로
+   * 넛지(SIGWINCH 두 번)를 걸지 않는다. 깃발 바이트 뒤에 첫 기록 줄 번호(8)와 cwd 가 붙는다 — 잠든 동안 놓친
+   * OSC 777 Cwd 를 여기서 메운다.
    */
   _onSeq(p){
     if(!p||p.length<9) return;
     const dv=new DataView(p.buffer,p.byteOffset,p.length);
     this._seq=dv.getUint32(0,false)*4294967296+dv.getUint32(4,false);
     this._seqLive=true;
-    /**
-     * FR-TRS-18·18a: 넛지는 **전량 재생이고, 앱이 alt screen 안일 때만** 건다.
-     *
-     * 플래그는 이제 비트다 — bit0 전량, bit1 alt screen. 종전에는 값 `1` 하나만
-     * 보고 전량이면 무조건 걸었고, 그것이 접수된 렌더 잔재의 원인이었다
-     * (`M11_SRS` §2.4f): 넛지는 `SIGWINCH` 를 두 번 일으켜 앱을 두 번 그리게
-     * 하는데, **화면을 지우지 않고 커서만 올려 덮어쓰는 앱**은 그때마다 어긋난
-     * 그림을 하나씩 더 쌓는다. claude 가 그 방식이다.
-     *
-     * 넛지가 막는 영구 desync 는 alt screen 앱에서만 일어나므로(§2.4), 약을
-     * 버리는 것이 아니라 필요한 곳에만 남기는 것이다.
-     */
     const flag=p[8];
-    this._srvAlt=!!(flag&SEQ_FLAG_ALT); if(flag&SEQ_FLAG_FULL){ this._widthDebt=false; if(this._srvAlt) this._redrawNudge() }   // FR-OTR-3·9
+    this._srvAlt=!!(flag&SEQ_FLAG_ALT); if(flag&SEQ_FLAG_FULL) this._widthDebt=false;   // FR-OTR-3·9
+    if(flag&SEQ_FLAG_SNAP&&p.length>17){
+      const cwd=dec.decode(p.subarray(17));
+      if(cwd!==this._cwd) this.output._onCwd(cwd);
+    }
   }
 
   /**
-   * FR-TRS-18~21: **전량 재생 뒤에만** TUI 에 전체 재그리기를 시킨다.
-   *
-   * 전량 재생은 바이트 tail 을 되뿌린 것이고, tail 밖에서 켜진 모드(대체 화면
-   * 따위)는 되살아나지 않는다 (SRS §2.4). claude 같은 TUI 는 델타만 보내므로
-   * 어긋난 화면이 스스로 낫지 않는다 — 한 행 줄였다 되돌려 `SIGWINCH` 를 일으키면
-   * 그쪽이 전체를 다시 그린다.
-   *
-   * 델타 재개에는 걸지 않는다. 화면이 이미 맞아 있고 리플로우만 만든다.
+   * PERF D-16: 처음 보일 때와 잠든 뒤 다시 보일 때 렌더러(`ScreenLife`)가 부른다. 붙으면 서버가 스냅숏을 보낸다.
+   * 서버가 도구의 부재를 알린 터미널(FR-RCS-1)은 되살리지 않는다.
    */
-  _redrawNudge(){
-    if(!this.term) return;
-    const cols=this.term.cols, rows=this.term.rows;
-    if(!(rows>1)) return;
-    // FR-TRS-19: 크기의 주인이 아닌 창이 PTY 를 흔들면 주인 창의 화면이 깨진다.
-    if(!window.app||!window.app.focus.owner.resizeCheck(this.id,this._slot)) return;
-    this._sendResize(cols,rows-1);
-    TIMERS.defer(()=>{if(this.term)this._sendResize(cols,rows)},{owner:this,label:'trs-nudge'});
+  wake(){ if(!this._exited) this.connect() }
+
+  /**
+   * PERF D-15·D-16: 가려지고 `SCREEN_SLEEP_MS` 동안 다시 보이지 않으면 렌더러가 부른다. 구독을 풀고 버퍼만
+   * 비운다 — 인스턴스·애드온·크기 상태는 둔다. 좌표도 버려 다음 붙음이 스냅숏을 받게 한다.
+   */
+  sleep(){
+    if(this._destroyed) return;
+    this._sock.pause();
+    if(this._carryTimer){TIMERS.cancel(this._carryTimer);this._carryTimer=null}
+    this._seq=-1; this._seqLive=false;
+    this._resetDecoderIfNoResume();
+    this._buf=[];
+    if(this.term) try{this.term.reset()}catch{}
   }
   connect() {
     // 명시적인 connect 는 새 시도다 — 이전의 종료 판정을 지운다.
@@ -314,7 +309,8 @@ class TerminalTool {
    * 붙었는지가 아니라 **시도했는지**를 답한다 — 부르는 쪽은 센 수를 보일 뿐이다.
    */
   reconnectNow(opts){
-    if(this._destroyed||this._exited) return false;
+    // PERF D-15: 잠든(또는 아직 깨지 않은) 터미널은 붙지 않는다 — 다음 깨움이 스냅숏을 받는다.
+    if(this._destroyed||this._exited||!this._sock.want) return false;
     // FR-M10-2: `quiet` 는 **우리가 거는 갱신**이다 — 사용자가 고른 일이 아니므로
     // "다시 연결" 화면을 띄우지 않는다. 연결 자체의 절차는 완전히 같다.
     const quiet=!!(opts&&opts.quiet);
@@ -415,6 +411,7 @@ class TerminalTool {
     this._flingStop();
     if(this._carryTimer){TIMERS.cancel(this._carryTimer);this._carryTimer=null}
     this._sock.close();
+    window.app?.renderer?.life?.unmount(this);   // PERF M3 §3.5: 생명주기가 이 주인을 놓는다
     // FR-TGR-8·10a: GPU 컨텍스트를 반납한 뒤 `term.dispose()` 로 나머지를 정리한다.
     if(this.term){if(this._gpuDetach)this._gpuDetach();this.term.dispose();this.term=null;this._gpu=null}
     this.el.remove(); this._opened=false;

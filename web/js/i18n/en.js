@@ -151,6 +151,7 @@ I18N.register('en', {
   'core.sbx_rt_timeout': 'The daemon did not come up while waiting — try again in a moment.',
   'core.sbx_rt_title.missing': 'No container runtime',
   'core.sbx_rt_title.stopped': 'Container runtime is not running',
+  'core.screen_loading': 'Loading…',
   'core.search_bad_regex': 'Invalid regular expression',
   'core.search_none': 'None',
   'core.settings_save_fail': 'Could not save settings. Please try again shortly.',

@@ -177,6 +177,7 @@ I18N.register('ko', {
   'core.sbx_rt_timeout': '기다리는 동안 데몬이 뜨지 않았습니다 — 조금 뒤 다시 눌러 보세요.',
   'core.sbx_rt_title.missing': '컨테이너 런타임이 없습니다',
   'core.sbx_rt_title.stopped': '컨테이너 런타임이 실행 중이 아닙니다',
+  'core.screen_loading': '불러오는 중…',
   'core.search_bad_regex': '정규식 오류',
   'core.search_none': '없음',
   'core.settings_save_fail': '설정을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.',

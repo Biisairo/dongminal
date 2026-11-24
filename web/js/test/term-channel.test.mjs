@@ -102,13 +102,13 @@ test('재접속은 지터가 얹힌 시간 뒤에 연다 — 저장된 다음 �
   assert.equal(p._retryDelay, 500);
 });
 
-test('TC-CH5-14: 채널이 준비되기 전에는 보내지 않고, 서버 hello 에 term.open{sid,tool,cols,rows} 를 보낸다', () => {
+test('TC-CH5-14: 채널이 준비되기 전에는 보내지 않고, 서버 hello 에 term.open{sid,tool,cols,rows,snap} 를 보낸다', () => {
   const { p, ch } = pane();
   p.connect();
   assert.equal(ch.sent.length, 0);
   assert.equal(p.ws.readyState, 0, '붙는 중이다');
   ch.hello();
-  assert.deepEqual(plain(opens(ch)), [{ t: 'term.open', sid: opens(ch)[0].sid, tool: 't1', cols: 120, rows: 40 }]);
+  assert.deepEqual(plain(opens(ch)), [{ t: 'term.open', sid: opens(ch)[0].sid, tool: 't1', cols: 120, rows: 40, snap: true }]);
   assert.equal(p.ws.readyState, 1);
 });
 

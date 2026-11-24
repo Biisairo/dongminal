@@ -35,7 +35,7 @@ pub use manager::{
 pub use otter_shared_termstate::HISTORY_CAP;
 pub use records::{AgentState, ExitInfo};
 pub use shellprobe::{ShellState, judge_shell};
-pub use termmodes::{MODE_MAX_CARRY, ModeObserver, TermModes, alt_screen_at_head, scan_modes};
+pub use termmodes::{MODE_MAX_CARRY, ModeObserver, TermModes, scan_modes};
 pub use tool::{
     ActivityFn, AttentionFn, BUF_MAX, BusyProbeFn, ClearFn, ExitFn, OutputFn, Restore, SizeFn,
     TERMINATE_GRACE, Tool, ToolHooks, busy_of, set_attn_busy_probe, set_attn_now,

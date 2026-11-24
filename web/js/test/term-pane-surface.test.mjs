@@ -22,7 +22,7 @@ const PROTO = [
   '_kbApply:function', '_kbSuppress:function', '_kbSuppressed:function', '_kbTextarea:function', '_loadAddons:function',
   '_mappedKey:function', '_markExited:function', '_onAltMode:function', '_onBeforeInput:function', 
   '_onEraseDisplay:function', '_onOp:function', '_onSeq:function', '_onTermData:function',
-  '_onWsOpen:function', '_onWsReady:function', '_redrawNudge:function', 
+  '_onWsOpen:function', '_onWsReady:function', 
   '_resetDecoderIfNoResume:function', '_retryDelay:getset', '_rowHeight:function', '_scheduleReconnect:function',
   '_send:function', '_sendDropCount:get', '_sendKey:function', '_sendQueue:getset', '_sendQueueMax:get',
   '_sendResize:function', '_sendText:function', '_sendUserFrame:function', '_showOverlay:function', '_termOpenArgs:function', '_toast:function',
@@ -32,7 +32,7 @@ const PROTO = [
   '_wheelKick:function', '_wireContextMenu:function', '_wireIme:function', '_wireKeys:function',
   '_wireNativeSelect:function', '_wsLost:function', '_wsOpened:function', '_wsStopped:function',
   'connect:function', 'destroy:function', 'focus:function', 'open:function',
-  'reconnectNow:function', 'write:function', 'ws:get',
+  'reconnectNow:function', 'sleep:function', 'wake:function', 'write:function', 'ws:get',
 ];
 
 function pane(globals = {}) {

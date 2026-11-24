@@ -49,6 +49,8 @@ class Renderer {
     // 이번 그리기에서 **실제로 부모가 바뀐** 터미널 (FR-PDR-10). 사후 처리는
     // 이 목록에만 적용한다 — 재사용된 것은 건드리지 않는다.
     this._moved = [];
+    // 묶음을 기다리는 화면 이름 (PERF D-30). 실리면 `app.render()` 를 한 번만 부르려고 센다.
+    this._screenLoads = new Set();
   }
 
   /**
