@@ -406,11 +406,12 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     await expect(row(page, j(R, 'docs', 'd.txt'))).toBeVisible();
     await row(page, j(R, 'src2', 'a.txt')).dragTo(row(page, j(R, 'docs')));
     await expect(row(page, j(R, 'docs', 'a.txt'))).toBeVisible({ timeout: 10000 });
-    const t = await tabs(page);
-    expect(t).toHaveLength(2);
-    expect(t.map((x) => x.file).sort()).toEqual([
+    // 행은 낙관적으로 먼저 서고 탭은 응답 뒤에 따라간다 — ① 과 같이 탭을 관측한다 (RUST_DEFECT_FIX_SRS 10.7c).
+    await expect.poll(async () => (await tabs(page)).map((x) => x.file).sort()).toEqual([
       j(R, 'docs', 'a.txt'), j(R, 'src2', 'deep', 'c.txt'),
     ]);
+    const t = await tabs(page);
+    expect(t).toHaveLength(2);
     // 꼬리를 그대로 견주지 않는다 — Windows 의 경로는 `docs\a.txt` 다 (FR-CEM-11).
     const moved = t.find((x) => x.file.replace(/\\/g, '/').endsWith('docs/a.txt'));
     expect(moved, '옮긴 파일의 탭을 찾지 못했다').toBeTruthy();
