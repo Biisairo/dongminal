@@ -243,7 +243,7 @@ async fn golden_559() {
         ));
     }
     let want =
-        super::state_topics::without_migrated(include_str!("go_golden_559.txt"), Some("== BCAST"));
+        super::full_topics::without_migrated(include_str!("go_golden_559.txt"), Some("== BCAST"));
     let (got, want) = (mask(&got), mask(&want));
     for (i, (g, w)) in got.lines().zip(want.lines()).enumerate() {
         assert_eq!(g, w, "줄 {}", i + 1);

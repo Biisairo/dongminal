@@ -301,7 +301,7 @@ async fn golden_554() {
             .published
             .unwrap_or_default()
             .into_iter()
-            .filter(|p| !super::state_topics::migrated(p))
+            .filter(|p| !super::full_topics::migrated(p))
             .collect();
         assert_eq!(published, want_pub, "{at} 방송");
         let pastes: Vec<String> = std::mem::take(&mut *env.io.pastes.lock().unwrap())

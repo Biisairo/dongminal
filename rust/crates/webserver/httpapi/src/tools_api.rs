@@ -269,7 +269,7 @@ impl Server {
         match created {
             Ok(t) => {
                 // `/api/state` 가 도구 목록을 싣는다 — 새 도구가 `workspace` 토픽에 보이게 한다 (C2b).
-                self.refresh_state_topic("workspace");
+                self.refresh_full_topic("workspace");
                 write_json(&Created {
                     id: t.id,
                     name: t.name,
@@ -452,7 +452,7 @@ impl Server {
         // FR-OPT-5-1: 같은 바이트면 rev 가 그대로다 — 다른 브라우저에 재조회를 시키지 않는다.
         let rev_s = rev.to_string();
         if rev_s != if_match {
-            self.refresh_state_topic("workspace");
+            self.refresh_full_topic("workspace");
         }
         with_header(empty(StatusCode::OK), "ETag", &rev_s)
     }

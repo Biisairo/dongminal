@@ -143,7 +143,7 @@ impl Server {
         let res = match off_thread(move || d.chat(p)).await {
             Some(Ok(res)) => {
                 if changes && res.error.is_none() {
-                    self.refresh_state_topic("chat");
+                    self.refresh_full_topic("chat");
                 }
                 res
             }
@@ -182,13 +182,13 @@ impl Server {
                 ));
             }
         } else if ev.chat_kind == CHAT_KIND_CHANGED {
-            self.refresh_state_topic("chat");
+            self.refresh_full_topic("chat");
         }
     }
 
     /// Go `ChatResync`: 데몬에 다시 붙은 뒤다. 끊긴 동안의 바뀜을 잃었으므로 화면이 다시 읽게 한다.
     pub fn chat_resync(&self) {
-        self.refresh_state_topic("chat");
+        self.refresh_full_topic("chat");
     }
 }
 

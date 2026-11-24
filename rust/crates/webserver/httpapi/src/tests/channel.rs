@@ -458,7 +458,7 @@ async fn sub_msg(c: &mut Client, topic: &str, seq: Option<u64>, epoch: Option<&s
 }
 
 fn seed_runs(srv: &Server) {
-    srv.topics.register_seed("runs", |_t| {
+    srv.topics.register_seed("test.runs", |_t| {
         async { Some(Seed::Map(BTreeMap::new())) }.boxed()
     });
 }
@@ -470,24 +470,24 @@ async fn ws_sub_delta_unsub_and_resume() {
     let mut c = dial(e.port).await;
     let h = hello(&mut c, &[]).await;
     let ep = h["epoch"].as_str().unwrap().to_owned();
-    sub_msg(&mut c, "runs", None, None).await;
+    sub_msg(&mut c, "test.runs", None, None).await;
     let v = next_json(&mut c).await.unwrap();
     assert_eq!(v["t"], "full", "{v}");
     e.srv
         .topics
-        .publish_delta("runs", vec![put("r1", json!({"n":1}))]);
+        .publish_delta("test.runs", vec![put("r1", json!({"n":1}))]);
     let v = next_json(&mut c).await.unwrap();
     assert_eq!(
         (v["t"].clone(), v["seq"].clone()),
         (json!("delta"), json!(1))
     );
 
-    send(&mut c, json!({"t":"unsub","topic":"runs"})).await;
+    send(&mut c, json!({"t":"unsub","topic":"test.runs"})).await;
     send(&mut c, json!({"t":"ping","n":9})).await;
     assert_eq!(next_json(&mut c).await.unwrap()["t"], "pong");
     e.srv
         .topics
-        .publish_delta("runs", vec![put("r2", json!({}))]);
+        .publish_delta("test.runs", vec![put("r2", json!({}))]);
     send(&mut c, json!({"t":"ping","n":10})).await;
     let v = next_json(&mut c).await.unwrap();
     assert_eq!(v["t"], "pong", "해지한 토픽이 왔다: {v}");
@@ -495,10 +495,10 @@ async fn ws_sub_delta_unsub_and_resume() {
     drop(c);
     e.srv
         .topics
-        .publish_delta("runs", vec![put("r3", json!({}))]);
+        .publish_delta("test.runs", vec![put("r3", json!({}))]);
     let mut c = dial(e.port).await;
     hello(&mut c, &[]).await;
-    sub_msg(&mut c, "runs", Some(1), Some(&ep)).await;
+    sub_msg(&mut c, "test.runs", Some(1), Some(&ep)).await;
     let a = next_json(&mut c).await.unwrap();
     let b = next_json(&mut c).await.unwrap();
     assert_eq!((a["seq"].clone(), b["seq"].clone()), (json!(2), json!(3)));
@@ -524,19 +524,19 @@ async fn ws_on_demand_follows_subscribers() {
     seed_runs(&e.srv);
     let log = Arc::new(Mutex::new(Vec::<(String, bool)>::new()));
     let l = log.clone();
-    e.srv
-        .topics
-        .on_demand("runs", move |t, on| l.lock().unwrap().push((t.into(), on)));
+    e.srv.topics.on_demand("test.runs", move |t, on| {
+        l.lock().unwrap().push((t.into(), on))
+    });
     let mut a = dial(e.port).await;
     hello(&mut a, &[]).await;
-    sub_msg(&mut a, "runs", None, None).await;
+    sub_msg(&mut a, "test.runs", None, None).await;
     next_json(&mut a).await.unwrap();
     let mut b = dial(e.port).await;
     hello(&mut b, &[]).await;
-    sub_msg(&mut b, "runs", None, None).await;
+    sub_msg(&mut b, "test.runs", None, None).await;
     next_json(&mut b).await.unwrap();
-    assert_eq!(*log.lock().unwrap(), [("runs".to_owned(), true)]);
-    send(&mut a, json!({"t":"unsub","topic":"runs"})).await;
+    assert_eq!(*log.lock().unwrap(), [("test.runs".to_owned(), true)]);
+    send(&mut a, json!({"t":"unsub","topic":"test.runs"})).await;
     drop(b);
     let deadline = tokio::time::Instant::now() + WAIT;
     while log.lock().unwrap().len() < 2 && tokio::time::Instant::now() < deadline {
@@ -544,7 +544,10 @@ async fn ws_on_demand_follows_subscribers() {
     }
     assert_eq!(
         *log.lock().unwrap(),
-        [("runs".to_owned(), true), ("runs".to_owned(), false)]
+        [
+            ("test.runs".to_owned(), true),
+            ("test.runs".to_owned(), false)
+        ]
     );
 }
 

@@ -114,7 +114,7 @@ impl Server {
 
     /// Go `broadcastFocusOwners` (focus.go). 소유 맵은 `focus` 토픽으로 낸다 (CHANNEL_PROTOCOL C2b).
     pub(crate) fn broadcast_focus_owners(&self) {
-        self.refresh_state_topic("focus");
+        self.refresh_full_topic("focus");
     }
 
     /// GET /api/focus.

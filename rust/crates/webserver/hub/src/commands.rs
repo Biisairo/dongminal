@@ -32,7 +32,13 @@ pub trait CommandBroker: Send + Sync {
     fn observe_attention(&self, _id: &str, _reason: &str) {}
     fn observe_attention_clear(&self, _id: &str) {}
     fn observe_tool_gone(&self, _id: &str) {}
+    /// 방송을 함께 엿볼 함수를 단다 (채널 상태 토픽, `perf/CHANNEL_PROTOCOL.md` §10.4).
+    /// 다른 구현은 아무것도 하지 않는다.
+    fn set_broadcast_tap(&self, _f: Option<BroadcastTap>) {}
 }
+
+/// 방송 본문을 함께 받는 함수다.
+pub type BroadcastTap = Arc<dyn Fn(&[u8]) + Send + Sync>;
 
 /// 구독 하나다. `recv` 는 방송된 본문, `closed` 는 구독이 닫힐 때 끝난다.
 pub struct CmdSub {
@@ -226,6 +232,7 @@ pub struct CommandHub {
     attn_obs: RwLock<Option<AttnObs>>,
     attn_clear_obs: RwLock<Option<StrObs>>,
     gone_obs: RwLock<Option<StrObs>>,
+    tap: RwLock<Option<BroadcastTap>>,
 }
 
 fn sub_key(s: &Arc<CmdSub>) -> usize {
@@ -298,6 +305,10 @@ impl CommandBroker for CommandHub {
         lock(&self.subs).remove(&sub_key(s));
     }
 
+    fn set_broadcast_tap(&self, f: Option<BroadcastTap>) {
+        write(&self.tap, f);
+    }
+
     /// 모든 구독에 본문을 넣고 배달 수를 돌려준다. 큐가 가득 찬 구독은 닫는다 (REPO_FIX 02 §3A-2).
     fn broadcast(&self, payload: &[u8]) -> usize {
         let mut g = lock(&self.subs);
@@ -317,6 +328,10 @@ impl CommandBroker for CommandHub {
         }
         for id in full {
             g.remove(&id);
+        }
+        drop(g);
+        if let Some(f) = read(&self.tap) {
+            f(payload);
         }
         n
     }

@@ -154,7 +154,7 @@ impl Server {
             paired: c.paired.as_ref().map(tagged),
             removed: c.removed.as_ref().map(tagged),
         };
-        self.refresh_state_topic("edges");
+        self.refresh_full_topic("edges");
         if args.by_peer || args.invited.is_some() || args.paired.is_some() || args.removed.is_some()
         {
             self.topics.publish_event(
@@ -209,7 +209,7 @@ impl Server {
                 // 바꾸는 연산은 데몬이 push 하지 않을 수도 있다(이름 바꾸기) — `edges` 토픽을 다시
                 // 만든다. 같은 본문이면 나가지 않는다 (CHANNEL_PROTOCOL C2b).
                 if with_body && (200..300).contains(&res.status) {
-                    self.refresh_state_topic("edges");
+                    self.refresh_full_topic("edges");
                 }
                 write_edge_response(&res)
             }

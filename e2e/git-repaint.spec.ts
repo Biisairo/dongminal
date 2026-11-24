@@ -189,8 +189,13 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     await expect(page.locator(stable)).toHaveCount(1);
     const n = await markAll(page, sel);
     expect(n).toBeGreaterThan(0);
-    // 지표의 회차(`_pollStats`)를 직접 두 번 돌린다.
-    for (let i = 0; i < 2; i++) await page.evaluate(() => (window as any).app.statusbar._pollStats());
+    // 지표의 회차(채널 `stats:<ms>` 의 full, PERF M1 C3)를 직접 두 번 얹는다.
+    for (let i = 0; i < 2; i++) {
+      await page.evaluate(() => {
+        const app = (window as any).app;
+        app.statusbar._onStats({ kind: 'full', data: { ...app._stats } });
+      });
+    }
     await nextFrames(page);
     // 지표에는 값이 스스로 바뀌는 것(지연·CPU·업타임)이 섞여 있다. 그런 값이 바뀌면
     // 그 항목은 다시 만들어지는 것이 맞다 (FR-RPT-2). 지켜야 하는 것은 **값이

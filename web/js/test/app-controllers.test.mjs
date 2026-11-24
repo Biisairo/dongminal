@@ -393,7 +393,7 @@ const DELEGATES_9B = {
   claude: ['_claudeAcctRestore', '_onClaudeAccountsChanged', '_onClaudeAccountAlert', '_claudeAcctFold', '_claudeAcctSmartMenu',
     '_claudeAcctHistory', '_claudeAcctEl'],
   'claude.maps': ['claudeTabTint', 'claudeOnCwd', 'claudeRepoChip', 'claudeFolderChip', 'claudeTabMenuItem', 'claudeFolderMenu'],
-  statusbar: ['initStatusBar', '_startStatsPoll', '_pollStats', 'updateStatusBar', '_bgPanelPaint', '_bgRow',
+  statusbar: ['initStatusBar', '_startStatsPoll', 'updateStatusBar', '_bgPanelPaint', '_bgRow',
     '_shortCwd', '_fmtMemSize', 'updateCwd'],
 };
 
@@ -648,7 +648,7 @@ const DELEGATES_9D = {
     '_gitViewDirty', '_gitDiffDocPaths', '_gitViewSave', 'gitSurfaceOn', '_gitPanelKey', '_gitPanelRoot', '_gitPanelReap',
     '_gitRootOfActive'],
   'git.sync': ['gitReposKick', '_gitObserveOk', '_onGitChanged', '_gitObserveRestore', 'gitReposRefresh', 'gitPin', 'gitUnpin',
-    '_gitPinsApply', '_pollGitJobs', '_gitJobsBegin', '_gitJobsSettle'],
+    '_gitPinsApply', '_pollGitJobs'],
 };
 
 function load9d(globals = {}) {

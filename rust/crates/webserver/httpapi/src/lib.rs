@@ -41,6 +41,7 @@ mod fs_stamp;
 mod fs_transfer;
 mod fs_watch;
 mod fs_zip;
+mod full_topics;
 mod gitwire;
 mod go_embed;
 mod handlers_diag;
@@ -230,8 +231,10 @@ pub struct Server {
     pub(crate) browser_in: ws::BrowserInputs,
     /// 채널 토픽의 상태·순번·구독 (`perf/CHANNEL_PROTOCOL.md` §11.1).
     pub(crate) topics: channel::TopicHub,
-    /// full 토픽의 마지막 본문 (C2b).
+    /// delta 토픽·Run 그래프·지표의 계산 (`perf/CHANNEL_PROTOCOL.md` §10.4).
     pub(crate) state_topics: state_topics::StateTopics,
+    /// full·사건 토픽의 마지막 본문 (`perf/CHANNEL_PROTOCOL.md` §10.3 C2b).
+    pub(crate) full_topics: full_topics::FullTopics,
     /// `PUT /api/sandbox/config` 의 지문 검사와 저장을 한 덩이로 묶는다 (FR-LIV-2).
     pub(crate) sandbox_put: tokio::sync::Mutex<()>,
     me: Weak<Server>,
@@ -295,7 +298,7 @@ impl wsentry::Broadcaster for BrokerCast {
     fn broadcast(&self, payload: &[u8]) -> usize {
         if payload.starts_with(WORKSPACE_CHANGED_HEAD) {
             if let Some(s) = self.1.upgrade() {
-                s.refresh_state_topic("workspace");
+                s.refresh_full_topic("workspace");
             }
             return 0;
         }
@@ -306,21 +309,23 @@ impl wsentry::Broadcaster for BrokerCast {
 impl Server {
     /// Go `New`. `deps.commands` 가 없으면 새 허브를 만든다.
     pub fn new(cfg: Config, deps: Deps) -> Arc<Server> {
-        let srv = Arc::new_cyclic(|me| Server::build(cfg, deps, me.clone()));
-        srv.register_state_topics();
-        srv
+        let s = Arc::new_cyclic(|me| Server::build(cfg, deps, me.clone()));
+        s.wire_state_topics();
+        s.register_full_topics();
+        s
     }
 
     /// 시험이 상한·홈 같은 서버 하나의 값을 바꾼 뒤 세운다.
     #[cfg(test)]
     pub(crate) fn new_with(cfg: Config, deps: Deps, f: impl FnOnce(&mut Server)) -> Arc<Server> {
-        let srv = Arc::new_cyclic(|me| {
+        let s = Arc::new_cyclic(|me| {
             let mut srv = Server::build(cfg, deps, me.clone());
             f(&mut srv);
             srv
         });
-        srv.register_state_topics();
-        srv
+        s.wire_state_topics();
+        s.register_full_topics();
+        s
     }
 
     fn build(cfg: Config, mut deps: Deps, me: Weak<Server>) -> Server {
@@ -364,6 +369,7 @@ impl Server {
             browser_in: ws::BrowserInputs::default(),
             topics: channel::TopicHub::default(),
             state_topics: state_topics::StateTopics::default(),
+            full_topics: full_topics::FullTopics::default(),
             sandbox_put: tokio::sync::Mutex::new(()),
             me,
             started: Instant::now(),

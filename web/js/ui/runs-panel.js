@@ -146,6 +146,11 @@ Object.assign(RunsPanel.prototype, {
     const r = await apiGet(RUNS_API);
     if (r.ok) list = (r.data && r.data.runs) || [];
     else err = apiErrText(r, t('runs.list_fail'));
+    this._runsApplyList(list, err);
+  },
+
+  /** 목록을 얹는다. 채널의 `runs` 토픽(PERF M1 C3)과 GET 이 함께 쓴다. */
+  _runsApplyList(list, err = null) {
     this._runsList = list || [];
     this._runsErr = err;
     this._runsPanelPaint();
@@ -361,6 +366,7 @@ Object.assign(RunsPanel.prototype, {
     if (!v) { v = { key, tabId: tab.id, slot: slot || 0, runId: tab.runId, root: this._runBuildRoot(), data: null, err: null, busy: false, pending: false }; m.set(key, v) }
     // 워크스페이스 복원이 같은 탭 id 에 다른 runId 를 실어 올 수 있다.
     if (v.runId !== tab.runId) { v.runId = tab.runId; v.data = null; v.err = null }
+    this._runSubscribe(v);
     // FR-RVZ-16: 첫 마운트에서만 부른다. 다시 그리기는 요청을 만들지 않는다.
     if (!v.data && !v.err && !v.busy) this._runFetch(v);
     this._runPaint(v);
@@ -467,8 +473,33 @@ Object.assign(RunsPanel.prototype, {
 
   // 탭이 사라진 뷰의 뒷정리. 관측자와 예약된 다시 그리기를 함께 끊는다 —
   // 둘 다 탭보다 오래 살면 안 된다.
+  /**
+   * PERF M1 C3 TC-CH3-11: 열린 화면은 `run:<id>` 를 구독한다. 서버가 그 Run 이 바뀔 수 있는
+   * 계기(사용률·멤버 생존 포함)마다 그래프를 다시 민다 — 안전망 주기가 없다.
+   */
+  _runSubscribe(v) {
+    const ch = this.app && this.app.channel;
+    if (!ch || v.subRun === v.runId) return;
+    if (v.sub) v.sub.stop();
+    v.subRun = v.runId;
+    v.sub = ch.sub('run:' + v.runId, (m) => this._runOnGraph(v, m), { owner: this });
+  },
+
+  async _runOnGraph(v, m) {
+    if (!m || m.kind !== 'full' || !this._runViewMap().has(v.key)) return;
+    if (m.data === null) { v.err = 'gone'; this._runPaint(v); return }
+    let tree = null;
+    if (m.data.tree) {
+      const tr = await apiGet(RUNS_TREE_API + '?ref=' + encodeURIComponent(m.data.tree));
+      if (tr.ok) tree = tr.data;
+    }
+    v.data = m.data; v.tree = tree; v.err = null;
+    this._runPaint(v);
+  },
+
   _runDisposeView(v) {
     if (!v) return;
+    if (v.sub) { v.sub.stop(); v.sub = null; v.subRun = null }
     if (v.ro) { try { v.ro.disconnect() } catch {} v.ro = null }
     if (v.decay) { TIMERS.cancel(v.decay); v.decay = null }
   },

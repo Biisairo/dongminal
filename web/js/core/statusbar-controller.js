@@ -17,8 +17,8 @@ class StatusBarController extends Controller {
     this.app._stats={};this.app._latency=null;
     // FR-GIT-101a (개정 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-4): 진행 중인 원격 작업 목록.
     // **표시용이 아니다** — 다른 브라우저 창이 띄운 작업도 같은 리포의 원격 버튼을
-    // 막아야 한다(FR-GIT-101). 목록은 `git_jobs_changed` 가 밀고, 상태바 틱이 stats 에
-    // 실어 안전망으로 받는다. Git 패널이 없으면 받지 않는다 — 쓸 곳이 없다.
+    // 막아야 한다(FR-GIT-101). 목록은 `git_jobs_changed` 가 민다. 상태바 틱의 안전망은
+    // 상태바 폴링과 함께 없어졌다 — 채널의 `git.jobs` 토픽(PERF M1 C4)이 대신한다.
     this.app._gitJobs=[];
     /**
      * UIUX_OVERHAUL_SRS FR-CHR-15 (D-7): **`#bg-btn` 이 없어졌다.**
@@ -46,50 +46,45 @@ class StatusBarController extends Controller {
     this._startStatsPoll();
     // Settings ▸ Status Bar 의 스위치들은 이 뒤에 `SettingsController` 가 세운다 (REFACTOR3_FE_SETTINGS_SRS 8e).
   }
-  _startStatsPoll(){
-    if(this._statsPoll) this._statsPoll.stop();
-    // FR-RST-23: 숨은 탭에서는 돌지 않고, 돌아오면 즉시 한 번 갚는다
-    // (SYSTEM_STATS_SRS FR-STAT-17). 규약은 `visiblePoll` 하나가 갖는다.
-    this._statsPoll=visiblePoll(()=>statsInterval,()=>this._pollStats(),{immediate:true});
-  }
   /**
-   * FR-PRF-36~38 (`refactor/README.md` §4.1 항목 10).
-   *
-   *   이전 동작: 세 왕복이 **직렬**이었다 — ping → stats → git/jobs
-   *   새  동작: ping 은 홀로 앞에 남고 **뒤의 둘이 겹친다** (회차당 3r → 2r).
-   *             OPTIMIZE_REFACTOR_SRS FR-OPT-4-4 로 뒤의 둘이 요청 하나가 됐다
-   *   이유:     ②③이 서로를 기다릴 이유가 없다. 원격 접속(`otterminal start --expose`)에서
-   *             RTT 80ms 면 회차가 240ms 이고, 주기를 하한(1초)으로 내린
-   *             사용자에게는 주기의 **24%** 가 대기다
-   *
-   * REFACTOR3_FE_REST1_SRS FR-FR1-14 (FC-21, D-FR1-10):
-   *   이전 동작: ping 응답을 기다린 뒤 stats 를 보냈다 (회차당 2r)
-   *   새  동작: 둘을 곧바로 보낸다 (1r). `_latency` 는 그대로 **ping 의 왕복**이다 — 보내기 직전부터
-   *             ping 응답이 온 때까지이고, stats 가 늦어도 늘지 않는다
-   *   이유:     두 요청은 따로 간다(연결 여럿·다중화). 서버의 stats 계산은 ping 처리를 막지 않는다
-   *
-   * 처리는 두 응답을 다 받은 뒤 종전 순서대로다: 지연 → 작업 목록 정산 → 지표 → 다시 그리기 한 번.
-   * 회차 겹침 가드를 더하지 않는다 — `TimerHub` 의 `overlap:'drop'` 기본값이
-   * 이미 막는다 (`timer-hub.js:148`).
+   * PERF M1 C3 TC-CH3-10 (CHANNEL_PROTOCOL §10.4):
+   *   이전 동작: `statsInterval` 마다 `/api/ping`·`/api/stats` 를 보냈다(숨은 탭은 쉬었다)
+   *   새  동작: 채널의 `stats:<statsInterval>` 을 구독한다. 지연은 채널 ping 의 왕복이고,
+   *             숨은 탭은 구독을 해지한다. 채널이 끊기면 연결 표시를 끈다
+   *   이유:     유휴 요청을 없앤다 (FR-CON-7)
    */
-  async _pollStats(){
-    // Measure real network latency with lightweight ping
-    const t0=performance.now();
-    let t1=t0;
-    const pingP=apiGet('/api/ping').then(r=>{t1=performance.now();return r});
-    // 통계는 따로 받는다 — ping 을 순수한 지연 측정으로 남겨 두려는 것이다.
-    // git 작업 목록은 같은 요청에 싣는다 (FR-OPT-4-4 — 회차당 3r → 2r).
-    const jt=this.app.git.sync._gitJobsBegin();
-    const statsP=apiGet('/api/stats',jt?{query:{jobs:'1'}}:undefined);
-    const [ping,st]=await Promise.all([pingP,statsP]);
-    // 망 실패는 status 0 이다 — 그때 지연은 숫자가 아니라 "없음" 이다.
-    this.app._latency=ping.status?Math.round(t1-t0):null;
-    if(jt) this.app.git.sync._gitJobsSettle(jt,st.ok&&st.data?st.data.jobs:null);
-    if(st.ok&&st.data){
-      delete st.data.jobs;
-      this.app._stats=st.data;
+  _startStatsPoll(){
+    const bus=this.app.bus;
+    if(bus&&!this._statsWired){
+      this._statsWired=true;
+      bus.subscribe('chan:open',()=>{ if(!this._statsSub) this._statsSubscribe() },{owner:'statusbar'});
+      bus.subscribe('chan:lost',()=>{ this.app._latency=null; this.updateStatusBar() },{owner:'statusbar'});
+      bus.subscribe('life:hidden',()=>this._statsUnsub(),{owner:'statusbar'});
+      bus.subscribe('life:visible',()=>{ if(!this._statsSub) this._statsSubscribe() },{owner:'statusbar'});
     }
+    this._statsUnsub();
+    this._statsSubscribe();
+  }
+  _statsSubscribe(){
+    const ch=this.app.channel;
+    if(!ch||document.hidden) return;
+    this._statsMs=statsInterval;
+    this._statsSub=ch.sub('stats:'+statsInterval,m=>this._onStats(m),{owner:this});
+  }
+  _statsUnsub(){
+    if(this._statsSub){ this._statsSub.stop(); this._statsSub=null }
+  }
+  _onStats(m){
+    if(!m||m.kind!=='full') return;
+    if(m.data&&typeof m.data==='object') this.app._stats=m.data;
+    const l=this.app.channel?this.app.channel.latency():null;
+    if(typeof l==='number') this.app._latency=l;
     this.updateStatusBar();
+    this._statsRearm();
+  }
+  /** 주기가 바뀌었으면 토픽을 갈아탄다. 설정 적용과 받은 값 양쪽이 부른다. */
+  _statsRearm(){
+    if(this._statsSub&&statsInterval!==this._statsMs){ this._statsUnsub(); this._statsSubscribe() }
   }
   /**
    * FR-RPT-3: 지표를 통째로 다시 만들지 않는다.

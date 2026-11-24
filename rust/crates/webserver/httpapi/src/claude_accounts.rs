@@ -488,7 +488,7 @@ impl Server {
     /// Go `claudeAccountsChanged`: 계정 상태가 바뀌었다고 브라우저에 알린다 — `claude.accounts`
     /// 토픽 (FR-CAC-122, CHANNEL_PROTOCOL C2b).
     pub(crate) fn claude_accounts_changed(&self) {
-        self.refresh_state_topic("claude.accounts");
+        self.refresh_full_topic("claude.accounts");
     }
 
     /// Go `claudeAccountAlert`: 계정 알림을 브라우저(`alert` 토픽)와, 켜져 있으면 Telegram 으로 보낸다

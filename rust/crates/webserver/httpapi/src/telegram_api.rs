@@ -158,7 +158,7 @@ impl Server {
     ) -> Response {
         match res {
             Ok(()) => {
-                self.refresh_state_topic("telegram");
+                self.refresh_full_topic("telegram");
                 httpresp::json(StatusCode::OK, &self.telegram_view(tg, b))
             }
             Err(e @ telegram::StoreError::InvalidSilence) => code_fail(
@@ -272,7 +272,7 @@ impl Server {
                 "could not make a code",
             );
         }
-        self.refresh_state_topic("telegram");
+        self.refresh_full_topic("telegram");
         httpresp::json(StatusCode::OK, &PairIssued { code, expires })
     }
 
@@ -355,7 +355,7 @@ impl telegram::Host for TelegramHost {
     /// 짝맞춤이 끝났다 — 열린 설정 화면이 `telegram` 토픽으로 안다 (CHANNEL_PROTOCOL C2b).
     fn paired(&self) {
         if let Some(s) = self.0.upgrade() {
-            s.refresh_state_topic("telegram");
+            s.refresh_full_topic("telegram");
         }
     }
 

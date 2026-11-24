@@ -99,11 +99,11 @@ async fn settings_put_publishes_topic_not_sse() {
             ..Deps::default()
         },
     );
-    let o = super::state_topics::tap(&s, "settings").await;
-    super::state_topics::heard(&o, 1).await;
+    let o = super::full_topics::tap(&s, "settings").await;
+    super::full_topics::heard(&o, 1).await;
     let r = put(&s, "/api/settings?clientId=c-1", r#"{"a":1}"#).await;
     assert_eq!(r.status, 200);
-    let got = super::state_topics::heard(&o, 1).await;
+    let got = super::full_topics::heard(&o, 1).await;
     assert_eq!(got.last().unwrap()["data"], serde_json::json!({"a":1}));
     assert!(cb.published().is_empty(), "{:?}", cb.published());
 }

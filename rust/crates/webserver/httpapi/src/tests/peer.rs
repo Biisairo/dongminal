@@ -404,7 +404,7 @@ async fn edge_push_broadcasts_and_invalidates_handle() {
     assert_eq!(e.srv.profile_handle(), "집#1a2b");
     assert_eq!(d.got.lock().unwrap().len(), 1, "기억한 핸들을 다시 물었다");
     let fp = "ab".repeat(32);
-    let notice = super::state_topics::tap(&e.srv, "edges.notice").await;
+    let notice = super::full_topics::tap(&e.srv, "edges.notice").await;
     e.srv.edge_pushed(&EdgesEvent {
         removed: Some(EdgeRef {
             fp: fp.clone(),
@@ -413,7 +413,7 @@ async fn edge_push_broadcasts_and_invalidates_handle() {
         by_peer: true,
         ..Default::default()
     });
-    let got = super::state_topics::heard(&notice, 1).await;
+    let got = super::full_topics::heard(&notice, 1).await;
     let p = &got[0]["data"];
     assert_eq!(p["byPeer"], true);
     assert_eq!(p["removed"]["name"], "노트북");

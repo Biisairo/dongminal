@@ -13,11 +13,12 @@ const JS = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = (f) => readFileSync(join(JS, f), 'utf8');
 
 function rig() {
-  const ctx = load(['core/state-registry.js'], { expose: ['wireStateTopics', 'STATE_REGISTRY'] });
+  const ctx = load(['core/state-registry.js'], { expose: ['wireStateTopics', 'STATE_REGISTRY'], globals: { STATE_TOPIC_COALESCE_MS: 0 } });
   const subs = new Map();
   const busSubs = new Map();
   const calls = [];
   const app = {
+    timers: { after: (ms, fn) => { fn(); return { stop() {} } } },
     bus: { subscribe: (t, fn) => { if (!busSubs.has(t)) busSubs.set(t, []); busSubs.get(t).push(fn) } },
     channel: { sub: (t, fn) => { subs.set(t, fn); return { stop() {} } } },
   };
@@ -33,7 +34,9 @@ function rig() {
     'update._updateRestore', 'chat._chatRestore']) own(p);
   ctx.wireStateTopics(app);
   const push = (t, m) => subs.get(t)(m);
-  const fire = (t) => { for (const fn of busSubs.get(t) || []) fn({}) };
+  const fire = (t) => { for (const fn of [...(busSubs.get(t) || [])]) fn({}) };
+  // 토픽은 채널이 처음 열릴 때 구독한다.
+  fire('chan:open');
   return { ctx, subs, calls, push, fire };
 }
 

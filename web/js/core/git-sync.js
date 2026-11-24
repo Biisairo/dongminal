@@ -209,31 +209,6 @@ class GitSync extends Controller {
     return false;
   }
 
-  /**
-   * 상태바 틱이 싣는 목록도 `_pollGitJobs` 와 같은 `gitJobs` 비행에 선다 (Ofix2) — 틱이
-   * 떠난 뒤 떠난 조회의 새 목록을 늦게 온 틱의 응답이 덮지 않는다 (`merge:'latest'`).
-   * 목록을 쓸 곳이 없으면 비행을 열지 않는다 — 그때 틱은 목록을 묻지 않는다.
-   *
-   * 비행 중인 조회를 밀어낸 틱이 목록을 받지 못하면 다시 조회한다 (Ofix3) — 밀려난
-   * 조회의 답은 이미 버려졌으므로, 그대로 두면 그 목록이 다음 방송·틱까지 사라진다.
-   */
-  _gitJobsBegin(){
-    if(!this._gitJobsWanted()) return null;
-    const displaced=this.app.bus.inFlight('gitJobs');
-    const flight=this.app.wsSync._restoreBegin('gitJobs');
-    this._gitJobsDisplacer=displaced?flight:null;
-    return flight;
-  }
-
-  _gitJobsSettle(flight,jobs){
-    if(!this.app.wsSync._restoreLive('gitJobs',flight)) return;
-    this.app.wsSync._restoreEnd('gitJobs',flight);
-    const requery=this._gitJobsDisplacer===flight;
-    this._gitJobsDisplacer=null;
-    if(Array.isArray(jobs)) this._gitJobsAdopt(jobs);
-    else if(requery) this._pollGitJobs();
-  }
-
   _gitJobsAdopt(jobs){
     this.app._gitJobs=jobs;
     if(this.app.gitPanel) this.app.gitPanel.views.adoptJobs(jobs);

@@ -87,7 +87,7 @@ impl Server {
             };
             match work.save(&out, &rev.to_string()) {
                 Ok(_) => {
-                    self.refresh_state_topic("workspace");
+                    self.refresh_full_topic("workspace");
                     return;
                 }
                 Err(e) if e.is_stale() => {}

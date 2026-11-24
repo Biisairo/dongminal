@@ -20,9 +20,9 @@ pub use attn::{
     AttnTracker, BusyManyProbe, Clock, LiveProbe, OnChange, SWEEPER_INTERVAL, default_idle_ms,
 };
 pub use commands::{
-    CMD_SUB_QUEUE, CmdPosition, CmdResult, CmdSub, CommandBroker, CommandHub, SUB_CAP, TabRef,
-    allowed_cmd_action_names, awaits_result, command_result_timeout, is_allowed_cmd_action,
-    is_creating_action, is_single_executor_action, new_req_id,
+    BroadcastTap, CMD_SUB_QUEUE, CmdPosition, CmdResult, CmdSub, CommandBroker, CommandHub,
+    SUB_CAP, TabRef, allowed_cmd_action_names, awaits_result, command_result_timeout,
+    is_allowed_cmd_action, is_creating_action, is_single_executor_action, new_req_id,
 };
 pub use focus::FocusRegistry;
 pub use foreground::{
