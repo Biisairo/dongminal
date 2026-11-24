@@ -18,5 +18,5 @@ cat <<MSG
 
 바로 시작해서 끝까지 진행한다. 조정자의 확인을 기다리지 않는다. 커밋은 rp/$i 에 직접 한다(사용자가 허락했다). main 병합과 push 는 금지다. 기준선은 go1.27.2(JSONv2 기본)이고, JSON·시간·인용·OS 오류 문구는 dm-gocompat(json, strconv, time, oserr)을 쓴다.
 
-작업 규모가 크면 규칙 3-3 에 따라 하위 이슈로 나누고 조정자에게 알린다. 막히면 추측하지 말고 blocked 로 바꾼 뒤 조정자에게 알린다. 끝나면 이슈를 review 로 바꾸고 dmctl msg --to cf1f5fa3-26e2-4950-acd9-6d8b3d9f9181 "$i review: <요약>" 으로 알린다.
+작업 규모가 크면 규칙 3-3 에 따라 하위 이슈로 나누고 조정자에게 알린다. 막히면 추측하지 말고 blocked 로 바꾼 뒤 조정자에게 알린다. 조정자와의 소통은 단체채팅 방 'rust-port 조정'(room id 3f5fcdb2a795bbe4979e48712fba64b5d59fcdc172e51fa0364ea7f9fbe41ab5)에서만 한다 — 시작하자마자 mcp__dongminal__chat_join 으로 들어가고, 글에는 이슈 ID 를 앞에 붙인다(예: "$i review: <요약>"). dmctl msg 는 쓰지 않는다. 새 글 알림이 오면 하던 일을 마친 뒤 chat_read 로 읽는다. 끝나면 이슈를 review 로 바꾸고 그 방에 "$i review: <요약>" 을 쓴다.
 MSG
