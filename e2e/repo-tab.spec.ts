@@ -89,8 +89,6 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
   await openRepo(page, root);
 }
 
-// constants.js 의 전역 상수 — `<script>` 로 로드되므로 import 대상이 아니다.
-declare const gitStatusInterval: number;
 
 const side = (page: Page) => page.locator('#area .ed-win .ed-side');
 const sideTab = (page: Page, id: string) => side(page).locator(`.ed-side-tab[data-side="${id}"]`);

@@ -25,7 +25,7 @@ let BASE = '';
 test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'otter-elr-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
-// 폴링 주기(`gitReposInterval`, 기본 3초)의 세 배 남짓. 한 회차를 놓쳐도 다음이
+// 예전 탐색기 폴링 주기(기본 3초)의 세 배 남짓. 한 회차를 놓쳐도 다음이
 // 잡으므로 대기가 주기에 아슬아슬하게 걸리지 않는다 (notes-live-explorer 와 같은
 // 근거).
 const POLL_WAIT = 12000;

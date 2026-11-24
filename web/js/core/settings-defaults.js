@@ -16,8 +16,6 @@
  * 로드 순서: settings-schema.js 바로 뒤, constants.js 앞.
  */
 const STATS_INTERVAL_DEFAULT=SETTINGS_BY_KEY.statsInterval.def;
-const GIT_STATUS_POLL_MS=SETTINGS_BY_KEY.gitStatusInterval.def;
-const GIT_REPOS_POLL_MS=SETTINGS_BY_KEY.gitReposInterval.def;
 const GIT_WORKTREE_POLL_MS=SETTINGS_BY_KEY.gitWorktreeInterval.def;
 const TAB_WIDTH_DEFAULT=SETTINGS_BY_KEY.tabWidthPx.def;
 const TAB_WIDTH_MIN=SETTINGS_BY_KEY.tabWidthPx.min;
@@ -32,8 +30,6 @@ const ATTN_EDGE_LEVEL_MAX=SETTINGS_BY_KEY.attnEdgeLevel.max;
  * 든다.** 값을 얹는 자리는 `_settingsApply` 하나다 (FR-PIS-7).
  */
 var statsInterval=STATS_INTERVAL_DEFAULT;
-var gitStatusInterval=GIT_STATUS_POLL_MS;
-var gitReposInterval=GIT_REPOS_POLL_MS;
 // EDITOR_LIVE_RELOAD_SRS FR-ELR-76: 이 값을 쓰는 것은 서버다(워크트리 회차). 브라우저는 들고 저장할 뿐이다.
 var gitWorktreeInterval=GIT_WORKTREE_POLL_MS;
 /**

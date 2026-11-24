@@ -42,6 +42,8 @@ function gitStatusVerdict(r,d,repo){
 }
 
 class GitPoll extends GitPart {
+  // 실패·소실 동안의 재시도 기준 간격 (PERF 1.15). 사용자 설정이 아니다 — 시험이 회복을 빨리 재려고 이 패널의 값만 줄인다.
+  retryMs=GIT_STATUS_RETRY_MS;
   /**
    * **파일 목록의 크기·방향은 폐기됐다** (REPO_TAB_UNIFY_SRS FR-RTU-20).
    *
@@ -179,10 +181,10 @@ class GitPoll extends GitPart {
    * signature 폴링이 사라지면서 실효 주기를 계산할 계층이 status 하나만 남았다.
    */
   _cadence(st){
-    if(this.p._missing) return st>0?GIT_REPO_MISSING_POLL_MS:0;
+    if(this.p._missing) return GIT_REPO_MISSING_POLL_MS;
     const n=this.p._failStreak;
     if(n<=0) return st;
-    return st>0?Math.min(st*Math.pow(2,n),GIT_FAIL_BACKOFF_MAX_MS):0;
+    return Math.min(st*Math.pow(2,n),GIT_FAIL_BACKOFF_MAX_MS);
   }
 
   /**
@@ -208,7 +210,7 @@ class GitPoll extends GitPart {
   _applyCadence(){
     if(!this.p.obs.pollOkAny()){this._stop();return false}
     const failing=this.p._missing||this.p._failStreak>0;
-    const st=failing?this._cadence(gitStatusInterval):0;
+    const st=failing?this._cadence(this.retryMs):0;
     const root=(this.p._status&&this.p._status.repo)||this.p.repo;
     const o=this.p.obs;
     if(this.p._pollOn&&this.p._pollSt===st&&o._topicRoot===root) return false;

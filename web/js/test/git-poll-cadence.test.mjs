@@ -13,15 +13,13 @@ import { BASE, load } from './harness.mjs';
 const MISSING_MS = 30000;
 const BACKOFF_MAX_MS = 300000;
 
-function poll(interval) {
+function poll() {
   const armed = [];
   // 상수는 실제 파일에서 싣는다 — 기대값(30000·300000)은 종전 e2e 가 단정하던 값이다.
   const ctx = load(['core/constants-git-detect.js', ...BASE, 'git/git-part.js', 'git/git-poll.js'], {
     expose: ['GitPoll'],
     globals: {
       t: () => '',
-      gitStatusInterval: interval,
-      GIT_STATUS_POLL_MS: 30000,
       MS_PER_SEC: 1000,
       TIMERS: { every: (o) => { armed.push(o); return { stop() {} } } },
     },
@@ -41,7 +39,7 @@ function poll(interval) {
 }
 
 test('B3 (V-RMS-18·26): 백오프는 기준 × 2ⁿ 이고 상한을 넘지 않는다', () => {
-  const { p } = poll(1000);
+  const { p } = poll();
   p._failStreak = 0;
   assert.equal(p.poll._cadence(1000), 1000);
   p._failStreak = 2;
@@ -51,29 +49,22 @@ test('B3 (V-RMS-18·26): 백오프는 기준 × 2ⁿ 이고 상한을 넘지 않
 });
 
 test('B3 (V-GRF-13): 기본 주기(30초)에서도 백오프가 실제로 는다', () => {
-  const { p } = poll(30000);
+  const { p } = poll();
   p._failStreak = 1;
   assert.equal(p.poll._cadence(30000), 60000, '기본 주기에서 백오프 1단계가 늘지 않았다');
   p._failStreak = 2;
   assert.equal(p.poll._cadence(30000), 120000, '기본 주기에서 백오프 2단계가 늘지 않았다');
 });
 
-test('B3 (V-RMS-18): 기준 0 은 백오프에도 0 이다', () => {
-  const { p } = poll(0);
-  p._failStreak = 5;
-  assert.equal(p.poll._cadence(0), 0, '꺼 둔 계층이 백오프로 되살아났다');
-});
-
-test('B3 (V-RMS-26): 소실은 고정 주기다 — 점증하지 않고 0 을 되살리지 않는다', () => {
-  const { p } = poll(1000);
+test('B3 (V-RMS-26): 소실은 고정 주기다 — 점증하지 않는다', () => {
+  const { p } = poll();
   p._missing = '/gone';
   p._failStreak = 20;
   assert.equal(p.poll._cadence(1000), MISSING_MS, '소실인데 고정 주기가 아니다');
-  assert.equal(p.poll._cadence(0), 0, '소실이 꺼 둔 계층을 되살렸다');
 });
 
 test('TC-CH4-16: 평상시에는 git:<root> 토픽을 구독하고 주기 타이머를 걸지 않는다', () => {
-  const { p, armed, watched } = poll(30000);
+  const { p, armed, watched } = poll();
   p._status = { repo: '/private/r' };
   assert.equal(p.poll._applyCadence(), true);
   assert.equal(armed.length, 0, '평상시에 status 주기가 걸렸다');
@@ -85,7 +76,7 @@ test('TC-CH4-16: 평상시에는 git:<root> 토픽을 구독하고 주기 타이
 });
 
 test('TC-CH4-17: 실패·소실 동안에만 회복용 주기를 건다', () => {
-  const { p, armed, watched } = poll(30000);
+  const { p, armed, watched } = poll();
   p._failStreak = 1;
   p.poll._applyCadence();
   assert.equal(armed.length, 1);

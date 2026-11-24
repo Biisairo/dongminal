@@ -1,6 +1,6 @@
 import { join } from 'path';
 
-import { APIRequestContext, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
 
 import {
   test, expect, makeCopyFx, openGit, clickGitView, waitForInit, gitFixture, cleanGitFixture,
@@ -26,17 +26,6 @@ test.afterAll(() => { cleanGitFixture(FIXTURES) });
 const fx = (name: string) => realPath(join(FIXTURES, name));
 const copyFx = makeCopyFx(FIXTURES);
 
-async function patchSettings(request: APIRequestContext, patch: Record<string, unknown>) {
-  const cur = await (await request.get('/api/settings')).json();
-  for (const [k, v] of Object.entries(patch)) {
-    if (v === undefined) delete cur[k]; else cur[k] = v;
-  }
-  const r = await request.put('/api/settings', { data: cur });
-  expect(r.ok(), `설정 저장 실패: ${await r.text()}`).toBeTruthy();
-}
-const defaultIntervals = (request: APIRequestContext) =>
-  patchSettings(request, { gitStatusInterval: undefined });
-
 function counter(page: Page, needle: string) {
   const state = { n: 0 };
   page.on('request', (r) => { if (r.url().includes(needle)) state.n++ });
@@ -51,7 +40,6 @@ function counter(page: Page, needle: string) {
 test.describe('FR-GRF 묶음 B — git 이 돌아온다', () => {
   test('V-GRF-3: 성공한 관측 하나가 git_missing 을 풀고 자동 갱신을 되살린다',
     async ({ page, request }) => {
-      await defaultIntervals(request);
       await waitForInit(page);
       await openGit(page, fx('basic'));
 
@@ -90,7 +78,6 @@ test.describe('FR-GRF 묶음 D — 낡음은 모든 탭에서 보인다', () => 
 
   test('V-GRF-5: History 탭을 연 채 관측이 실패하면 그 탭에 배너가 뜬다',
     async ({ page, request }) => {
-      await defaultIntervals(request);
       await waitForInit(page);
       await openGit(page, fx('basic'));
       await clickGitView(page, 'history');
@@ -108,7 +95,6 @@ test.describe('FR-GRF 묶음 D — 낡음은 모든 탭에서 보인다', () => 
 
   test('V-GRF-5b: Branches·Stash·Console 에도 같은 배너가 선다',
     async ({ page, request }) => {
-      await defaultIntervals(request);
       await waitForInit(page);
       await openGit(page, fx('basic'));
       for (const v of ['branches', 'stash', 'console']) {
@@ -125,7 +111,6 @@ test.describe('FR-GRF 묶음 D — 낡음은 모든 탭에서 보인다', () => 
 
   test('V-GRF-6: 소실 안내가 있으면 낡음 배너는 뜨지 않는다',
     async ({ page, request }) => {
-      await defaultIntervals(request);
       await waitForInit(page);
       await openGit(page, fx('basic'));
       await clickGitView(page, 'history');
@@ -146,7 +131,6 @@ test.describe('FR-GRF 묶음 D — 낡음은 모든 탭에서 보인다', () => 
 test.describe('FR-GRF 묶음 E — 사이드는 render 를 넘어 산다', () => {
   test('V-GRF-7: 커밋 메시지 입력 중 render 가 와도 커서가 유지된다',
     async ({ page, request }) => {
-      await defaultIntervals(request);
       const repo = copyFx('basic', 'grf-side');
       await waitForInit(page);
       await openGit(page, repo);
@@ -166,7 +150,6 @@ test.describe('FR-GRF 묶음 E — 사이드는 render 를 넘어 산다', () =>
 
   test('V-GRF-7b: 진입점 버튼과 사이드 골격이 render 를 넘어 같은 요소다',
     async ({ page, request }) => {
-      await defaultIntervals(request);
       await waitForInit(page);
       await openGit(page, fx('basic'));
       const sel = '#area .ed-side';
@@ -193,7 +176,6 @@ test.describe('FR-GRF 묶음 E — 사이드는 render 를 넘어 산다', () =>
 test.describe('FR-GRF 묶음 I — 숨은 탭', () => {
   test('V-GRF-14: 숨어 있으면 방송에 수집하지 않는다',
     async ({ page, request }) => {
-      await defaultIntervals(request);
       await waitForInit(page);
       await openGit(page, fx('basic'));
       const c = counter(page, '/api/git/status');

@@ -26,14 +26,12 @@ function gitBadgeStale(badge){
  * 옮기면 기준이 주기를 따라간다 — 둘은 같은 사실의 앞뒤이기 때문이다 (FR-GOB-14).
  */
 //
-// OPTIMIZE_REFACTOR_SRS FR-OPT-4-3: 목록의 주기가 안전망(`gitStatusInterval`)으로 옮겼으므로
-// 기준도 그것을 딛는다. 배지의 갱신은 `git_changed` 가 본줄이고, 안전망이 꺼져 있으면(0)
-// 그 기본값으로 잰다.
-function gitBadgeStaleMs(){ return (gitStatusInterval||GIT_STATUS_POLL_MS)*GIT_BADGE_STALE_FACTOR }
+// PERF_OPTIMIZATION_SRS 1.15: 배지의 갱신은 `git:<root>` 토픽이 본줄이고, 기준은 실패 재시도 간격을 딛는다.
+function gitBadgeStaleMs(){ return GIT_STATUS_RETRY_MS*GIT_BADGE_STALE_FACTOR }
 
 // 같은 근거의 편집기 쪽 백오프 (FR-DIR-31). 소비 지점은 트리의 `_gitBack` 과
 // dirty diff 의 `_back` 둘이다.
-function editorGitBackoffMs(){ return gitReposInterval*EDITOR_GIT_BACKOFF_FACTOR }
+function editorGitBackoffMs(){ return EDITOR_GIT_BACKOFF_MS }
 
 /**
  * PANEL_SURFACE_SRS FR-CMG-2 / D-7·D-8: **화면 그룹 하나의 항목들.**

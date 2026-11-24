@@ -9,7 +9,7 @@ import { fakeClock, load, BASE, treeParts } from './harness.mjs';
  */
 // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 탐색기의 status 는 GitStatusHub 를 지난다. 이
 // 검사가 재는 것(mark 로 재칠 생략)은 그대로이고, 응답이 오는 자리만 hub 로 옮겼다.
-function tree(responses, opts = {}) {
+function tree(responses) {
   let i = 0;
   const clock = fakeClock();
   const hub = {
@@ -25,7 +25,6 @@ function tree(responses, opts = {}) {
     clock,
     globals: {
       FileTree: class {},
-      gitStatusInterval: opts.safety ?? 30000,
       apiGet: async () => { throw new Error('탐색기가 hub 를 지나지 않고 직접 물었다') },
       editorGitBackoffMs: () => 1000,
       gitStateChar: (k) => ({ untracked: '?', conflicts: 'U' })[k] || 'M',
@@ -99,14 +98,6 @@ test('TC-CH4-19: 관측이 없으면 매 틱 묻고, 관측한 뒤에는 주기�
   assert.equal(t.loader.gitDue(), false, '방금 관측했다');
   await t.clock.advance(3600000);
   assert.equal(t.loader.gitDue(), false, '관측한 뒤 주기로 다시 묻는다');
-});
-
-test('안전망을 끄면(0) 관측 뒤에는 주기로 묻지 않는다', async () => {
-  const t = tree([status('m1', 1)], { safety: 0 });
-  assert.equal(t.loader.gitDue(), true, '첫 관측은 한다');
-  await t.loader.pollGit();
-  await t.clock.advance(3600000);
-  assert.equal(t.loader.gitDue(), false);
 });
 
 test('일시 실패(5xx·전송)는 관측이 아니다 — 다음 틱에 다시 묻는다', async () => {

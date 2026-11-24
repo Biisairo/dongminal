@@ -45,21 +45,6 @@ const fx = (name: string) => realPath(join(FIXTURES, name));
 const copyFx = makeCopyFx(FIXTURES);
 // 설정은 서버의 단일 블롭이다 — 읽어 합친 뒤 되돌려 준다. 다른 스펙의 테마·단축키를
 // 지우지 않는다.
-async function patchSettings(request: APIRequestContext, patch: Record<string, unknown>) {
-  const cur = await (await request.get('/api/settings')).json();
-  for (const [k, v] of Object.entries(patch)) {
-    if (v === undefined) delete cur[k];
-    else cur[k] = v;
-  }
-  const r = await request.put('/api/settings', { data: cur });
-  expect(r.ok(), `설정 저장 실패: ${await r.text()}`).toBeTruthy();
-}
-
-// POLL_INTERVAL_SETTINGS_SRS FR-PIS-1: `gitSignatureInterval` 은 더 없다 — 브라우저
-// signature 폴링 계층 자체가 사라졌다.
-const defaultIntervals = (request: APIRequestContext) =>
-  patchSettings(request, { gitStatusInterval: undefined });
-
 // 요청 수는 가로채기로 센다 — 클라이언트 내부 카운터를 믿으면 "요청을 실제로
 // 보내지 않았다"를 증명할 수 없다. `done` 은 끝난(응답·실패) 요청 수다.
 function counter(page: Page, needle: string) {
@@ -114,7 +99,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
   // 폴링이 도는지가 아니라, 이 창이 살아 있는 관측을 갖는지가 계약이다.
   test('P1 (V6): Git 창이 활성이면 변화가 화면에 따라온다', async ({ page, request }) => {
     await fastWorktree(request);
-    await defaultIntervals(request);
     const repo = copyFx('basic', 'p1');
     await waitForInit(page);
     const c = counter(page, '/api/git/status');
@@ -136,7 +120,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
   // PERF_OPTIMIZATION_SRS M1 C4: 주기 status 는 없다. 보는 동안은 채널의 `git:<root>` 토픽을 구독하고,
   // 떠나면 그 구독을 놓는다 — 그 뒤로는 서버가 변화를 밀어도 status 요청이 나가지 않는다.
   test('P2 (V6): 다른 창으로 전환하면 git 토픽을 놓고 status 요청이 0건이 된다', async ({ page, request }) => {
-    await defaultIntervals(request);
     const repo = copyFx('basic', 'p2-leave');
     await waitForInit(page);
     const c = counter(page, '/api/git/status');
@@ -158,7 +141,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
   });
 
   test('P3 (V6): Git 창으로 돌아오면 즉시 1건이 온다', async ({ page, request }) => {
-    await defaultIntervals(request);
     const repo = fx('basic');
     await waitForInit(page);
     const c = counter(page, '/api/git/status');
@@ -176,31 +158,25 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     await expect.poll(() => c.n - base, { timeout: 800 }).toBeGreaterThanOrEqual(1);
   });
 
-  test('P4 (V18): 주기 0 이면 폴링이 돌지 않는다', async ({ page, request }) => {
-    await patchSettings(request, { gitStatusInterval: 0 });
+  test('P4 (V18): 평상시에는 status 폴링이 돌지 않는다', async ({ page }) => {
     const repo = fx('basic');
     await waitForInit(page);
     const st = counter(page, '/api/git/status');
-    // FR-PIS-1: 계층이 사라졌으므로 주기와 무관하게 0 건이다 — 그 증거는
-    // `poll-interval` PIS2 가 옛 설정 키로 따로 잰다.
+    // FR-PIS-1: signature 계층은 사라졌다.
     const sig = counter(page, '/api/git/signature');
     await openGit(page, repo);
 
     // 여는 순간의 첫 수집이 끝난 뒤부터 센다.
     await quiet(st);
     const base = st.n;
-    // 주기 0 에는 줄일 주기가 없다. 0 이 아닌 주기는 설정 하한이 10초라 종전 창(2.6초)
-    // 에도 들지 않았고, 이 창이 잡는 것은 0 이 "곧바로 다시" 로 읽히는 회귀다 —
-    // 그것은 1초 안에 여러 건으로 드러난다.
+    // 평상시 주기는 없다(PERF 1.15 — 실패 재시도만 남았다). 되풀이가 생기는 회귀는 1초 안에 드러난다.
     await page.waitForTimeout(1000);
-    expect(st.n - base, '주기 0 인데 status 폴링이 돈다').toBe(0);
+    expect(st.n - base, '평상시인데 status 폴링이 돈다').toBe(0);
     expect(sig.n, '지워진 signature 폴링이 되살아났다').toBe(0);
-    await defaultIntervals(request);
   });
 
   test('P5 (V5): 같은 순간의 신호 여러 개가 status 1건으로 합쳐진다', async ({ page, request }) => {
-    // 폴링을 끄고 즉시 신호만 남긴다 — 디바운스만 측정한다.
-    await patchSettings(request, { gitStatusInterval: 0 });
+    // 평상시에는 주기가 없다 — 즉시 신호만 남으므로 디바운스만 측정한다.
     const repo = fx('basic');
     await waitForInit(page);
     const c = counter(page, '/api/git/status');
@@ -218,11 +194,9 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     await quiet(c);
     await page.waitForTimeout(300);
     expect(c.n - base, '디바운스 뒤에도 신호가 남아 다시 요청했다').toBe(1);
-    await defaultIntervals(request);
   });
 
   test('P6 (V4): 활성 리포를 바꾸면 이전 리포의 응답이 화면에 닿지 않는다', async ({ page, request }) => {
-    await defaultIntervals(request);
     const slow = copyFx('basic', 'p6-slow');
     const fast = copyFx('basic', 'p6-fast');
     writeFileSync(join(slow, 'only-in-slow.txt'), 'x');
@@ -280,7 +254,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
    */
   test('P7 (회귀): 관측이 겹쳐도 단일 비행 잠금이 고착되지 않는다', async ({ page, request }) => {
     await fastWorktree(request);
-    await defaultIntervals(request);
     const repo = copyFx('basic', 'p7');
     await waitForInit(page);
     await openGit(page, repo);
@@ -320,7 +293,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
    * 삼켜 주지 못했고, 플래그가 참으로 남아 버튼이 disabled 로 굳었다.
    */
   test('P8 (회귀): 뷰의 reload() 가 터져도 새로고침 진입점이 잠기지 않는다', async ({ page, request }) => {
-    await defaultIntervals(request);
     const repo = fx('basic');
     await waitForInit(page);
     await openGit(page, repo);
@@ -354,7 +326,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
    */
   test('P9 (회귀): _paint 가 한 번 터져도 다음 관측이 다시 그린다', async ({ page, request }) => {
     await fastWorktree(request);
-    await defaultIntervals(request);
     const repo = copyFx('basic', 'p9-paint');
     await waitForInit(page);
     await openGit(page, repo);

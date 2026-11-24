@@ -3,14 +3,14 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree, switchToEditorRoot, openExplorerSide, scopedSettings, resyncEditor } from './fixtures';
+import { test, expect, rmTree, switchToEditorRoot, openExplorerSide, resyncEditor } from './fixtures';
 import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath } from './osenv';
 
 /**
  * **고정 대기의 예외 (`TEST-16`).** 남은 `waitForTimeout` 은 **일어나지 않음**을
  * 재는 창이다 (`ABSENT_WAIT`, V-24·V-25) — 그동안 요청이 몇 건인가가 답이다.
- * 창은 주기(`TICK`)의 세 배라 주기를 줄이면 함께 준다.
+ * 탐색기의 주기 틱은 없다(PERF 1.14) — 창 동안 주기 요청은 0 이다.
  */
 
 // NOTES_LIVE_EXPLORER_SRS §5.2 — 묶음 N(메모장)·묶음 L(탐색기의 살아있는 반영)의
@@ -75,18 +75,10 @@ const notesRoot = (page: Page) =>
 
 const fixedRows = (page: Page) => page.locator('#repo-root .sbl-item');
 const treeRows = (page: Page) => page.locator('.ed-tree .ed-row');
-// 묶음 L 의 탐색기 틱(`gitReposInterval`). 기본 3000 을 하한으로 내려 회차를 당긴다
-// (E2E_PRUNE_REPORT §8.2 (b)). 설정은 `page.goto` 전에 넣어야 첫 틱부터 적용된다.
-const TICK = 1000;
 // 나타남·사라짐을 기다리는 상한. 시간을 쓰지 않으므로 넉넉히 둔다.
 const POLL_WAIT = 9000;
-// 부재를 재는 창 — 종전(9000ms·주기 3000)과 같은 세 회차다.
-const ABSENT_WAIT = TICK * 3;
-
-// 창의 길이가 주기에서 나오므로 주입이 실제로 닿았는지 먼저 본다.
-async function expectTick(page: Page) {
-  expect(await page.evaluate(() => (window as any).gitReposInterval), '틱 주기 주입이 닿지 않았다').toBe(TICK);
-}
+// 부재를 재는 창. 탐색기의 주기 틱은 없다(PERF 1.14) — 창 동안 주기 요청은 0 이어야 한다.
+const ABSENT_WAIT = 3000;
 
 function counter(page: Page, pred: (url: string) => boolean) {
   const box = { n: 0 };
@@ -307,14 +299,6 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
 // ── 묶음 L — 탐색기의 살아있는 반영 ─────────────────
 
 test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () => {
-  let restore: (() => Promise<void>) | null = null;
-  test.beforeEach(async ({ request }) => {
-    restore = await scopedSettings(request, { gitReposInterval: TICK });
-  });
-  test.afterEach(async () => {
-    if (restore) await restore();
-    restore = null;
-  });
 
   test('V-19: 탐색기 밖에서 만든 파일이 한 주기 안에 나타난다', async ({ page, request }) => {
     await addEditor(request, PLAIN);
@@ -447,13 +431,12 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
       () => page.evaluate(() => (window as any).app.testing.edActiveTree()._stampOff),
       { timeout: POLL_WAIT }).toBe(true);
 
-    await expectTick(page);
     const stamp = counter(page, (u) => u.includes('/api/fs/stamp'));
     await page.waitForTimeout(ABSENT_WAIT);
     expect(stamp.n, '4xx 뒤에는 다시 묻지 않는다').toBe(0);
   });
 
-  test('V-25: 같은 루트를 보는 칸이 둘이어도 주기당 stamp 는 한 벌이다', async ({ page, request }) => {
+  test('V-25: 같은 루트를 보는 칸이 둘이어도 주기 stamp 요청이 없다', async ({ page, request }) => {
     await addEditor(request, PLAIN);
     await goto(page);
     await openEditorWin(page, PLAIN);
@@ -465,12 +448,9 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
       () => document.querySelectorAll('.ed-win .ed-explorer').length >= 2,
       undefined, { timeout: 10000 });
 
-    await expectTick(page);
     const stamp = counter(page, (u) => u.includes('/api/fs/stamp'));
     await page.waitForTimeout(ABSENT_WAIT);
-    const cycles = Math.floor(ABSENT_WAIT / TICK);
-    expect(stamp.n, `칸 둘이어도 주기당 한 벌 (n=${stamp.n}, 주기≈${cycles})`)
-      .toBeLessThanOrEqual(cycles + 1);
+    expect(stamp.n, `칸 둘이어도 주기 stamp 요청은 없다 (n=${stamp.n})`).toBe(0);
     await page.evaluate(() => (window as any).app.slot.ops.slotRemove());
   });
 });

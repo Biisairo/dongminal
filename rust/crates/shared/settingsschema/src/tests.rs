@@ -125,13 +125,15 @@ fn font_size_bounds() {
 }
 
 // TC-CFG-13: 알 수 없는 키는 경고이며 실패가 아니다.
-/// PERF M1 C6·1.9: 거둔 키(`agentsPollInterval`·`gitConsoleInterval`)는 저장된 블롭에 남아 있어도 문제도 경고도 아니다.
+/// PERF M1 C6·1.9·1.15: 거둔 키(`agentsPollInterval`·`gitConsoleInterval`·`gitStatusInterval`·`gitReposInterval`)는 저장된 블롭에 남아 있어도 문제도 경고도 아니다.
 #[test]
 fn retired_key_is_ignored() {
     let specs = load().unwrap();
     let (probs, unknown) = validate_object(
         &specs,
-        &obj(json!({"agentsPollInterval":5000,"gitConsoleInterval":2000,"themeName":"x"})),
+        &obj(
+            json!({"agentsPollInterval":5000,"gitConsoleInterval":2000,"gitStatusInterval":0,"gitReposInterval":3000,"themeName":"x"}),
+        ),
     );
     assert!(
         probs.is_empty() && unknown.is_empty(),
@@ -170,7 +172,7 @@ fn check_types() {
 // FR-PIS-9: off 인 키만 0 을 통과시킨다.
 #[test]
 fn zero_is_off_only_when_flagged() {
-    assert!(check(&int("gitStatusInterval", 5, 60, true), &json!(0)).is_none());
+    assert!(check(&int("k", 5, 60, true), &json!(0)).is_none());
     assert_eq!(
         check(&int("x", 5, 60, false), &json!(0)).unwrap().reason,
         "최솟값 5 보다 작습니다"
@@ -244,13 +246,13 @@ fn spec_and_problem_wire() {
 #[test]
 fn load_reads_embedded_table() {
     let specs = load().unwrap();
-    assert_eq!(specs.len(), 33, "서술자 {}개, 기대 33개", specs.len());
+    assert_eq!(specs.len(), 31, "서술자 {}개, 기대 31개", specs.len());
     let by = by_key(&specs);
     for k in [
         "themeName",
         "tabWidthPx",
         "attnEdgeLevel",
-        "gitStatusInterval",
+        "statsInterval",
         "uiFontSize",
         "termFontSize",
     ] {
@@ -261,10 +263,9 @@ fn load_reads_embedded_table() {
         (s.kind.as_str(), s.min, s.max),
         ("int", Some(40), Some(480))
     );
-    assert!(
-        by["gitStatusInterval"].off,
-        "gitStatusInterval 은 0(끔)을 받는다"
-    );
+    for k in ["gitStatusInterval", "gitReposInterval"] {
+        assert!(!by.contains_key(k), "{k} 는 거둔 키다 (PERF 1.15)");
+    }
 }
 
 // TC-CFG-3: 파일 형태가 계약이다 (FR-CFG-2).
@@ -423,7 +424,7 @@ fn save_settings_derives_from_table() {
     let body = between(&apply, "_settingsBody(){", "\n  }\n");
     assert!(!body.is_empty(), "_settingsBody 를 찾지 못했다");
     assert!(body.contains("for(const spec of SETTINGS_SCHEMA)"));
-    for k in ["gitStatusInterval,", "focusEdgeLevel,attnEdgeLevel"] {
+    for k in ["statsInterval,", "focusEdgeLevel,attnEdgeLevel"] {
         assert!(!body.contains(k), "키를 인라인으로 나열하고 있다: {k:?}");
     }
 }
