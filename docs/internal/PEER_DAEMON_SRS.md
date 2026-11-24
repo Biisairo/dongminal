@@ -1,6 +1,7 @@
 # SRS: 노드 역할의 데몬 이관과 간선 축소 (Edge Daemon) — IEEE 29148
 
 > **문서 상태**: 승인·구현중
+> **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1)**: 이 문서가 적은 것 가운데 M1 에서 지운 것 — 명령·사건 SSE(`/api/commands/sse`, `POST /api/command-result`). 지금 브라우저 탭은 채널(`/channel`) 하나로 명령(`cmd`)·상태 토픽·터미널을 주고받고, 상태를 알려고 주기적으로 GET 하지 않는다 — 대체 요구사항은 `PERF_OPTIMIZATION_SRS` FR-CON-1·7·8·10 과 D-9, 경로별 대응은 `perf/CHANNEL_PROTOCOL.md` §5.2·§8 이다. 본문의 옛 경로 서술은 당시 구조로 남긴다
 > **직접 모드 제거 (2026-11-18, `DIRECT_MODE_REMOVAL_SRS.md`)**: 직접 모드(데몬 없이 서버만 도는 배선)는 지원 대상이 아니었고 코드에서 없어졌다. 서버는 늘 데몬에 붙고, 붙지 못하면 오류로 끝난다. 이 문서의 직접 모드 서술은 기록으로 남긴다 — D-PDM-11·FR-PDM-52·TC-PDM-11 과 §3.5b 「서버 — 직접 모드」는 더 이상 유효하지 않다.
 
 > **남은 것**: e2e TC-PDM-12(`edges-settings.spec.ts`)와 실제 두 PC 의 간선 맺기 — 사용자가 데몬을 다시 띄운 뒤 확인한다. 단계 1~6 의 코드·문서는 끝났다.

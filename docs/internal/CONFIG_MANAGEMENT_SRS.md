@@ -1,6 +1,7 @@
 # SRS: 설정 관리 — 서술자 단일 원천 · `server.json` · 환경변수 — IEEE 29148
 
 > **문서 상태**: 승인·구현완료
+> **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1, PERF 1.9·1.15)**: 주기 설정 넷 — `agentsPollInterval`·`gitConsoleInterval`·`gitStatusInterval`·`gitReposInterval` — 은 서술자 표에서 지웠다. 저장된 블롭에 남아 있어도 `RETIRED_KEYS`(`rust/crates/shared/settingsschema/src/lib.rs`)가 읽을 때 건너뛴다 — 문제도 경고도 아니다(FR-CFG-9 의 "알 수 없는 키" 경고에서도 빠진다). §2 의 키 목록은 당시 실측으로 남긴다
 
 | | |
 |---|---|
@@ -204,7 +205,7 @@
 `<home>/settings.json` 을 서술자에 대조해 **불일치를 전부** 낸다. 첫 오류에서
 멈추지 않는다 — 고치고 다시 돌리는 왕복을 키 수만큼 시키지 않는다.
 
-**FR-CFG-9** `validate` 는 불일치가 있으면 **exit 1** 이다. 알 수 없는 키는
+**FR-CFG-9** (**개정 2026-11-24, PERF M1**: `RETIRED_KEYS` 의 키는 알 수 없는 키로 세지 않고 조용히 건너뛴다.) `validate` 는 불일치가 있으면 **exit 1** 이다. 알 수 없는 키는
 **경고이지 실패가 아니다** — 판이 앞선 브라우저가 쓴 키가 여기서 빨갛게 뜨면
 사용자는 멀쩡한 설정을 지운다 (§2.4 근거 2).
 

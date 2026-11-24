@@ -288,7 +288,7 @@ otterminal config get                # 지금 바인드와 server.json 의 값
 
 서버는 자기 이름을 운영체제 컴퓨터 이름으로만 압니다. 그것이 접속에 쓰는 이름과 다르면
 (예: macOS 컴퓨터 이름은 `MyMac`, Tailscale 노드 이름은 `macmini-office`) **정적 화면은
-뜨지만 `/api/*`·`/ws` 가 421 로 끊깁니다.** 그 이름을 이 칸에 넣으면 통합니다.
+뜨지만 `/api/*`·`/channel` 이 421 로 끊깁니다.** 그 이름을 이 칸에 넣으면 통합니다.
 
 | 넣는 값 | 예 |
 |---|---|
@@ -546,4 +546,4 @@ Backup 의 내보내기에 들어가지 않습니다.
 - 단축키 커스터마이징: [shortcuts.md](./shortcuts.md)
 - 터미널 안에서 쓰는 `otterctl` / `edit` / `download` CLI: [commands.md](./commands.md)
 - 에이전트 오케스트레이션: [agent-orchestration.md](./agent-orchestration.md)
-- HTTP/WebSocket/SSE/OSC: [api.md](./api.md)
+- HTTP/WebSocket(채널)/OSC: [api.md](./api.md)

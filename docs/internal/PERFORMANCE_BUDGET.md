@@ -66,7 +66,7 @@
 |---|---|---|
 | 유휴 시 서버 RSS | 100 MiB | 도구 없이 떠 있을 때 |
 | 도구 하나당 증가분 | 5 MiB | 스크롤백 버퍼 1 MiB 를 포함합니다 |
-| 유휴 시 CPU | 1% | 폴링이 도는 상태 |
+| 유휴 시 CPU | 1% | 유휴 상태. 브라우저는 주기 요청을 내지 않고(PERF M1, 실측 0 건/분) 서버 내부 주기(stats 측정·gitwatch 회차)만 돈다 |
 | goroutine 수 (도구 10개) | 500 | 넘으면 새는 것을 의심합니다 |
 
 `GET /api/diag` 가 `goroutines`·`allocMB` 를 냅니다 — 의심할 때 먼저 보는 자리입니다.
@@ -147,7 +147,7 @@
 | blame 이 한 번에 그리는 행 | **`GIT_BLAME_MAX_ROWS`(2,000) 이하** — 행마다 6노드다 | `e2e/git-diff.spec.ts` BL3 |
 | 만든 관측자를 잡지 않는 자리 | **0** (착수 시 9자리 중 1) | `scripts/check-observer.mjs` |
 | 레이아웃을 애니메이션하는 `@keyframes` | **0** (착수 시 13개 중 1) | `scripts/check-css-animation.mjs` |
-| 상태바 한 회차의 **직렬** 왕복 | **1** (`ping` ∥ `stats` — 잡 수는 `stats?jobs=1` 에 실린다. 이전 2: `ping` → `stats`, PROD3 FC-21) | `e2e/perf-statusbar.spec.ts` S1 |
+| 상태바가 내는 HTTP 요청 (`/api/ping`·`/api/stats`) | **0** — 지표는 채널의 `stats:<statsInterval>` 토픽, 지연은 채널 ping 의 왕복, 잡 수는 `git.jobs` 토픽이다(`PERF_OPTIMIZATION_SRS` M1 C3·C4, FR-CON-7). 이전: 회차마다 `ping` ∥ `stats?jobs=1` 직렬 왕복 1(PROD3 FC-21), 그 전에는 2 | `e2e/perf-statusbar.spec.ts` TC-CH3-10 |
 | 같은 `.gz` 자산 N회 요청의 파일 읽기 | **1** | `TestStatic_PrecompressedReadsFileOnce` |
 | 없는 경로 1,000회 뒤 `etags` 항목 | **0** | `TestStatic_ETagDoesNotCacheMisses` |
 | 핀 목록의 `RepoRoot` 동시 진행 | **2 이상 · `gitObserveMax`(4) 이하** | `TestGitPinnedEntries_RunsInParallel` |

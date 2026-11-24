@@ -6,6 +6,7 @@
   direct/daemon/`--isolated` 세 모드의 배선(`cmd/otterminal/main.go` `buildDeps`/`buildDepsWithHub`/`serve`, `internal/daemon/boot`) 정독,
   `internal/webserver/domain/git/{core,query,write,jobs}` 허용 목록·출구 경로 정독, Run 오케스트레이션 전 경로 추적
 - 기존 감사(01·04·05·07·12, 총 173건)와 겹치는 것은 ID 참조만 하고 재보고하지 않는다.
+- **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1 C4)**: 원격 작업의 진행 SSE `GET /api/git/job/events` 는 지웠다. 진행 줄은 채널의 `gitjob:<id>` 토픽으로 온다. 아래 본문의 `job/events` 는 감사 당시의 사실이다.
 - git 폴링·갱신은 전담 에이전트 담당이므로 다루지 않았다.
 
 **심각도**: P1 = 실사용에서 기능이 깨지거나 데이터가 어긋남 · P2 = 완성도 부족·불편
@@ -240,7 +241,7 @@ API: `DELETE /api/runs/{id}`(`handlers_api.go:117`), `GET /api/runs/{id}/graph`(
 
 | 장시간 동작 | 취소 | 진행 표시 | 판정 |
 |---|---|---|---|
-| fetch / pull / push | ✅ `POST /api/git/job/cancel` (프로세스 **그룹** SIGTERM → 유예 → SIGKILL, `jobs/job.go:492-`) | ✅ SSE `job/events` | 완성 |
+| fetch / pull / push | ✅ `POST /api/git/job/cancel` (프로세스 **그룹** SIGTERM → 유예 → SIGKILL, `jobs/job.go:492-`) | ✅ SSE `job/events` (2026-11-24 PERF M1 뒤로는 채널 `gitjob:<id>` 토픽) | 완성 |
 | `/api/fs/find`·`/api/fs/grep` | ✅ `r.Context()` 전파(`handlers_fs_search.go:91,201,207`), ripgrep 은 `exec.CommandContext` | — | 완성 |
 | git 읽기 조회 전반 | ✅ `r.Context()` 를 `core.Service.Exec` 까지 전파 | — | 완성 |
 | LSP definition/references/hover/install | ✅ `r.Context()`(`handlers_lsp.go:92,151,161,175`) | — | 완성 |

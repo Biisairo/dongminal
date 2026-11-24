@@ -22,7 +22,7 @@ declare const EventBus: any;
 // T-3·T-4 는 `version-autoreload.spec.ts` (TC-RLC-25·27), T-8·T-9 는
 // `slot-view-state.spec.ts` (TC-SVS-22·53) 가 이미 재고 있다 — 다시 쓰지 않는다.
 //
-// 재는 방식은 `sse-resilience.spec.ts` 의 관용구를 따른다: 빈 페이지에 대상
+// 재는 방식은 지운 `sse-resilience.spec.ts`(PERF M1 C2a 에서 SSE 와 함께 없어졌다)의 관용구를 따른다: 빈 페이지에 대상
 // 파일만 얹고 계약만 시험한다. 앱을 통째로 띄우면 무엇이 계약이고 무엇이 우연인지
 // 구분되지 않는다.
 

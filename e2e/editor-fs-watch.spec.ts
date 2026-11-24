@@ -1,8 +1,9 @@
 /**
  * EDITOR_LIVE_RELOAD_SRS 묶음 W·C·G — 서버 파일 감시 (V-ELR-27~32·34).
  *
- * 폴링을 30초로 늦춘 채 잰다. 그래야 반영이 감시에서 온 것인지 가릴 수 있다 —
- * 폴링이 3초면 감시가 없어도 대부분의 상한 안에 들어온다.
+ * 편집기·탐색기에는 주기 폴링이 없다(이슈 1.14, D-9). 반영의 계기는 감시(`fs` 토픽)와
+ * 맞추기(탭 복귀·채널 재연결·overflow)뿐이다. 서버의 워크트리 회차(`gitWorktreeInterval`)만
+ * 30초로 늦춰, git 색의 반영이 그 회차가 아니라 감시에서 온 것인지 가린다.
  */
 import { execFileSync } from 'child_process';
 import { mkdirSync, mkdtempSync, renameSync, unlinkSync, writeFileSync } from 'fs';
@@ -103,7 +104,7 @@ const dirtyOf = (page: Page, name: string) => page.evaluate((n: string) => {
   return !!(v && v._dirty);
 }, name);
 
-test('V-ELR-27: 폴링이 30초여도 열린 문서는 1.5초 안에 바뀐다 — 일반 쓰기와 원자적 쓰기', async ({ page, request }) => {
+test('V-ELR-27: 주기 폴링 없이도 열린 문서는 1.5초 안에 바뀐다 — 일반 쓰기와 원자적 쓰기', async ({ page, request }) => {
   await slowPolling(request);
   const { root, savedRoot } = await mkroot(request, page, 'doc', { 'a.txt': 'before\n' });
   const log = watchLog(page);
@@ -145,7 +146,7 @@ test('V-ELR-29: dirty 인 문서는 밖에서 바뀌어도 편집본 그대로�
   expect(reads.some((u) => decodeURIComponent(u).includes('b.txt'))).toBe(false);
 });
 
-test('V-ELR-30: 폴링이 30초여도 탐색기의 추가·삭제가 2초 안에 보인다', async ({ page, request }) => {
+test('V-ELR-30: 주기 폴링 없이도 탐색기의 추가·삭제가 2초 안에 보인다', async ({ page, request }) => {
   await slowPolling(request);
   const { root, savedRoot } = await mkroot(request, page, 'tree', { 'keep.txt': 'k' });
   const log = watchLog(page);
@@ -161,7 +162,7 @@ test('V-ELR-30: 폴링이 30초여도 탐색기의 추가·삭제가 2초 안에
   await expect(row(pj(savedRoot, 'new.txt'))).toHaveCount(0, { timeout: 2000 });
 });
 
-test('V-ELR-31: 폴링·워크트리 회차를 늦춰도 추적 파일을 고치면 git 색이 3초 안에 바뀐다', async ({ page, request }) => {
+test('V-ELR-31: 워크트리 회차를 늦춰도 추적 파일을 고치면 git 색이 3초 안에 바뀐다', async ({ page, request }) => {
   await slowPolling(request);
   const { root, savedRoot } = await mkroot(request, page, 'gitc', { 'tracked.txt': 'one\n' }, true);
   const log = watchLog(page);
@@ -176,7 +177,7 @@ test('V-ELR-31: 폴링·워크트리 회차를 늦춰도 추적 파일을 고치
   await expect(row).toHaveAttribute('data-st', /./, { timeout: 3000 });
 });
 
-test('V-ELR-28: 폴링이 30초여도 Diff 탭 문서가 1.5초 안에 바뀐다', async ({ page, request }) => {
+test('V-ELR-28: 주기 폴링 없이도 Diff 탭 문서가 1.5초 안에 바뀐다', async ({ page, request }) => {
   await slowPolling(request);
   const { root, savedRoot } = await mkroot(request, page, 'diff', { 'd.txt': 'one\n' }, true);
   writeFileSync(join(root, 'd.txt'), 'one\ntwo\n');
@@ -212,7 +213,7 @@ test('V-ELR-32: 등록 본문이 탭과 펼침을 따라간다', async ({ page, 
   await expect.poll(() => last().includes(pj(savedRoot, 'sub')), { timeout: 5000 }).toBe(false);
 });
 
-test('V-ELR-37: 페이지를 처음 띄울 때 등록이 400 을 받지 않는다 — SSE 구독보다 먼저 보내지 않는다', async ({ page }) => {
+test('V-ELR-37: 페이지를 처음 띄울 때 등록이 400 을 받지 않는다 — 채널 인사보다 먼저 보내지 않는다', async ({ page }) => {
   const log = watchLog(page);
   await waitForInit(page);
   await expect.poll(() => log.statuses.includes(200), { timeout: 15000, message: JSON.stringify(log) }).toBe(true);

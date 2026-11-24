@@ -6,10 +6,10 @@
 
 ```
 Browser (xterm.js)                    ┌─ ② otterminald ─────────────┐
-   │  Binary WebSocket                │   PTY 소유 · ToolManager    │
+   │  WebSocket /channel              │   PTY 소유 · ToolManager    │
    ├────────────────────▶ ③ otterminal │   브라우저 새로고침에도 유지 │──▶ Shell
-   │                       (웹 서버)  └────────────┬───────────────┘
-   └─ SSE /api/commands/sse ◀── HTTP/WS/SSE        │ Unix socket
+   │  (터미널·명령·상태)   (웹 서버)  └────────────┬───────────────┘
+   └─ REST /api/* (명령) ──▶ HTTP/WebSocket        │ Unix socket
                                   │               │ (paned.sock)
                                   ↕               ↕
                           OTTERMINAL_HOME/
@@ -32,8 +32,8 @@ Browser (xterm.js)                    ┌─ ② otterminald ──────�
 - PTY 프로세스는 브라우저 새로고침해도 유지 (서버 메모리 버퍼).
 - 워크스페이스(창/분할 칸/탭) 는 `workspace.json` 에 비동기 영속화 (H5 latest-wins coalescing). 도구는 `tools.json` 에 기록되고(소유자 없는 백그라운드 도구·샌드박스 도구 제외), 되살릴 때 탭이 참조하는 것만 고른다(FR-EM-14). 백그라운드 도구는 기록되지 않아 데몬 재시작을 넘기지 않는다.
 - 에이전트 접합면: 액션은 `otterctl` 서브커맨드, 정책은 `--plugin-dir`/`--settings` 로 세션 스코프 주입되는 스킬·훅. 등록 절차 없음. 자세히는 [docs/external/agent-orchestration.md](../external/agent-orchestration.md).
-- 주의 알림: 서버가 도구 출력을 관찰(OSC 9/99/777·idle)하거나 `otterctl notify`(claude/codex 투명 래퍼가 자동 주입한 hook 이 호출)로 주의 상태를 잡아 SSE(`tool_attention`) 로 브라우저에 전달. 자세히는 [docs/internal/archive/PANE_ATTENTION_NOTIFY_SRS.md](./archive/PANE_ATTENTION_NOTIFY_SRS.md).
-- 에이전트 활동: attention 과 직교하는 "현재 작업 상태(activity)" 레이어. 에이전트 hook 이 `otterctl activity` 로 보고(stdin hook JSON 파싱) → `POST /api/tools/activity/set` → SSE(`tool_activity`) 발행. 도구당 최신 1개 상태만 보관(히스토리 없음). 자세히는 [docs/internal/archive/AGENT_ACTIVITY_PANEL_SRS.md](./archive/AGENT_ACTIVITY_PANEL_SRS.md).
+- 주의 알림: 서버가 도구 출력을 관찰(OSC 9/99/777·idle)하거나 `otterctl notify`(claude/codex 투명 래퍼가 자동 주입한 hook 이 호출)로 주의 상태를 잡아 채널(`/channel`)의 `attention` 토픽으로 브라우저에 전달. 자세히는 [docs/internal/archive/PANE_ATTENTION_NOTIFY_SRS.md](./archive/PANE_ATTENTION_NOTIFY_SRS.md).
+- 에이전트 활동: attention 과 직교하는 "현재 작업 상태(activity)" 레이어. 에이전트 hook 이 `otterctl activity` 로 보고(stdin hook JSON 파싱) → `POST /api/tools/activity/set` → 채널의 `activity` 토픽으로 발행. 도구당 최신 1개 상태만 보관(히스토리 없음). 자세히는 [docs/internal/archive/AGENT_ACTIVITY_PANEL_SRS.md](./archive/AGENT_ACTIVITY_PANEL_SRS.md).
 
 자세한 패키지 구조와 핫패스 성능 설계는 이 문서의 아래 절에 있다.
 
@@ -62,15 +62,15 @@ rust/                    # Cargo 워크스페이스 — crate 하나가 디렉�
       ipc/               #   PanedServer — Unix socket accept 루프 (연결 하나의 요청은 차례로, create·restore·edge 만 읽기 루프 밖 — FR-OPT-2-3, PEER_DAEMON_SRS §3.5a)
       swap/              #   세션 유지 교체 — 교체 요청 검사·사전 확인·인계 상태·exec, 새 데몬의 되살리기·되찾기·입양 (DAEMON_SESSION_KEEP_SRS)
     webserver/           # ③ 웹 서버 프로세스
-      httpapi/           #   HTTP/WS/SSE 라우팅 + settingsStore + 잔여 핸들러 (Server)
+      httpapi/           #   HTTP·채널(WebSocket `/channel`) 라우팅 + settingsStore + 잔여 핸들러 (Server). 채널은 channel/ (perf/CHANNEL_PROTOCOL.md)
       httproute/         #   라우팅표 한 벌 — httpapi·gitapi 가 타입 매개변수로 공유
       gitapi/            #   /api/git/* 핸들러 (GitServer). 라우트 테이블(routes.rs)을 스스로 소유 — 수는 그 표가 답한다
                          #     write.rs — 쓰기 한 번의 순서를 타입이 강제한다
       apierr/            #   sentinel → (status, code) 등록부 + 와이어 코드 단일 소유
       action/            #   동작의 답 {ok, why, args} + 동작 ID → 사유 코드 목록 (SERVER_DRIVEN_ACTIONS_SRS)
       fswatch/           #   보이는 디렉터리의 비재귀 감시(fsnotify) · 이벤트 병합 · `fs_changed`
-      hub/               #   CommandHub·SSE 브로커 · FocusRegistry · AttnTracker
-      sse/               #   SSE 작성기(쓰기 시한·쌓인 이벤트 한 번에 flush) · 방송 본문 봉투
+      hub/               #   CommandHub(명령 방송) · FocusRegistry · AttnTracker
+      sse/               #   방송 본문 봉투(`payload`). 채널 cmd 프레임의 본문이다. 옛 SSE 작성기도 남아 있으나 쓰는 종단이 없다
       toolclient/        #   ToolClient — 데몬에 붙는 IPC 클라 (재접속 supervisor 포함)
       recordsync/        #   에이전트 기록을 데몬에 쓰는 비동기 큐 — (kind, tool) 마다 마지막 값 (AGENT_RECORD_DAEMON_SRS)
       seam/
@@ -198,8 +198,8 @@ crate 는 자기 축과 `shared/` 만, `shared/` 는 `shared/` 만 의존한다 
 종단 8개, `settings.rs` 는 서버가 해석하지 않는 JSON blob 이다(모두 `rust/crates/webserver/httpapi/src/`).
 라우트 테이블(`API_ROUTES`)은 `routes.rs`, 디스패처(`handle_api`)는 `serve.rs` 에 있고, 아직
 제 파일로 나가지 않은 종단 — `/api/state`·도구 생성·busy(단건·일괄)·삭제·workspace
-GET/PUT·ping·stats·sandbox 다섯 — 과 `reapSandboxes` 가 있다. SSE 열림 복원은
-`snapshot.rs`(`GET /api/snapshot`, FR-OPT-4-5)다.
+GET/PUT·ping·stats·sandbox 다섯 — 과 `reapSandboxes` 가 있다. 채널이 다시 열릴 때(`chan:open`)의
+복원은 `snapshot.rs`(`GET /api/snapshot`, FR-OPT-4-5)다.
 
 **프론트엔드는 번들러가 없다.** `index.html` 이 `<script>` 로 원본을 순서대로 로드하므로
 **로드 순서가 곧 의존성**이다. 기반 클래스(`core/base/` 의 `Component`·`View`·`Controller`)가
@@ -378,11 +378,11 @@ OTTERMINAL_TOOL_ID=<도구 id>  # detach 가 자기 도구를 식별하는 근�
 
 **행과 창은 재조정(reconcile)으로 맞춘다** (FR-EDT-42). 있어야 할 루트 집합은
 `[home, ...editors.list]` 이고, 재조정은 **멱등**이며 같은 루트의 창이 둘이면 id
-사전순으로 하나만 남긴다. 창을 만드는 주체가 브라우저인데 목록 변경은 SSE 로 모든
+사전순으로 하나만 남긴다. 창을 만드는 주체가 브라우저인데 목록 변경은 채널로 모든
 브라우저에 도달하므로, 결정론적 중복 제거가 단일 실행자 지명
 (`cmdActions` 의 `single`)의 자리를 대신한다.
 
-**`layout` 이 없는 Editor 창은 살아남는다.** 로드·SSE 동기화의 창 필터가
+**`layout` 이 없는 Editor 창은 살아남는다.** 로드·채널 동기화의 창 필터가
 `s.layout || isEditorWin(s) || isChatWin(s)` 다 (`layout-window-state.js`). 갓 만든 Editor 창은
 탐색기만 있고 pane 이 **없는** 것이 정상 상태이기 때문이다 (FR-EDT-55).
 
@@ -447,8 +447,8 @@ Editor 창에는 여전히 편집기 탭만 산다.
 관측이 갱신되면 `paintAll` 이 그 루트를 보는 칸 전부를 칠한다. store 는 뷰가 무엇을
 그리는지 모른다 — "다시 칠하라" 만 말한다.
 
-Git 도 같다. `GitObserver`(`git/panel.js`) 가 **앱에 하나**로 폴링·`status`·소실·
-실패 누적을 들고, `GitPanel` 은 **칸마다 하나**로 선택·접힘·미리보기·diff 대상을
+Git 도 같다. `GitObserver`(`git/observer.js`) 가 **앱에 하나**로 `status`·소실·
+실패 누적과 실패 뒤 재시도를 들고(변화 신호는 채널의 `git:<root>` 토픽이 준다 — 주기로 묻지 않는다), `GitPanel` 은 **칸마다 하나**로 선택·접힘·미리보기·diff 대상을
 갖는다. 그래서 왼쪽 칸에서 파일 A 의 diff, 오른쪽 칸에서 파일 B 의 diff 를 나란히
 볼 수 있으면서 `git status` 요청은 한 벌이다. 하위 뷰 모듈 일곱(`history`·`branches`·
 `stash`·`console`·`worktrees`·`commit`·`remote`)은 `constructor(panel)` 로 패널을
@@ -487,8 +487,8 @@ Git 도 같다. `GitObserver`(`git/panel.js`) 가 **앱에 하나**로 폴링·`
 하나를 두고 (`rust/crates/webserver/hub/src/focus.rs` 의 `FocusRegistry`), 한 클라이언트는 창 하나만 소유한다 (FR-XDF-3). 슬롯
 둘을 한 클라이언트로 다루면 이 규칙에 먼저 걸려 한 칸이 반드시 흐려진다. 슬롯을
 **서버에게 별개 클라이언트로 보이게** 하면 서버는 무변경이고, 기존 소유권 e2e 도
-개정 없이 통과한다. 슬롯 1 은 자기 신원으로 SSE 구독을 하나 더 열며, 그 구독이
-소유권의 수명이다 (FR-XDF-9).
+개정 없이 통과한다. 슬롯 1 의 신원은 탭의 채널 하나가 `hello.slots` 로 함께 밝히며, 그 채널이
+소유권의 수명이다 (FR-XDF-9, `perf/CHANNEL_PROTOCOL.md` §4.1).
 
 같은 창이 두 슬롯에 있으면 **포커스 슬롯만** 주장한다. 둘 다 주장하면 fire-and-forget
 POST 두 개가 경합해 승자가 네트워크 순서로 정해진다 — 실측으로 드러난 결함이다.
@@ -624,7 +624,7 @@ flowchart LR
     WSJ["workspace.json 쓰기 주체"]
   end
   subgraph SRV["웹 서버 — otterminal"]
-    API["HTTP · WS · SSE"]
+    API["HTTP · 채널(WS)"]
     RS["run.Store<br/>runs.json"]
     WM["worktree.Manager<br/>$OTTERMINAL_HOME/worktrees"]
     AD["agentadapter<br/>선언 테이블"]
@@ -649,7 +649,7 @@ flowchart LR
   API --> WM
   API --> AD
   ACT --> API
-  API -- "SSE 명령" --> BR
+  API -- "채널 명령·토픽" --> BR
   WSJ -- "PUT" --> API
 ```
 
@@ -953,7 +953,7 @@ worktree 조작은 **직렬화**한다. 공용 common-dir 을 건드려 병렬 �
 
 ## 커맨드 브로드캐스트 (`rust/crates/webserver/hub/src/commands.rs`)
 
-`CommandHub` 는 SSE 구독자 집합과 구독당 채널(`CMD_SUB_QUEUE` — 한 번의 가장 큰 버스트인 `clear_all_attention` 을 담도록 `toolhub::TOOL_CAP`)을 관리. `POST /api/commands` 로 들어온 action 을 `hub::is_allowed_cmd_action`(표 `CMD_ACTIONS`) 화이트리스트로 검증 후 구독자 전원에게 브로드캐스트. 버퍼가 꽉 차면 그 구독을 닫고 로그를 남긴다 — 클라이언트가 재연결해 다시 받는다. SSE 핸들러는 `rust/crates/webserver/sse` 의 작성기로 쌓인 메시지를 한 번에 쓰고 한 번 flush 한다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-1).
+`CommandHub` 는 명령 구독자 집합(브라우저 채널마다 하나)과 구독당 큐(`CMD_SUB_QUEUE` — 한 번의 가장 큰 버스트인 `clear_all_attention` 을 담도록 `toolhub::TOOL_CAP`)을 관리. `POST /api/commands` 로 들어온 action 을 `hub::is_allowed_cmd_action`(표 `CMD_ACTIONS`) 화이트리스트로 검증 후 구독자 전원에게 브로드캐스트. 버퍼가 꽉 차면 그 구독을 닫고 로그를 남긴다. 채널은 구독에서 받은 본문을 `{"t":"cmd",…}` 프레임으로 바꿔 제어 큐에 넣는다(`httpapi/src/channel/cmd.rs`, `perf/CHANNEL_PROTOCOL.md` §4.1). 옛 SSE 핸들러(FR-OPT-8-1 의 한 번 flush)는 M1 에서 지웠다.
 
 **허용 목록은 `hub.cmdActions` 가 갖는다** (허용·생성·단일실행자를 한 표에서 파생) — 여기 베끼지 않는다.
 
@@ -976,14 +976,13 @@ worktree 조작은 **직렬화**한다. 공용 common-dir 을 건드려 병렬 �
 
 ### 열림 복원과 칸 구독
 
-SSE 가 열릴 때의 복원은 **요청 하나**다 — `GET /api/snapshot?parts=attention,activity,…`
+채널이 다시 열릴 때(`chan:open`)의 복원은 **요청 하나**다 — `GET /api/snapshot?parts=attention,activity,…`
 (`httpapi/src/snapshot.rs`, FR-OPT-4-5)가 고른 조각을 한 본문에 싣는다. 200 이 아닌 조각과 모르는
 이름은 빠지고, 받는 쪽(`state-registry`)은 없는 조각을 그 종단이 실패한 것과 같이 다룬다.
 
-슬롯 칸의 두 번째 구독은 `?presence=1` 이다 (D-OPT-4, FR-OPT-4-12). 서버는 소유권(`Focus`)과
-GitWatcher 임대만 붙이고 명령 허브 등록과 갱신 알림을 건너뛴다 — 방송을 싣지 않는다.
-허브에 등록되지 않으므로 구독 상한(`hub::SUB_CAP`)은 `presence_subs` 가 따로 센다. 옛 서버는
-파라미터를 무시하고 전부 보내며, 칸 채널은 그것을 버린다.
+슬롯 칸은 구독을 따로 열지 않는다. 탭의 채널 하나가 `hello` 의 `slots` 에 칸 신원을 싣고, 서버는
+그 신원마다 소유권(`Focus`) 임대만 쥔다 — 칸 수가 바뀌면 `hello` 를 다시 보내고 빠진 신원의 임대를 푼다
+(`perf/CHANNEL_PROTOCOL.md` §4.1). 옛 `?presence=1` SSE(D-OPT-4, FR-OPT-4-12)는 M1 C1 에서 지웠다.
 
 ## 데몬 IPC (`rust/crates/shared/toolipc`)
 
@@ -1059,23 +1058,19 @@ import 방향은 단방향 (`adapters → {toolaccess, toolhub, workspace, platf
 
 `adapters::Tool` 은 도구 허브 경로, bracketed paste, submit 지연을 한곳에 캡슐화한다. `/api/tools/{output,input,message}` 가 두 모드에서 동일하게 동작하는 근거다 — 이 어댑터를 우회해 핸들러에서 PTY 를 직접 만지면 daemon 모드가 깨진다.
 
-## 재연결의 고리와 그것을 끊는 자리 (`httpapi/src/ws.rs`)
+## 재연결의 고리와 그것을 끊는 자리 (`httpapi/src/channel/term.rs`)
 
-브라우저에서 **재연결의 유일한 계기는 `onclose`** 다 (`term-pane.js`). 그래서
-없는 도구를 부르는 연결에 대해:
+터미널은 칸마다 소켓을 열지 않고 탭의 채널 하나에 `term.open` 으로 붙는다 (PERF_OPTIMIZATION_SRS M1 C5).
+브라우저가 터미널을 다시 붙이는 계기는 **채널이 끊기거나 서버가 `term.lost` 를 보낼 때**다
+(`web/js/ui/term-channel.js`). 없는 도구를 부르면 서버는 `OP_EXIT` 을 보낸다. 같은 도구를 10초
+(`MISS_REPEAT_WINDOW`) 안에 다시 물으면 2초(`MISS_DELAY`) 늦춰 보낸다. `OP_EXIT` 을 받은 칸은 다시 붙지
+않으므로(FR-RCS-1) 고리가 서지 않는다.
 
-| 수단 | 결과 |
-|---|---|
-| 지연 (Go 기준선(main)의 `throttleMiss`) | 주기가 늘 뿐 고리는 남는다 — 닫는 순간 다시 온다 |
-| upgrade 거절 | 주기가 **줄어든다** — 옛 탭의 백오프는 자라지 못한다 |
-| **닫지 않기** (`hold_miss`) | 계기가 서지 않아 고리가 끊긴다 |
-
-그래서 임계(창 안 5회)를 넘으면 `OP_EXIT` 을 보낸 **뒤 소켓을 붙잡는다.** 통보는
-여전히 보내므로 규약을 지키는 클라이언트는 영향이 없다.
-
-붙잡는 동안 **읽는다.** upgrade 된 뒤에는 요청의 취소가 클라이언트
-절단을 알려 주지 않아, 읽지 않으면 닫힌 탭이 상한(동시 64·10분)을 채워 방어가
-무력해진다. 자세히는 `CONNECTIVITY_RESILIENCE_SRS.md`.
+> 이전: 칸별 `/ws` 에서는 재연결의 유일한 계기가 `onclose` 였다. 그래서 임계(창 안 5회)를 넘으면
+> `OP_EXIT` 을 보낸 뒤 소켓을 닫지 않고 붙잡았다(`hold_miss`).
+> 새: 붙잡기가 없다. 채널은 터미널 하나가 없어도 닫히지 않는다.
+> 이유: `/ws` 를 지우면서(M1 C5) 닫힘이 재연결의 계기가 아니게 됐다. 붙잡기는 M1 에서 지웠다
+> (`CONNECTIVITY_RESILIENCE_SRS.md` 의 해당 요구사항은 폐기됐다).
 
 ## 진단 스냅샷 (`httpapi/src/diag_snapshot.rs`)
 
@@ -1083,7 +1078,7 @@ import 방향은 단방향 (`adapters → {toolaccess, toolhub, workspace, platf
 그 조용함 자체가 증거이기 때문이다.
 
 ```
-diag reqAge=37s wsAge=37s ws=4 tools=0 miss=1 hold=4 goroutines=18 allocMB=1
+diag reqAge=37s wsAge=37s ws=4 tools=0 miss=1 goroutines=18 allocMB=1
 ```
 
 `reqAge` 는 **모든** HTTP 요청이 갱신한다 — 핫패스 필터로 접근 로그에서 빠지는
@@ -1112,17 +1107,17 @@ HTTP `PUT /api/workspace` 핸들러는 `save(blob, if_match)` 호출 → 인덱�
 
 또한 `/api/tools` POST 에 `cwdTool=<refToolId>` 쿼리 지원 → 클라이언트가 `/api/cwd` 사전 조회할 필요 없음 (RT 1 건 제거).
 
-## 터미널 재접속 (`rust/crates/webserver/httpapi/src/ws.rs`)
+## 터미널 재접속 (`rust/crates/webserver/httpapi/src/channel/term.rs`·`ws.rs`)
 
 **재접속은 이어 붙이는 것이지 다시 뿌리는 것이 아니다** (`TERMINAL_RESUME_SRS`).
 
 붙는 쪽의 xterm 인스턴스는 재접속 너머로 살아남는다 (`SOFT_RELOAD_SRS` D-3). 그래서
 연결마다 스크롤백을 되뿌리면 화면에 이미 있는 것 위에 같은 것이 한 번 더 그려진다 —
 접수한 증상 "이전 글자가 보이고 글자가 중복으로 출력된다" 가 그것이었다. 실측
-(2026-09-12): WS 연결 916 회에 스냅샷 송신 898 회, claude 를 띄운 도구는 **매번 1 MiB
+(2026-09-12, 옛 칸별 `/ws`): WS 연결 916 회에 스냅샷 송신 898 회, claude 를 띄운 도구는 **매번 1 MiB
 전량**이었다.
 
-그래서 갈래가 둘이다. 가르는 것은 `/ws?since=<offset>` 이고, 그 좌표는
+그래서 갈래가 둘이다. 가르는 것은 채널 `term.open` 의 `since` 이고(옛 `/ws?since=<offset>`), 그 좌표는
 `outbuf.Stream` 의 누적 입력 바이트 수다 — `readPTY` 가 같은 raw 바이트를 스트림과
 구독자 양쪽에 넘기므로 **라이브 스트림과 스냅샷이 같은 좌표계에 선다**.
 
@@ -1192,7 +1187,7 @@ DECRQM 질의가 초판 패턴(`c`·`n`·`R`)에 걸리지 않아 그대로 남�
 방송(`Tool.broadcast`)이 그 질의를 **모든** 클라이언트에 나르고, 각 xterm 이 자기에게
 물은 줄 알고 **각자 답한다.** 출력은 1:N 방송이지만 입력은 N:1 합류이므로, 앱이 답을
 하나만 먹고 나머지가 입력 줄에 남는다. 창이 열리면 **모든 도구에** 연결이 하나씩 더
-생기므로(`httpapi/src/ws.rs`) 데스크톱과 폰을 같이 쓰면 늘 그 상태였다.
+생기므로(채널의 `term.open`, `httpapi/src/channel/term.rs`) 데스크톱과 폰을 같이 쓰면 늘 그 상태였다.
 
 그래서 서버가 도구마다 **답할 연결 하나**를 정하고 `OpReplySeat`(`0x06`, 페이로드
 `owns uint8`)로 알린다. 주인은 가장 먼저 붙은 연결이고, 연결이 붙거나 떨어질 때마다 그
@@ -1210,19 +1205,19 @@ DECRQM 질의가 초판 패턴(`c`·`n`·`R`)에 걸리지 않아 그대로 남�
 예외**다 — 질의의 답이 아니라 그 창 고유의 사실이므로 창마다 나간다. 사용자의 키도
 막지 않는다: 어느 창에서 타이핑하든 같은 터미널이 움직이는 것은 의도된 동작이다.
 
-WS 구독 쪽 규칙도 같은 뿌리다: 데몬 모드의 출력 릴레이(`relayOutput`)는 **쓰기가
-실패하면 그 자리에서 끝난다.** 예전에는 실패를 로그만 남기고 계속 펌프해, 서버
+구독 쪽 규칙도 같은 뿌리다: 채널의 출력 중계(`channel/term.rs` 의 `relay`, 옛 `relayOutput`)는 **채널이
+닫히면(`done`) 그 자리에서 끝난다.** 예전에는 실패를 로그만 남기고 계속 펌프해, 서버
 재기동으로 끊긴 소켓에 초당 수십 회를 재시도하며 `broken pipe` 로 로그를 채웠다
-(실측: 26초에 7.7MB). 소켓을 닫으면 읽기 루프가 곧바로 풀리고 구독이 해제된다.
+(실측: 26초에 7.7MB). 중계가 끝나면 도구 구독도 바로 풀린다(`unsub`).
 
 ## 동시성
 
 - `toolhub::ToolManager` : 상태(`State` — 도구 맵·예약 수 `pending`·백그라운드 맵 `background: HashMap<id, 보낸 시각>`)는 `RwLock` 하나 아래에 있다 — 조회 결과 `BackgroundEntry` 는 그 위에서 만든다. 도구 생성은 **락 밖에서** 띄운다(fork/exec + PTY open) — 상한(`TOOL_CAP`)은 락 안에서 자리를 예약(`pending`)해 지킨다 (M8 `GO-29`). 저장은 따로 `Mutex` + `Condvar` 로 한 번에 하나만 돈다. 도구 종료 콜백(`invalidator`)은 같은 락으로 읽는다 (`GO-30`).
 - `workspace::Manager` : 스냅숏(raw 와 rev 를 **한 쌍으로** 싣는다 — 따로 두면 리더가 새 raw 와 옛 rev 를 짝지을 수 있다)과 색인을 각각 `RwLock<Arc<…>>` 로 들고, 리더는 `Arc` 를 복제해 락을 바로 놓는다. save 는 `mu: Mutex<()>` 로 직렬화한다.
 - `outbuf::Stream` : `Mutex<Inner>` 하나(링 버퍼·누적 카운터). feed·snapshot 모두 락 안에서 링을 다룬다. 저장은 `max` 바이트 링이다 (FR-OPT-3-3).
-- `toolhub::SafeConn` : 쓰기는 `tokio::sync::Mutex` 로 직렬화하고, 닫힘은 `AtomicBool` 이다. WS 의 라이브 출력은 연결마다 상한이 있는 채널(`OUTPUT_QUEUE`, `httpapi/src/ws.rs`)로 나른다 — 넘친 연결은 닫혀 브라우저가 since 로 재동기한다 (FR-OPT-3-1).
-- `hub::CommandHub` : SSE 구독자 맵(`subs`)과 응답 대기 맵(`pending`)은 각각 `Mutex`, 관찰자 콜백은 `RwLock`.
-- `toolclient::ToolClient` : 데몬 연결·pending RPC 맵·콜백은 `st: Mutex<State>` 아래, 쓰기는 `write_mu` 로 따로 직렬화한다. 재접속 supervisor 는 `State.generation` 으로 세대를 가르고, 정상 상태에 RPC 가 없어도 `hello` 생존 확인(`TOOL_HEARTBEAT_EVERY` 15 s, 시한 `TOOL_CALL_TIMEOUT`)으로 답하지 않는 데몬을 끊는다 — 진행 중인 호출이 있으면 건너뛴다 (FR-OPT-2-1). 도구별 WS 구독자는 별도 `subs: RwLock` — 읽기 루프가 push 를 fan-out 하는 동안 RPC 락을 쥐지 않는다. `stopped`·`reconnects`·`dropped` 는 atomic.
+- 채널 터미널(`httpapi/src/channel/term.rs`) : 라이브 출력은 sid 마다 상한이 있는 큐(`OUTPUT_QUEUE`)로 나르고, 쓰기는 채널마다 쓰기 태스크 하나가 우선순위(제어 > 터미널 > 상태)대로 한다(`channel/outbox.rs`). 출력에 틈이 생기거나 밀린 양이 `TERM_PENDING_MAX`(1 MB)를 넘으면 서버가 그 sid 만 다시 재생하고, 구독이 끊기면 `term.lost` 를 보내 브라우저가 since 로 다시 붙는다 (FR-OPT-3-1, `perf/CHANNEL_PROTOCOL.md` §6). 옛 `toolhub::SafeConn` 은 M1 C6 에서 지웠다.
+- `hub::CommandHub` : 명령 구독자 맵(`subs`)과 응답 대기 맵(`pending`)은 각각 `Mutex`, 관찰자 콜백은 `RwLock`.
+- `toolclient::ToolClient` : 데몬 연결·pending RPC 맵·콜백은 `st: Mutex<State>` 아래, 쓰기는 `write_mu` 로 따로 직렬화한다. 재접속 supervisor 는 `State.generation` 으로 세대를 가르고, 정상 상태에 RPC 가 없어도 `hello` 생존 확인(`TOOL_HEARTBEAT_EVERY` 15 s, 시한 `TOOL_CALL_TIMEOUT`)으로 답하지 않는 데몬을 끊는다 — 진행 중인 호출이 있으면 건너뛴다 (FR-OPT-2-1). 도구별 출력 구독자는 별도 `subs: RwLock` — 읽기 루프가 push 를 fan-out 하는 동안 RPC 락을 쥐지 않는다. `stopped`·`reconnects`·`dropped` 는 atomic.
 - `hub::AttnTracker` : 도구 맵은 `mu: Mutex<Inner>`, 도구 하나의 상태(`last_output_at`·`attention` 등)는 `PaneState` 의 atomic — 스위퍼 틱과 출력 콜백이 같은 도구를 락 없이 읽는다. 방송은 락을 놓고 부른다 (hub 락 순서 의존을 끊는다).
 - `git jobs::Jobs` : 리포당 진행 중 작업 하나, 작업 표와 구독자 집합은 `st: Mutex<Table>` 아래에 있다. 구독은 `Unsubscribe` 가 drop 될 때 풀리고, 러너는 작업의 취소 신호(`ctx.cancel()`)로 끊는다.
 

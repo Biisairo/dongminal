@@ -1,6 +1,7 @@
 # SRS: 활동 상태 정확도 · 서브에이전트 활동 · 계정 한도 — IEEE 29148
 
 > **문서 상태**: 승인·구현완료
+> **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1)**: 이 문서가 적은 것 가운데 M1 에서 지운 것 — 명령·사건 SSE(`/api/commands/sse`, `POST /api/command-result`) · 주기 설정 `agentsPollInterval`(설정 `RETIRED_KEYS`, 저장된 값은 조용히 무시된다). 지금 브라우저 탭은 채널(`/channel`) 하나로 명령(`cmd`)·상태 토픽·터미널을 주고받고, 상태를 알려고 주기적으로 GET 하지 않는다 — 대체 요구사항은 `PERF_OPTIMIZATION_SRS` FR-CON-1·7·8·10 과 D-9, 경로별 대응은 `perf/CHANNEL_PROTOCOL.md` §5.2·§8 이다. 본문의 옛 경로 서술은 당시 구조로 남긴다
 > **확인**: Go·JS 단위 시험, e2e(TC-ASV-1~15), gates·lint 가 통과했다(2026-11-10). Usage 바닥 개정(D-ASV-11)도 같은 날 같은 검사를 통과했다. TC-ASV-16(새 빌드에서 실제 세션 확인)은 하지 않은 채로 사용자가 완료를 정했다
 > **개정 2026-11-13**: D-ASV-2 의 근거(구독 토큰으로 직접 조회하지 않음)를 철회한다. 대체: `CLAUDE_ACCOUNTS_SRS` D-CAC-1. statusLine `rate_limits` 경로는 남지만, Usage 바닥은 등록 계정 묶음(OAuth 값) + 계정마다 statusLine 한 줄이 됐다(FR-ASV-41 개정, `CLAUDE_ACCOUNTS_SRS` FR-CAC-90~93). 이전 동작: 바닥은 `limits` 원소마다 머리 한 줄과 창마다 두 줄 블록이었다. 새 동작: 계정마다 statusLine 한 줄(`statusLine · ● 이름 · 세션 34% · 주간 21% · 2시간 10분 후 초기화`). 이유: 계정 묶음이 창 막대를 그리므로 statusLine 값은 요약 한 줄로 충분하다(D-CAC-6·22). TC-ASV-14 의 창 블록 검사는 TC-CAC-21 로 옮겼다
 > **개정 2026-11-11**: Usage 바닥을 스크롤 영역 밖으로 옮겼다(FR-ASV-40 · D-ASV-12 · TC-ASV-15). 이전 동작: 스크롤되는 패널 안의 sticky 바닥이 목록을 덮었다. 새 동작: 몸통만 스크롤되고 바닥은 그 아래에 고정된다
