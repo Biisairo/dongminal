@@ -172,6 +172,8 @@ const CHAN_PING_HIDDEN_MS=30000;
 const CHAN_SILENCE_GRACE_MS=5000;
 const CHAN_RETRY_MIN_MS=500;
 const CHAN_RETRY_MAX_MS=10000;
+// PERF M3 D-36 (FR-SPA-3): 탭 본문이 보이지 않게 된 뒤 잠들기까지. 그 안에 다시 보이면 잠들지 않는다. D-16 의 터미널 지연과 같은 값이다.
+const SCREEN_SLEEP_MS=2000;
 /** 상태 토픽(PERF M1 C3) 변화를 복원에 넘기기 전에 모으는 시간. 한 틱의 변화는 한 번으로 합친다. */
 const STATE_TOPIC_COALESCE_MS=0;
 

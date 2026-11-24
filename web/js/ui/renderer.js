@@ -41,8 +41,11 @@ class Renderer {
     this._dom = new Map();
     // 이번 그리기에서 쓰인 키. 쓰이지 않은 것은 끝에서 거둔다.
     this._domUsed = new Set();
-    // 이번 그리기에서 pane 본문에 붙은 위젯 요소들 (FR-PDR-9).
-    this._mounted = new Set();
+    // 이번 그리기에서 pane 본문에 붙은 위젯 요소 → 그 주인 (FR-PDR-9). 주인은 생명주기 전이의 대상이다
+    // (PERF M3 §3.5) — 주인이 없는 본문은 `null` 이다.
+    this._mounted = new Map();
+    // 탭 본문 주인의 mount·wake·sleep·unmount (FR-SPA-3).
+    this.life = new ScreenLife(app);
     // 이번 그리기에서 **실제로 부모가 바뀐** 터미널 (FR-PDR-10). 사후 처리는
     // 이 목록에만 적용한다 — 재사용된 것은 건드리지 않는다.
     this._moved = [];

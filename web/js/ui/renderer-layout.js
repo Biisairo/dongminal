@@ -31,10 +31,21 @@ Object.assign(Renderer.prototype, {
     // FR-PDR-1·9: 이번 그리기의 장부를 연다. `_moved` 는 여기서 비우지 않는다 —
     // 프레임이 오기 전에 다시 그려지면 그 이동이 장부에서 사라진다.
     this._domUsed=new Set();
-    this._mounted=new Set();
+    this._mounted=new Map();
     this._rSlots(area);
     this._gcWidgets();
+    this._lifeCommit();
     this._afterLayout();
+  },
+
+  /**
+   * 이번에 붙은 본문의 주인을 생명주기에 넘긴다 (PERF M3 §3.5, FR-SPA-3). 지난 그리기와 견주는 것은
+   * `ScreenLife.commit` 이다 — 새로 보인 것은 깨우고, 빠진 것은 `SCREEN_SLEEP_MS` 뒤 잠들게 예약한다.
+   */
+  _lifeCommit(){
+    const shown=new Map();
+    for(const [el,owner] of this._mounted) if(owner) shown.set(owner,el.parentNode);
+    this.life.commit(shown);
   },
 
   /**
@@ -114,7 +125,7 @@ Object.assign(Renderer.prototype, {
     // 칸 2·3 의 편집기는 살아 있는 탭인데도 매 render 마다 파괴됐다.
     for(const[k,v] of app.fileEditors){
       const tid=app.slot.slotBase(k);
-      if(!allTabIds.has(tid)){v.destroy();app.fileEditors.delete(k)}
+      if(!allTabIds.has(tid)){this.life.unmount(v);v.destroy();app.fileEditors.delete(k)}
     }
     // 옛 Git 창이 사라졌으면 그 창의 패널만 루트를 area 로 되돌린다. 인스턴스는
     // 유지 — 다시 열릴 수 있다. FR-SVS-42: 패널은 칸마다 있으므로 그 자리의
