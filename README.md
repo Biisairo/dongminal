@@ -4,7 +4,7 @@
 아이패드에서도 같은 터미널·같은 창 배치로 이어서 씁니다. 창을 닫아도 세션은
 살아 있습니다.
 
-받아서 실행하면 끝입니다 — **의존이 없는 단일 파일**이고 Go 도, Node 도, 별도
+받아서 실행하면 끝입니다 — **의존이 없는 단일 파일**이고 Rust 도, Node 도, 별도
 설치도 필요 없습니다. 화면(xterm.js)과 헬퍼까지 그 안에 들어 있습니다.
 
 ![터미널과 분할 칸](docs/images/terminal.png)
@@ -383,5 +383,6 @@ README 의 그림은 `scripts/shots/shoot.sh` 가 다시 찍습니다 — 격리
 
 화면에 들어 있는 외부 구성요소는 각자의 라이선스를 그대로 따릅니다:
 xterm.js 와 애드온 4종 · markdown-it (MIT) · highlight.js (BSD-3-Clause) ·
-DOMPurify (Apache-2.0 / MPL-2.0). Go 의존은 `creack/pty` (MIT) ·
-`gorilla/websocket` (BSD-2-Clause) · `golang.org/x/sys` (BSD-3-Clause) 입니다.
+DOMPurify (Apache-2.0 / MPL-2.0). 서버(Rust)의 의존은 허용적 라이선스만 씁니다 —
+MIT · Apache-2.0 · BSD-2/3-Clause · ISC · Unicode-3.0 · Zlib 등이고, 목록은
+[`rust/deny.toml`](rust/deny.toml) 이 지키며 `cargo deny check` 가 검사합니다.

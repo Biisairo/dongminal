@@ -4,7 +4,7 @@
 [README](../../README.md) 와 [getting-started](../external/getting-started.md) 에 있다.
 
 이 문서는 **README 가 사용자 문서가 되면서 옮겨 온 것**이다
-(README_REWRITE_SRS FR-RDM-9). 2026-11-22 에 지금 코드(`go.mod`·`Makefile`·`playwright.config.ts`)에 맞췄다.
+(README_REWRITE_SRS FR-RDM-9). 2026-11-24 에 Rust 판(`rust/Cargo.toml`·`rust/rust-toolchain.toml`·`Makefile`·`playwright.config.ts`)에 맞췄다 (GO_REMOVAL_SRS G-57).
 
 ---
 
@@ -12,7 +12,7 @@
 
 macOS · Linux · **WSL** · **Windows 10 1809+** (native).
 
-OS 마다 달라지는 것은 전부 `internal/shared/platform` 뒤에 있다 — PTY,
+OS 마다 달라지는 것은 전부 `rust/crates/shared/platform`(`dm-shared-platform`) 뒤에 있다 — PTY,
 프로세스 제어·그룹, 프로세스 조회, 셸 선택과 훅, 로컬 IPC 종단, 경로 규약,
 브라우저 실행. **그 패키지 밖에는 OS 분기가 한 줄도 없다.** 그 규칙을 강제하는
 것이 `scripts/check-seams.sh` 다.
@@ -23,10 +23,9 @@ PTY 의미론을 얻는 유일한 공식 경로이며 그 버전에서 도입됐
 ### 소스에서 빌드
 
 받아서 쓰는 사람에게는 필요 없다 — [README](../../README.md) 의 설치면 끝이다. 이 절은 고치는
-사람을 위한 것이다. Go 는 `go.mod` 의 `go` 줄이 정한 판(지금 1.26.11) 이상이 필요하다.
-
-Go 는 교차 컴파일이 기본이라 별도 툴체인이 필요 없다. 맥에서 윈도우·리눅스
-바이너리가 그대로 나온다.
+사람을 위한 것이다. [rustup](https://rustup.rs) 이 있으면 된다. 툴체인 판은
+`rust/rust-toolchain.toml` 한 자리가 정하고(지금 1.95.0), `rust/` 안에서 cargo 를 부르면
+rustup 이 그 판을 알아서 받는다. `scripts/build.sh` 는 그 안에서 cargo 를 부른다.
 
 ```bash
 scripts/build.sh                        # 호스트용 하나 → ./dongminal
@@ -37,33 +36,37 @@ VERSION=v1.0.3 scripts/build.sh --all   # 판을 새겨서 (릴리스가 쓰는 
 ```
 
 `VERSION` 을 주지 않으면 `dongminal version` 이 `dev` 를 낸다. 소스 빌드와 릴리스
-산출물을 구별하기 위해서다.
+산출물을 구별하기 위해서다. 산출물의 이름과 위치는 Go 판과 같다.
 
 대상은 darwin/arm64 · darwin/amd64 · linux/amd64 · linux/arm64 · windows/amd64 다.
 WSL 은 별도 대상이 아니다 — `linux/amd64` 를 그대로 쓴다.
 
-**cgo 주의.** 이 저장소의 cgo 는 하나뿐이다 — `sysstat` 의 mach 호출(macOS 의
-CPU 사용률·메모리 사용량). linux·windows 는 그 지표를 `/proc` 과 WinAPI 로 읽으므로
-cgo 가 필요 없고 정적 바이너리로 나온다.
+**대상마다 툴체인이 필요하다.** Go 판은 툴체인 없이 어디서나 다섯 대상을 만들었지만,
+Rust 는 대상마다 `rustup target add <triple>` 과 그 대상의 링커가 있어야 한다
+(GO_REMOVAL_SRS DIFF-GRM-4). 없으면 `build.sh` 가 cargo 의 오류를 그대로 내고 실패한다.
 
-문제는 go 가 GOOS/GOARCH 가 호스트와 다르면 `CGO_ENABLED` 를 자동으로 0 으로
-내린다는 점이다. arm64 맥에서 `GOOS=darwin GOARCH=amd64 go build` 를 직접 부르면
-**그 바이너리만 CPU·메모리 지표를 잃는다.** `build.sh` 가 darwin 대상에 한해
-cgo 를 다시 켜므로, 손으로 `go build` 하지 말고 스크립트를 쓴다.
+| 대상 | triple | 필요한 것 |
+|---|---|---|
+| darwin/arm64 · darwin/amd64 | `aarch64-apple-darwin` · `x86_64-apple-darwin` | macOS 와 Xcode 명령줄 도구 |
+| linux/amd64 · linux/arm64 | `x86_64-unknown-linux-musl` · `aarch64-unknown-linux-musl` | musl 교차 링커(`musl-gcc` 또는 `CC_<triple>`) |
+| windows/amd64 | `x86_64-pc-windows-msvc` | Windows 와 MSVC 빌드 도구 |
 
-darwin 이 아닌 호스트에서 darwin 대상을 빌드하면 cgo 를 켤 수 없다. 그때는
-건너뛰지 않고 지표가 빠진 채로 빌드하며 화면에 경고를 남긴다.
+linux 산출물은 musl 정적 바이너리다 — Go 판의 `CGO_ENABLED=0` 처럼 런타임 의존이 없다.
+CI 는 대상 OS 의 러너에서 그 OS 의 산출물을 만든다 (Q-GRM-2).
+
+macOS 의 CPU·메모리 지표는 `sysstat` 의 OS 모듈이 mach 호출로 읽는다. 대상이 macOS 면
+늘 들어가므로, Go 판의 cgo 처럼 교차 빌드에서 지표가 빠지는 일은 없다.
 
 ### 검사
 
 커밋 전에는 `make` 대상을 쓴다. `make help` 가 목록을 보인다.
 
 ```bash
-make gates      # 커밋 전 게이트 — gofmt · go vet · go build · 이음매 · 타이머 · git 쓰기 · 크로스 컴파일 · vendor 판 · CSS·JS 규약 게이트들
-make lint       # golangci-lint + eslint (도구가 없으면 건너뛰고 알린다 — CI 는 돌린다)
+make gates      # 커밋 전 게이트 — cargo fmt · cargo clippy · cargo build · 이음매 · 타이머 · git 쓰기 · 크로스 컴파일 · vendor 판 · CSS·JS 규약 게이트들
+make lint       # cargo deny + cargo audit + eslint (도구가 없으면 건너뛰고 알린다 — CI 는 돌린다)
 make typecheck  # e2e 타입 검사 + `// @ts-check` 를 단 프론트 파일
 make unit       # 프론트 순수 모듈 단위 시험 (node:test, web/js/test·scripts/test)
-make test       # Go 단위 시험 (-race -shuffle=on)
+make test       # Rust 단위 시험 (격리 실행으로 cargo test --workspace)
 make all        # 위 전부
 make hooks      # pre-commit 훅을 켠다
 ```
@@ -71,12 +74,12 @@ make hooks      # pre-commit 훅을 켠다
 아래는 게이트가 부르는 스크립트 중 따로 쓸 일이 많은 것이다.
 
 ```bash
-scripts/check-cross.sh     # 5개 대상 build + vet (테스트 파일까지 타입 검사)
+scripts/check-cross.sh     # 5개 대상 cargo check + clippy (테스트 코드까지 타입 검사)
 scripts/check-seams.sh     # OS 의존 호출이 platform 밖에 없는지
 scripts/verify-isolated.sh # 격리 인스턴스를 띄워 종단간 검사 (dongminal verify)
 ```
 
-종단간 검사의 정의는 **Go 한 벌**이다 (`internal/ctl/cli/verify.go`). 세 OS 가 같은
+종단간 검사의 정의는 **한 벌**이다 (`rust/crates/ctl/cli/src/verify.rs`). 세 OS 가 같은
 목록을 돌고, CI 의 Linux·Windows 도 같은 것을 부른다 — 검사를 셸 스크립트로 두 벌
 적던 것을 접었다. 설계는
 [docs/internal/E2E_UNIFICATION_SRS.md](./E2E_UNIFICATION_SRS.md).
@@ -97,16 +100,19 @@ Linux·Windows 에서 단위 테스트 · `doctor` · `verify` 를 돌리고, ma
 
 ## 테스트
 
-Go 테스트는 의존이 없다:
+Rust 시험은 툴체인 말고 의존이 없다:
 
 ```bash
-make test                # = go test -race -shuffle=on ./internal/... ./cmd/... ./web/...
-go test ./...            # 호스트(darwin·linux)
-scripts/check-cross.sh   # 5개 대상 build + vet — 테스트 파일까지 타입 검사된다
+make test                # = cd rust && scripts/hermetic.sh cargo test --workspace
+scripts/check-cross.sh   # 5개 대상 cargo check + clippy — 테스트 코드까지 타입 검사된다
 ```
 
+`make test` 는 격리 실행(`rust/scripts/hermetic.sh`)으로 돈다 — 도구 셸에서 물려받은
+`DONGMINAL_*` 가 운영 인스턴스를 겨누지 않게 한다. Go 판의 `-race -shuffle=on` 에
+해당하는 것은 없다(GO_REMOVAL_SRS DIFF-GRM-5).
+
 e2e(Playwright)는 npm 이 필요하다. **빌드에는 필요 없다** — 프론트엔드는 번들러가
-없고 `web/vendor/xterm.js` 가 저장소에 있어 `go build` 하나로 끝난다:
+없고 `web/vendor/xterm.js` 가 저장소에 있어 `scripts/build.sh`(cargo build) 하나로 끝난다:
 
 ```bash
 npm ci                    # Playwright 설치 (e2e 전용)
@@ -117,7 +123,8 @@ npx playwright test        # 위와 같은 한 프로세스 전량 (2026-11-22 �
 npx playwright test e2e/git-panel.spec.ts   # 스펙 하나
 ```
 
-e2e 는 `globalSetup`(`e2e/global-setup.ts`)이 서버 바이너리를 한 번 빌드하고, 워커마다
+e2e 는 `globalSetup`(`e2e/global-setup.ts`)이 서버 바이너리를 한 번 빌드하고(`build.sh` 와 같은
+cargo 산출물을 나눠 쓴다. `DM_E2E_PREBUILT_BIN` 이 있으면 그 파일을 쓴다), 워커마다
 임시 홈과 포트(60147 부터, 워커 i 는 `60147+i`)로 서버를 띄운다 (`playwright.config.ts`,
 `E2E_PARALLEL_SRS`). 포트 기준은 `E2E_PORT_BASE` 로 바꾼다. 운영 인스턴스의 UI 포트(58146)와 노드 포트
 기본값(58147)을 피한다. 워커의 `start` 는 그 포트를 쥔 프로세스를 종료하므로, 운영 포트와
@@ -134,7 +141,7 @@ e2e 는 `globalSetup`(`e2e/global-setup.ts`)이 서버 바이너리를 한 번 �
 출력한 정지 명령(`--port`·`--home` 이 채워진 형태)을 그대로 쓴다.
 
 종단간은 `dongminal verify` 다. 격리 인스턴스를 **스스로** 띄워 검사 목록 전량
-(`internal/ctl/cli/verify.go` 의 `verifyChecks`)을 훑고 치운다:
+(`rust/crates/ctl/cli/src/verify.rs` 의 `run_verify_checks`)을 훑고 치운다:
 
 ```bash
 ./dongminal verify           # 또는 scripts/verify-isolated.sh (빌드까지 함께)
@@ -156,7 +163,7 @@ git 검사 대상은 **실제 리포**여야 한다 — 비-git 디렉터리는 
 
 ## 기술 스택
 
-- **백엔드**: Go(`go.mod` 의 판), `creack/pty`, `gorilla/websocket`, `go:embed`
+- **백엔드**: Rust(`rust/rust-toolchain.toml` 의 판), tokio, hyper·axum, tokio-tungstenite, rust-embed. 허용 의존은 `rust/DEPENDENCIES.md`
 - **프론트엔드**: 번들러 없음. xterm.js 5.5 (fit, search, web-links, unicode11, webgl addons), 편집기 CodeMirror 6 — 판과 해시는 [VENDOR_VERSIONS.md](./VENDOR_VERSIONS.md)
 - **선택 의존성**: `claude` CLI (에이전트 오케스트레이션 시)
 

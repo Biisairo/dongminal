@@ -27,8 +27,8 @@ Browser (xterm.js)                    ┌─ ② dongminald ──────�
 없으면 ③ 이 자기 프로세스에 ToolManager 를 만든다(direct mode) — 그래서
 `shared/toolhub` 를 ②③ 이 함께 실행한다.
 
-- 프론트엔드는 `go:embed` 로 바이너리에 포함.
-- 런타임 헬퍼(`dmctl`, `edit`, `download`, `detach`)는 multi-call CLI — `$DONGMINAL_HOME/bin/` 에 바이너리를 가리키는 symlink 로 설치된다. zsh/bash cwd 훅은 `go:embed` 로 풀린다. 각 터미널의 shell 은 자동으로 이 경로를 `PATH` 에 얹고 `ZDOTDIR`(zsh)·`--rcfile`(bash) 로 훅 연결.
+- 프론트엔드는 `rust-embed` 로 바이너리에 포함(`dm-web-assets`).
+- 런타임 헬퍼(`dmctl`, `edit`, `download`, `detach`)는 multi-call CLI — `$DONGMINAL_HOME/bin/` 에 바이너리를 가리키는 symlink 로 설치된다. zsh/bash cwd 훅은 바이너리에 번들되어 풀린다. 각 터미널의 shell 은 자동으로 이 경로를 `PATH` 에 얹고 `ZDOTDIR`(zsh)·`--rcfile`(bash) 로 훅 연결.
 - PTY 프로세스는 브라우저 새로고침해도 유지 (서버 메모리 버퍼).
 - 워크스페이스(창/분할 칸/탭) 는 `workspace.json` 에 비동기 영속화 (H5 latest-wins coalescing). 도구는 `tools.json` 에 기록되고(소유자 없는 백그라운드 도구·샌드박스 도구 제외), 되살릴 때 탭이 참조하는 것만 고른다(FR-EM-14). 백그라운드 도구는 기록되지 않아 데몬 재시작을 넘기지 않는다.
 - 에이전트 접합면: 액션은 `dmctl` 서브커맨드, 정책은 `--plugin-dir`/`--settings` 로 세션 스코프 주입되는 스킬·훅. 등록 절차 없음. 자세히는 [docs/external/agent-orchestration.md](../external/agent-orchestration.md).
@@ -168,13 +168,11 @@ web/                     # 프론트엔드 자산 + embed.FS()
                          #     status-hub.js — GitStatusHub: root 별 status 한 벌 (탐색기·dirty-diff 공유, FR-OPT-4-1)
 e2e/                     # Playwright 스펙 + git 픽스처(git_fixture.sh)
 scripts/                 # build.sh — 빌드 · verify-isolated.sh — `dongminal verify` 껍데기 · check-*.sh — 게이트
-  gen-decisions/         #   `docs/internal/decisions.md` 생성기 (ctl/decidx)
-  gen-errors/            #   `docs/external/errors.md` 생성기 (ctl/errdoc)
-  check-action-reasons/  #   사유 코드마다 ko·en 문구(`why.<code>`)가 있는가 (webserver/action)
-  check-shared-constants/ #  서버가 보낼 수 없는 공유 상수의 두 벌이 같은가 (SERVER_DRIVEN K-j)
+                         #   check-*.sh 중 넷은 rust/crates/scripts/ 의 프로그램을 cargo run 으로 부른다:
+                         #   gen-decisions(decisions.md) · gen-errors(errors.md) · check-action-reasons · check-shared-constants
 .github/workflows/       # verify.yml — 매 푸시 검사 (Linux·Windows)
                          # release.yml — 태그 v* → 5개 대상 빌드 → GitHub Releases
-                         #   운영 동작은 바이너리의 액션 (internal/ctl/cli)
+                         #   운영 동작은 바이너리의 액션 (rust/crates/ctl/cli)
 docs/
   internal/              # 개발자 문서 (이 파일)
   external/              # 사용자 문서
@@ -266,7 +264,7 @@ App 원형에 위임자를 두지 않는다(`REFACTOR3_FE_DELEG_SRS`, 게이트 
 **코드는 방언 밖으로도 나간다** (M5 `G6-1`, `ERROR_CONTRACT_SRS`). 모든 오류 응답이
 `X-Error-Code` 헤더에 코드를 싣는다 — **본문은 한 바이트도 바뀌지 않는다.** 본문이
 공개 계약이고 헤더는 그 밖이라, 통일을 미루면서 코드를 얻는 유일한 길이다.
-카탈로그는 `docs/external/errors.md` 이며 `codes_doc.go` 에서 **생성**된다.
+카탈로그는 `docs/external/errors.md` 이며 `rust/crates/webserver/apierr/src/codes.rs` 의 `CODE_DOC` 에서 **생성**된다.
 
 **헤더를 세우는 문은 하나다** (REFACTOR3_DEDUP_GO_SRS FR-RDG-1·2). 헤더 이름은
 `httpresp.CodeHeader` 하나이고(`apierr.CodeHeader` 는 그 값을 가리킨다), 모든 방언 함수는
