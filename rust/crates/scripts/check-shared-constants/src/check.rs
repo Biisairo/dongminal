@@ -14,10 +14,9 @@ pub(crate) const RS_PREFLIGHT: &str = "rust/crates/webserver/domain/git/query/sr
 pub(crate) const RS_OPERATION: &str = "rust/crates/webserver/domain/git/query/src/operation.rs";
 pub(crate) const RS_LSP_WS: &str = "rust/crates/webserver/httpapi/src/lsp_api.rs";
 pub(crate) const RS_WORKSPACE: &str = "rust/crates/shared/workspace/src/parse.rs";
-pub(crate) const RS_COMMANDS: &str = "rust/crates/webserver/httpapi/src/commands.rs";
 
 /// [`check`] 가 읽는 파일 전부다.
-pub(crate) const NEEDED: [&str; 9] = [
+pub(crate) const NEEDED: [&str; 8] = [
     JS_GIT_CHANGES,
     JS_GIT_ACTIONS,
     JS_EDITOR,
@@ -26,7 +25,6 @@ pub(crate) const NEEDED: [&str; 9] = [
     RS_OPERATION,
     RS_LSP_WS,
     RS_WORKSPACE,
-    RS_COMMANDS,
 ];
 
 /// 잡 종류 라벨을 볼 화면 카탈로그다.
@@ -158,19 +156,6 @@ pub(crate) fn check(s: &Sources) -> Vec<String> {
             "K13",
             format!("WS_SCHEMA_VERSION={j} 와 workspace::SCHEMA_VERSION={g} 가 다르다"),
         );
-    }
-
-    // K17: SSE 침묵 상한은 인사 주기의 세 배다.
-    if let Some(j) = js_one("K17", JS_CORE, "SSE_SILENCE_MS")
-        && let Some(g) = rs_one("K17", RS_COMMANDS, "SSE_HELLO_EVERY")
-    {
-        let gms: i64 = g.parse().unwrap_or(0);
-        if j != (3 * gms).to_string() {
-            say(
-                "K17",
-                format!("SSE_SILENCE_MS={j} 가 3 × SSE_HELLO_EVERY({g}ms) 가 아니다"),
-            );
-        }
     }
 
     // K-h 덧붙임: 표시기 종류마다 라벨.

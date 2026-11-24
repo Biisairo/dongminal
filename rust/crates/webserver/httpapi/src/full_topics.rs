@@ -132,6 +132,10 @@ impl Server {
         rt.spawn(async move {
             let mut last = slot.last.lock().await;
             slot.queued.store(false, Ordering::Release);
+            if me.topics.stale_if_idle(topic) {
+                *last = None;
+                return;
+            }
             let Some(v) = me.state_body(topic).await else {
                 return;
             };

@@ -374,6 +374,46 @@ async fn hub_full_topic_publish_replaces_value() {
     assert_eq!(got.last().unwrap()["data"], json!({"v":1}));
 }
 
+/// 구독자가 없으면 상태를 비우고 순번을 올린다 — 다음 구독이 seed 로 새 상태를 받는다 (FR-SRV-2).
+#[tokio::test]
+async fn hub_stale_if_idle_drops_state_and_reseeds() {
+    let hub = TopicHub::default();
+    let v = Arc::new(AtomicUsize::new(0));
+    let c = v.clone();
+    hub.register_seed("settings", move |_t| {
+        let n = c.fetch_add(1, Ordering::SeqCst);
+        async move { Some(Seed::Full(json!({"v":n}))) }.boxed()
+    });
+    let o = Outbox::new();
+    hub.subscribe(1, &o, "settings", None, None).await.unwrap();
+    let first = drain(&o, &hub);
+    let seq0 = first[0]["seq"].as_u64().unwrap();
+    assert!(!hub.stale_if_idle("settings"), "구독자가 있는데 비웠다");
+
+    hub.unsubscribe(1, "settings");
+    assert!(
+        hub.stale_if_idle("settings"),
+        "구독자가 없는데 비우지 않았다"
+    );
+    assert!(
+        hub.stale_if_idle("never-seen"),
+        "모르는 토픽도 할 일이 없다"
+    );
+
+    let o2 = Outbox::new();
+    hub.subscribe(2, &o2, "settings", Some(seq0), Some(hub.epoch()))
+        .await
+        .unwrap();
+    let got = drain(&o2, &hub);
+    assert_eq!(got.len(), 1, "{got:?}");
+    assert_eq!(got[0]["t"], "full");
+    assert_eq!(got[0]["data"], json!({"v":1}), "seed 를 다시 부르지 않았다");
+    assert!(
+        got[0]["seq"].as_u64().unwrap() > seq0,
+        "순번이 오르지 않았다"
+    );
+}
+
 #[test]
 fn outbox_priority_control_then_term_then_state() {
     let hub = TopicHub::default();

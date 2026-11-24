@@ -362,6 +362,24 @@ impl TopicHub {
         }
     }
 
+    /// 구독자가 없으면 상태를 비우고 순번을 올린 뒤 true 다. 부르는 쪽은 본문을 만들지 않는다 —
+    /// 다음 구독이 seed 로 새 상태를 받고, 올린 순번 때문에 옛 순번의 재구독도 full 을 받는다.
+    pub(crate) fn stale_if_idle(&self, topic: &str) -> bool {
+        let mut ts = lock(&self.topics);
+        let Some(t) = ts.get_mut(topic) else {
+            return true;
+        };
+        t.subs.retain(|_, w| w.strong_count() > 0);
+        if !t.subs.is_empty() {
+            return false;
+        }
+        if t.state.take().is_some() {
+            t.seq += 1;
+            t.ring.clear();
+        }
+        true
+    }
+
     /// 구독자가 없는 토픽을 잊는다 — 끝난 잡처럼 다시 오지 않을 토픽의 링을 놓는다.
     pub(crate) fn forget_idle(&self, topic: &str) {
         let mut ts = lock(&self.topics);
