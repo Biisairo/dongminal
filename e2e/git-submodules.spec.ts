@@ -4,7 +4,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, GIT_VIEW_TABS, GIT_BODY_VIEWS, clickGitView, rmTree, scopedSettings } from './fixtures';
+import { test, expect, waitForInit, GIT_VIEW_TABS, GIT_BODY_VIEWS, clickGitView, rmTree } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 /**
@@ -239,39 +239,33 @@ test.describe('묶음 D — Submodules 탭', () => {
    */
   test('D9 (V-SUB-9 / FR-SUB-11): 서브모듈 행에서 Submodules 탭으로 가는 길이 있다',
     async ({ page, request }) => {
-      // 서브모듈 안의 변경은 워크트리 회차가 잡는다 — 기본 4초 주기를 하한 1초로 줄인다 (§8.2 (b)).
-      const restore = await scopedSettings(request, { gitWorktreeInterval: 1000 });
-      try {
-        await waitForInit(page);
-        const repo = mkTree('d9');
-        await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
-        await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
-        await page.evaluate((views: readonly string[]) => {
-          const a = (window as any).app;
-          a.testing.edSetSide(a.testing.aw(), 'changes');
-          for (const v of views) a.gitPanel.selection.openView(v);
-        }, GIT_BODY_VIEWS);
+      await waitForInit(page);
+      const repo = mkTree('d9');
+      await page.evaluate((r: string) => (window as any).app.git.openGitWindow(r), repo);
+      await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+      await page.evaluate((views: readonly string[]) => {
+        const a = (window as any).app;
+        a.testing.edSetSide(a.testing.aw(), 'changes');
+        for (const v of views) a.gitPanel.selection.openView(v);
+      }, GIT_BODY_VIEWS);
 
-        // 서브모듈이 디렉터리 항목으로 서려면 그 안에 변경이 있어야 한다.
-        fs.writeFileSync(j(repo, 'vendor', 'alpha', 'a.txt'), 'A changed\n');
-        const side = page.locator('#area .ed-side .git-view.git-changes');
-        const row = side.locator('.git-file[data-path="vendor/alpha"]');
-        await expect(row).toBeVisible({ timeout: 20000 });
-        await row.click();
+      // 서브모듈이 디렉터리 항목으로 서려면 그 안에 변경이 있어야 한다.
+      fs.writeFileSync(j(repo, 'vendor', 'alpha', 'a.txt'), 'A changed\n');
+      const side = page.locator('#area .ed-side .git-view.git-changes');
+      const row = side.locator('.git-file[data-path="vendor/alpha"]');
+      await expect(row).toBeVisible({ timeout: 20000 });
+      await row.click();
 
-        const diff = page.locator('#area .pn-body .git-view.git-diff');
-        await expect(diff).toBeVisible({ timeout: 15000 });
-        // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 'Submodules' / 지금 '서브모듈' / 이유 git 뷰 이름 (§3.5.2)
-        const link = diff.locator('button', { hasText: '서브모듈' });
-        await expect(link).toBeVisible({ timeout: 15000 });
-        await link.click();
+      const diff = page.locator('#area .pn-body .git-view.git-diff');
+      await expect(diff).toBeVisible({ timeout: 15000 });
+      // UX_AUDIT_FIX_SRS FR-UXF-40 로 개정: 이전 'Submodules' / 지금 '서브모듈' / 이유 git 뷰 이름 (§3.5.2)
+      const link = diff.locator('button', { hasText: '서브모듈' });
+      await expect(link).toBeVisible({ timeout: 15000 });
+      await link.click();
 
-        await expect(page.locator('#area .pn-body .git-view.vis'))
-          .toHaveClass(/git-submodules/, { timeout: 10000 });
-        await expect(row2(page, 'vendor/alpha')).toBeVisible({ timeout: 15000 });
-      } finally {
-        await restore();
-      }
+      await expect(page.locator('#area .pn-body .git-view.vis'))
+        .toHaveClass(/git-submodules/, { timeout: 10000 });
+      await expect(row2(page, 'vendor/alpha')).toBeVisible({ timeout: 15000 });
     });
 
   /**

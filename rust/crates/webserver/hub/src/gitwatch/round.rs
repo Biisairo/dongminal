@@ -10,8 +10,8 @@ use otter_webserver_domain_git_query::Error;
 use tokio_util::sync::CancellationToken;
 
 use super::{
-    GIT_WATCH_BACKOFF_MAX, GIT_WATCH_INTERVAL, GIT_WATCH_PARALLEL, GIT_WATCH_ROUND_TIMEOUT,
-    GIT_WATCH_WORKTREE_EVERY, GitWatcher, WatchPend, obs_mark,
+    GIT_WATCH_BACKOFF_MAX, GIT_WATCH_FALLBACK_ROUNDS, GIT_WATCH_INTERVAL, GIT_WATCH_PARALLEL,
+    GIT_WATCH_ROUND_TIMEOUT, GitWatcher, WatchPend, obs_mark,
 };
 
 /// Go `core.IsTerminal(err)` — 다시 물어도 같은 답일 실패인가.
@@ -27,20 +27,21 @@ fn unix_milli(t: SystemTime) -> i64 {
     }
 }
 
-/// 회차를 도는 주체다 (FR-GPO-13). 대상이 없어도 티커는 돈다. 종료가 진행 중인 회차를
-/// 취소하고, 회차마다 시한을 건다 (FR-GDT-10).
+/// 회차를 도는 주체다 (FR-GPO-13). 대상이 없으면 첫 표명·임대가 깨울 때까지 잔다 (D-61).
+/// 종료가 진행 중인 회차를 취소하고, 회차마다 시한을 건다 (FR-GDT-10).
 pub fn start_git_watch(w: Arc<GitWatcher>, stop: CancellationToken) {
     tokio::spawn(async move {
         let root = Ctx::from_token(stop.child_token());
         w.lock().root = Some(root.clone());
-        let mut t = tokio::time::interval_at(
-            tokio::time::Instant::now() + GIT_WATCH_INTERVAL,
-            GIT_WATCH_INTERVAL,
-        );
-        t.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
+            if w.watching() == 0 {
+                tokio::select! {
+                    _ = w.wake.notified() => continue,
+                    _ = stop.cancelled() => return,
+                }
+            }
             tokio::select! {
-                _ = t.tick() => {
+                _ = tokio::time::sleep(GIT_WATCH_INTERVAL) => {
                     let ctx = root.with_timeout(GIT_WATCH_ROUND_TIMEOUT);
                     w.tick(&ctx).await;
                     ctx.cancel();
@@ -52,18 +53,6 @@ pub fn start_git_watch(w: Arc<GitWatcher>, stop: CancellationToken) {
 }
 
 impl GitWatcher {
-    /// 워크트리 회차의 간격을 바꾼다. 다음 회차부터 적용된다. 0 은 기본값이다 (FR-ELR-76).
-    pub fn set_worktree_every(&self, n: u64) {
-        self.worktree_every.store(n, Ordering::SeqCst);
-    }
-
-    fn worktree_rounds(&self) -> u64 {
-        match self.worktree_every.load(Ordering::SeqCst) {
-            0 => GIT_WATCH_WORKTREE_EVERY,
-            n => n,
-        }
-    }
-
     /// 회차 하나다 (FR-GPO-3). 직전 값과 다를 때만 방송하고, 방송한 수를 돌려준다. 회차를
     /// 상한 병렬로 돌고(FR-GDT-8), 시한이 끝나면 남은 저장소를 시작하지 않는다 (FR-GDT-9).
     pub async fn tick(&self, ctx: &Ctx) -> usize {
@@ -105,8 +94,8 @@ impl GitWatcher {
     }
 
     /// 저장소 하나의 회차다. 방송했으면 참이다. 2단이다 (FR-GDT-1·2): 1차는 signature,
-    /// 2차 `git status` 는 ① signature 변화(pending) ② 워크트리 회차 ③ signature 실패
-    /// ④ 계기(force) 때만 돈다. 결정적 오류만 감시에서 빼고, 일시적 오류는 백오프한다
+    /// 2차 `git status` 는 ① signature 변화(pending) ② 워크트리 회차(파일 감시가 없어 물러선
+    /// 저장소만, D-61) ③ signature 실패 ④ 계기(force) 때만 돈다. 결정적 오류만 감시에서 빼고, 일시적 오류는 백오프한다
     /// (REPO_FIX 02 §3A-1).
     pub(super) async fn observe(&self, ctx: &Ctx, repo: &str, round: u64, force: bool) -> bool {
         let Some(git) = self.git.clone() else {
@@ -129,13 +118,13 @@ impl GitWatcher {
 
         let (pending, pending_at, need, invalidate) = {
             let mut g = self.lock();
-            let worktree_rounds = self.worktree_rounds();
             let now = (self.now)();
             let Some(e) = g.watch.get_mut(repo) else {
                 return false; // 회차 중에 만료·퇴출됐다
             };
             // FR-GDT-4 / D-GDT-2: 워크트리 회차를 저장소마다 어긋나게 돈다.
-            let worktree_round = round.wrapping_add(e.phase) % worktree_rounds == 0;
+            let worktree_round =
+                e.fallback && round.wrapping_add(e.phase) % GIT_WATCH_FALLBACK_ROUNDS == 0;
             let (sig_value, sig_ok) = match &sig {
                 Ok(s) => (s.value.as_str(), true),
                 Err(_) => ("", false),

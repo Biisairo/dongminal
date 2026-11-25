@@ -6,7 +6,7 @@ import { APIRequestContext, Page } from '@playwright/test';
 
 import {
   test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, openRowMenu, openGit, gitFixture, cleanGitFixture, clickRowAct,
-  nextFrames, scopedSettings,
+  nextFrames,
 } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
 
@@ -94,63 +94,51 @@ test.describe('묶음 E — Changes 탭', () => {
   // 한 줄로 접는다. 접힌 행은 트리 보기에서 이름이 빈 문자열이 되고, 클릭해도
   // 디렉터리 경로로 diff 를 걸어 아무것도 열리지 않는다.
   test('C4b (V92·FR-GIT-215): 새 디렉터리 안의 파일이 자기 이름으로 뜨고 열린다', async ({ page, request }) => {
-    // 새 파일은 워크트리 회차가 잡는다 — 기본 4초 주기를 하한 1초로 줄여 기다림만 줄인다 (§8.2 (b)).
-    const restore = await scopedSettings(request, { gitWorktreeInterval: 1000 });
-    try {
-      const repo = copyFx('basic', 'c4b');
-      await waitForInit(page);
-      await openGit(page, repo);
-      await expect(rows(page, 'working').first()).toBeVisible({ timeout: 10000 });
+    const repo = copyFx('basic', 'c4b');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await expect(rows(page, 'working').first()).toBeVisible({ timeout: 10000 });
 
-      mkdirSync(join(repo, 'newdir', 'nested'), { recursive: true });
-      writeFileSync(join(repo, 'newdir', 'nested', 'doc.md'), '# hi\n');
+    mkdirSync(join(repo, 'newdir', 'nested'), { recursive: true });
+    writeFileSync(join(repo, 'newdir', 'nested', 'doc.md'), '# hi\n');
 
-      // 디렉터리가 아니라 **파일**이 목록에 온다.
-      const doc = group(page, 'working').locator('.git-file[data-path="newdir/nested/doc.md"]');
-      await expect(doc).toBeVisible({ timeout: 10000 });
-      // 접힌 디렉터리 항목은 없다.
-      const paths = await rows(page, 'working').evaluateAll(
-        (els) => els.map((e) => (e as HTMLElement).dataset.path || ''));
-      expect(paths.filter((p) => p.endsWith('/')), '디렉터리가 항목으로 왔다').toEqual([]);
-      // 이름이 비어 있는 행이 없다.
-      const names = await rows(page, 'working').locator('.git-file-path').allTextContents();
-      expect(names.filter((n) => !n.trim()), '이름이 빈 행이 있다').toEqual([]);
+    // 디렉터리가 아니라 **파일**이 목록에 온다.
+    const doc = group(page, 'working').locator('.git-file[data-path="newdir/nested/doc.md"]');
+    await expect(doc).toBeVisible({ timeout: 10000 });
+    // 접힌 디렉터리 항목은 없다.
+    const paths = await rows(page, 'working').evaluateAll(
+      (els) => els.map((e) => (e as HTMLElement).dataset.path || ''));
+    expect(paths.filter((p) => p.endsWith('/')), '디렉터리가 항목으로 왔다').toEqual([]);
+    // 이름이 비어 있는 행이 없다.
+    const names = await rows(page, 'working').locator('.git-file-path').allTextContents();
+    expect(names.filter((n) => !n.trim()), '이름이 빈 행이 있다').toEqual([]);
 
-      // 클릭하면 본문이 그 파일을 연다 (REPO_TAB_UNIFY_SRS FR-RTU-40 — 사이드의
-      // 인라인 미리보기는 폐기됐다, §7 D-RTU-22). 새 파일은 **비교의 왼쪽이 없어**
-      // 편집기 탭이다 (FR-RTU-51 — index 에 그 경로가 없다).
-      await doc.click();
-      const tab = page.locator('#area .ed-area .pn-tab', { hasText: 'doc.md' });
-      await expect(tab).toHaveCount(1, { timeout: 10000 });
-      await expect(page.locator('#area .file-editor.vis')).toContainText('hi', { timeout: 20000 });
-    } finally {
-      await restore();
-    }
+    // 클릭하면 본문이 그 파일을 연다 (REPO_TAB_UNIFY_SRS FR-RTU-40 — 사이드의
+    // 인라인 미리보기는 폐기됐다, §7 D-RTU-22). 새 파일은 **비교의 왼쪽이 없어**
+    // 편집기 탭이다 (FR-RTU-51 — index 에 그 경로가 없다).
+    await doc.click();
+    const tab = page.locator('#area .ed-area .pn-tab', { hasText: 'doc.md' });
+    await expect(tab).toHaveCount(1, { timeout: 10000 });
+    await expect(page.locator('#area .file-editor.vis')).toContainText('hi', { timeout: 20000 });
   });
 
   // PANEL_SURFACE_SRS FR-CMG-1·2·3 (V-8): 워킹 그룹 하나에 수정과 새 파일이 함께
   // 있고, 갈리는 것은 앞단의 상태 문자다. `basic` 은 수정 2 + 새 파일 1 이다.
   test('C4 (V23 / V-8): 파일을 만들면 워킹 그룹 개수가 늘고 행이 `?` 로 보인다', async ({ page, request }) => {
-    // 새 파일은 워크트리 회차가 잡는다 — 기본 4초 주기를 하한 1초로 줄여 기다림만 줄인다 (§8.2 (b)).
-    const restore = await scopedSettings(request, { gitWorktreeInterval: 1000 });
-    try {
-      const repo = copyFx('basic', 'c4');
-      await waitForInit(page);
-      await openGit(page, repo);
+    const repo = copyFx('basic', 'c4');
+    await waitForInit(page);
+    await openGit(page, repo);
 
-      const g = group(page, 'working');
-      await expect(g.locator('.git-group-count')).toHaveText('3', { timeout: 10000 });
-      writeFileSync(join(repo, 'c4-new.txt'), 'x');
-      await expect(g.locator('.git-group-count')).toHaveText('4', { timeout: 10000 });
-      await expect(g.locator('.git-file[data-path="c4-new.txt"]')).toBeVisible();
-      // FR-CMG-3: 출신은 상태 문자가 말한다 — 그룹이 아니다.
-      await expect(g.locator('.git-file[data-path="c4-new.txt"] .git-file-st')).toHaveText('?');
-      await expect(g.locator('.git-file[data-path="tracked.txt"] .git-file-st')).toHaveText('M');
-      // FR-CMG-11: 합계 옆의 내역이 지울 것이 있는지 말한다.
-      await expect(g.locator('.git-group-count')).toHaveAttribute('title', '추적 2 · 새 파일 2');
-    } finally {
-      await restore();
-    }
+    const g = group(page, 'working');
+    await expect(g.locator('.git-group-count')).toHaveText('3', { timeout: 10000 });
+    writeFileSync(join(repo, 'c4-new.txt'), 'x');
+    await expect(g.locator('.git-group-count')).toHaveText('4', { timeout: 10000 });
+    await expect(g.locator('.git-file[data-path="c4-new.txt"]')).toBeVisible();
+    // FR-CMG-3: 출신은 상태 문자가 말한다 — 그룹이 아니다.
+    await expect(g.locator('.git-file[data-path="c4-new.txt"] .git-file-st')).toHaveText('?');
+    await expect(g.locator('.git-file[data-path="tracked.txt"] .git-file-st')).toHaveText('M');
+    // FR-CMG-11: 합계 옆의 내역이 지울 것이 있는지 말한다.
+    await expect(g.locator('.git-group-count')).toHaveAttribute('title', '추적 2 · 새 파일 2');
   });
 
   test('C5 (V23): git add 한 파일이 staged 그룹에 있다', async ({ page }) => {

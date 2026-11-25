@@ -197,10 +197,9 @@ test.describe('묶음 PIS·화면 — Polling 탭 (FR-PIS-20~25)', () => {
     await openSettings(page, 'polling');
     const panel = page.locator('#panel-polling');
     await expect(panel).toBeVisible();
-    for (const id of ['pi-stats', 'pi-gitworktree'])
-      await expect(panel.locator('#' + id)).toBeVisible();
-    for (const id of ['pi-gitconsole', 'pi-gitstatus', 'pi-gitrepos'])
-      await expect(panel.locator('#' + id), id + ' 는 거뒀다 (PERF 1.9·1.15)').toHaveCount(0);
+    await expect(panel.locator('#pi-stats')).toBeVisible();
+    for (const id of ['pi-gitconsole', 'pi-gitstatus', 'pi-gitrepos', 'pi-gitworktree'])
+      await expect(panel.locator('#' + id), id + ' 는 거뒀다 (PERF 1.9·1.15·4.9)').toHaveCount(0);
   });
 
   // FR-PIS-20 의 대칭: 화면에서 고른 값이 서버로 간다.
@@ -218,7 +217,7 @@ test.describe('묶음 PIS·화면 — Polling 탭 (FR-PIS-20~25)', () => {
   test('PIS18 (V-5): 남은 주기 컨트롤에 `끔`(0) 선택지가 없다', async ({ page }) => {
     await waitForInit(page);
     await openSettings(page, 'polling');
-    for (const id of ['pi-stats', 'pi-gitworktree']) {
+    for (const id of ['pi-stats']) {
       const has0 = await page.evaluate((i) => {
         const el = document.getElementById(i) as HTMLSelectElement;
         return [...el.options].some(o => o.value === '0');

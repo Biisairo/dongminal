@@ -603,8 +603,6 @@ I18N.register('en', {
   'err.telegram_no_token': 'Save a bot token first.',
 
   // ── poll ──
-  'poll.git_worktree.hint': 'How often the server checks the working tree for git changes. The file watcher reports changes in expanded folders right away; this interval covers changes inside collapsed folders. Windows has no file watcher, so this interval covers all changes there.',
-  'poll.git_worktree.label': 'git working tree',
   'poll.stats.hint': 'CPU · memory · latency in the bottom status bar',
   'poll.stats.label': 'System stats',
 

@@ -4,22 +4,28 @@
 mod kick;
 mod lease;
 pub(crate) mod round;
+mod tree;
 
 use std::collections::HashMap;
-use std::sync::atomic::AtomicU64;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::time::{Duration, SystemTime};
 
 use futures_util::future::BoxFuture;
 use otter_webserver_domain_git_core::Ctx;
 use otter_webserver_domain_git_query::{Error, Signature};
 use otter_webserver_domain_git_store::{Observation, Store};
+use tokio::sync::Notify;
 
 pub use kick::{GIT_KICK_COOLDOWN, GIT_KICK_DEBOUNCE};
 pub use round::start_git_watch;
+pub use tree::{TreeEvent, TreeHook, TreeWatcher, WatchGuard};
 
+pub use otter_shared_cadence::GIT_WATCH_FALLBACK_EVERY;
 pub use otter_shared_cadence::GIT_WATCH_ROUND_EVERY as GIT_WATCH_INTERVAL;
-pub use otter_shared_cadence::GIT_WATCH_WORKTREE_ROUNDS as GIT_WATCH_WORKTREE_EVERY;
+/// 물러선 저장소가 워크트리 `git status` 를 도는 회차 간격(회차 수)이다 (D-61 Q5).
+pub const GIT_WATCH_FALLBACK_ROUNDS: u64 = GIT_WATCH_FALLBACK_EVERY
+    .as_millis()
+    .div_ceil(GIT_WATCH_INTERVAL.as_millis()) as u64;
 /// 회차 하나의 시한이다 (FR-GDT-9, D-GDT-7).
 pub const GIT_WATCH_ROUND_TIMEOUT: Duration = Duration::from_secs(20);
 /// 한 회차에서 동시에 도는 관측 수의 상한이다 (FR-GDT-8).
@@ -119,6 +125,12 @@ pub(crate) struct Entry {
     has_sig: bool,
     /// 워크트리 회차의 위상 (FR-GDT-4).
     phase: u64,
+    /// 파일 감시가 없어 워크트리 회차로 물러섰다 (D-61 Q4).
+    fallback: bool,
+    /// 저장소 트리의 파일 감시. 항목과 함께 버려지면 감시가 멈춘다.
+    tree: Option<WatchGuard>,
+    /// 이 항목의 감시 세대. 늦게 온 감시 사건이 새 항목을 건드리지 않게 한다.
+    watch_id: u64,
     /// `git:<repo>` 토픽에 구독자가 있다 (CHANNEL_PROTOCOL C4). 참이면 유휴로 만료되지 않는다 (FR-GWL-2).
     held: bool,
     pend: WatchPend,
@@ -142,6 +154,8 @@ pub(crate) struct State {
     on_mark: Option<MarkHook>,
     root: Option<Ctx>,
     kicks: HashMap<String, KickState>,
+    tree: Option<Arc<dyn TreeWatcher>>,
+    watch_ids: u64,
 }
 
 /// 관심 표명을 받아 두었다가 회차마다 그 저장소들을 확인한다.
@@ -150,10 +164,11 @@ pub struct GitWatcher {
     now: WallClock,
     ttl: Duration,
     cap: usize,
-    /// 워크트리 회차의 간격. 0 이면 기본값이다 (FR-ELR-76).
-    worktree_every: AtomicU64,
     /// 계기 관측의 시간을 주입하는 자리 (FR-ELR-75). 없으면 tokio 타이머다.
     after: Option<AfterFn>,
+    /// 대상이 0 에서 생기면 멈춘 회차 주체를 깨운다 (D-61).
+    wake: Notify,
+    me: Weak<GitWatcher>,
     pub(crate) mu: Mutex<State>,
 }
 
@@ -167,21 +182,30 @@ pub(crate) fn phase_hash(repo: &str) -> u64 {
 
 impl GitWatcher {
     pub fn new(git: Option<Arc<dyn GitObserver>>) -> Arc<GitWatcher> {
-        GitWatcher::build(git, Arc::new(SystemTime::now), None)
+        GitWatcher::build(
+            git,
+            Arc::new(SystemTime::now),
+            None,
+            GIT_WATCH_TTL,
+            GIT_WATCH_CAP,
+        )
     }
 
     fn build(
         git: Option<Arc<dyn GitObserver>>,
         now: WallClock,
         after: Option<AfterFn>,
+        ttl: Duration,
+        cap: usize,
     ) -> Arc<GitWatcher> {
-        Arc::new(GitWatcher {
+        Arc::new_cyclic(|me| GitWatcher {
             git,
             now,
-            ttl: GIT_WATCH_TTL,
-            cap: GIT_WATCH_CAP,
-            worktree_every: AtomicU64::new(0),
+            ttl,
+            cap,
             after,
+            wake: Notify::new(),
+            me: me.clone(),
             mu: Mutex::new(State {
                 watch: HashMap::new(),
                 round: 0,
@@ -190,6 +214,8 @@ impl GitWatcher {
                 on_mark: None,
                 root: None,
                 kicks: HashMap::new(),
+                tree: None,
+                watch_ids: 0,
             }),
         })
     }
@@ -238,14 +264,16 @@ impl GitWatcher {
         ttl: Duration,
         cap: usize,
     ) -> Arc<GitWatcher> {
-        let w = GitWatcher::build(Some(git), now, after);
-        let mut w = Arc::try_unwrap(w).ok().expect("새로 만든 Arc");
-        w.ttl = ttl;
-        w.cap = cap;
+        let w = GitWatcher::build(Some(git), now, after, ttl, cap);
         w.set_on_mark(Some(Arc::new(move |repo: &str, mark: &str| {
             hub.broadcast(&crate::payloads::git_changed_payload(repo, mark));
         })));
-        Arc::new(w)
+        w
+    }
+
+    /// 지금까지 돈 회차 수다.
+    pub(crate) fn rounds(&self) -> u64 {
+        self.lock().round
     }
 
     pub(crate) fn held(&self, repo: &str) -> bool {

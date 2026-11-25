@@ -59,7 +59,7 @@ fn values_unchanged_from_previous_homes() {
     assert_eq!(HUMANCMD_HELPER_EVERY, s(30));
     assert_eq!(UPDATE_CHECK_EVERY, s(86_400));
     assert_eq!(GIT_WATCH_ROUND_EVERY, Duration::from_millis(1000));
-    assert_eq!(GIT_WATCH_WORKTREE_ROUNDS, 4);
+    assert_eq!(GIT_WATCH_FALLBACK_EVERY, s(4));
     assert_eq!(GIT_WATCH_BACKOFF_MAX, s(30));
     assert_eq!(SYSSTAT_SAMPLE_EVERY, s(2));
     assert_eq!(MESH_REDIAL_MIN, s(1));

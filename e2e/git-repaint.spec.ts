@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, clickRowAct, nextFrames, scopedSettings } from './fixtures';
+import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, clickRowAct, nextFrames } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 /**
@@ -74,13 +74,6 @@ function counter(page: Page, needle: string) {
   return state;
 }
 
-// 새 파일은 서버의 워크트리 회차가 잡는다 — 기본 4초를 하한 1초로 줄인다 (§8.2 (b)).
-let restoreSettings: (() => Promise<void>) | null = null;
-test.afterEach(async () => {
-  if (restoreSettings) await restoreSettings();
-  restoreSettings = null;
-});
-
 test.describe('FR-RPT — Changes 목록 (V104~V107)', () => {
   test('P1 (V104 / FR-GIT-227): 관측이 같으면 행을 다시 만들지 않는다', async ({ page }) => {
     await waitForInit(page);
@@ -114,7 +107,6 @@ test.describe('FR-RPT — Changes 목록 (V104~V107)', () => {
   });
 
   test('P3 (V105 / FR-RPT-3): 관측이 바뀌어도 바뀌지 않은 행은 유지된다', async ({ page, request }) => {
-    restoreSettings = await scopedSettings(request, { gitWorktreeInterval: 1000 });
     const repo = copyFx('basic', 'p3');
     await waitForInit(page);
     await openGit(page, repo);
@@ -130,7 +122,6 @@ test.describe('FR-RPT — Changes 목록 (V104~V107)', () => {
   });
 
   test('P4 (V113 / FR-RPT-2): 값이 바뀌면 화면이 따라온다 — 조용히 멈추지 않는다', async ({ page, request }) => {
-    restoreSettings = await scopedSettings(request, { gitWorktreeInterval: 1000 });
     const repo = copyFx('basic', 'p4');
     await waitForInit(page);
     await openGit(page, repo);

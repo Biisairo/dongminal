@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture, clickGitView, scopedSettings } from './fixtures';
+import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture, clickGitView } from './fixtures';
 import { ED_SEL, ED_VENDOR_ROUTE } from './editor';
 import { tmpPath, realPath, cssPath } from './osenv';
 
@@ -202,42 +202,36 @@ test.describe('묶음 F — Diff 뷰', () => {
   });
 
   test('D7 (V12): 편집기를 못 받아도 파일 목록·헤더가 동작하고 diff 가 사유를 보인다', async ({ page, request }) => {
-    // 새 파일(`d7-new.txt`)은 워크트리 회차가 잡는다 — 기본 4초 주기를 하한 1초로 줄인다 (§8.2 (b)).
-    const restore = await scopedSettings(request, { gitWorktreeInterval: 1000 });
-    try {
-      const repo = copyFx('basic', 'd7');
-      // FR-GIT-55: 편집기 로드 실패가 Git 창을 멈춰서는 안 된다.
-      //
-      // **막는 자리가 바뀌었다** (FR-MVN-3). 종전에는
-      // `cdn.jsdelivr.net` 을 끊었는데 편집기가 이제 바이너리 안에 있어 그 요청이
-      // 아예 없다 — 끊어도 아무것도 실패하지 않으므로 이 검사가 재던 것이 사라진다.
-      // 이제 **자기 자산 경로**를 끊는다. 요구(FR-GIT-55)는 그대로이고 실패를
-      // 만드는 방법만 현실에 맞췄다.
-      await page.route(ED_VENDOR_ROUTE, (r) => r.abort());
+    const repo = copyFx('basic', 'd7');
+    // FR-GIT-55: 편집기 로드 실패가 Git 창을 멈춰서는 안 된다.
+    //
+    // **막는 자리가 바뀌었다** (FR-MVN-3). 종전에는
+    // `cdn.jsdelivr.net` 을 끊었는데 편집기가 이제 바이너리 안에 있어 그 요청이
+    // 아예 없다 — 끊어도 아무것도 실패하지 않으므로 이 검사가 재던 것이 사라진다.
+    // 이제 **자기 자산 경로**를 끊는다. 요구(FR-GIT-55)는 그대로이고 실패를
+    // 만드는 방법만 현실에 맞췄다.
+    await page.route(ED_VENDOR_ROUTE, (r) => r.abort());
 
-      await waitForInit(page);
-      await openGit(page, repo);
-      await expect(changes(page).locator('.git-head-repo')).toHaveText('copy-d7', { timeout: 10000 });
+    await waitForInit(page);
+    await openGit(page, repo);
+    await expect(changes(page).locator('.git-head-repo')).toHaveText('copy-d7', { timeout: 10000 });
 
-      await row(page, 'working', 'tracked.txt').click();
-      await expect(diff(page).locator('.git-diff-note'))
-        .toHaveText('에디터를 불러오지 못했습니다 — 새로고침해 보세요', { timeout: 20000 });
-      await expect(diffEditor(page)).toHaveCount(0);
+    await row(page, 'working', 'tracked.txt').click();
+    await expect(diff(page).locator('.git-diff-note'))
+      .toHaveText('에디터를 불러오지 못했습니다 — 새로고침해 보세요', { timeout: 20000 });
+    await expect(diffEditor(page)).toHaveCount(0);
 
-      // 헤더와 목록은 계속 동작한다.
-      writeFileSync(join(repo, 'd7-new.txt'), 'x');
-      await expect(changes(page).locator('.git-group[data-group="working"] .git-group-count'))
-        .toHaveText('4', { timeout: 10000 });
-      await expect(changes(page).locator('.git-head-branch')).toHaveText('main');
+    // 헤더와 목록은 계속 동작한다.
+    writeFileSync(join(repo, 'd7-new.txt'), 'x');
+    await expect(changes(page).locator('.git-group[data-group="working"] .git-group-count'))
+      .toHaveText('4', { timeout: 10000 });
+    await expect(changes(page).locator('.git-head-branch')).toHaveText('main');
 
-      // Diff 탭도 같은 사유를 보이고 바는 살아 있다.
-      await clickGitView(page, 'diff');
-      await expect(diff(page).locator('.git-diff-note'))
-        .toHaveText('에디터를 불러오지 못했습니다 — 새로고침해 보세요');
-      await expect(diff(page).locator('.git-diff-path')).toHaveText('tracked.txt');
-    } finally {
-      await restore();
-    }
+    // Diff 탭도 같은 사유를 보이고 바는 살아 있다.
+    await clickGitView(page, 'diff');
+    await expect(diff(page).locator('.git-diff-note'))
+      .toHaveText('에디터를 불러오지 못했습니다 — 새로고침해 보세요');
+    await expect(diff(page).locator('.git-diff-path')).toHaveText('tracked.txt');
   });
 
   /**

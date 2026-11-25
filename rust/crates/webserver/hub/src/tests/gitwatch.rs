@@ -7,6 +7,8 @@ use otter_webserver_domain_git_core::{self as core, Ctx};
 use otter_webserver_domain_git_query::{Error, FileEntry, Signature};
 use otter_webserver_domain_git_store::Observation;
 
+use tokio_util::sync::CancellationToken;
+
 use super::FakeBroker;
 use crate::gitwatch::round::{need_status, pending_step, settles_pending};
 use crate::gitwatch::{WatchPend, phase_hash};
@@ -285,10 +287,10 @@ async fn first_gate_is_signature() {
     let sig = FakeSigner::with(&[("/r", "a")]);
     let (w, _) = watcher(&sig, &FakeBroker::new());
     note(&w, &sig, "/r");
-    for _ in 0..GIT_WATCH_WORKTREE_EVERY {
+    for _ in 0..GIT_WATCH_FALLBACK_ROUNDS {
         tick(&w).await;
     }
-    assert_eq!(sig.s().sig_calls as u64, GIT_WATCH_WORKTREE_EVERY);
+    assert_eq!(sig.s().sig_calls as u64, GIT_WATCH_FALLBACK_ROUNDS);
     assert_eq!(sig.calls(), 1, "워크트리 회차가 하나가 아니다 (FR-GDT-3)");
 }
 
@@ -298,7 +300,7 @@ async fn signature_change_forces_status_and_invalidates() {
     let br = FakeBroker::new();
     let (w, _) = watcher(&sig, &br);
     note(&w, &sig, "/r");
-    for _ in 0..GIT_WATCH_WORKTREE_EVERY * 2 {
+    for _ in 0..GIT_WATCH_FALLBACK_ROUNDS * 2 {
         let before = sig.calls();
         tick(&w).await;
         if sig.calls() != before {
@@ -335,7 +337,7 @@ async fn signature_error_falls_back_to_status() {
 fn worktree_phase_spread_and_fnv() {
     let seen: std::collections::HashSet<u64> = ["/a", "/b", "/c", "/d", "/e", "/f", "/g", "/h"]
         .iter()
-        .map(|r| phase_hash(r) % GIT_WATCH_WORKTREE_EVERY)
+        .map(|r| phase_hash(r) % GIT_WATCH_FALLBACK_ROUNDS)
         .collect();
     assert!(seen.len() >= 2);
     // Go hash/fnv New64a 의 알려진 값.
@@ -352,11 +354,11 @@ async fn worktree_and_file_state_changes_broadcast() {
     note(&w, &sig, "/r");
     tick(&w).await;
     sig.set_files("/r", &["b.txt"]);
-    for _ in 0..GIT_WATCH_WORKTREE_EVERY {
+    for _ in 0..GIT_WATCH_FALLBACK_ROUNDS {
         tick(&w).await;
     }
     assert_eq!(repos(&br).len(), 1, "목록이 바뀌었는데 알리지 않았다 (G-9)");
-    for _ in 0..GIT_WATCH_WORKTREE_EVERY {
+    for _ in 0..GIT_WATCH_FALLBACK_ROUNDS {
         tick(&w).await;
     }
     assert_eq!(repos(&br).len(), 1);
@@ -368,9 +370,9 @@ async fn change_right_after_note_and_renote_keep_baseline() {
     sig.set_files("/r", &[]);
     let br = FakeBroker::new();
     let (w, _) = watcher(&sig, &br);
-    w.set_worktree_every(1);
     note(&w, &sig, "/r");
     sig.set_files("/r", &["raced.txt"]);
+    sig.set_sig("/r", "s2");
     note(&w, &sig, "/r"); // 재표명은 기준선을 덮지 않는다
     tick(&w).await;
     assert_eq!(repos(&br).len(), 1, "표명 직후의 변화를 놓쳤다 (G-10)");
@@ -381,8 +383,9 @@ async fn transient_errors_keep_watch_and_back_off() {
     let sig = FakeSigner::with(&[("/r", "a")]);
     let br = FakeBroker::new();
     let (w, now) = watcher(&sig, &br);
-    w.set_worktree_every(1);
     note(&w, &sig, "/r");
+    // 기다리는 변화가 있어 회차마다 status 를 돈다.
+    sig.set_sig("/r", "a2");
     sig.s().errs.insert("/r".into(), Error::other("index.lock"));
     tick(&w).await;
     assert_eq!((w.watching(), sig.calls()), (1, 1));
@@ -627,4 +630,188 @@ async fn change_goes_to_mark_hook() {
     let v = lock(&got).clone();
     assert_eq!(v.len(), 1, "{v:?}");
     assert_eq!(v[0].0, "/r");
+}
+
+// ── 대상 0 정지·파일 감시 (PERF 4.9, 설계 §1 S1, D-61) ──
+
+#[derive(Default)]
+struct Trees {
+    fail: bool,
+    hooks: Vec<(String, TreeHook)>,
+    dropped: usize,
+}
+
+/// 주입하는 트리 감시다. 감시를 세운 저장소와 그 훅을 쥐고, 시험이 사건을 흘린다.
+#[derive(Default, Clone)]
+struct FakeTree(Arc<Mutex<Trees>>);
+
+struct FakeGuard(Arc<Mutex<Trees>>);
+
+impl Drop for FakeGuard {
+    fn drop(&mut self) {
+        lock(&self.0).dropped += 1;
+    }
+}
+
+impl FakeTree {
+    fn failing() -> FakeTree {
+        let t = FakeTree::default();
+        lock(&t.0).fail = true;
+        t
+    }
+    fn emit(&self, root: &str, ev: TreeEvent<'_>) {
+        let hooks: Vec<TreeHook> = lock(&self.0)
+            .hooks
+            .iter()
+            .filter(|(r, _)| r == root)
+            .map(|(_, h)| h.clone())
+            .collect();
+        for h in hooks {
+            h(ev);
+        }
+    }
+    fn roots(&self) -> Vec<String> {
+        lock(&self.0).hooks.iter().map(|(r, _)| r.clone()).collect()
+    }
+}
+
+impl TreeWatcher for FakeTree {
+    fn watch(&self, root: &str, hook: TreeHook) -> Result<WatchGuard, String> {
+        let mut g = lock(&self.0);
+        if g.fail {
+            return Err("inotify: no space left on device".into());
+        }
+        g.hooks.push((root.to_owned(), hook));
+        Ok(Box::new(FakeGuard(self.0.clone())))
+    }
+}
+
+/// 회차 주체를 세운다. 시계는 tokio 의 멈춘 시계다.
+fn started(sig: &FakeSigner, tree: Option<&FakeTree>) -> (Arc<GitWatcher>, CancellationToken) {
+    let (w, _) = watcher(sig, &FakeBroker::new());
+    if let Some(t) = tree {
+        w.set_tree_watcher(Some(Arc::new(t.clone())));
+    }
+    let stop = CancellationToken::new();
+    start_git_watch(w.clone(), stop.clone());
+    (w, stop)
+}
+
+async fn idle(d: Duration) {
+    tokio::time::sleep(d).await;
+    for _ in 0..20 {
+        tokio::task::yield_now().await;
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn empty_watch_runs_no_rounds() {
+    let sig = FakeSigner::default();
+    let (w, stop) = started(&sig, Some(&FakeTree::default()));
+    idle(Duration::from_secs(60)).await;
+    assert_eq!(w.rounds(), 0, "대상이 없는데 회차가 돌았다");
+    stop.cancel();
+}
+
+#[tokio::test(start_paused = true)]
+async fn first_hold_starts_rounds() {
+    let sig = FakeSigner::with(&[("/r", "a")]);
+    let (w, stop) = started(&sig, Some(&FakeTree::default()));
+    idle(Duration::from_secs(10)).await;
+    assert_eq!(w.rounds(), 0);
+    w.hold_topic("/r", &sig.obs("/r").unwrap_or_default());
+    idle(GIT_WATCH_INTERVAL * 3 + Duration::from_millis(500)).await;
+    assert!(
+        w.rounds() >= 3,
+        "첫 임대가 회차를 깨우지 못했다: {}",
+        w.rounds()
+    );
+    assert!(sig.s().sig_calls >= 3);
+    stop.cancel();
+}
+
+#[tokio::test(start_paused = true)]
+async fn quiet_watch_runs_no_status() {
+    let sig = FakeSigner::with(&[("/r", "a")]);
+    let tree = FakeTree::default();
+    let (w, stop) = started(&sig, Some(&tree));
+    w.hold_topic("/r", &sig.obs("/r").unwrap_or_default());
+    idle(Duration::from_secs(60)).await;
+    assert_eq!(tree.roots(), vec!["/r"], "저장소 트리를 감시하지 않았다");
+    assert!(sig.s().sig_calls > 0, "signature 회차가 돌지 않았다");
+    assert_eq!(sig.calls(), 0, "감시 사건이 없는데 git status 를 돌렸다");
+    stop.cancel();
+}
+
+#[tokio::test(start_paused = true)]
+async fn worktree_event_kicks_status() {
+    let sig = FakeSigner::with(&[("/r", "a")]);
+    let tree = FakeTree::default();
+    let (w, stop) = started(&sig, Some(&tree));
+    w.hold_topic("/r", &sig.obs("/r").unwrap_or_default());
+    idle(Duration::from_secs(5)).await;
+    tree.emit("/r", TreeEvent::Paths(&paths(&["/r/.git/index"])));
+    idle(GIT_KICK_DEBOUNCE * 2).await;
+    assert_eq!(sig.calls(), 0, ".git 아래 사건은 계기가 아니다");
+    tree.emit("/r", TreeEvent::Paths(&paths(&["/r/src/a.txt"])));
+    idle(GIT_KICK_DEBOUNCE + Duration::from_millis(100)).await;
+    assert_eq!(sig.calls(), 1, "작업 트리 사건이 status 를 당기지 않았다");
+    idle(Duration::from_secs(60)).await;
+    assert_eq!(sig.calls(), 1, "사건 하나에 status 가 여러 번 돌았다");
+    stop.cancel();
+}
+
+#[tokio::test(start_paused = true)]
+async fn watch_failure_falls_back_to_rounds() {
+    let sig = FakeSigner::with(&[("/r", "a")]);
+    let (w, stop) = started(&sig, Some(&FakeTree::failing()));
+    w.hold_topic("/r", &sig.obs("/r").unwrap_or_default());
+    let window = Duration::from_secs(60);
+    idle(window).await;
+    let want = (window.as_secs() / GIT_WATCH_FALLBACK_EVERY.as_secs()) as usize;
+    let got = sig.calls();
+    assert!(
+        got + 1 >= want && got <= want + 1,
+        "감시를 세우지 못했는데 회차로 물러서지 않았다: {got} (기대 약 {want})"
+    );
+    stop.cancel();
+}
+
+#[tokio::test(start_paused = true)]
+async fn watch_overflow_falls_back_to_rounds() {
+    let sig = FakeSigner::with(&[("/r", "a")]);
+    let tree = FakeTree::default();
+    let (w, stop) = started(&sig, Some(&tree));
+    w.hold_topic("/r", &sig.obs("/r").unwrap_or_default());
+    idle(Duration::from_secs(20)).await;
+    assert_eq!(sig.calls(), 0);
+    tree.emit("/r", TreeEvent::Lost);
+    assert_eq!(lock(&tree.0).dropped, 1, "넘친 감시를 놓지 않았다");
+    idle(Duration::from_secs(60)).await;
+    assert!(
+        sig.calls() >= 10,
+        "넘친 뒤 회차로 물러서지 않았다: {}",
+        sig.calls()
+    );
+    stop.cancel();
+}
+
+#[tokio::test(start_paused = true)]
+async fn expired_watch_stops_rounds_and_releases_tree() {
+    let sig = FakeSigner::with(&[("/r", "a")]);
+    let tree = FakeTree::default();
+    let (w, now) = watcher(&sig, &FakeBroker::new());
+    w.set_tree_watcher(Some(Arc::new(tree.clone())));
+    let stop = CancellationToken::new();
+    start_git_watch(w.clone(), stop.clone());
+    note(&w, &sig, "/r");
+    idle(Duration::from_secs(3)).await;
+    advance(&now, GIT_WATCH_TTL * 2);
+    idle(Duration::from_secs(3)).await;
+    assert_eq!(w.watching(), 0);
+    assert_eq!(lock(&tree.0).dropped, 1, "걷힌 저장소의 감시가 남았다");
+    let r = w.rounds();
+    idle(Duration::from_secs(60)).await;
+    assert_eq!(w.rounds(), r, "대상이 0 이 된 뒤에도 회차가 돌았다");
+    stop.cancel();
 }

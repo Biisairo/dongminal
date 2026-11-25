@@ -32,7 +32,6 @@ const SETTINGS_SCHEMA = [
   {"key":"shortcuts","type":"object","def":{},"where":"Shortcuts"},
   {"key":"statusBar","type":"object","def":{},"where":"Status Bar"},
   {"key":"statsInterval","type":"int","def":3000,"min":1000,"max":30000,"where":"Polling ▸ 시스템 통계"},
-  {"key":"gitWorktreeInterval","type":"int","def":4000,"min":1000,"max":30000,"where":"Polling ▸ git 작업 트리"},
   {"key":"layoutPresets","type":"array","def":[],"where":"Presets"},
   {"key":"defaultPreset","type":"int","def":-1,"min":-1,"max":999,"where":"Presets ▸ 기본"},
   {"key":"fgTabNames","type":"bool","def":true,"where":"Display ▸ 프로세스 이름을 탭 이름으로"},

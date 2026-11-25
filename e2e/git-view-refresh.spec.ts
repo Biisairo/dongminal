@@ -6,7 +6,7 @@ import { Page } from '@playwright/test';
 
 import {
   test, expect, waitForInit, GIT_VIEW_TABS, openGit, clickGitView, gitFixture, cleanGitFixture, copyDir, rmTree, freshDir, makeCopyFx, nextFrames,
-  setSafetyNet, scopedSettings,
+  setSafetyNet,
 } from './fixtures';
 import { ED_SEL } from './editor';
 import { TMP, tmpPath, realPath } from './osenv';
@@ -157,13 +157,6 @@ async function safetyRounds(page: Page, k: number) {
     await expect.poll(() => st.n, { timeout: 10000 }).toBeGreaterThanOrEqual(want);
   }
 }
-
-// 새 파일·내용 변경은 서버의 워크트리 회차가 잡는다 — 기본 4초를 하한 1초로 줄인다 (§8.2 (b)).
-let restoreSettings: (() => Promise<void>) | null = null;
-test.afterEach(async () => {
-  if (restoreSettings) await restoreSettings();
-  restoreSettings = null;
-});
 
 // 열지 않은 뷰들이 각각 쓰는 라우트. Changes 의 status 와 겹치지 않는다.
 const isRefs = (u: string) => u.includes('/api/git/refs');
@@ -651,7 +644,6 @@ const copyFx = makeCopyFx(B6FX);
 // 파일 **내용**의 변화는 관측으로 알 수 없다 — `git status` 는 이미 수정된 파일이
 // 또 수정돼도 같은 줄을 낸다. 그래서 열려 있는 diff 는 관측 회차마다 다시 받는다.
 test('V-GLV-1 (FR-GLV-1·2): 열어 둔 diff 가 파일 수정을 따라온다', async ({ page, request }) => {
-  restoreSettings = await scopedSettings(request, { gitWorktreeInterval: 1000 });
   const repo = copyFx('basic', 'b6-diff-live');
   await waitForInit(page);
   await openGit(page, repo);
@@ -683,7 +675,6 @@ test('V-GLV-1 (FR-GLV-1·2): 열어 둔 diff 가 파일 수정을 따라온다',
 // `GitPanel.destroy()` 의 `_stop()` 이 **관측자의 공유 타이머**를 껐고, 다시 거는
 // 자리가 없었다 — 남은 칸의 Git 창이 눈앞에 있는데도 갱신이 멎었다.
 test('V-GLV-2 (FR-GLV-4): 칸을 줄여도 남은 패널의 관측이 산다', async ({ page, request }) => {
-  restoreSettings = await scopedSettings(request, { gitWorktreeInterval: 1000 });
   const repo = copyFx('basic', 'b6-resettle');
   await waitForInit(page);
   await openGit(page, repo);

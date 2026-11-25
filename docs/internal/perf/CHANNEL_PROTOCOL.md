@@ -177,7 +177,7 @@
 | TC-CH4-18 | 프론트 | `followJob` 은 줄을 넘기고 끝에서 해지하며, 그 토픽의 `unknown_topic` 오류에만 `fail` 이다 |
 | TC-CH4-19 | 프론트 | 탐색기는 관측이 없을 때만 매 틱 묻고, 관측한 뒤에는 주기로 묻지 않는다 |
 
-남는 서버 내부 주기 (FR-SRV-2): gitwatch 회차 `GIT_WATCH_INTERVAL`(1초). 감시 대상(임차인이 있거나 TTL 안의 저장소)이 있을 때만 돌며 git 을 실행하지 않는 signature 검사를 하고, 워크트리 검사는 `GIT_WATCH_WORKTREE_EVERY`(4) 회차마다 한다. 이유: 저장소의 변화는 다른 프로세스(터미널의 git, 편집기)가 만들고 서버가 받을 사건이 없다. M4 에서 파일 감시(`.git`·워크트리)로 바꿀 대상이다.
+gitwatch (FR-SRV-2·3, PERF 4.9, D-61): 회차 `GIT_WATCH_ROUND_EVERY`(1초)는 감시 대상(임차인이 있거나 TTL 안의 저장소)이 있을 때만 돈다 — 대상이 0 이면 잠들고 첫 관심 표명·토픽 임대가 깨운다. 회차는 git 을 실행하지 않는 signature(파일 stat) 검사만 해 `.git`·common_dir 아래 변화(커밋·체크아웃·스테이지)를 잡는다. 작업 트리는 저장소 루트의 재귀 파일 감시(macOS FSEvents, Linux inotify)가 보고, 사건이 계기 관측(`kick`, debounce 1초·cooldown 5초)으로 `git status` 를 당긴다 — 사건이 없으면 status 는 돌지 않는다. `.git` 아래 사건은 계기가 아니다(status 자신이 `.git/index` 를 고쳐 되먹임이 생긴다). 감시를 세우지 못했거나(Windows, `/Volumes/`, Linux 감시 한도) 사건을 놓치면(넘침) 그 저장소만 `GIT_WATCH_FALLBACK_EVERY`(4초) 간격 워크트리 회차로 물러선다. 설정 `gitWorktreeInterval` 은 지웠다(`RETIRED_KEYS`).
 
 C4 에 남긴 것: Git Console 탭의 기록 주기(`git/console.js`, 탭이 보일 때만)는 그대로다 — 기록은 git 실행 층(`domain/git/core` Service)이 쌓고 변화 훅이 없어 토픽을 세우려면 그 층을 고쳐야 한다. 편집기 틱(`_edTick`)의 `/api/fs/stamps` 주기는 파일 감시(`fs`) 몫이다.
 
@@ -202,7 +202,9 @@ C4 에 남긴 것: Git Console 탭의 기록 주기(`git/console.js`, 탭이 보
 - 텔레그램 long-poll(S13): 대기는 Bot API 서버가 붙잡는 시간이다. 꺼져 있으면 요청이 없다.
 - `stats:` 발행(S3): 간격은 구독 토픽 이름(`stats:<ms>`)이 정하고, 구독 중에만 돈다.
 
-사건 기반으로 바꾼 것 (4.11):
+사건 기반으로 바꾼 것 (4.9·4.11):
+
+- gitwatch 회차(S1, 옛 1초 상시·4초마다 `git status`): 대상이 0 이면 잠들고, 작업 트리 `git status` 는 파일 감시 사건으로만 돈다(위 gitwatch 문단).
 
 - Run 수거(S7, 옛 15초): 기동 때 한 번, 그 뒤 도구 종료 push(재접속 뒤 메운 종료 포함)·Run 닫기·데몬 재접속(resync) 때만 돈다. 끊긴 사이 놓친 종료는 재접속 resync 가 메운다(Q7).
 - LSP 유휴 정리(S9, 옛 2분): 세션이 없으면 잠든다. 세션이 있으면 가장 이른 `last_use + IDLE_AFTER`(20분) 마감에 한 번 깨고, 새 세션이 열리면 마감을 다시 잡는다.
