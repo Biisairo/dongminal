@@ -1,7 +1,7 @@
 //! `PUT /api/fs/watch` 와 `fs_changed` 방송 (Go `handlers_fs_watch.go`, EDITOR_LIVE_RELOAD_SRS
 //! FR-ELR-51·59·76).
 //!
-//! 감시 임대(attach/detach)는 채널의 `hello.client` 신원(`commands::attach_sse_leases`)이 쥔다.
+//! 감시 임대(attach/detach)는 채널의 `hello.client` 신원(`commands::attach_channel_leases`)이 쥔다.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;

@@ -575,7 +575,7 @@ fn mutate_retries_once_on_stale() {
     assert_eq!(b.count(), 1);
     assert_eq!(
         b.0.lock().unwrap()[0],
-        otter_webserver_sse::workspace_changed(1)
+        otter_webserver_envelope::workspace_changed(1)
     );
 }
 

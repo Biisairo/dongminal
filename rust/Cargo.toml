@@ -80,6 +80,7 @@ members = [
     "crates/webserver/domain/telegram",
     "crates/webserver/domain/worktree",
     "crates/webserver/domain/wsentry",
+    "crates/webserver/envelope",
     "crates/webserver/fswatch",
     "crates/webserver/gitapi",
     "crates/webserver/httpapi",
@@ -88,7 +89,6 @@ members = [
     "crates/webserver/recordsync",
     "crates/webserver/seam/adapters",
     "crates/webserver/seam/toolaccess",
-    "crates/webserver/sse",
     "crates/webserver/toolclient",
 ]
 

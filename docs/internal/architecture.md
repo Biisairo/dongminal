@@ -70,7 +70,7 @@ rust/                    # Cargo 워크스페이스 — crate 하나가 디렉�
       action/            #   동작의 답 {ok, why, args} + 동작 ID → 사유 코드 목록 (SERVER_DRIVEN_ACTIONS_SRS)
       fswatch/           #   보이는 디렉터리의 비재귀 감시(fsnotify) · 이벤트 병합 · `fs_changed`
       hub/               #   CommandHub(명령 방송) · FocusRegistry · AttnTracker
-      sse/               #   방송 본문 봉투(`payload`). 채널 cmd 프레임의 본문이다. 옛 SSE 작성기도 남아 있으나 쓰는 종단이 없다
+      envelope/          #   방송 본문 봉투(`payload`). 채널 cmd 프레임의 본문이다
       toolclient/        #   ToolClient — 데몬에 붙는 IPC 클라 (재접속 supervisor 포함)
       recordsync/        #   에이전트 기록을 데몬에 쓰는 비동기 큐 — (kind, tool) 마다 마지막 값 (AGENT_RECORD_DAEMON_SRS)
       seam/
