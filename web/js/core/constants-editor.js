@@ -1,9 +1,10 @@
 /**
  * Remote Terminal — 편집기 상수 (constants.js 에서 분리)
  *
- * 탐색기·Repo 창·미리보기 탭·파일 조작·변경 표시는 바로 뒤의 `constants-explorer.js` 다
- * (REFACTOR3_FE_REST5_SRS FR-FR5-20). 그쪽의 `ED_DD_AXIS` 가 `GIT_AXIS` 를 참조하므로 둘 다
- * `constants-git*.js` **뒤**에 로드된다 (`const` 이므로 TDZ 에 걸린다).
+ * 탐색기·Repo 창·미리보기 탭·파일 조작·변경 표시는 `constants-explorer.js`(editor 묶음)다
+ * (REFACTOR3_FE_REST5_SRS FR-FR5-20). 그 가운데 부팅 코드가 읽는 것은 이 파일 끝에 있다(PERF 3.4.7, D-32).
+ * 그 `ED_DD_AXIS` 가 `GIT_AXIS` 를 참조하므로 이 파일은 `constants-git*.js` **뒤**에 로드된다
+ * (`const` 이므로 TDZ 에 걸린다).
  */
 // 탭 서술자의 고정 값들. index.html 의 패널 래퍼가 같은 id 를 쓴다 (§2.1).
 //
@@ -291,3 +292,167 @@ const LSP_OFFER_SETTINGS=t('editor.lsp_offer_settings');
 // UX_AUDIT_FIX_SRS FR-UXF-83: 제안한 언어의 서버가 없을 때 상태바에 서는 표식.
 const LSP_OFFER_MARK='LSP';
 const LSP_OFFER_MARK_TITLE='Language server for %s is not installed — click to set up';
+
+// ── constants-explorer.js 에서 옮긴 것 — 부팅 코드가 읽는다 (PERF 3.4.7, D-32) ──
+// constants-explorer.js 는 editor 묶음이다. 아래는 원래 순서 그대로다.
+// FR-EDT-108 의 조회 종단. 조작(create/rename/delete)은 M5 의 것이므로 여기 없다.
+const FS_LIST_API='/api/fs/list';
+// UI_POLISH_SRS FR-UIP-21: 저장소 추가 후보의 상한 — 목록 길이와 cwd 를 물을 터미널 수.
+const PATH_SUGGEST_MAX=8;
+const PATH_SUGGEST_TERM_MAX=8;
+// NOTES_LIVE_EXPLORER_SRS FR-FSL-1 · EDITOR_LIVE_RELOAD_SRS FR-ELR-1 — "이 겹들과
+// 열어 둔 이 파일들이 바뀌었나" 를 **한 요청**으로 묻는다 (OPTIMIZE_REFACTOR_SRS
+// FR-OPT-4-2). 겹은 조회와 같은 루트 가드를 받는다. 옛 종단 둘(`/api/fs/stamp`·
+// `/api/file/stamps`)은 서버에 남아 있다 — 옛 화면이 부른다.
+const FS_STAMPS_API='/api/fs/stamps';
+// EDITOR_LIVE_RELOAD_SRS FR-ELR-51·65: 보이는 디렉터리의 감시 등록. 변화는 SSE `fs_changed` 로 온다.
+const FS_WATCH_API='/api/fs/watch';
+// FR-ELR-68: 탐색기는 첫 이벤트부터 이만큼 모아 한 번에 처리한다 (VS Code
+// `explorerService.ts` `EXPLORER_FILE_CHANGES_REACT_DELAY`).
+const EXPLORER_FS_CHANGES_DELAY_MS=500;
+// FR-ELR-67: 문서 하나에 다시 읽기는 실행 중 하나 + 대기 하나까지다 (VS Code
+// `textFileEditorModelManager.ts` `queueModelReload`).
+const EDITOR_DOC_RELOAD_QUEUE=2;
+// ── Repo 창의 사이드 (REPO_TAB_UNIFY_SRS 묶음 W) ──
+//
+// 좌측은 **탭 교체**다 (D-RTU-3). 세로로 쌓으면 파일 목록도 변경 목록도 절반
+// 높이가 되어 어느 쪽도 한눈에 들어오지 않는다.
+//
+// 라벨이 영어인 것은 기존 관례다 (D-RTU-15) — 사이드바 탭(`Windows`)도 git 뷰
+// 이름(`Changes`)도 영어이고, 한 화면에서 두 언어가 섞이지 않는다.
+const REPO_SIDE_EXPLORER='explorer';
+const REPO_SIDE_CHANGES='changes';
+// UX_BATCH5_SRS FR-TIP-1·2: 툴팁은 정의 표가 든다 — 그리는 자리에 적으면 표가
+// 두 벌이 된다 (FR-TIP-4).
+// GIT_CHANGES_CONTROLS_SRS FR-GCC-13 (사용자 지시, 2026-09-06): **Changes 가 왼쪽**이다.
+// 이 창을 여는 이유가 대개 변경을 보는 것이고, 왼쪽이 먼저 읽히는 자리다.
+const REPO_SIDE_TABS=[
+  {id:REPO_SIDE_CHANGES, label:t('editor.side_changes'), title:'Uncommitted changes in this repository'},
+  {id:REPO_SIDE_EXPLORER,label:t('editor.side_explorer'),title:'Browse files in this repository'},
+];
+/**
+ * UX_BATCH6_SRS FR-DSP-1: 기본 탭도 **Changes** 다.
+ *
+ *   이전 동작: Explorer
+ *   새  동작: Changes
+ *   이유:     순서를 Changes 로 옮긴 근거(FR-GCC-13)가 기본값에도 그대로 적용된다 —
+ *             Repo 창을 여는 이유가 대개 변경을 보는 것이다. 두 물음을 갈라 둔
+ *             동안 첫 화면과 탭 순서가 서로 다른 말을 했다
+ *
+ * FR-DSP-2: 이미 저장된 창의 선택은 바뀌지 않는다 — 이 값은 **키가 없을 때**의
+ * 답이며 `edSideOf` 가 그렇게 읽는다.
+ */
+const REPO_SIDE_DEFAULT=REPO_SIDE_CHANGES;
+// MOBILE_UX_OVERHAUL_SRS FR-MUX-77: 모바일 Repo 세그먼트의 셋째 칸 — 본문(편집기 칸)으로 간다.
+// 앞의 두 칸은 `REPO_SIDE_TABS` 를 그대로 쓴다.
+const REPO_SEG_EDITOR={id:'editor',label:t('editor.seg_editor'),title:'Files open in this repository'};
+// REPO_SIDE_WIDTH_SRS FR-RSW-1 / D-3·D-4 (UX_BATCH10_SRS FR-UXB-7 이 저장 위치를
+// 개정했다 — 워크스페이스가 아니라 **브라우저 창**이다): 사이드 폭은 한 자리에 산다
+// (`ws.repoSideWidth`) — `sidebarWidth` 와 같은 규약이다. 창마다 두던 값이었고
+// (`window.editor.explorerWidth`, FR-EDT-47) 그러면 창을 옮길 때마다 목록의 폭이
+// 달라졌다. 이름이 `EXPLORER` 가 아닌 이유는 그 폭이 `Changes` 의 것이기도 하기
+// 때문이다. 상·하한은 사이드바(`--sb-w`)의 규약을 그대로 따른다 — 같은 종류의 값이
+// 서로 다른 한계를 가질 이유가 없다.
+// FR-UXB-7: 탐색기 폭도 창의 것이다 (D-UXB-1) — 사이드바 폭과 같은 규약이며
+// 저장소도 같다 (`sessionStorage`).
+const REPO_SIDE_W_KEY='repoSideWidth';
+const REPO_SIDE_W_DEFAULT=220;
+const REPO_SIDE_W_MIN=100;
+const REPO_SIDE_W_MAX=520;
+// ── 미리보기 탭 (REPO_TAB_UNIFY_SRS 묶음 P · FR-RTU-40~45) ──
+//
+// 변경 목록을 훑는 일이 탭 20개가 되면, 목록을 보는 것 자체가 정리를 부른다
+// (D-RTU-9). 한 번 클릭은 **한 탭을 재사용**하고 더블클릭이 그것을 고정한다 —
+// VSCode 의 규약이며 사용자가 이미 아는 동작이다.
+//
+// 기울임이 곧 "이 탭은 곧 대체된다" 는 표시다 (FR-RTU-41).
+const REPO_PREVIEW_CLASS='pn-tab-preview';
+const REPO_PREVIEW_TITLE=t('editor.repo_preview_title');
+// GIT_DIR_ENTRY_SRS FR-DIR-31 / D-DIR-7: **`_gitOff` 는 사유마다 수명이 다르다.**
+//
+// 404(`not_repo`)와 `rootMatch=false` 는 굳히지 않는다 — 그 자리에서 `git init` 이
+// 일어나면 참이 거짓으로 바뀌는 사유이기 때문이다. 굳혀 두면 init 직후에도 색이
+// 없고, 사용자는 init 이 실패했다고 읽는다. 대신 주기를 늦춰 계속 관측한다.
+//
+// 503(git 자체가 없다)만 굳는다 — 다시 물어도 답이 같다 (기존 관례).
+// PERF_OPTIMIZATION_SRS 1.15: 예전 설정 `gitReposInterval` 기본값(3초) × 10. 사용자가 바꾸지 않는다.
+const EDITOR_GIT_BACKOFF_MS=30000;
+// SERVER_DRIVEN_ACTIONS_SRS F-a: 메뉴의 답과 삭제할 항목 수를 서버가 낸다.
+const FS_ACTIONS_API='/api/fs/actions';
+// FR-ETR-22: 폴더 드롭의 재귀 수집 상한. 홈 폴더를 잘못 놓았을 때 브라우저가
+// 멎지 않게 하는 값이다.
+const EDITOR_UPLOAD_MAX_ENTRIES=10000;
+const EDITOR_UPLOAD_TOO_MANY=t('editor.upload_too_many');
+// FR-EDT-83·84: 삭제 확인창. **영구 삭제**라는 사실, 폴더면 재귀와 항목 수,
+// 그리고 저장되지 않은 탭이 함께 닫힌다는 사실을 한 자리에서 밝힌다.
+const EDITOR_DEL_FILE=t('editor.del_file');
+const EDITOR_DEL_DIR=t('editor.del_dir');
+// FR-EMS-21: 여럿을 지울 때. **수가 먼저다** — 이름만 늘어놓으면 몇 개인지
+// 사용자가 세어야 한다.
+const EDITOR_DEL_MANY=t('editor.del_many');
+const EDITOR_DEL_MANY_TREE=t('editor.del_many_tree');
+const EDITOR_DEL_PERMANENT=t('editor.del_permanent');
+const EDITOR_DEL_DIRTY=t('editor.del_dirty');
+const EDITOR_DEL_OK=t('editor.del_ok');
+const EDITOR_DEL_CANCEL=t('editor.del_cancel');
+// FR-EDT-92: 실패는 그 자리에 사유를 표시한다. 서버의 코드(FR-EDT-117)를 사람의
+// 말로 옮기는 자리는 여기 하나다.
+const EDITOR_FS_ERR_MSG={
+  bad_request:t('editor.fs_err_msg.bad_request'),
+  outside_root:t('editor.fs_err_msg.outside_root'),
+  permission_denied:t('editor.fs_err_msg.permission_denied'),
+  not_found:t('editor.fs_err_msg.not_found'),
+  exists:t('editor.fs_err_msg.exists'),
+  io_failed:t('editor.fs_err_msg.io_failed'),
+  too_large:t('editor.fs_err_msg.too_large'),
+};
+const EDITOR_FS_ERR_UNKNOWN=t('editor.fs_err_unknown');
+// SERVER_DRIVEN_ACTIONS_SRS F-h: 표에 없는 코드는 서버 답의 사유 문구(`why.<코드>`)로
+// 읽는다 — 답을 거치지 않은 거절도 메뉴와 같은 말로 보인다. 그 거절은 `message` 를
+// 싣지 않는다 (D-SDA-5).
+function edFsReason(d){
+  const code=(d&&d.code)||'';
+  if(EDITOR_FS_ERR_MSG[code]) return EDITOR_FS_ERR_MSG[code];
+  if(code&&I18N.has('why.'+code)) return t('why.'+code,d.args);
+  return (d&&d.message)||EDITOR_FS_ERR_UNKNOWN;
+}
+// WORKBENCH_REVIEW_SRS FR-WBR-41: 재조정이 지우려던 창을 미뤘다는 사실. 창 이름을
+// 밝히는 이유는 FR-EDT-84 와 같다 — 개수만으로는 무엇을 정리해야 할지 모른다.
+const EDITOR_HELD_DIRTY=t('editor.held_dirty');
+// ── 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS) ──
+//
+// 기준은 **index** 다 (FR-EDD-1 / D-2). 서버의 부분 스테이징이 op 마다 축을
+// 못박으므로(Go 기준선 `write/patch.go:105`) 화면과 서버가 같은 축을 봐야 조각의 경계가
+// 어긋나지 않는다. VSCode 도 스테이지하면 이 표시가 사라지는 index 기준이다.
+const ED_DD_AXIS=GIT_AXIS.UNSTAGED;
+// FR-EDD-13: 계산의 상한. 줄 수는 파일의 크기, 편집 거리는 diff 의 크기다 —
+// 둘 중 하나만 두면 나머지 한쪽이 커진 파일에서 계산이 끝나지 않는다.
+const ED_DD_MAX_LINES=50000;
+const ED_DD_MAX_EDITS=2000;
+// FR-EDD-14: 모델 변경에서 재계산까지. 타이핑 한 글자마다 diff 를 돌리지 않는다.
+const ED_DD_DEBOUNCE_MS=180;
+// FR-EDD-11: 조각의 세 종류. CSS 클래스와 색 변수가 이 값에서 파생한다 —
+// 문자열을 세 곳에 흩뿌리면 한쪽만 바뀐다.
+const ED_DD_ADD='add';
+const ED_DD_MOD='mod';
+const ED_DD_DEL='del';
+// FR-EDD-23: 색은 탐색기 트리의 규약 그대로다 (`style-editor.css` 의 탐색기 트리 변경 색 규칙) —
+// 같은 창의 두 표면이 같은 사실에 다른 색을 쓰면 그중 하나는 거짓말이 된다.
+const ED_DD_COLOR_VAR={
+  [ED_DD_ADD]:'--git-st-add',
+  [ED_DD_MOD]:'--accent',
+  [ED_DD_DEL]:'--danger',
+};
+// FR-EDD-44·46·47: 스테이지가 못 선 사유. 침묵은 고장과 구별되지 않는다.
+const ED_DD_SAVE_FAIL=t('editor.dd_save_fail');
+const ED_DD_STAGE_FAIL=t('editor.dd_stage_fail');
+const ED_DD_STAGE_STALE=t('editor.dd_stage_stale');
+// 서버 DiffSide.kind 중 본문을 diff 할 수 있는 하나. `GIT_DIFF_DRAWABLE` 은
+// `absent`(한쪽이 없다)까지 포함하는데, 그것은 여기서 "표시하지 않는다" 다
+// (FR-EDD-6) — 두 판정이 다르므로 그 집합을 빌려 쓰지 않는다.
+const ED_DD_KIND_TEXT='text';
+// FUI-07: 모두 저장의 결말. 개별 실패는 `save()` 가 이미 알리므로 여기는
+// **묶음의 결말**만 적는다 — 없으면 여러 파일 중 하나가 막힌 것을 모른다.
+const ED_SAVE_ALL_NONE=t('editor.save_all_none');
+const ED_SAVE_ALL_OK=t('editor.save_all_ok');
+const ED_SAVE_ALL_PARTIAL=t('editor.save_all_partial');

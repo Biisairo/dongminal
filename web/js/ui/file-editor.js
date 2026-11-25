@@ -5,28 +5,6 @@
  * (`web/vendor/codemirror`, 묶음 V) — 외부 호스트에서 받지 않는다.
  */
 
-// CODEMIRROR_MIGRATION_SRS 묶음 V. 출력은 `scripts/build-codemirror.mjs` 가 만든다.
-const CM_ENTRY = '/vendor/codemirror/cm.js';
-
-let cmLoading = null;
-// 브라우저는 실패한 모듈 URL 을 기억하고 다시 받지 않는다 — 다시 시도할 때마다
-// 쿼리를 바꿔 새 URL 로 받는다.
-let cmAttempt = 0;
-
-/**
- * FR-CMR-6: 진입 모듈을 전역 `CM` 하나로 세운다. 대기 중인 호출자는 같은 Promise 를
- * 공유하고, 실패는 기억하지 않는다 — 네트워크가 돌아오면 다시 시도할 수 있어야 한다.
- */
-function loadCodeMirror() {
-  if (window.CM) return Promise.resolve();
-  if (cmLoading) return cmLoading;
-  const url = cmAttempt ? `${CM_ENTRY}?r=${cmAttempt}` : CM_ENTRY;
-  cmAttempt++;
-  cmLoading = import(url).then((m) => { window.CM = m });
-  cmLoading.catch(() => { cmLoading = null });
-  return cmLoading;
-}
-
 class FileEditor {
   constructor(id, name, filePath) {
     this.id = id;
@@ -462,3 +440,12 @@ class FileEditor {
     if (typeof app !== 'undefined' && app && app.renderer) app.renderer.life.unmount(this);
   }
 }
+
+// 찾기 패널은 Git Diff 와 같은 한 벌이다 (`file-editor-find.js`). 그 파일은 부팅 묶음이라 여기서 붙인다 (PERF 3.4.7).
+Object.assign(FileEditor.prototype, ED_FIND_MIXIN);
+
+// 테마 전환 훅 (theme-vars.js applyThemeObj). 편집기와 diff 의 색은 CSS 변수라 스스로 따라온다 (FR-GIT-49) —
+// canvas 에 그리는 것(변경 표시의 ruler·미니맵)만 다시 칠한다 (EDITOR_DIRTY_DIFF_SRS FR-EDD-23b).
+FileEditor.applyTheme = function() {
+  if (window.app && window.app.editor?.open.edDirtyDiffRepaint) window.app.editor.open.edDirtyDiffRepaint();
+};
