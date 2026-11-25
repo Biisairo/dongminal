@@ -18,6 +18,7 @@ pub trait ToolSource: Send + Sync {
     /// Go `Get(id) != nil`.
     fn has(&self, id: &str) -> bool;
     fn snapshot_tool(&self, id: &str) -> Result<ToolSnapshot, Error>;
+    fn screen_text(&self, id: &str, bytes: usize) -> Result<String, Error>;
     fn send_paste(&self, id: &str, text: &[u8], submit: bool) -> Result<(), Error>;
 }
 
@@ -51,6 +52,10 @@ impl ToolReader for Tool {
     fn snapshot(&self, tool_id: &str) -> Option<(Vec<u8>, i64)> {
         let snap = self.hub.as_ref()?.snapshot_tool(tool_id).ok()?;
         Some((snap.data, snap.total_bytes_drop))
+    }
+
+    fn screen_text(&self, tool_id: &str, bytes: usize) -> Option<String> {
+        self.hub.as_ref()?.screen_text(tool_id, bytes).ok()
     }
 
     /// 감싸기·제출 판단은 도구가 사는 곳(데몬)에 맡긴다 (FR-BPW-1).

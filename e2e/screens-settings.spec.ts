@@ -4,7 +4,7 @@ import { test, expect, waitForInit } from './fixtures';
 
 // PERF 3.4.9.2 — 설정 창 묶음 (D-41, perf/M3_DESIGN.md §3.4).
 //
-// 부팅은 `b/settings.js` 를 싣지 않는다. 설정 값의 부팅 적용(`_settingsApply`)은 묶음 없이 돈다. 설정 단추를 처음 누르면
+// 부팅은 settings 묶음을 싣지 않는다. 설정 값의 부팅 적용(`_settingsApply`)은 묶음 없이 돈다. 설정 단추를 처음 누르면
 // 묶음을 싣고 모달·섹션을 세운 뒤 연다.
 
 function bundleRequests(page: Page) {

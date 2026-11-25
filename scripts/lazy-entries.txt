@@ -4,5 +4,11 @@
 # 남아야 하는 자리는 `Screens.ready` 로 가린 뒤 여기에 적는다. 적힌 함수는 Screens.load·
 # Screens.ready 를 불러야 하고, 그 안(클로저 포함)의 참조는 게이트가 넘긴다.
 #
-# 형식: <web/ 기준 파일> <함수 이름>   함수 이름은 `f`, `Class.method`, `A.prototype.m` 꼴이다.
+# 형식: <web/ 기준 파일> <함수 이름>   함수 이름은 `f`, `Class.method`, `A.prototype.m` 꼴이다
+# (`Object.assign(A.prototype, {m(){…}})` 의 메서드도 `A.prototype.m`).
 js/core/chat-controller.js ChatController.views
+# PERF 3.4.7 — editor 묶음. 테마 전환·탭 본문·탐색기의 관측과 시선.
+js/core/theme-vars.js applyThemeObj
+js/ui/renderer-pane.js Renderer.prototype._mountTabBody
+js/core/editor-open.js EditorOpen.edStore
+js/core/editor-open.js EditorOpen.edTree

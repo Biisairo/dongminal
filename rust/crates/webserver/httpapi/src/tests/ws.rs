@@ -342,6 +342,45 @@ async fn output_after_screen_has_no_gap_or_overlap() {
     assert_eq!(e.hub.screen_calls.load(Ordering::SeqCst), 1);
 }
 
+/// PERF 2.5.1 (D-25): 깨움 스냅숏의 기록 행 수는 설정 `termScrollback` 이다. 바꾸면 다음 깨움부터 따르고,
+/// 없거나 범위 밖이면 표의 기본값이다. 흐름 제어의 스냅숏도 같은 값을 쓴다.
+#[tokio::test]
+async fn wake_history_follows_term_scrollback_setting() {
+    let dir = tempfile::tempdir().unwrap();
+    let settings = Arc::new(crate::settings::FileSettings::new(
+        dir.path().join("settings.json"),
+    ));
+    let hub = Arc::new(seeded("t1", "\n$ ", 0, 0));
+    let srv = Server::new(
+        Config {
+            data_dir: dir.path().to_path_buf(),
+            ..Config::default()
+        },
+        Deps {
+            tools: Some(hub.clone()),
+            settings: Some(settings.clone()),
+            ..Deps::default()
+        },
+    );
+    let port = listen(srv.clone()).await;
+    let mut c = chan(port).await;
+    for (sid, blob, want) in [
+        (1u32, "{}", 5_000),
+        (2, r#"{"termScrollback":800}"#, 800),
+        (3, r#"{"termScrollback":50000}"#, 50_000),
+        (4, r#"{"termScrollback":499}"#, 5_000),
+    ] {
+        crate::SettingsStore::set(&*settings, blob.as_bytes().to_vec());
+        open(&mut c, json!({"sid":sid,"tool":"t1"})).await;
+        until_op(&mut c, sid, OP_SEQ).await;
+        assert_eq!(
+            hub.screen_history.lock().unwrap().last().copied(),
+            Some(want),
+            "{blob}"
+        );
+    }
+}
+
 /// PERF 2.5: 같은 도구를 여럿이 한꺼번에 깨우면 스냅숏은 한 번만 만든다.
 #[tokio::test]
 async fn concurrent_wakes_share_one_screen() {
@@ -538,28 +577,36 @@ async fn relay_flushes_output_before_size() {
     assert_eq!(outputs(&frames[size_at..]), b"no");
 }
 
-/// TC-CH5-7: 틈이 생기면 그 sid 만 보낸 끝부터 다시 재생한다. 채널은 남는다.
+/// TC-CH5-7 · PERF 2.6 (FR-TRM-6): 출력에 틈이 나면(데몬 큐가 조각을 버림) 그 sid 만 화면 상태 스냅숏으로
+/// 다시 맞춘다 — 링에 메울 바이트가 있어도 재생하지 않는다. 채널은 남고 이어지는 출력이 온다.
 #[tokio::test]
-async fn relay_resyncs_sid_on_gap() {
+async fn relay_gap_resyncs_sid_with_screen() {
     let (e, mut c, tx, _) = relay_env("\nabcdefghij").await;
     tx.send(chunk("klm", 14)).await.unwrap();
     let m = next_bin(&mut c, 1).await.unwrap();
     assert_eq!(m, [&[OP_OUTPUT][..], b"klm"].concat());
-    // 데몬은 그 사이 "nopqrs" 까지 냈다 — 구독에는 끝 조각만 왔다.
+    // 데몬은 그 사이 "nopqrs" 까지 냈다 — 구독에는 끝 조각만 왔다. 링은 아직 그 바이트를 가진다.
     e.hub
         .snaps
         .lock()
         .unwrap()
         .insert("t1".to_owned(), snap("\nabcdefghijklmnopqrs", 0, 0));
+    e.hub
+        .screens
+        .lock()
+        .unwrap()
+        .insert("t1".to_owned(), screen("\nabcdefghijklmnopqrs", 0, 0));
+    let since_before = e.hub.since_calls.load(Ordering::SeqCst);
     tx.send(chunk("rs", 20)).await.unwrap();
     let (before, seq) = until_op(&mut c, 1, OP_SEQ).await;
-    assert_eq!(
-        outputs(&before),
-        b"nopqrs",
-        "보낸 끝(14) 뒤를 다시 받아야 한다"
-    );
-    assert_eq!(seq[9] & 1, 0, "이어 붙이기다");
+    assert_eq!(outputs(&before), b"\x1bcSCREEN[\nabcdefghijklmnopqrs]");
+    assert_eq!(seq[9] & FLAG_SNAP, FLAG_SNAP);
     assert_eq!(seq_end(&seq), 20);
+    assert_eq!(
+        e.hub.since_calls.load(Ordering::SeqCst),
+        since_before,
+        "링 재생을 묻지 않는다"
+    );
     tx.send(chunk("t", 21)).await.unwrap();
     assert_eq!(
         next_bin(&mut c, 1).await.unwrap(),
@@ -567,32 +614,95 @@ async fn relay_resyncs_sid_on_gap() {
     );
 }
 
-/// PERF 2.5: 틈을 메울 바이트가 링에 없으면 그 sid 를 스냅숏으로 다시 맞춘다.
+/// 꺼낸 sid 1 의 바이너리 프레임들(op 가 앞에 붙은 페이로드). 더 꺼낼 것이 없으면 멈춘다.
+fn pop_sid1(out: &crate::channel::Outbox) -> Vec<Vec<u8>> {
+    let mut got = Vec::new();
+    while let Some(o) = out.pop() {
+        if let crate::channel::Out::Binary(b) = o
+            && b[1..5] == 1u32.to_be_bytes()
+        {
+            let mut f = vec![b[0]];
+            f.extend_from_slice(&b[5..]);
+            got.push(f);
+        }
+    }
+    got
+}
+
+/// PERF 2.6 (FR-TRM-6·FR-CON-6, 이슈 1.7 의 남은 위험): 브라우저가 읽지 않는 동안 출력을 계속 넣어도 sid 의
+/// 밀린 양은 상한(+ 마지막으로 보낸 스냅숏)을 넘지 않는다. 다시 읽으면 스냅숏 하나와 그 오프셋 뒤 출력이
+/// 빠짐·겹침 없이 온다 — 스냅숏이 그 오프셋의 화면이므로 최종 화면이 같다.
 #[tokio::test]
-async fn relay_gap_outside_ring_resyncs_with_screen() {
-    let (e, mut c, tx, _) = relay_env("\nabcdefghij").await;
-    // 데몬 링은 그 사이 앞을 잃었다 — 보낸 끝(11) 뒤를 이어 줄 수 없다.
-    e.hub.snaps.lock().unwrap().insert(
-        "t1".to_owned(),
-        ToolSnapshot {
-            data: b"uvwxyz".to_vec(),
-            end: 40,
-            ..ToolSnapshot::default()
-        },
+async fn slow_reader_gets_one_screen_then_continuous_output() {
+    use crate::channel::{Outbox, TERM_PENDING_MAX, Terms};
+    let e = env(seeded("t1", "\n$ ", 0, 0)).await;
+    let out = Outbox::new();
+    let terms = Arc::new(Terms::default());
+    e.srv.term_open(&terms, &out, &json!({"sid":1,"tool":"t1"}));
+    // 브라우저는 첫 스냅숏의 SEQ 까지 읽고 멈춘다.
+    let mut first = Vec::new();
+    let deadline = tokio::time::Instant::now() + WAIT;
+    while !first.iter().any(|f: &Vec<u8>| f[0] == OP_SEQ) {
+        assert!(tokio::time::Instant::now() < deadline, "첫 SEQ 가 없다");
+        first.extend(pop_sid1(&out));
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    let (tx, _) = e.hub.subs.lock().unwrap().get("t1").cloned().unwrap();
+    let mut all = b"\n$ ".to_vec();
+    let body = "0123456789abcdef".repeat(1024);
+    let mut peak = 0;
+    for i in 0..320 {
+        let piece = format!("{i:05}{}", &body[5..]);
+        all.extend_from_slice(piece.as_bytes());
+        let end = all.len() as i64;
+        e.hub.screens.lock().unwrap().insert(
+            "t1".to_owned(),
+            ToolScreen {
+                data: format!("\x1bcAT{end}").into_bytes(),
+                end,
+                ..ToolScreen::default()
+            },
+        );
+        tx.send(chunk(&piece, end)).await.unwrap();
+        peak = peak.max(out.term_pending(1));
+    }
+    wait_until("중계가 구독을 다 읽지 않았다", || {
+        tx.capacity() == tx.max_capacity()
+    })
+    .await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    peak = peak.max(out.term_pending(1));
+    assert!(
+        peak <= TERM_PENDING_MAX + 64,
+        "밀린 양 {peak} 이 상한을 넘었다"
     );
-    e.hub.screens.lock().unwrap().insert(
-        "t1".to_owned(),
-        ToolScreen {
-            data: b"\x1bcNOW".to_vec(),
-            end: 40,
-            ..ToolScreen::default()
-        },
+    assert!(
+        e.hub.screen_calls.load(Ordering::SeqCst) >= 2,
+        "흐름 제어가 걸리지 않았다"
     );
-    tx.send(chunk("yz", 40)).await.unwrap();
-    let (before, seq) = until_op(&mut c, 1, OP_SEQ).await;
-    assert_eq!(outputs(&before), b"\x1bcNOW");
-    assert_eq!(seq[9] & FLAG_SNAP, FLAG_SNAP);
-    assert_eq!(seq_end(&seq), 40);
+    // 다시 읽는다.
+    let frames = pop_sid1(&out);
+    let seqs: Vec<usize> = (0..frames.len())
+        .filter(|&i| frames[i][0] == OP_SEQ)
+        .collect();
+    assert_eq!(seqs.len(), 1, "스냅숏은 하나만 남아야 한다");
+    let seq = &frames[seqs[0]];
+    assert_eq!(
+        seq[9] & FLAG_SNAP,
+        FLAG_SNAP,
+        "바이트 재생이 아니라 스냅숏이다"
+    );
+    let at = seq_end(seq);
+    assert_eq!(
+        outputs(&frames[..seqs[0]]),
+        format!("\x1bcAT{at}").into_bytes()
+    );
+    let rest = outputs(&frames[seqs[0] + 1..]);
+    assert_eq!(
+        rest,
+        all[at as usize..],
+        "스냅숏 뒤 출력에 빠짐·겹침이 있다"
+    );
 }
 
 /// TC-CH5-8

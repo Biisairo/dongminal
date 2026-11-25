@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Server;
 use crate::ToolHub;
-use crate::ansi::{go_string, strip_ansi};
+use crate::ansi::go_string;
 use crate::httperr::{decode_json_body, write_json, write_tool_io_error};
 use crate::req::Req;
 use crate::toolhub::with_req;
@@ -106,7 +106,8 @@ impl Server {
         }
     }
 
-    /// GET /api/tools/output?id=&bytes=&strip=1.
+    /// GET /api/tools/output?id=&bytes=&strip=1. `strip=1`(read-screen)은 데몬 화면 상태의 글자,
+    /// 아니면(read-output) 링의 바이트다 (FR-TRM-8, D-22).
     pub(crate) async fn api_tool_output(&self, r: &mut Req) -> Response {
         if let Err(res) = self.tool_io_ready() {
             return res;
@@ -129,24 +130,22 @@ impl Server {
                 }
             }
         }
-        let snap = self
-            .deps
-            .tool_io
-            .as_ref()
-            .and_then(|io| io.snapshot(&tool_id));
-        let Some((mut data, dropped)) = snap else {
-            return write_tool_io_error(StatusCode::NOT_FOUND, &format!("tool 없음: {tool_id}"));
-        };
-        if let Ok(n) = usize::try_from(n)
-            && n > 0
-            && data.len() > n
-        {
-            data.drain(..data.len() - n);
-        }
-        let text = if q.get_or_empty("strip") == "1" {
-            strip_ansi(&data)
+        let n = usize::try_from(n).unwrap_or(0);
+        let io = self.deps.tool_io.as_ref();
+        let out = if q.get_or_empty("strip") == "1" {
+            io.and_then(|io| io.screen_text(&tool_id, n))
+                .map(|text| (text, 0))
         } else {
-            go_string(&data)
+            io.and_then(|io| io.snapshot(&tool_id))
+                .map(|(mut data, dropped)| {
+                    if n > 0 && data.len() > n {
+                        data.drain(..data.len() - n);
+                    }
+                    (go_string(&data), dropped)
+                })
+        };
+        let Some((text, dropped)) = out else {
+            return write_tool_io_error(StatusCode::NOT_FOUND, &format!("tool 없음: {tool_id}"));
         };
         write_json(&OutputBody {
             dropped,

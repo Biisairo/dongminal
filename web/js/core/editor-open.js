@@ -331,6 +331,8 @@ class EditorOpen extends Controller {
    * 때문이다 (D-5). 마지막 뷰가 떠날 때 store 가 스스로 이 맵에서 빠진다.
    */
   edStore(root){
+    // PERF 3.4.7: 관측·시선은 `editor` 묶음이다. 부르는 쪽(탐색기·`_rSide`)이 먼저 묻지만 여기서도 막는다.
+    if(!Screens.ready('editor')) return null;
     if(!this.app.edStores) this.app.edStores=new Map();
     let st=this.app.edStores.get(root);
     if(!st){st=new FileTreeStore(this.app,root);this.app.edStores.set(root,st)}
@@ -346,6 +348,7 @@ class EditorOpen extends Controller {
    * 것이 접수된 결함의 절반이었다.
    */
   edTree(s,slot){
+    if(!Screens.ready('editor')) return null;
     if(!this.app._edTrees) this.app._edTrees=new Map();
     // 회수의 주 자리는 `_edReapTrees`(재조정)다. 여기서 한 번 더 부르는 것은
     // 재조정을 지나지 않는 경로로 창이 사라졌을 때의 그물이다.

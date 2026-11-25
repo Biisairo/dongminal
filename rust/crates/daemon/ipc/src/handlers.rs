@@ -295,6 +295,22 @@ pub(crate) fn screen(c: &Conn, req: &PanedRequest) -> Line {
     )
 }
 
+/// 화면 상태의 글자다 (PERF FR-TRM-8, D-22). 없는 도구는 screen 과 같이 CODE_NOT_FOUND 다.
+pub(crate) fn screen_text(c: &Conn, req: &PanedRequest) -> Line {
+    let p: ipc::ScreenTextParams = match decode(req) {
+        Ok(p) => p,
+        Err(l) => return l,
+    };
+    match c.pm.screen_text_tool(&p.id, p.bytes) {
+        Some(text) => ok(req.id, &ipc::ScreenTextResult { text }),
+        None => err_msg(
+            req.id,
+            ipc::CODE_NOT_FOUND,
+            &ManagerError::NotFound.to_string(),
+        ),
+    }
+}
+
 /// 답장 좌석을 쥐고 놓는다(D-23). 없는 도구는 screen 과 같이 CODE_NOT_FOUND 다.
 pub(crate) fn seat(c: &Conn, req: &PanedRequest) -> Line {
     let p: ipc::SeatParams = match decode(req) {

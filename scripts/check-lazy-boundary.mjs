@@ -109,7 +109,7 @@ function asksScreens(fn) {
   return hit;
 }
 
-/** 함수 노드의 이름: `f`, `Class.method`, `a.b.c = function`. 이름이 없으면 null. */
+/** 함수 노드의 이름: `f`, `Class.method`, `a.b.c = function`, `Object.assign(X.prototype, {m})` 의 `X.prototype.m`. 이름이 없으면 null. */
 function fnName(fn, up, src) {
   if (fn.type === 'FunctionDeclaration' && fn.id) return fn.id.name;
   const p = up.get(fn);
@@ -120,6 +120,13 @@ function fnName(fn, up, src) {
   }
   if (p.type === 'VariableDeclarator' && p.id.type === 'Identifier') return p.id.name;
   if (p.type === 'AssignmentExpression' && p.left.type === 'MemberExpression') return src.slice(...p.left.range);
+  // `Object.assign(X.prototype, { m(){…} })` — 렌더러 같은 증강 파일의 메서드다. 이름은 `X.prototype.m`.
+  if (p.type === 'Property' && !p.computed && p.key.type === 'Identifier') {
+    const call = up.get(up.get(p));
+    const c = call && call.type === 'CallExpression' ? call.callee : null;
+    if (c && c.type === 'MemberExpression' && !c.computed && c.object.type === 'Identifier' && c.object.name === 'Object' &&
+      c.property.name === 'assign' && call.arguments.length > 1) return `${src.slice(...call.arguments[0].range)}.${p.key.name}`;
+  }
   return null;
 }
 

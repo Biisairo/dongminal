@@ -4,7 +4,7 @@ import { test, expect, waitForInit, stubTopic } from './fixtures';
 
 // PERF 3.4.9 — Run·채팅 화면 묶음 (D-30·D-31, perf/M3_DESIGN.md §3.4).
 //
-// 부팅은 `b/run.js`·`b/chat.js` 를 싣지 않는다. 그 탭을 처음 그릴 때 렌더러가 자리표시를 두고 묶음을 싣는다.
+// 부팅은 run·chat 묶음(서버 경로 /b/<이름>.js)을 싣지 않는다. 그 탭을 처음 그릴 때 렌더러가 자리표시를 두고 묶음을 싣는다.
 // 부팅 때 복원된 탭의 묶음은 바로 싣는다(D-31).
 
 const RUN_A = 'aaaaaaaa-3490-4111-8111-111111111111';
