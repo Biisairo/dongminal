@@ -64,7 +64,8 @@ class TermFit {
    */
   doFit(){
     if(this._followsPty()){ this._applyPtySize(); return }
-    if(this.pane.fit)try{this.pane.fit.fit()}catch{}
+    // TERMINAL_GPU_RENDER_SRS FR-TGR-7b: 붙일 예정인 칸은 WebGL 로 설 크기로 선다 — 붙인 뒤 다시 바뀌지 않는다.
+    if(this.pane.fit)try{ if(!(this.pane._gpuFit&&this.pane._gpuFit())) this.pane.fit.fit() }catch{}
     // FR-M10-1: 여기가 **자기 폭이 정해지는 유일한 자리**다. 소유자로서 잰 값만
     // 기록한다 — 비소유자의 경로는 위에서 이미 돌아갔다.
     if(this.pane.term&&this.pane.term.cols>0){ this.pane._ownCols=this.pane.term.cols; this.pane._ownRows=this.pane.term.rows }
