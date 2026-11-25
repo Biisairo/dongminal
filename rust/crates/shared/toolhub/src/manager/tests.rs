@@ -6,7 +6,7 @@ use crate::search::Query;
 
 /// 프로세스 정보의 가짜다. pid 1000 대의 도구만 다룬다.
 #[derive(Default)]
-struct FakeInfo {
+pub(super) struct FakeInfo {
     cwds_calls: AtomicI32,
     children: HashMap<i32, bool>,
     parents: Option<HashMap<i32, i32>>,
@@ -103,7 +103,7 @@ impl Terminal for PidTerm {
     }
 }
 
-fn leak(info: FakeInfo) -> &'static FakeInfo {
+pub(super) fn leak(info: FakeInfo) -> &'static FakeInfo {
     Box::leak(Box::new(info))
 }
 
@@ -463,7 +463,7 @@ fn load_all_rules() {
     );
 }
 
-fn written_tool(id: &str) -> (Arc<Tool>, Arc<StdMutex<Vec<u8>>>) {
+pub(super) fn written_tool(id: &str) -> (Arc<Tool>, Arc<StdMutex<Vec<u8>>>) {
     let written = Arc::<StdMutex<Vec<u8>>>::default();
     let term = PidTerm {
         pid: 1001,

@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::io;
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering::SeqCst};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -13,10 +13,12 @@ use otter_gocompat::filepath;
 use otter_gocompat::json::{self, RawMessage};
 use otter_shared_activity as activity;
 use otter_shared_otterenv as otterenv;
-use otter_shared_otterlog::{errorf, infof, warnf};
+use otter_shared_otterlog::{debugf, errorf, infof, warnf};
 use otter_shared_outbuf::Stream;
 use otter_shared_platform::{ProcInfo, ProcSpec, Terminal};
+use otter_shared_termlimit::SCREEN_IDLE_COMPACT;
 use serde::{Deserialize, Serialize};
+use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
 use crate::tool::{ActivityFn, AttentionFn, ClearFn, ExitFn, SizeFn, attn_busy_many, attn_now};
@@ -200,12 +202,21 @@ struct Inner {
     fg: Mutex<FgState>,
     fg_flight: Mutex<()>,
     sz_notify: Arc<Mutex<Option<SizeFn>>>,
+    /// 화면이 처음 바뀐 도구가 유휴 비우기 작업을 깨운다(D-53).
+    compact_wake: Arc<Notify>,
+    compact_idle: Duration,
+    compact_wakes: AtomicU64,
 }
 
 /// 데몬 안의 도구 등록부다. 값을 복제해 나눠 쓴다.
 #[derive(Clone)]
 pub struct ToolManager {
     inner: Arc<Inner>,
+}
+
+/// 유휴 비우기 시간이다: `OTTERMINAL_SCREEN_IDLE_COMPACT_MS`(검사용) 또는 [`SCREEN_IDLE_COMPACT`].
+fn screen_idle_compact() -> Duration {
+    otterenv::millis_env(otterenv::ENV_SCREEN_IDLE_COMPACT_MS, SCREEN_IDLE_COMPACT, 1)
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -270,6 +281,9 @@ impl ToolManager {
                 fg: Mutex::new(FgState::default()),
                 fg_flight: Mutex::new(()),
                 sz_notify: Arc::new(Mutex::new(None)),
+                compact_wake: Arc::new(Notify::new()),
+                compact_idle: screen_idle_compact(),
+                compact_wakes: AtomicU64::new(0),
             }),
         }
     }
@@ -456,7 +470,7 @@ impl ToolManager {
         infof!(None, "[tool {id}] registered total={}", st.tools.len());
         let cap = st.history_lines;
         drop(st);
-        p.set_history_lines(cap);
+        self.enroll(&p, cap);
         self.mark_mutated();
         self.save_async();
         // 등록보다 먼저 끝난 프로세스는 종료 경로를 한 번 더 지나게 한다.
@@ -551,7 +565,7 @@ impl ToolManager {
         infof!(None, "[tool {id}] restored total={}", st.tools.len());
         let cap = st.history_lines;
         drop(st);
-        p.set_history_lines(cap);
+        self.enroll(&p, cap);
         self.reap_if_exited(&p);
         Ok(())
     }
@@ -566,7 +580,7 @@ impl ToolManager {
             st.tools.insert(p.id.clone(), Arc::clone(&p));
             st.history_lines
         };
-        p.set_history_lines(cap);
+        self.enroll(&p, cap);
     }
 
     /// 프로세스 없는 도구를 만들어 등록한다.
@@ -1031,6 +1045,66 @@ impl ToolManager {
         })
     }
 
+    /// 유휴 비우기 작업이다(D-50·D-53). 바뀐 화면이 없으면 깨우개만 기다리고, 있으면 가장 이른
+    /// `마지막 바뀜 + 유휴 시간` 까지 잔다. 깨면 시간이 찬 도구를 blocking 스레드에서 비운다.
+    /// 비운 뒤 다시 바뀌지 않으면 깨지 않는다. cancel 로 멈춘다.
+    pub fn spawn_screen_compactor(&self, cancel: CancellationToken) -> tokio::task::JoinHandle<()> {
+        let m = self.clone();
+        tokio::spawn(async move {
+            let idle = m.inner.compact_idle;
+            let wake = Arc::clone(&m.inner.compact_wake);
+            loop {
+                let next = m
+                    .snapshot()
+                    .iter()
+                    .filter_map(|p| p.compact_due(idle))
+                    .min();
+                let woke = async {
+                    match next {
+                        Some(at) => tokio::select! {
+                            () = tokio::time::sleep_until(at) => {}
+                            () = wake.notified() => {}
+                        },
+                        None => wake.notified().await,
+                    }
+                };
+                tokio::select! {
+                    () = woke => {}
+                    () = cancel.cancelled() => return,
+                }
+                m.inner.compact_wakes.fetch_add(1, SeqCst);
+                let now = tokio::time::Instant::now();
+                let due: Vec<Arc<Tool>> = m
+                    .snapshot()
+                    .into_iter()
+                    .filter(|p| p.compact_due(idle).is_some_and(|t| t <= now))
+                    .collect();
+                if due.is_empty() {
+                    continue;
+                }
+                let _ = tokio::task::spawn_blocking(move || {
+                    for p in due {
+                        if p.compact_if_idle(now, idle) {
+                            debugf!(None, "[tool {}] 유휴 기록 비움", p.id);
+                        }
+                    }
+                })
+                .await;
+            }
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn compact_wakes(&self) -> u64 {
+        self.inner.compact_wakes.load(SeqCst)
+    }
+
+    /// 등록한 도구에 기록 줄 수 설정과 유휴 비우기 깨우개를 건다.
+    fn enroll(&self, p: &Tool, cap: usize) {
+        p.set_history_lines(cap);
+        p.set_compact_wake(&self.inner.compact_wake);
+    }
+
     /// 판정 설정을 바꾼다. allow_bell 은 이미 있는 도구에도 반영된다.
     pub fn set_attention_config(&self, idle: Duration, allow_bell: bool) {
         let tools: Vec<Arc<Tool>> = {
@@ -1380,7 +1454,7 @@ impl ToolManager {
             }
             st.history_lines
         };
-        p.set_history_lines(cap);
+        self.enroll(&p, cap);
         self.mark_mutated();
         p.spawn_reader();
         infof!(
@@ -1492,5 +1566,7 @@ pub(crate) fn derived_name(raw: &str) -> String {
     truncate_chars(name, FG_NAME_MAX)
 }
 
+#[cfg(test)]
+mod compact_tests;
 #[cfg(test)]
 mod tests;

@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering::SeqCst};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, Once, RwLock};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, Once, OnceLock, RwLock};
 use std::time::Duration;
 use std::{io, thread};
 
@@ -13,6 +13,8 @@ use otter_shared_otterlog::{errorf, infof};
 use otter_shared_outbuf::Stream;
 use otter_shared_platform::{ProcSpec, Terminal};
 use otter_shared_termstate::{HISTORY_CAP, Handover, Screen};
+use tokio::sync::Notify;
+use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 use crate::env::{Getenv, tool_bin_dir, tool_env, tool_start_dir};
@@ -69,6 +71,10 @@ struct Cmu {
     seat_holds: usize,
     /// 화면 상태가 마지막으로 답한 조각의 끝 오프셋이다.
     replied_end: i64,
+    /// 화면 상태가 마지막으로 바뀐 때다(출력·크기·인계).
+    fed_at: Option<Instant>,
+    /// 마지막 유휴 비우기 뒤로 화면 상태가 바뀌었다(D-53).
+    dirty: bool,
 }
 
 #[derive(Default)]
@@ -163,6 +169,8 @@ pub struct Tool {
     frz: Mutex<FreezeState>,
     frz_cv: Condvar,
     reported_cwd: Mutex<String>,
+    /// 등록부의 유휴 비우기 깨우개다. 등록할 때 한 번 건다.
+    compact_wake: OnceLock<Arc<Notify>>,
 }
 
 impl Tool {
@@ -208,6 +216,7 @@ impl Tool {
             frz: Mutex::new(FreezeState::default()),
             frz_cv: Condvar::new(),
             reported_cwd: Mutex::new(String::new()),
+            compact_wake: OnceLock::new(),
         }
     }
 
@@ -405,6 +414,7 @@ impl Tool {
             s.feed(chunk);
             s.take_replies()
         });
+        self.touch(&mut g);
         let end = self.stream.as_ref().map_or(0, |s| s.feed(chunk).1);
         let answer = replies.filter(|r| !r.is_empty() && g.seat_holds == 0);
         if answer.is_some() {
@@ -496,6 +506,52 @@ impl Tool {
         s.feed(&ring[ring.len().saturating_sub(back)..]);
         s.take_replies();
         *sc = s;
+        self.touch(&mut g);
+    }
+
+    /// 화면 상태가 바뀌었다고 적는다. 깨끗하던 화면이 처음 바뀔 때만 compactor 를 깨운다(D-53).
+    fn touch(&self, g: &mut Cmu) {
+        if g.screen.is_none() {
+            return;
+        }
+        g.fed_at = Some(Instant::now());
+        if !g.dirty {
+            g.dirty = true;
+            if let Some(w) = self.compact_wake.get() {
+                w.notify_one();
+            }
+        }
+    }
+
+    /// 등록부의 compactor 깨우개를 건다. 걸기 전에 이미 바뀐 화면이면 곧바로 깨운다.
+    pub(crate) fn set_compact_wake(&self, w: &Arc<Notify>) {
+        let _ = self.compact_wake.set(Arc::clone(w));
+        if lock(&self.cmu).dirty {
+            w.notify_one();
+        }
+    }
+
+    /// 유휴 비우기 시각이다. 비운 뒤로 바뀌지 않았으면 `None` 이다.
+    pub(crate) fn compact_due(&self, idle: Duration) -> Option<Instant> {
+        let g = lock(&self.cmu);
+        g.fed_at.filter(|_| g.dirty).map(|t| t + idle)
+    }
+
+    /// `now` 에 유휴 시간이 찼으면 에뮬레이터 기록을 줄 저장소로 옮겨 비운다(D-50). 잠금 안에서 다시 본다.
+    pub(crate) fn compact_if_idle(&self, now: Instant, idle: Duration) -> bool {
+        let mut g = lock(&self.cmu);
+        let due = g
+            .fed_at
+            .filter(|_| g.dirty)
+            .is_some_and(|t| t + idle <= now);
+        if !due {
+            return false;
+        }
+        if let Some(s) = g.screen.as_mut() {
+            s.compact();
+        }
+        g.dirty = false;
+        true
     }
 
     /// 줄 저장소 상한을 바꾼다(D-25). 터미널이 없는 도구는 할 일이 없다.
@@ -720,6 +776,7 @@ impl Tool {
         if let Some(s) = g.screen.as_mut() {
             s.resize(c, r);
         }
+        self.touch(&mut g);
         Ok(old != Some((c, r)))
     }
 
