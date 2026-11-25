@@ -53,6 +53,7 @@ members = [
     "crates/shared/serverconf",
     "crates/shared/settingsschema",
     "crates/shared/statusline",
+    "crates/shared/termlimit",
     "crates/shared/termstate",
     "crates/shared/termtext",
     "crates/shared/testpath",

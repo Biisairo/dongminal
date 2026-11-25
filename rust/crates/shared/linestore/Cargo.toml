@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 flate2.workspace = true
+otter-shared-termlimit = { path = "../termlimit" }
 
 [dev-dependencies]
 serde_json.workspace = true

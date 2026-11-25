@@ -38,7 +38,7 @@ const SETTINGS_SCHEMA = [
   {"key":"fgTabNames","type":"bool","def":true,"where":"Display ▸ 프로세스 이름을 탭 이름으로"},
   {"key":"claudeFullscreen","type":"bool","def":true,"where":"Terminal ▸ Claude Code fullscreen"},
   {"key":"termFontSize","type":"int","def":14,"min":8,"max":32,"where":"Terminal ▸ 터미널 글자 크기"},
-  {"key":"termHistoryLines","type":"int","def":50000,"min":1000,"max":200000,"where":"Terminal ▸ 서버 기록 줄 수"},
+  {"key":"termHistoryLines","type":"int","def":20000,"min":1000,"max":200000,"where":"Terminal ▸ 서버 기록 줄 수"},
   {"key":"termScrollback","type":"int","def":5000,"min":500,"max":50000,"where":"Terminal ▸ 화면 기록 줄 수"},
   {"key":"claudeScrollSpeed","type":"int","def":3,"min":1,"max":20,"where":"Terminal ▸ Claude Code 스크롤 속도"},
   {"key":"confirmLeave","type":"bool","def":false,"where":"Display ▸ 떠날 때 확인"},

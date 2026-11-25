@@ -13,6 +13,9 @@ use alacritty_terminal::vte::ansi::{
 };
 
 use otter_shared_linestore::{LineStore, split_for_rows};
+// 넣기 조각 하나가 기록으로 밀어 올릴 수 있는 행 수다([`split_for_rows`] 상한). 이만큼 넘을 때까지는
+// 걸친 논리 줄이 끝나기를 기다리고, 넘으면 끊어 옮긴다.
+use otter_shared_termlimit::FEED_SLACK as SLACK;
 
 use crate::hist;
 use crate::scan::Scan;
@@ -98,9 +101,6 @@ impl Dimensions for Size {
 
 /// 에뮬레이터가 화면 위에 남기는 기록 줄 수다. 넘는 줄은 줄 저장소로 옮긴다(EMULATOR §6, D-14).
 pub const EMU_KEEP: usize = 1_000;
-/// 넣기 조각 하나가 기록으로 밀어 올릴 수 있는 행 수다([`split_for_rows`] 상한). 이만큼 넘을 때까지는
-/// 걸친 논리 줄이 끝나기를 기다리고, 넘으면 끊어 옮긴다.
-const SLACK: usize = 256;
 
 /// 도구 하나의 화면 상태다. 에뮬레이터 화면·짧은 기록과, 그 위의 줄 저장소를 함께 든다.
 pub struct Screen {

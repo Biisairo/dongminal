@@ -23,7 +23,7 @@ use crate::{
 };
 
 /// 출력 링버퍼의 크기다(1MB).
-pub const BUF_MAX: usize = 1 << 20;
+pub use otter_shared_termlimit::OUTPUT_RING_BYTES as BUF_MAX;
 /// kill 이 SIGTERM 뒤 SIGKILL 까지 기다리는 시간이다.
 pub const TERMINATE_GRACE: Duration = Duration::from_millis(50);
 const READ_BUF: usize = 8192;

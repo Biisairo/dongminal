@@ -328,8 +328,7 @@ pub struct SearchResult {
 pub const SEARCH_LIMIT_MAX: usize = 1_000;
 
 /// 설정 `termHistoryLines` 의 범위다(D-25). 웹 설정 서술자와 같은 수다.
-pub const HISTORY_LINES_MIN: usize = 1_000;
-pub const HISTORY_LINES_MAX: usize = 200_000;
+pub use otter_shared_termlimit::{HISTORY_LINES_MAX, HISTORY_LINES_MIN};
 
 /// 도구마다 줄 저장소에 남길 기록 줄 수다. 범위 밖이면 데몬이 거절한다.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

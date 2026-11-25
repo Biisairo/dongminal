@@ -132,6 +132,7 @@ rust/                    # Cargo 워크스페이스 — crate 하나가 디렉�
       sandboxplace/      #   ②③  — 샌드박스 프로파일 → 실행 명세 배선 (toolhub 와 sandbox 를 잇는다)
       mimeprobe/         #   ②③  — 바이트 앞머리로 그림인지 (파일 종단·git 블롭 종단이 같은 한 벌, M9 FR-M9-21)
       diagtail/          #   ②③  — 실행 진단 문자열의 절단 규칙 하나 (상한은 표면마다)
+      termlimit/         #   ②③  — 데몬 터미널의 메모리 예산 상수 한 벌: 에뮬레이터 keep·상한, 유휴 비우기 시간, 기록 줄 수 기본·범위, 저장소 블록, 출력 링 (PERF NFR-PRF-10, D-54)
       termstate/         #   ②③  — 도구마다 한 벌의 화면 상태. alacritty_terminal(=0.26.0)을 이 crate 에만 가둔다 (PERF SRS FR-TRM-1·7, D-13)
       termtext/          #   ①②③ — 화면·터미널에 찍을 글자의 규칙 한 벌: 숨은 글자(제어·Cf) 판정·정화, 지문 줄이기 (REFACTOR3_DEDUP_GO_SRS FR-RDG-43·44)
       textenc/           #   ③   — 텍스트 인코딩 판별·엄격 디코드·재인코딩 (파일 종단·git diff 가 같은 한 벌, REPO_FIX 03)

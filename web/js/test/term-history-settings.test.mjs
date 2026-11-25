@@ -19,15 +19,16 @@ const schema = () => load(['core/settings-schema.js'], { expose: ['SETTINGS_BY_K
 test('D-25: 표가 두 키의 범위와 기본값을 갖는다', () => {
   const { SETTINGS_BY_KEY: by } = schema();
   const pick = (s) => ({ type: s.type, min: s.min, max: s.max, def: s.def });
-  assert.deepEqual(pick(by.termHistoryLines), { type: 'int', min: 1000, max: 200000, def: 50000 });
+  assert.deepEqual(pick(by.termHistoryLines), { type: 'int', min: 1000, max: 200000, def: 20000 });
   assert.deepEqual(pick(by.termScrollback), { type: 'int', min: 500, max: 50000, def: 5000 });
 });
 
 test('D-25: 범위 밖 값은 기본값으로 떨어진다', () => {
   const { SETTINGS_BY_KEY: by, settingValue } = schema();
-  assert.equal(settingValue(999, by.termHistoryLines), 50000);
-  assert.equal(settingValue(200001, by.termHistoryLines), 50000);
+  assert.equal(settingValue(999, by.termHistoryLines), 20000);
+  assert.equal(settingValue(200001, by.termHistoryLines), 20000);
   assert.equal(settingValue(2000, by.termHistoryLines), 2000);
+  assert.equal(settingValue(50000, by.termHistoryLines), 50000, 'D-51: 저장된 옛 기본값은 그대로 쓴다');
   assert.equal(settingValue(499, by.termScrollback), 5000);
   assert.equal(settingValue(800, by.termScrollback), 800);
 });

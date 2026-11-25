@@ -13,10 +13,10 @@ use std::collections::VecDeque;
 pub use line::{Cell, Cells, Color, Line, LineBuilder, Link, Style, flags};
 pub use split::split_for_rows;
 
-/// 기본 상한(D-7, D-25 `termHistoryLines`).
-pub const DEFAULT_CAP: usize = 50_000;
+/// 기본 상한(D-7, D-25·D-51 `termHistoryLines`).
+pub use otter_shared_termlimit::HISTORY_LINES_DEFAULT as DEFAULT_CAP;
 /// 블록 하나의 줄 수. 버릴 때도 이 단위로 버린다.
-pub const BLOCK_LINES: usize = 256;
+pub use otter_shared_termlimit::STORE_BLOCK_LINES as BLOCK_LINES;
 
 struct Block {
     first: u64,
