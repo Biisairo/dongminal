@@ -136,7 +136,7 @@ class ToolSearch extends Controller {
     count.textContent=String(hits.length);
     list.replaceChildren(...hits.map(h=>{
       const li=document.createElement('button');
-      li.className='search-older-hit';
+      li.className='search-older-hit ui-btn ui-btn-ghost ui-btn-sm';
       li.dataset.line=String(h.line);
       li.textContent=h.text;
       li.addEventListener('click',()=>{ if(typeof p.openHistoryAt==='function') p.openHistoryAt(h.line) });
