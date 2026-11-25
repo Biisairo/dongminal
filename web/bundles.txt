@@ -471,8 +471,7 @@ js/ui/file-tree-download.js
 
 [docrender]
 # 문서 렌더 뷰 (DOC_RENDER_VIEW_SRS, PERF 3.4.8). 렌더 탭을 처음 그릴 때 싣는다 — 렌더러의 자리표시가 기다린다.
-# markdown-it·DOMPurify 는 부팅에 남는다: 터미널 맨 도메인 링크(bare-link.js)·편집기 링크(cm-link.js)·LSP hover
-# 정화(lsp-client.js)가 함께 쓴다.
+# markdown-it·DOMPurify 는 needs 로 mdlib 가 먼저 싣는다(PERF 3.4.12.2, D-43).
 vendor/highlight.js
 js/core/constants-docrender.js
 js/ui/doc-render-util.js
@@ -480,3 +479,9 @@ js/ui/doc-render.js
 # 문서 렌더 뷰의 생명주기 (PERF 3.5.3). doc-render.js 뒤다 — DocRender.prototype 에 얹는다.
 js/ui/doc-render-life.js
 style-docrender.css
+
+[mdlib]
+# markdown-it·DOMPurify 라이브러리 묶음 (PERF 3.4.12.2, D-43). 처음 쓸 때 싣는다 — 터미널 맨 도메인 링크의 첫
+# provideLinks(bare-link.js), loadCodeMirror(cm-load.js, CM 과 나란히), docrender 의 needs.
+vendor/markdown-it.js
+vendor/purify.js

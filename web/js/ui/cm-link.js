@@ -14,7 +14,7 @@ let edLinkify = null;
 
 // FR-ELS-11: 스킴 있는 링크만 — 맨 도메인(fuzzy)은 `README.md` 를 잡는다 (D-BDL-2).
 function edLinkifier() {
-  if (!edLinkify && typeof markdownit === 'function') {
+  if (!edLinkify && Screens.ready('mdlib')) {
     edLinkify = markdownit().linkify.set({ fuzzyLink: false, fuzzyEmail: false, fuzzyIP: false });
   }
   return edLinkify;

@@ -9,7 +9,7 @@ let bareLinkify=null;
 const bareLinkSeen=new Map();
 
 function bareLinkifier(){
-  if(!bareLinkify&&typeof markdownit==='function') bareLinkify=markdownit().linkify.set({fuzzyLink:true,fuzzyEmail:false});
+  if(!bareLinkify&&Screens.ready('mdlib')) bareLinkify=markdownit().linkify.set({fuzzyLink:true,fuzzyEmail:false});
   return bareLinkify;
 }
 
@@ -89,6 +89,8 @@ function termLineText(term,y){
 function bareLinkProvider(term,cwdOf){
   return {
     provideLinks(y,cb){
+      // PERF 3.4.12.2 (D-43): 첫 hover 는 mdlib 를 기다린 뒤 그 줄을 판정한다. 실패하면 링크 없이 답한다.
+      if(!Screens.ready('mdlib')){ Screens.load('mdlib').then(()=>this.provideLinks(y,cb),()=>cb(undefined)); return }
       const ln=termLineText(term,y);
       if(!ln){cb(undefined);return}
       const ms=bareLinks(ln.s);

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { loadCM } from './cm-harness.mjs';
-import { load, plain } from './harness.mjs';
+import { SCREENS_LOADED, load, plain } from './harness.mjs';
 
 /**
  * `ui/cm-link.js` — EDITOR_LINK_LSP_SRS FR-ELS-10~24 (V-ELS-4~7).
@@ -11,7 +11,7 @@ import { load, plain } from './harness.mjs';
 const CM = await loadCM();
 // 앱이 싣는 markdown-it(linkify-it 포함)을 그대로 쓴다 (NFR-ELS-1).
 const ctx = load(['../vendor/markdown-it.js', 'ui/cm-lsp.js', 'ui/cm-link.js'], {
-  globals: { CM, atob },
+  globals: { CM, atob, Screens: SCREENS_LOADED },
   expose: ['edLinkUrlAt', 'edLinkClickPlan', 'edLinkHoverRange', 'edLspLinkTarget'],
 });
 const st = (text) => CM.EditorState.create({ doc: text });
