@@ -171,6 +171,10 @@ pub struct Tool {
     reported_cwd: Mutex<String>,
     /// 등록부의 유휴 비우기 깨우개다. 등록할 때 한 번 건다.
     compact_wake: OnceLock<Arc<Notify>>,
+    /// 등록부의 전경 이름 정착 깨우개다(D1). 등록할 때 한 번 건다.
+    fg_wake: OnceLock<Arc<Notify>>,
+    /// 마지막 전경 조회 뒤 처음 PTY 입출력이 있던 시각이다. 조회하면 비운다.
+    fg_io_at: Mutex<Option<Instant>>,
 }
 
 impl Tool {
@@ -217,6 +221,8 @@ impl Tool {
             frz_cv: Condvar::new(),
             reported_cwd: Mutex::new(String::new()),
             compact_wake: OnceLock::new(),
+            fg_wake: OnceLock::new(),
+            fg_io_at: Mutex::new(None),
         }
     }
 
@@ -531,6 +537,37 @@ impl Tool {
         }
     }
 
+    /// 전경 조회 뒤 처음 입출력이면 시각을 적고 정착 작업을 깨운다. 계속 입출력해도 창 하나에 한 번이다.
+    pub(crate) fn note_fg_io(&self) {
+        let mut g = lock(&self.fg_io_at);
+        if g.is_some() {
+            return;
+        }
+        *g = Some(Instant::now());
+        drop(g);
+        if let Some(w) = self.fg_wake.get() {
+            w.notify_one();
+        }
+    }
+
+    /// 등록부의 전경 정착 깨우개를 건다. 걸기 전에 이미 입출력이 있었으면 곧바로 깨운다.
+    pub(crate) fn set_fg_wake(&self, w: &Arc<Notify>) {
+        let _ = self.fg_wake.set(Arc::clone(w));
+        if lock(&self.fg_io_at).is_some() {
+            w.notify_one();
+        }
+    }
+
+    /// 전경을 조회할 시각이다. 조회 뒤로 입출력이 없었으면 `None` 이다.
+    pub(crate) fn fg_due(&self, settle: Duration) -> Option<Instant> {
+        lock(&self.fg_io_at).map(|t| t + settle)
+    }
+
+    /// 전경 조회를 시작하며 입출력 표시를 비운다. 조회 중 입출력은 다음 창으로 넘어간다.
+    pub(crate) fn take_fg_io(&self) {
+        *lock(&self.fg_io_at) = None;
+    }
+
     /// 유휴 비우기 시각이다. 비운 뒤로 바뀌지 않았으면 `None` 이다.
     pub(crate) fn compact_due(&self, idle: Duration) -> Option<Instant> {
         let g = lock(&self.cmu);
@@ -735,7 +772,9 @@ impl Tool {
         let Some(term) = &self.term else {
             return Err(io::Error::other(format!("tool {}: 터미널이 없다", self.id)));
         };
-        term.write(data).map(|_| ())
+        term.write(data)?;
+        self.note_fg_io();
+        Ok(())
     }
 
     /// 크기를 바꾸고, 실제로 바뀌었으면 on_size 로 알린다.
@@ -865,6 +904,7 @@ impl Tool {
 
     fn observe_output_classified(&self, rs: &mut ReadState, chunk: &[u8], now: i64, c: EscClass) {
         self.last_output_at.store(now, SeqCst);
+        self.note_fg_io();
         if !self.attn_rearm_locked.load(SeqCst) {
             self.attn_armed.store(true, SeqCst);
         }

@@ -16,7 +16,7 @@ use otter_daemon_swap as swap;
 use otter_gocompat::oserr::{go_error_string, path_error};
 use otter_shared_otterenv as otterenv;
 use otter_shared_otterlog::{errorf, infof, warnf};
-use otter_shared_toolhub::{ATTENTION_SWEEP_INTERVAL, FOREGROUND_REFRESH_INTERVAL, ToolManager};
+use otter_shared_toolhub::{ATTENTION_SWEEP_INTERVAL, ToolManager};
 use tokio_util::sync::CancellationToken;
 
 pub use edge::start_edge;
@@ -180,7 +180,7 @@ fn serve(home: &str, version: &str, daemon_build: &str, handover_fd: i64) {
     }
 
     // FR-OPT-2-1: 전경 조회는 이 프로세스가 돌린다.
-    pm.spawn_foreground_refresh(shutdown.clone(), FOREGROUND_REFRESH_INTERVAL);
+    pm.spawn_foreground_refresh(shutdown.clone());
     // FR-ARD-30: 유휴 판정도 데몬이 한다.
     pm.spawn_attention_sweeper(shutdown.clone(), ATTENTION_SWEEP_INTERVAL);
     // PERF D-50·D-53: 출력이 멎은 도구의 에뮬레이터 기록을 줄 저장소로 옮겨 비운다.

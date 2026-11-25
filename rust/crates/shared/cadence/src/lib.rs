@@ -36,7 +36,7 @@
 //!
 //! | 상수 | 값 | 쓰는 곳 | 설계 · 단계 |
 //! |---|---|---|---|
-//! | `FOREGROUND_REFRESH_EVERY` | 2초 | `shared/toolhub` 전경 이름 재조회, `webserver/hub` 서버 전경 poll | D1 · S5, 4.6 · 4.8 |
+//! | `FOREGROUND_REFRESH_EVERY` | 2초 | `webserver/hub` 서버 전경 poll | S5, 4.8 |
 //! | `ATTENTION_SWEEP_EVERY` | 1초 | `shared/toolhub` 데몬 유휴 판정 | D2, 4.8 |
 //! | `SERVER_ATTN_SWEEP_EVERY` | 1초 | `webserver/hub` 서버 L2 스위퍼 틱 | S4, 4.8 |
 //! | `GIT_WATCH_ROUND_EVERY` | 1초 | `webserver/hub` git 감시 회차 | S1, 4.9 |
@@ -55,8 +55,9 @@
 //!
 //! | 상수 | 값 | 쓰는 곳 | 설계 · 단계 |
 //! |---|---|---|---|
+//! | `FOREGROUND_SETTLE` | 2초 | `shared/toolhub` 전경 이름 정착 창 | D1, 4.6 |
 //!
-//! 넣을 값: 전경 이름의 정착 창(D1, 4.6, 기본 2초), sysstat 예열 표본 간격(S2, 4.10),
+//! 넣을 값: sysstat 예열 표본 간격(S2, 4.10),
 //! git 감시 실패·넘침 뒤 회차로 물러서는 간격(S1, 4.9).
 
 use std::time::Duration;
@@ -83,8 +84,8 @@ pub const UPDATE_CHECK_EVERY: Duration = Duration::from_secs(24 * 60 * 60);
 
 // ── 2. 사건 기반으로 바뀔 주기 (4.6~4.11) ──
 
-/// 도구별 전경 이름을 다시 조회하는 주기다 (FR-TAN-8). 서버의 전경 poll 도 같은 값을 쓴다.
-/// 4.6 이 PTY 입출력 뒤 정착 창으로, 4.8 이 서버 poll 제거로 바꾼다.
+/// 서버가 데몬에 전경 이름을 묻는 poll 의 주기다 (FR-TAN-8). 데몬 쪽 조회는 4.6 이
+/// [`FOREGROUND_SETTLE`] 사건 기반으로 바꿨다. 4.8 이 서버 poll 을 지운다.
 pub const FOREGROUND_REFRESH_EVERY: Duration = Duration::from_secs(2);
 /// 데몬의 L2 유휴 판정 sweeper 주기다. 4.8 이 `last_output_at + 임계` 마감으로 바꾼다.
 pub const ATTENTION_SWEEP_EVERY: Duration = Duration::from_secs(1);
@@ -112,6 +113,10 @@ pub const MESH_REDIAL_MAX: Duration = Duration::from_secs(60);
 pub const MESH_PING_EVERY: Duration = Duration::from_secs(15);
 
 // ── 3. 사건 기반 작업의 시간 값 (4.6·4.9·4.10 이 더한다) ──
+
+/// 전경 이름의 정착 창이다 (D1, FR-TAN-7·8). 도구에 PTY 입출력이 있으면 그 뒤 이만큼 지나 전경을
+/// 한 번 조회한다. 입출력이 없으면 조회하지 않는다. 계속 출력해도 창 하나에 한 번이다.
+pub const FOREGROUND_SETTLE: Duration = Duration::from_secs(2);
 
 #[cfg(test)]
 mod tests;
