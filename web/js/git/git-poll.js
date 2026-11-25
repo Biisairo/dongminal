@@ -286,7 +286,9 @@ class GitPoll extends GitPart {
     // 결과를 덮어 다음 폴링까지 되돌아간 화면을 보였다(#41).
     if(this.p._writeGen!==wg){this.collect();return}
     this._applyStatus(tok,r,d);
-    if(again) this.collect();
+    // PERF 4.15.1 (F-6.2): 비저장소 판정은 폴링을 멈춘 확정 사실이다 — 미룬 한 번은 버리고
+    // 다음 `git:<root>` 신호·포커스·새로고침에 맡긴다. 이전: 판정 직후 status 를 한 번 더 보냈다.
+    if(again&&!this.p._notRepo) this.collect();
   }
 
   // REFACTOR3_FE_REST3_SRS FR-FR3-20 (FU-16): 세대 → 판정(순수) → 갈래. 성공은 받아들이기 → 칠하기 순서다.
