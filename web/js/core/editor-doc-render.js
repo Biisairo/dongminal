@@ -224,4 +224,4 @@ class EditorDocRender extends Controller {
 }
 
 // PERF 3.4.8: 문서 렌더 뷰는 `docrender` 묶음이다. 렌더 탭(`render:true` 인 편집기 탭)을 처음 그릴 때 싣는다.
-Screens.register('docrender', { css: true, tab: (at) => at.type === TAB_TYPE_EDITOR && !!at.render });
+Screens.register('docrender', { css: true, needs: ['mdlib'], tab: (at) => at.type === TAB_TYPE_EDITOR && !!at.render });

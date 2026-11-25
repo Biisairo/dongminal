@@ -90,3 +90,6 @@ const Screens={
     });
   },
 };
+
+// markdown-it·DOMPurify (PERF 3.4.12.2, D-43). 맨 도메인 링크·CM 뷰·문서 렌더가 함께 쓰는 라이브러리 묶음이다.
+Screens.register('mdlib');
