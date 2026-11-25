@@ -8,7 +8,7 @@ use otter_webserver_seam_toolaccess::{
 };
 
 use super::support::*;
-use crate::ansi::{go_string, strip_ansi};
+use crate::ansi::go_string;
 use crate::toolio::{agent_envelope, quote_envelope};
 use crate::{Deps, Server};
 
@@ -17,6 +17,8 @@ struct FakeToolIo {
     has: Mutex<HashMap<String, bool>>,
     snap: Mutex<HashMap<String, Vec<u8>>>,
     dropped: Mutex<i64>,
+    screen: Mutex<HashMap<String, String>>,
+    screen_bytes: Mutex<Vec<usize>>,
     pastes: Mutex<Vec<(String, String, bool)>>,
 }
 
@@ -30,6 +32,10 @@ impl ToolReader for FakeToolIo {
     fn snapshot(&self, id: &str) -> Option<(Vec<u8>, i64)> {
         let d = *self.dropped.lock().unwrap();
         self.snap.lock().unwrap().get(id).map(|b| (b.clone(), d))
+    }
+    fn screen_text(&self, id: &str, bytes: usize) -> Option<String> {
+        self.screen_bytes.lock().unwrap().push(bytes);
+        self.screen.lock().unwrap().get(id).cloned()
     }
     fn send_paste(&self, id: &str, text: &[u8], submit: bool) -> Result<(), Error> {
         self.pastes.lock().unwrap().push((
@@ -104,22 +110,60 @@ fn tool_io_server(dir: &std::path::Path) -> (Arc<Server>, Arc<FakeToolIo>) {
     (srv, io)
 }
 
+/// read-screen(strip=1)은 데몬 화면 상태의 글자다(FR-TRM-8, D-22). read-output 은 링 그대로다.
 #[tokio::test]
-async fn output_strips_and_keeps_ansi() {
+async fn output_strip_reads_screen_text() {
     let d = tempfile::tempdir().unwrap();
     let (srv, io) = tool_io_server(d.path());
     io.snap
         .lock()
         .unwrap()
         .insert("p1".into(), b"\x1b[31mred\x1b[0m done".to_vec());
+    io.screen
+        .lock()
+        .unwrap()
+        .insert("p1".into(), "화면\n".into());
+    *io.dropped.lock().unwrap() = 4096;
     let r = get(&srv, "/api/tools/output?id=p1&strip=1").await;
     assert_eq!(r.status, 200);
     assert_eq!(
         r.body,
-        "{\"dropped\":0,\"text\":\"red done\",\"toolId\":\"p1\"}\n"
+        "{\"dropped\":0,\"text\":\"화면\\n\",\"toolId\":\"p1\"}\n"
     );
     let r = get(&srv, "/api/tools/output?id=p1").await;
     assert_eq!(r.json()["text"], "\x1b[31mred\x1b[0m done");
+    assert_eq!(r.json()["dropped"], 4096);
+}
+
+#[tokio::test]
+async fn output_strip_passes_bytes_cap() {
+    let d = tempfile::tempdir().unwrap();
+    let (srv, io) = tool_io_server(d.path());
+    io.screen.lock().unwrap().insert("p1".into(), String::new());
+    for q in ["", "&bytes=0", "&bytes=-5", "&bytes=16384"] {
+        let r = get(&srv, &format!("/api/tools/output?id=p1&strip=1{q}")).await;
+        assert_eq!(
+            (r.status, r.json()["text"].clone()),
+            (200, "".into()),
+            "{q}"
+        );
+    }
+    assert_eq!(*io.screen_bytes.lock().unwrap(), [0, 0, 0, 16384]);
+}
+
+#[tokio::test]
+async fn output_strip_without_screen_is_404() {
+    let d = tempfile::tempdir().unwrap();
+    let (srv, io) = tool_io_server(d.path());
+    io.snap.lock().unwrap().insert("p1".into(), b"hi".to_vec());
+    let r = get(&srv, "/api/tools/output?id=p1&strip=1").await;
+    assert_eq!(
+        (r.status, r.body.as_str()),
+        (404, "{\"error\":\"tool 없음: p1\"}\n")
+    );
+    let r = get(&srv, "/api/tools/output?id=dead-tool&strip=1").await;
+    assert_eq!(r.status, 404);
+    assert!(io.screen_bytes.lock().unwrap().len() == 1);
 }
 
 #[tokio::test]
@@ -324,21 +368,6 @@ async fn method_mismatch_and_unavailable() {
     assert_eq!(r.status, 503);
     let r = post_json(&bare, "/api/tools/message", r#"{"to":"p1","message":"x"}"#).await;
     assert_eq!(r.status, 503);
-}
-
-#[test]
-fn strip_ansi_table() {
-    for (inp, want) in [
-        (&b"hello"[..], "hello"),
-        (b"\x1b[31mred\x1b[0m", "red"),
-        (b"\x1b]0;title\x07after", "after"),
-        (b"a\r\nb", "a\nb"),
-        (b"a\x01b", "ab"),
-        (b"a\tb", "a\tb"),
-        (b"a\x7fb", "ab"),
-    ] {
-        assert_eq!(strip_ansi(inp), want);
-    }
 }
 
 #[test]

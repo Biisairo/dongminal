@@ -455,6 +455,11 @@ impl Tool {
         })
     }
 
+    /// 화면 상태의 글자다(read-screen, FR-TRM-8). 터미널이 없는 도구는 `None` 이다.
+    pub fn screen_text(&self, bytes: usize) -> Option<String> {
+        lock(&self.cmu).screen.as_ref().map(|s| s.text(bytes))
+    }
+
     /// 줄 저장소에서 번호 `before` 앞의 `count` 줄이다 (FR-TRM-5). 잠금 안에서는 줄만 꺼내고 ANSI 는 밖에서
     /// 쓴다. 터미널이 없는 도구는 `None` 이다.
     pub fn history(&self, before: u64, count: usize) -> Option<ToolHistory> {

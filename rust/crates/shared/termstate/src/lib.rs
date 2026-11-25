@@ -8,6 +8,7 @@ mod emu;
 mod hist;
 mod scan;
 mod snap;
+mod text;
 
 pub use emu::{EMU_KEEP, Screen};
 pub use otter_shared_linestore::DEFAULT_CAP as HISTORY_CAP;
