@@ -20,7 +20,7 @@
 
 - D-9 상태용 주기 GET 전부 제거 · D-10 토픽별 변화량/전체 값 · D-11 표준 압축, WebSocket 구현 하나 · D-12 모든 연결 압축, sockudo-ws · D-13 alacritty_terminal · D-14 줄 저장소.
 - agentsPollInterval·gitConsoleInterval·gitStatusInterval·gitReposInterval 설정 삭제, Git Console·편집기 틱은 토픽으로.
-- 전체 시험의 e2e 포트 기준은 62200 이하(edges-settings 의 CLOSED_OFFSET).
+- e2e 워커 포트는 `E2E_PORT_BASE`(기본 60147)부터 워커마다 1씩. edges-settings 가 그 위 +3300 을 쓰므로 `포트 + 3300 ≤ 65535` 를 지킨다(이전 "62200 이하" 문구는 틀렸다 — M4 전체 시험 확인).
 
 ## 운영 메모
 
