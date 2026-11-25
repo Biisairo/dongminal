@@ -28,5 +28,5 @@ test('등록: keybar 는 라이브러리, mobile·settings 는 keybar 를 needs 
   const shell = src('js/core/mobile-shell.js');
   assert.match(shell, /Screens\.register\('keybar'\)/);
   assert.match(shell, /Screens\.register\('mobile',\{needs:\['keybar'\]\}\)/);
-  assert.match(src('js/core/settings-controller.js'), /Screens\.register\('settings',\s*\{needs:\[[^\]]*'keybar'[^\]]*\]\}\)/);
+  assert.match(src('js/core/settings-controller.js'), /Screens\.register\('settings',\s*\{needs:\[[^\]]*'keybar'[^\]]*\][^}]*\}\)/);
 });

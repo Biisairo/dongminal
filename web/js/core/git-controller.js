@@ -339,4 +339,4 @@ Object.defineProperty(App.prototype,'gitPanel',{
 
 // PERF D-30: git 화면 묶음(web/bundles.txt [git]). 렌더러는 git 탭을 묶음이 실린 뒤에 그린다 — 그 전에는 자리표시다.
 // Diff 가 쓰는 CM 공용 층은 cm 묶음이다 — needs 로 먼저 싣는다 (PERF 3.4.12.7, D-44).
-Screens.register('git',{css:true,needs:['cm'],tab:(at)=>at.type===TAB_TYPE_GIT});
+Screens.register('git',{css:true,needs:['cm'],i18n:true,tab:(at)=>at.type===TAB_TYPE_GIT});

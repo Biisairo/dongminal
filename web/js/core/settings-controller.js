@@ -273,4 +273,4 @@ class SettingsController extends Controller {
 // PERF 3.4.12.8: 설정 ▸ Terminal 의 키바 구성이 keybar.js(`keybar` 라이브러리 묶음)를 쓴다.
 // PERF 3.4.12.10: 설정 ▸ Edges 의 망 그림이 `chat` 묶음의 `edges-mesh.js` 를 쓴다(D-47).
 Screens.register('themes');
-Screens.register('settings',{needs:['themes','keybar','chat']});
+Screens.register('settings',{needs:['themes','keybar','chat'],i18n:true});

@@ -2,7 +2,8 @@
  * Otterminal — 문구 카탈로그 (M8_UNIFIED_SRS 축 B, FR-B-1·2·4·5·7).
  *
  * 읽는 함수는 둘이다 — `t(key, params)` 와 `tn(key, n, params)`. 문장은
- * `web/js/i18n/<locale>.js` 가 `I18N.register` 로 싣는다. 이 파일은 **모든
+ * `web/js/i18n/<locale>.js` 가 `I18N.register` 로 싣는다. 지연 묶음에서만 쓰는 문장은
+ * 그 묶음의 조각 `web/js/i18n/<묶음>.<locale>.js` 에 있고 `Screens.load` 가 묶음 앞에 싣는다 (PERF D-46). 이 파일은 **모든
  * 상수보다 먼저** 선다: `constants*.js` 가 `const X=t('…')` 로 로드 시점에 읽기
  * 때문이다. 그래서 로케일은 여기서 한 번 정해지고 바뀌지 않는다 — 전환은
  * 페이지를 다시 여는 일이다 (D-B-1).

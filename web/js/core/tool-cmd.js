@@ -9,7 +9,7 @@
  * 내놓는 `_echoResult`, 묶음 밖에서 부르는 작은 도우미(`layout-groups.js` 의 `_findTabById`)뿐이다.
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
-Screens.register('remote');
+Screens.register('remote',{i18n:true});
 
 class ToolCmd extends Controller {
   // REMOTE_COMMAND_RESULT_SRS FR-RCR-6: 생성 명령의 새 엔터티 id 를 reqId 와 묶어

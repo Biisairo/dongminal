@@ -1,0 +1,56 @@
+/**
+ * Otterminal — 문구 카탈로그 조각 `editor`·`en` (PERF_OPTIMIZATION_SRS D-46). `[editor]` 묶음에서만 쓰는 키다.
+ *
+ * `ko` 조각과 키 집합이 같다(`scripts/check-i18n.mjs`).
+ */
+I18N.register('en', {
+  // ── editor ──
+  'editor.dd_peek_added': 'These lines were newly added — there was nothing here before',
+  'editor.dd_peek_close_title': 'Close',
+  'editor.dd_revert': 'Revert',
+  'editor.dd_revert_title': 'Revert this hunk to the index content (undo with Cmd+Z)',
+  'editor.dd_stage': 'Stage',
+  'editor.dd_stage_title': 'Stage this hunk — unsaved edits are saved first',
+  'editor.dd_stage_wide': 'Could not narrow the hunk boundary, so the whole block was staged',
+  'editor.dd_staging': 'Staging…',
+  'editor.del_recover_hint': 'You can restore it with git checkout -- %s',
+  'editor.download_link_no': 'Links cannot be downloaded',
+  'editor.rename_many_no': 'You can rename only one item at a time',
+  'editor.menu_copy': 'Copy',
+  'editor.menu_copy_abs_path': 'Copy Absolute Path',
+  'editor.menu_copy_rel_path': 'Copy Relative Path',
+  'editor.path_copied': 'Path copied',
+  'editor.menu_cut': 'Cut',
+  'editor.menu_delete': 'Delete',
+  'editor.menu_download': 'Download',
+  'editor.menu_duplicate': 'Duplicate',
+  'editor.menu_new_dir': 'New folder',
+  'editor.menu_new_file': 'New file',
+  'editor.menu_paste': 'Paste',
+  'editor.menu_rename': 'Rename',
+  'editor.menu_upload': 'Upload',
+  'editor.menu_upload_dir': 'Upload folder',
+  'editor.tree_stale': 'Could not refresh — showing the last list',
+  'editor.tree_err_close': 'Dismiss',
+  'editor.move_tab_conflict': 'A document with the same path is already open in the editor, so its tab was not moved',
+  'editor.tree_fail_more': '{msg} (+{n} more)',
+  'editor.paste_none': 'Nothing has been copied',
+  'editor.size_with_limit': '{size} · limit {max}',
+  'editor.tree_err': 'Could not read',
+  'editor.tree_more_busy': '%s / %t — loading…',
+  'editor.tree_more_fail': '%s / %t — could not load more. Click to retry',
+  'editor.tree_truncated': '%s / %t — show more',
+  'editor.upload_abort': 'Abort',
+  'editor.upload_aborted': 'Aborted with %n remaining',
+  'editor.upload_fail': 'Could not upload %s',
+  'editor.upload_fail_body': 'Could not upload %s — %r',
+  'editor.upload_fail_title': 'Upload failed',
+  'editor.upload_retry': 'Retry',
+  'editor.upload_skip': 'Skip',
+  'editor.upload_skip_all': 'Skip all remaining',
+  'editor.upload_skipped': 'Skipped %n',
+
+  // ── panel (UIUX_OVERHAUL_SRS FR-ACT-1) ──
+  'cacct.map.folder_menu': 'Link Claude account…',
+  'cacct.map.folder_clear': 'Unlink',
+});

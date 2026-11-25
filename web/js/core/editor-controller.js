@@ -143,4 +143,4 @@ class EditorController extends Controller {
 
 // PERF 3.4.7 (D-30): 편집기 칸과 탐색기는 `editor` 묶음이다. 문서 렌더 탭(`render`)은 이 화면이 아니다.
 // CM 공용 층은 cm 묶음이다 — needs 로 먼저 싣는다 (PERF 3.4.12.7, D-44).
-Screens.register('editor',{needs:['cm'],tab:(at)=>at.type===TAB_TYPE_EDITOR&&!at.render});
+Screens.register('editor',{needs:['cm'],i18n:true,tab:(at)=>at.type===TAB_TYPE_EDITOR&&!at.render});
