@@ -31,13 +31,13 @@ pub const PROTO: &str = "dmlink1";
 pub(crate) const MAX_LINE: usize = 1 << 20;
 /// 연결 하나의 보낼 줄 상한이다 (NFR-EGM-2).
 const OUT_QUEUE: usize = 1024;
-/// 다시 걸기 간격의 처음과 끝이다 (FR-EGM-3).
-pub(crate) const REDIAL_MIN: Duration = Duration::from_secs(1);
-pub(crate) const REDIAL_MAX: Duration = Duration::from_secs(60);
+pub(crate) use otter_shared_cadence::{
+    MESH_REDIAL_MAX as REDIAL_MAX, MESH_REDIAL_MIN as REDIAL_MIN,
+};
 /// hello 를 다 쓰기까지 간선 하나를 기다리는 상한이다 (FR-EGM-23). 노드가 바뀐 직접 정보를 모든
 /// 간선에 알릴 때도 이 값을 쓴다.
 pub const HELLO_WAIT: Duration = Duration::from_secs(2);
-const PING_EVERY: Duration = Duration::from_secs(15);
+use otter_shared_cadence::MESH_PING_EVERY as PING_EVERY;
 const DEAD_AFTER: Duration = Duration::from_secs(45);
 const PING_LINE: &[u8] = b"{\"t\":\"ping\"}\n";
 const CONTEXT_CANCELED: &str = "context canceled";

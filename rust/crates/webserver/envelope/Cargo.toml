@@ -1,5 +1,5 @@
 [package]
-name = "otter-webserver-sse"
+name = "otter-webserver-envelope"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -39,8 +39,7 @@ const SEAL_WAIT: Duration = Duration::from_secs(5);
 const SEAL_POLL: Duration = Duration::from_millis(10);
 /// 붙여넣기와 제출(CR) 사이의 간격이다 (BRACKETED_PASTE_SRS).
 pub const PASTE_SUBMIT_DELAY: Duration = Duration::from_millis(120);
-/// 도구별 전경 이름 재조회 주기다 (FR-TAN-8).
-pub const FOREGROUND_REFRESH_INTERVAL: Duration = Duration::from_secs(2);
+pub use otter_shared_cadence::FOREGROUND_REFRESH_EVERY as FOREGROUND_REFRESH_INTERVAL;
 const FG_NAME_MAX: usize = 16;
 const FG_SHELL_NAMES: [&str; 5] = ["sh", "bash", "zsh", "fish", "dash"];
 const PASTE_BEGIN: &[u8] = b"\x1b[200~";

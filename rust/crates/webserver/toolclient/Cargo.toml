@@ -12,6 +12,7 @@ workspace = true
 [dependencies]
 bytes = { workspace = true }
 otter-gocompat = { path = "../../gocompat" }
+otter-shared-cadence = { path = "../../shared/cadence" }
 otter-shared-chatwire = { path = "../../shared/chatwire" }
 otter-shared-otterlog = { path = "../../shared/otterlog" }
 otter-shared-platform = { path = "../../shared/platform" }

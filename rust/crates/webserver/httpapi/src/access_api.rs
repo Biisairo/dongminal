@@ -207,5 +207,5 @@ impl Server {
 
 /// SSE `access_changed`.
 pub(crate) fn access_changed_payload() -> Vec<u8> {
-    otter_webserver_sse::payload("access_changed", Some(&serde_json::Map::new()))
+    otter_webserver_envelope::payload("access_changed", Some(&serde_json::Map::new()))
 }

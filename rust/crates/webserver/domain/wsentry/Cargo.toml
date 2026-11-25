@@ -14,7 +14,7 @@ otter-gocompat = { path = "../../../gocompat" }
 otter-shared-listorder = { path = "../../../shared/listorder" }
 otter-shared-workspace = { path = "../../../shared/workspace" }
 otter-webserver-domain-git-core = { path = "../git/core" }
-otter-webserver-sse = { path = "../../sse" }
+otter-webserver-envelope = { path = "../../envelope" }
 serde_json = { workspace = true }
 
 [dev-dependencies]

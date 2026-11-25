@@ -239,7 +239,7 @@ impl Server {
         }
         // FR-LIV-3: 저장이 끝난 뒤에 알린다.
         if let Some(c) = self.commands() {
-            c.broadcast(&otter_webserver_sse::payload(
+            c.broadcast(&otter_webserver_envelope::payload(
                 "sandbox_changed",
                 Some(&BTreeMap::<String, ()>::new()),
             ));

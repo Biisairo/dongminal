@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 otter-shared-activity = { path = "../../shared/activity" }
+otter-shared-cadence = { path = "../../shared/cadence" }
 otter-shared-otterenv = { path = "../../shared/otterenv" }
 otter-shared-otterlog = { path = "../../shared/otterlog" }
 otter-shared-fanout = { path = "../../shared/fanout" }
@@ -20,7 +21,7 @@ otter-shared-uuid = { path = "../../shared/uuid" }
 otter-webserver-domain-git-core = { path = "../domain/git/core" }
 otter-webserver-domain-git-query = { path = "../domain/git/query" }
 otter-webserver-domain-git-store = { path = "../domain/git/store" }
-otter-webserver-sse = { path = "../sse" }
+otter-webserver-envelope = { path = "../envelope" }
 otter-gocompat = { path = "../../gocompat" }
 futures-util = { workspace = true }
 serde = { workspace = true }

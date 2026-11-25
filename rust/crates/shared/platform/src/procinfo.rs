@@ -96,6 +96,7 @@ fn dedup_positive(pids: &[i32]) -> Vec<i32> {
 }
 
 /// (pid, ppid) 표에서 want 각각에 자식이 있는지. 자기 자신을 부모로 적은 항목은 세지 않는다.
+#[cfg_attr(not(windows), allow(dead_code))]
 fn children_from_pairs(pairs: &[(i32, i32)], want: &[i32]) -> HashMap<i32, bool> {
     let mut out: HashMap<i32, bool> = want.iter().map(|&p| (p, false)).collect();
     for &(pid, ppid) in pairs {

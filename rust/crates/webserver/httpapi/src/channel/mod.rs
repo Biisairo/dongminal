@@ -256,7 +256,7 @@ impl Server {
         }
         for id in want {
             if let std::collections::hash_map::Entry::Vacant(e) = slots.entry(id) {
-                let release = self.attach_sse_leases(e.key(), remote, true);
+                let release = self.attach_channel_leases(e.key(), remote, true);
                 e.insert(Box::new(release));
             }
         }
