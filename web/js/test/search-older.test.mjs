@@ -7,7 +7,7 @@ import { BASE, TOOL, controllers, load } from './harness.mjs';
  * PERF 2.8.2 (D-21): "이전 기록에서 찾기" — 브라우저 버퍼 위(스냅숏의 첫 기록 줄 앞)를 데몬 저장소에서 찾는다.
  * 찾기 줄의 선택지를 그대로 싣고, 일치를 새 줄부터 목록으로 보인다. 고르면 터미널의 기록 보기(2.7)에 줄 번호를 넘긴다.
  */
-function setup({ first = 42, reply = { ok: true, status: 200, data: { hits: [{ line: 7, col: 2, text: 'a needle' }] } }, opts = [] } = {}) {
+function setup({ first = 42, top, reply = { ok: true, status: 200, data: { hits: [{ line: 7, col: 2, text: 'a needle' }] } }, opts = [] } = {}) {
   const els = new Map();
   const el = (id) => {
     if (!els.has(id)) els.set(id, { id, value: '', textContent: '', hidden: true, children: [], replaceChildren(...c) { this.children = c } });
@@ -31,6 +31,7 @@ function setup({ first = 42, reply = { ok: true, status: 200, data: { hits: [{ l
   const a = controllers(ctx, new ctx.App());
   const opened = [];
   const term = { id: 't1', _firstLine: first, openHistoryAt: (n) => opened.push(n) };
+  if (top !== undefined) term.history = { topNo: () => top };
   a.tool.search.focusedTerminal = () => term;
   a.tool.search._searchOpt = (id) => opts.includes(id);
   return { a, el, calls, opened };
@@ -70,4 +71,23 @@ test('일치가 없으면 없음, 데몬이 찾지 못하면 그 사유를 적�
   const f = setup({ reply: { ok: false, status: 422, data: null, text: 'regex parse error' } });
   await f.a.tool.search.searchOlder();
   assert.equal(f.el('search-count').textContent, 'err 422');
+});
+
+test('기준점은 지금 버퍼 맨 윗줄 번호(topNo) — 출력이 흘러 위가 잘려도 브라우저에 있는 줄은 다시 찾지 않고 잘린 구간은 찾는다', async () => {
+  const s = setup({ first: 42, top: 900 });
+  await s.a.tool.search.searchOlder();
+  assert.equal(new URL(s.calls[0], 'http://h').searchParams.get('before'), '900');
+});
+
+test('맨 윗줄 번호를 모르면(topNo -1) 스냅숏의 첫 기록 줄을 쓴다', async () => {
+  const s = setup({ first: 42, top: -1 });
+  await s.a.tool.search.searchOlder();
+  assert.equal(new URL(s.calls[0], 'http://h').searchParams.get('before'), '42');
+});
+
+test('맨 윗줄이 0 번이면 버퍼 위에 기록이 없으니 묻지 않는다', async () => {
+  const s = setup({ first: 42, top: 0 });
+  await s.a.tool.search.searchOlder();
+  assert.equal(s.calls.length, 0);
+  assert.equal(s.el('search-count').textContent, 'none');
 });
