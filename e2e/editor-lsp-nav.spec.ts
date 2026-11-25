@@ -483,6 +483,13 @@ test.describe('코드 탐색 — 열리지 않은 파일의 변경 (FR-CMR-110~1
     await expect.poll(async () => (await docDiags(page, main))?.length, { timeout: 30000 }).toBe(1);
     // git 감시는 git 상태를 본 저장소만 돈다 — Git 창을 연다.
     await openGit(page, root);
+    // 진단은 칸에 그려진 것을 읽는다. Git 뷰 탭이 편집기 칸을 가리면 칸이 잠들어 진단을 버퍼에만 보관한다
+    // (FR-SPA-3) — 그 파일 탭으로 돌아온다. 감시는 표명 수명 동안 남는다.
+    await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), main);
+    await expect.poll(() => page.evaluate(() => {
+      const v = (window as any).app.testing.edActiveEditor();
+      return !!v && !v.asleep && v.el.offsetParent !== null;
+    }), { timeout: 10000 }).toBe(true);
 
     git('checkout', '-q', 'feat');
     await expect.poll(async () => (await docDiags(page, main))?.length, { timeout: 60000 }).toBe(0);

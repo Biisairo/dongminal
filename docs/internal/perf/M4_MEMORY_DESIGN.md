@@ -86,7 +86,7 @@ termstate: `emu_keep` 순수 함수, 계수 `#[global_allocator]` 통합 시험(
 
 - `Tool` 의 `Cmu` 에 `fed_at`·`dirty` 를 둔다. 넣기(feed)·크기 바꾸기·인계 되세우기(`adopt_screen`)가 잠금 안에서 `fed_at` 을 지금으로 적는다. `dirty` 가 거짓에서 참이 될 때만 등록부의 `Notify` 를 깨운다(`toolhub/src/tool.rs` `touch`).
 - 등록부는 도구를 등록할 때(`create`·`restore`·`adopt`·`adopt_handover`) 깨우개를 건다. 등록 전에 이미 바뀐 화면(인계로 받은 도구, 등록 전에 프롬프트를 낸 도구)은 거는 순간 깨운다. 그래서 인계 받은 도구는 dirty 로 시작한다.
-- `ToolManager::spawn_screen_compactor` 는 tokio 작업 하나다. dirty 도구 중 가장 이른 `fed_at + 유휴 시간` 까지 `sleep_until` 로 자고, 없으면 `notified()` 만 기다린다. 깨면 시간이 찬 도구를 골라 `spawn_blocking` 안에서 잠금을 다시 잡고 확인한 뒤 `Screen::compact` 하고 `dirty = false` 로 둔다. 데몬 기동(`daemon/boot`)이 1초 sweeper 와 따로 띄운다. 비운 뒤 출력이 없으면 깨지 않는다.
+- `ToolManager::spawn_screen_compactor` 는 tokio 작업 하나다. dirty 도구 중 가장 이른 `fed_at + 유휴 시간` 까지 `sleep_until` 로 자고, 없으면 `notified()` 만 기다린다. 깨면 시간이 찬 도구를 골라 `spawn_blocking` 안에서 잠금을 다시 잡고 확인한 뒤 `Screen::compact` 하고 `dirty = false` 로 둔다. 데몬 기동(`daemon/boot`)이 유휴 판정 작업(`spawn_attention_sweeper`, PERF 4.8 뒤로 사건 기반 — 이전: 1초 sweeper)과 따로 띄운다. 비운 뒤 출력이 없으면 깨지 않는다.
 - 유휴 시간은 `termlimit::SCREEN_IDLE_COMPACT`(5분)이다. 검사는 `OTTERMINAL_SCREEN_IDLE_COMPACT_MS`(이름은 `otterenv/src/names.rs`, 1 ms 이상)로 당긴다. 비울 때 debug 로그 `[tool <id>] 유휴 기록 비움` 을 남긴다(e2e W5 가 이것으로 비움을 확인한다).
 
 **시험.** toolhub `manager/compact_tests.rs`(tokio 가짜 시계) 7건: 5분 뒤 한 번 비우고 그 뒤 1시간 동안 깨지 않음, 4:59 출력이면 미룸, 깨끗한 도구만 있으면 1시간 깨어남 0, 도구마다 따로 정한 시각, 크기 바꾸기도 활동, 인계 받은 도구는 dirty, 비우기 앞뒤 깨움 스냅숏·read-screen·위로 받기·이전 기록 찾기가 같고 옮긴 행이 저장소 옛 끝에서 이어짐. `tests/daemon_memory.rs`(`--ignored`) `measure_daemon_memory_per_terminal`. e2e `perf-term-wake` W5: 유휴 시간을 1.5초로 당긴 인스턴스에서 8,000줄을 찍고 재운 뒤, 데몬이 비운 것을 로그로 확인하고 깨우면 화면·커서가 재우기 전과 같고 기록 보기가 실시간 버퍼 바로 앞 줄에서 이어진다.

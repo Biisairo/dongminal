@@ -141,9 +141,14 @@ mtime(없으면 `packed-refs`) + `refs/` **디렉터리** mtime 합 + `refs/` **
 
 **FR-GDT-3** 워크트리 회차의 간격은 상수 하나다
 (`GitWatchWorktreeEvery`). 값은 **4회차**(= 약 4초)다.
+(**개정 2026-11-26, PERF 4.9·4.16**: 워크트리 회차는 이제 저장소 트리의 파일 감시를 세우지 못했거나
+감시가 넘친 저장소(물러섬)에만 돈다. 간격은 `hub` `gitwatch::GIT_WATCH_FALLBACK_ROUNDS`
+(= `cadence::GIT_WATCH_FALLBACK_EVERY` 4초 ÷ 회차 1초)다. 감시가 선 저장소의 작업 트리 변화는 감시 사건이
+`kick` 으로 `git status` 를 당긴다 — `perf/CHANNEL_PROTOCOL.md` §10.5. 이전: 모든 저장소가 4회차마다.)
 
 **FR-GDT-4** 워크트리 회차는 저장소마다 **어긋나게** 돈다. 전부 같은 회차에
-몰리면 4초마다 16개의 `git status` 가 동시에 뜬다.
+몰리면 4초마다 16개의 `git status` 가 동시에 뜬다. (**개정 2026-11-26, PERF 4.9·4.16**: 물러섬
+저장소에도 그대로 어긋나게 돈다 — 저장소마다 `phase`.)
 
 **FR-GDT-5** `.git` 안의 변화(커밋·체크아웃·브랜치·index)는 **지금과 같은 1초
 반응을 유지한다** — signature 가 그것을 보기 때문이다.

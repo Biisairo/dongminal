@@ -144,7 +144,7 @@ FR-GIT-32~42) ──` 에서 이름이 지우는 것은 앞쪽뿐이고, 뒤쪽�
   · M9(i18n)가 문구를 카탈로그로 외부화할 때 **탭이 그 단위**다. 지금 가르면
     그때 여는 자리가 파일 이름으로 답해진다
 
-**FR-FMB-4** 변수 선언(`var gitStatusInterval` 등 3개)은 그 섹션을 따라간다. (**개정 2026-11-24, PERF 1.9·1.15**: `gitStatusInterval`·`gitReposInterval`·`gitConsoleInterval` 은 지웠다 — 설정 `RETIRED_KEYS`. 남은 주기 변수는 `statsInterval`·`gitWorktreeInterval` 이고 `settings-defaults.js` 에 있다.)
+**FR-FMB-4** 변수 선언(`var gitStatusInterval` 등 3개)은 그 섹션을 따라간다. (**개정 2026-11-24, PERF 1.9·1.15**: `gitStatusInterval`·`gitReposInterval`·`gitConsoleInterval` 은 지웠다 — 설정 `RETIRED_KEYS`. 남은 주기 변수는 `statsInterval`·`gitWorktreeInterval` 이고 `settings-defaults.js` 에 있다. **개정 2026-11-26, PERF 4.9·4.16**: `gitWorktreeInterval` 도 지웠다 — 남은 주기 변수는 `statsInterval` 하나다.)
 `POLL_SETTINGS` 가 `get/set` 으로만 닿으므로(당시 `app-polling.js`, 지금 `poll-settings.js`) 선언 파일이
 바뀌어도 호출부가 바뀌지 않는다.
 

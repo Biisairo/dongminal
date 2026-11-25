@@ -42,7 +42,7 @@
 
 | `t` | 필드 | 뜻 |
 |---|---|---|
-| `hello` | `client?`, `slots:[칸 신원...]` | 첫 프레임. 이 채널이 대표하는 신원이다. 서버는 `client` 에 포커스·git·파일 감시 임대를, `slots` 의 신원마다 포커스·git 임대를 쥔다(지금 `attach_sse_leases` 의 일반 구독과 presence 구독). 칸 수가 바뀌면 `hello` 를 다시 보내고, 서버는 빠진 신원의 임대를 푼다. `client` 는 명령 SSE 를 지우는 C2 부터 싣는다 — 그 전에는 같은 신원의 임대를 SSE 와 채널이 나눠 쥐어 먼저 끊긴 쪽이 소유권을 풀어 버린다 |
+| `hello` | `client?`, `slots:[칸 신원...]` | 첫 프레임. 이 채널이 대표하는 신원이다. 서버는 `client` 에 포커스·git·파일 감시 임대를, `slots` 의 신원마다 포커스·git 임대를 쥔다(`httpapi` `commands.rs` `attach_channel_leases` 의 일반 신원과 presence 신원 — PERF 4.13 에서 `attach_sse_leases` 를 이름 바꿈). 칸 수가 바뀌면 `hello` 를 다시 보내고, 서버는 빠진 신원의 임대를 푼다. `client` 는 명령 SSE 를 지우는 C2 부터 싣는다 — 그 전에는 같은 신원의 임대를 SSE 와 채널이 나눠 쥐어 먼저 끊긴 쪽이 소유권을 풀어 버린다 |
 | `sub` | `topic`, `seq?`, `epoch?` | 토픽을 구독한다. `seq` 는 브라우저가 가진 마지막 순번이고 `epoch` 는 그 순번을 받은 서버의 `epoch` 다(§5) |
 | `unsub` | `topic` | 구독을 해지한다 |
 | `ping` | `n` | 생존 확인과 지연 측정(§7) |

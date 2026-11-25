@@ -577,28 +577,38 @@ test.describe('묶음 S — 좌표 사상 (연결)', () => {
   });
 });
 
-// UI_POLISH_SRS TC-UIP-14 (FR-UIP-25): 화면은 가까운 삭제(7행)와 추가(9행 뒤)를 한 덩어리로 칠하지만
-// git 은 사이의 문맥(8·9행)을 경계로 블록 둘로 나눈다. 칠해진 줄이면 어디서든 툴바가 뜨고,
-// 동작은 그 덩어리 전체(두 블록)에 걸린다.
+// UI_POLISH_SRS TC-UIP-14 (FR-UIP-25): 화면이 한 덩어리로 칠한 변경이 git 블록 여럿에 걸칠 때, 칠해진 줄이면
+// 어디서든 툴바가 뜨고 동작은 그 덩어리 전체(블록 전부)에 걸린다.
+//
+// 화면은 줄 단위로 먼저 비교하므로(이슈 3.2 `gitDiffBounded`) 보통은 git 블록과 같게 칠한다. 줄 비교의 편집 수가
+// 상한(`GIT_DIFF_LINE_MAX_EDITS`)을 넘으면 공통 앞뒤 줄을 뺀 구간 하나로 칠한다 — 그 구간이 git 블록 여럿에
+// 걸치는 덩어리다. 7행 삭제와 끝의 추가 사이를 한 줄 건너 하나씩 고쳐 편집 수를 상한 위로 올린다.
 test('TC-UIP-14: 칠해진 덩어리 안의 줄이면 툴바가 뜨고 덩어리 전체를 되돌린다', async ({ page }) => {
-  // 실측으로 화면이 한 덩어리로 칠한 내용이다 — 줄끼리 글자가 닮아 CodeMirror 의 diff 가
-  // `-7` 과 `+9b` 를 7~9행 하나로 묶는다. 닮지 않은 내용이면 git 처럼 둘로 칠한다.
   const repo = copyFx('basic', 'uip14');
+  await waitForInit(page);
+  await openGit(page, repo);
+  const maxEdits = (await page.evaluate('GIT_DIFF_LINE_MAX_EDITS')) as number;
+  // 고친 줄 하나가 편집 둘(삭제·추가)이다. 7행 삭제·끝의 추가를 더해 상한을 넘긴다.
+  const pairs = Math.ceil(maxEdits / 2) + 1;
+  const last = 10 + 2 * pairs;
   const base: string[] = [];
-  for (let i = 1; i <= 20; i++) base.push('line ' + i);
+  for (let i = 1; i <= last + 10; i++) base.push('line ' + i);
   writeFileSync(join(repo, 'f.txt'), base.join('\n') + '\n');
   git(repo, 'add', 'f.txt');
   git(repo, 'commit', '-m', 'f');
-  const now = base.filter((l) => l !== 'line 7').flatMap((l) => (l === 'line 9' ? [l, 'line 9b ADDED'] : [l]));
+  const now = base.flatMap((l, k) => {
+    const i = k + 1;
+    if (i === 7) return [];
+    if (i === last) return [l, 'line ADDED'];
+    return i >= 10 && i < last && i % 2 === 0 ? ['CHANGED ' + i] : [l];
+  });
   writeFileSync(join(repo, 'f.txt'), now.join('\n') + '\n');
-  await waitForInit(page);
-  await openGit(page, repo);
   await openDiff(page, 'working', 'f.txt');
   const painted = await page.evaluate(() => {
     const p = edT.diffPanel();
     return p.hunks._hunkBarEd.paintedSpan(8);
   });
-  expect(painted, '화면이 7~9행을 한 덩어리로 칠한다는 전제가 깨졌다').toEqual({ s: 7, e: 9 });
+  expect(painted, '화면이 삭제부터 추가까지 한 덩어리로 칠한다는 전제가 깨졌다').toEqual({ s: 7, e: now.length - 10 });
   // 새 8행(`line 9`)은 git 으로는 문맥 줄이지만 화면에서는 칠해진 덩어리 안이다.
   await cursorLine(page, 8);
   await act(page, 'revert').click();
