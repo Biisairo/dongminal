@@ -23,6 +23,13 @@ impl ToolSource for FakeHub {
             Err("tool not found".into())
         }
     }
+    fn screen_text(&self, id: &str, bytes: usize) -> Result<String, Error> {
+        if self.has(id) {
+            Ok(format!("{id}:{bytes}\n"))
+        } else {
+            Err("tool not found".into())
+        }
+    }
     fn send_paste(&self, id: &str, _: &[u8], _: bool) -> Result<(), Error> {
         if self.has(id) {
             Ok(())
@@ -53,6 +60,8 @@ fn tool_adapter_empty_hub() {
     assert!(a.list().is_empty());
     assert!(!a.has("nope"));
     assert_eq!(a.snapshot("nope"), None);
+    assert_eq!(a.screen_text("nope", 0), None);
+    assert_eq!(Tool::default().screen_text("nope", 0), None);
     assert_eq!(a.size("nope"), "?");
     assert!(a.send_paste("nope", b"x", false).is_err());
     let e = Tool::default().send_paste("nope", b"x", false).unwrap_err();
@@ -70,6 +79,7 @@ fn tool_adapter_daemon_list_shell_pid() {
     assert_eq!(got.len(), 1);
     assert_eq!(got[0].shell_pid, 4242);
     assert_eq!(a.size("1"), "120x40");
+    assert_eq!(a.screen_text("1", 16).as_deref(), Some("1:16\n"));
 }
 
 #[test]

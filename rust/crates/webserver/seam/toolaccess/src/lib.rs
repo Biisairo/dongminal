@@ -26,6 +26,8 @@ pub trait ToolReader: Send + Sync {
     fn has(&self, tool_id: &str) -> bool;
     /// 화면 버퍼와 누적 소실 바이트 수다. 도구가 없으면 `None`.
     fn snapshot(&self, tool_id: &str) -> Option<(Vec<u8>, i64)>;
+    /// 화면 상태의 글자다(read-screen). `bytes` 는 끝에서의 바이트 상한, 0 은 전부다. 도구가 없으면 `None`.
+    fn screen_text(&self, tool_id: &str, bytes: usize) -> Option<String>;
     fn send_paste(&self, tool_id: &str, text: &[u8], submit: bool) -> Result<(), Error>;
     fn size(&self, tool_id: &str) -> String;
 }

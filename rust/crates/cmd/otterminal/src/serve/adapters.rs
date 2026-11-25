@@ -154,6 +154,13 @@ impl ToolSource for Hub {
     ) -> Result<ToolSnapshot, otter_webserver_seam_toolaccess::Error> {
         Ok(self.0.snapshot_tool(id)?)
     }
+    fn screen_text(
+        &self,
+        id: &str,
+        bytes: usize,
+    ) -> Result<String, otter_webserver_seam_toolaccess::Error> {
+        Ok(self.0.screen_text_tool(id, bytes)?)
+    }
     fn send_paste(
         &self,
         id: &str,

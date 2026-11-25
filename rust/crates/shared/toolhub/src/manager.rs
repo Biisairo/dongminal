@@ -797,6 +797,11 @@ impl ToolManager {
         self.get(id)?.screen(history)
     }
 
+    /// 화면 상태의 글자다(read-screen, FR-TRM-8, D-22). 없는 도구·터미널 없는 도구는 `None`.
+    pub fn screen_text_tool(&self, id: &str, bytes: usize) -> Option<String> {
+        self.get(id)?.screen_text(bytes)
+    }
+
     pub fn snapshot_tool_since(&self, id: &str, since: i64) -> ToolSnapshot {
         let Some(p) = self.get(id) else {
             return ToolSnapshot::default();

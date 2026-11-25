@@ -422,6 +422,11 @@ impl Tool {
         })
     }
 
+    /// 화면 상태의 글자다(read-screen, FR-TRM-8). 터미널이 없는 도구는 `None` 이다.
+    pub fn screen_text(&self, bytes: usize) -> Option<String> {
+        lock(&self.cmu).screen.as_ref().map(|s| s.text(bytes))
+    }
+
     /// 화면 상태와 그 화면이 반영한 누적 오프셋(`end`)을 한 잠금 안에서 읽는다.
     /// 터미널이 없는 도구는 `None` 이다.
     pub fn with_screen<R>(&self, f: impl FnOnce(&Screen, i64) -> R) -> Option<R> {

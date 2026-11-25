@@ -34,6 +34,9 @@ impl ToolReader for LiveIo {
     fn snapshot(&self, _: &str) -> Option<(Vec<u8>, i64)> {
         None
     }
+    fn screen_text(&self, _: &str, _: usize) -> Option<String> {
+        None
+    }
     fn send_paste(&self, _: &str, _: &[u8], _: bool) -> Result<(), Error> {
         Ok(())
     }

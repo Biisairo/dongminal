@@ -18,6 +18,8 @@ pub const METHOD_LIST: &str = "list";
 pub const METHOD_SNAPSHOT: &str = "snapshot";
 /// 화면 상태 스냅숏 (PERF FR-TRM-4). FEATURE_SCREEN_STATE 를 말한 데몬에만 보낸다.
 pub const METHOD_SCREEN: &str = "screen";
+/// 화면 상태의 글자 (PERF FR-TRM-8, D-22). read-screen 이 부른다.
+pub const METHOD_SCREEN_TEXT: &str = "screentext";
 pub const METHOD_CWD: &str = "cwd";
 pub const METHOD_BUSY: &str = "busy";
 pub const METHOD_BUSY_MANY: &str = "busymany";
@@ -249,6 +251,20 @@ pub struct ScreenResult {
     #[serde(rename = "firstLine")]
     pub first_line: u64,
     pub rows: u16,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.ScreenTextParams")]
+pub struct ScreenTextParams {
+    /// 끝에서 이만큼의 바이트 안에서 낸다. 0 은 화면과 기록 전부다.
+    pub bytes: usize,
+    pub id: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.ScreenTextResult")]
+pub struct ScreenTextResult {
+    pub text: String,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

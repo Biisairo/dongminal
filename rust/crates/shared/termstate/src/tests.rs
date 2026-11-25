@@ -550,3 +550,93 @@ fn screen_is_send() {
     fn send<T: Send>() {}
     send::<Screen>();
 }
+
+// ── 화면 글자 (read-screen, FR-TRM-8, D-22) ──
+
+/// xterm 기준 화면을 [`Screen::text`] 규칙(논리 줄, 줄 끝 공백·아래 빈 줄 버림)으로 적는다.
+fn ref_text(name: &str) -> String {
+    let want: Ref = serde_json::from_slice(
+        &std::fs::read(testdata().join("ref").join(format!("{name}.json"))).unwrap(),
+    )
+    .unwrap();
+    assert!(want.alt, "{name} 은 대체 화면이어야 한다");
+    let mut lines = Vec::new();
+    let mut cur = String::new();
+    for (r, wrapped) in want.rows_data.iter().zip(&want.wrapped) {
+        cur.extend(unpack(r).into_iter().filter(|c| c.1 != 0).map(|c| c.0));
+        if !wrapped {
+            lines.push(std::mem::take(&mut cur).trim_end().to_string());
+        }
+    }
+    while lines.last().is_some_and(String::is_empty) {
+        lines.pop();
+    }
+    lines.iter().map(|l| format!("{l}\n")).collect()
+}
+
+#[test]
+fn text_of_tui_is_what_xterm_shows() {
+    for name in ["top", "top-live", "vim-live"] {
+        let s = run(&case(name));
+        let got = s.text(0);
+        assert!(!got.is_empty(), "{name}");
+        assert_eq!(got, ref_text(name), "{name}");
+    }
+}
+
+#[test]
+fn text_drops_erased_and_hidden_main_screen() {
+    let mut s = Screen::new(20, 5, 1_000);
+    s.feed(b"main\r\nabcdef\r\x1b[Kxy");
+    assert_eq!(s.text(0), "main\nxy\n");
+    s.feed(b"\x1b[?1049h\x1b[2J\x1b[HTUI\x1b[4;3Hfoo   ");
+    assert_eq!(s.text(0), "TUI\n\n\n  foo\n");
+    s.feed(b"\x1b[?1049l");
+    assert_eq!(s.text(0), "main\nxy\n");
+}
+
+#[test]
+fn text_joins_wrapped_rows_and_keeps_wide_chars() {
+    let mut s = Screen::new(10, 4, 1_000);
+    let long = "a".repeat(25);
+    s.feed(format!("{long}\r\n한글 b  \r\n").as_bytes());
+    assert_eq!(s.text(0), format!("{long}\n한글 b\n"));
+}
+
+#[test]
+fn text_reads_store_then_history_then_screen() {
+    let mut s = Screen::with_keep(10, 5, 20, 1_000);
+    s.feed(&lines(100));
+    assert!(!s.store().is_empty() && s.history_len() > 0);
+    let want: String = (0..100).map(|i| format!("L{i:02}\n")).collect();
+    assert_eq!(s.text(0), want);
+}
+
+#[test]
+fn text_bytes_keeps_tail_within_cap() {
+    let mut s = Screen::with_keep(10, 5, 20, 1_000);
+    s.feed(&lines(100));
+    assert_eq!(s.text(9), "\nL98\nL99\n");
+    assert_eq!(s.text(8), "L98\nL99\n");
+    let all = s.text(0);
+    assert_eq!(s.text(all.len()), all);
+    assert_eq!(s.text(all.len() + 100), all);
+    let tail = s.text(400);
+    assert_eq!(tail.len(), 400);
+    assert!(all.ends_with(&tail));
+}
+
+#[test]
+fn text_bytes_cuts_on_char_boundary() {
+    let mut s = Screen::new(20, 3, 1_000);
+    s.feed("가나다".as_bytes());
+    assert_eq!(s.text(0), "가나다\n");
+    assert_eq!(s.text(5), "다\n");
+    assert_eq!(s.text(1), "\n");
+}
+
+#[test]
+fn text_of_empty_screen_is_empty() {
+    assert_eq!(Screen::new(10, 3, 1_000).text(0), "");
+    assert_eq!(Screen::new(10, 3, 1_000).text(16), "");
+}
