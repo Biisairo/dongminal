@@ -7,9 +7,9 @@ use super::*;
 use crate::snap::State;
 
 /// 줄 저장소 상한이자 스냅숏에 싣는 기록 행 수다. 시험에서는 모두 싣는다.
-const HIST: usize = 1_000_000;
+pub(crate) const HIST: usize = 1_000_000;
 
-fn corpus(file: &str) -> Vec<u8> {
+pub(crate) fn corpus(file: &str) -> Vec<u8> {
     let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("testdata")
         .join("corpus")
@@ -18,7 +18,7 @@ fn corpus(file: &str) -> Vec<u8> {
 }
 
 /// 이름 없는 OSC 8 링크는 alacritty 가 전역 번호로 id 를 붙인다. 시험의 두 에뮬레이터는 번호가 달라 지운다.
-fn norm(mut s: State) -> State {
+pub(crate) fn norm(mut s: State) -> State {
     let fix = |l: &mut Option<Link>| {
         if let Some(l) = l
             && l.id.ends_with("_alacritty")
@@ -62,7 +62,7 @@ fn norm(mut s: State) -> State {
     s
 }
 
-fn first_diff(a: &State, b: &State) -> String {
+pub(crate) fn first_diff(a: &State, b: &State) -> String {
     if a.older != b.older {
         let i = a.older.iter().zip(&b.older).position(|(x, y)| x != y);
         return format!(
@@ -133,13 +133,13 @@ const SPARSE_EVERY: usize = 7;
 /// 바이트[..k] 의 스냅숏으로 이어 받은 쪽이 원본과 같은 상태인가. 분할점은 오름차순이어야 한다.
 /// 원본은 한 벌을 앞으로만 먹인다. 원본 + 바이트[k..] 는 늘 전체를 먹인 상태(`full`)와 같다.
 fn check_points(data: &[u8], size: (u16, u16), ks: impl Iterator<Item = usize>) {
-    check_points_keep(data, size, EMU_KEEP, ks);
+    check_points_keep(data, size, None, ks);
 }
 
 fn check_points_keep(
     data: &[u8],
     (cols, rows): (u16, u16),
-    keep: usize,
+    keep: Option<usize>,
     ks: impl Iterator<Item = usize>,
 ) {
     check_points_from(
@@ -153,9 +153,21 @@ fn check_points_keep(
 /// `setup` 이 만든 화면(크기를 바꾼 뒤 등)에서 시작해 `data` 를 나눠 넣는다.
 fn check_points_from(
     setup: &dyn Fn() -> Screen,
-    keep: usize,
+    keep: Option<usize>,
     data: &[u8],
     ks: impl Iterator<Item = usize>,
+) {
+    check_points_with(setup, keep, data, ks, false);
+}
+
+/// `compact` 면 분할점마다 원본을 옮겨 비운 뒤 스냅숏을 만든다. 비우기가 스냅숏도, 나머지를 넣은
+/// 뒤의 상태(비우지 않고 한 번에 넣은 상태)도 바꾸지 않아야 한다.
+pub(crate) fn check_points_with(
+    setup: &dyn Fn() -> Screen,
+    keep: Option<usize>,
+    data: &[u8],
+    ks: impl Iterator<Item = usize>,
+    compact: bool,
 ) {
     let mut whole = setup();
     whole.feed(data);
@@ -167,6 +179,9 @@ fn check_points_from(
     for k in ks {
         a.feed(&data[fed..k]);
         fed = k;
+        if compact {
+            a.compact();
+        }
         if sparse && k % SPARSE_EVERY != 0 && a.unfinished().is_empty() && k != data.len() {
             continue;
         }
@@ -212,7 +227,7 @@ fn check_every(data: &[u8], size: (u16, u16)) {
 }
 
 /// 결정적인 의사 난수 분할점 `n` 개와 끝.
-fn sampled(len: usize, n: usize, seed: u64) -> impl Iterator<Item = usize> {
+pub(crate) fn sampled(len: usize, n: usize, seed: u64) -> impl Iterator<Item = usize> {
     let mut x = seed;
     (0..n)
         .map(move |_| {
@@ -396,22 +411,22 @@ fn alt_screen_round_trip_keeps_saved_cursors() {
 fn alt_screen_after_resize() {
     let pre: &[u8] = b"main1\r\nmain2\x1b[2;2H\x1b7\x1b[?1049h\x1b[Halt\x1b[3;3H";
     let setup = || {
-        let mut s = Screen::with_keep(20, 6, EMU_KEEP, HIST);
+        let mut s = Screen::with_keep(20, 6, None, HIST);
         s.feed(pre);
         s.resize(13, 8);
         s
     };
     let data = b"\x1b[2;5Hxy\x1b7\x1b[1;1H\x1b8z\x1b[?1049lback";
-    check_points_from(&setup, EMU_KEEP, data, 0..=data.len());
+    check_points_from(&setup, None, data, 0..=data.len());
     let setup_main = || {
-        let mut s = Screen::with_keep(20, 6, EMU_KEEP, HIST);
+        let mut s = Screen::with_keep(20, 6, None, HIST);
         s.feed(b"\x1b[?1049hA\x1b[?1049l0123456789012345678901234\r\nq\x1b[2;5r");
         s.resize(9, 4);
         s
     };
     check_points_from(
         &setup_main,
-        EMU_KEEP,
+        None,
         b"\x1b[?1049hB\x1b[?1049lC\n\n\nD",
         0..=19,
     );
@@ -520,14 +535,14 @@ fn splits_through_line_store() {
         data.extend(std::iter::repeat_n(b'x', i % 23));
         data.extend_from_slice("\x1b]8;;http://e\x1b\\한\x1b]8;;\x1b\\\x1b[0m\r\n".as_bytes());
     }
-    check_points_keep(&data, (12, 6), 5, 0..=data.len());
+    check_points_keep(&data, (12, 6), Some(5), 0..=data.len());
     let line = corpus("sim-line.bin");
-    check_points_keep(&line, (120, 40), 50, sampled(line.len(), 20, 3));
+    check_points_keep(&line, (120, 40), Some(50), sampled(line.len(), 20, 3));
 }
 
 #[test]
 fn snapshot_takes_old_lines_from_store() {
-    let mut s = Screen::with_keep(10, 5, 20, 1_000);
+    let mut s = Screen::with_keep(10, 5, Some(20), 1_000);
     s.feed(
         &(0..100)
             .flat_map(|i| format!("L{i:02}\r\n").into_bytes())
@@ -697,16 +712,31 @@ fn measure_snapshot_5000_rows() {
 /// 그 뒤 나머지를 둘 다 넣어도 같고, 저장소 번호도 같다.
 fn check_handover(
     data: &[u8],
+    size: (u16, u16),
+    keep: Option<usize>,
+    ks: impl Iterator<Item = usize>,
+) {
+    check_handover_with(data, size, (keep, keep), false, ks);
+}
+
+/// 넘기는 쪽은 `keeps.0`, 받는 쪽은 `keeps.1` 로 둔다. `compact` 면 넘기기 전에 옮겨 비운다.
+/// 두 쪽의 keep 이 다르면 저장소 경계가 달라 저장소 번호는 견주지 않는다.
+pub(crate) fn check_handover_with(
+    data: &[u8],
     (cols, rows): (u16, u16),
-    keep: usize,
+    keeps: (Option<usize>, Option<usize>),
+    compact: bool,
     ks: impl Iterator<Item = usize>,
 ) {
     let mut errs = Vec::new();
     for k in ks {
-        let mut a = Screen::with_keep(cols, rows, keep, HIST);
+        let mut a = Screen::with_keep(cols, rows, keeps.0, HIST);
         a.feed(&data[..k]);
+        if compact {
+            a.compact();
+        }
         let h = a.handover();
-        let mut b = Screen::restore_with_keep(cols, rows, keep, HIST, &h.snapshot, &h.store);
+        let mut b = Screen::restore_with_keep(cols, rows, keeps.1, HIST, &h.snapshot, &h.store);
         b.feed(&data[k - h.back..k]);
         let mut sa = norm(a.state(HIST));
         let mut sb = norm(b.state(HIST));
@@ -721,7 +751,9 @@ fn check_handover(
         let (sa, sb) = (norm(a.state(HIST)), norm(b.state(HIST)));
         if sa != sb {
             errs.push(format!("k={k} 나머지 뒤: {}", first_diff(&sa, &sb)));
-        } else if (a.store().first(), a.store().end()) != (b.store().first(), b.store().end()) {
+        } else if keeps.0 == keeps.1
+            && (a.store().first(), a.store().end()) != (b.store().first(), b.store().end())
+        {
             errs.push(format!(
                 "k={k} 저장소 번호 {:?} != {:?}",
                 (a.store().first(), a.store().end()),
@@ -749,7 +781,7 @@ fn handover_keeps_screen_history_and_store_numbers() {
     check_handover(
         &data,
         (12, 6),
-        5,
+        Some(5),
         (0..data.len()).step_by(2).chain([data.len()]),
     );
 }
@@ -762,18 +794,18 @@ fn handover_in_alt_screen_keeps_main_history() {
     data.extend_from_slice(b"\x1b[?1049h\x1b[2Jalt\x1b[3;3Hx");
     let k = data.len();
     data.extend_from_slice(b"y\x1b[?1049lafter\r\n");
-    check_handover(&data, (10, 5), 8, [k - 3, k, data.len()].into_iter());
+    check_handover(&data, (10, 5), Some(8), [k - 3, k, data.len()].into_iter());
 }
 
 #[test]
 fn handover_of_agent_sim_matches() {
     let line = corpus("sim-line.bin");
-    check_handover(&line, (120, 40), 50, sampled(line.len(), 6, 9));
+    check_handover(&line, (120, 40), Some(50), sampled(line.len(), 6, 9));
 }
 
 #[test]
 fn restore_with_a_broken_store_keeps_the_screen() {
-    let mut a = Screen::with_keep(10, 5, 5, HIST);
+    let mut a = Screen::with_keep(10, 5, Some(5), HIST);
     a.feed(
         &(0..40)
             .flat_map(|i| format!("L{i:02}\r\n").into_bytes())

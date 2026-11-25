@@ -10,7 +10,7 @@ mod scan;
 mod snap;
 mod text;
 
-pub use emu::{EMU_KEEP, Screen};
+pub use emu::Screen;
 pub use otter_shared_linestore::DEFAULT_CAP as HISTORY_CAP;
 
 /// [`Screen::snapshot`] 의 결과다.
@@ -157,6 +157,8 @@ pub struct Modes {
     pub line_feed_new_line: bool,
 }
 
+#[cfg(test)]
+mod compact_tests;
 #[cfg(test)]
 mod reply_tests;
 #[cfg(test)]

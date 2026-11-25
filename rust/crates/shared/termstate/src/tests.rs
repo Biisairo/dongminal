@@ -152,7 +152,7 @@ fn compare(name: &str) -> (Vec<String>, usize) {
         &std::fs::read(testdata().join("ref").join(format!("{name}.json"))).unwrap(),
     )
     .unwrap();
-    let s = run(&cs);
+    let mut s = run(&cs);
     let mut diffs = Vec::new();
     let mut link_underline = 0;
     if s.size() != (want.cols, want.rows) {
@@ -239,10 +239,15 @@ fn compare(name: &str) -> (Vec<String>, usize) {
         diffs.push(format!("modes {got_modes:?} != {want_modes:?}"));
     }
     if !want.alt {
-        let n = want.hist.len().min(s.history_len());
+        // 기록은 에뮬레이터와 줄 저장소에 나뉜다(D-14, 크기를 바꾸면 모두 저장소로 간다). 스냅숏을 새
+        // 에뮬레이터에 넣어 클라이언트가 받는 기록 행으로 견준다.
+        let (cols, rows) = s.size();
+        let mut view = Screen::with_keep(cols, rows, Some(want.hist.len()), HISTORY);
+        view.feed(&s.snapshot(HISTORY).bytes);
+        let n = want.hist.len().min(view.history_len());
         let hist: Vec<String> = (1..=n)
             .rev()
-            .map(|k| row_text(&s.row(-i32::try_from(k).unwrap()).unwrap()))
+            .map(|k| row_text(&view.row(-i32::try_from(k).unwrap()).unwrap()))
             .collect();
         // xterm 은 직접 쓴 끝 공백을 남긴다. 글자만 견준다.
         let tail: Vec<String> = want.hist[want.hist.len() - n..]
@@ -369,7 +374,7 @@ fn store_texts(s: &Screen) -> Vec<String> {
 
 #[test]
 fn history_over_keep_moves_to_store() {
-    let mut s = Screen::with_keep(10, 5, 20, 1_000);
+    let mut s = Screen::with_keep(10, 5, Some(20), 1_000);
     s.feed(&lines(100));
     assert_eq!(s.history_len(), 20);
     assert_eq!(text_at(&s, -1), "L95");
@@ -382,7 +387,7 @@ fn history_over_keep_moves_to_store() {
 
 #[test]
 fn wrapped_line_moves_whole() {
-    let mut s = Screen::with_keep(10, 3, 2, 1_000);
+    let mut s = Screen::with_keep(10, 3, Some(2), 1_000);
     let long = "a".repeat(25);
     s.feed(format!("{long}\r\nx\r\ny\r\nz\r\nw\r\nv\r\n").as_bytes());
     let texts = store_texts(&s);
@@ -392,7 +397,7 @@ fn wrapped_line_moves_whole() {
 
 #[test]
 fn erase_saved_lines_clears_store_and_numbers_go_on() {
-    let mut s = Screen::with_keep(10, 5, 20, 1_000);
+    let mut s = Screen::with_keep(10, 5, Some(20), 1_000);
     s.feed(&lines(100));
     s.feed(b"\x1b[3J");
     assert!(s.store().is_empty());
@@ -405,7 +410,7 @@ fn erase_saved_lines_clears_store_and_numbers_go_on() {
 /// 기록 줄 수 설정(D-25)을 바꾸면 저장소 상한이 곧바로 바뀐다.
 #[test]
 fn store_cap_follows_history_setting() {
-    let mut s = Screen::with_keep(10, 5, 20, 2_000);
+    let mut s = Screen::with_keep(10, 5, Some(20), 2_000);
     s.feed(&lines(3_000));
     assert!(s.store().len() >= 2_000);
     s.set_store_cap(1_000);
@@ -619,7 +624,7 @@ fn text_joins_wrapped_rows_and_keeps_wide_chars() {
 
 #[test]
 fn text_reads_store_then_history_then_screen() {
-    let mut s = Screen::with_keep(10, 5, 20, 1_000);
+    let mut s = Screen::with_keep(10, 5, Some(20), 1_000);
     s.feed(&lines(100));
     assert!(!s.store().is_empty() && s.history_len() > 0);
     let want: String = (0..100).map(|i| format!("L{i:02}\n")).collect();
@@ -628,7 +633,7 @@ fn text_reads_store_then_history_then_screen() {
 
 #[test]
 fn text_bytes_keeps_tail_within_cap() {
-    let mut s = Screen::with_keep(10, 5, 20, 1_000);
+    let mut s = Screen::with_keep(10, 5, Some(20), 1_000);
     s.feed(&lines(100));
     assert_eq!(s.text(9), "\nL98\nL99\n");
     assert_eq!(s.text(8), "L98\nL99\n");
