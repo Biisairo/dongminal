@@ -76,7 +76,7 @@ otter-webserver-gitapi = { path = "../gitapi" }
 otter-webserver-httproute = { path = "../httproute" }
 otter-webserver-hub = { path = "../hub" }
 otter-webserver-seam-toolaccess = { path = "../seam/toolaccess" }
-otter-webserver-sse = { path = "../sse" }
+otter-webserver-envelope = { path = "../envelope" }
 
 [dev-dependencies]
 otter-shared-gittest = { path = "../../shared/gittest" }

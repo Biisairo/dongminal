@@ -244,8 +244,8 @@ impl Server {
     }
 
     /// Go `attachSSELeases`: 채널이 `hello` 로 밝힌 신원이 붙어 있는 동안의 임대(포커스 소유 등)다.
-    /// 역순으로 푼다. 이름은 SSE 시절 것이다 — 지금은 채널(`channel/mod.rs`)이 부른다.
-    pub(crate) fn attach_sse_leases(
+    /// 역순으로 푼다. 채널(`channel/mod.rs`)이 부른다.
+    pub(crate) fn attach_channel_leases(
         self: &Arc<Self>,
         cid: &str,
         remote: &str,

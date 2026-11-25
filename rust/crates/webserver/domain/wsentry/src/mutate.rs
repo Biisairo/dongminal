@@ -35,7 +35,7 @@ impl Store {
             match work.save(&blob, &rev.to_string()) {
                 Ok(new_rev) => {
                     if let Some(c) = &self.commands {
-                        c.broadcast(&otter_webserver_sse::workspace_changed(new_rev));
+                        c.broadcast(&otter_webserver_envelope::workspace_changed(new_rev));
                     }
                     return Ok(next);
                 }
