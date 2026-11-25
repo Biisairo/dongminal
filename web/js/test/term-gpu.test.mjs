@@ -240,7 +240,7 @@ test('TC-TGR-15: 컨텍스트 손실로 DOM 에 돌아가면 다시 잰다', () 
   assert.equal(p.fits, before + 1);
 });
 
-test('TC-TGR-12(개정, PERF D-40):_afterLayout 은 open → doFit(예측) 하고, 붙이기는 칸마다 뒤 idle 프레임에서 syncGpu → doFit 이다', () => {
+test('TC-TGR-12(개정, PERF D-40): 부팅 렌더는 open → doFit(예측) 하고 붙이기는 칸마다 뒤 idle 프레임, 그 뒤 렌더는 그 프레임에 syncGpu → doFit', () => {
   const log = [];
   const frames = [];
   const ctx = load(['ui/renderer-layout.js'], {
@@ -251,7 +251,7 @@ test('TC-TGR-12(개정, PERF D-40):_afterLayout 은 open → doFit(예측) 하�
     _opened: false, _gpu: null,
     el: { classList: { contains: (c) => c === 'vis' && vis } },
     open() { this._opened = true; log.push(id + ':open') },
-    _gpuPending() { return vis && !this._gpu },
+    _gpuWant(v) { return !!v },
     syncGpu(v) { log.push(id + ':gpu:' + v); if (v) this._gpu = {} },
     sizer: { doFit() { log.push(id + ':fit') } },
   });
@@ -269,6 +269,13 @@ test('TC-TGR-12(개정, PERF D-40):_afterLayout 은 open → doFit(예측) 하�
   assert.equal(frames[0].opts.owner, a);
   frames.shift().fn();
   assert.deepEqual([...log], ['a:open', 'a:fit', 'h:gpu:false', 'a:gpu:true', 'a:fit']);
+  // 부팅 뒤 렌더: 새로 보이는 칸은 그 프레임에 syncGpu 가 doFit 보다 먼저다(FR-TGR-7 원래 순서).
+  log.length = 0;
+  r.app.tools.set('b', mk('b', true));
+  r._afterLayout();
+  frames.shift().fn();
+  assert.deepEqual([...log], ['a:gpu:true', 'a:fit', 'h:gpu:false', 'b:open', 'b:gpu:true', 'b:fit']);
+  assert.equal(frames.length, 0);
 });
 
 /**

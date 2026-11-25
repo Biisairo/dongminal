@@ -61,9 +61,9 @@ Object.assign(TerminalTool.prototype,{
     return !!visible&&!this._gpuLost&&!TermGpu.unavailable&&TermGpu.enabled()&&typeof WebglAddon!=='undefined'&&!this._tsTouch();
   },
 
-  /** FR-TGR-7b: 보이는데 아직 붙지 않은 칸 — 뒤 프레임에 붙는다(`_afterLayout`). */
+  /** FR-TGR-7b: 부팅 때 뒤 프레임 붙이기를 기다리는(`_gpuWait`, `_afterLayout` 이 세운다) 붙일 수 있는 칸. */
   _gpuPending(){
-    return !!this.term&&!this._gpu&&this._gpuWant(!!this.el&&this.el.classList.contains('vis'));
+    return !!this._gpuWait&&!!this.term&&!this._gpu&&this._gpuWant(!!this.el&&this.el.classList.contains('vis'));
   },
 
   /**

@@ -34,7 +34,7 @@ function layoutWorld() {
       id, _opened: true, _gpu: null, vis,
       el: { classList: { contains: (c) => c === 'vis' && p.vis } },
       open() { log.push(id + ':open'); p._opened = true },
-      _gpuPending() { return !p._gpu && p.vis && !env.fail },
+      _gpuWant(v) { return !!v && !env.fail },
       syncGpu(v) {
         const want = !!v && !env.fail;
         if (want === !!p._gpu) return;
@@ -117,6 +117,67 @@ test('PERF 3.6.2: 다시 그려도 칸마다 붙이기는 하나로 접힌다', 
   assert.equal(log.filter((x) => x === 'a:gpu').length, 1);
 });
 
+// ── 부팅 때만 (사용자 결정 2026-11-25) ──────────────────────────────────
+
+test('PERF 3.6.2: 부팅 뒤 새로 보이는 칸은 그 프레임에 syncGpu → doFit 한다 (FR-TGR-7 원래 순서)', async () => {
+  const { clock, r, log, tool } = layoutWorld();
+  tool('a', true);
+  r._afterLayout();
+  await clock.advance(64);
+  const b = tool('b', false);
+  r._afterLayout();
+  await clock.advance(16);
+  b.vis = true;
+  log.length = 0;
+  r._afterLayout();
+  await clock.advance(16);
+  assert.deepEqual(log, ['a:fit', 'b:gpu', 'b:fit']);
+  log.length = 0;
+  await clock.advance(64);
+  assert.deepEqual(log, [], '뒤 프레임 붙이기 작업이 없다');
+});
+
+test('PERF 3.6.2: 부팅 첫 렌더에서 숨어 있던 칸이 나중에 보이면 그 프레임에 붙인다', async () => {
+  const { clock, r, log, tool } = layoutWorld();
+  tool('a', true);
+  const h = tool('h', false);
+  r._afterLayout();
+  await clock.advance(64);
+  h.vis = true;
+  log.length = 0;
+  r._afterLayout();
+  await clock.advance(16);
+  assert.deepEqual(log, ['a:fit', 'h:gpu', 'h:fit']);
+});
+
+test('PERF 3.6.2: 부팅 때 미룬 칸은 붙기 전에 다시 그려도 미룬 채 재기만 한다', async () => {
+  const { clock, app, r, log, tool } = layoutWorld();
+  tool('a', true); tool('b', true); tool('c', true);
+  r._afterLayout();
+  await clock.advance(16);
+  log.length = 0;
+  r._afterLayout();
+  await clock.advance(16);
+  // 둘째 렌더 프레임: 칸마다 fit 만 한다. 같은 프레임의 idle 작업이 하나(a) 붙는다.
+  assert.deepEqual(log.filter((x) => x.endsWith(':gpu')).length <= 1, true);
+  await clock.advance(64);
+  assert.deepEqual([...app.tools.values()].map((p) => !!p._gpu), [true, true, true]);
+});
+
+test('PERF 3.6.2: 첫 렌더에 보이는 터미널이 없으면 부팅은 다음 렌더까지 이어진다', async () => {
+  const { clock, r, log, tool } = layoutWorld();
+  const a = tool('a', false);
+  r._afterLayout();
+  await clock.advance(16);
+  a.vis = true;
+  log.length = 0;
+  r._afterLayout();
+  await clock.advance(16);
+  assert.deepEqual(log, ['a:fit']);
+  await clock.advance(16);
+  assert.deepEqual(log, ['a:fit', 'a:gpu', 'a:fit']);
+});
+
 // ── 예측 (주의점 ①·②) ──────────────────────────────────────────────────
 
 function memStore() {
@@ -143,6 +204,8 @@ function fitWorld(o = {}) {
   ctx.app = { isMobile: false, tools: new Map(), focus: { owner: { resizeCheck: () => o.owner !== false } } };
   const p = new ctx.TerminalTool('t1', 'tool');
   p.vis = true;
+  // 부팅 때 뒤 프레임 붙이기를 기다리는 칸(`_afterLayout` 이 세운다). `o.wait === false` 면 부팅 뒤의 칸이다.
+  p._gpuWait = o.wait !== false;
   p.el = { classList: { contains: (c) => c === 'vis' && p.vis } };
   p.sent = [];
   p._send = (m) => { p.sent.push(m) };
@@ -216,6 +279,13 @@ test('PERF 3.6.2: 붙일 예정이 아니면 종전 DOM fit 이다 — 붙은 �
   const none = fitWorld({ noAddon: true });
   none.p.sizer.doFit();
   assert.equal(none.p.fitCalls, 1, 'WebglAddon 없음');
+});
+
+test('PERF 3.6.2: 부팅 뒤의 칸(기다리지 않는 칸)은 붙기 전이라도 예측값을 쓰지 않는다', () => {
+  const { p } = fitWorld({ wait: false });
+  p.sizer.doFit();
+  assert.equal(p.fitCalls, 1);
+  assert.equal(p.term.cols, 169);
 });
 
 test('PERF 3.6.2: 문자 크기를 아직 못 쟀으면 종전 fit 에 맡긴다', () => {
