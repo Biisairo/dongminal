@@ -16,7 +16,7 @@ const SCREEN = [
   'function gitHelper(){ return new GitPanel() }',
 ].join('\n');
 
-function run(boot, entries = '') {
+function run(boot, entries = '', extra = {}) {
   const root = mkdtempSync(join(tmpdir(), 'lazyb-'));
   const files = {
     'web/index.html': HTML,
@@ -24,6 +24,7 @@ function run(boot, entries = '') {
     'web/js/git-a.js': SCREEN,
     'web/js/boot-a.js': boot,
     'scripts/lazy-entries.txt': entries,
+    ...extra,
   };
   for (const [name, src] of Object.entries(files)) {
     mkdirSync(join(root, name, '..'), { recursive: true });
@@ -126,4 +127,50 @@ test('같은 이름의 지역 변수·typeof·속성 이름은 참조로 보지 
     'const o = { gitHelper: 1 }; o.gitHelper;',
   ].join('\n'));
   assert.equal(r.code, 0, r.out);
+});
+
+/**
+ * PERF 3.4.12.1: vendor UMD 는 `e.markdownit = t()` 처럼 전역을 속성으로 단다 — 최상위 선언이 아니라
+ * topNames 가 보지 못한다. `scripts/vendor-globals.txt` 가 파일 → 전역을 적고, 소속 묶음은 정의에서 찾는다.
+ */
+const UMD = "(function(e,t){e.markdownit=t()})(this,function(){return function(){return {}}});\n";
+const VENDOR = 'vendor/markdown-it.js markdownit\n';
+const BOOT_MD = "const md = markdownit();\n";
+
+test('vendor 전역표: 지금 트리의 vendor(부팅 소속)는 위반이 아니다', () => {
+  const r = exec([]);
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /vendor 전역 \d+개/);
+});
+
+test('vendor 전역표: 페이지가 직접 싣는 vendor 의 전역은 부팅 소속이라 지난다', () => {
+  const r = run(BOOT_MD, '', {
+    'web/index.html': '<script src="vendor/markdown-it.js"></script>\n' + HTML,
+    'web/vendor/markdown-it.js': UMD,
+    'scripts/vendor-globals.txt': VENDOR,
+  });
+  assert.equal(r.code, 0, r.out);
+});
+
+test('vendor 전역표: 지연 묶음으로 옮긴 vendor 의 전역을 부팅이 읽으면 실패한다', () => {
+  const moved = {
+    'web/bundles.txt': DEFS + '\n[mdlib]\nvendor/markdown-it.js\n',
+    'web/vendor/markdown-it.js': UMD,
+    'scripts/vendor-globals.txt': VENDOR,
+  };
+  const bad = run(BOOT_MD, '', moved);
+  assert.equal(bad.code, 1);
+  assert.match(bad.out, /js\/boot-a\.js:1 {2}markdownit ← \[mdlib\] vendor\/markdown-it\.js/);
+
+  const ok = run("async function f(){\n  await Screens.load('mdlib');\n  return markdownit();\n}\n", '', moved);
+  assert.equal(ok.code, 0, ok.out);
+
+  const noTable = run(BOOT_MD, '', { ...moved, 'scripts/vendor-globals.txt': '' });
+  assert.equal(noTable.code, 0, '표가 없으면 UMD 전역을 보지 못한다 — 표가 필요한 이유');
+});
+
+test('vendor 전역표: 페이지에도 정의에도 없는 파일을 적으면 실패한다', () => {
+  const r = run('', '', { 'scripts/vendor-globals.txt': 'vendor/gone.js Gone\n' });
+  assert.equal(r.code, 1);
+  assert.match(r.out, /vendor\/gone\.js/);
 });
