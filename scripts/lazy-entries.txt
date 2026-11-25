@@ -5,3 +5,4 @@
 # Screens.ready 를 불러야 하고, 그 안(클로저 포함)의 참조는 게이트가 넘긴다.
 #
 # 형식: <web/ 기준 파일> <함수 이름>   함수 이름은 `f`, `Class.method`, `A.prototype.m` 꼴이다.
+js/core/chat-controller.js ChatController.views

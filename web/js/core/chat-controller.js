@@ -10,9 +10,9 @@
  * `ChatController` 가 목록 읽기·Chats 탭 항목·사람 참가자의 동작을 진다. App 은 이것을 `chat` 으로 든다
  * (REFACTOR3_FE_APPCTL_SRS 9c). 부품 셋 — 채팅 창 `ChatWindow`(`chat-window.js`) `.window` · 사람 명령 `ChatHuman`
  * (`chat-human.js`) `.human` · 채팅 탭의 뷰 `ChatViews`(`chat-views.js`, 옛 `ui/chat-view.js`) `.views`. 읽은 상태 `_chat` 은
- * App 에 남는다 — 시험이 갈아 끼운다.
+ * App 에 남는다 — 시험이 갈아 끼운다. 뷰는 `chat` 화면 묶음이고 처음 채팅 탭을 그릴 때 실린다 (PERF 3.4.9).
  *
- * 로드 순서 계약: `chat-store.js` 뒤, `activity-list.js` 뒤.
+ * 로드 순서 계약: `chat-store.js` 뒤, `activity-list.js` 뒤, `core/screens.js` 뒤(끝에서 화면을 등록한다).
  */
 
 /** 화면이 아는 실패. 코드 → 안내 문구 키. 없으면 `chat.unavailable` 이다. */
@@ -28,7 +28,16 @@ class ChatController extends Controller {
     super(app);
     this.window=new ChatWindow(app);
     this.human=new ChatHuman(app);
-    this.views=new ChatViews(app);
+    this._views=null;
+  }
+
+  /**
+   * 채팅 탭의 뷰 `ChatViews` — `chat` 화면 묶음에 있다 (PERF 3.4.9, D-30). 묶음이 실리기 전에는 null 이다.
+   * 뷰는 렌더러가 묶음을 기다린 뒤에야 생기므로, 그 전에는 다시 그릴 뷰도 보이는 방도 없다.
+   */
+  get views(){
+    if(!this._views&&Screens.ready('chat')) this._views=new ChatViews(this.app);
+    return this._views;
   }
 
   _chatS(){
@@ -45,7 +54,7 @@ class ChatController extends Controller {
       else if(r.status) this.app._chat={down:(r.data&&r.data.code)||'chat_unavailable'};
       this.app.wsSync._restoreEnd('chat',flight);
       if(this.app.chat.window._chatRepaint) this.app.chat.window._chatRepaint(); // CHAT_WINDOW_SRS FR-CW-21: 목록은 메인 패널이다
-      this.app.chat.views._chatViewsPaint();
+      this.app.chat.views?._chatViewsPaint();
     });
   }
 
@@ -55,9 +64,9 @@ class ChatController extends Controller {
   _onChatMessage(a){
     const m=a&&a.msg;
     if(!m||!m.room) return;
-    if(!this._chatS().add(m.room,m,this.views._chatRoomShown(m.room))) return;
+    if(!this._chatS().add(m.room,m,!!this.views?._chatRoomShown(m.room))) return;
     if(this.app.chat.window._chatRepaint) this.app.chat.window._chatRepaint();
-    this.app.chat.views._chatViewsPaint(m.room);
+    this.app.chat.views?._chatViewsPaint(m.room);
   }
 
   _chatRooms(){ return (this.app._chat&&Array.isArray(this.app._chat.rooms))?this.app._chat.rooms:[] }
@@ -213,7 +222,7 @@ class ChatController extends Controller {
     const me=this._chatMe()||{};
     this._chatSeq=(this._chatSeq||0)+1;
     this._chatS().add(roomId,{id:'local-'+this._chatSeq,room:roomId,from:me.id,fromLabel:me.label,fromKind:'user',text,at:Date.now()},true);
-    this.app.chat.views._chatViewsPaint(roomId);
+    this.app.chat.views?._chatViewsPaint(roomId);
     return true;
   }
 
@@ -224,3 +233,6 @@ class ChatController extends Controller {
     await this._chatRestore();
   }
 }
+
+// PERF 3.4.9 (D-30): 채팅 탭의 본문은 `chat` 묶음이 그린다. 렌더러는 묶음이 실릴 때까지 자리표시를 둔다.
+Screens.register('chat', { tab: (at) => at.type === TAB_TYPE_CHAT });

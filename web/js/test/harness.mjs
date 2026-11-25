@@ -108,6 +108,11 @@ export const SETTINGS = ['core/settings-apply.js', 'core/settings-section.js', '
  * 만들므로 한 묶음의 파일은 함께 싣는다. 끝에서 App 원형에 위임자를 두므로 `App` 전역이 있어야 한다.
  */
 export const AGENTS = ['core/agents-controller.js', 'core/agents-sub.js', 'core/activity-list.js'];
+/**
+ * 화면 묶음이 모두 실린 것으로 보는 등록부 대역 (PERF 3.4.9). 화면을 등록하고 `Screens.ready` 로 본체를 세우는 파일
+ * (`chat-controller.js` 등)을 그 본체와 함께 실을 때 `globals.Screens` 로 준다.
+ */
+export const SCREENS_LOADED = Object.freeze({ register() {}, ready: () => true, load: () => Promise.resolve() });
 export const CHAT = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js'];
 export const MOBILE = ['core/mobile-controller.js', 'core/mobile-sheets.js', 'core/mobile-nav.js'];
 export const GIT = ['core/git-repos-list.js', 'core/git-topics.js', 'core/git-controller.js', 'core/git-surfaces.js', 'core/git-sync.js'];

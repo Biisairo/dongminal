@@ -276,15 +276,11 @@ js/ui/file-tree-marquee.js
 js/ui/file-tree-edit.js
 js/ui/file-tree-xfer.js
 js/ui/file-tree-download.js
-js/ui/runs-panel.js
-js/ui/run-view-life.js
-js/ui/run-graph-fit.js
-js/ui/run-dashboard.js
-js/ui/run-tree-cam.js
-js/ui/run-tree.js
-js/ui/run-recover.js
 # 화면 등록부와 묶음 로더 (PERF M3 §3.4, D-30). 렌더러가 `forTab`·`ready` 를 묻으므로 그 앞이다.
 js/core/screens.js
+# Run 목록·뷰 레지스트리 — `run` 화면의 껍데기 (PERF 3.4.9). 로드 시점에 화면을 등록하므로 screens.js 뒤다.
+# 탭의 뷰(그리기·구독)는 아래 [run] 묶음이 진다.
+js/ui/runs-panel.js
 # 탭 본문 주인의 생명주기 (PERF M3 §3.5). `Component` 를 잇고, 렌더러가 세운다.
 js/ui/screen-life.js
 js/ui/renderer.js
@@ -345,7 +341,6 @@ js/core/tool-work.js
 # 채팅 (PEER_CHAT_SRS §3.11). `ChatController` 와 그 부품 (REFACTOR3_FE_APPCTL_SRS 9c). `activity-list.js` 뒤.
 js/core/chat-store.js
 js/core/chat-controller.js
-js/core/chat-views.js
 js/core/chat-human.js
 # 채팅 창 (CHAT_WINDOW_SRS). `ChatController` 의 부품이다.
 js/core/chat-window.js
@@ -434,3 +429,20 @@ js/core/main.js
 js/ui/version-watch.js
 # 실기기 진단. ?diag=1 로 접속할 때만 동작한다
 js/ui/diag.js
+
+[run]
+# Run 탭의 뷰 (PERF 3.4.9, D-30). `RunsPanel.prototype` 증강이므로 부팅의 runs-panel.js 뒤에서만 실린다 —
+# 렌더러가 Run 탭을 처음 그릴 때(`Screens.forTab`) 또는 `Screens.load('run')` 이 싣는다.
+js/ui/run-view.js
+js/ui/run-view-life.js
+js/ui/run-graph-fit.js
+js/ui/run-dashboard.js
+js/ui/run-tree-cam.js
+js/ui/run-tree.js
+js/ui/run-recover.js
+style-run-view.css
+
+[chat]
+# 채팅 탭의 뷰 (PERF 3.4.9, D-30). `ChatController.views` 가 묶음이 실린 뒤에 세운다. CSS 는 부팅의
+# style-activity.css 에 남는다 — 목록 행과 선택자를 나누고, 크기가 작다.
+js/core/chat-views.js

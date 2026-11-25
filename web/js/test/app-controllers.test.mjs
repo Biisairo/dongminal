@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { runInContext } from 'node:vm';
 
 import { repoLoadOrder } from '../../../scripts/bundles-def.mjs';
-import { BASE, EDITOR, FOCUS, GIT, LAYOUT, PANELS, REPO_WIN, SETTINGS, SLOTS, TOOL, WS_SYNC, controllers, load, plain } from './harness.mjs';
+import { BASE, EDITOR, FOCUS, GIT, LAYOUT, PANELS, REPO_WIN, SCREENS_LOADED, SETTINGS, SLOTS, TOOL, WS_SYNC, controllers, load, plain } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_APPCTL_SRS — App mixin 을 주제별 `Controller` 로 (단계 9).
@@ -294,7 +294,7 @@ test('TC-DLG-1(DL-5): LSP·Run 위임자는 App 원형에 없고 지연 생성�
     expose: ['App', 'LspClient'],
     globals: { PrefStore: { local: store }, LSP_DIAG_KEY: 'k', STORE_KEYS: {}, TIMERS: { disposeOwner() {} } },
   });
-  const runs = ['ui/runs-panel.js', 'ui/run-dashboard.js', 'ui/run-recover.js', 'ui/run-tree.js', 'ui/run-tree-cam.js'].map(read).join('\n');
+  const runs = ['ui/runs-panel.js', 'ui/run-view.js', 'ui/run-dashboard.js', 'ui/run-recover.js', 'ui/run-tree.js', 'ui/run-tree-cam.js'].map(read).join('\n');
   for (const n of LSP_DELEGATES) {
     assert.equal(ctx.App.prototype[n], undefined, '위임자가 남았다: ' + n);
     assert.equal(typeof ctx.LspClient.prototype[n], 'function', n);
@@ -403,7 +403,7 @@ function load9b(globals = {}) {
     'core/claude-accounts-controller.js', 'core/claude-maps.js', 'core/statusbar-controller.js', 'core/statusbar-enc.js'], {
     expose: [...CLASSES_9B, 'Controller', 'Component'],
     globals: {
-      App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
+      App: function App() {}, Screens: SCREENS_LOADED, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
       document: { getElementById: () => null, querySelector: () => null },
       ...globals,
     },
@@ -543,7 +543,7 @@ function load9c(globals = {}) {
   return load([...BASE, ...PANELS, ...FILES_9C], {
     expose: [...CLASSES_9C, 'Controller', 'Component'],
     globals: {
-      App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
+      App: function App() {}, Screens: SCREENS_LOADED, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
       document: { getElementById: () => null, querySelector: () => null },
       ...globals,
     },
@@ -656,7 +656,7 @@ function load9d(globals = {}) {
   return load([...BASE, ...GIT], {
     expose: [...CLASSES_9D, 'Controller', 'Component'],
     globals: {
-      App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
+      App: function App() {}, Screens: SCREENS_LOADED, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
       document: { getElementById: () => null, querySelector: () => null },
       ...globals,
     },

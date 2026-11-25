@@ -54,7 +54,7 @@ class EdgesController extends Controller {
         this.app.settings.section('profile')?._pfFollow(r);
         this.app.settings.section('edges')?._edgesPaint();
         // EDGE_MESH_SRS FR-EGM-56: 개인채팅의 초대 버튼은 망 그림을 따른다.
-        if(this.app.chat.views._chatViewsPaint) this.app.chat.views._chatViewsPaint();
+        if(this.app.chat.views?._chatViewsPaint) this.app.chat.views._chatViewsPaint();
         // UX_BATCH12 FR-LIV-4: 노드 설정 폼은 목록과 따로 — 지문이 바뀌었을 때만 따라간다.
         const v=r.data;
         if(this.app.settings.live._liveOpen('edges')) this.app.settings.live._liveChanged('edges',r,this.app.settings.section('edges')?._egNodeCollect(),()=>{
