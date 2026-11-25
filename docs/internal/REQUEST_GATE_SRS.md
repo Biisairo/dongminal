@@ -202,12 +202,13 @@ FR-ACL-37). 목록 내용을 싣지 않는 규약은 그대로다.
 ### 3.2 묶음 W — WebSocket
 
 **FR-RQG-11** `toolhub.Upgrader.CheckOrigin` 이 항상 true 를 돌려주는 것을 없앤다.
-**판정은 업그레이드 이전에 미들웨어에서 끝나 있다** — `/ws` 는 `requestGate` 를 이미
+(**개정 2026-11-25, PERF 1.19**: 옛 `/ws` 자리는 채널 `/channel` 이다. `/channel` 도 `access_gate`·`request_gate` 를 지나고 `gate_exempt` 에 들지 않는다.)
+**판정은 업그레이드 이전에 미들웨어에서 끝나 있다** — `/channel`(옛 `/ws`) 은 `requestGate` 를 이미
 지나므로(mux 바깥), `CheckOrigin` 은 그 사실을 신뢰하는 자리다.
 
 두 곳에서 판정하지 않는다. 두 벌이면 한쪽만 고쳐진다.
 
-**FR-RQG-12** `/ws` 에 `Origin: https://evil.example` 로 오면 업그레이드 **전에** 403 이다.
+**FR-RQG-12** `/channel`(옛 `/ws`) 에 `Origin: https://evil.example` 로 오면 업그레이드 **전에** 403 이다.
 `Origin` 없는 업그레이드(`otterctl`)는 통과한다.
 
 **FR-RQG-13** WebSocket 업그레이드는 `GET` 이므로 FR-RQG-5(Content-Type)의 대상이 아니다.

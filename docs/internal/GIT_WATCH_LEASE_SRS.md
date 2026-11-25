@@ -1,7 +1,8 @@
 # SRS: 감시 임대를 SSE 구독에 맡긴다 — IEEE 29148
 
 > **문서 상태**: 승인·구현완료
-> **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1 C4·C6, PERF 1.15)**: SSE 가 없어졌다. 감시 임대의 주체는 이제 채널의 `git:<repo>` 토픽 구독이다 — 구독자가 있는 동안 토픽 임차인(`hold_topic`) 하나가 그 저장소를 쥐고, 마지막 구독자가 떠나면 TTL 규칙으로 돌아간다(`hub/src/gitwatch/lease.rs`, `perf/CHANNEL_PROTOCOL.md` §5.2). FR-GWL-1·3·9 의 SSE 결선과 `clientId` 임차는 대체됐고, FR-GWL-11~13 은 `gitStatusInterval` 삭제로 폐기됐다. FR-GWL-2·4~8 의 임차·만료·퇴출 규칙은 그대로다. 각 요구사항에 표시했다
+> **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1 C4·C6, PERF 1.15)**: SSE 가 없어졌다. 감시 임대의 주체는 이제 채널의 `git:<repo>` 토픽 구독이다 — 구독자가 있는 동안 토픽 임차인(`hold_topic`) 하나가 그 저장소를 쥐고, 마지막 구독자가 떠나면 TTL 규칙으로 돌아간다(`hub/src/gitwatch/lease.rs`, `perf/CHANNEL_PROTOCOL.md` §5.2). FR-GWL-1·3·9 의 SSE 결선과 `clientId` 임차는 대체됐고, FR-GWL-11~13 은 `gitStatusInterval` 삭제로 폐기됐다. FR-GWL-2·4·6 의 임차·만료·퇴출 규칙은 그대로다. 각 요구사항에 표시했다
+> **개정 2026-11-25 (PERF 1.18·1.21·2.10)**: SSE 시절의 `attach`·`detach`·`note_for`(`NoteFor`) 는 지워졌다. 남은 표면은 `note`(TTL 표명)·`hold_topic`·`release_topic` 이다(`hub/src/gitwatch/lease.rs`). 브라우저는 git 요청에 `clientId` 를 싣지 않는다. 그래서 FR-GWL-3·5·7·8·9 를 다시 표시했고, TC-GWL-9·10(SSE)과 TC-GWL-11~13(지운 e2e·지운 설정)은 폐기다
 
 > 상태: **초안**. `GIT_PUSH_OBSERVE_SRS` FR-GPO-10·11 의 개정이며
 > `POLL_INTERVAL_SETTINGS_SRS` FR-PIS-9 의 전제를 고친다.
@@ -211,7 +212,7 @@ FR-GPO-11 은 반대 방향에서 같은 전제를 적었다 — "브라우저�
 `evictLocked` 의 TTL 검사는 임차인 집합이 빈 항목에만 적용된다.
 근거는 §1.4 의 사용자 요구다 — 띄워 두고 보기만 하는 동안에도 갱신이 살아 있어야 한다.
 
-**FR-GWL-3** (**대체 2026-11-24, PERF M1 C4·C6**: SSE 종단이 없어 `attach`·`detach` 는 제품 경로에서 불리지 않는다. 같은 성질 — 연결이 끝나면 곧 해제, grace period 없음 — 은 채널이 닫히거나 토픽을 해지할 때 `release_topic` 이 진다.) SSE 구독이 열리면 `Attach(clientID) → epoch`, 닫히면
+**FR-GWL-3** (**대체 2026-11-24, PERF M1 C4·C6**: SSE 종단이 없어 `attach`·`detach` 는 제품 경로에서 불리지 않는다 — 2026-11-25 PERF 1.18 에서 함수도 지웠다. 같은 성질 — 연결이 끝나면 곧 해제, grace period 없음 — 은 채널이 닫히거나 토픽을 해지할 때 `release_topic` 이 진다.) SSE 구독이 열리면 `Attach(clientID) → epoch`, 닫히면
 `Detach(clientID, epoch)` 로 그 신원을 **모든** 저장소의 임차인 집합에서 뺀다.
 **grace period 는 없다** — 구독이 끝나는 것이 곧 해제다 (FR-XDF-9 와 같은 규약).
 `Detach` 는 `ep` 가 그 신원의 최신 구독일 때만 동작한다 — 재연결 뒤 도착한 옛 연결의
@@ -220,7 +221,7 @@ FR-GPO-11 은 반대 방향에서 같은 전제를 적었다 — "브라우저�
 **FR-GWL-4** 임차인이 모두 빠진 저장소는 종전 규칙으로 돌아간다 — 마지막 표명에서
 `GitWatchTTL` 이 지나면 만료. 브라우저를 닫으면 감시가 곧 걷힌다는 뜻이다.
 
-**FR-GWL-5** `clientID` 가 빈 표명은 종전과 같이 **TTL 임대**다. 기존 `Note(repo, obs)`
+**FR-GWL-5** (**개정 2026-11-25, PERF 1.18**: `NoteFor` 는 지웠다. 표명은 `note(repo, obs)` 하나이고 늘 TTL 임대다.) `clientID` 가 빈 표명은 종전과 같이 **TTL 임대**다. 기존 `Note(repo, obs)`
 는 시그니처를 유지하고 `NoteFor(repo, obs, "")` 와 동치다.
 
 **FR-GWL-6** 상한 `GitWatchCap` 은 유지한다. 초과 시 퇴출 순서는
@@ -229,17 +230,17 @@ FR-GPO-11 은 반대 방향에서 같은 전제를 적었다 — "브라우저�
 **퇴출을 로그로 남긴다** — 종전에는 조용했다 (`GP-16` 해소). 만료·탈락·퇴출 셋이
 로그에서 갈려야 한다 (FR-GLW-7 의 연장).
 
-**FR-GWL-7** `RepoWatcher` 인터페이스에 `NoteFor` 를 더한다. `gitapi` 는 `hub` 를
+**FR-GWL-7** (**대체 2026-11-25, PERF 1.18**: `NoteFor` 는 지웠다.) `RepoWatcher` 인터페이스에 `NoteFor` 를 더한다. `gitapi` 는 `hub` 를
 계속 참조하지 않는다.
 
-**FR-GWL-8** `Watch` 가 nil 이거나 `Attach`/`Detach` 가 불리지 않는 구성에서도 종전
+**FR-GWL-8** (**개정 2026-11-25, PERF 1.18**: `Attach`/`Detach` 는 없다. 토픽 구독이 없는 저장소는 TTL 임대다.) `Watch` 가 nil 이거나 `Attach`/`Detach` 가 불리지 않는 구성에서도 종전
 동작(TTL 임대)이 그대로 성립한다.
 
 ### 3.2 묶음 C — 브라우저
 
 **FR-GWL-9** `GET /api/git/status` 가 `clientId` 를 쿼리에 싣는다. 값은 `App.clientId`
 — SSE 를 여는 것과 같은 신원이다 (`app-cmd.js:105`).
-**대체 2026-11-24 (PERF M1 C4)**: 브라우저는 지금도 `clientId` 를 싣지만(`git/git-poll.js`) 임대를 만들지 않는다. 임대는 Git 패널·저장소 목록·탐색기가 구독하는 `git:<repo>` 토픽이 쥔다.
+**대체 2026-11-24 (PERF M1 C4)**: 브라우저는 지금도 `clientId` 를 싣지만(`git/git-poll.js`) 임대를 만들지 않는다. (**2026-11-25, PERF 1.18**: 이제 `clientId` 도 싣지 않는다.) 임대는 Git 패널·저장소 목록·탐색기가 구독하는 `git:<repo>` 토픽이 쥔다.
 
 **FR-GWL-10** 응답의 `requested` echo 검증(FR-GIT-16)은 영향받지 않는다. `clientId` 는
 echo 대조 대상이 아니다.
@@ -293,16 +294,16 @@ echo 대조 대상이 아니다.
 
 | ID | 확인 |
 |---|---|
-| TC-GWL-9 | `clientId` 를 실은 SSE 를 열면 `Attach` 가 불리고, 끊으면 `Detach` 가 불린다 |
-| TC-GWL-10 | `clientId` 없는 SSE 는 임대를 만들지 않는다 (종전 호출 형태 하위 호환) |
+| TC-GWL-9 | (**폐기 2026-11-25, PERF 1.18·1.21**) `clientId` 를 실은 SSE 를 열면 `Attach` 가 불리고, 끊으면 `Detach` 가 불린다 |
+| TC-GWL-10 | (**폐기 2026-11-25, PERF 1.18·1.21**) `clientId` 없는 SSE 는 임대를 만들지 않는다 (종전 호출 형태 하위 호환) |
 
 ### 4.3 브라우저 (e2e)
 
 | ID | 확인 |
 |---|---|
-| TC-GWL-11 | `gitStatusInterval=0` 에서 Repo 창을 열고 TTL 을 넘겨 기다린 뒤(탭 전환·포커스 이동 없이) 터미널에서 파일을 만들면 **화면이 갱신된다** |
-| TC-GWL-12 | 같은 조건에서 서버 로그에 `관심 표명 만료` 가 **남지 않는다** |
-| TC-GWL-13 | `pi-gitstatus` 의 선택지가 `[10초, 30초, 끔]` 이다 (FR-GWL-11) |
+| TC-GWL-11 | (**폐기 2026-11-25, PERF 1.18·1.21**) `gitStatusInterval=0` 에서 Repo 창을 열고 TTL 을 넘겨 기다린 뒤(탭 전환·포커스 이동 없이) 터미널에서 파일을 만들면 **화면이 갱신된다** |
+| TC-GWL-12 | (**폐기 2026-11-25, PERF 1.18·1.21**) 같은 조건에서 서버 로그에 `관심 표명 만료` 가 **남지 않는다** |
+| TC-GWL-13 | (**폐기 2026-11-25, PERF 1.18·1.21**) `pi-gitstatus` 의 선택지가 `[10초, 30초, 끔]` 이다 (FR-GWL-11) |
 
 TC-GWL-11·12 는 브라우저 없이 더 곧게 잴 수 있고, 실제로 그렇게 쟀다 (§4.5).
 e2e 에 남는 몫은 **status 요청이 자기 신원을 싣는가** 하나다(GWL1) — 임대의 계약

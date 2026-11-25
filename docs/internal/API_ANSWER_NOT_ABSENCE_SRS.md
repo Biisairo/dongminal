@@ -61,7 +61,7 @@
   멈춘다. 되살아나는 길 셋.
 - `docs/internal/GIT_REPO_MISSING_SRS.md` `FR-RMS-4` — 소실과 "저장소 아님" 이
   **사유로 갈린다**는 것. 이 문서는 그 위에 **상태 코드로도** 갈린다를 얹는다.
-- `docs/internal/GIT_WATCH_LEASE_SRS.md` `FR-GWL-9` — `clientId` 가 실리는 요청.
+- `docs/internal/GIT_WATCH_LEASE_SRS.md` `FR-GWL-9` — `clientId` 가 실리는 요청. (지금은 git 요청에 `clientId` 를 싣지 않는다. 감시 임대는 채널 `git:<repo>` 토픽 구독이 쥔다 — PERF 1.18, 2026-11-25)
 
 ## 2. 현재 상태 (조사로 확정한 사실)
 
@@ -111,7 +111,7 @@
 되살아나는 길 때문이다 — **창·탭에 포커스가 올 때마다 `signal()` 이 한 번 묻는다.**
 
 로그에 `clientId` 가 붙은 요청과 붙지 않은 요청이 섞여 있는 것이 그 증거다
-(폴링 경로는 `clientId` 를 싣는다 — `FR-GWL-9`).
+(폴링 경로는 `clientId` 를 싣는다 — `FR-GWL-9`). (당시 기록이다. 지금은 `clientId` 를 싣지 않는다 — PERF 1.18, 2026-11-25)
 
 그 경로는 **옳다.** `git init` 직후 되살아나는 길이 그것이다. 그러므로 요청을
 없애는 것이 아니라 **답의 형식**을 고친다.
