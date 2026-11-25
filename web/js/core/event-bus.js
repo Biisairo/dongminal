@@ -165,10 +165,26 @@ class EventBus {
     if(this.has(m.action)){ this.publish(m.action, m.args||{}); return }
     // 서버가 실행자를 지명한 명령은 그 클라이언트만 수행한다 (FR-SXE-3).
     // 어떤 action 을 게이팅할지는 서버만 정하므로 여기서 종류를 보지 않는다.
-    if(m.execClientId&&m.execClientId!==this.app.clientId) return;
+    if(m.execClientId&&!this._isMine(m.execClientId)) return;
     const args=m.args||{};
     if(m.reqId) args.reqId=m.reqId;   // echo correlation
     if(this._fallback) this._fallback(m.action, args);
+  }
+
+  /**
+   * PERF 4.3: 이 브라우저 창의 **모든 칸 신원**이 내 것이다 (FR-WSL-10·13).
+   *
+   *   이전 동작: `app.clientId`(칸 [0]) 하나와만 비교했다
+   *   새  동작: 지금 열린 칸들의 신원 집합과 비교한다. 실행은 이 창이 한 번 하고,
+   *             문맥은 지명된 칸이 아니라 지금의 포커스 칸이다 (FR-WSL-54)
+   *   이유:     칸 [1] 이상이 포커스를 주장하면 서버는 그 칸 신원을 실행자로 지명한다
+   *             (FR-SXE-4). 채널은 창 하나에 하나라 아무도 자기 것으로 알아보지 못해
+   *             생성·닫기 명령이 버려졌다 (`timedOut`)
+   */
+  _isMine(id){
+    if(id===this.app.clientId) return true;
+    const s=this.app.slot;
+    return !!s&&s._slotIdentities().includes(id);
   }
 
   // ── 진단 (FR-BUS-9) ─────────────────────────────────────────────────────
