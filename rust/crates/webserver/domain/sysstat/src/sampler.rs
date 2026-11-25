@@ -4,8 +4,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use crate::{CpuTicks, Reader, cpu_percent, round1};
 
-/// 샘플 주기다 (SYSTEM_STATS_SRS D-3).
-pub const DEFAULT_INTERVAL: Duration = Duration::from_secs(2);
+pub use otter_shared_cadence::SYSSTAT_SAMPLE_EVERY as DEFAULT_INTERVAL;
 
 const DEFAULT_DISK_PATH: &str = "/";
 

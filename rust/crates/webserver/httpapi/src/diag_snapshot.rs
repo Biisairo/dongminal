@@ -12,8 +12,7 @@ use tokio_util::sync::CancellationToken;
 use crate::Server;
 use crate::handlers_diag::{alloc_mb, live_tasks};
 
-/// 스냅샷 주기다. 60초에 한 줄이면 하루 1,440줄이다.
-pub const DIAG_SNAPSHOT_EVERY: Duration = Duration::from_secs(60);
+pub use otter_shared_cadence::DIAG_SNAPSHOT_EVERY;
 
 /// 경고 임계다 (FR-CNR-13).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

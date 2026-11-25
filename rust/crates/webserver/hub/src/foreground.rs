@@ -10,8 +10,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{CommandBroker, payloads::tool_foreground_payload};
 
-/// 전경 이름 조회를 돌리는 주기다 (FR-TAN-8). toolhub 쪽 캐시와 같은 값이다.
-pub const FOREGROUND_INTERVAL: Duration = otter_shared_toolhub::FOREGROUND_REFRESH_INTERVAL;
+pub use otter_shared_cadence::FOREGROUND_REFRESH_EVERY as FOREGROUND_INTERVAL;
 
 /// 전경 조회가 쓰는 도구 허브의 부분이다 (Go `toolhub.ToolHub` 중 `HasFeature`·`List`).
 /// 구현(toolclient)은 동기 RPC 다.

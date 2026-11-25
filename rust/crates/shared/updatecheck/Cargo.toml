@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 otter-gocompat = { path = "../../gocompat" }
+otter-shared-cadence = { path = "../cadence" }
 otter-shared-otterenv = { path = "../otterenv" }
 otter-shared-otterlog = { path = "../otterlog" }
 otter-shared-release = { path = "../release" }

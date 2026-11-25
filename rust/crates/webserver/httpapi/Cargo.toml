@@ -32,6 +32,7 @@ tokio-util = { workspace = true }
 otter-shared-activity = { path = "../../shared/activity" }
 otter-shared-agentadapter = { path = "../../shared/agentadapter" }
 otter-shared-agentrec = { path = "../../shared/agentrec" }
+otter-shared-cadence = { path = "../../shared/cadence" }
 otter-shared-chatwire = { path = "../../shared/chatwire" }
 otter-shared-otterenv = { path = "../../shared/otterenv" }
 otter-shared-otterlog = { path = "../../shared/otterlog" }

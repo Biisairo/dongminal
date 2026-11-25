@@ -10,6 +10,7 @@ publish = false
 workspace = true
 
 [dependencies]
+otter-shared-cadence = { path = "../../../shared/cadence" }
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true }

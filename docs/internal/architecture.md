@@ -128,6 +128,7 @@ rust/                    # Cargo 워크스페이스 — crate 하나가 디렉�
       statusline/        #   ①③  — statusLine 입력의 허용 목록 한 벌 (otterctl statusline 이 채우고 서버가 같은 타입으로 받는다)
       runwait/           #   ①③  — Run 종단이 요청을 붙잡는 상한 (서버와 otterctl 이 같은 수를 읽는다, M8 D-A-1·24)
       pollwait/          #   ①③④ — "조건이 설 때까지 묻는" 대기 한 벌 (요청 경로·데몬 소켓·start/stop, M8 D-A-15)
+      cadence/           #   ②③④ — 남는 주기 등록부: 깨어나는 간격 상수와 그 이유 한 벌 (PERF M4 설계 §3)
       sandbox/           #   ②③  — Window 하나의 컨테이너 생명주기 + 그 안의 실행 명세
       sandboxplace/      #   ②③  — 샌드박스 프로파일 → 실행 명세 배선 (toolhub 와 sandbox 를 잇는다)
       mimeprobe/         #   ②③  — 바이트 앞머리로 그림인지 (파일 종단·git 블롭 종단이 같은 한 벌, M9 FR-M9-21)

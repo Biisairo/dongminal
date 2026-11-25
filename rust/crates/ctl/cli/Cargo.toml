@@ -13,6 +13,7 @@ workspace = true
 otter-ctl-migrate = { path = "../migrate" }
 otter-ctl-privhelper = { path = "../privhelper" }
 otter-shared-apipath = { path = "../../shared/apipath" }
+otter-shared-cadence = { path = "../../shared/cadence" }
 otter-shared-otterenv = { path = "../../shared/otterenv" }
 otter-shared-editorlimit = { path = "../../shared/editorlimit" }
 otter-shared-handover = { path = "../../shared/handover" }

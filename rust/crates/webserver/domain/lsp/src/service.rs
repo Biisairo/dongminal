@@ -24,8 +24,7 @@ pub const IDLE_AFTER: Duration = Duration::from_secs(20 * 60);
 pub const MAX_SESSIONS: usize = 6;
 /// 서버가 다루는 텍스트의 상한 — 편집기 파일 상한과 같다.
 pub const MAX_TEXT_BYTES: i64 = otter_shared_editorlimit::FILE_MAX_BYTES;
-/// 유휴 정리의 주기.
-pub const SWEEP_EVERY: Duration = Duration::from_secs(2 * 60);
+pub use otter_shared_cadence::LSP_SWEEP_EVERY as SWEEP_EVERY;
 /// 끼워 넣기(파일 변경 알림) 줄의 길이.
 const TUNNEL_INJECT_QUEUE: usize = 16;
 

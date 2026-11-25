@@ -22,6 +22,7 @@ members = [
     "crates/shared/activity",
     "crates/shared/agentadapter",
     "crates/shared/agentrec",
+    "crates/shared/cadence",
     "crates/shared/apipath",
     "crates/shared/chatwire",
     "crates/shared/diagtail",

@@ -20,8 +20,8 @@ use tokio::runtime::Handle;
 use tokio::time::{Instant, MissedTickBehavior};
 use tokio_util::sync::CancellationToken;
 
-/// 도우미를 묻는 간격과 키를 비우기까지의 연속 실패 수다 (PEER_CHAT_SRS §3.12·§3.12a R-7).
-pub(crate) const HELPER_EVERY: Duration = Duration::from_secs(30);
+pub(crate) use otter_shared_cadence::HUMANCMD_HELPER_EVERY as HELPER_EVERY;
+/// 도우미 키를 비우기까지의 연속 실패 수다 (PEER_CHAT_SRS §3.12·§3.12a R-7).
 pub(crate) const HELPER_DROP: u32 = 3;
 
 type Closer = Box<dyn FnOnce() + Send>;

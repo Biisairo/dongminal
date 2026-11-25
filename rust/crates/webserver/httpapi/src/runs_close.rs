@@ -24,8 +24,7 @@ use crate::runs::{MemberView, Rt, RunFail, write_run_error};
 use crate::runs_worktree::worktree_residue;
 use crate::tools_api::off_thread;
 
-/// 자동 수거의 주기다 (FR-ARD-5).
-const REAP_INTERVAL: Duration = Duration::from_secs(15);
+use otter_shared_cadence::RUN_REAP_EVERY as REAP_INTERVAL;
 /// 닫기 정리가 에이전트의 종료를 기다리는 상한과 간격이다 (FR-RCL-*).
 const EXIT_SETTLE_TIMEOUT: Duration = runwait::EXIT_SETTLE;
 const EXIT_POLL_INTERVAL: Duration = Duration::from_millis(250);
