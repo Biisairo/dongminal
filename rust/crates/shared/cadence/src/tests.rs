@@ -59,8 +59,6 @@ fn values_unchanged_from_previous_homes() {
     assert_eq!(HUMANCMD_HELPER_EVERY, s(30));
     assert_eq!(UPDATE_CHECK_EVERY, s(86_400));
     assert_eq!(FOREGROUND_REFRESH_EVERY, s(2));
-    assert_eq!(ATTENTION_SWEEP_EVERY, Duration::from_millis(1000));
-    assert_eq!(SERVER_ATTN_SWEEP_EVERY, s(1));
     assert_eq!(GIT_WATCH_ROUND_EVERY, Duration::from_millis(1000));
     assert_eq!(GIT_WATCH_WORKTREE_ROUNDS, 4);
     assert_eq!(GIT_WATCH_BACKOFF_MAX, s(30));

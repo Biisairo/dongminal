@@ -36,9 +36,7 @@
 //!
 //! | 상수 | 값 | 쓰는 곳 | 설계 · 단계 |
 //! |---|---|---|---|
-//! | `FOREGROUND_REFRESH_EVERY` | 2초 | `shared/toolhub` 전경 이름 재조회, `webserver/hub` 서버 전경 poll | D1 · S5, 4.6 · 4.8 |
-//! | `ATTENTION_SWEEP_EVERY` | 1초 | `shared/toolhub` 데몬 유휴 판정 | D2, 4.8 |
-//! | `SERVER_ATTN_SWEEP_EVERY` | 1초 | `webserver/hub` 서버 L2 스위퍼 틱 | S4, 4.8 |
+//! | `FOREGROUND_REFRESH_EVERY` | 2초 | `shared/toolhub` 전경 이름 재조회 | D1, 4.6 |
 //! | `GIT_WATCH_ROUND_EVERY` | 1초 | `webserver/hub` git 감시 회차 | S1, 4.9 |
 //! | `GIT_WATCH_WORKTREE_ROUNDS` | 4회차 | `webserver/hub` 워크트리 회차 간격 | S1, 4.9 |
 //! | `GIT_WATCH_BACKOFF_MAX` | 30초 | `webserver/hub` 관측 실패 뒤 건너뛰기 상한 | S1, 4.9 |
@@ -83,13 +81,8 @@ pub const UPDATE_CHECK_EVERY: Duration = Duration::from_secs(24 * 60 * 60);
 
 // ── 2. 사건 기반으로 바뀔 주기 (4.6~4.11) ──
 
-/// 도구별 전경 이름을 다시 조회하는 주기다 (FR-TAN-8). 서버의 전경 poll 도 같은 값을 쓴다.
-/// 4.6 이 PTY 입출력 뒤 정착 창으로, 4.8 이 서버 poll 제거로 바꾼다.
+/// 도구별 전경 이름을 다시 조회하는 주기다 (FR-TAN-8). 4.6 이 PTY 입출력 뒤 정착 창으로 바꾼다.
 pub const FOREGROUND_REFRESH_EVERY: Duration = Duration::from_secs(2);
-/// 데몬의 L2 유휴 판정 sweeper 주기다. 4.8 이 `last_output_at + 임계` 마감으로 바꾼다.
-pub const ATTENTION_SWEEP_EVERY: Duration = Duration::from_secs(1);
-/// 서버 L2 스위퍼에 주는 틱의 주기다. 4.8 이 지운다(임계 0 이면 빈 틱).
-pub const SERVER_ATTN_SWEEP_EVERY: Duration = Duration::from_secs(1);
 /// git 감시 회차의 주기다 (FR-GPO-2). 4.9 가 대상 0 정지와 파일 감시로 바꾼다.
 pub const GIT_WATCH_ROUND_EVERY: Duration = Duration::from_secs(1);
 /// 워크트리 `git status` 를 도는 회차 간격(회차 수)이다 (FR-GDT-3). 4.9 가 파일 감시 사건으로 바꾼다.
