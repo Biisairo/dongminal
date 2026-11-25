@@ -28,7 +28,6 @@ use otter_webserver_httpapi::{
     Server, StatsSnapshotter, ToolError, ToolHub, ToolIdentity, Unsubscribe, UpdateService,
     WorkspaceStore,
 };
-use otter_webserver_hub::ForegroundSource;
 use otter_webserver_recordsync::Writer;
 use otter_webserver_seam_adapters::ToolSource;
 use otter_webserver_toolclient::{Error as ClientError, ToolClient};
@@ -185,15 +184,6 @@ impl ToolSource for Hub {
         submit: bool,
     ) -> Result<(), otter_webserver_seam_toolaccess::Error> {
         Ok(self.0.send_paste(id, text, submit)?)
-    }
-}
-
-impl ForegroundSource for Hub {
-    fn has_feature(&self, name: &str) -> bool {
-        self.0.has_feature(name)
-    }
-    fn list(&self) -> Vec<ToolInfo> {
-        self.0.list()
     }
 }
 

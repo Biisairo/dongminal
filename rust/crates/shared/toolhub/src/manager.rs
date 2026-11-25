@@ -5,7 +5,9 @@ use std::fmt;
 use std::io;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering::SeqCst};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak};
+use std::sync::{
+    Arc, Condvar, Mutex, MutexGuard, OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak,
+};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -21,7 +23,9 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
-use crate::tool::{ActivityFn, AttentionFn, ClearFn, ExitFn, SizeFn, attn_busy_many, attn_now};
+use crate::tool::{
+    ActivityFn, AttentionFn, ClearFn, ClockFn, ExitFn, SizeFn, attn_busy_many, attn_now,
+};
 use crate::{
     ActivitySnap, AgentState, BUF_MAX, BackgroundEntry, HISTORY_CAP, ShellState, Tool, ToolHistory,
     ToolHooks, ToolInfo, ToolScreen, ToolSnapshot, attention_allow_bell, attention_idle_threshold,
@@ -205,6 +209,13 @@ struct Inner {
     compact_wake: Arc<Notify>,
     compact_idle: Duration,
     compact_wakes: AtomicU64,
+    /// 무장이 처음 선 도구가 L2 유휴 판정 작업을 깨운다(D2).
+    attn_wake: Arc<Notify>,
+    /// 판정 임계가 바뀌면 L2 유휴 판정 작업을 깨운다.
+    attn_config_wake: Notify,
+    attn_wakes: AtomicU64,
+    /// L2 유휴 판정의 시계다. 비어 있으면 [`attn_now`] 다(검사가 가짜 시계를 건다).
+    attn_clock: OnceLock<ClockFn>,
 }
 
 /// 데몬 안의 도구 등록부다. 값을 복제해 나눠 쓴다.
@@ -283,6 +294,10 @@ impl ToolManager {
                 compact_wake: Arc::new(Notify::new()),
                 compact_idle: screen_idle_compact(),
                 compact_wakes: AtomicU64::new(0),
+                attn_wake: Arc::new(Notify::new()),
+                attn_config_wake: Notify::new(),
+                attn_wakes: AtomicU64::new(0),
+                attn_clock: OnceLock::new(),
             }),
         }
     }
@@ -1023,25 +1038,61 @@ impl ToolManager {
         }
     }
 
-    /// period 마다 sweep_idle 을 돈다. cancel 로 멈춘다.
+    /// L2 유휴 판정 작업이다(설계 §1 D2). 임계가 0 이면 임계가 바뀌기만 기다리고, 아니면 무장한
+    /// 도구 가운데 가장 이른 `마지막 출력 + 임계` 까지 잔다. 무장한 도구가 없으면 무장을 기다린다.
+    /// 깨면 blocking 스레드에서 sweep_idle 을 한 번 돈다. cancel 로 멈춘다.
     pub fn spawn_attention_sweeper(
         &self,
         cancel: CancellationToken,
-        period: Duration,
     ) -> tokio::task::JoinHandle<()> {
         let m = self.clone();
         tokio::spawn(async move {
-            let mut tick = tokio::time::interval_at(tokio::time::Instant::now() + period, period);
             loop {
-                tokio::select! {
-                    _ = tick.tick() => {
-                        let m = m.clone();
-                        let _ = tokio::task::spawn_blocking(move || m.sweep_idle(attn_now())).await;
+                let th = m.rd().idle_threshold;
+                let next = m.snapshot().iter().filter_map(|p| p.idle_due(th)).min();
+                let woke = async {
+                    let config = m.inner.attn_config_wake.notified();
+                    let armed = m.inner.attn_wake.notified();
+                    match next {
+                        _ if th <= 0 => config.await,
+                        Some(at) => {
+                            let wait =
+                                u64::try_from(at.saturating_sub(m.attn_clock())).unwrap_or(0);
+                            tokio::select! {
+                                () = tokio::time::sleep(Duration::from_nanos(wait)) => {}
+                                () = armed => {}
+                                () = config => {}
+                            }
+                        }
+                        None => tokio::select! {
+                            () = armed => {}
+                            () = config => {}
+                        },
                     }
+                };
+                tokio::select! {
+                    () = woke => {}
                     () = cancel.cancelled() => return,
                 }
+                m.inner.attn_wakes.fetch_add(1, SeqCst);
+                let m = m.clone();
+                let _ = tokio::task::spawn_blocking(move || m.sweep_idle(m.attn_clock())).await;
             }
         })
+    }
+
+    fn attn_clock(&self) -> i64 {
+        self.inner.attn_clock.get().map_or_else(attn_now, |f| f())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_attn_clock(&self, f: ClockFn) {
+        let _ = self.inner.attn_clock.set(f);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn attn_wakes(&self) -> u64 {
+        self.inner.attn_wakes.load(SeqCst)
     }
 
     /// 유휴 비우기 작업이다(D-50·D-53). 바뀐 화면이 없으면 깨우개만 기다리고, 있으면 가장 이른
@@ -1098,20 +1149,25 @@ impl ToolManager {
         self.inner.compact_wakes.load(SeqCst)
     }
 
-    /// 등록한 도구에 기록 줄 수 설정과 유휴 비우기 깨우개를 건다.
+    /// 등록한 도구에 기록 줄 수 설정과 유휴 비우기·L2 유휴 판정 깨우개를 건다.
     fn enroll(&self, p: &Tool, cap: usize) {
         p.set_history_lines(cap);
         p.set_compact_wake(&self.inner.compact_wake);
+        p.set_attn_wake(&self.inner.attn_wake);
     }
 
     /// 판정 설정을 바꾼다. allow_bell 은 이미 있는 도구에도 반영된다.
     pub fn set_attention_config(&self, idle: Duration, allow_bell: bool) {
-        let tools: Vec<Arc<Tool>> = {
+        let th = i64::try_from(idle.as_nanos()).unwrap_or(i64::MAX);
+        let (tools, changed) = {
             let mut st = self.wr();
-            st.idle_threshold = i64::try_from(idle.as_nanos()).unwrap_or(i64::MAX);
+            let changed = std::mem::replace(&mut st.idle_threshold, th) != th;
             st.allow_bell = allow_bell;
-            st.tools.values().cloned().collect()
+            (st.tools.values().cloned().collect::<Vec<_>>(), changed)
         };
+        if changed {
+            self.inner.attn_config_wake.notify_one();
+        }
         for p in tools {
             p.set_allow_bell(allow_bell);
         }
@@ -1565,6 +1621,8 @@ pub(crate) fn derived_name(raw: &str) -> String {
     truncate_chars(name, FG_NAME_MAX)
 }
 
+#[cfg(test)]
+mod attn_sweep_tests;
 #[cfg(test)]
 mod compact_tests;
 #[cfg(test)]

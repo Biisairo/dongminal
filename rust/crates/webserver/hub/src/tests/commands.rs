@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use otter_shared_toolhub::ToolInfo;
@@ -257,49 +256,5 @@ fn foreground_snapshot_and_broadcast() {
     assert_eq!(
         fb.sent(),
         vec![r#"{"action":"tool_foreground","args":{"name":"vim","toolId":"1"}}"#]
-    );
-}
-
-struct FgSource {
-    feature: bool,
-    lists: std::sync::Mutex<usize>,
-}
-
-impl ForegroundSource for FgSource {
-    fn has_feature(&self, name: &str) -> bool {
-        self.feature && name == otter_shared_toolipc::FEATURE_FOREGROUND_TICK
-    }
-    fn list(&self) -> Vec<ToolInfo> {
-        *crate::lock(&self.lists) += 1;
-        Vec::new()
-    }
-}
-
-#[tokio::test]
-async fn foreground_poll_lists_and_skips_daemon_ticker() {
-    for (feature, want) in [(false, 2), (true, 0)] {
-        let src = Arc::new(FgSource {
-            feature,
-            lists: Default::default(),
-        });
-        let stop = tokio_util::sync::CancellationToken::new();
-        let (tx, rx) = tokio::sync::mpsc::channel(1);
-        start_foreground_poll(Some(src.clone()), stop.clone(), rx);
-        for _ in 0..2 {
-            tx.send(()).await.unwrap();
-        }
-        tx.send(()).await.unwrap(); // 앞의 틱이 처리됐다
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        stop.cancel();
-        let n = *crate::lock(&src.lists);
-        assert!(
-            n >= want && (want != 0 || n == 0),
-            "feature={feature} lists={n}"
-        );
-    }
-    start_foreground_poll(
-        None,
-        tokio_util::sync::CancellationToken::new(),
-        tokio::sync::mpsc::channel(1).1,
     );
 }
