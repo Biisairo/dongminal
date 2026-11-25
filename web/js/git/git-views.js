@@ -52,8 +52,14 @@ class GitViews extends GitPart {
   // 원격 조각도 지연 생성한다. 진행 중 작업의 상태를 들고 있으므로 Changes 탭의
   // 골격보다 오래 산다. REPO_FIX 01 §6.4: 잡은 원격만이 아니고 칸이 둘이다 —
   // `GitJobs` 가 두 칸의 표시기를 하나로 묶는다.
+  // 4.15.3: `git.jobs` 토픽은 목록이 바뀔 때만 민다. 새로고침 직후처럼 목록이 패널보다 먼저
+  // 왔으면 앱이 든 마지막 목록을 딛는다 — 그러지 않으면 도는 잡에 다시 붙지 못한다.
   _remote(){
-    if(!this.p._remoteView) this.p._remoteView=new GitJobs(this.p);
+    if(!this.p._remoteView){
+      this.p._remoteView=new GitJobs(this.p);
+      const jobs=this.p.app.git.sync.gitJobs();
+      if(jobs.length) this.p._remoteView.adoptJobs(jobs);
+    }
     return this.p._remoteView;
   }
 
