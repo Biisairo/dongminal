@@ -26,6 +26,7 @@ mod golden_558a;
 mod golden_559;
 mod golden_files;
 mod info_api;
+mod js_strip;
 mod lsp;
 mod mimetable;
 mod mux;

@@ -1,6 +1,7 @@
 //! 묶음 `/b/<name>.js`·`/b/<name>.css` (PERF_OPTIMIZATION_SRS D-29·D-33, `perf/M3_DESIGN.md` §3.4).
 //!
-//! 정의 파일 `bundles.txt` 의 순서대로 스크립트를 이어 붙인다. 소스 파일이 진실이고 생성 파일은
+//! 정의 파일 `bundles.txt` 의 순서대로 스크립트를 이어 붙인다. 스크립트는 주석·줄 끝 공백을 걷어
+//! 잇는다(D-35·D-42, perf 3.4.10, 줄 수는 그대로). 소스 파일이 진실이고 생성 파일은
 //! 없다. 서버가 설 때 한 번 만들고, gz 바이트는 처음 요청될 때 한 번 만든다.
 //!
 //! 정의 형식: 줄 단위. `#` 로 시작하는 줄과 빈 줄은 건너뛴다. `[이름]` 이 묶음을 연다.
@@ -16,6 +17,7 @@ use bytes::Bytes;
 use http::{HeaderMap, header};
 use otter_shared_httpresp::Response;
 
+use crate::js_strip::strip_comments;
 use crate::req::Req;
 use crate::serve_content::{serve_content, set};
 use crate::static_assets::{StaticAssets, accepts_gzip, content_type_for, hash_bytes};
@@ -156,7 +158,7 @@ fn concat(fsys: &dyn StaticAssets, def: &BundleDef) -> Option<Bundle> {
         let src = fsys.read(path)?;
         js.extend_from_slice(format!("/* ==== {path} ==== */\n").as_bytes());
         lines.push(None);
-        js.extend_from_slice(&src);
+        js.extend_from_slice(&strip_comments(&src));
         if !src.ends_with(b"\n") {
             js.push(b'\n');
         }
