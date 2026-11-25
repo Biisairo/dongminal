@@ -38,6 +38,8 @@
 
 ## 4. R — 크기 바꾸기 정리 (Q2)
 
+> (개정 2026-11-25, 4.1.2·D-56: '앞' 비우기는 하지 않는다 — 넓힐 때 xterm 과 어긋남. 상한 올리기 → resize → compact → 상한 재계산. 아래 원문은 승인 당시 설계.)
+
 `Screen::resize` 에서 `term.resize` 앞뒤로 `compact()`. 앞: reflow 할 기록이 0 → 좁힐 때 기록을 잃지 않는다(저장소 줄은 꺼낼 때 지금 폭으로 다시 감싼다, D-28). 뒤: reflow 가 밀어 올린 행을 옮기고 truncate.
 
 ## 5. B — 유휴 5분 비우기 (Q3: 사건 기반 compactor)
@@ -49,6 +51,8 @@
 코드 `settings-schema.js:41`, linestore `DEFAULT_CAP`(→ termlimit). 시험 `term-history-settings.test.mjs`, `httpapi/src/tests/settings.rs`(리터럴 대신 상수), `linestore/src/tests.rs`. i18n `ko.js:1045`·`en.js:1021`. 문서 features.md·CHANGELOG·SRS(D-7·D-25·FR-TRM-2·NFR-PRF-10)·M2_DESIGN·EMULATOR·decisions. 저장된 사용자 값 보존 시험(`{"termHistoryLines":50000}` → 50,000).
 
 ## 7. 판정 (Q6·Q11)
+
+> (추가 2026-11-25, D-57: 판정 지표는 footprint. 살아 있는 힙에는 vte 2 MiB 미사용 버퍼가 도구마다 잡힌다.)
 
 NFR-PRF-10 은 기본값 2만 줄로 판정, 5만 줄은 참고 기록(SRS 개정). 넓은 터미널(200×50) 출력 중 8 MB 경계는 평균 기준으로 수용하고 측정에 따로 적는다. 풀린 블록 압축은 이번에 하지 않는다(Q10).
 
