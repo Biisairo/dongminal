@@ -158,6 +158,8 @@ test.describe('경계 — 슬롯 계층의 색과 굵기', () => {
   // TC-STB-9 — 54개 테마 전부에서 세 축의 거리를 확인한다 (FR-STB-23).
   test('모든 테마에서 slot-edge 가 border·accent·bg 와 구별된다', async ({ page }) => {
     await waitForInit(page);
+    // PERF 3.4.12.6: 기본 두 테마 밖은 `themes` 묶음이다.
+    await page.evaluate(() => Screens.load('themes'));
     const bad = await page.evaluate(() => {
       // themes.js·contrast.js·theme-vars.js 는 classic script 다 — 최상위 `const` 는 window 의
       // 프로퍼티가 아니라 전역 렉시컬 스코프에 있으므로 이름으로 집는다.

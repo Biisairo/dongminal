@@ -359,11 +359,15 @@ fn check_theme_blob_cases() {
     }
 }
 
-// TC-QG-10 · FR-QG-13: 내장 테마 54종의 값은 모두 통과한다. 원천은 임베드된 `js/ui/themes.js` 다.
+// TC-QG-10 · FR-QG-13: 내장 테마 54종의 값은 모두 통과한다. 원천은 임베드된 `js/ui/themes.js`(부팅 표)와
+// `js/ui/themes-catalog.js`(`themes` 묶음, PERF 3.4.12.6)다.
 #[test]
 fn builtin_themes_pass() {
-    let src = otter_web_assets::get("js/ui/themes.js").unwrap();
-    let src = std::str::from_utf8(&src).unwrap();
+    let src: String = ["js/ui/themes.js", "js/ui/themes-catalog.js"]
+        .iter()
+        .map(|f| String::from_utf8(otter_web_assets::get(f).unwrap().to_vec()).unwrap())
+        .collect();
+    let src = src.as_str();
     let section = regex::Regex::new(r"(?m)^\s+(ui|terminal):\{([^}]*)\}").unwrap();
     let pair = regex::Regex::new(r"(\w+):'([^']*)'").unwrap();
     let mode = regex::Regex::new(r"mode:'(\w+)'").unwrap();
