@@ -141,7 +141,8 @@ class TerminalTool {
       // UX_BATCH11_SRS FR-FPL-4: 출력의 파일 경로 → 편집기의 그 줄.
       ()=>{this._fileLinks=fileLinkProvider(this.term,()=>this._cwd||'');this.term.registerLinkProvider(this._fileLinks)},
       ()=>{this.term.loadAddon(new Unicode11Addon.Unicode11Addon());this.term.unicode.activeVersion='11'},
-      ()=>{this.search=new SearchAddon.SearchAddon();this.term.loadAddon(this.search)},
+      // PERF 3.4.12.4: 찾기 addon 은 `search` 묶음이다 — 실렸으면 지금 붙고, 아니면 찾기 줄을 처음 열 때 붙는다.
+      ()=>{if(window.app)app.tool.search.attachIfReady(this)},
       ()=>TermClipboard.attach(this.term,this.id,this),
     ];
     for(const step of steps){
