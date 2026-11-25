@@ -174,6 +174,11 @@ cd otterminal
 - 돌고 있는 데몬이 교체를 모르는 옛 판이면, `start` 는 서버만 다시 띄우고 그 사실을
   알립니다. 이때는 한 번만 `otterminal start --refresh-daemon` 으로 데몬을 새로 띄웁니다
   (터미널 세션을 잃습니다). 그 뒤로는 `start` 가 교체합니다.
+- 인계 판이 2 로 올랐습니다(서버 화면 상태를 넘기기 위해서). 그 전 판의 데몬은 새
+  바이너리의 판이 달라 교체를 거절하고, `start` 는 서버·데몬·세션을 그대로 두고 종료
+  코드 1로 끝납니다. 이때도 한 번만 `otterminal start --refresh-daemon` 으로 데몬을 새로
+  띄웁니다(터미널 세션을 잃습니다). 새 서버는 옛 판의 데몬과 함께 쓰지 않습니다 —
+  `--server-only` 로 옛 데몬에 붙이면 터미널이 열리지 않습니다.
 - 세션 유지 교체는 macOS·Linux 에서만 됩니다. Windows 의 `start` 는 교체를 거절받고
   아무것도 끄지 않은 채 끝납니다. Windows 에서는 `--server-only` 나 `--refresh-daemon`
   을 씁니다.

@@ -40,7 +40,8 @@
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| GET | `/api/tools/output?id=&bytes=&strip=` | 도구의 스크롤백. `strip=1` 이면 ANSI 제거. `bytes<=0`/생략이면 전체 (기본값 판단은 `otterctl` 몫). `{ toolId, text, dropped }` |
+| GET | `/api/tools/output?id=&bytes=&strip=` | 도구의 화면·최근 출력. `strip=1`(read-screen)이면 데몬이 그린 화면의 글자(화면과 그 위 기록)이고, 아니면(read-output) 최근 출력 바이트를 ANSI 째로 준다. `bytes<=0`/생략이면 전체 (기본값 판단은 `otterctl` 몫). `{ toolId, text, dropped }` |
+| GET | `/api/tools/search?id=&q=&before=&regex=&case=&word=` | 서버가 남긴 터미널 기록(설정 `termHistoryLines`)에서 줄 번호 `before` 앞의 줄을 새 줄부터 찾는다. `before` 는 필수 숫자(아니면 **400**), `regex`·`case`·`word` 는 `1` 이면 켠다. `{ hits }`. 없는 도구는 **404**, 데몬이 찾지 못하면(깨진 정규식 등) **422** |
 | POST | `/api/tools/input` | `{ id, text, execute }` — bracketed paste 로 주입, `execute` 면 자동 엔터 |
 | POST | `/api/tools/message` | `{ to, from, message }` — 신뢰 봉투로 감싸 주입 + 자동 엔터. `from` 이 비면 `unknown`. 봉투 헤더와 응답의 `from`/`to` 는 **uuid** 뿐. 본문 안의 `[OTTERMINAL-AGENT-MSG` · `[/OTTERMINAL-AGENT-MSG` 는 `[\OTTERMINAL-AGENT-MSG` · `[\/OTTERMINAL-AGENT-MSG` 로 **인용**된다 — 정확한 헤더는 서버가 만든 것 하나뿐이다 |
 
@@ -337,7 +338,7 @@ Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭�
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/git/repos` | 핀 목록과 각 배지(저장소면 git 이 푼 `root` 도). `?observe=1` 이면 응답 전에 핀 전부를 관측하고, `clientId` 를 함께 주면 그 신원이 핀 전부의 감시를 임대한다 — 배지가 바뀌면 `git_changed` 가 온다. `?observe=0&clientId=` 는 그 임대를 놓는다 |
+| GET | `/api/git/repos` | 핀 목록과 각 배지(저장소면 git 이 푼 `root` 도). `?observe=1` 이면 응답 전에 핀 전부를 관측한다. 배지의 변화는 채널의 `git:<root>` 토픽으로 온다 — 구독하는 동안 서버가 그 저장소를 감시한다 |
 | POST | `/api/git/init` | 그 자리를 저장소로 만든다 |
 | POST | `/api/git/repos/pin` · `/api/git/repos/unpin` | 핀을 더하고 뺀다. 핀 순서를 바꾸는 종단은 없다 |
 | GET | `/api/git/status` | 변경 목록. 응답의 `mark` 는 관측 식별자다. `?ifMark=<mark>` 를 주면 그 값이 지금 관측과 같을 때 목록 없이 `{repo, requested, isRepo, rootMatch, requestedResolved, mark, unchanged:true, actions}` 만 답한다. `actions` 는 저장소 단위 동작(`git.fetch`·`git.pull`·`git.push`·`git.write`·`git.commit` 등)마다 지금 할 수 있는지(`{ok, why, args}`)이며, 진행 중인 작업에 따라 바뀌므로 `unchanged` 에도 실린다. 목록을 싣는 응답은 `rowActions` 도 싣는다 — 서브모듈 행마다 `{"<path>": {"git.stage": {ok, why}}}` 이고, 행이 없으면 빈 객체다 |
@@ -431,7 +432,8 @@ Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭�
 
 브라우저 탭 하나가 WebSocket 하나(채널)를 열고, 터미널은 그 위에 붙는다(설계: `docs/internal/perf/CHANNEL_PROTOCOL.md`). 업그레이드는 `permessage-deflate` 를 제안해야 한다 — 아니면 400 이다. 모든 연결을 압축한다. 첫 텍스트 프레임은 `{"t":"hello",...}` 다. 첫 프레임이 `hello` 가 아니면 서버는 `{"t":"error","code":"hello_required"}` 를 보내고 닫는다.
 
-- 붙기: 텍스트 `{"t":"term.open","sid":<u32>,"tool":"<id>","cols":<n>,"rows":<n>,"since":<offset>}`. `sid` 는 브라우저가 고르는 번호, `tool` 이 비면 새 도구를 만든다, `since` 는 아래 재접속과 같다.
+- 붙기: 텍스트 `{"t":"term.open","sid":<u32>,"tool":"<id>","cols":<n>,"rows":<n>,"since":<offset>,"snap":<bool>}`. `sid` 는 브라우저가 고르는 번호, `tool` 이 비면 새 도구를 만든다, `since` 는 아래 재접속과 같다. `snap:true` 면 `since` 를 보지 않고 화면 상태 스냅숏을 보낸다(터미널이 다시 보여 깨어날 때).
+- 위로 받기: `{"t":"term.history","sid":<u32>,"before":<줄 번호>,"count":<n>}` 를 보내면 서버가 그 앞의 `count` 줄을 `{"t":"term.history","sid":<u32>,"from":<첫 줄 번호>,"top":<남은 가장 오래된 줄 번호>,"lines":[<ANSI 줄>…]}` 로 답한다. 줄 번호는 아래 `0x04` 스냅숏 꼬리의 첫 기록 줄 번호와 같은 좌표다.
 - 떼기: `{"t":"term.close","sid":<u32>}`. 서버가 그 터미널을 놓으면(도구 구독이 끊김 등) `{"t":"term.lost","sid":<u32>}` 를 보내고, 브라우저는 백오프 뒤 `since` 로 다시 붙는다.
 - 터미널 프레임은 바이너리 `[opcode u8][sid u32 BE][payload]` 이다. opcode 와 payload 는 아래 표와 같다.
 
@@ -443,11 +445,11 @@ Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭�
 | `0x01` | S→C | 에러 메시지 (UTF-8) |
 | `0x02` | S→C | 프로세스 종료 알림 |
 | `0x03` | S→C | 도구 id 할당 (문자열). 연결 직후 서버가 보내고 브라우저가 `dataset.toolid` 에 반영 |
-| `0x04` | S→C | 좌표 통보: `offset uint64 BE + full uint8`. 재생이 끝난 자리를 알린다 |
+| `0x04` | S→C | 좌표 통보: `offset uint64 BE + 깃발 uint8`. 맞춤이 끝난 자리를 알린다. 깃발은 비트 0 `FULL`(화면을 통째로 바꿈)·비트 1 `ALT`(대체 화면 중)·비트 2 `SNAP`(앞의 `0x00` 이 화면 상태 스냅숏). `SNAP` 이면 깃발 뒤에 첫 기록 줄 번호(`uint64 BE`)와 cwd(UTF-8)가 붙는다 |
 | `0x05` | S→C | 크기 통보: `cols uint16 BE + rows uint16 BE`. 지금 PTY 의 크기다. 접속 직후 재생보다 앞에 한 번, 이후 크기가 바뀔 때마다 그 도구의 모든 클라이언트에게 |
 | `0x06` | S→C | 응답 좌석: `owns uint8`(1=주인). **질의의 답을 보낼 자격**이다. 접속 직후 재생보다 앞에 한 번, 연결이 붙거나 떨어질 때마다 다시 |
 
-서버는 WebSocket ping/pong 으로 연결을 확인한다. 30초 동안 아무것도 받지 못하면 ping 을 보내고 pong 을 10초 기다리며, 120초 동안 아무것도 받지 못하면 연결을 닫는다. 브라우저는 앱 수준 `{"t":"ping","n":…}` 을 보내고 `{"t":"pong","n":…}` 을 받는다(`docs/internal/perf/CHANNEL_PROTOCOL.md` §7). 쓰기는 채널마다 쓰기 태스크 하나가 우선순위(제어 > 터미널 > 상태) 대로 한다. 한 터미널에 밀린 출력이 1 MB 를 넘으면 서버는 밀린 것을 버리고 브라우저가 가진 좌표부터 다시 재생한다.
+서버는 WebSocket ping/pong 으로 연결을 확인한다. 30초 동안 아무것도 받지 못하면 ping 을 보내고 pong 을 10초 기다리며, 120초 동안 아무것도 받지 못하면 연결을 닫는다. 브라우저는 앱 수준 `{"t":"ping","n":…}` 을 보내고 `{"t":"pong","n":…}` 을 받는다(`docs/internal/perf/CHANNEL_PROTOCOL.md` §7). 쓰기는 채널마다 쓰기 태스크 하나가 우선순위대로 한다. 쓰기 순서는 제어 > 터미널 > 위로 받기(`term.history`) > 상태다. 한 터미널에 밀린 출력이 1 MB 를 넘으면 서버는 밀린 출력을 버리고 화면 상태 스냅숏으로 다시 맞춘다.
 
 ### 재접속 (`since`)
 
@@ -457,16 +459,14 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 
 | 요청 | 서버가 보내는 것 |
 |---|---|
-| `since` 없음 | **전량 재생** — 터미널 모드 초기화 + 화면·스크롤백 클리어 + 보유 스크롤백. 보유 스크롤백의 앞머리가 대체 화면 안이면 클리어 뒤에 대체 화면을 다시 켠다(`ESC[?1049h`) |
+| `since` 없음 또는 `snap:true` | **화면 상태 스냅숏** — 데몬이 그린 화면과 그 위 기록(설정 `termScrollback` 줄)을 다시 그리는 바이트. 모드·대체 화면·커서까지 싣는다 |
 | `since` 가 보유 창 안 | **델타 재개** — 그 뒤의 바이트만. 화면을 지우지 않는다 |
-| `since` 가 보유 창 밖 | 전량 재생으로 조용히 강등 (오류가 아니다) |
+| `since` 가 보유 창 밖 | 스냅숏으로 조용히 강등 (오류가 아니다) |
 
-두 갈래 모두 마지막에 `0x04` 로 새 좌표를 통보한다. `full=1` 이면 전량 재생이었다는
-뜻이고, 그때 클라이언트는 TUI 가 스스로 전체를 다시 그리도록 `0x01` 리사이즈를 한 행
-줄였다 되돌린다.
+두 갈래 모두 마지막에 `0x04` 로 새 좌표를 통보한다. 스냅숏이면 깃발에 `FULL`·`SNAP` 이 선다.
+스냅숏은 모드까지 정확하므로 클라이언트가 TUI 를 흔들어 다시 그리게 할 필요가 없다.
 
-`since` 를 보내지 않는 클라이언트는 종전과 같이 전량 재생을 받는다. `0x04` 를 모르는
-클라이언트는 그 프레임을 무시하면 된다 — 기존 opcode 의 뜻과 형식은 바뀌지 않았다.
+`0x04` 를 모르는 클라이언트는 그 프레임을 무시하면 된다 — 기존 opcode 의 뜻과 형식은 바뀌지 않았다.
 
 ### 응답 좌석 (`0x06`)
 
@@ -486,6 +486,8 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 - **포커스 보고(`ESC[I`·`ESC[O`)는 좌석과 무관하다** — 질의의 답이 아니라 그 창 고유의
   사실이므로 창마다 보낸다
 - **사용자의 키는 좌석과 무관하다.** 어느 창에서 타이핑하든 같은 터미널이 움직인다
+- **붙은 연결이 하나도 없으면 데몬이 답한다.** 데몬의 화면 상태가 DA·DSR·커서 위치 질의에
+  답한다. 색 질의(OSC 10/11)에는 답하지 않는다
 
 `0x06` 을 모르는 클라이언트는 그 프레임을 무시하면 된다. 그때는 자기가 주인이라고 보고
 종전대로 답한다 — 모르는 것이 오류가 되지 않는다.

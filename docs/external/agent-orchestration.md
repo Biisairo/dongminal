@@ -81,7 +81,7 @@ otterminal 이 띄운 터미널의 Claude Code 세션에서 슬래시 명령으�
 |------|------|
 | `otterctl who-am-i` | 이 세션이 어느 도구에 있는지 (`uuid=` 가 자기 정체) |
 | `otterctl list-workspace` | 열린 도구 목록 — 다른 에이전트를 찾는 경로 |
-| `otterctl read-screen --at <uuid>` | 다른 도구의 화면을 ANSI 제거 텍스트로 읽기 |
+| `otterctl read-screen --at <uuid>` | 다른 도구의 화면을 데몬이 그린 화면 글자로 읽기 |
 | `otterctl read-output --at <uuid>` | 같은 것을 raw 바이트로 (TUI 상태 분석용) |
 | `otterctl send-input --at <uuid> [--execute]` | 도구의 쉘에 텍스트 입력 |
 | `otterctl msg --to <uuid>` | 다른 **에이전트**에게 신뢰 채널로 메시지 |
