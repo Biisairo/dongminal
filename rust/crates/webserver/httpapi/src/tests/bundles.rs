@@ -227,3 +227,29 @@ async fn missing_css_file_drops_the_bundle() {
     assert_eq!(get(&s, "/b/git.js").await.status, 404);
     assert_eq!(get(&s, "/b/git.css").await.status, 404);
 }
+
+// ── 주석 걷기 (perf 3.4.10, D-35): 파일의 주석·줄 끝 공백만 걷고 줄 수는 지킨다 ──
+
+#[tokio::test]
+async fn bundle_strips_comments_but_keeps_boundaries_and_lines() {
+    let src = "/** 설명\n */\nvar a = '//'; // 꼬리  \nvar t = `x  \n`;\n";
+    let (_d, s) = static_server(fs("[boot]\njs/a.js\n", &[("js/a.js", src)]));
+    let r = get(&s, "/b/boot.js").await;
+    assert_eq!(
+        r.body,
+        "/* ==== js/a.js ==== */\n\n\nvar a = '//';\nvar t = `x  \n`;\n//# sourceMappingURL=boot.js.map\n"
+    );
+    // 줄: 경계 · 원본 5줄 · sourceMappingURL. 걷어도 줄 맞춤은 그대로다.
+    let m = get(&s, "/b/boot.js.map").await.json();
+    assert_eq!(m["mappings"], ";AAAA;AACA;AACA;AACA;AACA;");
+}
+
+#[tokio::test]
+async fn bundle_keeps_line_count_when_file_ends_in_comment() {
+    let (_d, s) = static_server(fs("[boot]\njs/a.js\n", &[("js/a.js", "a();\n// 끝")]));
+    let r = get(&s, "/b/boot.js").await;
+    assert_eq!(
+        r.body,
+        "/* ==== js/a.js ==== */\na();\n\n//# sourceMappingURL=boot.js.map\n"
+    );
+}

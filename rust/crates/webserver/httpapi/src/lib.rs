@@ -50,6 +50,7 @@ mod handlers_diag;
 mod handlers_fs_ignored;
 mod health;
 mod httperr;
+mod js_strip;
 mod lsp_api;
 mod lspsvc;
 mod mediatype;
