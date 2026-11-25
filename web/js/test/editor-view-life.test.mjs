@@ -27,7 +27,7 @@ function editorCtx(extra = {}) {
     renderer: { life: { unmount: (o) => calls.unmount.push(o) } },
   };
   const ctx = load(['core/timer-hub.js', 'ui/cm-lsp.js', 'ui/file-editor-find.js', 'ui/doc-render-util.js', 'ui/doc-render.js',
-    'ui/editor-view-life.js', 'ui/file-editor.js', 'ui/file-editor-life.js'], {
+    'ui/editor-view-life.js', 'ui/file-editor.js', 'ui/file-editor-life.js', 'ui/doc-render-life.js'], {
     clock,
     expose: ['FileEditor', 'DocRender', 'TIMERS'],
     globals: {

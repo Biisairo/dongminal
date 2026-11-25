@@ -52,7 +52,6 @@ js/core/constants-editor.js
 # 표시와 Diff 탭의 hover 툴바가 함께 쓴다 — 순수 함수뿐이므로 상수 뒤 아무
 # 자리나 되지만, 두 소비자보다 앞이어야 읽는 순서가 곧 의존 순서가 된다.
 js/core/hunk-coords.js
-js/core/constants-docrender.js
 # 부팅 화면 손잡이 (BOOT_SCREEN_SRS). constants.js 뒤여야 한다 — 로드 시점에
 # `BOOT_MAX_MS` 로 상한을 건다.
 # 시간과 전파의 소유자. constants 뒤(값을 딛는다) helpers 앞(visiblePoll 이
@@ -171,9 +170,8 @@ js/ui/cm-link.js
 # 편집기의 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS). FileEditor.prototype 에 얹는 것은
 # file-editor.js 끝이다 (DRIFT_RECLAIM_SRS FR-DRC-13, PERF 3.4.7).
 js/ui/file-editor-find.js
-js/ui/doc-render-util.js
-js/ui/doc-render.js
-# 문서 렌더 뷰의 생명주기 (PERF 3.5.3). doc-render.js 뒤다. 편집기 칸의 짝은 editor 묶음의 file-editor-life.js 다.
+# 편집기·문서 렌더 뷰가 함께 쓰는 문서 단위 관측 edViewLifeDoc (PERF 3.5.3). 짝은 editor 묶음의 file-editor-life.js,
+# docrender 묶음의 doc-render-life.js 다.
 js/ui/editor-view-life.js
 # 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS). 칸 하나의 클릭·팝업은 FileEditor 의 부품 `EdDiffPeek` 다
 # (REFACTOR3_FE_REST5_SRS FR-FR5-23 — 종전에는 `FileEditor.prototype` 을 확장했다).
@@ -470,3 +468,15 @@ js/ui/file-tree-marquee.js
 js/ui/file-tree-edit.js
 js/ui/file-tree-xfer.js
 js/ui/file-tree-download.js
+
+[docrender]
+# 문서 렌더 뷰 (DOC_RENDER_VIEW_SRS, PERF 3.4.8). 렌더 탭을 처음 그릴 때 싣는다 — 렌더러의 자리표시가 기다린다.
+# markdown-it·DOMPurify 는 부팅에 남는다: 터미널 맨 도메인 링크(bare-link.js)·편집기 링크(cm-link.js)·LSP hover
+# 정화(lsp-client.js)가 함께 쓴다.
+vendor/highlight.js
+js/core/constants-docrender.js
+js/ui/doc-render-util.js
+js/ui/doc-render.js
+# 문서 렌더 뷰의 생명주기 (PERF 3.5.3). doc-render.js 뒤다 — DocRender.prototype 에 얹는다.
+js/ui/doc-render-life.js
+style-docrender.css

@@ -1,33 +1,16 @@
 /**
  * 문서 렌더 뷰의 상수 (DOC_RENDER_VIEW_SRS).
  *
- * 별도 파일인 것은 `constants-editor.js` 가 지금 다른 작업의 손에 있기 때문이다 —
- * 상수의 성질이 달라서가 아니다. 자리가 안정되면 그쪽으로 접어도 된다.
+ * `docrender` 묶음의 맨 앞이다(PERF D-32). 부팅 코드가 읽는 것(렌더 대상 표·버튼 문구·탭 표시)은
+ * `constants-file.js` 에 있다.
  */
-
-// FR-DRV-1: **확장자가 정한다.** 내용 판정으로는 Markdown 과 평문이 갈리지 않는다.
-// 표는 여기 한 자리이며, M3·M4 가 svg·html·table 을 이 표에 더한다.
-const DOC_RENDER_EXTS = {
-  '.md': 'markdown', '.markdown': 'markdown', '.mdown': 'markdown',
-  '.svg': 'svg',
-  '.html': 'html', '.htm': 'html',
-  '.csv': 'table', '.tsv': 'table',
-};
 
 // FR-DRV-16: 구분자는 확장자가 정한다 — 내용에서 알아맞히지 않는다. 쉼표가 든
 // TSV 와 탭이 든 CSV 가 둘 다 흔하고, 추측이 틀리면 표가 통째로 어긋난다.
 const DOC_RENDER_DELIM = { '.csv': ',', '.tsv': '\t' };
 
-// UX_BATCH8_SRS FR-DRB-1·4: **낱말 하나다.** 종전의 `◈` 는 무엇을 하는 버튼인지
-// 말하지 않았고("버튼이 없음" 으로 접수됐다), 라벨이 선 뒤로는 그 기호가 뜻을
-// 보태지 않는다 — 이름 앞의 장식일 뿐이다.
-const DOC_RENDER_BTN = t('docrender.btn');
-const DOC_RENDER_BTN_TITLE = t('docrender.btn_title');
 const DOC_RENDER_SOURCE = t('docrender.source');
 const DOC_RENDER_SOURCE_TITLE = t('docrender.source_title');
-// FR-DRV-11: 렌더 탭임을 알리는 표시. **이름을 늘리지 않는다** — 좁은 탭에서는
-// 파일명이 먼저 잘린다 (TAB_WIDTH_SRS).
-const DOC_RENDER_TAB_MARK = '◈ ';
 
 // FR-DRV-42: 타이핑마다 큰 문서를 다시 그리면 그 지연이 편집기의 지연으로 느껴진다.
 const DOC_RENDER_DEBOUNCE_MS = 180;

@@ -73,3 +73,24 @@ const EDITORS_API='/api/editors';
 const TOOLS_API='/api/tools';
 const TOOL_COLS_DEFAULT=120;
 const TOOL_ROWS_DEFAULT=40;
+
+// ── 문서 렌더 뷰 중 부팅이 읽는 것 (DOC_RENDER_VIEW_SRS, PERF 3.4.8 D-32) ──
+// 버튼(`editor-doc-render.js`)과 탭 이름(`renderer-pane.js`)은 묶음이 실리기 전에 선다. 나머지는 `constants-docrender.js`.
+
+// FR-DRV-1: **확장자가 정한다.** 내용 판정으로는 Markdown 과 평문이 갈리지 않는다.
+// 표는 여기 한 자리이며, M3·M4 가 svg·html·table 을 이 표에 더한다.
+const DOC_RENDER_EXTS = {
+  '.md': 'markdown', '.markdown': 'markdown', '.mdown': 'markdown',
+  '.svg': 'svg',
+  '.html': 'html', '.htm': 'html',
+  '.csv': 'table', '.tsv': 'table',
+};
+
+// UX_BATCH8_SRS FR-DRB-1·4: **낱말 하나다.** 종전의 `◈` 는 무엇을 하는 버튼인지
+// 말하지 않았고("버튼이 없음" 으로 접수됐다), 라벨이 선 뒤로는 그 기호가 뜻을
+// 보태지 않는다 — 이름 앞의 장식일 뿐이다.
+const DOC_RENDER_BTN = t('docrender.btn');
+const DOC_RENDER_BTN_TITLE = t('docrender.btn_title');
+// FR-DRV-11: 렌더 탭임을 알리는 표시. **이름을 늘리지 않는다** — 좁은 탭에서는
+// 파일명이 먼저 잘린다 (TAB_WIDTH_SRS).
+const DOC_RENDER_TAB_MARK = '◈ ';
