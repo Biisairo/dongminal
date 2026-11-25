@@ -1,5 +1,5 @@
 /**
- * Otterminal — 편집기·문서 렌더 뷰의 생명주기 (`FileEditor`·`DocRender` 의 prototype 증강, PERF M3 §3.5 · FR-SPA-3)
+ * Otterminal — 편집기·문서 렌더 뷰의 생명주기 (`FileEditor` 의 prototype 증강, PERF M3 §3.5 · FR-SPA-3)
  *
  * 렌더러가 탭 본문의 주인으로 `wake`·`sleep` 을 부른다(`ScreenLife`). 처음 보일 때의 `wake` 는 할 일이 없다.
  *
@@ -12,7 +12,9 @@
  *         잠들면 바깥 변경 관측에서 빠지고, 첫 뷰가 깰 때 감시를 맞추고 stamp 를 한 번 묻는다
  *   이유: 잠든 화면은 구독·타이머·그리기를 하지 않고, 깨면 필요한 상태를 다시 받아 그린다 (FR-SPA-3·D-36)
  *
- * 로드 순서: `file-editor-find.js`·`doc-render.js` **뒤**.
+ * 문서 렌더 뷰의 것은 `docrender` 묶음의 `doc-render-life.js` 다(PERF 3.4.8). 둘이 `edViewLifeDoc` 을 함께 쓴다.
+ *
+ * 로드 순서: `file-editor-find.js` **뒤**.
  */
 
 // 문서 단위의 관측을 맞춘다. 마지막 깬 뷰가 잠들면 감시 집합을 줄이고, 첫 뷰가 깨면 감시를 되살리고 바깥 변경을 묻는다.
@@ -50,31 +52,6 @@ Object.assign(FileEditor.prototype, {
       if (this._dd.stale) { this._dd.stale = false; this._dd.refresh() }
       else this._dd.recompute();
     }
-    edViewLifeDoc(this, was);
-  },
-});
-
-Object.assign(DocRender.prototype, {
-  sleep() {
-    if (this.asleep) return;
-    const was = app.editor.open.edDocAsleep(this._doc);
-    this.asleep = true;
-    if (this._sub) { this._sub(); this._sub = null }
-    // 그리기를 기다리던 것(예약·가려져 미룬 표식)은 버전 불일치로 바꿔 깰 때 한 번만 그린다.
-    const owed = !!this._timer || this._stale;
-    TIMERS.cancel(this._timer);
-    this._timer = null;
-    this._stale = false;
-    this._sleptVer = owed || !this._buf ? -1 : this._buf.version;
-    edViewLifeDoc(this, was);
-  },
-
-  wake() {
-    if (!this.asleep) return;
-    const was = app.editor.open.edDocAsleep(this._doc);
-    this.asleep = false;
-    this._bindBuf(this._buf);
-    if (!this._buf || this._buf.version !== this._sleptVer) this._paint();
     edViewLifeDoc(this, was);
   },
 });

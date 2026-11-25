@@ -9,10 +9,16 @@
  */
 class EditorDocRender extends Controller {
 
-  // FR-DRV-1: 확장자가 정한다. 표는 `constants-docrender.js` 한 자리다.
+  // FR-DRV-1: 확장자가 정한다. 표는 `constants-file.js` 한 자리다.
   _docRenderKind(path) {
     const m = String(path || '').toLowerCase().match(/(\.[^./\\]+)$/);
     return (m && DOC_RENDER_EXTS[m[1]]) || '';
+  }
+
+  // 렌더 탭의 뷰를 세운다. 렌더러는 묶음이 실린 뒤에만 부른다(자리표시가 먼저 선다, PERF D-30).
+  docRenderView(at) {
+    if (!Screens.ready('docrender')) throw new Error('docrender bundle is not loaded');
+    return new DocRender(at.id, at.name, at.filePath);
   }
 
   /**
@@ -222,3 +228,6 @@ class EditorDocRender extends Controller {
     return this.app.flattenPanes(next)[0] || null;
   }
 }
+
+// PERF 3.4.8: 문서 렌더 뷰는 `docrender` 묶음이다. 렌더 탭(`render:true` 인 편집기 탭)을 처음 그릴 때 싣는다.
+Screens.register('docrender', { css: true, tab: (at) => at.type === TAB_TYPE_EDITOR && !!at.render });

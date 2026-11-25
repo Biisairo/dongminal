@@ -83,7 +83,7 @@ Object.assign(Renderer.prototype, {
       // DOC_RENDER_VIEW_SRS D-1: 타입은 하나이고 **실체가 둘**이다.
       if(!editor){
         editor=at.render
-          ? new DocRender(at.id,at.name,at.filePath)
+          ? this.app.editor.docRender.docRenderView(at)
           : new FileEditor(at.id,at.name,at.filePath);
         this.app.fileEditors.set(key,editor);
       }
