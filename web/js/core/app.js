@@ -71,7 +71,7 @@ class App {
     this.statusbar=new StatusBarController(this);
     this.chat=new ChatController(this);
     this.agents=new AgentsController(this);
-    this.mobile=new MobileController(this);
+    this.mobile=new MobileShell(this);   // 본체(MobileController)는 mobile 묶음 — 껍데기가 실은 뒤 바꾼다 (PERF 3.4.12.8)
     this.git=new GitController(this);
     this.wsSync=new WsSyncController(this);
     this.wsSave=new WsSaveController(this);
@@ -105,7 +105,8 @@ class App {
     if(!(n>=320&&n<=2000)) return;
     PrefStore.session.set(STORE_KEYS.mobileBreakpoint,n);
   }
-  get isMobile(){
+  /** 모바일이어야 하는가 — 표시 모드·폭·높이·포인터로 정한다. 실제 모드(`isMobile`)는 모바일 본체가 선 뒤에 이것을 따른다. */
+  get wantsMobile(){
     const m=this.displayMode;
     if(m==='mobile') return true;
     if(m==='desktop') return false;
@@ -115,6 +116,8 @@ class App {
     return window.innerHeight < MOBILE_LANDSCAPE_MAX_H
       && typeof matchMedia==='function' && matchMedia('(pointer:coarse)').matches;
   }
+  // PERF 3.4.12.8: 본체(mobile 묶음)가 서기 전에는 데스크톱이다 — 화면 전체가 한 판으로 바뀐다(mobile-shell.js).
+  get isMobile(){ return !!this.mobile?.loaded&&this.wantsMobile }
 
   // 분할 트리 → pane 배열 (L→R, T→B). 순회는 `panesOf` 한 벌이다 (FR-OPT-11-1 · FEC-21) —
   // 이 이름은 호출처와 e2e 계약(app.testing)을 위해 남는다.
@@ -157,6 +160,8 @@ class App {
     // 모르면 둘 다 돌지 않는 것이 옳다 — 추측한 홈으로 만든 창은 나중에 서버가
     // 알려준 홈과 어긋난 채로 남는다.
     const edReady=this.editor.sync._edLoad();
+    // PERF 3.4.12.8: 모바일이면 첫 렌더 앞에 본체를 세운다 — 워크스페이스를 받는 동안 함께 싣는다.
+    const mobileReady=this.mobile.loadIfWanted();
     try{
       await this._initAdoptWorkspace(edReady);
     }catch(e){
@@ -174,6 +179,7 @@ class App {
     this.agents._pruneAgentOrder();
     const a=this.tool.life.aw();
     if(a&&a.layout){const saved=a.focusedPane;const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);if(f)this.focus.setFocusState(f.id, a)}
+    await mobileReady;
     this.render();
     this._bind();
     this.wsSync._subscribeCommands();
