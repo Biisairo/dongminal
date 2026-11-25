@@ -321,7 +321,7 @@ type ProcInfo interface {
 - FFI 호출은 버퍼 크기와 반환값을 검사하고, 반환 크기가 구조체 크기와 다르면 "모름" 이다.
 
 이전에는 `pgrep -P`·`ps`·`lsof` 를 띄웠다. 데몬의 주기 작업(전경 이름 2초)이 유휴에도 외부
-프로세스를 만들어 FR-SRV-3·NFR-PRF-5 를 어겼으므로 바꾼다.
+프로세스를 만들어 FR-SRV-3·NFR-PRF-5 를 어겼으므로 바꾼다. (**개정 2026-11-26, PERF 4.6·4.16**: 전경 조회는 이제 주기 작업이 아니다 — PTY 입출력 뒤 정착 창 2초가 지난 도구만 한 번 묻는다.)
 
 **FR-XPI-4** Windows 어댑터는 외부 프로세스를 띄우지 않는다.
 - `HasChildren` / `Names` — `CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS)` 1회 순회.
@@ -652,7 +652,7 @@ job). 신설만으로는 강제가 되지 않는다 — 두 스크립트가 있�
 |---|---|
 | **NFR-XP-1** | POSIX(darwin·linux)에서 관찰 가능한 동작은 §7 에 기록된 것 외에 바뀌지 않는다 |
 | **NFR-XP-2** | 신규 모듈 의존은 `golang.org/x/sys` 하나뿐이다. 서드파티 PTY·프로세스 래퍼를 도입하지 않는다 (사용자 결정, §9 D-2) |
-| **NFR-XP-3** | `platform` 패키지는 cgo 를 쓰지 않는다. cgo 는 `sysstat` 의 darwin mach 호출에만 남는다 (SYSTEM_STATS_SRS D-5 승계) |
+| **NFR-XP-3** | `platform` crate 는 C 빌드 단계 없이 `libc`·`extern "C"` FFI 로 OS 를 부른다. darwin mach 호출(`webserver/domain/sysstat/src/os.rs`)도 같다 (**개정 2026-11-26, PERF 4.7·4.16** — 이전: "`platform` 패키지는 cgo 를 쓰지 않는다. cgo 는 `sysstat` 의 darwin mach 호출에만 남는다 (SYSTEM_STATS_SRS D-5 승계)". 이유: Rust 포팅에는 cgo 가 없다) |
 | **NFR-XP-4** | `ProcInfo.Names` 는 pid 수와 무관하게 조회 1회다. 도구 100개에서 갱신 주기(2초)를 넘기지 않는다 (NFR-CNV-1 승계) |
 | **NFR-XP-5** | PTY 읽기 경로(`readPTY`)에 인터페이스 호출이 추가되더라도 도구당 처리량은 현행 대비 유의미하게 떨어지지 않는다. `Read` 는 호출당 최대 1회의 간접 호출만 더한다 |
 | **NFR-XP-6** | 모든 인터페이스의 "조회 실패" 는 오류가 아니라 "모름" 으로 표현된다. 호출자가 추측으로 채우지 않는다 |

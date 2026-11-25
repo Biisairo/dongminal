@@ -921,7 +921,8 @@ porcelain 파서·slug·ref 검사 → `parse.go`·`naming.go` · `doctor.go` �
 
 **D-A-12 — `serve` 는 `Build → Run → Shutdown` 이다.** (P7, GO-16) `cmd/otterminal/app.go` 의
 `buildApp(cfg, home, host, port) (*app, error)` 가 조립(데몬 연결·`buildDeps` 3벌·서버·해석층 배선)을,
-`app.run(ctx)` 이 기동(스위퍼·폴·감시·리퍼·HTTP)을, `app.shutdown()` 이 종료를 맡는다. 종료 순서는
+`app.run(ctx)` 이 기동(스위퍼·폴·감시·리퍼·HTTP)을, `app.shutdown()` 이 종료를 맡는다
+(**개정 2026-11-26, PERF 4.8·4.11·4.16**: Rust `serve` 는 스위퍼·전경 폴을 띄우지 않고, Run 리퍼는 사건이 깨운다). 종료 순서는
 **슬라이스**다 — `shutdownSteps() []shutdownStep{name, fn}` 이 `[마커, 데몬 연결, 도구 저장, 샌드박스,
 LSP, 워크스페이스]` 를 그 순서로 들고 `shutdown` 은 그것을 돈다. 테스트가 이름 순서를 잰다 — 주석이
 코드가 된 자리다. 패키지는 `cmd/otterminal` 그대로다(`internal/webserver/app` 을 만들면 ①·②·④ 의

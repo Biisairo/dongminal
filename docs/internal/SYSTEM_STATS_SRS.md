@@ -193,7 +193,8 @@ host_statistics64 원값: free=0.11 active=2.21 inactive=2.17 wired=0.77 comp=3.
   읽고 예열 간격(`cadence::SYSSTAT_WARMUP_GAP`, 250 ms) 뒤에 1회 더 읽는다. `stats:*` 의
   첫 프레임은 이 예열을 기다려 유효한 `cpu` 를 싣는다. 샘플러가 멈추면 CPU 값을 버린다
   (PERF 4.10 개정, 이전: 첫 주기 경과 후부터 유효).
-- **FR-STAT-13** 서버 종료 시 샘플러 goroutine 은 누수 없이 종료된다.
+- **FR-STAT-13** 샘플러 작업(tokio task)은 한 벌만 돌고, `stats:*` 구독이 다 풀리면(`pause`) 누수 없이
+  멈춘다 (PERF 4.10·4.16 개정, 이전: 서버 종료 시 샘플러 goroutine 은 누수 없이 종료된다).
 - **FR-STAT-14** `os/exec` 가 남는 경로가 있으면 `exec.CommandContext` 로 타임아웃을
   건다. 묶음 A 를 완수하면 해당 경로는 없다.
 
@@ -222,8 +223,8 @@ host_statistics64 원값: free=0.11 active=2.21 inactive=2.17 wired=0.77 comp=3.
 | V-3 | FR-STAT-11 — 탭 3개 접속 후 `pgrep -f "top -l 1" \| wc -l` | 0 |
 | V-4 | FR-STAT-1 정확도 — 동일 시점에 신방식과 `top -l 2` 2번째 표본을 교차 측정 | 절대차 ≤ 5%p |
 | V-5 | FR-STAT-15 — 신방식 `memUsed` 와 Activity Monitor "사용된 메모리" 비교 | 절대차 ≤ 5% |
-| V-6 | FR-STAT-12 — 서버 기동 직후 `/api/stats` 즉시 호출 | 500 아님. `cpu` 는 생략되거나 유효값 |
-| V-7 | FR-STAT-13 — 서버 기동/종료 반복 후 goroutine 수 | 증가 없음 |
+| V-6 | FR-STAT-12 — `stats:*` 첫 프레임, 서버 기동 직후 `/api/stats` 즉시 호출 | 첫 프레임은 예열 뒤 유효한 `cpu` 를 싣는다(`sysstat` `first_frame_has_cpu`). `/api/stats` 는 500 아님, `cpu` 는 생략되거나 유효값 |
+| V-7 | FR-STAT-13 — 구독·해지를 되풀이한 뒤 샘플러 작업 | 두 번 띄워도 한 벌, 해지 뒤 커널 호출 없음(`sysstat` `subscribe_starts_unsubscribe_stops`) |
 | V-8 | FR-STAT-7 — 커널 호출 실패를 주입 | 나머지 지표가 정상 반환됨 |
 | V-9 | FR-STAT-17 — 탭을 백그라운드로 전환하고 네트워크 탭 관찰 | `/api/stats` 요청 중단 |
 | V-10 | 회귀 — 기존 `handlers_api_test.go` | 전부 통과 |
@@ -452,3 +453,4 @@ kill $LOADPIDS 2>/dev/null      # ← 실패
 | 2026-08-24 | 초안. §2 전량 로컬 실측, §6 참조 구현 프로토타입 검증 완료. 구현 미착수 |
 | 2026-08-24 | §8.1 착수 전 결정 5건 확정 (D-1 cgo, D-2 Activity Monitor 기준, D-3 2s, D-4 상시, D-5 패키지 신설) + cgo 격리 방식 명시 |
 | 2026-08-24 | 묶음 A~D 구현 완료. §4.1 실측 결과 추가. 페이지 크기 4096 하드코딩이 독립된 두 번째 버그였음을 기록 |
+| 2026-11-26 | PERF 4.16 — FR-STAT-13·§4 V-6·V-7 을 Rust 샘플러에 맞춤. 이전: goroutine 수·기동 직후 `/api/stats` 만 쟀다. 새: 샘플러 작업 한 벌·해지 뒤 정지, `stats:*` 첫 프레임의 `cpu`. 이유: Rust 포팅과 PERF 4.10(구독 동안만 샘플링). §4.1 결과 표는 당시 Go 기록으로 남긴다 |

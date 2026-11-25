@@ -2,6 +2,7 @@
 
 > **문서 상태**: 승인·구현완료
 > **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1, PERF 1.9·1.15)**: 주기 설정 넷 — `agentsPollInterval`·`gitConsoleInterval`·`gitStatusInterval`·`gitReposInterval` — 은 서술자 표에서 지웠다. 저장된 블롭에 남아 있어도 `RETIRED_KEYS`(`rust/crates/shared/settingsschema/src/lib.rs`)가 읽을 때 건너뛴다 — 문제도 경고도 아니다(FR-CFG-9 의 "알 수 없는 키" 경고에서도 빠진다). §2 의 키 목록은 당시 실측으로 남긴다
+> **개정 2026-11-25 (`PERF_OPTIMIZATION_SRS` D-61, PERF 4.9)**: `gitWorktreeInterval` 도 서술자 표에서 지우고 `RETIRED_KEYS` 에 더했다 — 작업 트리 변화는 서버의 파일 감시가 알린다. 읽을 때 건너뛰는 규칙은 위와 같다
 
 | | |
 |---|---|
@@ -353,3 +354,4 @@
 |---|---|
 | 2026-09-12 | 신규. M5 `G5-1`·`G5-2`·`G5-3`. `SEC-27` 잔여의 `settings.json`·`access.json` 쪽을 §2.4 로 **판정하고 닫는다**. 로드맵의 낡은 수치 둘을 정정 — 블롭 키 **24→20**, 환경변수 **13→14**(`OTTERMINAL_SHELL` 누락) |
 | 2026-11-18 | `HOT_REBIND_SRS` 묶음 S 반영 — 바인드의 환경변수 계층 제거(FR-CFG-13·19), 파일의 틀린 포트는 기본값(FR-CFG-15), 비목표 3·4 를 바인드에 한해 해제 |
+| 2026-11-26 | PERF 4.16 — 머리 개정 줄에 `gitWorktreeInterval` 삭제(PERF 4.9)를 더함. 이전: 머리 줄이 지운 키를 넷만 적었다. 이유: 코드의 `RETIRED_KEYS` 는 다섯이다 |
