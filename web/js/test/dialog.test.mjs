@@ -227,6 +227,7 @@ function settingsSetup() {
 
 test('TC-FED-6 SettingsModal — 탭 줄 속성, 열기·닫기 길 셋, 두 번 닫기', () => {
   const { d, e, ctx, sm, calls } = settingsSetup();
+  assert.equal(d.ids['settings-btn'].listeners.click, undefined, '모달이 설정 단추를 걸었다');
   assert.ok(sm instanceof ctx.Dialog);
   assert.equal(d.tabs.attrs.role, 'tablist');
   assert.equal(d.tA.attrs.role, 'tab');
@@ -236,7 +237,7 @@ test('TC-FED-6 SettingsModal — 탭 줄 속성, 열기·닫기 길 셋, 두 번
   assert.equal(d.pB.attrs.role, 'tabpanel');
   assert.equal(d.pB.attrs['aria-labelledby'], d.tB.id);
 
-  d.ids['settings-btn'].listeners.click();
+  sm.open();   // 설정 단추는 SettingsController 가 건다 — 묶음을 싣고 이것을 부른다 (PERF D-41)
   assert.ok(d.overlay.classList.contains('open'));
   assert.equal(sm.isOpen(), true);
   assert.equal(e.stack[0].spec.labelledBy, '.modal-title');
@@ -250,13 +251,13 @@ test('TC-FED-6 SettingsModal — 탭 줄 속성, 열기·닫기 길 셋, 두 번
   sm.close();
   assert.equal(e.log.length, 4, '닫힌 뒤의 close 가 무언가를 했다');
 
-  d.ids['settings-btn'].listeners.click();
+  sm.open();
   d.overlay.listeners.click({ target: d.modal });
   assert.ok(sm.isOpen(), '상자 안 클릭으로 닫혔다');
   d.overlay.listeners.click({ target: d.overlay });
   assert.ok(!sm.isOpen(), '바깥 클릭으로 닫히지 않았다');
 
-  d.ids['settings-btn'].listeners.click();
+  sm.open();
   const S = ctx.EscapeStack;
   assert.equal(S._items.length, 1);
   assert.equal(S._items[0].phase, 'bubble', 'Esc 는 버블 층이다');

@@ -119,7 +119,8 @@ class TerminalTool {
     this._initTouchScroll();
     // UX_BATCH11_SRS FR-TCP-2·4: Cmd+C 는 xterm 이 스스로 복사한다 — 알림만 같게 단다.
     this.box.addEventListener('copy',()=>{ if(this.term&&this.term.hasSelection()) Toast.show(t('term.copied'),'ok',TOAST_MS) });
-    try{this.fit.fit()}catch{}
+    // TERMINAL_GPU_RENDER_SRS FR-TGR-7b: 붙일 예정인 칸은 첫 크기부터 WebGL 로 설 크기다 — PTY 리사이즈가 한 번이다.
+    try{ if(!(this._gpuFit&&this._gpuFit())) this.fit.fit() }catch{}
     for(const d of this._buf) try{this.term.write(d)}catch{}
     this._buf=[];
     if(this.term) this.term.scrollToBottom();

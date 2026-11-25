@@ -6,7 +6,7 @@ import { load } from './harness.mjs';
  * ISSUE_TREE_OPS_SRS TC-ITC-4 (FR-ITC-10): 이슈 트리 다이어그램의 배치.
  * 노드 목록(깊이 우선)만으로 정해지고, 잎은 가로 칸을 하나씩 받고, 부모는 자식의 가운데에 선다.
  */
-const ctx = load(['ui/runs-panel.js', 'ui/run-tree.js'], {
+const ctx = load(['core/screens.js', 'ui/runs-panel.js', 'ui/run-tree.js'], {
   globals: { t: (k) => k, panesOf: () => [] },
   expose: ['runTreeLayout', 'runTreeClip', 'RUN_TREE_NODE_W', 'RUN_TREE_NODE_H'],
 });
@@ -79,7 +79,7 @@ test('짧은 제목은 그대로, 긴 제목은 줄여 끝에 … 를 붙인다'
 /**
  * RUN_INACTIVE_NODE_SRS — 비활성 노드(끝남·잃음)의 판정과 크기.
  */
-const ix = load(['ui/runs-panel.js', 'ui/run-tree.js'], {
+const ix = load(['core/screens.js', 'ui/runs-panel.js', 'ui/run-tree.js'], {
   globals: { t: (k) => k, panesOf: () => [] },
   expose: ['runNodeKind', 'runCardsShown', 'runCoordItem', 'runTreeWithCoord', 'runCardItems', 'RUN_COORD', 'runTreeLayout', 'runTreeEdgePath', 'RUN_TREE_NODE_H', 'RUN_TREE_NODE_H_ENDED',
     'RUN_TREE_NODE_W', 'RUN_TREE_NODE_W_ENDED'],

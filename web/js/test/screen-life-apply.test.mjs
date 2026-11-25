@@ -64,7 +64,7 @@ test('git: GitPanel 의 wake·sleep 이 폴링을 다시 판정하고 콘솔 구
 // ── Run ──────────────────────────────────────────────────────────────────
 
 function runs(live) {
-  const ctx = load(['ui/runs-panel.js', 'ui/run-view-life.js'], {
+  const ctx = load(['core/screens.js', 'ui/runs-panel.js', 'ui/run-view.js', 'ui/run-view-life.js'], {
     globals: { t: (k) => k, panesOf: () => [], TIMERS: { cancel() {} } },
     expose: ['RunsPanel'],
   });

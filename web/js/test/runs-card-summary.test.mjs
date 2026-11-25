@@ -8,7 +8,7 @@ import { load } from './harness.mjs';
  *   멤버 수  활성/전체. 활성은 끝남·잃음이 아닌 멤버이고, 헤드리스 수도 활성만 센다.
  *   경과     마지막 활동(생성·보고·맥락 관측·메시지·조정자 맥락 관측 중 가장 늦은 것).
  */
-const ctx = load(['ui/runs-panel.js', 'ui/run-tree.js'], {
+const ctx = load(['core/screens.js', 'ui/runs-panel.js', 'ui/run-tree.js'], {
   globals: { t: (k) => k, panesOf: () => [] },
   expose: ['runMemberCounts', 'runLastActivity'],
 });

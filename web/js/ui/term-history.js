@@ -47,15 +47,15 @@ class TermHistory {
     this.verify=null;                   // 답의 마지막 줄과 맞춰 볼 맨 윗줄 글자
   }
 
-  _buf(){ const t=this.pane.term; return t&&t.buffer&&t.buffer.active }
+  _buf(){ const xt=this.pane.term; return xt&&xt.buffer&&xt.buffer.active }
 
   /** 스냅숏 `SEQ` 의 첫 기록 줄 번호. 스냅숏을 다 그린 뒤 0행에 표지를 단다. */
   base(no){
-    const t=this.pane.term;
-    if(!t) return;
+    const xt=this.pane.term;
+    if(!xt) return;
     // 스냅숏 글자는 아직 출력 묶음(`_doFlush` 대기)에 있을 수 있다 — 먼저 xterm 에 넣어야 0행이 스냅숏 첫 줄이다.
     if(this.pane._flushScheduled) this.pane.output._doFlush();
-    t.write('',()=>{
+    xt.write('',()=>{
       this._drop();
       const b=this._buf();
       if(!b||b.type!=='normal') return;
@@ -67,8 +67,8 @@ class TermHistory {
   _drop(){ if(this.mk){ const m=this.mk; this.mk=null; try{m.dispose()}catch{} } }
 
   _mark(row,no){
-    const t=this.pane.term, b=this._buf();
-    const m=t.registerMarker(row-(b.baseY+b.cursorY));
+    const xt=this.pane.term, b=this._buf();
+    const m=xt.registerMarker(row-(b.baseY+b.cursorY));
     if(!m) return;
     this.mk=m; this.mkNo=no;
     m.onDispose(()=>{ if(this.mk===m) this.mk=null });
@@ -111,8 +111,8 @@ class TermHistory {
     this.resynced=true;
     this.want=-1;
     this._close(false);
-    const t=this.pane.term, top=this.topNo();
-    let before=no+1+Math.floor(((t&&t.rows)||0)/2);
+    const xt=this.pane.term, top=this.topNo();
+    let before=no+1+Math.floor(((xt&&xt.rows)||0)/2);
     if(top>no) before=Math.min(before,top);
     this._send(before,TERM_HISTORY_CHUNK,null);
   }
@@ -189,9 +189,9 @@ class TermHistory {
 
   /** 읽기 전용 xterm. 실시간 xterm 과 글꼴·색·폭이 같다. */
   _makeView(box){
-    const t=this.pane.term;
+    const xt=this.pane.term;
     const v=new Terminal(Object.assign({},TOPTS,{fontSize:termFontSizeNow(),scrollback:TERM_HISTORY_VIEW_ROWS,
-      disableStdin:true,cursorBlink:false,cols:t.cols,rows:t.rows}));
+      disableStdin:true,cursorBlink:false,cols:xt.cols,rows:xt.rows}));
     try{ v.loadAddon(new Unicode11Addon.Unicode11Addon()); v.unicode.activeVersion='11' }catch{ /* 애드온이 없는 판 */ }
     v.open(box);
     return v;
@@ -220,8 +220,8 @@ class TermHistory {
     this.view=null; this.el=null; this.lines=[];
     try{v.dispose()}catch{}
     if(el) el.remove();
-    const t=this.pane.term;
-    if(t){ if(bottom) t.scrollToBottom(); t.focus() }
+    const xt=this.pane.term;
+    if(xt){ if(bottom) xt.scrollToBottom(); xt.focus() }
   }
 
   /**

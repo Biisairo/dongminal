@@ -101,13 +101,18 @@ export const SETTINGS = ['core/settings-apply.js', 'core/settings-section.js', '
   'core/settings-save-state.js', 'core/settings-sandbox.js',
   'core/settings-access.js', 'core/settings-edges.js', 'core/settings-profile.js', 'core/settings-telegram.js',
   'core/settings-server.js', 'core/settings-claude.js', 'core/settings-backup.js', 'core/settings-presets.js',
-  'core/settings-controller.js'];
+  'core/screens.js', 'core/settings-controller.js', 'core/settings-open.js'];
 
 /**
  * App 컨트롤러 묶음 — index.html 의 순서다 (REFACTOR3_FE_APPCTL_SRS 9c). `BASE` 뒤에 싣는다. 뿌리가 부품을 생성자에서
  * 만들므로 한 묶음의 파일은 함께 싣는다. 끝에서 App 원형에 위임자를 두므로 `App` 전역이 있어야 한다.
  */
 export const AGENTS = ['core/agents-controller.js', 'core/agents-sub.js', 'core/activity-list.js'];
+/**
+ * 화면 묶음이 모두 실린 것으로 보는 등록부 대역 (PERF 3.4.9). 화면을 등록하고 `Screens.ready` 로 본체를 세우는 파일
+ * (`chat-controller.js` 등)을 그 본체와 함께 실을 때 `globals.Screens` 로 준다.
+ */
+export const SCREENS_LOADED = Object.freeze({ register() {}, ready: () => true, load: () => Promise.resolve() });
 export const CHAT = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js'];
 export const MOBILE = ['core/mobile-controller.js', 'core/mobile-sheets.js', 'core/mobile-nav.js'];
 // `core/screens.js` 가 앞이다 — git-controller.js 가 로드 시점에 git 화면을 등록한다 (PERF 3.4.6).
@@ -312,7 +317,10 @@ export function load(files, opts = {}) {
 
   const parts = [];
   // 묶음 상수 둘이 같은 파일(예: `core/screens.js` — GIT·EDITOR)을 함께 들 수 있다. 한 번만 싣는다.
+  // 등록부 대역(`globals.Screens`, 예: SCREENS_LOADED)을 주면 실물 `core/screens.js` 는 싣지 않는다 — 같은 이름이 둘이 된다.
+  const skip = opts.globals && opts.globals.Screens ? 'core/screens.js' : null;
   for (const rel of new Set(files)) {
+    if (rel === skip) continue;
     // 실패한 줄을 찾을 수 있게 경계를 남긴다. 이어 붙이므로 스택의 줄 번호는
     // 합친 소스의 것이다.
     parts.push('/* ==== web/js/' + rel + ' ==== */');

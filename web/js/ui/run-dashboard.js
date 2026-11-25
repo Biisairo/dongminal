@@ -481,17 +481,6 @@ Object.assign(RunsPanel.prototype, {
     return String(Math.round(v));
   },
 
-
-  // 서버 시각은 Unix **초**다 (Go 기준선 run/store.go 의 now()).
-  _runAgo(ts) {
-    if (!ts) return '';
-    const s = Math.max(0, Math.floor(Date.now() / MS_PER_SEC - ts));
-    if (s < 60) return tn('core.dur_sec', s);
-    if (s < 3600) return tn('core.dur_min', Math.floor(s / 60));
-    if (s < 86400) return tn('core.dur_hour', Math.floor(s / 3600));
-    return tn('core.dur_day', Math.floor(s / 86400));
-  },
-
   _runClock(ts) {
     if (!ts) return '';
     const d = new Date(ts * MS_PER_SEC);
