@@ -40,7 +40,6 @@
 //! | `GIT_WATCH_ROUND_EVERY` | 1초 | `webserver/hub` git 감시 회차 | S1, 4.9 |
 //! | `GIT_WATCH_WORKTREE_ROUNDS` | 4회차 | `webserver/hub` 워크트리 회차 간격 | S1, 4.9 |
 //! | `GIT_WATCH_BACKOFF_MAX` | 30초 | `webserver/hub` 관측 실패 뒤 건너뛰기 상한 | S1, 4.9 |
-//! | `SYSSTAT_SAMPLE_EVERY` | 2초 | `webserver/domain/sysstat` 샘플러 | S2, 4.10 |
 //! | `RUN_REAP_EVERY` | 15초 | `webserver/httpapi` Run 자동 수거 | S7, 4.11 |
 //! | `LSP_SWEEP_EVERY` | 2분 | `webserver/domain/lsp` 유휴 세션 정리 | S9, 4.11 |
 //! | `MESH_REDIAL_MIN` | 1초 | `shared/edgemesh` 다시 걸기 간격의 처음 | D4, 4.11 |
@@ -53,8 +52,10 @@
 //!
 //! | 상수 | 값 | 쓰는 곳 | 설계 · 단계 |
 //! |---|---|---|---|
+//! | `SYSSTAT_SAMPLE_EVERY` | 2초 | `webserver/domain/sysstat` 샘플러(`stats:*` 구독 동안만) | S2, 4.10 |
+//! | `SYSSTAT_WARMUP_GAP` | 250밀리초 | `webserver/domain/sysstat` 구독 시작 때 예열 표본 둘의 간격 | S2, 4.10 |
 //!
-//! 넣을 값: 전경 이름의 정착 창(D1, 4.6, 기본 2초), sysstat 예열 표본 간격(S2, 4.10),
+//! 넣을 값: 전경 이름의 정착 창(D1, 4.6, 기본 2초),
 //! git 감시 실패·넘침 뒤 회차로 물러서는 간격(S1, 4.9).
 
 use std::time::Duration;
@@ -90,8 +91,6 @@ pub const GIT_WATCH_WORKTREE_ROUNDS: u64 = 4;
 /// 일시적 관측 실패 뒤 건너뛰는 시간의 상한이다 (min(2^(n-1), 30)s). 실패한 저장소를 매 회차 다시
 /// 묻지 않게 한다.
 pub const GIT_WATCH_BACKOFF_MAX: Duration = Duration::from_secs(30);
-/// 시스템 통계 샘플 주기다 (SYSTEM_STATS_SRS D-3). 4.10 이 `stats:*` 구독 동안만 돌게 바꾼다.
-pub const SYSSTAT_SAMPLE_EVERY: Duration = Duration::from_secs(2);
 /// Run 자동 수거의 주기다 (FR-ARD-5). 4.11 이 도구 종료·Run 상태 변화 사건으로 바꾼다.
 pub const RUN_REAP_EVERY: Duration = Duration::from_secs(15);
 /// LSP 유휴 세션 정리의 주기다. 4.11 이 세션이 있을 때만 `min(last_use) + IDLE_AFTER` 마감으로 바꾼다.
@@ -105,6 +104,13 @@ pub const MESH_REDIAL_MAX: Duration = Duration::from_secs(60);
 pub const MESH_PING_EVERY: Duration = Duration::from_secs(15);
 
 // ── 3. 사건 기반 작업의 시간 값 (4.6·4.9·4.10 이 더한다) ──
+
+/// 시스템 통계 샘플 주기다 (SYSTEM_STATS_SRS D-3). `stats:*` 구독이 있는 동안만 돈다 (PERF D-61).
+/// CPU·메모리는 사건 없이 바뀌므로 보는 사람이 있는 동안은 시간 축으로 잰다.
+pub const SYSSTAT_SAMPLE_EVERY: Duration = Duration::from_secs(2);
+/// 구독이 시작될 때 예열 표본 둘 사이의 간격이다 (PERF 4.10). CPU% 는 tick 차분이라 표본이 둘
+/// 있어야 나온다 — 첫 프레임이 이만큼만 기다리면 CPU 를 싣는다. 100Hz tick 이면 코어당 25 tick 이다.
+pub const SYSSTAT_WARMUP_GAP: Duration = Duration::from_millis(250);
 
 #[cfg(test)]
 mod tests;

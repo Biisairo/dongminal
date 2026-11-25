@@ -258,7 +258,7 @@ C4 에 남긴 것: Git Console 탭의 기록 주기(`git/console.js`, 탭이 보
 - 서버는 "바뀌었을 수 있다"는 계기(관련 방송 — `tool_attention`·`tool_attention_clear`·`tool_activity`·`tool_subagent_activity`·`tools_background_changed`·`run_changed`·`workspace_changed`·`tool_foreground`, 사용률·서브에이전트 보고)마다 해당 토픽의 맵을 다시 계산해 지난번과 비교하고 다른 id 만 낸다. 계기는 `STATE_TOPIC_DEBOUNCE`(100 ms) 로 합친다. 방송은 명령 허브의 `set_broadcast_tap` 으로 엿본다.
 - `activity` 의 `working` 항목은 PTY 가 바쁠 때만 든다(`activity_snapshot` 의 busy 판정, GET 과 같다). 바쁨의 변화는 `tool_foreground` 방송으로 드러나므로 그 방송도 `activity`·`runs` 를 다시 계산한다. 이전 동작: 놀고 있는 PTY 의 `working` 카드가 다음 활동 주기(5초)까지 남았다 / 새 동작: 다음 계기(100 ms)에 거둔다 / 이유: 폴링 없이 서버 판정을 그대로 따른다.
 - `foreground` 는 이 단계에서 토픽으로 옮기지 않는다. 주기 폴링이 없고 재조회는 워크스페이스 적용 경로(`/api/state`)에 있다 — C2b 의 `workspace` 토픽이 함께 가져간다.
-- `stats` 의 주기는 토픽 이름에 싣는다(`stats:<ms>`). 서버는 구독 중인 주기 가운데 가장 짧은 것(하한 1초)으로 한 번 재서, 구독 중인 `stats:*` 모두에 같은 값을 낸다. **남는 서버 내부 주기 (FR-SRV-2)**: `stats` 측정 — 이유: CPU·메모리·가동 시간은 사건 없이 바뀐다. 주기: 구독자의 `statsInterval`(기본 3초, 하한 1초). 구독자가 없으면 돌지 않는다.
+- `stats` 의 주기는 토픽 이름에 싣는다(`stats:<ms>`). 서버는 구독 중인 주기 가운데 가장 짧은 것(하한 1초)으로 한 번 재서, 구독 중인 `stats:*` 모두에 같은 값을 낸다. **남는 서버 내부 주기 (FR-SRV-2)**: `stats` 측정 — 이유: CPU·메모리·가동 시간은 사건 없이 바뀐다. 주기: 구독자의 `statsInterval`(기본 3초, 하한 1초). 커널을 읽는 sysstat 샘플러(`cadence::SYSSTAT_SAMPLE_EVERY`, 2초)도 `stats:*` 구독이 있는 동안만 돈다 — 첫 구독에 띄우고 마지막 해지에 멈춘다. 첫 구독의 seed 는 예열 표본 둘(`SYSSTAT_WARMUP_GAP`, 250 ms 간격)을 기다려 CPU 를 싣고, 마지막 해지는 토픽 상태를 비워 다음 구독이 새로 잰 seed 를 받게 한다. 구독자가 없으면 둘 다 돌지 않는다 (PERF D-61, 4.10. 이전: 샘플러는 서버 수명 동안 2초마다 돌았다). `GET /api/stats` 는 메모리·디스크·부팅 시각을 그 자리에서 재고 CPU 는 구독 중 값이 있을 때만 싣는다.
 - git 작업 목록의 안전망(`/api/stats?jobs=1`)은 상태바 폴링과 함께 없어진다. `git.jobs` 토픽(C4)이 대신한다.
 
 ### 10.6 C5 — 터미널

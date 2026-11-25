@@ -15,7 +15,7 @@ use std::fmt;
 use std::time::SystemTime;
 
 pub use os::new_reader;
-pub use sampler::{DEFAULT_INTERVAL, Sampler, Snapshot, Stopper};
+pub use sampler::{DEFAULT_INTERVAL, Sampler, Snapshot, WARMUP_GAP};
 
 /// 지표 읽기의 실패다.
 #[derive(Debug, Clone, PartialEq, Eq)]

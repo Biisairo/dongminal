@@ -282,6 +282,18 @@ impl StatsSnapshotter for Stats {
     fn snapshot(&self) -> StatsSnapshot {
         self.0.snapshot()
     }
+    fn measure(&self) -> StatsSnapshot {
+        self.0.measure()
+    }
+    fn resume(&self) {
+        self.0.resume();
+    }
+    fn pause(&self) {
+        self.0.pause();
+    }
+    fn warmed(&self) -> BoxFuture<'static, ()> {
+        Box::pin(self.0.warmed())
+    }
 }
 
 /// 편집기의 언어 서버다 (Go `Deps.LSP` = `*lsp.Service`).

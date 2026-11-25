@@ -409,14 +409,6 @@ impl App {
         if let Some(w) = &self.records {
             w.start(ctx.clone());
         }
-        if let Some(sampler) = &self.bd.sampler {
-            let stopper = sampler.start();
-            let ctx = ctx.clone();
-            tokio::spawn(async move {
-                ctx.cancelled().await;
-                stopper.stop();
-            });
-        }
         // GIT_PUSH_OBSERVE_SRS FR-GPO-1·13: 저장소 signature 가 바뀌었을 때만 알린다.
         srv.start_git_watch(ctx.clone());
         // UX_REVISION_SRS FR-DEL-14/18: 끝난 Run 과 조정자를 잃은 Run 을 거둔다.
