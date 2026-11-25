@@ -548,3 +548,49 @@ async fn creating_answers_anyway_after_index_wait_cap() {
     );
     assert_eq!(v["newTabs"][0]["uuid"], UUID);
 }
+
+// ── 시간 초과 응답의 지정 실행자 (4.3 공통 보강) ──
+
+async fn timed_out_resp(attach: &[&str], timed_out: bool) -> Value {
+    let fb = Arc::new(FakeBroker {
+        await_timed_out: timed_out,
+        ..FakeBroker::default()
+    });
+    let (_d, s) = srv(with_cmds(fb));
+    for c in attach {
+        s.focus.attach(c);
+    }
+    post_cmd(&s, r#"{"action":"newTab","args":{}}"#)
+        .await
+        .json()
+}
+
+#[tokio::test]
+async fn timed_out_answer_names_executor() {
+    let v = timed_out_resp(&["cliA"], true).await;
+    assert_eq!(v["timedOut"], true, "{v}");
+    assert_eq!(
+        v["execClientId"], "cliA",
+        "시간 초과에 지정 실행자가 없다: {v}"
+    );
+}
+
+#[tokio::test]
+async fn timed_out_answer_omits_executor_when_none() {
+    let v = timed_out_resp(&[], true).await;
+    assert_eq!(v["timedOut"], true, "{v}");
+    assert!(
+        v.get("execClientId").is_none(),
+        "실행자가 없는데 필드가 있다: {v}"
+    );
+}
+
+#[tokio::test]
+async fn answered_command_omits_executor() {
+    let v = timed_out_resp(&["cliA"], false).await;
+    assert_eq!(v["timedOut"], false, "{v}");
+    assert!(
+        v.get("execClientId").is_none(),
+        "답을 받았는데 실행자를 실었다: {v}"
+    );
+}

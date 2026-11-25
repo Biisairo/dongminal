@@ -243,12 +243,16 @@ I·X 를 정당화한 논리가 그대로 적용된다.
 `pane*`)은 기존대로 전 클라이언트가 수행한다. `focus` 는 클라이언트마다 자기 뷰를
 움직이는 것이 정의상 옳고, 나머지는 멱등이다.
 
+> **PERF 4.3 으로 개정 (2026-11-25)**: 이전 — 위 여섯만 단일 실행자이고 `closeTab`·`closeWindow` 를 포함한 나머지는 전 클라이언트가 수행했다 / 지금 — 서버 표(`rust/crates/webserver/hub/src/commands.rs` `CMD_ACTIONS` 의 `single`)가 기준이다. 단일 실행자는 `closeTab`·`closeWindow`·`detachTab`·`focus`·`moveGroup`·`moveTab`·`moveWindow`·`newGroup`·`newTab`·`newWindow`·`openEditorTab`·`openUrl`·`pane*`·`restoreTool`·`splitH`·`splitV`·`tab*`·`window*` 이고, 전 클라이언트가 수행하는 것은 `deleteGroup`·`renameGroup`·`renameTab`·`renameWindow` 뿐이다 / 이유 — 시선을 옮기는 명령과 닫기가 보지 않던 브라우저까지 끌고 갔다(M11_SRS FR-M11-10). 이 절의 본문은 당시 기록으로 남긴다.
+
 **FR-SXE-2** 서버는 단일 실행자 명령을 브로드캐스트할 때 페이로드 최상위에
 `execClientId` 를 실어 실행자를 지명한다. 그 외 명령에는 필드를 넣지 않는다.
 
 **FR-SXE-3** 클라이언트는 수신한 페이로드에 `execClientId` 가 있고 자기 `clientId` 와
 다르면 그 명령을 **수행하지 않는다**. 판정은 action 종류를 보지 않는다 — 어떤 명령을
 게이팅할지는 서버만 정한다.
+
+> **PERF 4.3 으로 개정 (2026-11-25)**: 이전 — `execClientId` 를 브라우저 창의 `clientId`(칸 [0] 신원) 하나와 비교했다 / 지금 — 그 브라우저 창의 **열린 칸 신원 집합**(`SlotsController._slotIdentities()`, WINDOW_SLOTS_SRS FR-WSL-10·13)과 비교한다. 집합에 있으면 그 창이 한 번, 지금 포커스 칸의 문맥으로 수행한다(`web/js/core/event-bus.js` `_isMine`) / 이유 — 칸 [1] 이상이 포커스를 주장하면 서버가 그 칸 신원을 지명하는데(FR-SXE-4), 명령은 창마다 하나인 채널로 오므로 어느 연결도 자기 것으로 알아보지 못해 버려졌다.
 
 **FR-SXE-4** 실행자는 **live 구독 중인 Client 중 가장 최근에 창 포커스를 주장한
 Client** 다. 주장 이력이 있는 live Client 가 없으면 가장 오래된 live 구독을 쓴다.

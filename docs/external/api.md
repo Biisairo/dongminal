@@ -496,7 +496,7 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 
 브라우저 탭은 WebSocket `/channel?v=1` 하나를 연다(`docs/internal/perf/CHANNEL_PROTOCOL.md`). 첫 프레임 `{"t":"hello","client":<clientId>,"slots":[…]}` 로 신원을 밝히면, `/api/commands` 로 들어온 action 이 그 채널에 `{"t":"cmd", action, args, reqId?, execClientId?}` 로 온다. 브라우저가 여러 탭으로 열려 있으면 모두 같은 action 을 받는다. `client` 를 밝힌 연결이 끊기면 그 클라이언트의 창 포커스 소유권·감시 임대가 풀린다.
 
-생성 명령의 결과는 같은 채널에 `{"t":"cmd.result", reqId, newWindows?, newPanes?, newTabs?, newGroups?, position?, error?}` 로 돌려준다. 서버는 `newTabs` 의 uuid 가 모두 워크스페이스(`PUT /api/workspace`)에 등록된 뒤 `/api/commands` 에 답한다(상한 2초, 넘으면 그대로 답한다).
+생성 명령의 결과는 같은 채널에 `{"t":"cmd.result", reqId, newWindows?, newPanes?, newTabs?, newGroups?, position?, error?}` 로 돌려준다. 서버는 `newTabs` 의 uuid 가 모두 워크스페이스(`PUT /api/workspace`)에 등록된 뒤 `/api/commands` 에 답한다(상한 2초, 넘으면 그대로 답한다). 결과가 시한 안에 오지 않으면 응답은 `timedOut: true` 이고, 실행자를 지정했던 명령이면 `execClientId`(지정 실행자 신원)를 함께 싣는다.
 
 서버가 자체적으로 발행하는 이벤트도 같은 스트림을 쓴다:
 
