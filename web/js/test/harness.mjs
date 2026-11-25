@@ -44,7 +44,7 @@ export const CONSTANTS = ['core/constants.js', 'core/constants-term.js', 'core/c
  * 부품이 `Controller`·`Component` 를 상속하므로 기반 클래스 둘을 앞에 싣는다.
  */
 export const TERM_PANE = ['core/base/component.js', 'core/base/controller.js', 'ui/term-channel.js', 'ui/term-pane.js',
-  'ui/term-transfer.js', 'ui/term-held.js', 'ui/term-output.js', 'ui/term-fit.js', 'ui/term-input.js', 'ui/term-clip.js',
+  'ui/term-transfer.js', 'ui/term-transfer-io.js', 'ui/term-held.js', 'ui/term-output.js', 'ui/term-fit.js', 'ui/term-input.js', 'ui/term-clip.js',
   'ui/term-touch.js', 'ui/term-history.js'];
 
 /**
@@ -114,7 +114,7 @@ export const AGENTS = ['core/agents-controller.js', 'core/agents-sub.js', 'core/
  * (`chat-controller.js` 등)을 그 본체와 함께 실을 때 `globals.Screens` 로 준다.
  */
 export const SCREENS_LOADED = Object.freeze({ register() {}, ready: () => true, load: () => Promise.resolve() });
-export const CHAT = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js'];
+export const CHAT = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js', 'core/chat-window-open.js'];
 // 부팅의 껍데기(mobile-shell.js)와 mobile 묶음의 본체 (PERF 3.4.12.8). 본체가 껍데기를 잇고 서랍이 Panel 을 이으므로 `PANELS` 뒤에 싣는다.
 // `core/screens.js` 가 앞이다 — 껍데기가 로드 시점에 묶음을 등록한다.
 export const MOBILE = ['core/screens.js', 'core/mobile-shell.js', 'ui/drawer-sheet.js', 'core/mobile-controller.js', 'core/mobile-sheets.js', 'core/mobile-nav.js'];
@@ -124,7 +124,7 @@ export const WS_SYNC = ['core/ws-sync-controller.js', 'core/ws-save-controller.j
 export const FOCUS = ['core/focus-controller.js', 'core/focus-highlight.js', 'core/focus-owner.js'];
 export const SLOTS = ['core/slots-controller.js', 'core/slot-ops.js'];
 export const LAYOUT = ['core/layout-controller.js', 'core/layout-tab-add.js', 'core/layout-tab-ops.js', 'core/layout-window-state.js',
-  'core/layout-dock.js', 'core/layout-tab-reopen.js', 'core/layout-dnd.js', 'core/layout-groups.js'];
+  'core/layout-dock.js', 'core/layout-tab-reopen.js', 'core/layout-dnd.js', 'core/layout-dnd-move.js', 'core/layout-groups.js'];
 export const TOOL = ['core/screens.js', 'core/tool-cmd.js', 'core/tool-cmd-remote.js', 'core/tool-controller.js', 'core/tool-life.js', 'core/tool-work.js', 'core/tool-search.js',
   'core/tool-search-bar.js'];
 export const EDITOR = ['core/screens.js', 'core/editor-controller.js', 'core/editor-sync.js', 'core/editor-open.js', 'core/editor-doc.js',

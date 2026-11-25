@@ -121,8 +121,6 @@ js/ui/term-clipboard.js
 js/ui/drop-entries.js
 # 맨 도메인 링크 (BARE_DOMAIN_LINK_SRS). 터미널과 문서 렌더가 함께 쓴다 — 둘보다 앞이어야 한다.
 js/ui/bare-link.js
-# UI_POLISH_SRS FR-UIP-21: 경로 입력의 후보 목록.
-js/ui/path-suggest.js
 # 파일 경로 링크 (UX_BATCH11_SRS FR-FPL). bare-link.js 의 줄 읽기·존재 확인 저장을 쓴다.
 js/ui/file-link.js
 # 터미널 칸: 채널 배선(TermChannel) → TerminalTool → 입력 증강 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-1·12-4).
@@ -221,7 +219,6 @@ js/core/tool-work.js
 # 채팅 (PEER_CHAT_SRS §3.11). `ChatController` 와 그 부품 (REFACTOR3_FE_APPCTL_SRS 9c). `activity-list.js` 뒤.
 js/core/chat-store.js
 js/core/chat-controller.js
-js/core/chat-human.js
 # 채팅 창 (CHAT_WINDOW_SRS). `ChatController` 의 부품이다.
 js/core/chat-window.js
 js/core/claude-accounts-view.js
@@ -264,7 +261,6 @@ js/core/settings-apply.js
 js/core/settings-live.js
 js/core/settings-save-state.js
 js/core/edges-controller.js
-js/core/edges-mesh.js
 js/core/statusbar-controller.js
 js/core/statusbar-enc.js
 js/core/update-controller.js
@@ -407,7 +403,14 @@ style-run-view.css
 [chat]
 # 채팅 탭의 뷰 (PERF 3.4.9, D-30). `ChatController.views` 가 묶음이 실린 뒤에 세운다. CSS 는 부팅의
 # style-activity.css 에 남는다 — 목록 행과 선택자를 나누고, 크기가 작다.
+# 망 그림 계산 (EDGE_MESH_SRS FR-EGM-50~56) — 채팅 뷰의 `meshDirectPeer` 와 설정 ▸ Edges 의 그림이 함께 쓴다. 그래서
+# `settings` 는 이 묶음을 needs 로 싣는다 (PERF 3.4.12.10, D-47 — D-41 의 부팅 잔류를 개정).
+js/core/edges-mesh.js
 js/core/chat-views.js
+# 사람 명령(`ChatController.human`)과 채팅 창 열기·방 탭의 본체(`ChatWindow` 원형 증강). 채팅 목록을 처음 그리거나
+# 채팅 창을 처음 열 때 실린다 (PERF 3.4.12.10).
+js/core/chat-human.js
+js/core/chat-window-open.js
 
 [settings]
 # 설정 창 본체 (PERF D-41, 3.4.9.2). 설정을 처음 열 때 `SettingsController.ready` 가 싣는다.
@@ -520,3 +523,13 @@ js/ui/drawer-sheet.js
 js/core/mobile-controller.js
 js/core/mobile-sheets.js
 js/core/mobile-nav.js
+
+[uiact]
+# 사용자 동작 부품의 본체 (PERF 3.4.12.10, D-47). 부팅 껍데기(`layout-dnd.js`·`attn-center.js`·`term-transfer.js`)의 자리표시가
+# 처음 불릴 때(`Screens.call`) 싣고, 이 파일들이 그 원형에 본체를 바꿔 단다. 탭 끌기는 dragstart 에서 미리 싣는다.
+# 이벤트 안에서 곧바로 답해야 하는 몫(끌기 자리 판정·드롭 판정과 dataTransfer 읽기)과 동기 반환값을 쓰는 부품
+# (닫은 탭 다시 열기·미리보기 탭)은 부팅에 남는다 — 이슈 3.4.12.10 진행 기록.
+js/core/layout-dnd-move.js
+js/core/attn-center-view.js
+js/ui/path-suggest.js
+js/ui/term-transfer-io.js

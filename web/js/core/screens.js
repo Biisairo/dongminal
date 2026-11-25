@@ -47,6 +47,19 @@ const Screens={
    */
   load(name){ return this._load(name,[]) },
 
+  /**
+   * 묶음이 원형에 바꿔 다는 메서드의 부팅 쪽 자리표시가 부른다 (PERF 3.4.12.10). 묶음 `name` 을 실은 뒤 같은 이름의
+   * 본체를 불러 그 값을 준다. 실린 뒤에는 본체가 자리표시를 덮었으므로 이 길을 다시 지나지 않는다. 묶음이 그 이름을
+   * 바꿔 달지 않았으면 자리표시를 다시 부르지 않고 reject 한다.
+   */
+  call(name,self,key,args){
+    const stub=self[key];
+    return this.load(name).then(()=>{
+      if(self[key]===stub) throw new Error('Screens: '+name+' did not define '+key);
+      return self[key](...args);
+    });
+  },
+
   _load(name,chain){
     if(this._ready.has(name)) return Promise.resolve();
     const def=this._defs.get(name);
@@ -95,3 +108,6 @@ const Screens={
 Screens.register('mdlib');
 // CM 공용 층·코드 탐색 (PERF 3.4.12.7, D-44). loadCodeMirror 가 CM vendor 와 나란히 싣고, editor·git 이 needs 로 먼저 싣는다.
 Screens.register('cm',{needs:['mdlib']});
+// 사용자 동작 부품의 본체 (PERF 3.4.12.10, D-47). 끌어 놓기의 옮기기·주의 센터 그리기·경로 후보·터미널 올리기/내려받기 —
+// 부팅 껍데기의 자리표시가 처음 불릴 때(`Screens.call`) 싣는다.
+Screens.register('uiact');

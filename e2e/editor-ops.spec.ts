@@ -677,6 +677,7 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
     // pane 둘을 만든다. 분할이 생기는 길은 드롭 하나뿐이므로(D-8) 그 경로를 쓴다.
     await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(R, 'top.txt'));
     await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(R, 'docs', 'd.txt'));
+    await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
     const two = await page.evaluate(() => {
       const a = (window as any).app;
       const t = a.testing.findEditorTab(a.testing.aw().layout.tabs[1].filePath);

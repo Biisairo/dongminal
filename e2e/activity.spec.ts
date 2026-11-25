@@ -321,6 +321,7 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
 
     // `moveTabToWindow` 의 출발지는 **활성 창**이다 (`aw`) — 사이드바에서 끄는
     // 손은 언제나 보고 있는 창에서 출발하므로, 그 자리를 먼저 만든다.
+    await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
     await page.evaluate(
       ({ win1, win2, pidB }: any) => {
         const app = (window as any).app;
