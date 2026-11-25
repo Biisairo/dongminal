@@ -74,6 +74,7 @@ async function firstTab(page) {
  * 서버 한 단계를 건너뛴 채 "대상 없음" 으로 조용히 끝난다.
  */
 async function renameRemote(page, coord: string, args: Record<string, unknown>) {
+  await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
   await page.evaluate(([c, a]) =>
     (window as any).app.testing.execRemote('renameTab', Object.assign({ location: c }, a)),
     [coord, args] as any);
@@ -327,6 +328,7 @@ test.describe('묶음 N — 도구 이름 (FR-NAM-*)', () => {
     await page.evaluate(([id]) =>
       (window as any).app.testing.onToolForeground({ toolId: id, name: 'vim' }), [toolId]);
     // 도구를 떼어 낸다 — 탭이 사라지므로 이름을 아는 자리는 파생 이름뿐이다.
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate(([id]) =>
       (window as any).app.testing.execRemote('detachTab', { toolId: id }), [toolId]);
 

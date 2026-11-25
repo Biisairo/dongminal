@@ -294,6 +294,7 @@ test.describe('묶음 W — 새 창의 cwd (FR-CWD-*)', () => {
     // (FR-CWD-4: 조정자가 어느 창을 보고 있든 자기 cwd 에서 팀 창이 열린다).
     await page.evaluate(() => (window as any).app.layout.tabOps.split('horizontal'));
     await expect(page.locator('#area .pn')).toHaveCount(2, { timeout: 10000 });
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     const made = await page.evaluate(async ([tid]) => {
       const app = (window as any).app;
       let out: any = null;

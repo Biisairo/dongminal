@@ -7,11 +7,14 @@ import { test, expect, waitForInit } from './fixtures';
  * 바뀌면 바로 따라가고, 전체 문자열은 `title` 에도 실린다.
  */
 
-const rename = (page, name: string) => page.evaluate((n) => {
-  const app = (window as any).app;
-  const si = app.ws.windows.findIndex((x: any) => x.id === app.ws.activeWindow) + 1;
-  app.testing.execRemote('renameTab', { location: `W${si}.P1.T1`, name: n });
-}, name);
+const rename = async (page, name: string) => {
+  await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
+  await page.evaluate((n) => {
+    const app = (window as any).app;
+    const si = app.ws.windows.findIndex((x: any) => x.id === app.ws.activeWindow) + 1;
+    app.testing.execRemote('renameTab', { location: `W${si}.P1.T1`, name: n });
+  }, name);
+};
 
 const winName = (page) => page.evaluate(() => {
   const app = (window as any).app;
