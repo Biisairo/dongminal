@@ -140,3 +140,6 @@ class EditorController extends Controller {
     return [...(fixed.length?fixed:[home]),...this.edEntries().map(e=>e.path)];
   }
 }
+
+// PERF 3.4.7 (D-30): 편집기 칸과 탐색기는 `editor` 묶음이다. 문서 렌더 탭(`render`)은 이 화면이 아니다.
+Screens.register('editor',{tab:(at)=>at.type===TAB_TYPE_EDITOR&&!at.render});

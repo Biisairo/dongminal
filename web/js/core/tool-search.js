@@ -114,7 +114,7 @@ class ToolSearch extends Controller {
   }
 
   /**
-   * PERF D-21: **이전 기록에서 찾기.** 브라우저 버퍼는 마지막 스냅숏의 첫 기록 줄부터다. 그 앞은 데몬 줄 저장소에서
+   * PERF D-21: **이전 기록에서 찾기.** 브라우저 버퍼 맨 윗줄 번호(`history.topNo()`, 모르면 마지막 스냅숏의 첫 기록 줄) 앞을 데몬 줄 저장소에서
    * 찾기 줄의 선택지 그대로 찾고, 일치를 새 줄부터 목록으로 보인다. 고르면 터미널의 기록 보기에 줄 번호를 넘긴다.
    */
   async searchOlder(){
@@ -124,8 +124,10 @@ class ToolSearch extends Controller {
     const list=document.getElementById('search-older-list');
     list.hidden=true;
     if(!p||!q) return;
-    if(!(p._firstLine>0)){count.textContent=SEARCH_NONE;return}
-    const qs=new URLSearchParams({id:p.id,q,before:String(p._firstLine)});
+    const top=p.history?p.history.topNo():-1;
+    const before=top>=0?top:p._firstLine;
+    if(!(before>0)){count.textContent=SEARCH_NONE;return}
+    const qs=new URLSearchParams({id:p.id,q,before:String(before)});
     for(const [k,id] of [['case','search-case'],['word','search-word'],['regex','search-regex']]) if(this._searchOpt(id)) qs.set(k,'1');
     const r=await apiGet('/api/tools/search?'+qs);
     if(!r.ok){count.textContent=apiErrText(r,'search');return}
@@ -134,7 +136,7 @@ class ToolSearch extends Controller {
     count.textContent=String(hits.length);
     list.replaceChildren(...hits.map(h=>{
       const li=document.createElement('button');
-      li.className='search-older-hit';
+      li.className='search-older-hit ui-btn ui-btn-ghost ui-btn-sm';
       li.dataset.line=String(h.line);
       li.textContent=h.text;
       li.addEventListener('click',()=>{ if(typeof p.openHistoryAt==='function') p.openHistoryAt(h.line) });

@@ -17,6 +17,8 @@ class EditorFile extends Controller {
    */
   async edOpenFile(filePath,opts){
     if(!filePath||!this.app.editor.edOn()) return null;
+    // PERF 3.4.7 (D-30): 편집기 칸은 `editor` 묶음이다. 실은 뒤에 그려야 아래의 줄 이동·탐색기 드러내기가 칸을 찾는다.
+    await Screens.load('editor');
     // FR-EDT-101: 이미 열려 있으면 **그 탭이 있는 창**이 대상이다. 폴백 창의
     // pane 을 먼저 만들면 탭은 원래 창으로 가고 빈 pane 만 남는다 (FR-EDT-52).
     // UX_BATCH12_SRS FR-RTB-2·4: 미리보기는 열린 자리를 따라가지 않는다 — 고른 창의

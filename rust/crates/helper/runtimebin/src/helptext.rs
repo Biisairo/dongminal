@@ -150,7 +150,7 @@ pub(crate) const OTTERCTL_HELP: &str = r#"otterctl — otterminal 워크스페�
   otterctl send <action> [json-args]   # raw 전송
 
 에이전트 접합면 — 다른 도구의 화면을 읽고 입력을 넣는다:
-  otterctl read-screen [--at <uuid>] [--bytes N]   # ANSI 제거 텍스트 (기본 16384)
+  otterctl read-screen [--at <uuid>] [--bytes N]   # 화면 글자 + 기록 (기본 16384)
   otterctl read-output [--at <uuid>] [--bytes N]   # raw 바이트, ANSI 포함 (기본 8192)
   otterctl send-input --at <uuid> [--execute] <텍스트>   # 쉘 대상. - 또는 생략 시 stdin
   otterctl msg --to <uuid> [--from <uuid>] <메시지>      # 에이전트 대상 (신뢰 엔벨로프)
@@ -433,18 +433,18 @@ pub(crate) const OTTERCTL_WAIT_HELP: &str = r#"otterctl wait — 도구가 조�
 "#;
 
 /// `otterctlReadHelp` (otterctl_toolio.go)
-pub(crate) const OTTERCTL_READ_HELP: &str = r#"otterctl read-screen / read-output — 도구의 최근 출력 조회
+pub(crate) const OTTERCTL_READ_HELP: &str = r#"otterctl read-screen / read-output — 도구의 화면·최근 출력 조회
 
 사용법:
-  otterctl read-screen [--at <uuid>] [--bytes N]   # ANSI 제거 텍스트 (기본 16384 바이트)
+  otterctl read-screen [--at <uuid>] [--bytes N]   # 화면 글자 + 기록 (기본 16384 바이트)
   otterctl read-output [--at <uuid>] [--bytes N]   # raw 바이트, ANSI 포함 (기본 8192)
 
   --at <uuid>, -l <uuid>   대상 도구. 생략 시 현재 셸이 속한 도구.
                            list-workspace 의 uuid 컬럼 값을 쓴다.
   --bytes N                최근 N 바이트만. 0 이면 전체.
 
-read-screen 은 일반 쉘 출력 확인용이고, read-output 은 TUI 프로그램의 화면 상태를
-ANSI 째로 봐야 할 때 쓴다.
+read-screen 은 데몬이 그린 화면의 글자다(TUI 는 지금 보이는 화면, 셸은 화면과 그 위
+기록). read-output 은 최근 출력 바이트를 ANSI 째로 봐야 할 때 쓴다.
 
 【에이전트 통신 엔벨로프】 출력에 [OTTERMINAL-AGENT-MSG from=... ] ...
 [/OTTERMINAL-AGENT-MSG] 가 있으면 같은 워크스페이스의 다른 에이전트가 보낸 협업

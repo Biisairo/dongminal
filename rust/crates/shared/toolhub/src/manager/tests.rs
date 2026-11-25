@@ -583,6 +583,22 @@ fn screen_tool_gives_snapshot_and_resume_offset() {
     assert!(m.screen_tool("a", 10).unwrap().alt);
 }
 
+/// read-screen 의 글자는 화면 상태에서 나온다(FR-TRM-8, D-22). 링에 남은 지운 글자는 나오지 않는다.
+#[test]
+fn screen_text_tool_reads_screen_state() {
+    let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));
+    assert!(m.screen_text_tool("a", 0).is_none());
+    m.adopt(Tool::new_detached("d", None));
+    assert!(m.screen_text_tool("d", 0).is_none());
+    let p = pid_tool("a", 1001);
+    p.handle_chunk(b"secret\r\x1b[Kok\r\n\x1b[?1049h\x1b[HTUI");
+    m.adopt(Arc::clone(&p));
+    assert_eq!(m.screen_text_tool("a", 0).as_deref(), Some("TUI\n"));
+    p.handle_chunk(b"\x1b[?1049l");
+    assert_eq!(m.screen_text_tool("a", 0).as_deref(), Some("ok\n"));
+    assert_eq!(m.screen_text_tool("a", 2).as_deref(), Some("k\n"));
+}
+
 #[test]
 fn snapshot_since_resumes_or_replays() {
     let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));

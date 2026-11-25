@@ -819,6 +819,10 @@ impl ToolManager {
         self.get(id)?.screen(history)
     }
 
+    /// 화면 상태의 글자다(read-screen, FR-TRM-8, D-22). 없는 도구·터미널 없는 도구는 `None`.
+    pub fn screen_text_tool(&self, id: &str, bytes: usize) -> Option<String> {
+        self.get(id)?.screen_text(bytes)
+    }
     /// 줄 저장소의 기록 구간이다 (PERF FR-TRM-5). 없는 도구·터미널 없는 도구는 `None`.
     pub fn history_tool(&self, id: &str, before: u64, count: usize) -> Option<ToolHistory> {
         self.get(id)?.history(before, count)
