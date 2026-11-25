@@ -519,7 +519,7 @@ async fn relay_env(
 
 fn chunk(s: &str, end: i64) -> OutChunk {
     OutChunk {
-        data: s.as_bytes().to_vec(),
+        data: bytes::Bytes::copy_from_slice(s.as_bytes()),
         end,
         size: None,
     }
@@ -614,16 +614,82 @@ async fn relay_gap_resyncs_sid_with_screen() {
     );
 }
 
+/// 4.12 (M4 설계 §4, FR-SRV-1): 같은 도구를 보는 두 채널은 데몬 출력 바이트를 복사하지 않고 참조 계수로
+/// 나눈다 — 채널의 터미널 프레임 본문이 데몬이 준 버퍼 그 자체다. 머리(op·sid)는 쓸 때 붙인다.
+#[tokio::test(start_paused = true)]
+async fn term_output_shared_across_subscribers() {
+    use crate::channel::{Outbox, Terms};
+    let dir = tempfile::tempdir().unwrap();
+    let hub = Arc::new(seeded("t1", "\n$ ", 0, 0));
+    let srv = Server::new(
+        Config {
+            data_dir: dir.path().to_path_buf(),
+            ..Config::default()
+        },
+        Deps {
+            tools: Some(hub.clone()),
+            ..Deps::default()
+        },
+    );
+    let outs = [Outbox::new(), Outbox::new()];
+    let terms: Vec<Arc<Terms>> = outs.iter().map(|_| Arc::default()).collect();
+    for (out, terms) in outs.iter().zip(&terms) {
+        srv.term_open(terms, out, &json!({"sid":1,"tool":"t1"}));
+        let deadline = tokio::time::Instant::now() + WAIT;
+        while !pop_sid1(out).iter().any(|f| f[0] == OP_SEQ) {
+            assert!(tokio::time::Instant::now() < deadline, "첫 SEQ 가 없다");
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    }
+    let mut txs = vec![hub.subs.lock().unwrap().get("t1").cloned().unwrap().0];
+    txs.extend(
+        hub.replaced_subs
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(t, _)| t.clone()),
+    );
+    assert_eq!(txs.len(), 2, "두 채널이 구독하지 않았다");
+    let data = bytes::Bytes::from(b"shared output".to_vec());
+    for tx in &txs {
+        tx.send(OutChunk {
+            data: data.clone(),
+            end: 3 + data.len() as i64,
+            size: None,
+        })
+        .await
+        .unwrap();
+    }
+    for out in &outs {
+        let deadline = tokio::time::Instant::now() + WAIT;
+        let got = loop {
+            if let Some(crate::channel::Out::Binary(f)) = out.pop()
+                && f.op == OP_OUTPUT
+            {
+                break f;
+            }
+            assert!(tokio::time::Instant::now() < deadline, "출력이 오지 않았다");
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        };
+        assert_eq!((got.sid, &got.payload[..]), (1, &data[..]));
+        assert_eq!(
+            got.payload.as_ptr(),
+            data.as_ptr(),
+            "채널이 출력 바이트를 복사했다"
+        );
+    }
+}
+
 /// 꺼낸 sid 1 의 바이너리 프레임들(op 가 앞에 붙은 페이로드). 더 꺼낼 것이 없으면 멈춘다.
 fn pop_sid1(out: &crate::channel::Outbox) -> Vec<Vec<u8>> {
     let mut got = Vec::new();
     while let Some(o) = out.pop() {
-        if let crate::channel::Out::Binary(b) = o
-            && b[1..5] == 1u32.to_be_bytes()
+        if let crate::channel::Out::Binary(f) = o
+            && f.sid == 1
         {
-            let mut f = vec![b[0]];
-            f.extend_from_slice(&b[5..]);
-            got.push(f);
+            let mut b = vec![f.op];
+            b.extend_from_slice(&f.payload);
+            got.push(b);
         }
     }
     got

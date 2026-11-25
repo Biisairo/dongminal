@@ -8,9 +8,19 @@ use crate::search::Query;
 #[derive(Default)]
 pub(super) struct FakeInfo {
     cwds_calls: AtomicI32,
+    pub(super) names_calls: AtomicI32,
     children: HashMap<i32, bool>,
     parents: Option<HashMap<i32, i32>>,
     names: HashMap<i32, String>,
+}
+
+impl FakeInfo {
+    pub(super) fn named(names: &[(i32, &str)]) -> Self {
+        Self {
+            names: names.iter().map(|(p, n)| (*p, (*n).to_owned())).collect(),
+            ..Self::default()
+        }
+    }
 }
 
 impl ProcInfo for FakeInfo {
@@ -28,6 +38,7 @@ impl ProcInfo for FakeInfo {
         pids.iter().map(|p| (*p, "/many".to_string())).collect()
     }
     fn names(&self, pids: &[i32]) -> HashMap<i32, String> {
+        self.names_calls.fetch_add(1, SeqCst);
         pids.iter()
             .filter_map(|p| self.names.get(p).map(|n| (*p, n.clone())))
             .collect()
@@ -51,7 +62,7 @@ struct PidTerm {
     pid: i32,
     size: StdMutex<(u16, u16)>,
     written: Arc<StdMutex<Vec<u8>>>,
-    fg: Option<i32>,
+    fg: Arc<StdMutex<Option<i32>>>,
 }
 
 impl PidTerm {
@@ -60,7 +71,7 @@ impl PidTerm {
             pid,
             size: StdMutex::new((80, 24)),
             written: Arc::default(),
-            fg: None,
+            fg: Arc::default(),
         })
     }
 }
@@ -84,7 +95,7 @@ impl Terminal for PidTerm {
         Ok(*self.size.lock().unwrap())
     }
     fn foreground_pgid(&self) -> Option<i32> {
-        self.fg
+        *self.fg.lock().unwrap()
     }
     fn pid(&self) -> i32 {
         self.pid
@@ -469,7 +480,7 @@ pub(super) fn written_tool(id: &str) -> (Arc<Tool>, Arc<StdMutex<Vec<u8>>>) {
         pid: 1001,
         size: StdMutex::new((80, 24)),
         written: Arc::clone(&written),
-        fg: None,
+        fg: Arc::default(),
     };
     let p = Tool::on_term(
         id,
@@ -481,6 +492,25 @@ pub(super) fn written_tool(id: &str) -> (Arc<Tool>, Arc<StdMutex<Vec<u8>>>) {
         Stream::new(BUF_MAX),
     );
     (p, written)
+}
+
+/// 전경 pgid 를 밖에서 바꿀 수 있는 도구다.
+pub(super) fn fg_tool(id: &str, pid: i32, fg: &Arc<StdMutex<Option<i32>>>) -> Arc<Tool> {
+    let term = PidTerm {
+        pid,
+        size: StdMutex::new((80, 24)),
+        written: Arc::default(),
+        fg: Arc::clone(fg),
+    };
+    Tool::on_term(
+        id,
+        id,
+        Box::new(term),
+        false,
+        None,
+        None,
+        Stream::new(BUF_MAX),
+    )
 }
 
 fn screen_text(s: &otter_shared_termstate::Screen, line: i32) -> String {
@@ -666,7 +696,7 @@ fn hooks_follow_notifiers() {
 }
 
 #[test]
-fn foreground_cache_interval_and_notify() {
+fn foreground_cache_and_notify() {
     let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));
     m.adopt_detached("a");
     m.adopt_detached("b");
@@ -687,30 +717,27 @@ fn foreground_cache_interval_and_notify() {
     m.set_foreground_notifier(Some(Arc::new(move |id, n| {
         g.lock().unwrap().push((id.into(), n.into()))
     })));
-    let t0 = Instant::now();
-    for i in 0..5 {
-        m.refresh_foreground_at(t0 + Duration::from_millis(100 * i));
+    for _ in 0..5 {
+        m.foreground_names();
     }
-    assert_eq!(calls.load(SeqCst), 1);
-    m.refresh_foreground_at(t0 + FOREGROUND_REFRESH_INTERVAL);
-    assert_eq!(calls.load(SeqCst), 2);
+    assert_eq!(calls.load(SeqCst), 1, "입출력 없는 도구를 다시 조회했다");
     assert_eq!(
         m.cached_foreground_names().get("a").map(String::as_str),
         Some("vim")
     );
     assert!(!m.cached_foreground_names().contains_key("b"));
     *name.lock().unwrap() = "node".into();
-    m.refresh_foreground_at(t0 + FOREGROUND_REFRESH_INTERVAL * 2);
+    m.refresh_foreground();
     *name.lock().unwrap() = String::new();
-    m.refresh_foreground_at(t0 + FOREGROUND_REFRESH_INTERVAL * 3);
-    m.refresh_foreground_at(t0 + FOREGROUND_REFRESH_INTERVAL * 4);
+    m.refresh_foreground();
+    m.refresh_foreground();
     let want: Vec<(String, String)> = [("a", "vim"), ("a", "node"), ("a", "")]
         .iter()
         .map(|(a, b)| (a.to_string(), b.to_string()))
         .collect();
     assert_eq!(*got.lock().unwrap(), want);
     m.delete("a").unwrap();
-    m.refresh_foreground_at(t0 + FOREGROUND_REFRESH_INTERVAL * 5);
+    m.refresh_foreground();
     assert!(!lock(&m.inner.fg).cache.contains_key("a"));
 }
 
@@ -900,7 +927,7 @@ async fn terminate_unknown_is_not_found_and_paste() {
         pid: 1001,
         size: StdMutex::new((80, 24)),
         written: Arc::default(),
-        fg: None,
+        fg: Arc::default(),
     };
     let p = Tool::on_term(
         "a",

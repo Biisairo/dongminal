@@ -1718,3 +1718,73 @@ fn unreached_marks_pushed_out_first() {
         );
     });
 }
+
+fn spawn_run(m: &TestMesh) -> (CancellationToken, tokio::task::JoinHandle<()>) {
+    let stop = CancellationToken::new();
+    let (m, s) = (m.m.clone(), stop.clone());
+    (stop, tokio::spawn(async move { m.run(s).await }))
+}
+
+/// 간선도 연결도 없으면 연결 유지는 잠들어 있다 (PERF M4 D4).
+#[tokio::test(start_paused = true)]
+async fn mesh_no_edges_no_ticks() {
+    let a = new_test_mesh("a");
+    let (stop, h) = spawn_run(&a);
+    tokio::time::sleep(Duration::from_secs(60 * 60)).await;
+    assert_eq!(a.ticks(), 0, "간선이 없는데 연결 유지가 깨어났다");
+    stop.cancel();
+    h.await.unwrap();
+}
+
+/// 간선이 생겼다는 알림에 주기를 기다리지 않고 곧바로 건다 (PERF M4 D4).
+#[tokio::test(start_paused = true)]
+async fn mesh_edge_change_dials_at_once() {
+    let a = new_test_mesh("a");
+    let b = new_test_mesh("b");
+    *a.hooks.clock.lock().unwrap() = Some(OffsetDateTime::now_utc());
+    let dials = Arc::new(AtomicI64::new(0));
+    let n = dials.clone();
+    a.set_dial(Arc::new(move |_| {
+        n.fetch_add(1, Ordering::SeqCst);
+        Box::pin(async { Err(CallError::Unreachable("down".into())) })
+    }));
+    let (stop, h) = spawn_run(&a);
+    a.set_edges(vec![edge_to(&b.fp(), "127.0.0.1", 1)]);
+    a.edges_changed();
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert_eq!(
+        dials.load(Ordering::SeqCst),
+        1,
+        "간선 알림에 곧바로 걸지 않았다"
+    );
+    // 시계가 그대로면 다시 걸기 간격이 지나지 않았다 — 더 걸지 않는다.
+    tokio::time::sleep(Duration::from_secs(10)).await;
+    assert_eq!(dials.load(Ordering::SeqCst), 1, "간격 안에 다시 걸었다");
+    stop.cancel();
+    h.await.unwrap();
+}
+
+/// 연결이 있으면 ping 주기마다 상대에게 무엇이라도 간다 (PERF M4 D4).
+#[tokio::test(start_paused = true)]
+async fn mesh_pings_only_while_linked() {
+    let a = new_test_mesh("a");
+    let b = new_test_mesh("b");
+    let t0 = OffsetDateTime::now_utc();
+    *b.hooks.clock.lock().unwrap() = Some(t0);
+    a.set_edges(vec![edge_to(&b.fp(), "", 0)]);
+    let _kill = connect(&a, &b);
+    let (stop, h) = spawn_run(&a);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let later = t0 + time::Duration::seconds(100);
+    *b.hooks.clock.lock().unwrap() = Some(later);
+    let every = a.inner.lock().ping_every;
+    tokio::time::sleep(every + Duration::from_millis(100)).await;
+    let want = i64::try_from(later.unix_timestamp_nanos()).unwrap();
+    assert_eq!(
+        b.last_seen(&a.fp()),
+        Some(want),
+        "연결이 있는데 ping 이 가지 않았다"
+    );
+    stop.cancel();
+    h.await.unwrap();
+}

@@ -2,9 +2,8 @@
 //!
 //! 커맨드 브로드캐스트(SSE)·포커스·응답 좌석·주의 추적기·git 관측 허브다.
 //!
-//! Go 와 다른 내부 결정: Go `toolhub.ToolHub` 중 이 crate 가 부르는 부분은 소비자 쪽
-//! trait([`ForegroundSource`])로 둔다. 틱·정지는 `mpsc::Receiver<()>`·`CancellationToken` 이다.
-//! 동기 RPC(busy·live 확인, list)는 `spawn_blocking` 안에서 부른다.
+//! Go 와 다른 내부 결정: 정지는 `CancellationToken` 이다. 동기 RPC(busy·live 확인)는
+//! `spawn_blocking` 안에서 부른다.
 
 mod attn;
 mod commands;
@@ -16,18 +15,14 @@ mod replyseat;
 
 use std::sync::{Mutex, MutexGuard};
 
-pub use attn::{
-    AttnTracker, BusyManyProbe, Clock, LiveProbe, OnChange, SWEEPER_INTERVAL, default_idle_ms,
-};
+pub use attn::{AttnTracker, BusyManyProbe, Clock, LiveProbe, OnChange, default_idle_ms};
 pub use commands::{
     BroadcastTap, CMD_SUB_QUEUE, CmdPosition, CmdResult, CmdSub, CommandBroker, CommandHub,
     SUB_CAP, TabRef, allowed_cmd_action_names, awaits_result, command_result_timeout,
     is_allowed_cmd_action, is_creating_action, is_single_executor_action, new_req_id,
 };
 pub use focus::FocusRegistry;
-pub use foreground::{
-    FOREGROUND_INTERVAL, ForegroundSource, broadcast_foreground, start_foreground_poll, ticker,
-};
+pub use foreground::broadcast_foreground;
 pub use gitwatch::{
     AfterFn, GIT_KICK_COOLDOWN, GIT_KICK_DEBOUNCE, GIT_WATCH_BACKOFF_MAX, GIT_WATCH_CAP,
     GIT_WATCH_FALLBACK_EVERY, GIT_WATCH_FALLBACK_ROUNDS, GIT_WATCH_INTERVAL, GIT_WATCH_PARALLEL,

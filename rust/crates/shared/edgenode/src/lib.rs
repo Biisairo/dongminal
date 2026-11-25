@@ -163,7 +163,7 @@ impl Node {
             Box::new(move || n())
         };
         let with_mesh = o.mesh;
-        Ok(Arc::new_cyclic(|weak: &Weak<Node>| Node {
+        let node = Arc::new_cyclic(|weak: &Weak<Node>| Node {
             pairing: Pairing::new(clock(&now)),
             limiter: RateLimiter::new(clock(&now)),
             mesh: with_mesh.then(|| mesh::new_mesh(weak.clone(), id.clone(), now.clone())),
@@ -174,7 +174,12 @@ impl Node {
             client,
             mu: tokio::sync::Mutex::new(()),
             inv: Mutex::default(),
-        }))
+        });
+        // PERF M4 D4: 간선 계층은 주기로 간선을 다시 읽지 않는다 — 간선이 바뀌면 깨운다.
+        if let Some(m) = node.mesh.clone() {
+            node.store.on_change(Arc::new(move || m.edges_changed()));
+        }
+        Ok(node)
     }
 
     pub fn identity(&self) -> &Identity {

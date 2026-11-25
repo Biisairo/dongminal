@@ -627,24 +627,3 @@ fn mirror_apply_attn_by_kind() {
     assert_eq!(tr.last_output_at("t1"), 500);
     assert_eq!(count(&fb, r#""reason":"signaled""#), 1);
 }
-
-#[tokio::test]
-async fn sweeper_runs_on_injected_tick_and_stops() {
-    let (tr, fb) = firing(1000);
-    tr.set_clock_for_testing(clock(0));
-    start_stale_work(&tr, "agent");
-    tr.feed_output("agent", b"x");
-    tr.set_clock_for_testing(clock(2_000 * MS));
-    let stop = tokio_util::sync::CancellationToken::new();
-    let (tx, rx) = tokio::sync::mpsc::channel(1);
-    tr.start_sweeper(stop.clone(), rx);
-    tx.send(()).await.unwrap();
-    for _ in 0..200 {
-        if fired(&fb, "agent", "idle") == 1 {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(5)).await;
-    }
-    assert_eq!(fired(&fb, "agent", "idle"), 1);
-    stop.cancel();
-}

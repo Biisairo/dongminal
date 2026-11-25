@@ -11,7 +11,7 @@ mod signals;
 use std::fmt;
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, OnceLock, Weak};
 use std::time::Duration;
 
 use otter_ctl_cli::{ServeTarget, VERSION};
@@ -29,7 +29,6 @@ use otter_webserver_httpapi::{Config, Server, WebAssets};
 use otter_webserver_hub as hub;
 use otter_webserver_recordsync::Writer;
 use otter_webserver_toolclient::ToolClient;
-use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use crate::daemon::{DaemonUnavailable, dial_or_start_daemon};
@@ -89,6 +88,8 @@ pub(crate) struct App {
     cancel_git: Option<CancelFn>,
     /// 에이전트 기록을 데몬에 쓰는 큐다 (FR-ARD-11).
     records: Option<Arc<Writer>>,
+    /// 서버보다 먼저 거는 push 콜백이 서버를 찾는 자리다. 서버가 서면 채운다.
+    late_srv: Arc<OnceLock<Weak<Server>>>,
 }
 
 /// `start --foreground` 의 실체다 (FR-FG-1). 배경 모드는 자기 자신을 이 형태로 재실행한다.
@@ -292,6 +293,7 @@ pub(crate) fn build_app(
 
     let srv = Server::new(cfg, a.bd.deps.clone());
     let _ = srv_cell.set(Arc::downgrade(&srv));
+    let _ = a.late_srv.set(Arc::downgrade(&srv));
     // Go `New` 는 주입된 Commands 가 *CommandHub 이면 스스로 Telegram 관찰자를 단다. Rust 는 허브를
     // 내려 볼 수 없어 합성 루트가 단다.
     if let Some(h) = &a.bd.cmd_hub {
@@ -343,13 +345,19 @@ impl App {
         // FR-ATL-3: 활동만 내리고 주의를 남기면 죽은 도구의 알람이 배지에 남는다. 두 레이어를 같은
         // 콜백에서 정리한다. UX_BATCH6_SRS FR-BGP-1·2: 백그라운드였는지 가리지 않고 "다시 물어라" 를
         // 방송한다 — 그 사실을 아는 데몬의 레지스트리는 여기 닿을 때 이미 지워졌다.
+        // PERF M4 S7: 조정자 도구가 끝났을 수 있으니 Run 수거를 깨운다. 재접속 뒤 놓친 종료도 이
+        // 콜백으로 온다.
         let exit = Arc::clone(tr);
         let commands = self.bd.deps.commands.clone();
+        let late = Arc::clone(&self.late_srv);
         c.set_on_exit(Some(Arc::new(move |id: &str, _info: ExitInfo| {
             exit.set_activity(id, activity::ENDED, "", "");
             exit.forget(id);
             if let Some(c) = &commands {
                 c.broadcast(&hub::background_changed_payload());
+            }
+            if let Some(s) = late.get().and_then(Weak::upgrade) {
+                s.kick_run_reap();
             }
         })));
         // FR-TAN-7: PTY 를 데몬이 들고 있으므로 전경 이름은 IPC push 로 온다.
@@ -389,10 +397,11 @@ impl App {
             sync_attn_config(&*c);
             s.sync_screen_config();
             sync_records(&*c, &w, &*s);
+            s.kick_run_reap();
         })));
     }
 
-    /// 기동이다 — 스위퍼·폴·감시·리퍼를 ctx 에 묶어 띄우고 HTTP 서버를 돌린다. ctx 가 끝나면 서버가
+    /// 기동이다 — 감시·리퍼를 ctx 에 묶어 띄우고 HTTP 서버를 돌린다. ctx 가 끝나면 서버가
     /// 멈추고 돌아온다. 종료는 [`App::shutdown`] 의 일이다.
     pub(crate) async fn run(&self, ctx: CancellationToken) -> std::io::Result<()> {
         let Some(srv) = self.srv.clone() else {
@@ -410,31 +419,10 @@ impl App {
         if let Some(w) = &self.records {
             w.start(ctx.clone());
         }
-        if let Some(tr) = &self.bd.attn_tracker {
-            tr.start_sweeper(ctx.clone(), ticker(hub::SWEEPER_INTERVAL, ctx.clone()));
-        }
-        if let Some(sampler) = &self.bd.sampler {
-            let stopper = sampler.start();
-            let ctx = ctx.clone();
-            tokio::spawn(async move {
-                ctx.cancelled().await;
-                stopper.stop();
-            });
-        }
-        // FR-TAN-8: 전경 조회는 데몬이 스스로 돌리므로 틱을 흘려보낸다 — 전경 티커가 없는 옛 데몬에만
-        // list RPC 로 조회를 시킨다 (FR-OPT-2-1).
-        let fg: Option<Arc<dyn hub::ForegroundSource>> = self
-            .client
-            .clone()
-            .map(|c| Arc::new(adapters::Hub(c)) as Arc<dyn hub::ForegroundSource>);
-        hub::start_foreground_poll(
-            fg,
-            ctx.clone(),
-            ticker(hub::FOREGROUND_INTERVAL, ctx.clone()),
-        );
         // GIT_PUSH_OBSERVE_SRS FR-GPO-1·13: 저장소 signature 가 바뀌었을 때만 알린다.
         srv.start_git_watch(ctx.clone());
-        // UX_REVISION_SRS FR-DEL-14/18: 끝난 Run 과 조정자를 잃은 Run 을 거둔다.
+        // UX_REVISION_SRS FR-DEL-14/18: 끝난 Run 과 조정자를 잃은 Run 을 거둔다. 기동 때 한 번, 그 뒤
+        // 도구 종료·Run 닫기·데몬 재접속 때만 돈다 (PERF M4 S7).
         srv.start_run_reaper(ctx.clone());
         // ACCESS_ALLOWLIST_SRS FR-ACL-5a·15: 허용 목록의 해석과 인터페이스 주소를 주기적으로 갱신한다.
         srv.start_access_refresh(ctx.clone());
@@ -602,23 +590,6 @@ fn drain_git() -> bool {
             .map(|rt| rt.block_on(wait))
             .unwrap_or(true),
     }
-}
-
-/// `every` 마다 틱을 하나 낸다. 받는 쪽이 밀려 있으면 그 틱은 버린다(Go `time.Ticker`). `stop` 이
-/// 끝나면 멈춘다.
-fn ticker(every: Duration, stop: CancellationToken) -> mpsc::Receiver<()> {
-    let (tx, rx) = mpsc::channel(1);
-    tokio::spawn(async move {
-        let mut iv = tokio::time::interval_at(tokio::time::Instant::now() + every, every);
-        iv.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        loop {
-            tokio::select! {
-                _ = iv.tick() => { let _ = tx.try_send(()); }
-                _ = stop.cancelled() => return,
-            }
-        }
-    });
-    rx
 }
 
 /// 노드 포트를 ctx 가 끝나거나 돌려준 future 를 기다리면 닫히게 띄운다. 돌려준 future 는 닫기가

@@ -20,6 +20,7 @@
 //! | `LOG_CHECK_EVERY` | 60초 | `ctl/cli` 로그 크기 확인 | S11 |
 //! | `HUMANCMD_HELPER_EVERY` | 30초 | `daemon/boot` 사람 명령 도우미 확인 | D5 |
 //! | `UPDATE_CHECK_EVERY` | 24시간 | `shared/updatecheck` 판 확인 트리거 ③ | S14 |
+//! | `MESH_PING_EVERY` | 15초 | `shared/edgemesh` 간선 ping, 연결이 있을 때만 | D4 |
 //!
 //! 등록부 밖에 남는 주기와 그 이유:
 //!
@@ -32,19 +33,7 @@
 //!
 //! ## 2. 사건 기반으로 바뀔 주기 (설계 §1, 4.6~4.11)
 //!
-//! 지금은 주기로 돈다. 표의 단계가 사건 기반으로 바꾸면서 상수를 지우거나 고친다.
-//!
-//! | 상수 | 값 | 쓰는 곳 | 설계 · 단계 |
-//! |---|---|---|---|
-//! | `FOREGROUND_REFRESH_EVERY` | 2초 | `shared/toolhub` 전경 이름 재조회, `webserver/hub` 서버 전경 poll | D1 · S5, 4.6 · 4.8 |
-//! | `ATTENTION_SWEEP_EVERY` | 1초 | `shared/toolhub` 데몬 유휴 판정 | D2, 4.8 |
-//! | `SERVER_ATTN_SWEEP_EVERY` | 1초 | `webserver/hub` 서버 L2 스위퍼 틱 | S4, 4.8 |
-//! | `SYSSTAT_SAMPLE_EVERY` | 2초 | `webserver/domain/sysstat` 샘플러 | S2, 4.10 |
-//! | `RUN_REAP_EVERY` | 15초 | `webserver/httpapi` Run 자동 수거 | S7, 4.11 |
-//! | `LSP_SWEEP_EVERY` | 2분 | `webserver/domain/lsp` 유휴 세션 정리 | S9, 4.11 |
-//! | `MESH_REDIAL_MIN` | 1초 | `shared/edgemesh` 다시 걸기 간격의 처음 | D4, 4.11 |
-//! | `MESH_REDIAL_MAX` | 60초 | `shared/edgemesh` 다시 걸기 간격의 끝 | D4, 4.11 |
-//! | `MESH_PING_EVERY` | 15초 | `shared/edgemesh` 간선 ping | D4, 4.11 |
+//! 비었다 — 4.6·4.8·4.9·4.10·4.11 이 모두 사건 기반으로 바꿨다. 남은 시간 값은 §3 에 있다.
 //!
 //! ## 3. 사건 기반 작업의 시간 값 (설계 §1·§3)
 //!
@@ -52,11 +41,18 @@
 //!
 //! | 상수 | 값 | 쓰는 곳 | 설계 · 단계 |
 //! |---|---|---|---|
+//! | `MESH_REDIAL_MIN` | 1초 | `shared/edgemesh` 다시 걸기 간격의 처음 | D4, 4.11 |
+//! | `MESH_REDIAL_MAX` | 60초 | `shared/edgemesh` 다시 걸기 간격의 끝 | D4, 4.11 |
+//! | `FOREGROUND_SETTLE` | 2초 | `shared/toolhub` 전경 이름 정착 창 | D1, 4.6 |
+//! | `SYSSTAT_SAMPLE_EVERY` | 2초 | `webserver/domain/sysstat` 샘플러(`stats:*` 구독 동안만) | S2, 4.10 |
+//! | `SYSSTAT_WARMUP_GAP` | 250밀리초 | `webserver/domain/sysstat` 구독 시작 때 예열 표본 둘의 간격 | S2, 4.10 |
 //! | `GIT_WATCH_ROUND_EVERY` | 1초 | `webserver/hub` git 감시 회차(감시 대상이 있을 때만) | S1, 4.9 |
 //! | `GIT_WATCH_FALLBACK_EVERY` | 4초 | `webserver/hub` 파일 감시 실패·넘침 뒤 워크트리 status 간격 | S1 Q4·Q5, 4.9 |
 //! | `GIT_WATCH_BACKOFF_MAX` | 30초 | `webserver/hub` 관측 실패 뒤 건너뛰기 상한 | S1, 4.9 |
 //!
-//! 넣을 값: 전경 이름의 정착 창(D1, 4.6, 기본 2초), sysstat 예열 표본 간격(S2, 4.10).
+//! 4.11 이 사건 기반으로 바꿔 지운 주기: Run 수거 15초(S7 — 도구 종료·Run 닫기·데몬 재접속 때만),
+//! LSP 유휴 정리 2분(S9 — 세션이 있을 때 `min(last_use) + IDLE_AFTER` 마감에만, 그 값은
+//! `webserver/domain/lsp` 의 `IDLE_AFTER`).
 
 use std::time::Duration;
 
@@ -79,32 +75,26 @@ pub const LOG_CHECK_EVERY: Duration = Duration::from_secs(60);
 pub const HUMANCMD_HELPER_EVERY: Duration = Duration::from_secs(30);
 /// 최신 판 확인 트리거 ③ 의 주기다 (FR-UPD-2). 보조 트리거다 — 오래 켜 둔 서버도 새 판을 안다.
 pub const UPDATE_CHECK_EVERY: Duration = Duration::from_secs(24 * 60 * 60);
+/// 간선 연결에 ping 을 보내는 주기다 (FR-EGM-3). 조용한 간선이 끊긴 것을 알아채려면 무엇이라도
+/// 오가야 한다. 연결이 하나도 없으면 돌지 않는다 (D4).
+pub const MESH_PING_EVERY: Duration = Duration::from_secs(15);
 
-// ── 2. 사건 기반으로 바뀔 주기 (4.6~4.11) ──
+// ── 3. 사건 기반 작업의 시간 값 (4.6·4.9·4.10·4.11) ──
 
-/// 도구별 전경 이름을 다시 조회하는 주기다 (FR-TAN-8). 서버의 전경 poll 도 같은 값을 쓴다.
-/// 4.6 이 PTY 입출력 뒤 정착 창으로, 4.8 이 서버 poll 제거로 바꾼다.
-pub const FOREGROUND_REFRESH_EVERY: Duration = Duration::from_secs(2);
-/// 데몬의 L2 유휴 판정 sweeper 주기다. 4.8 이 `last_output_at + 임계` 마감으로 바꾼다.
-pub const ATTENTION_SWEEP_EVERY: Duration = Duration::from_secs(1);
-/// 서버 L2 스위퍼에 주는 틱의 주기다. 4.8 이 지운다(임계 0 이면 빈 틱).
-pub const SERVER_ATTN_SWEEP_EVERY: Duration = Duration::from_secs(1);
-/// 시스템 통계 샘플 주기다 (SYSTEM_STATS_SRS D-3). 4.10 이 `stats:*` 구독 동안만 돌게 바꾼다.
-pub const SYSSTAT_SAMPLE_EVERY: Duration = Duration::from_secs(2);
-/// Run 자동 수거의 주기다 (FR-ARD-5). 4.11 이 도구 종료·Run 상태 변화 사건으로 바꾼다.
-pub const RUN_REAP_EVERY: Duration = Duration::from_secs(15);
-/// LSP 유휴 세션 정리의 주기다. 4.11 이 세션이 있을 때만 `min(last_use) + IDLE_AFTER` 마감으로 바꾼다.
-pub const LSP_SWEEP_EVERY: Duration = Duration::from_secs(2 * 60);
-/// 간선 다시 걸기 간격의 처음이다 (FR-EGM-3). 실패마다 두 배로 늘어 `MESH_REDIAL_MAX` 에서 멈춘다.
+/// 간선 다시 걸기 간격의 처음이다 (FR-EGM-3). 걸기에 실패한 간선만 이 간격 뒤에 다시 건다 — 간선이
+/// 없거나 모두 이어져 있으면 깨어나지 않는다 (D4). 실패마다 두 배로 늘어 `MESH_REDIAL_MAX` 에서 멈춘다.
 pub const MESH_REDIAL_MIN: Duration = Duration::from_secs(1);
 /// 간선 다시 걸기 간격의 끝이다 (FR-EGM-3).
 pub const MESH_REDIAL_MAX: Duration = Duration::from_secs(60);
-/// 간선 연결에 ping 을 보내는 주기다. 조용한 간선이 끊긴 것을 알아채려면 무엇이라도 오가야 한다.
-/// 4.11 이 연결이 있을 때만 돌게 바꾼다.
-pub const MESH_PING_EVERY: Duration = Duration::from_secs(15);
-
-// ── 3. 사건 기반 작업의 시간 값 (4.6·4.9·4.10 이 더한다) ──
-
+/// 전경 이름의 정착 창이다 (D1, FR-TAN-7·8). 도구에 PTY 입출력이 있으면 그 뒤 이만큼 지나 전경을
+/// 한 번 조회한다. 입출력이 없으면 조회하지 않는다. 계속 출력해도 창 하나에 한 번이다.
+pub const FOREGROUND_SETTLE: Duration = Duration::from_secs(2);
+/// 시스템 통계 샘플 주기다 (SYSTEM_STATS_SRS D-3). `stats:*` 구독이 있는 동안만 돈다 (PERF D-61).
+/// CPU·메모리는 사건 없이 바뀌므로 보는 사람이 있는 동안은 시간 축으로 잰다.
+pub const SYSSTAT_SAMPLE_EVERY: Duration = Duration::from_secs(2);
+/// 구독이 시작될 때 예열 표본 둘 사이의 간격이다 (PERF 4.10). CPU% 는 tick 차분이라 표본이 둘
+/// 있어야 나온다 — 첫 프레임이 이만큼만 기다리면 CPU 를 싣는다. 100Hz tick 이면 코어당 25 tick 이다.
+pub const SYSSTAT_WARMUP_GAP: Duration = Duration::from_millis(250);
 /// git 감시 회차의 주기다 (FR-GPO-2). 감시 대상(관심 표명·토픽 임대)이 있을 때만 돈다. 회차는
 /// git 을 띄우지 않고 signature(파일 stat)만 본다 — `.git` 아래 변화(커밋·체크아웃·스테이지)를
 /// 알아채는 자리다. 대상이 0 이면 멈춘다 (D-61).

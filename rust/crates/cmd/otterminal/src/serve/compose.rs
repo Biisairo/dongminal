@@ -33,7 +33,6 @@ pub(crate) struct BuiltDeps {
     /// 주입한 명령 허브다. Telegram 관찰자를 다는 데 구체 타입이 필요하다.
     pub(crate) cmd_hub: Option<Arc<CommandHub>>,
     pub(crate) attn_tracker: Option<Arc<AttnTracker>>,
-    pub(crate) sampler: Option<Arc<Sampler>>,
     pub(crate) ws_mgr: Option<Arc<Manager>>,
     /// 언어 서버들의 수명을 소유한다. `deps.lsp` 로는 스위퍼·정지를 부를 수 없다 (EDITOR_LSP_SRS D-4).
     pub(crate) lsp_svc: Option<Arc<lsp::Service>>,
@@ -179,7 +178,7 @@ pub(crate) fn build_common_deps(
     let (pa, resolver) = new_tool_adapters(Arc::new(hub.clone()));
     let runs = new_run_store(cfg);
     let git = new_git_deps(cfg, git_ctx);
-    // 상태바 지표 샘플러. 요청 경로에서 커널을 부르지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
+    // 상태바 지표 샘플러. `stats:*` 구독이 있는 동안만 돈다 (SYSTEM_STATS_SRS FR-STAT-8·11, PERF D-61).
     let sampler = Arc::new(Sampler::new(
         sysstat::new_reader(),
         sysstat::DEFAULT_INTERVAL,
@@ -214,7 +213,7 @@ pub(crate) fn build_common_deps(
         who_am_i: Some(Arc::new(resolver)),
         tool_io: Some(Arc::new(pa)),
         work_index: Some(Arc::new(adapters::Workspace { ws: ws.clone() })),
-        stats: Some(Arc::new(Stats(sampler.clone()))),
+        stats: Some(Arc::new(Stats(sampler))),
         runs: Some(runs),
         worktrees: Some(git.worktrees),
         user_worktrees: Some(git.user_worktrees),
@@ -231,7 +230,6 @@ pub(crate) fn build_common_deps(
         deps,
         cmd_hub: Some(cmd_hub),
         attn_tracker: Some(attn),
-        sampler: Some(sampler),
         ws_mgr: Some(ws),
         lsp_svc: Some(lsp_svc),
         sandbox: None,
