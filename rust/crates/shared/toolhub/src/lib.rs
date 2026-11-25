@@ -29,10 +29,9 @@ pub use hub::{
     ToolSnapshot,
 };
 pub use manager::{
-    DEFAULT_COLS, DEFAULT_ROWS, FOREGROUND_REFRESH_INTERVAL, ForegroundFn, ForegroundProbeFn,
-    HandoverTool, InvalidatorFn, MAX_TERMINAL_DIM, ManagerError, OwnedFn, PASTE_SUBMIT_DELAY,
-    Placement, PlacerFn, StartFn, StartReq, TOOL_CAP, ToolManager, ToolState, parse_size,
-    wrap_paste,
+    DEFAULT_COLS, DEFAULT_ROWS, ForegroundFn, ForegroundProbeFn, HandoverTool, InvalidatorFn,
+    MAX_TERMINAL_DIM, ManagerError, OwnedFn, PASTE_SUBMIT_DELAY, Placement, PlacerFn, StartFn,
+    StartReq, TOOL_CAP, ToolManager, ToolState, parse_size, wrap_paste,
 };
 pub use otter_shared_termstate::HISTORY_CAP;
 pub use records::{AgentState, ExitInfo};

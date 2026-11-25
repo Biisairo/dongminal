@@ -36,7 +36,6 @@
 //!
 //! | 상수 | 값 | 쓰는 곳 | 설계 · 단계 |
 //! |---|---|---|---|
-//! | `FOREGROUND_REFRESH_EVERY` | 2초 | `shared/toolhub` 전경 이름 재조회 | D1, 4.6 |
 //! | `GIT_WATCH_ROUND_EVERY` | 1초 | `webserver/hub` git 감시 회차 | S1, 4.9 |
 //! | `GIT_WATCH_WORKTREE_ROUNDS` | 4회차 | `webserver/hub` 워크트리 회차 간격 | S1, 4.9 |
 //! | `GIT_WATCH_BACKOFF_MAX` | 30초 | `webserver/hub` 관측 실패 뒤 건너뛰기 상한 | S1, 4.9 |
@@ -52,11 +51,11 @@
 //!
 //! | 상수 | 값 | 쓰는 곳 | 설계 · 단계 |
 //! |---|---|---|---|
+//! | `FOREGROUND_SETTLE` | 2초 | `shared/toolhub` 전경 이름 정착 창 | D1, 4.6 |
 //! | `SYSSTAT_SAMPLE_EVERY` | 2초 | `webserver/domain/sysstat` 샘플러(`stats:*` 구독 동안만) | S2, 4.10 |
 //! | `SYSSTAT_WARMUP_GAP` | 250밀리초 | `webserver/domain/sysstat` 구독 시작 때 예열 표본 둘의 간격 | S2, 4.10 |
 //!
-//! 넣을 값: 전경 이름의 정착 창(D1, 4.6, 기본 2초),
-//! git 감시 실패·넘침 뒤 회차로 물러서는 간격(S1, 4.9).
+//! 넣을 값: git 감시 실패·넘침 뒤 회차로 물러서는 간격(S1, 4.9).
 
 use std::time::Duration;
 
@@ -82,8 +81,6 @@ pub const UPDATE_CHECK_EVERY: Duration = Duration::from_secs(24 * 60 * 60);
 
 // ── 2. 사건 기반으로 바뀔 주기 (4.6~4.11) ──
 
-/// 도구별 전경 이름을 다시 조회하는 주기다 (FR-TAN-8). 4.6 이 PTY 입출력 뒤 정착 창으로 바꾼다.
-pub const FOREGROUND_REFRESH_EVERY: Duration = Duration::from_secs(2);
 /// git 감시 회차의 주기다 (FR-GPO-2). 4.9 가 대상 0 정지와 파일 감시로 바꾼다.
 pub const GIT_WATCH_ROUND_EVERY: Duration = Duration::from_secs(1);
 /// 워크트리 `git status` 를 도는 회차 간격(회차 수)이다 (FR-GDT-3). 4.9 가 파일 감시 사건으로 바꾼다.
@@ -105,6 +102,9 @@ pub const MESH_PING_EVERY: Duration = Duration::from_secs(15);
 
 // ── 3. 사건 기반 작업의 시간 값 (4.6·4.9·4.10 이 더한다) ──
 
+/// 전경 이름의 정착 창이다 (D1, FR-TAN-7·8). 도구에 PTY 입출력이 있으면 그 뒤 이만큼 지나 전경을
+/// 한 번 조회한다. 입출력이 없으면 조회하지 않는다. 계속 출력해도 창 하나에 한 번이다.
+pub const FOREGROUND_SETTLE: Duration = Duration::from_secs(2);
 /// 시스템 통계 샘플 주기다 (SYSTEM_STATS_SRS D-3). `stats:*` 구독이 있는 동안만 돈다 (PERF D-61).
 /// CPU·메모리는 사건 없이 바뀌므로 보는 사람이 있는 동안은 시간 축으로 잰다.
 pub const SYSSTAT_SAMPLE_EVERY: Duration = Duration::from_secs(2);
