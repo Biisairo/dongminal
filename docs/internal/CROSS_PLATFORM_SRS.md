@@ -308,9 +308,20 @@ type ProcInfo interface {
 - `ListenerPIDs` — `/proc/net/tcp`·`tcp6` 의 `st=0A`(LISTEN) 항목에서 inode 를 모으고,
   `/proc/*/fd/*` 의 `socket:[inode]` 로 역인덱싱
 
-**FR-XPI-3** darwin 어댑터는 현행 동작을 유지한다 (`pgrep -P`, `ps -o pid=,comm= -p`,
-`lsof`). darwin 에는 `/proc` 이 없고 대체 경로는 `libproc` cgo 이므로, cgo 를 늘리지
-않는다는 기존 결정(SYSTEM_STATS_SRS D-5)을 따른다.
+**FR-XPI-3** darwin 어댑터는 프로세스 표를 커널에서 직접 읽고 **외부 프로세스를 띄우지 않는다**
+(PERF_OPTIMIZATION_SRS D-60, 2026-11-25 개정). Rust 포팅에는 cgo 가 없으므로 `libc` FFI 로 읽는다.
+- `HasChildren` / `ChildrenOf` — `proc_listchildpids`. 자기 자신을 부모로 적은 항목은 세지 않는다.
+- `CWD` / `CWDs` — `proc_pidinfo(PROC_PIDVNODEPATHINFO)` 의 `pvi_cdir`.
+- `Names` — `sysctl(KERN_PROCARGS2)` 의 argv[0](이전 `ps -o comm=` 과 같은 값). 읽지 못하면
+  `proc_pidinfo(PROC_PIDT_SHORTBSDINFO)` 의 `pbsi_comm`(16바이트)으로 물러선다. 좀비는 이름이 없다.
+- `ParentPID` / `Parents` — `proc_pidinfo(PROC_PIDT_SHORTBSDINFO)` 의 `pbsi_ppid`, 전체 목록은
+  `proc_listallpids`.
+- `ListenerPIDs`·`ConnectionOwnerPID` 만 `lsof` 를 띄운다. 둘 다 요청이 있을 때만 불리고 주기 작업이
+  부르지 않는다.
+- FFI 호출은 버퍼 크기와 반환값을 검사하고, 반환 크기가 구조체 크기와 다르면 "모름" 이다.
+
+이전에는 `pgrep -P`·`ps`·`lsof` 를 띄웠다. 데몬의 주기 작업(전경 이름 2초)이 유휴에도 외부
+프로세스를 만들어 FR-SRV-3·NFR-PRF-5 를 어겼으므로 바꾼다.
 
 **FR-XPI-4** Windows 어댑터는 외부 프로세스를 띄우지 않는다.
 - `HasChildren` / `Names` — `CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS)` 1회 순회.
@@ -666,7 +677,7 @@ job). 신설만으로는 강제가 되지 않는다 — 두 스크립트가 있�
 | FR-XPL-1~4 | `platform` 패키지 단위테스트 — `Current()` 가 모든 필드를 채우는지, 두 번 불러도 같은 값인지 |
 | FR-XPL-5 | `scripts/check-seams.sh` (FR-XBD-3) |
 | FR-XPR-1~5 | POSIX: 실제 프로세스를 띄워 `Terminate`/`Kill`/`Alive`/`Group` 검증. `NewGroup` 은 손자 프로세스가 함께 죽는지까지 확인 |
-| FR-XPI-1~6 | Linux: `/proc` 파싱을 **고정된 픽스처 문자열**로 검증(파서 순수 함수 분리). 통합: 자기 자신의 pid 로 `CWD`·`Names` 확인, 임시 리스너를 띄워 `ListenerPIDs` 확인 |
+| FR-XPI-1~6 | Linux: `/proc` 파싱을 **고정된 픽스처 문자열**로 검증(파서 순수 함수 분리). darwin: 가짜 커널을 주입해 실행기 호출 0 을 확인하고, 실제 libproc 값을 `ps`·`getppid`·현재 디렉터리와 대조. 통합: 자기 자신의 pid 로 `CWD`·`Names` 확인, 임시 리스너를 띄워 `ListenerPIDs` 확인 |
 | FR-XPT-1~4 | POSIX: `PTY.Start("/bin/sh")` → 명령 왕복 → `Resize` 반영 → `Kill` → `Wait`. `toolhub` 기존 테스트 전량이 회귀 게이트다 |
 | FR-XPT-5,6 | Windows 실기 필요 (§8 R-1). 이 트랙은 컴파일·`vet` 까지 |
 | FR-XSH-1~6 | `ShellSpec` 조립을 순수 함수로 분리해 픽스처 검증. POSIX 어댑터가 현행과 같은 Path/Args/Env 를 내는지 골든 비교 |
@@ -714,7 +725,8 @@ scripts/verify-isolated.sh    # 격리 인스턴스 종단간 (otterminal verify
 5. **`cmd.exe` 용 훅** — PowerShell 이 없는 Windows 는 실질적으로 존재하지 않는다.
    `cmd.exe` 는 최후 폴백이며 훅 없이 동작한다 (FR-XSH-3).
 6. **ARM64 Windows** — 빌드 대상에 넣지 않는다 (FR-XBD-1).
-7. **darwin 의 `/proc` 대체(libproc cgo)** — FR-XPI-3, cgo 를 늘리지 않는다.
+7. ~~**darwin 의 `/proc` 대체(libproc cgo)**~~ — 2026-11-25 비목표에서 뺐다. darwin 도 libproc 로
+   읽는다 (FR-XPI-3, PERF_OPTIMIZATION_SRS D-60).
 
 ---
 
