@@ -58,6 +58,10 @@ pub(crate) struct RunAux {
     recover_held: RecoverHolds,
     /// 이미 보낸 컨텍스트 통지 (FR-CBG-7). 서버 수명이다.
     pub(crate) context_notices: ContextNoticeLog,
+    /// Run 수거를 깨우는 신호다 — 도구 종료·Run 상태 변화·데몬 재연결 (PERF M4 S7).
+    pub(crate) reap_kick: tokio::sync::Notify,
+    /// 수거가 돈 횟수다 (시험용 깨어남 카운터).
+    pub(crate) reaps: std::sync::atomic::AtomicU64,
 }
 
 /// Go `recoverHolds`.
