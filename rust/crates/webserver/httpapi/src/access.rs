@@ -19,8 +19,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::netx::{self, Addr, Prefix};
 
-/// 호스트명 항목을 다시 해석하는 주기다 (FR-ACL-5).
-pub const DEFAULT_ACCESS_REFRESH: Duration = Duration::from_secs(60);
+pub use otter_shared_cadence::ACCESS_REFRESH_EVERY as DEFAULT_ACCESS_REFRESH;
 
 /// 호스트명 하나를 해석하는 시한이다. 시한 해석은 [`timed_lookup`] 이 한다.
 pub(crate) const ACCESS_LOOKUP_TIMEOUT: Duration = Duration::from_secs(3);

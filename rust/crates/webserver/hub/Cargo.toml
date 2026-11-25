@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 otter-shared-activity = { path = "../../shared/activity" }
+otter-shared-cadence = { path = "../../shared/cadence" }
 otter-shared-otterenv = { path = "../../shared/otterenv" }
 otter-shared-otterlog = { path = "../../shared/otterlog" }
 otter-shared-fanout = { path = "../../shared/fanout" }

@@ -18,10 +18,8 @@ use otter_webserver_domain_git_store::{Observation, Store};
 pub use kick::{GIT_KICK_COOLDOWN, GIT_KICK_DEBOUNCE};
 pub use round::start_git_watch;
 
-/// 감시 회차의 주기다 (FR-GPO-2).
-pub const GIT_WATCH_INTERVAL: Duration = Duration::from_millis(1000);
-/// 워크트리 회차의 간격(회차 수)이다 (FR-GDT-3).
-pub const GIT_WATCH_WORKTREE_EVERY: u64 = 4;
+pub use otter_shared_cadence::GIT_WATCH_ROUND_EVERY as GIT_WATCH_INTERVAL;
+pub use otter_shared_cadence::GIT_WATCH_WORKTREE_ROUNDS as GIT_WATCH_WORKTREE_EVERY;
 /// 회차 하나의 시한이다 (FR-GDT-9, D-GDT-7).
 pub const GIT_WATCH_ROUND_TIMEOUT: Duration = Duration::from_secs(20);
 /// 한 회차에서 동시에 도는 관측 수의 상한이다 (FR-GDT-8).
@@ -30,8 +28,7 @@ pub const GIT_WATCH_PARALLEL: usize = 4;
 pub const GIT_WATCH_TTL: Duration = Duration::from_secs(90);
 /// 동시에 감시하는 저장소 수의 상한이다 (FR-GPO-12).
 pub const GIT_WATCH_CAP: usize = 16;
-/// 일시적 관측 실패 뒤 건너뛰는 시간의 상한이다 (min(2^(n-1), 30)s).
-pub const GIT_WATCH_BACKOFF_MAX: Duration = Duration::from_secs(30);
+pub use otter_shared_cadence::GIT_WATCH_BACKOFF_MAX;
 
 /// 감시자가 필요로 하는 것 전부다. `Arc<Store>` 가 이것을 만족한다.
 pub trait GitObserver: Send + Sync {

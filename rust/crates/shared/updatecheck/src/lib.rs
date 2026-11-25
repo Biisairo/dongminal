@@ -12,8 +12,7 @@ use serde::{Deserialize, Serialize};
 use tokio::runtime::Handle;
 use tokio::task::AbortHandle;
 
-/// 트리거 ③ 의 주기다 (FR-UPD-2). 보조다.
-pub const DEFAULT_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
+pub use otter_shared_cadence::UPDATE_CHECK_EVERY as DEFAULT_INTERVAL;
 
 /// 지금 캐시에 든 것 전부다. 화면은 이 값만 보고 배지를 정한다.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]

@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering::SeqCst};
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use otter_shared_activity as activity;
 use otter_shared_toolhub::{
@@ -31,8 +31,7 @@ pub type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 pub type OnChange = Arc<dyn Fn(&str, AgentState) + Send + Sync>;
 type MirrorFn = Arc<dyn Fn() -> bool + Send + Sync>;
 
-/// 스위퍼에 주는 틱의 주기다.
-pub const SWEEPER_INTERVAL: Duration = Duration::from_secs(1);
+pub use otter_shared_cadence::SERVER_ATTN_SWEEP_EVERY as SWEEPER_INTERVAL;
 
 /// L2 유휴 임계(ms)다. `OTTERMINAL_ATTENTION_IDLE_MS` 를 따른다 (FR-15).
 pub fn default_idle_ms() -> i64 {

@@ -35,8 +35,7 @@ pub const TOOL_RECONNECT_BACKOFF: Duration = Duration::from_secs(1);
 pub const TOOL_MAX_BACKOFF: Duration = Duration::from_secs(30);
 /// 연이은 재접속 실패가 이 수의 배수가 될 때마다 데몬을 다시 띄운다.
 pub const TOOL_RESPAWN_EVERY: u32 = 3;
-/// 생존 확인 hello 의 주기다 (FR-OPT-2-1).
-pub const TOOL_HEARTBEAT_EVERY: Duration = Duration::from_secs(15);
+pub use otter_shared_cadence::TOOL_HEARTBEAT_EVERY;
 
 pub type OutputCallback = Arc<dyn Fn(&str, &[u8], i64) + Send + Sync>;
 pub type ExitCallback = Arc<dyn Fn(&str, ExitInfo) + Send + Sync>;

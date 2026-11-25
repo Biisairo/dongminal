@@ -11,9 +11,7 @@ use serde::{Deserialize, Serialize};
 pub const ATTN_MAX_CARRY: usize = 512;
 /// L2 유휴 임계값의 기본이다. 0 은 끄기다 (사용자 결정 `U-24`).
 const ATTN_DEFAULT_IDLE_MS: u64 = 0;
-const ATTN_TICK_MS: u64 = 1000;
-/// 유휴 sweeper 의 주기다.
-pub const ATTENTION_SWEEP_INTERVAL: Duration = Duration::from_millis(ATTN_TICK_MS);
+pub use otter_shared_cadence::ATTENTION_SWEEP_EVERY as ATTENTION_SWEEP_INTERVAL;
 /// 활동 보고 `working` 을 믿어 주는 기한(unix-nanos)이다 (FR-ATF-10·AS-1). 5분.
 pub const ATTN_WORKING_STALE: i64 = 5 * 60 * 1_000_000_000;
 

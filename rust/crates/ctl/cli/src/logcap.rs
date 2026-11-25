@@ -16,8 +16,7 @@ use crate::options::{Common, ENV_LOG, default_log_file};
 pub const LOG_MAX_BYTES: u64 = 64 << 20;
 /// 줄일 때 끝에서 이만큼을 `<로그>.1` 로 남긴다 (FR-LOG-2).
 pub const LOG_KEEP_BYTES: u64 = 8 << 20;
-/// 확인 주기.
-pub const LOG_CHECK_EVERY: Duration = Duration::from_secs(60);
+pub use otter_shared_cadence::LOG_CHECK_EVERY;
 
 /// 홈 아래에서 무한히 자랄 수 있는 로그들이다.
 pub(crate) const HOME_LOGS: [&str; 3] = [

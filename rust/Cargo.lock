@@ -1450,6 +1450,7 @@ dependencies = [
  "otter-gocompat",
  "otter-shared-agentadapter",
  "otter-shared-apipath",
+ "otter-shared-cadence",
  "otter-shared-editorlimit",
  "otter-shared-handover",
  "otter-shared-otterenv",
@@ -1539,6 +1540,7 @@ dependencies = [
  "otter-gocompat",
  "otter-shared-activity",
  "otter-shared-agentrec",
+ "otter-shared-cadence",
  "otter-shared-chatwire",
  "otter-shared-edge",
  "otter-shared-edgenode",
@@ -1767,6 +1769,10 @@ name = "otter-shared-apipath"
 version = "1.3.7"
 
 [[package]]
+name = "otter-shared-cadence"
+version = "1.3.7"
+
+[[package]]
 name = "otter-shared-chatwire"
 version = "1.3.7"
 dependencies = [
@@ -1822,6 +1828,7 @@ dependencies = [
  "http",
  "hyper",
  "otter-gocompat",
+ "otter-shared-cadence",
  "otter-shared-edge",
  "otter-shared-httpresp",
  "otter-shared-otterlog",
@@ -2156,6 +2163,7 @@ dependencies = [
  "nix",
  "otter-gocompat",
  "otter-shared-activity",
+ "otter-shared-cadence",
  "otter-shared-linestore",
  "otter-shared-otterenv",
  "otter-shared-otterlog",
@@ -2188,6 +2196,7 @@ name = "otter-shared-updatecheck"
 version = "1.3.7"
 dependencies = [
  "otter-gocompat",
+ "otter-shared-cadence",
  "otter-shared-otterenv",
  "otter-shared-otterlog",
  "otter-shared-release",
@@ -2394,6 +2403,7 @@ name = "otter-webserver-domain-lsp"
 version = "1.3.7"
 dependencies = [
  "otter-gocompat",
+ "otter-shared-cadence",
  "otter-shared-editorlimit",
  "otter-shared-otterlog",
  "otter-shared-platform",
@@ -2439,6 +2449,7 @@ version = "1.3.7"
 dependencies = [
  "libc",
  "nix",
+ "otter-shared-cadence",
  "windows-sys 0.61.2",
 ]
 
@@ -2563,6 +2574,7 @@ dependencies = [
  "otter-shared-activity",
  "otter-shared-agentadapter",
  "otter-shared-agentrec",
+ "otter-shared-cadence",
  "otter-shared-chatwire",
  "otter-shared-edge",
  "otter-shared-edgenode",
@@ -2632,6 +2644,7 @@ dependencies = [
  "futures-util",
  "otter-gocompat",
  "otter-shared-activity",
+ "otter-shared-cadence",
  "otter-shared-fanout",
  "otter-shared-otterenv",
  "otter-shared-otterlog",
@@ -2692,6 +2705,7 @@ name = "otter-webserver-toolclient"
 version = "1.3.7"
 dependencies = [
  "otter-gocompat",
+ "otter-shared-cadence",
  "otter-shared-chatwire",
  "otter-shared-otterlog",
  "otter-shared-platform",
