@@ -287,7 +287,8 @@ function applyThemeObj(raw){
   TOPTS.theme=theme.terminal;
   document.getElementById('area').style.background=ui.bg;
   for(const p of app.tools.values()){if(p.term)p.term.options.theme=theme.terminal}
-  if(typeof FileEditor!=='undefined'&&FileEditor.applyTheme) FileEditor.applyTheme();
+  // PERF 3.4.7: 편집기는 `editor` 묶음이다. 실리기 전에는 다시 칠할 편집기가 없다.
+  if(Screens.ready('editor')) FileEditor.applyTheme();
   // FR-GIT-119: 레인 색은 테마 팔레트에서 파생한다 — 테마를 바꾸면 그래프도
   // 따라 바뀐다 (V47).
   if(typeof GitHistory!=='undefined'&&GitHistory.applyTheme) GitHistory.applyTheme();
