@@ -783,7 +783,7 @@ ruler·미니맵 표식이 "있는가" 를 e2e 가 재는 길: ruler 는 그린 
 
 | 모듈 | 책임 | 비고 |
 |---|---|---|
-| `web/js/git/diff-cm.js` | 순수: `gitDiffIgnoreWs(a, b)` — 줄마다 앞뒤 공백을 걷은 줄 diff(`edDiffLines`)를 원문 offset 의 `Change` 로 (FR-CMR-53) · `gitDiffRulerItems(chunks, side)` — 조각을 ruler 항목으로. CodeMirror: hunk 툴바 tooltip 필드 · 커서 관측 | 상한(`ED_DD_MAX_LINES`)을 넘으면 기본 `diff` 로 돌아간다 |
+| `web/js/git/diff-cm.js` | 순수: `gitDiffIgnoreWs(a, b)` — 줄마다 앞뒤 공백을 걷은 줄 diff(`edDiffLines`)를 원문 offset 의 `Change` 로 (FR-CMR-53) · `gitDiffRulerItems(chunks, side)` — 조각을 ruler 항목으로. CodeMirror: hunk 툴바 tooltip 필드 · 커서 관측 | 상한(`ED_DD_MAX_LINES`)을 넘으면 기본 `diff` 로 돌아간다. (**지금은 2026-11-25, PERF 3.2·3.4.11**: 상한은 편집 수 `GIT_DIFF_LINE_MAX_EDITS` 이고, 넘으면 `gitDiffBounded` 로 간다. Diff 뷰의 기본 diff 도 vendor 가 아니라 `gitDiffBounded`(줄 단위 먼저, 작은 덩어리만 글자 단위)다) |
 | `GitDiffView` (`diff-view.js`) | 폭이 `renderSideBySideInlineBreakpoint`(900px) 이상이면 `MergeView`, 미만이면 `unifiedMergeView` 편집기 하나(FR-CMR-50·51). 폭이 문턱을 넘으면 다시 세우고 위쪽 줄을 지킨다. 원본 쪽은 늘 읽기 전용(FR-CMR-54). 변경 없는 구간 접기는 `collapseUnchanged`(FR-CMR-52). 오른쪽 밖에 Diff 전체의 ruler(`.git-diff-ruler`, FR-CMR-57) | 핸들: `_cm = {kind:'split'\|'unified', a?, b, scroller}`. `_orig`·`_mod` 는 쪽의 표지다 (`lspPathOf`) |
 | `diff-view-doc.js` | 편집 가능한 축이면 수정본 편집기가 그 문서 버퍼의 칸이다 (`updateListener` → `EdBuffer.fromSink`, FR-CMR-54) — `GIT_DIFF_SHARES_DOC=true` 로 되돌린다 | 편집기 칸과 같은 실행 취소 규약(칸마다 따로) |
 | `diff-view-parity.js` | 설정 반영(줄바꿈·글자 크기 Compartment) · 찾기 패널은 포커스 쪽 편집기의 `edFindEngineCm` · `lspPathOf` | 미니맵 갈래를 걷는다 |

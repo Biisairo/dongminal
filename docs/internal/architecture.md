@@ -157,10 +157,11 @@ rust/                    # Cargo 워크스페이스 — crate 하나가 디렉�
       gen-decisions/
       gen-errors/
 web/                     # 프론트엔드 자산 + embed.FS()
-  style*.css             # <link> 순서 = 캐스케이드 순서. 목록: grep 'rel="stylesheet"' web/index.html
+  bundles.txt            # 묶음 정의 (PERF D-29) — [이름] 아래 .js·.css 순서 = 로드 순서. 서버가 /b/<이름>.js·.css 로 낸다
+  style*.css             # <link> 순서 = 캐스케이드 순서. 부팅 CSS: grep 'rel="stylesheet"' web/index.html · 화면 CSS: bundles.txt
   js/core/               #   App 클래스 (app.js + 주제별 컨트롤러 *-controller.js 와 그 부품 — 수: ls web/js/core/*-controller.js | wc -l) + helpers·main
                          #     base/ — Component·View·Controller 기반 클래스 (REFACTOR3_FE_BASE_SRS)
-                         #     constants*.js — 주제별 상수 (로드 순서 = index.html 의 순서. 목록: ls web/js/core/constants*.js)
+                         #     constants*.js — 주제별 상수 (로드 순서 = web/bundles.txt 의 순서. 목록: ls web/js/core/constants*.js)
   js/ui/                 #   themes·renderer·term-pane·clipboard·file-editor 등
                          #     file-tree{,-store,-obs,-load,-select,-paint,-keys,-marquee,-edit,-xfer,-download}.js — 탐색기
   js/git/                #   git 패널. api.js — gitFetch/gitPost (stale·echo 가드 소유)
@@ -203,8 +204,12 @@ crate 는 자기 축과 `shared/` 만, `shared/` 는 `shared/` 만 의존한다 
 GET/PUT·ping·stats·sandbox 다섯 — 과 `reapSandboxes` 가 있다. 채널이 다시 열릴 때(`chan:open`)의
 복원은 `snapshot.rs`(`GET /api/snapshot`, FR-OPT-4-5)다.
 
-**프론트엔드는 번들러가 없다.** `index.html` 이 `<script>` 로 원본을 순서대로 로드하므로
-**로드 순서가 곧 의존성**이다. 기반 클래스(`core/base/` 의 `Component`·`View`·`Controller`)가
+**프론트엔드는 번들러가 없다.** 서버가 `web/bundles.txt` 의 순서대로 원본을 이어 붙여 묶음
+`/b/<이름>.js`(파일 사이 `/* ==== <경로> ==== */` 경계, 주석·줄 끝 공백을 걷되 줄 수는 그대로, 줄 단위 소스맵
+`/b/<이름>.js.map`)로 내고, `index.html` 이 vendor → `b/pre.js` → 활성 언어 파일 하나 → `b/boot.js` 를 클래식
+`<script>` 로 싣는다(PERF D-29·D-34·D-42, `httpapi/src/bundles.rs`). 화면 묶음(git·편집기·문서 렌더·Run·채팅·설정)과
+그 CSS 는 처음 열 때 `Screens.load` 가 싣는다(`core/screens.js`, D-30). 그래서 **로드 순서가 곧 의존성**이다.
+부팅 코드가 화면 묶음의 전역을 읽지 않는 것은 `scripts/check-lazy-boundary.mjs` 가 지킨다. 기반 클래스(`core/base/` 의 `Component`·`View`·`Controller`)가
 맨 앞이고, `app.js` 뒤에 주제별 컨트롤러가, 맨 끝에 `main.js` 가 온다.
 
 **`App` 의 주제별 일은 컨트롤러가 맡는다** (`REFACTOR3_FE_APPCTL_SRS`). 컨트롤러는

@@ -1,16 +1,19 @@
 # M3 설계 — 3.4 화면 등록부·지연 로딩 · 3.5 생명주기 · 3.6 프레임 스케줄러
 
-> **승인 2026-11-25, 결정 확정.** 사용자가 하위 이슈 분할(3.5·3.6 의 deps 를 3.4 에서 뗌)과 §4 의 결정 D-M3-1~12 를 모두 권장안으로 골랐다. SRS 결정 번호는 D-29~D-40 이다(§4 첫 표).
+> **승인 2026-11-25, 결정 확정.** 사용자가 하위 이슈 분할(3.5·3.6 의 deps 를 3.4 에서 뗌)과 §4 의 결정 D-M3-1~12 를 모두 권장안으로 골랐다. SRS 결정 번호는 D-29~D-40 이다(§4 첫 표). 구현 중 결정 D-41(설정·간선 묶음, 3.4.9.2)·D-42(묶음 주석 걷기, NFR-PRF-12 → 1.55 MB, 3.4.10)이 더해졌다.
+> **2026-11-25 정합(PERF 3.4.11)**: 구현 뒤 코드에 맞춰 §1·§3·§4 의 어긋난 문장을 고쳤다(`perf/M3_DOC_SYNC.md`). §2 는 착수 때 조사로 남긴다.
 > 근거: PERF_OPTIMIZATION_SRS FR-SPA-1~4·6, NFR-PRF-11·12, D-3·D-16 · `perf/SPA_PROFILE_2026-11-24.md` §2·§2-1·§4 · `perf/M2_DESIGN.md` D-M2-2 · 이슈 3.3·3.7·3.8 진행 기록
 > 기준 코드: `perf-m1` 01589b21 (3.8 병합 뒤)
 
 ## 1. 한 줄 요약
 
-- **3.4**: 서버가 스크립트를 **묶음 파일**로 이어 붙여 낸다. 부팅 묶음 하나와 화면 묶음 여럿(git·편집기·문서 렌더·Run·설정 등)을 둔다. 화면을 처음 열 때 등록부가 그 묶음을 클래식 스크립트로 싣는다. 언어 파일은 한 벌만 싣는다.
+- **3.4**: 서버가 스크립트를 **묶음 파일**로 이어 붙여 낸다. 부팅 묶음 둘(`pre`·`boot`)과 화면 묶음 여럿(git·편집기·문서 렌더·Run·설정 등)을 둔다. 화면을 처음 열 때 등록부가 그 묶음을 클래식 스크립트로 싣는다. 언어 파일은 한 벌만 싣는다.
 - **3.5**: 탭 본문의 주인(터미널·편집기·git 패널·Run·채팅…)이 `wake`·`sleep` 계약을 갖는다. 렌더러가 "지금 보이는 것"을 한 자리에서 정해 전이를 부른다. 잠든 화면의 구독·타이머는 걷힌다.
 - **3.6**: 새 스케줄러를 만들지 않는다. 앱의 모든 rAF 가 이미 지나는 `TimerHub.frame` 에 **합치기 키·우선순위·8 ms 예산**을 더한다. 측정된 자리(부팅 `_gpuAttach`·`tabsFit`, 파일 열기)에만 먼저 적용한다.
 
 ## 2. 지금 구조 (파일:줄 근거)
+
+> **2026-11-25 착수 전 조사(`01589b21`)다.** 줄 번호·개수는 그때 값이다. 지금 구조는 §3 과 코드(`web/bundles.txt`, `web/js/core/screens.js`, `web/js/ui/screen-life.js`, `web/js/core/timer-hub.js`)를 본다. 아래 「지금은」 줄만 정정했다(PERF 3.4.11, 2026-11-25).
 
 ### 2.1 스크립트 싣기
 
@@ -32,6 +35,7 @@
 - 기반 클래스는 `Component`(`web/js/core/base/component.js`) → `View`·`Controller` 다. `Component` 는 리스너·관측·타이머·구독을 **주인(owner)** 으로 쌓고 `dispose()` 한 번으로 놓는다(`component.js:43~59`). `View` 는 `mount`·`render`·`dispose` 만 있다(`view.js`). **wake/sleep 은 없다.**
 - `View` 하위는 7개, `Controller` 하위는 59개다. **탭 본문의 주인은 View 가 아니다**: `TerminalTool`(`ui/term-pane.js:5`), `FileEditor`(`ui/file-editor.js:30`), `DocRender`(`ui/doc-render.js:14`), `GitPanel`(`git/panel.js:34`), `RunsPanel`(`ui/runs-panel.js:96`), 채팅은 `ChatViews extends Controller`.
 - App 생성자가 컨트롤러 20개를 **부팅 때 모두** 만든다(`web/js/core/app.js:66~85`) — `SettingsController`·`EdgesController`·`ChatController`·`GitController` 등. 설정 창 섹션도 `app.init` 안의 `initModal` 이 부팅 때 세운다(`web/js/core/main.js` 주석). 지연 로딩하려면 이 자리를 "얇은 껍데기 + 처음 쓸 때 싣는 본체" 로 나눠야 한다.
+  - 지금은: 설정 창은 처음 열 때 `settingsBuild`(`web/js/core/settings-open.js`, `settings` 묶음)가 세운다. `initModal` 은 없다(D-41, PERF 3.4.11, 2026-11-25).
 
 ### 2.3 숨김 처리
 
@@ -40,7 +44,9 @@
   - `_hideOthers`(`:145`) 가 옛 위젯을 떼고, `_gcWidgets`(`renderer-layout.js:108`) 가 이번에 붙지 못한 터미널·편집기의 `vis` 를 걷는다.
   - `_afterLayout`(`renderer-layout.js:140`) 이 한 프레임에서 보이는 터미널마다 `open`·`syncGpu(true)`·`doFit` 을 하고, 숨은 터미널은 `syncGpu(false)` 한다.
 - 브라우저 탭 숨김(`document.hidden`)을 듣는 자리는 앱 전체에 하나다: `TimerHub` 생성자(`web/js/core/timer-hub.js:34~39`, FR-BUS-8). `every` 작업은 기본이 `whenHidden:'pause'` 다(`:124`). 채널은 숨김 동안 ping 간격만 늘린다(`web/js/core/channel.js:226`).
+  - 지금은: `visibilitychange` 리스너가 셋이다 — `TimerHub`(`timer-hub.js`), `EventBus.startLifecycle`(`event-bus.js`, `life:*` 토픽), `VersionWatch`(`version-watch.js`, 판 확인). 생명주기(`ScreenLife`)는 `TimerHub` 의 신호를 받는다(PERF 3.4.11, 2026-11-25).
 - 터미널의 잠듦(숨고 2초 뒤 `term.close`)은 M2 이슈 2.5 가 할 일이고 **아직 todo** 다. 브라우저 탭 숨김 규칙은 D-M2-2 가 3.5 로 넘겼다.
+  - 지금은: 2.5 done. `TerminalTool` 의 `wake`·`sleep` 이 `term.open{snap}`·`term.close` 를 한다(PERF 3.4.11, 2026-11-25).
 
 ### 2.4 타이머·구독
 
@@ -48,6 +54,7 @@
 - 채널 토픽 구독(`channel.js:94` `sub`)은 주인을 받는다. 같은 토픽의 마지막 구독자가 빠지면 서버에 `unsub` 을 보낸다(`:133~138`). 다시 구독하면 순번·epoch 로 이어 받는다(`:140~144`). 그래서 **잠들 때 구독을 놓고 깰 때 다시 거는 것만으로 서버 쪽 비용이 사라진다.**
   - 화면이 직접 거는 토픽: `git:<root>`·`git.jobs`(`core/git-topics.js`), `gitconsole:<root>`(`git/console.js:94`), `run:<id>`(`ui/runs-panel.js:485`), `stats:*`(`core/statusbar-controller.js:72`, 상태 줄은 늘 보인다).
   - git 은 이미 반쯤 한다: 보는 패널이 하나라도 있을 때만 `git:<root>` 를 구독한다(`git-poll.js:210`, `pollOkAny`).
+    - 지금은: 패널 말고도 탐색기(`editor-pane.js` `_edGitWatchSync`)와 저장소 핀 목록(`git-repos-list.js` `_gitPinsWatchSync`)이 같은 토픽을 따로 구독한다. 그래서 패널이 잠들어도 탐색기가 보이면 `git:<root>` 구독은 남는다(3.5.2, PERF 3.4.11, 2026-11-25).
 - 게이트 `scripts/check-timers.sh` 가 `setTimeout`·`setInterval`·`requestAnimationFrame` 을 TimerHub 밖에서 막는다. 원시 rAF 는 0, `TIMERS.frame` 호출은 28곳이다.
 
 ### 2.5 DOM 쓰기 경로
@@ -58,27 +65,29 @@
   - 부팅 28 ms 작업의 42% 가 `_gpuAttach`(`web/js/ui/term-gpu.js:61`, 칸마다 약 12 ms)다(SPA_PROFILE §3).
   - `UIKit.tabsFit`(`web/js/ui/ui-kit.js:160`)은 쓰기(`labeled` 붙임) → 읽기(`scrollWidth`) → 쓰기를 한 번에 한다. 강제 레이아웃이다. 탭 줄 ResizeObserver(`ui/tab-bar.js:67`)와 `Panel`(`ui/panel.js:55`)이 부른다. git 기록 뷰 18 ms, 탭 열기 49 ms 의 주 원인이다(§2-1-3).
   - 파일 열기 `edOpenFile` 67~74 ms(`tabsFit`·`apiSend`·`_placeLayout`, 3.7 기록). 편집기 밖이다.
+    - 지금은: 67~74 ms 는 측정 잡음이다 — 단계마다 트레이스를 새로 걸면 CpuProfiler 시작 비용(약 65 ms)이 첫 JS 작업에 얹힌다. 예열 뒤 실제 작업은 8~9 ms 이고 16 ms 초과 목록에 없다(3.6.3, PERF 3.4.11, 2026-11-25).
 
 ## 3. 설계안과 하위 이슈
 
 ### 3.4 화면 등록부와 지연 로딩 (FR-SPA-1·2·6)
 
-**왜 묶음이 필요한가.** 부팅 때 호출되지 않은 스크립트(111개)를 모두 빼도 부팅 스크립트는 약 185개다. 파일마다 요청 하나이면 NFR-PRF-11(부팅 요청 80 이하)에 닿을 수 없다. 그래서 부팅 스크립트도 묶음 하나로 이어 붙여야 한다(D-M3-1).
+**왜 묶음이 필요한가.** 부팅 때 호출되지 않은 스크립트(111개)를 모두 빼도 부팅 스크립트는 약 185개다. 파일마다 요청 하나이면 NFR-PRF-11(부팅 요청 80 이하)에 닿을 수 없다. 그래서 부팅 스크립트도 묶음으로 이어 붙여야 한다(D-M3-1. 구현은 `pre`·`boot` 둘).
 
 **모양(권장안 기준)**
 
-1. **묶음 정의 한 자리** — `web/bundles.json`(가칭). 묶음 이름 → 파일 목록(순서가 곧 로드 순서) → CSS 목록. 부팅 묶음(`boot`)도 여기에 든다. index.html 은 vendor·head 인라인·언어 파일·`b/boot.js` 만 남는다.
+1. **묶음 정의 한 자리** — `web/bundles.txt`(줄 단위: `[이름]` 아래 `.js`·`.css` 줄, 순서가 곧 로드 순서). 부팅 묶음은 `pre`(error-log·pref-store·panel-dock·i18n.js)와 `boot` 둘이다 — 언어 파일이 `i18n.js` 뒤·상수 앞에 서야 하기 때문이다. index.html 에는 vendor 8개, head 의 src 스크립트 셋(server-move·storage-rename·panel-layout), 부팅 CSS `<link>`, `b/pre.js` → 언어 인라인 → `b/boot.js` 가 남는다. (정정 2026-11-25, PERF 3.4.11 — 처음 안은 `web/bundles.json`(가칭)·`boot` 하나였다. 3.4.2 조정자 결정)
 2. **서버가 묶음을 만든다** — `StaticAssets` 가 시작할 때 묶음 정의를 읽어 파일을 순서대로 이어 붙이고 `/b/<name>.js` 로 낸다. 이미 하는 일(해시·`.gz` 바이트를 한 번만 만들어 기억, `static_assets.rs:3`)에 얹는다. 파일 사이에 `/* ==== js/… ==== */` 경계를 남긴다(하네스와 같은 규약). 판 해시에 묶음 정의도 넣는다.
-3. **등록부와 로더(프론트)** — 부팅 묶음 앞쪽의 작은 파일 하나(`core/screens.js` 가칭).
-   - `Screens.register(name, {bundle, css})` — 이름과 싣기 정보.
+3. **등록부와 로더(프론트)** — `js/core/screens.js`. `boot` 묶음 안, 렌더러와 `screen-life.js` 앞이다.
+   - `Screens.register(name, {bundle, css, tab})` — 이름과 싣기 정보. `tab(at)` 은 이 화면이 맡는 탭인가를 답한다.
+   - `Screens.forTab(at)` — 탭을 맡는 화면 이름(없으면 null, 부팅 묶음에 있다).
    - `Screens.load(name)` → Promise. 같은 이름은 같은 Promise 를 나눈다. `<link>` 와 `<script src="b/<bundle>.js?v=…">`(클래식 스크립트, FR-SPA-6)를 붙이고 둘 다 끝나면 푼다. 실패는 기억하지 않고 URL 을 바꿔 다시 시도한다(`loadCodeMirror` 와 같은 규약).
    - `Screens.ready(name)` — 동기 질문. 이미 실렸는가.
 4. **진입점** — 화면 클래스를 동기로 만드는 자리가 대상이다.
-   - 렌더러 `_mountTabBody`: 묶음이 아직이면 그 자리에 **자리표시**(기존 스켈레톤 킷)를 붙이고 `Screens.load` 를 건다. 다 실리면 `app.render()` 한 번. 렌더러는 계속 동기다.
+   - 렌더러 `_mountTabBody`: 묶음이 아직이면 그 자리에 **자리표시**(빈 상태 킷 `.ui-empty.ui-empty-center` + 문구 `core.screen_loading`)를 붙이고 `Screens.load` 를 건다. 다 실리면 `app.render()` 한 번. 렌더러는 계속 동기다.
    - 메뉴·단축키·서버 명령(`tool-cmd.js`)·모달 여는 자리: 진입 함수 첫 줄에서 `await Screens.load(…)`. `edOpenFile` 은 이미 async 다.
    - App 생성자의 화면 컨트롤러(설정·채팅·간선·Run 등)는 "부팅에 남는 얇은 껍데기(상태·토픽 연결) + 묶음에 든 본체" 로 나눈다. 어디까지가 껍데기인지는 3.4.4 게이트가 알려 준다.
 5. **경계 게이트** — `scripts/check-lazy-boundary.mjs`(가칭). 부팅 묶음 파일이 화면 묶음의 전역(클래스·상수·함수)을 참조하면 실패한다. 허용은 등록된 진입점(앞 줄에서 `Screens.load` 를 기다린 함수)뿐이다. 이것이 "옮겼더니 런타임에서 `ReferenceError`" 를 미리 잡는다(`check-load-order.mjs` 머리말의 같은 함정).
-6. **언어 한 벌** — head 인라인이 이미 `otter.locale` 을 읽는다(`web/index.html:78`). 그 자리에서 활성 언어 파일 하나만 싣는다(D-M3-6). 언어 바꾸기는 지금처럼 새로고침이다.
+6. **언어 한 벌** — `b/pre.js` 바로 뒤의 인라인 한 줄이 `I18N.locale`(pre 의 `i18n.js` 가 정함)로 활성 언어 파일 하나만 `document.write` 로 싣는다(D-M3-6). head 인라인은 `lang` 속성만 정한다. (정정 2026-11-25, PERF 3.4.11 — 처음 안은 "head 인라인". `i18n.js` 뒤여야 해서 body 끝이 됐다) 언어 바꾸기는 지금처럼 새로고침이다.
 
 **묶음 경계(첫 제안, 숫자는 압축 전)**
 
@@ -92,22 +101,36 @@
 | `settings` | `settings-*` 섹션 30개(설정 창 본체) | 약 200 KB |
 | `chat`·`edges` | 채팅 화면, 간선 화면 | 약 60 KB |
 
+**묶음 경계(구현 결과, 2026-11-25 PERF 3.4.11 — `web/bundles.txt`, 숫자는 주석 걷기 전 원본 바이트)**
+
+| 묶음 | 든 것 | 원본 크기 |
+|---|---|---|
+| `pre` | error-log·pref-store·panel-dock·i18n.js 4개 | 20,859 B |
+| `boot` | 나머지 175개. git 의 `api.js`·`status-hub.js`, `constants-git.js`·`constants-git-detect.js`, `constants-editor.js`, 공용 CodeMirror 층(`cm-*`·`file-editor-find`·`file-editor-diff`·`cm-buffer`), 화면 껍데기(Run 목록·채팅 컨트롤러·설정 컨트롤러)가 여기 남는다 | 1,790,432 B |
+| `git` | `js/git` 54개, `constants-git*.js` 7개, `style-git*.css` 4개 | 859,501 B(CSS 93,637 포함) |
+| `editor` | `constants-explorer.js`, `file-editor*` 7개(화면 부분), `file-tree*` 11개 — 19개. `style-editor*.css` 는 Repo 사이드·터미널 복사창 규칙이 섞여 부팅 CSS 에 남는다 | 203,094 B |
+| `docrender` | vendor `highlight`, `constants-docrender`, `doc-render*` 3개, `style-docrender.css`. markdown-it·DOMPurify 는 터미널·편집기 링크와 LSP hover 가 써서 부팅에 남는다(3.4.8) | 172,056 B |
+| `run` | `run-view*`·`run-graph-fit`·`run-dashboard`·`run-tree*`·`run-recover` 7개, `style-run-view.css`. `style-runs.css` 는 활동 패널 목록이 써서 부팅이다 | 77,308 B |
+| `settings` | 설정 모달·섹션·`settings-open.js`(처음 열 때 세우기)·간선 망 그림 `edges-mesh-view.js` — 23개. 간선 화면은 설정 ▸ Edges 탭이라 따로 묶지 않았다(D-41) | 147,459 B |
+| `chat` | `chat-views.js` 1개 | 9,195 B |
+
 - 모두 빼면 부팅 JS 는 주석을 둔 채로 **약 1.9~2.0 MB** 로 예상한다. 1.5 MB 에는 못 미친다. 주석(48%)을 묶음에서 걷으면 **약 1.2~1.3 MB** 로 예상한다(D-M3-7).
+  - 실측(PERF 3.4.10): 나눈 뒤 **2,505,579 B**, 주석·줄 끝 공백을 걷은 뒤 **1,543,764 B**. 예상보다 큰 것은 markdown-it·DOMPurify(144 KB)가 부팅에 남고, 묶음 밖에서 부팅 때 실리는 양(vendor 8·`ko.js`·head 3)이 약 0.69 MB 이기 때문이다. 목표는 D-42 로 1.55 MB 가 됐고, 1.5 MB 아래로는 3.4.12 가 다시 한다.
 - 부팅 요청은 HTML 1 + CSS 약 11 + JS 약 12(vendor 6·head 3·언어 1·`boot` 1·기타) + 그 밖 약 19(아이콘·매니페스트·API) ≈ **45 안팎**으로 예상한다. 80 이하다.
 
 **하위 이슈**
 
 | ID | 제목 | 내용 | deps | 크기 | 병렬 |
 |---|---|---|---|---|---|
-| 3.4.1 | 부팅 지표 재기 | `scenario.mjs` boot 단계에 **부팅 JS 바이트**(스크립트 응답의 풀린 크기 합, CDP `Network.dataReceived.dataLength`), 요청 종류별 수, 부팅 중 16 ms 초과 작업 수(`longtask`, `buffered:true`)를 더한다. 지금 값을 기준선으로 적는다 | — | S | 예(첫 번째) |
-| 3.4.2 | 서버 묶음 서빙 | 묶음 정의 파일, `/b/<name>.js` 이어 붙이기·ETag·gz, 판 해시에 정의 포함, 소스맵(줄 오프셋만), `boot` 하나로 index.html 정리. `check-load-order` 가 정의 파일을 읽게 고친다 | 3.4.1 | M | 3.5.1·3.6.1 과 병렬 |
+| 3.4.1 | 부팅 지표 재기 | `scenario.mjs` boot 단계에 **부팅 JS 바이트**(스크립트 응답의 풀린 크기 합, CDP `Network.dataReceived.dataLength`), 요청 종류별 수, 부팅 중 16 ms 초과 작업 수(트레이스 `RunTask` — `longtask` 는 50 ms 이상만 보고해 쓰지 않았다, 정정 PERF 3.4.11)를 더한다. 지금 값을 기준선으로 적는다 | — | S | 예(첫 번째) |
+| 3.4.2 | 서버 묶음 서빙 | 묶음 정의 파일, `/b/<name>.js` 이어 붙이기·ETag·gz, 판 해시에 정의 포함, 소스맵(줄 오프셋만), `pre`·`boot` 둘로 index.html 정리(처음 안은 `boot` 하나). `check-load-order` 가 정의 파일을 읽게 고친다 | 3.4.1 | M | 3.5.1·3.6.1 과 병렬 |
 | 3.4.3 | 등록부·로더·자리표시 | `Screens` 와 렌더러 자리표시 + 다시 그리기. 아직 어떤 화면도 옮기지 않는다(빈 묶음으로 시험) | 3.4.2 | M | — |
 | 3.4.4 | 경계 게이트 | `check-lazy-boundary.mjs` 와 진입점 허용 목록 | 3.4.2 | S | 3.4.3 과 병렬 |
-| 3.4.5 | 언어 한 벌 | head 인라인에서 활성 언어 파일 하나만 싣는다 | 3.4.2 | S | 3.4.3 과 병렬 |
+| 3.4.5 | 언어 한 벌 | 인라인 한 줄(구현은 `b/pre.js` 뒤)에서 활성 언어 파일 하나만 싣는다 | 3.4.2 | S | 3.4.3 과 병렬 |
 | 3.4.6 | git 묶음 | git 화면·상수·CSS 를 옮기고 진입점에 `Screens.load` | 3.4.3·3.4.4 | L | 3.4.7~9 와 병렬(정의 파일 병합은 조정자가 차례로) |
 | 3.4.7 | 편집기·탐색기 묶음 | 위와 같다. `FileTree` 는 편집기 창이 만든다(`core/editor-open.js:347`) | 3.4.3·3.4.4 | L | 예 |
-| 3.4.8 | 문서 렌더 묶음 | vendor 셋 포함 | 3.4.3·3.4.4 | M | 예 |
-| 3.4.9 | 설정·Run·채팅·간선 묶음 | App 생성자의 컨트롤러를 껍데기/본체로 나눈다. 설정 창 `initModal` 을 처음 열 때로 | 3.4.3·3.4.4 | L | 예 |
+| 3.4.8 | 문서 렌더 묶음 | vendor 셋 포함(구현은 highlight 만 — markdown-it·DOMPurify 는 부팅에 남음) | 3.4.3·3.4.4 | M | 예 |
+| 3.4.9 | 설정·Run·채팅·간선 묶음 | App 생성자의 컨트롤러를 껍데기/본체로 나눈다. 설정 창 `initModal` 을 처음 열 때로(구현은 `settingsBuild`, 3.4.9.1·3.4.9.2 로 나뉨) | 3.4.3·3.4.4 | L | 예 |
 | 3.4.10 | 묶음의 주석 걷기 | 3.4.6~9 뒤 재서 1.5 MB 를 넘을 때만(D-35) | 3.4.6~9 | M | — |
 | 3.4.11 | 재측정·문서 정합 | SRS §7 에 M3 값, FR-SPA-1·2 상태 | 전부 | S | — |
 
@@ -129,8 +152,8 @@
 **모양(권장안 기준)**
 
 1. **계약** — 탭 본문의 주인이 갖는 메서드 넷: `mount(host)`·`wake()`·`sleep()`·`unmount()`. 기반 클래스를 강제하지 않는다(D-M3-9). `View` 에는 기본 구현을 둔다.
-2. **깬 동안만 사는 것** — `Component` 에 `awake(fn)` 을 더한다. `fn` 은 깰 때마다 불려 구독·타이머·관측을 건다. 그 안에서 건 것은 `sleep` 때 모두 걷힌다(주인 하나를 더 둔다: `{owner: this, phase:'awake'}`). `Component` 가 아닌 주인(`TerminalTool` 등)은 같은 일을 하는 작은 도우미 `Awake` 를 쓴다.
-3. **누가 정하는가** — 렌더러 한 자리. 그릴 때마다 "이번에 붙은 본문 집합"(`_mounted`, `renderer-layout.js:130`)을 지난 집합과 견주어 새로 보인 것은 `wake`, 빠진 것은 `sleep` 예약을 건다. 브라우저 탭 숨김은 `TimerHub` 의 하나뿐인 `visibilitychange` 에서 받는다(FR-BUS-8, 새 리스너를 두지 않는다).
+2. **깬 동안만 사는 것** — `Component` 에 `awake(fn)` 을 더한다. `fn` 은 깰 때마다 불려 구독·타이머·관측을 건다. 그 안에서 건 것은 `sleep` 때 모두 걷힌다(깬 동안의 주인은 `Awake` 인스턴스다. `Component` 하위이고 `parent` 로 본 주인을 가리킨다 — `core/base/component.js`. 정정 PERF 3.4.11, 처음 안은 `{owner: this, phase:'awake'}` 객체). `Component` 가 아닌 주인(`TerminalTool` 등)은 같은 일을 하는 작은 도우미 `Awake` 를 쓴다.
+3. **누가 정하는가** — 렌더러 한 자리. 그릴 때마다 렌더러가 "이번에 붙은 본문 집합"(`_mounted`, `Map<요소, 주인>`)에서 보이는 주인을 모아 `ScreenLife.commit`(`ui/screen-life.js`)에 넘기고, `ScreenLife` 가 지난 집합과 견주어 새로 보인 것은 `wake`, 빠진 것은 `sleep` 예약을 건다. 브라우저 탭 숨김은 `TimerHub` 의 `visibilitychange` 신호(`onVisibility`)에서 받는다 — 생명주기용 새 리스너를 두지 않는다. 앱의 `visibilitychange` 리스너는 이것 말고도 `EventBus.startLifecycle`·`VersionWatch` 에 하나씩 있다. (정정 PERF 3.4.11)
 4. **지연** — `sleep` 은 곧바로가 아니라 `SCREEN_SLEEP_MS`(2초, D-16 과 같은 값) 뒤다. 그 안에 다시 보이면 취소한다. 터미널의 `term.close` 도 이 길을 탄다(2.5 가 그 안을 채운다).
 5. **깰 때** — 잠든 동안 놓친 상태는 다시 받아 그린다. 토픽은 다시 구독하면 서버가 최신 전체 값이나 이어지는 변화량을 준다(FR-CON-4). 화면은 `wake` 에서 한 번 `render` 한다.
 6. **시험용 관측** — `app.testing.sleepers()`: 잠든 주인 목록과 각자의 남은 타이머·구독 수(`TIMERS.pending()`·`channel` 의 주인별 수).
@@ -157,13 +180,13 @@
 - `TimerHub.frame(fn, opts)` 의 옵션을 넓힌다. 기존 호출 28곳은 고치지 않아도 지금처럼 돈다.
   - `key` — 같은 프레임에 같은 키가 또 오면 앞의 것을 버리고 마지막 것만 돈다(합치기).
   - `prio` — `'input'`(입력 반응) > `'term'`(깬 터미널) > `'normal'`(기본) > `'idle'`(비필수).
-  - 예산 — 한 프레임에 rAF 는 하나만 건다. 그 안에서 우선순위대로 돌린다. `'idle'` 은 프레임 시작부터 8 ms(`FRAME_BUDGET_MS`)를 넘었거나 `navigator.scheduling.isInputPending()` 이 참이면 다음 프레임으로 미룬다. `'input'`·`'term'`·`'normal'` 은 미루지 않는다(화면이 틀리면 안 된다).
+  - 예산 — 한 프레임에 rAF 는 하나만 건다. 그 안에서 우선순위대로 돌린다. `'idle'` 은 프레임 시작부터 8 ms(`FRAME_BUDGET_MS`)를 넘었거나 `navigator.scheduling.isInputPending()` 이 참이면 다음 프레임으로 미룬다. 미루기는 `FRAME_IDLE_MAX_DEFER`(6) 프레임까지이고 그 뒤에는 돈다 — 입력이 이어져도 굶지 않는다(3.6.2, 정정 PERF 3.4.11). `'input'`·`'term'`·`'normal'` 은 미루지 않는다(화면이 틀리면 안 된다).
   - 주인 정리(`disposeOwner`)·`pending()` 은 지금처럼 모든 대기 작업을 본다.
 - xterm 자신의 그리기는 vendor 안의 rAF 다. 순서를 바꿀 수 없다. 대신 우리 쪽 비필수 일이 같은 프레임을 오래 잡지 않게 해서 "깬 터미널이 먼저" 를 지킨다.
 - 측정된 자리에 적용한다.
-  - 부팅: `_afterLayout` 에서 `open`·`doFit` 은 `'normal'` 로 남기고, `syncGpu(true)` 는 칸마다 `'idle'`(키 `gpu:<id>`)로 나눈다. 첫 페인트는 DOM 렌더러로 그리고 WebGL 은 뒤 프레임에서 붙는다.
-  - `tabsFit`: ResizeObserver·패널이 부를 때 곧바로 재지 않고 `frame(…, {key:'tabsFit:'+bar.id})` 로 미룬다. 한 프레임에 탭 줄마다 한 번만 잰다.
-  - 파일 열기 `edOpenFile`: 먼저 트레이스로 세 부분(`tabsFit`·`apiSend`·`_placeLayout`)을 나눠 잰 뒤, 레이아웃 읽기를 같은 프레임의 쓰기 뒤로 모은다.
+  - 부팅: `_afterLayout` 에서 `open`·`doFit` 은 그 프레임에 하고, `syncGpu(true)` 는 칸마다 `'idle'` 프레임(`coalesce:'gpu'`, 주인은 그 칸)으로 미룬다(`_gpuLater`). 붙이기 전의 `doFit` 은 WebGL 칸 크기 예측값으로 잰다(D-40 A안). **부팅 때만** — 보이는 터미널이 처음 선 렌더 한 번에서만 미루고, 그 뒤 렌더(탭 전환 등)는 그 프레임에 `syncGpu(true)` → `doFit` 이다(사용자 결정, D-40). 첫 페인트는 DOM 렌더러로 그리고 WebGL 은 뒤 프레임에서 붙는다. (정정 PERF 3.4.11 — 처음 안은 키 `gpu:<id>`, 모든 렌더)
+  - `tabsFit`: ResizeObserver·패널이 부를 때 곧바로 재지 않고 `frame(…, {key:'tabsFit:<줄 번호>'})` 로 미룬다. 줄 번호는 `TabBar.fitSeq` 로 인스턴스마다 나눈다. 한 프레임에 탭 줄마다 한 번만 잰다.
+  - 파일 열기 `edOpenFile`: 먼저 트레이스로 세 부분(`tabsFit`·`apiSend`·`_placeLayout`)을 나눠 잰 뒤, 레이아웃 읽기를 같은 프레임의 쓰기 뒤로 모은다. (정정 PERF 3.4.11 — 3.6.3 이 예열 뒤 다시 재 보니 `edOpenFile` 은 8~9 ms 였다. 67~74 ms 는 CpuProfiler 시작 비용이 얹힌 측정 잡음이라 세 부분 나눠 재기의 근거는 약했다)
 
 **하위 이슈**
 
@@ -171,13 +194,14 @@
 |---|---|---|---|---|---|
 | 3.6.1 | `TimerHub.frame` 확장 | 한 rAF 묶음, `key`, `prio`, 8 ms 예산, `isInputPending` | — (3.4 와 무관) | S~M | 3.4.2·3.5.1 과 병렬 |
 | 3.6.2 | 부팅 적용 | `_afterLayout` 의 GPU 붙이기 나누기, `tabsFit` 합치기 | 3.6.1·3.4.1 | M | 3.6.3 과 병렬 |
-| 3.6.3 | 파일 열기 적용 | `edOpenFile` 67~74 ms 를 나눠 재고 16 ms 초과를 줄인다 | 3.6.1 | M | 예 |
+| 3.6.3 | 파일 열기 적용 | `edOpenFile` 을 나눠 재고 16 ms 초과를 줄인다(67~74 ms 는 측정 잡음, 실제 8~9 ms — 정정 PERF 3.4.11) | 3.6.1 | M | 예 |
 
 **RED 로 쓸 핵심 시험**
 
 - 단위(하네스, 가짜 rAF·시계): 같은 `key` 두 번 → 한 번 돈다(마지막 것). 순서는 `input > term > normal > idle`. `idle` 이 예산을 넘으면 남은 것은 다음 프레임. `isInputPending` 이 참이면 `idle` 을 돌리지 않는다. 주인을 정리하면 대기 중인 프레임 작업도 사라진다. 옵션 없는 호출은 지금과 같은 순서로 돈다.
 - 단위: 탭 줄 하나에 ResizeObserver 콜백이 한 프레임에 다섯 번 와도 `tabsFit` 은 한 번.
 - 측정(3.4.1 의 boot 지표): 부팅 16 ms 초과 작업 수. 지금 4건(최대 28 ms) → 목표는 **1건 이하, 최대 16 ms 대**(제안, 확정은 3.6.2 착수 때 기준선을 다시 재고 정한다). 파일 열기는 3.7 의 측정 스크립트로 `edOpenFile` 작업 길이.
+  - 정정(PERF 3.4.11): 3.6.2 가 예열 뒤 다시 잰 기준선은 칸 3개 1~2건(최대 38~63 ms), 칸 1개 1~2건이었다. 적용 뒤 칸 3개 1건(최대 20~27 ms), 칸 1개 0~1건이다(부하 아래 값, 3.6.2 측정 표). "지금 4건(최대 28 ms)" 은 3.1 의 값이다.
 
 ### 3.7 순서와 병렬 한눈에
 
@@ -218,6 +242,10 @@
 | D-M3-10 | D-38 | 3.5.1 먼저, 2.5 는 그 위에 |
 | D-M3-11 | D-39 | `TimerHub.frame` 을 넓히고 측정된 자리에만. FR-SPA-4 문구 개정 |
 | D-M3-12 | D-40 | GPU 붙이기를 첫 페인트 뒤로 |
+| (3.4.9.2) | D-41 | 설정 창·간선 망 그림은 `settings` 묶음, 처음 열 때. 간선은 따로 묶지 않는다 |
+| (3.4.10) | D-42 | 주석과 줄 끝 공백만 걷는다. NFR-PRF-12 목표 1.55 MB |
+
+구현 중 바뀐 것(2026-11-25 정합, PERF 3.4.11): D-29 의 부팅 묶음은 `pre`·`boot` 둘이 됐다. D-34 의 언어 인라인은 head 가 아니라 `b/pre.js` 뒤다. D-32(D-M3-4)에서 부팅 코드가 읽는 상수 파일(`constants-git.js`·`constants-git-detect.js`·`constants-editor.js`)은 boot 에 남았다. D-35(D-M3-7)는 D-42 로 이어졌다.
 
 FR-SPA-3("화면(View)" → "화면(탭 본문의 주인)", D-37)과 FR-SPA-4(D-39)의 문구를 SRS 에서 개정 표시와 함께 고쳤다.
 
@@ -258,7 +286,7 @@ FR-SPA-3("화면(View)" → "화면(탭 본문의 주인)", D-37)과 FR-SPA-4(D-
 
 | 선택지 | 내용 |
 |---|---|
-| **A. 파일 단위로 그 화면 묶음의 맨 앞에 옮긴다 (권장)** | `constants-git*.js` 9개·`constants-editor`·`constants-explorer`·`constants-docrender` 를 이름 그대로 옮긴다. 부팅 코드가 읽는 상수는 게이트가 찾아 부팅 쪽 상수 파일로 옮긴다 |
+| **A. 파일 단위로 그 화면 묶음의 맨 앞에 옮긴다 (권장)** | `constants-git*.js` 9개·`constants-editor`·`constants-explorer`·`constants-docrender` 를 이름 그대로 옮긴다. 부팅 코드가 읽는 상수는 게이트가 찾아 부팅 쪽 상수 파일로 옮긴다. (구현 결과: `constants-git*.js` 가운데 7개가 `git` 묶음, `constants-explorer` 가 `editor` 묶음, `constants-docrender` 가 `docrender` 묶음으로 갔다. `constants-git.js`·`constants-git-detect.js`·`constants-editor.js` 는 부팅이 읽는 상수를 받는 쪽으로 boot 에 남았다 — 3.4.6·3.4.7, 정정 PERF 3.4.11) |
 | B. 상수는 모두 부팅에 남긴다 | 약 210 KB 가 남는다 |
 | C. 화면 상수를 함수 뒤로 감싸 늦게 평가 | `gitConst().X` 꼴 |
 
@@ -273,7 +301,7 @@ FR-SPA-3("화면(View)" → "화면(탭 본문의 주인)", D-37)과 FR-SPA-4(D-
 | B. 하네스도 정의 파일에서 목록을 읽게 바꾼다 | 하네스의 손 목록을 없앤다 |
 
 - 근거: FR-SPA-6 은 하네스를 유지하라고 한다. 하네스는 "검사 대상이 실제로 무엇에 기대는지" 를 보이려고 일부러 최소 목록을 쓴다(`harness.mjs:297~301`). B 는 그 규약을 깬다.
-- 함께 바뀌는 것: e2e 가운데 화면을 열기 전에 그 화면의 전역(`window.X`)을 부르는 스펙은 깨진다. `app.testing.load(name)` 도우미를 두고 그 스펙만 고친다. 영향 받는 스펙 수는 3.4.3 에서 센다.
+- 함께 바뀌는 것: e2e 가운데 화면을 열기 전에 그 화면의 전역(`window.X`)을 부르는 스펙은 깨진다. `app.testing.loadScreen(name)` 도우미(TC-FEA-3 규약의 이름, 처음 안은 `app.testing.load` — 정정 PERF 3.4.11)를 두고 그 스펙만 고친다. 영향 받는 스펙 수는 3.4.3 에서 센다.
 - 위험: LOW.
 
 ### D-M3-6 언어 파일 한 벌만 싣기
@@ -298,6 +326,7 @@ FR-SPA-3("화면(View)" → "화면(탭 본문의 주인)", D-37)과 FR-SPA-4(D-
 | C. 주석은 걷지 않고 `js/core` 를 더 쪼갠다 | 메뉴·원격·도움말 등 |
 
 - 근거: 앱 JS 의 48% 가 주석이다. 화면 묶음을 모두 빼도 주석을 둔 채로 약 1.9~2.0 MB 로 예상한다. C 만으로는 닿기 어렵다. 걷기는 전송·파싱 바이트를 줄이지만 바이너리·소스의 주석은 그대로 남는다.
+- 결과(PERF 3.4.10, 정정 3.4.11): 나눈 뒤 실측 2,505,579 B, 주석·줄 끝 공백을 걷은 뒤 1,543,764 B 로 1.5 MB 에 닿지 않았다(markdown-it·DOMPurify 부팅 잔류, 묶음 밖 약 0.69 MB). 목표를 1.55 MB 로 고쳤다(D-42). 1.5 MB 아래는 3.4.12.
 - 위험: A — MEDIUM. 정규식 리터럴·템플릿 문자열 안의 `//`·`/*` 를 잘못 걷으면 코드가 깨진다. 토큰 비교 시험이 이것을 막는다. 소스맵의 줄 맞춤이 어려워지므로 걷을 때는 줄바꿈을 남겨 줄 번호를 지킨다.
 
 ### D-M3-8 잠든 화면의 정의 (D-M2-2 에서 넘어온 것 포함)
@@ -377,7 +406,8 @@ FR-SPA-3("화면(View)" → "화면(탭 본문의 주인)", D-37)과 FR-SPA-4(D-
 
 ## 7. 코드와 어긋난 문서 (고치지 않음, 보고만)
 
-- `web/js/test/harness.mjs:10` 은 "`<script>` 85개", `scripts/check-load-order.mjs:6` 은 "90여 개" 라고 적었다. 지금은 296개다.
-- `perf/SPA_PROFILE_2026-11-24.md` §4 의 "300개, 3,675 KB" 와 SRS NFR-PRF-12 기준선 "3.8 MB" 는 지금 HEAD 와 다르다(296개, 3.88 MB). 3.4.1 에서 다시 잰다.
+- `web/js/test/harness.mjs:10` 은 "`<script>` 85개", `scripts/check-load-order.mjs:6` 은 "90여 개" 라고 적었다. 지금은 296개다. — 2026-11-25 두 머리말을 `web/bundles.txt` 기준으로 고쳐 해소(PERF 3.4.11).
+- `perf/SPA_PROFILE_2026-11-24.md` §4 의 "300개, 3,675 KB" 와 SRS NFR-PRF-12 기준선 "3.8 MB" 는 지금 HEAD 와 다르다(296개, 3.88 MB). 3.4.1 에서 다시 잰다. — 해소: 3.4.1 이 다시 쟀고(332건·3,891,882 B), SPA_PROFILE 은 3.1 시점 측정 기록, NFR-PRF-12 기준선 열은 M0 값으로 둔다. 목표는 D-42 로 1.55 MB(PERF 3.4.11).
+- 그 밖의 M3 문서 정합 목록은 `perf/M3_DOC_SYNC.md` 다.
 - SRS FR-SPA-3 은 생명주기를 "화면(View)" 에 두었다. 실제 탭 본문 주인은 View 가 아니다(D-M3-9) — 2026-11-25 SRS 개정으로 해소.
 - 이슈 3.5·3.6 의 deps 는 3.4 였지만 기반 작업(3.5.1·3.6.1)은 3.4 와 무관하다(§3.7) — 2026-11-25 이슈 갱신으로 해소.
