@@ -4,7 +4,7 @@
  * 화면은 이름과 싣기 정보(묶음 이름, CSS 유무, 맡는 탭)를 등록한다. 처음 쓸 때 `Screens.load(name)` 이
  * 서버 묶음 `b/<묶음>.js`(D-29)와 `b/<묶음>.css` 를 클래식 태그로 붙인다(FR-SPA-6).
  *
- * 규약은 `loadCodeMirror`(ui/file-editor.js)와 같다: 기다리는 호출자는 같은 Promise 를 나누고, 실패는
+ * 규약은 `loadCodeMirror`(ui/cm-load.js)와 같다: 기다리는 호출자는 같은 Promise 를 나누고, 실패는
  * 기억하지 않으며, 다시 시도할 때는 URL 을 바꾼다 — 브라우저가 실패한 URL 을 다시 받지 않을 수 있다.
  *
  * 로드 순서: 렌더러 앞(렌더러가 `forTab`·`ready` 를 묻는다).

@@ -15,7 +15,7 @@
  *
  * 주인이 사라질 때는 걷는 자리가 `unmount(owner)` 를 부른다 — 예약을 걷고 잊는다. 잠든 상태여도 같다.
  *
- * 브라우저 탭 숨김은 `TimerHub` 의 하나뿐인 `visibilitychange` 에서 받아 `pageHidden` 에 둔다(FR-BUS-8).
+ * 브라우저 탭 숨김은 `TimerHub` 의 `visibilitychange` 신호(`onVisibility`)에서 받아 `pageHidden` 에 둔다(FR-BUS-8).
  * 숨으면 보이던 주인마다 `pageSleepMs`(없으면 `SCREEN_SLEEP_MS`) 뒤 sleep() 을 예약한다 — 터미널은 30초다(D-36).
  * 숨은 동안의 그리기는 잠든 주인을 깨우지 않는다. 다시 보이면 숨김 때문에 건 예약을 걷고, 보이는데 잠든 주인을 깨운다.
  * 칸에서 가려지는 것은 숨김과 겹쳐도 `SCREEN_SLEEP_MS` 를 넘기지 않는다.

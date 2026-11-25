@@ -21,7 +21,7 @@
  *
  * **증강 분할이다** — `Object.assign(Renderer.prototype, …)` 이므로 계약은 한
  * 글자도 바뀌지 않는다 (`FE_MODULE_BOUNDARY_SRS` 묶음 B·C 와 같은 절차).
- * `index.html` 의 순서는 `check-load-order.mjs` 가 지킨다 (C-2).
+ * 로드 순서(`web/bundles.txt`)는 `check-load-order.mjs` 가 지킨다 (C-2).
  */
 // `#area` 에서 이 렌더러가 임자인 요소들. 나머지는 남의 것이므로 건드리지 않는다.
 const LAYOUT_CLASSES=['sp','pn','ed-win','slot','slot-handle','chat-window-empty']; // CHAT_WINDOW_SRS FR-CW-4: 빈 채팅 창의 안내도 골격이다

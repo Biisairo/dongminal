@@ -6,8 +6,8 @@
  * 자리(탭 제목 · 열린 편집기·터미널에 값 얹기 · 테마 고르기 · 키바 얹기)를 진다. 행의 배선은 설정 섹션이다(`settings-display.js` 등, REFACTOR3_FE_SETTINGS_SRS 8a).
  *
  * **모달과 갈린 이유**: 이 메서드들은 설정창이 없어도 돈다 (부팅이 부른다). 그래서 App 생성자가 컨트롤러를
- * 만든다. 부팅의 `_settingsApply`(`main.js`, `/api/settings` 응답 뒤)와 설정창 세우기(`initModal`, 워크스페이스를
- * 받은 뒤)는 어느 쪽이 먼저일지 정해져 있지 않다 — **순서와 무관하게 같은 결과**가 이 파일의 규약이다
+ * 만든다. 부팅의 `_settingsApply`(`main.js`, `/api/settings` 응답 뒤)와 설정창 세우기(`settingsBuild`, 설정을
+ * 처음 열 때 — PERF D-41)는 어느 쪽이 먼저일지 정해져 있지 않다 — **순서와 무관하게 같은 결과**가 이 파일의 규약이다
  * (QUALITY_FIX_SRS FR-QFX-9·12): 적용은 값(상태)을 얹고, 설정창은 `_paintSettingControls` 한 자리에서만 칠한다
  * (선 섹션의 `paint()`). 아직 서지 않은 섹션은 `init` 에서 지금 상태로 칠한다. 적용 길은 섹션을 직접 부르지 않는다.
  * 표의 `get`·`set` 은 종전대로 App 을 `this` 로 받는다.

@@ -38,9 +38,9 @@ class TimerHub {
     this._raf=null;           // 프레임 묶음의 rAF 하나 (D-39)
     this._ownerIds=new WeakMap();   // coalesce 주인 객체 → 번호 (PERF 3.6.4)
     this._now=typeof performance==='object'?()=>performance.now():()=>Date.now();
-    // FR-BUS-8: 생명주기 신호를 듣는 자리는 앱 전체에 하나다. 종전에는 네 곳이
-    // 각자 `visibilitychange` 를 듣고 각자 해석했고, 그래서 순서 보장이 없었다
-    // (SRS §2.7). 여기서 한 번 듣고 전부에 같은 규약으로 준다.
+    // FR-BUS-8: 주기 작업과 화면 생명주기(`onVisibility`)가 받는 숨김 신호는 여기서 한 번 듣는다. 종전에는 네
+    // 곳이 각자 듣고 해석해 순서 보장이 없었다(SRS §2.7). 앱의 리스너는 이것 말고 `EventBus.startLifecycle`
+    // (`life:*` 토픽)·`VersionWatch`(판 확인)에 하나씩 더 있다(PERF 3.4.11).
     this._onVis=()=>this._visibility();
     this._visFns=new Set();
     document.addEventListener('visibilitychange',this._onVis);

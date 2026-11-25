@@ -2,7 +2,7 @@
  * Remote Terminal — 설정 전역 상태(상태바·프리셋·표시 설정·글자 크기)
  *
  * OPTIMIZE_REFACTOR_SRS FR-OPT-11-6 (FEC-24): 옛 helpers.js 에서 주제별로 갈라 왔다. 본문은
- * 바꾸지 않았다. index.html 이 옛 helpers.js 자리에 같은 순서로 싣는다.
+ * 바꾸지 않았다. `web/bundles.txt` 가 옛 helpers.js 자리에 같은 순서로 싣는다.
  */
 
 // ── Status bar state ──

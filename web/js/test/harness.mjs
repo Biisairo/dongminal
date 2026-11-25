@@ -7,11 +7,12 @@ import vm from 'node:vm';
  * 클래식 `<script>` 를 Node 에서 불러오는 30줄 하네스
  * (CI_GATES_SRS B4 · `05-test.md §3.4`).
  *
- * `web/js` 는 모듈이 아니다 — `web/index.html` 이 `<script>` 85개를 순서대로
- * 싣고 그 안의 `class`/`function`/`const` 가 전역으로 서로를 본다
- * (`type="module"` 0개). 그래서 `import` 로는 꺼낼 수 없다.
+ * `web/js` 는 모듈이 아니다 — 서버가 `web/bundles.txt` 의 순서대로 이어 붙인 묶음과
+ * `web/index.html` 의 `<script>` 가 클래식 스크립트 약 300개를 순서대로 싣고, 그 안의
+ * `class`/`function`/`const` 가 전역으로 서로를 본다 (`type="module"` 0개). 그래서
+ * `import` 로는 꺼낼 수 없다.
  *
- * ESM 으로 옮기는 것이 정공법이지만 그것은 85개의 로드 순서와 `__ASSETV__`
+ * ESM 으로 옮기는 것이 정공법이지만 그것은 로드 순서와 `__ASSETV__`
  * 캐시 버스팅에 얽힌 별도 결정이다. **그때까지 순수 로직을 검사 못 할 이유는
  * 없다** — `vm.createContext` 에 같은 순서로 넣으면 브라우저가 하는 일과 같다.
  *
@@ -21,21 +22,21 @@ import vm from 'node:vm';
  */
 
 /**
- * 옛 `core/helpers.js` 를 이루던 주제 파일들 — index.html 의 순서다 (OPTIMIZE_REFACTOR_SRS
+ * 옛 `core/helpers.js` 를 이루던 주제 파일들 — `web/bundles.txt` 의 순서다 (OPTIMIZE_REFACTOR_SRS
  * FR-OPT-11-6). 옛 파일 하나를 싣던 검사는 이것을 펼쳐 싣는다.
  */
 export const HELPERS = ['core/path.js', 'core/helpers.js', 'core/theme-vars.js', 'core/shortcuts.js',
   'core/settings-state.js', 'core/layout-tree.js', 'core/git-status-helpers.js'];
 
 /**
- * 옛 `core/constants.js` 를 이루던 주제 파일들 — index.html 의 순서다 (REFACTOR3_FE_REST5_SRS FR-FR5-20). 옛 파일 하나를
+ * 옛 `core/constants.js` 를 이루던 주제 파일들 — `web/bundles.txt` 의 순서다 (REFACTOR3_FE_REST5_SRS FR-FR5-20). 옛 파일 하나를
  * 싣던 검사는 이것을 펼쳐 싣는다.
  */
 export const CONSTANTS = ['core/constants.js', 'core/constants-term.js', 'core/constants-sandbox.js', 'core/constants-tips.js',
   'core/constants-file.js'];
 
 /**
- * 터미널 칸 한 벌 — index.html 의 순서다 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-1·12-4). WS 배선
+ * 터미널 칸 한 벌 — `web/bundles.txt` 의 순서다 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-1·12-4). WS 배선
  * (`term-channel.js`)과 입력·IME(`term-input.js`)가 `term-pane.js` 에서 갈라졌다. 복사·텍스트 시트
  * (`term-clip.js`)와 터치 스크롤(`term-touch.js`)은 `term-input.js` 에서 갈라졌다 (UX_BATCH11_SRS).
  *
@@ -47,42 +48,42 @@ export const TERM_PANE = ['core/base/component.js', 'core/base/controller.js', '
   'ui/term-touch.js', 'ui/term-history.js'];
 
 /**
- * 프론트 기반 클래스 — index.html 의 순서다 (REFACTOR3_FE_BASE_SRS FR-FEB-16). `extends` 는 로드 시점에
+ * 프론트 기반 클래스 — `web/bundles.txt` 의 순서다 (REFACTOR3_FE_BASE_SRS FR-FEB-16). `extends` 는 로드 시점에
  * 부모를 읽으므로 `component.js` 가 맨 앞이다.
  */
 export const BASE = ['core/base/component.js', 'core/base/view.js', 'core/base/controller.js',
   'core/base/escape-stack.js', 'core/base/scroll-memo.js', 'core/base/badge.js'];
 
 /**
- * 패널과 탭 줄 — index.html 의 순서다 (REFACTOR3_FE_BASE_SRS FR-FEB-20~25). `BASE` 뒤에 싣는다.
+ * 패널과 탭 줄 — `web/bundles.txt` 의 순서다 (REFACTOR3_FE_BASE_SRS FR-FEB-20~25). `BASE` 뒤에 싣는다.
  * 부모(`Panel`·`TabBar`)가 하위보다 먼저다.
  */
 export const PANELS = ['ui/panel.js', 'ui/tab-bar.js', 'ui/sidebar-tab-bar.js', 'ui/sidebar-panel.js', 'ui/drawer-sheet.js',
   'core/activity-tab-bar.js', 'core/activity-panel.js'];
 
 /**
- * 핸들의 크기 HUD 와 끌기 — index.html 의 순서다 (REFACTOR3_FE_REST3_SRS FR-FR3-16). `ui/ui-kit.js` 바로 뒤, `DIALOG` 앞에
+ * 핸들의 크기 HUD 와 끌기 — `web/bundles.txt` 의 순서다 (REFACTOR3_FE_REST3_SRS FR-FR3-16). `ui/ui-kit.js` 바로 뒤, `DIALOG` 앞에
  * 싣는다. 묶음 순서: BASE → repaint → ui-kit → HANDLE → DIALOG → LIST → MENU.
  */
 export const HANDLE = ['ui/size-hud.js', 'ui/size-drag.js'];
 
 /**
- * 대화상자 기반 클래스와 킷 모달 — index.html 의 순서다 (REFACTOR3_FE_DIALOG_SRS FR-FED-11). `BASE` 뒤,
+ * 대화상자 기반 클래스와 킷 모달 — `web/bundles.txt` 의 순서다 (REFACTOR3_FE_DIALOG_SRS FR-FED-11). `BASE` 뒤,
  * `ui/ui-kit.js` 뒤에 싣는다. git 모달·설정 모달은 이 뒤에 각자 싣는다.
  */
 export const DIALOG = ['ui/dialog.js', 'ui/kit-modal.js'];
 
-/** 목록 기반 클래스 — index.html 의 순서다 (REFACTOR3_FE_LIST_SRS FR-FEL-6). `BASE`·`ui/repaint.js` 뒤에 싣는다. */
+/** 목록 기반 클래스 — `web/bundles.txt` 의 순서다 (REFACTOR3_FE_LIST_SRS FR-FEL-6). `BASE`·`ui/repaint.js` 뒤에 싣는다. */
 export const LIST = ['ui/list-view.js'];
 
-/** 메뉴 — index.html 의 순서다 (REFACTOR3_FE_ESC_SRS FR-FEE-10). `BASE`·`ui/ui-kit.js` 뒤, `LIST` 뒤에 싣는다. */
+/** 메뉴 — `web/bundles.txt` 의 순서다 (REFACTOR3_FE_ESC_SRS FR-FEE-10). `BASE`·`ui/ui-kit.js` 뒤, `LIST` 뒤에 싣는다. */
 export const MENU = ['ui/menu.js'];
 
-/** Git 탭 기반 클래스 — index.html 의 순서다 (REFACTOR3_FE_GITVIEW_SRS FR-FEV-11). `LIST` 뒤, git 뷰들 앞에 싣는다. */
+/** Git 탭 기반 클래스 — `web/bundles.txt` 의 순서다 (REFACTOR3_FE_GITVIEW_SRS FR-FEV-11). `LIST` 뒤, git 뷰들 앞에 싣는다. */
 export const GITVIEW = ['git/git-view.js'];
 
 /**
- * Git 패널 한 벌 — index.html 의 순서다 (REFACTOR3_FE_GITPANEL_SRS FR-FEP-9). `BASE` 뒤에 싣는다. 부품 기반
+ * Git 패널 한 벌 — `web/bundles.txt` 의 순서다 (REFACTOR3_FE_GITPANEL_SRS FR-FEP-9). `BASE` 뒤에 싣는다. 부품 기반
  * (`git-part.js`)이 `panel.js` 앞이고, 부품 파일은 옛 mixin 자리에 선다.
  */
 export const GITPANEL = ['git/git-part.js', 'git/panel.js', 'git/git-changes.js',
@@ -90,7 +91,7 @@ export const GITPANEL = ['git/git-part.js', 'git/panel.js', 'git/git-changes.js'
   'git/git-diff-pane.js', 'git/git-blame.js', 'git/git-hunks.js', 'git/git-poll.js', 'git/git-view-reload.js'];
 
 /**
- * 설정 섹션 한 벌 — index.html 의 순서다 (REFACTOR3_FE_SETTINGS_SRS FR-FES-8). `BASE` 뒤에 싣는다. 섹션 기반과 행이
+ * 설정 섹션 한 벌 — `web/bundles.txt` 의 순서다 (REFACTOR3_FE_SETTINGS_SRS FR-FES-8). `BASE` 뒤에 싣는다. 섹션 기반과 행이
  * 섹션보다 먼저다. 컨트롤러의 부품(`settings-apply.js`·`settings-live.js`·`settings-save-state.js`, REFACTOR3_FE_APPCTL_SRS
  * 9a)도 싣는다 — 이 셋은 끝에서 App 원형에 위임자를 두므로 `App` 전역이 있어야 한다. 값의 표(`settings-table.js`)는
  * 싣지 않는다 — 시험이 `SETTINGS_ACCESS` 를 준다.
@@ -104,7 +105,7 @@ export const SETTINGS = ['core/settings-apply.js', 'core/settings-section.js', '
   'core/screens.js', 'core/settings-controller.js', 'core/settings-open.js'];
 
 /**
- * App 컨트롤러 묶음 — index.html 의 순서다 (REFACTOR3_FE_APPCTL_SRS 9c). `BASE` 뒤에 싣는다. 뿌리가 부품을 생성자에서
+ * App 컨트롤러 묶음 — `web/bundles.txt` 의 순서다 (REFACTOR3_FE_APPCTL_SRS 9c). `BASE` 뒤에 싣는다. 뿌리가 부품을 생성자에서
  * 만들므로 한 묶음의 파일은 함께 싣는다. 끝에서 App 원형에 위임자를 두므로 `App` 전역이 있어야 한다.
  */
 export const AGENTS = ['core/agents-controller.js', 'core/agents-sub.js', 'core/activity-list.js'];
@@ -299,7 +300,7 @@ export function fakeClock(start = 1_700_000_000_000) {
  * (그것은 `var` 와 함수 선언만 그렇다). 그래서 꺼내 볼 이름을 `expose` 로 받아
  * 같은 스크립트 끝에서 전역에 얹는다.
  *
- * @param {string[]} files `web/js` 기준 상대 경로. **index.html 과 같은 순서로 준다.**
+ * @param {string[]} files `web/js` 기준 상대 경로. **`web/bundles.txt`(와 index.html)의 로드 순서와 같은 순서로 준다.**
  * @param {object} [opts]
  * @param {string[]} [opts.expose] 꺼내 볼 최상위 `const`/`class` 이름들.
  * @param {object} [opts.globals] 싣기 **전에** 세워 둘 전역. 실으려는 파일이 제
