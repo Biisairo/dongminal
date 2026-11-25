@@ -86,6 +86,7 @@ async fn bundle_gzip_for_clients_that_accept_it() {
         .read_to_string(&mut got)
         .unwrap();
     assert_eq!(got, BOOT);
+    assert_ne!(r.header("ETag"), get(&s, "/b/boot.js").await.header("ETag"));
     for ae in ["", "identity", "gzip;q=0"] {
         let r = call(
             &s,

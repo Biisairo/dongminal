@@ -1,12 +1,12 @@
-//! 정적 자산 `/` (Go `static.go`). 내용 기반 ETag·CSP·사전압축 자산·`index.html` 의 판 치환.
+//! 정적 자산 `/` (Go `static.go`). 내용 기반 ETag·CSP·사전압축 자산·JS·CSS gzip·`index.html` 의 판 치환.
 //!
 //! 자산은 프로세스가 사는 동안 바뀌지 않으므로 해시와 `.gz` 바이트를 한 번만 읽어 기억한다.
 //! 없는 경로는 기억하지 않는다 — 키가 요청 URL 에서 온다 (PERFORMANCE_HARDENING_SRS FR-PRF-53).
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::io::Read;
-use std::sync::{Arc, LazyLock, RwLock};
+use std::io::{Read, Write};
+use std::sync::{Arc, LazyLock, OnceLock, RwLock};
 
 use base64::Engine;
 use bytes::Bytes;
@@ -88,6 +88,12 @@ const STATIC_TYPES: [(&str, &str); 9] = [
 ];
 
 const OCTET_STREAM: &str = "application/octet-stream";
+
+/// 사전압축이 없어도 gzip 으로 내는 자산의 확장자다 (perf 3.4.13). 그 밖은 담긴 그대로 낸다.
+const GZIP_EXTS: [&str; 2] = [".js", ".css"];
+
+/// 서버가 만드는 gzip 의 압축 수준이다 (flate2 기본값과 같다).
+const GZIP_LEVEL: u32 = 6;
 
 /// 속성이 없는 인라인 `<script>` 블록이다 (FR-MVN-13b).
 static INLINE_SCRIPT_RE: LazyLock<regex::bytes::Regex> =
@@ -195,6 +201,50 @@ fn to_bytes(c: Cow<'static, [u8]>) -> Bytes {
     }
 }
 
+fn gzip(b: &[u8]) -> Bytes {
+    let mut w = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::new(GZIP_LEVEL));
+    if w.write_all(b).is_err() {
+        return Bytes::new();
+    }
+    w.finish().map(Bytes::from).unwrap_or_default()
+}
+
+/// 내보내는 바이트 하나와 그 gzip 표현 (묶음 D-29·JS·CSS perf 3.4.13). gz 바이트와 그 ETag 는
+/// 처음 gzip 으로 요청될 때 한 번 만든다.
+pub(crate) struct Asset {
+    body: Bytes,
+    etag: String,
+    gz: OnceLock<(Bytes, String)>,
+}
+
+impl Asset {
+    pub(crate) fn new(body: Bytes) -> Asset {
+        Asset {
+            etag: hash_bytes(&body),
+            body,
+            gz: OnceLock::new(),
+        }
+    }
+
+    /// gzip 을 밝힌 클라이언트에는 gzip 으로 낸다. ETag 는 나가는 표현의 바이트 해시다.
+    pub(crate) fn serve(&self, r: &Req, mut h: HeaderMap, ctype: &str) -> Response {
+        set(&mut h, header::CONTENT_TYPE, ctype);
+        set(&mut h, header::VARY, "Accept-Encoding");
+        if !accepts_gzip(r) {
+            set(&mut h, header::ETAG, &self.etag);
+            return serve_content(r, h, "", self.body.clone());
+        }
+        let (gz, etag) = self.gz.get_or_init(|| {
+            let gz = gzip(&self.body);
+            let etag = hash_bytes(&gz);
+            (gz, etag)
+        });
+        set(&mut h, header::ETAG, etag);
+        set(&mut h, header::CONTENT_ENCODING, "gzip");
+        serve_content(r, h, "", gz.clone())
+    }
+}
+
 /// `path.Clean(url)` 에서 앞 `/` 하나를 뗀 자산 이름.
 fn asset_name(url_path: &str) -> String {
     let c = path::clean(url_path);
@@ -213,6 +263,8 @@ pub(crate) struct StaticHandler {
     etags: RwLock<HashMap<String, String>>,
     /// 사전압축 자산의 담긴 바이트다 (FR-PRF-50). 해제본은 담지 않는다 (D-PRF-7).
     blobs: RwLock<HashMap<String, Bytes>>,
+    /// gzip 으로 내는 JS·CSS 자산이다 (perf 3.4.13). 있는 파일만 담는다.
+    gzippable: RwLock<HashMap<String, Arc<Asset>>>,
     /// 묶음 `/b/<name>.js` (D-29).
     bundles: Bundles,
 }
@@ -239,6 +291,7 @@ impl StaticHandler {
             index_etag,
             etags: RwLock::new(HashMap::new()),
             blobs: RwLock::new(HashMap::new()),
+            gzippable: RwLock::new(HashMap::new()),
             bundles,
         }
     }
@@ -265,6 +318,10 @@ impl StaticHandler {
             Err(h) => h,
         };
         let h = match self.serve_precompressed(r, h) {
+            Ok(res) => return res,
+            Err(h) => h,
+        };
+        let h = match self.serve_gzippable(r, h) {
             Ok(res) => return res,
             Err(h) => h,
         };
@@ -332,6 +389,39 @@ impl StaticHandler {
             ));
         }
         Ok(serve_content(r, h, "", Bytes::from(plain)))
+    }
+
+    /// JS·CSS 파일을 낸다 (perf 3.4.13). 해당이 없으면 머리를 돌려준다.
+    fn serve_gzippable(&self, r: &Req, h: HeaderMap) -> Result<Response, HeaderMap> {
+        let name = asset_name(&r.path);
+        let ext = path::ext(&name).to_lowercase();
+        if r.path.ends_with('/') || !GZIP_EXTS.contains(&ext.as_str()) || !valid_path(&name) {
+            return Err(h);
+        }
+        let Some(a) = self.gzippable_asset(&name) else {
+            return Err(h);
+        };
+        Ok(a.serve(r, h, &content_type_for(&name)))
+    }
+
+    fn gzippable_asset(&self, name: &str) -> Option<Arc<Asset>> {
+        if let Some(a) = self
+            .gzippable
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(name)
+        {
+            return Some(a.clone());
+        }
+        let a = Arc::new(Asset::new(to_bytes(self.fsys.read(name)?)));
+        Some(
+            self.gzippable
+                .write()
+                .unwrap_or_else(|e| e.into_inner())
+                .entry(name.to_owned())
+                .or_insert(a)
+                .clone(),
+        )
     }
 
     /// Go `etagFor`: 경로의 내용 해시다. 디렉터리·없는 파일은 빈 값이다.
