@@ -113,16 +113,37 @@ addon 이 없기 때문이다. DOM 렌더러는 xterm 의 렌더러 중 가장 �
 **FR-TGR-6** 동기화는 멱등이다. 같은 상태로 여러 번 불려도 붙이거나 떼는 일이 한 번만
 일어난다.
 
-**FR-TGR-7** 동기화 지점은 `_afterLayout` 의 프레임 콜백 한 자리다. 각 도구마다
-`doFit()` **앞에서** 보임 여부를 넘겨 동기화한다. 렌더러가 바뀐 뒤 크기를 다시 재야
-`cols`·`rows` 가 맞는다.
+**FR-TGR-7** (개정 2026-11-25, PERF D-40) 동기화 지점은 `_afterLayout` 이다.
+
+- 그 프레임: 보이는 칸은 `open` → `doFit()` 한다. 숨은 칸은 곧바로 뗀다(`syncGpu(false)`).
+- 붙이기: 붙일 예정인 칸마다 뒤 `idle` 프레임 작업 하나(`TIMERS.frame`, 주인은 그 칸, `coalesce:'gpu'`)가
+  `syncGpu(true)` → `doFit()` 한다. 칸이 여럿이면 프레임 예산(8 ms)에 따라 서로 다른 프레임에 붙는다.
+- 그새 숨거나 파괴된 칸은 건너뛴다. 붙이기가 실패해도(FR-TGR-9) 그 작업의 `doFit()` 이 DOM 크기로 다시 잰다.
+
+이전 문구: "각 도구마다 `doFit()` **앞에서** 보임 여부를 넘겨 동기화한다." 바꾼 이유: 같은 프레임에서
+칸마다 WebGL 컨텍스트를 만들면 부팅 첫 작업이 길어진다(PERF D-40, SPA_PROFILE §3).
+
+**FR-TGR-7b** (2026-11-25, PERF D-40 A안) **붙일 예정인 칸**의 `doFit()` 은 DOM fit 대신 WebGL 렌더러로
+설 크기(예측값)로 잰다. 그래서 붙인 뒤에도 `cols`·`rows` 가 같고, 부팅 때 PTY 리사이즈는 칸마다 한 번이다.
+
+- 붙일 예정인 칸: 보이고, FR-TGR-4 의 조건을 모두 만족하고, 아직 붙지 않은 칸. 판정은 `syncGpu` 와 같은
+  함수 하나(`_gpuWant`)다.
+- 예측: addon-fit `proposeDimensions` 의 가용 폭·높이(부모 computed 크기 − 패딩 − `scrollback≠0` 이면 스크롤
+  막대 폭)를 WebGL 칸 크기로 나눈다. 칸 폭 = `(floor(charW·dpr) + round(letterSpacing)) / dpr`, 칸 높이 =
+  `floor(ceil(charH·dpr) · lineHeight) / dpr` (addon-webgl 0.18.0 `WebglRenderer._updateDimensions`). 문자 크기를
+  아직 못 쟀으면 종전 fit 이다.
+- 이 규칙은 `_gpuFit` 하나에 있고 `doFit()` 과 `open()` 의 첫 fit 이 그것을 부른다. `ptySize()`(`resendWindowSizes`)도 그 값을 보낸다. 크기의 주인이 아닌 칸은
+  종전대로 PTY 크기를 따른다(M9_SRS FR-M9-3).
+- 대가: 붙기 전 몇 프레임(부팅 때 최대 약 0.1초)은 DOM 칸 폭이 더 넓어 오른쪽 몇 열이 잘려 보인다(사용자 승인
+  2026-11-25). 같은 일이 숨었던 칸이 다시 보일 때도 그 칸이 붙기까지 일어난다.
+- vendor 판이 바뀌면 이 식을 다시 확인한다. e2e(V-TGR-5)가 예측과 붙은 뒤의 fit 을 비교한다.
 
 **FR-TGR-7a** `_afterLayout` 밖에서 렌더러가 바뀌는 두 경로도 바뀐 뒤 다시 잰다.
 
 - 설정 스위치(`TermGpu.apply`): 보이는 칸마다 `syncGpu(true)` 뒤 `doFit()`.
 - 컨텍스트 손실(FR-TGR-10): DOM 으로 돌린 뒤 `doFit()`.
 
-두 렌더러의 칸 폭은 다르다 — DOM 은 소수 px(예: 8.43), WebGL 은 정수 px(예: 8)다. 다시 재지
+두 렌더러의 칸 폭은 다르다 — DOM 은 소수 px(예: 8.43), WebGL 은 기기 px 로 내린 정수를 dpr 로 나눈 값(dpr 1 에서 예: 8)이다. 다시 재지
 않으면 같은 `cols` 가 칸의 일부만 덮거나 넘친다 (§7.3 실측: 170칸이 1433px ↔ 1360px).
 
 **FR-TGR-8** 칸이 파괴되면 addon 참조를 버린다. (`term.dispose()` 가 실린 addon 을
@@ -231,7 +252,10 @@ DOM 조회·할당을 하지 않는다.
 | TC-TGR-9 | `term` 없음 | 아무 일도 없음 |
 | TC-TGR-10 | 칸 파괴 | 참조 null, 이후 동기화가 던지지 않음 |
 | TC-TGR-11 | `PrefStore` 값 없음 / `'0'` / 깨진 값 | 켬 / 끔 / 켬 |
-| TC-TGR-12 | `_afterLayout` 순서 | 칸마다 `syncGpu` 가 `doFit` 보다 먼저 불림 |
+| TC-TGR-12 | `_afterLayout` 순서 (개정 2026-11-25, FR-TGR-7) | 그 프레임: `open` → `doFit`, 숨은 칸 `syncGpu(false)`. 붙이기는 뒤 `idle` 프레임 작업(주인 그 칸, `coalesce:'gpu'`)의 `syncGpu(true)` → `doFit` |
+| TC-TGR-12a | 보이는 칸 셋 (`boot-gpu-split.test.mjs`) | 붙이기가 서로 다른 프레임. 이미 붙은 칸은 작업을 걸지 않음. 다시 그려도 칸마다 하나로 접힘 |
+| TC-TGR-12b | 뒤 프레임 붙이기 실패 / 그새 숨거나 파괴 | 실패면 `doFit` 1회. 숨음·파괴면 아무것도 안 함 (FR-TGR-7) |
+| TC-TGR-12c | 붙일 예정인 칸의 `doFit`·`ptySize` | DOM fit 을 부르지 않고 예측값으로 선다. dpr·줄 높이·자간·스크롤 막대·`scrollback 0` 을 셈한다. 예정이 아닌 칸(붙음·숨음·손실·불가·끔·addon 없음)과 문자 크기 미측정은 종전 fit. 비소유자는 PTY 를 따른다. 붙인 뒤 크기 변화 0 (FR-TGR-7b) |
 | TC-TGR-14 | 설정 스위치로 켜고 끔 | 보이는 칸만 `doFit` 이 바뀔 때마다 1회, 숨은 칸은 0회 |
 | TC-TGR-15 | 컨텍스트 손실 | `doFit` 1회 |
 | TC-TGR-16 | 그 칸 캔버스의 `webglcontextlost` | 곧바로 DOM·`doFit` 1회·손실 1회. 뒤늦은 `onContextLoss` 는 다시 세지 않음. 다른 캔버스의 이벤트는 무시 (FR-TGR-10 개정) |
@@ -243,6 +267,8 @@ DOM 조회·할당을 하지 않는다.
 ### 7.2 e2e
 
 - FR-TGR-18 의 네 항목 (`e2e/term-gpu.spec.ts`).
+- V-TGR-5 (`e2e/term-gpu-boot.spec.ts`, FR-TGR-7b): WebGL 을 켠 부팅에서 보이는 칸의 크기는 한 번만 바뀐다.
+  창 크기 넷에서 예측값이 붙은 뒤의 `proposeDimensions` 와 같다.
 - 기존 e2e 전체가 FR-TGR-17 아래에서 통과.
 
 ### 7.3 수동 확인
@@ -292,7 +318,7 @@ DOM 조회·할당을 하지 않는다.
 
 - **같다**: ASCII, 굵게·기울임·밑줄·취소선·반전·흐리게, 16·256·트루컬러, 한글, 전각 정렬, 박스·블록 문자, 곡선 밑줄, OSC 8 링크 밑줄, 커서.
 - **다르다 (한계)**: 조합 이모지. 👍🏽 는 👍 와 피부색 칸으로, 👨‍👩‍👧 는 얼굴 셋으로, 🇰🇷 는 `KR` 로 갈라진다. WebGL 은 칸마다 글리프를 그리고, DOM 은 브라우저가 한 줄을 통째로 shaping 하기 때문이다. 단일 이모지(😀 ✅ ❌ 🚀)는 같다.
-- 칸 폭: DOM 은 소수 px(8.43), WebGL 은 기기 픽셀로 내린 정수 px(8)다. 글꼴 크기·줄 높이는 같다 (D-TGR-8). 같은 칸에 들어가는 열 수가 다르다(170 ↔ 179). FR-TGR-7a 가 바뀔 때 다시 잰다.
+- 칸 폭: DOM 은 소수 px(8.43), WebGL 은 기기 픽셀로 내린 정수를 dpr 로 나눈 값이다(dpr 1 에서 8, dpr 1.5 에서 12/1.5 = 8). (정정 2026-11-25: 이전 문구 "정수 px" 는 dpr 1 에서만 맞다.) 글꼴 크기·줄 높이는 같다 (D-TGR-8). 같은 칸에 들어가는 열 수가 다르다(170 ↔ 179). FR-TGR-7a 가 바뀔 때 다시 잰다.
 
 ### 9.3 측정 환경의 함정
 

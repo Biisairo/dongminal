@@ -152,11 +152,11 @@ Object.assign(Renderer.prototype, {
     const app=this.app;
     TIMERS.frame(()=>{
       for(const p of app.tools.values()){
-        // TERMINAL_GPU_RENDER_SRS FR-TGR-7: 렌더러를 정한 **뒤에** 잰다.
+        // TERMINAL_GPU_RENDER_SRS FR-TGR-7(개정, PERF D-40): 첫 페인트는 DOM 렌더러다. 붙일 칸은 WebGL 크기로 재고(FR-TGR-7b) 뒤 프레임에 붙인다.
         if(p.el.classList.contains('vis')){
           if(!p._opened)p.open();
-          p.syncGpu(true);
           p.sizer.doFit();
+          if(p._gpuPending()) this._gpuLater(p);
         }else p.syncGpu(false);
       }
       // FR-PDR-10: **옮겨진 것만** 되돌린다. 재사용된 pane 은 이 목록에 없고,
@@ -170,6 +170,18 @@ Object.assign(Renderer.prototype, {
         app.focus.owner.resendWindowSizes(app.ws.activeWindow);
       }
     },{owner:this,label:'render-frame'});
+  },
+
+  /**
+   * FR-TGR-7: 보이는 칸의 WebGL 붙이기 — 칸마다 하나로 접히는 `idle` 프레임 작업이다. 그새 숨거나 파괴된 칸은
+   * 건너뛴다. 붙인 뒤 다시 잰다 — 실패했으면(FR-TGR-9) 그것이 예측값을 DOM 크기로 되돌린다.
+   */
+  _gpuLater(p){
+    TIMERS.frame(()=>{
+      if(p._destroyed||!p.el.classList.contains('vis')) return;
+      p.syncGpu(true);
+      p.sizer.doFit();
+    },{owner:p,coalesce:'gpu',prio:'idle',label:'gpu-attach'});
   },
 
   /**

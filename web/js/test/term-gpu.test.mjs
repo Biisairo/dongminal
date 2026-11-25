@@ -240,25 +240,35 @@ test('TC-TGR-15: 컨텍스트 손실로 DOM 에 돌아가면 다시 잰다', () 
   assert.equal(p.fits, before + 1);
 });
 
-test('TC-TGR-12:_afterLayout 은 칸마다 syncGpu 를 doFit 보다 먼저 부른다', () => {
+test('TC-TGR-12(개정, PERF D-40):_afterLayout 은 open → doFit(예측) 하고, 붙이기는 칸마다 뒤 idle 프레임에서 syncGpu → doFit 이다', () => {
   const log = [];
+  const frames = [];
   const ctx = load(['ui/renderer-layout.js'], {
-    globals: { Renderer: class {}, TIMERS: { frame: (fn) => fn() } },
+    globals: { Renderer: class {}, TIMERS: { frame: (fn, opts) => frames.push({ fn, opts }) } },
   });
   const r = new ctx.Renderer();
   const mk = (id, vis) => ({
-    _opened: false,
+    _opened: false, _gpu: null,
     el: { classList: { contains: (c) => c === 'vis' && vis } },
     open() { this._opened = true; log.push(id + ':open') },
-    syncGpu(v) { log.push(id + ':gpu:' + v) },
+    _gpuPending() { return vis && !this._gpu },
+    syncGpu(v) { log.push(id + ':gpu:' + v); if (v) this._gpu = {} },
     sizer: { doFit() { log.push(id + ':fit') } },
   });
-  r.app = { tools: new Map([['a', mk('a', true)], ['h', mk('h', false)]]), windowFocused: false };
+  const a = mk('a', true);
+  r.app = { tools: new Map([['a', a], ['h', mk('h', false)]]), windowFocused: false };
   r._moved = [];
   r._restoreScrollOf = () => {};
   r._refocus = () => {};
   r._afterLayout();
-  assert.deepEqual([...log], ['a:open', 'a:gpu:true', 'a:fit', 'h:gpu:false']);
+  frames.shift().fn();
+  assert.deepEqual([...log], ['a:open', 'a:fit', 'h:gpu:false']);
+  assert.equal(frames.length, 1);
+  assert.equal(frames[0].opts.prio, 'idle');
+  assert.equal(frames[0].opts.coalesce, 'gpu');
+  assert.equal(frames[0].opts.owner, a);
+  frames.shift().fn();
+  assert.deepEqual([...log], ['a:open', 'a:fit', 'h:gpu:false', 'a:gpu:true', 'a:fit']);
 });
 
 /**
