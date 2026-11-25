@@ -5,7 +5,7 @@
 - **조정자 탭 uuid**: 다음 세션이 `otterctl who-am-i` 로 새로 얻는다(이전 358d08c3).
 - **main**: `7a2c81d0` = perf-m1 1차 병합(abbcedd6, origin push 됨) + 1.20 fd 상한 cherry-pick(push 안 함). 운영 바이너리는 다시 빌드하지 않았다(사용자가 직접).
 - **M1**: 1.1~1.21 모두 done. 1.17 명령 펌프 결함 수정, 1.18 SSE 잔재 삭제, 1.19 보안 확인(우회 없음), 1.20 RLIMIT_NOFILE(Go 처럼 시작 때 올리고 자식에 원래 값), 1.21 게이트 실패 0.
-- **M2**: 2.2·2.3·2.4(.1~.3)·2.5·2.7·2.8.2·2.9 done. 남은 것: **2.8.1**(read-screen, 에이전트가 끝내던 중 — worktree dongminal-pf/2.8.1 에 커밋 안 된 변경, 진행 기록 확인), **2.6** 흐름 제어를 스냅숏으로, **2.5.1** 스냅숏 행 수 = termScrollback, **2.8.3** css-vars·검색 기준점, 그 뒤 **2.10** 전체 시험·재측정·문서 정합.
+- **M2**: 2.2·2.3·2.4(.1~.3)·2.5·2.7·2.8.2·2.9 done. 남은 것: **2.8.1**(read-screen, pf/2.8.1 `0bd843b1` 커밋됨·lib 통과 — 남은 것: `git merge perf-m1` 충돌(toolipc protocol.rs·daemon conn/handlers·toolclient hub·serve/adapters, seat·search·history·screenconfig 와 함께 두기), clippy·프론트 단위 전체·tsc·otterctl 골든, review), **2.6** 흐름 제어를 스냅숏으로, **2.5.1** 스냅숏 행 수 = termScrollback, **2.8.3** css-vars·검색 기준점, 그 뒤 **2.10** 전체 시험·재측정·문서 정합.
 - **M3**: 3.1~3.3·3.4.1~3.4.5·3.5.1~3.5.3·3.6.1·3.6.3·3.6.4·3.7·3.8 done. 남은 것: **3.6.2**(A안 확정, 착수 블록 /private/tmp/pf3.6.2/HANDOFF-A.md·이슈 진행 기록), **3.4.6~3.4.9** 화면 묶음(병렬, check-lazy-boundary 가 경계를 잡는다 — git 이동 시 17건 예상), **3.5.4** 브라우저 탭 숨김 규칙, 그 뒤 3.4.10(조건부)·3.4.11.
 - **M4**: todo. otter-webserver-sse crate 이름 정리(사용자 결정)가 이슈 4 진행 기록에 있다.
 - 통합 브랜치 perf-m1 상태: 프론트 단위 1763/1763, tsc, load-order 291, Rust 바꾼 crate lib·fmt·clippy 통과. check-css-vars 1건(2.8.3).
