@@ -3,6 +3,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
+use bytes::{BufMut, Bytes, BytesMut};
 use otter_shared_toolhub::{OP_OUTPUT, OP_SEQ};
 use tokio::sync::Notify;
 
@@ -15,10 +16,33 @@ pub(crate) const CHANNEL_PENDING_MAX: usize = 8 << 20;
 /// 터미널 프레임 머리: op 1바이트 + sid 4바이트.
 const TERM_HEAD: usize = 5;
 
+/// 터미널 프레임 하나. 본문은 도구 출력과 참조 계수로 나누고, 머리(op·sid)는 쓸 때 붙인다 (M4 §4).
+pub(crate) struct TermFrame {
+    pub(crate) op: u8,
+    pub(crate) sid: u32,
+    pub(crate) payload: Bytes,
+}
+
+impl TermFrame {
+    /// 보낼 때의 바이트 수.
+    fn len(&self) -> usize {
+        TERM_HEAD + self.payload.len()
+    }
+
+    /// 보낼 바이트 `[op][sid u32 빅엔디언][payload]` (§4.2).
+    pub(crate) fn wire(&self) -> Bytes {
+        let mut b = BytesMut::with_capacity(self.len());
+        b.put_u8(self.op);
+        b.put_u32(self.sid);
+        b.extend_from_slice(&self.payload);
+        b.freeze()
+    }
+}
+
 /// 쓰기 태스크가 꺼내는 것.
 pub(crate) enum Out {
     Text(Arc<str>),
-    Binary(Vec<u8>),
+    Binary(TermFrame),
     /// 이 토픽의 지금 상태로 full 을 만들어 보내라. 보낸 뒤 `drop_upto` 를 부른다.
     NeedFull(String),
     Close,
@@ -40,7 +64,7 @@ struct TermMirror {
 #[derive(Default)]
 struct Inner {
     control: VecDeque<Arc<str>>,
-    term: VecDeque<(u32, Vec<u8>)>,
+    term: VecDeque<TermFrame>,
     /// 위로 받기의 답(`term.history`). 터미널 출력 뒤, 상태 토픽 앞이다 (M2 §2.7).
     hist: VecDeque<Arc<str>>,
     terms: HashMap<u32, TermMirror>,
@@ -131,7 +155,7 @@ impl Outbox {
         if g.closed {
             return;
         }
-        Self::push_term_locked(&mut g, op, sid, payload);
+        Self::push_term_locked(&mut g, op, sid, Bytes::copy_from_slice(payload));
         drop(g);
         self.ready.notify_one();
     }
@@ -139,6 +163,11 @@ impl Outbox {
     /// 세션 `session` 의 프레임. 그 sid 의 지금 세션이 아니면 버린다 — 바뀐 세션이 늦게 낸 프레임이
     /// 새 세션의 재생 사이에 끼지 않는다.
     pub(crate) fn push_term_as(&self, session: u64, op: u8, sid: u32, payload: &[u8]) {
+        self.push_shared_as(session, op, sid, Bytes::copy_from_slice(payload));
+    }
+
+    /// `push_term_as` 와 같되 본문을 복사하지 않고 나눈다 — 도구 출력처럼 여러 채널이 같은 바이트를 보낼 때.
+    pub(crate) fn push_shared_as(&self, session: u64, op: u8, sid: u32, payload: Bytes) {
         let mut g = self.inner();
         if g.closed || g.terms.get(&sid).map(|m| m.session) != Some(session) {
             return;
@@ -162,13 +191,10 @@ impl Outbox {
         self.inner().terms.get(&sid).map(|m| m.session) == Some(session)
     }
 
-    fn push_term_locked(g: &mut Inner, op: u8, sid: u32, payload: &[u8]) {
-        let mut b = Vec::with_capacity(TERM_HEAD + payload.len());
-        b.push(op);
-        b.extend_from_slice(&sid.to_be_bytes());
-        b.extend_from_slice(payload);
-        let n = b.len();
-        g.term.push_back((sid, b));
+    fn push_term_locked(g: &mut Inner, op: u8, sid: u32, payload: Bytes) {
+        let f = TermFrame { op, sid, payload };
+        let n = f.len();
+        g.term.push_back(f);
         g.terms.entry(sid).or_default().pending += n;
         g.add(n);
     }
@@ -225,11 +251,12 @@ impl Outbox {
             g.bytes -= f.len().min(g.bytes);
             return Some(Out::Text(f));
         }
-        if let Some((sid, b)) = g.term.pop_front() {
-            g.bytes -= b.len().min(g.bytes);
-            let m = g.terms.entry(sid).or_default();
-            m.pending -= b.len().min(m.pending);
-            return Some(Out::Binary(b));
+        if let Some(f) = g.term.pop_front() {
+            let n = f.len();
+            g.bytes -= n.min(g.bytes);
+            let m = g.terms.entry(f.sid).or_default();
+            m.pending -= n.min(m.pending);
+            return Some(Out::Binary(f));
         }
         if let Some(f) = g.hist.pop_front() {
             g.bytes -= f.len().min(g.bytes);
@@ -261,17 +288,17 @@ impl Outbox {
     /// sid 의 밀린 출력(`OUTPUT`·`SEQ`)만 버린다 — 도구 id·크기·좌석 통보는 남긴다 (FR-TRM-6). 버린 바이트
     /// 수를 돌려준다.
     pub(crate) fn drop_term_output(&self, sid: u32) -> usize {
-        Self::drop_term_locked(&mut self.inner(), sid, |b| {
-            matches!(b[0], OP_OUTPUT | OP_SEQ)
+        Self::drop_term_locked(&mut self.inner(), sid, |op| {
+            matches!(op, OP_OUTPUT | OP_SEQ)
         })
     }
 
-    fn drop_term_locked(g: &mut Inner, sid: u32, drop: impl Fn(&[u8]) -> bool) -> usize {
+    fn drop_term_locked(g: &mut Inner, sid: u32, drop: impl Fn(u8) -> bool) -> usize {
         let mut freed = 0;
-        g.term.retain(|(s, b)| {
-            let keep = *s != sid || !drop(b);
+        g.term.retain(|f| {
+            let keep = f.sid != sid || !drop(f.op);
             if !keep {
-                freed += b.len();
+                freed += f.len();
             }
             keep
         });

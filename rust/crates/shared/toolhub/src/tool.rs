@@ -85,7 +85,7 @@ struct FreezeState {
 }
 
 /// 검사가 갈아 끼우는 시계·바쁨 판정이다 (Go `setAttnNow`·`SetAttnBusyProbe`).
-type ClockFn = Arc<dyn Fn() -> i64 + Send + Sync>;
+pub(crate) type ClockFn = Arc<dyn Fn() -> i64 + Send + Sync>;
 pub type BusyProbeFn = Arc<dyn Fn(&Tool) -> bool + Send + Sync>;
 static ATTN_NOW: RwLock<Option<ClockFn>> = RwLock::new(None);
 static ATTN_BUSY: RwLock<Option<BusyProbeFn>> = RwLock::new(None);
@@ -175,6 +175,8 @@ pub struct Tool {
     fg_wake: OnceLock<Arc<Notify>>,
     /// 마지막 전경 조회 뒤 처음 PTY 입출력이 있던 시각이다. 조회하면 비운다.
     fg_io_at: Mutex<Option<Instant>>,
+    /// 등록부의 L2 유휴 판정 깨우개다. 무장이 처음 설 때 깨운다. 등록할 때 한 번 건다.
+    attn_wake: OnceLock<Arc<Notify>>,
 }
 
 impl Tool {
@@ -223,6 +225,7 @@ impl Tool {
             compact_wake: OnceLock::new(),
             fg_wake: OnceLock::new(),
             fg_io_at: Mutex::new(None),
+            attn_wake: OnceLock::new(),
         }
     }
 
@@ -905,8 +908,8 @@ impl Tool {
     fn observe_output_classified(&self, rs: &mut ReadState, chunk: &[u8], now: i64, c: EscClass) {
         self.last_output_at.store(now, SeqCst);
         self.note_fg_io();
-        if !self.attn_rearm_locked.load(SeqCst) {
-            self.attn_armed.store(true, SeqCst);
+        if !self.attn_rearm_locked.load(SeqCst) && !self.attn_armed.swap(true, SeqCst) {
+            self.wake_attn();
         }
         if rs.attn_carry.is_empty() && !c.osc {
             return;
@@ -1018,6 +1021,27 @@ impl Tool {
         self.last_output_at.store(v, SeqCst);
     }
 
+    /// 등록부의 L2 유휴 판정 깨우개를 건다. 걸기 전에 이미 무장했으면 곧바로 깨운다.
+    pub(crate) fn set_attn_wake(&self, w: &Arc<Notify>) {
+        let _ = self.attn_wake.set(Arc::clone(w));
+        if self.attn_armed.load(SeqCst) {
+            w.notify_one();
+        }
+    }
+
+    fn wake_attn(&self) {
+        if let Some(w) = self.attn_wake.get() {
+            w.notify_one();
+        }
+    }
+
+    /// L2 유휴 판정 마감(unix-nanos)이다: 무장했으면 `마지막 출력 + threshold`, 아니면 `None`.
+    pub(crate) fn idle_due(&self, threshold: i64) -> Option<i64> {
+        self.attn_armed
+            .load(SeqCst)
+            .then(|| self.last_output_at.load(SeqCst).saturating_add(threshold))
+    }
+
     /// L2 유휴 판정이다. threshold 는 나노초이고 0 이하면 끈다.
     pub fn maybe_idle(&self, now: i64, threshold: i64) {
         self.maybe_idle_with(now, threshold, |p| p.attn_busy())
@@ -1098,6 +1122,9 @@ impl Tool {
         self.attention.store(st.attention, SeqCst);
         self.attn_rearm_locked.store(st.rearm_locked, SeqCst);
         self.turn.restore(st.turn);
+        if st.armed {
+            self.wake_attn();
+        }
     }
 
     // ── 기록 ──

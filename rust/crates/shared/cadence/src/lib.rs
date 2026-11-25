@@ -36,13 +36,9 @@
 //!
 //! | 상수 | 값 | 쓰는 곳 | 설계 · 단계 |
 //! |---|---|---|---|
-//! | `FOREGROUND_REFRESH_EVERY` | 2초 | `webserver/hub` 서버 전경 poll | S5, 4.8 |
-//! | `ATTENTION_SWEEP_EVERY` | 1초 | `shared/toolhub` 데몬 유휴 판정 | D2, 4.8 |
-//! | `SERVER_ATTN_SWEEP_EVERY` | 1초 | `webserver/hub` 서버 L2 스위퍼 틱 | S4, 4.8 |
 //! | `GIT_WATCH_ROUND_EVERY` | 1초 | `webserver/hub` git 감시 회차 | S1, 4.9 |
 //! | `GIT_WATCH_WORKTREE_ROUNDS` | 4회차 | `webserver/hub` 워크트리 회차 간격 | S1, 4.9 |
 //! | `GIT_WATCH_BACKOFF_MAX` | 30초 | `webserver/hub` 관측 실패 뒤 건너뛰기 상한 | S1, 4.9 |
-//! | `SYSSTAT_SAMPLE_EVERY` | 2초 | `webserver/domain/sysstat` 샘플러 | S2, 4.10 |
 //! | `RUN_REAP_EVERY` | 15초 | `webserver/httpapi` Run 자동 수거 | S7, 4.11 |
 //! | `LSP_SWEEP_EVERY` | 2분 | `webserver/domain/lsp` 유휴 세션 정리 | S9, 4.11 |
 //! | `MESH_REDIAL_MIN` | 1초 | `shared/edgemesh` 다시 걸기 간격의 처음 | D4, 4.11 |
@@ -56,9 +52,10 @@
 //! | 상수 | 값 | 쓰는 곳 | 설계 · 단계 |
 //! |---|---|---|---|
 //! | `FOREGROUND_SETTLE` | 2초 | `shared/toolhub` 전경 이름 정착 창 | D1, 4.6 |
+//! | `SYSSTAT_SAMPLE_EVERY` | 2초 | `webserver/domain/sysstat` 샘플러(`stats:*` 구독 동안만) | S2, 4.10 |
+//! | `SYSSTAT_WARMUP_GAP` | 250밀리초 | `webserver/domain/sysstat` 구독 시작 때 예열 표본 둘의 간격 | S2, 4.10 |
 //!
-//! 넣을 값: sysstat 예열 표본 간격(S2, 4.10),
-//! git 감시 실패·넘침 뒤 회차로 물러서는 간격(S1, 4.9).
+//! 넣을 값: git 감시 실패·넘침 뒤 회차로 물러서는 간격(S1, 4.9).
 
 use std::time::Duration;
 
@@ -84,13 +81,6 @@ pub const UPDATE_CHECK_EVERY: Duration = Duration::from_secs(24 * 60 * 60);
 
 // ── 2. 사건 기반으로 바뀔 주기 (4.6~4.11) ──
 
-/// 서버가 데몬에 전경 이름을 묻는 poll 의 주기다 (FR-TAN-8). 데몬 쪽 조회는 4.6 이
-/// [`FOREGROUND_SETTLE`] 사건 기반으로 바꿨다. 4.8 이 서버 poll 을 지운다.
-pub const FOREGROUND_REFRESH_EVERY: Duration = Duration::from_secs(2);
-/// 데몬의 L2 유휴 판정 sweeper 주기다. 4.8 이 `last_output_at + 임계` 마감으로 바꾼다.
-pub const ATTENTION_SWEEP_EVERY: Duration = Duration::from_secs(1);
-/// 서버 L2 스위퍼에 주는 틱의 주기다. 4.8 이 지운다(임계 0 이면 빈 틱).
-pub const SERVER_ATTN_SWEEP_EVERY: Duration = Duration::from_secs(1);
 /// git 감시 회차의 주기다 (FR-GPO-2). 4.9 가 대상 0 정지와 파일 감시로 바꾼다.
 pub const GIT_WATCH_ROUND_EVERY: Duration = Duration::from_secs(1);
 /// 워크트리 `git status` 를 도는 회차 간격(회차 수)이다 (FR-GDT-3). 4.9 가 파일 감시 사건으로 바꾼다.
@@ -98,8 +88,6 @@ pub const GIT_WATCH_WORKTREE_ROUNDS: u64 = 4;
 /// 일시적 관측 실패 뒤 건너뛰는 시간의 상한이다 (min(2^(n-1), 30)s). 실패한 저장소를 매 회차 다시
 /// 묻지 않게 한다.
 pub const GIT_WATCH_BACKOFF_MAX: Duration = Duration::from_secs(30);
-/// 시스템 통계 샘플 주기다 (SYSTEM_STATS_SRS D-3). 4.10 이 `stats:*` 구독 동안만 돌게 바꾼다.
-pub const SYSSTAT_SAMPLE_EVERY: Duration = Duration::from_secs(2);
 /// Run 자동 수거의 주기다 (FR-ARD-5). 4.11 이 도구 종료·Run 상태 변화 사건으로 바꾼다.
 pub const RUN_REAP_EVERY: Duration = Duration::from_secs(15);
 /// LSP 유휴 세션 정리의 주기다. 4.11 이 세션이 있을 때만 `min(last_use) + IDLE_AFTER` 마감으로 바꾼다.
@@ -117,6 +105,12 @@ pub const MESH_PING_EVERY: Duration = Duration::from_secs(15);
 /// 전경 이름의 정착 창이다 (D1, FR-TAN-7·8). 도구에 PTY 입출력이 있으면 그 뒤 이만큼 지나 전경을
 /// 한 번 조회한다. 입출력이 없으면 조회하지 않는다. 계속 출력해도 창 하나에 한 번이다.
 pub const FOREGROUND_SETTLE: Duration = Duration::from_secs(2);
+/// 시스템 통계 샘플 주기다 (SYSTEM_STATS_SRS D-3). `stats:*` 구독이 있는 동안만 돈다 (PERF D-61).
+/// CPU·메모리는 사건 없이 바뀌므로 보는 사람이 있는 동안은 시간 축으로 잰다.
+pub const SYSSTAT_SAMPLE_EVERY: Duration = Duration::from_secs(2);
+/// 구독이 시작될 때 예열 표본 둘 사이의 간격이다 (PERF 4.10). CPU% 는 tick 차분이라 표본이 둘
+/// 있어야 나온다 — 첫 프레임이 이만큼만 기다리면 CPU 를 싣는다. 100Hz tick 이면 코어당 25 tick 이다.
+pub const SYSSTAT_WARMUP_GAP: Duration = Duration::from_millis(250);
 
 #[cfg(test)]
 mod tests;

@@ -16,8 +16,8 @@ mod tool;
 
 pub use agentturn::{AgentTurn, TurnState};
 pub use attention::{
-    ATTENTION_SWEEP_INTERVAL, ATTN_MAX_CARRY, ATTN_WORKING_STALE, ActivitySnap, ActivityState,
-    EscClass, activity_still_working, attention_allow_bell, attention_idle_threshold, classify_esc,
+    ATTN_MAX_CARRY, ATTN_WORKING_STALE, ActivitySnap, ActivityState, EscClass,
+    activity_still_working, attention_allow_bell, attention_idle_threshold, classify_esc,
     detect_attention_signal, detect_cwd_report,
 };
 pub use conn::{

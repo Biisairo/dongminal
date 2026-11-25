@@ -54,7 +54,17 @@ pub trait SandboxReaper: Send + Sync {
     fn save_config(&self, blob: &[u8]) -> Result<(), otter_shared_sandbox::Error>;
 }
 
-/// Go `StatsSnapshotter`: 상태바 지표의 스냅샷 (FR-STAT-9).
+/// Go `StatsSnapshotter`: 상태바 지표다. 샘플러는 `stats:*` 구독이 있는 동안만 돈다 (PERF D-61).
 pub trait StatsSnapshotter: Send + Sync {
+    /// 샘플러가 마지막으로 잰 값이다. 커널을 부르지 않는다 (FR-STAT-10). `stats:*` 가 싣는다.
     fn snapshot(&self) -> otter_webserver_domain_sysstat::Snapshot;
+    /// `GET /api/stats` 의 값이다. mem·disk·boot 는 지금 재고, CPU 는 샘플러가 도는 동안의 값만
+    /// 싣는다 (Q6, FR-STAT-9 개정).
+    fn measure(&self) -> otter_webserver_domain_sysstat::Snapshot;
+    /// `stats:*` 구독이 있다 — 샘플러가 쉬고 있으면 예열하며 띄운다.
+    fn resume(&self);
+    /// `stats:*` 구독이 하나도 없다 — 샘플러를 멈춘다.
+    fn pause(&self);
+    /// 예열(표본 둘)이 끝나면 풀린다. 샘플러가 쉬고 있으면 곧바로 풀린다.
+    fn warmed(&self) -> futures_util::future::BoxFuture<'static, ()>;
 }

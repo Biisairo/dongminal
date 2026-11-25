@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use otter_shared_sandbox::{self as sandbox, ProfileInfo};
@@ -467,17 +467,56 @@ impl SandboxReaper for FakeReaper {
     }
 }
 
-/// Go `fakeStats`.
+/// Go `fakeStats`. `warm_cpu` 가 있으면 CPU 는 예열(`SYSSTAT_WARMUP_GAP`)이 끝난 뒤에만 싣는다.
 #[derive(Default)]
 pub(crate) struct FakeStats {
     pub(crate) snap: Snapshot,
+    /// `measure` 호출 수다 (GET).
     pub(crate) calls: AtomicUsize,
+    /// `snapshot` 호출 수다 (채널).
+    pub(crate) cached: AtomicUsize,
+    pub(crate) active: AtomicBool,
+    pub(crate) warm_cpu: Option<f64>,
+    pub(crate) warm_done: Arc<AtomicBool>,
+}
+
+impl FakeStats {
+    fn view(&self) -> Snapshot {
+        let mut s = self.snap;
+        if let Some(cpu) = self.warm_cpu
+            && self.warm_done.load(Ordering::SeqCst)
+        {
+            s.cpu = cpu;
+            s.cpu_valid = true;
+        }
+        s
+    }
 }
 
 impl StatsSnapshotter for FakeStats {
     fn snapshot(&self) -> Snapshot {
+        self.cached.fetch_add(1, Ordering::SeqCst);
+        self.view()
+    }
+    fn measure(&self) -> Snapshot {
         self.calls.fetch_add(1, Ordering::SeqCst);
-        self.snap
+        self.view()
+    }
+    fn resume(&self) {
+        self.active.store(true, Ordering::SeqCst);
+    }
+    fn pause(&self) {
+        self.active.store(false, Ordering::SeqCst);
+        self.warm_done.store(false, Ordering::SeqCst);
+    }
+    fn warmed(&self) -> BoxFuture<'static, ()> {
+        let (active, done) = (self.active.load(Ordering::SeqCst), self.warm_done.clone());
+        Box::pin(async move {
+            if active {
+                tokio::time::sleep(otter_shared_cadence::SYSSTAT_WARMUP_GAP).await;
+                done.store(true, Ordering::SeqCst);
+            }
+        })
     }
 }
 

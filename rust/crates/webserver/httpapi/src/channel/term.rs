@@ -6,6 +6,7 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use bytes::{Bytes, BytesMut};
 use futures_util::future::BoxFuture;
 use otter_shared_otterlog::{errorf, infof, warnf};
 use otter_shared_toolhub::{
@@ -530,7 +531,9 @@ impl Session {
                 }
                 continue;
             }
-            let mut frame = trim_overlap(&chunk.data, chunk.end, sent).to_vec();
+            let mut frame = chunk
+                .data
+                .slice_ref(trim_overlap(&chunk.data, chunk.end, sent));
             sent = chunk.end.max(sent);
             loop {
                 match rx.try_recv() {
@@ -539,12 +542,14 @@ impl Session {
                             pending = Some(next);
                             break;
                         }
-                        let d = trim_overlap(&next.data, next.end, sent);
+                        let d = next
+                            .data
+                            .slice_ref(trim_overlap(&next.data, next.end, sent));
                         if frame.len() + d.len() > RELAY_COALESCE_MAX {
                             pending = Some(next);
                             break;
                         }
-                        frame.extend_from_slice(d);
+                        frame = join(frame, d);
                         sent = next.end.max(sent);
                     }
                     Err(mpsc::error::TryRecvError::Disconnected) => {
@@ -571,7 +576,20 @@ impl Session {
                 }
                 continue;
             }
-            self.out.push_term_as(self.og, OP_OUTPUT, self.sid, &frame);
+            self.out.push_shared_as(self.og, OP_OUTPUT, self.sid, frame);
         }
     }
+}
+
+/// 이어 붙인다. 한쪽이 비면 복사하지 않는다 — 조각 하나뿐인 흔한 경우는 도구 출력을 그대로 나눈다 (M4 §4).
+fn join(a: Bytes, b: Bytes) -> Bytes {
+    if a.is_empty() {
+        return b;
+    }
+    if b.is_empty() {
+        return a;
+    }
+    let mut m = BytesMut::from(a);
+    m.extend_from_slice(&b);
+    m.freeze()
 }
