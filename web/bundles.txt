@@ -441,6 +441,11 @@ js/core/settings-presets.js
 # 처음 열 때의 세우기 순서. 섹션 클래스를 로드 시점에 표로 읽으므로 섹션 파일 전부의 뒤다.
 js/core/settings-open.js
 
+[themes]
+# 기본 두 테마 밖의 테마 카탈로그 (PERF 3.4.12.6). 적용할 이름이 부팅 표에 없을 때 `_settingsApply` 가,
+# 설정 창은 needs 로 싣는다. 부팅의 `THEMES` 를 늘리므로 themes.js 뒤에만 실린다.
+js/ui/themes-catalog.js
+
 [editor]
 # 편집기 칸과 탐색기 (PERF 3.4.7, D-30·D-32). Editor 창을 그리거나 파일을 열 때 Screens.load('editor') 가 싣는다.
 # 부팅 코드가 읽는 편집기 상수·CodeMirror 공용 층(cm-*·file-editor-find·file-editor-diff)은 boot 에 남는다 —

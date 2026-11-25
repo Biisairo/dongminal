@@ -12,7 +12,7 @@ import { load } from './harness.mjs';
  * 팔레트 dim 은 많은 테마에서 `--border` 와 같아 스크롤바 손잡이가 보이지 않았다.
  */
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
-const ctx = load(['core/contrast.js', 'ui/themes.js', 'core/theme-vars.js'], {
+const ctx = load(['core/contrast.js', 'ui/themes.js', 'ui/themes-catalog.js', 'core/theme-vars.js'], {
   globals: { TOPTS: {}, t: (k) => k },
   expose: ['THEMES', 'themeVarsOf', 'mixHex', 'TEXT_DIM_LIFT'],
 });

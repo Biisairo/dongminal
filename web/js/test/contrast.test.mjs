@@ -15,7 +15,7 @@ import { load, plain } from './harness.mjs';
 
 // 고전 스크립트라 `import` 로 꺼낼 수 없다 — 이 저장소의 관용구를 따른다.
 // `themes.js` 는 `TOPTS` 에 대입하므로 `contrast.js` 뒤에 함께 싣고 대역을 준다.
-const ctx = load(['core/contrast.js', 'ui/themes.js'], {
+const ctx = load(['core/contrast.js', 'ui/themes.js', 'ui/themes-catalog.js'], {
   // `themes.js` 끝줄이 `TOPTS.theme` 에 대입한다 — 그 한 줄 때문에
   // `core/constants.js` 를 끌고 오지 않는다.
   globals: { TOPTS: {} },
