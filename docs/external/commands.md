@@ -160,6 +160,7 @@ NEW=$(otterctl split-v --at "$UUID" -n | jq -r '.newTabs[0].uuid')  # 새로 생
 ```
 
 - `newTabs` 각 원소는 `{uuid, toolId}` — uuid→toolId 재조회 불필요.
+- 생성 명령은 새 탭이 워크스페이스에 등록된 뒤 답한다 — 받은 `newTabs[].uuid` 를 곧바로 `--at` 에 써도 된다(등록이 2초 안에 오지 않으면 그대로 답한다).
 - `newWindow` 은 `newWindows`/`newPanes`/`newTabs` 각 1개.
 - 구독 브라우저가 없거나(`delivered=0`) 응답이 늦으면 `timedOut: true` + 빈 배열 — 명령 자체는 broadcast 됨. 이 경우 `list-workspace` 로 확인.
 - **`otterctl` 은 그 둘을 실패로 본다** — `delivered=0` 이면 "구독 중인 브라우저가 없습니다" 와 exit 1, 생성 명령이 `timedOut` 이면 "만들어지지 않았을 수 있습니다" 와 exit 1. 본문은 그대로 stdout 에 남는다. 비생성 명령도 `delivered=0` 은 exit 1 이다 (`detach` 와 같은 판정).

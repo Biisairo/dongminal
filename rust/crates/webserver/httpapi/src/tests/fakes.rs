@@ -311,6 +311,9 @@ pub(crate) struct FakeWork {
     pub(crate) coord_map: HashMap<String, String>,
     pub(crate) coord_err: HashMap<String, String>,
     pub(crate) tab_entries: Vec<TabEntry>,
+    /// 시험 도중 색인에 들어오는 탭이다 ([`FakeWork::register_tab`]).
+    pub(crate) late_tabs: Mutex<Vec<String>>,
+    pub(crate) changed: otter_shared_pollwait::Signal,
 }
 
 impl FakeWork {
@@ -320,6 +323,12 @@ impl FakeWork {
             rev: Mutex::new(rev),
             ..FakeWork::default()
         }
+    }
+
+    /// 브라우저의 `PUT /api/workspace` 가 새 탭을 색인에 넣은 것처럼 한다.
+    pub(crate) fn register_tab(&self, id: &str) {
+        self.late_tabs.lock().unwrap().push(id.to_owned());
+        self.changed.notify();
     }
 }
 
@@ -370,7 +379,12 @@ impl WorkspaceStore for FakeWork {
             .unwrap_or_else(|| id.to_owned()))
     }
     fn is_known_tab_id(&self, id: &str) -> bool {
-        !id.is_empty() && self.coord_map.contains_key(id)
+        !id.is_empty()
+            && (self.coord_map.contains_key(id)
+                || self.late_tabs.lock().unwrap().iter().any(|t| t == id))
+    }
+    fn changes(&self) -> otter_shared_pollwait::Changed {
+        self.changed.c()
     }
     fn entries(&self) -> Vec<TabEntry> {
         self.tab_entries.clone()
