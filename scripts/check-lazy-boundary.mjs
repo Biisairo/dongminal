@@ -17,6 +17,10 @@
  *   2. `scripts/lazy-entries.txt` 에 적힌 함수(안의 클로저 포함). 그 함수는 `Screens.load`·
  *      `Screens.ready` 를 불러야 한다 — 렌더러처럼 동기로 남는 자리가 이것을 쓴다
  *
+ * vendor UMD 는 전역을 `e.markdownit = t()` 처럼 속성으로 달아 최상위 선언이 없다. 그런 전역은
+ * `scripts/vendor-globals.txt` 에 파일과 함께 적는다. 소속은 정의에서 찾는다 — 페이지가 싣는
+ * 파일이면 부팅이고, 페이지가 싣지 않는 묶음에 들면 그 묶음의 전역으로 본다 (PERF 3.4.12.1).
+ *
  * `typeof X` 는 던지지 않으므로 참조로 보지 않는다. 지역 이름은 `eslint-scope` 가 가른다.
  *
  * ## 무엇을 잡지 않는가
@@ -26,7 +30,7 @@
  *
  * 사용: node scripts/check-lazy-boundary.mjs [저장소 뿌리]
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -37,6 +41,7 @@ import { pageScripts, readBundles } from './bundles-def.mjs';
 
 const ROOT = process.argv[2] || join(dirname(fileURLToPath(import.meta.url)), '..');
 const ENTRIES = 'scripts/lazy-entries.txt';
+const VENDOR_GLOBALS = 'scripts/vendor-globals.txt';
 const PARSE = { ecmaVersion: 2022, sourceType: 'script', loc: true, range: true };
 const FN = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']);
 
@@ -137,8 +142,17 @@ function readEntries() {
     .map((l) => { const [file, name] = l.split(/\s+/); return { file, name }; });
 }
 
+/** `vendor-globals.txt` 의 줄: 파일과 그 파일의 UMD 가 다는 전역들. */
+function readVendorGlobals() {
+  const path = join(ROOT, VENDOR_GLOBALS);
+  if (!existsSync(path)) return [];
+  return readFileSync(path, 'utf8').split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'))
+    .map((l) => { const [file, ...names] = l.split(/\s+/); return { file, names }; });
+}
+
+const html = readFileSync(join(ROOT, 'web', 'index.html'), 'utf8');
 const defs = readBundles(ROOT);
-const boot = pageScripts(readFileSync(join(ROOT, 'web', 'index.html'), 'utf8'), defs);
+const boot = pageScripts(html, defs);
 const bootSet = new Set(boot);
 
 const screenGlobals = new Map();
@@ -147,6 +161,16 @@ for (const [bundle, { js }] of defs) {
   if (js.every((f) => bootSet.has(f))) continue;
   screenBundles++;
   for (const file of js) for (const name of topNames(parse(file).ast)) screenGlobals.set(name, { bundle, file });
+}
+
+const pageVendor = new Set(html.matchAll(/<script\s+src="(vendor\/[^"?]+)/g).map((m) => m[1]));
+const vendorGlobals = readVendorGlobals();
+const badVendor = [];
+for (const { file, names } of vendorGlobals) {
+  if (pageVendor.has(file) || bootSet.has(file)) continue;
+  const owner = [...defs].find(([, d]) => d.js.includes(file));
+  if (!owner) { badVendor.push(`${file} — index.html 도 묶음 정의도 싣지 않는다`); continue; }
+  for (const name of names) screenGlobals.set(name, { bundle: owner[0], file });
 }
 
 const entries = readEntries();
@@ -198,6 +222,11 @@ if (bad.length) {
   console.error("  그 함수에서 먼저 `await Screens.load('<화면>')` 를 기다리거나, 동기로 남아야 하는 자리면");
   console.error(`  Screens.ready 로 가린 뒤 ${ENTRIES} 에 진입점으로 적으세요.`);
 }
-if (bad.length || badEntries.length) process.exit(1);
+if (badVendor.length) {
+  console.error(`${VENDOR_GLOBALS} 의 파일이 틀렸습니다 (${badVendor.length}건):`);
+  for (const b of badVendor) console.error(`  ${b}`);
+}
+if (bad.length || badEntries.length || badVendor.length) process.exit(1);
 
-console.log(`lazy-boundary ok — 부팅 파일 ${boot.length}개 · 화면 묶음 ${screenBundles}개(전역 ${screenGlobals.size}개) · 진입점 ${entries.length}개`);
+const vendorNames = vendorGlobals.reduce((n, v) => n + v.names.length, 0);
+console.log(`lazy-boundary ok — 부팅 파일 ${boot.length}개 · 화면 묶음 ${screenBundles}개(전역 ${screenGlobals.size}개) · 진입점 ${entries.length}개 · vendor 전역 ${vendorNames}개`);
