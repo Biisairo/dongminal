@@ -2153,6 +2153,7 @@ dependencies = [
 name = "otter-shared-toolhub"
 version = "1.3.7"
 dependencies = [
+ "bytes",
  "nix",
  "otter-gocompat",
  "otter-shared-activity",
@@ -2691,6 +2692,7 @@ dependencies = [
 name = "otter-webserver-toolclient"
 version = "1.3.7"
 dependencies = [
+ "bytes",
  "otter-gocompat",
  "otter-shared-chatwire",
  "otter-shared-otterlog",

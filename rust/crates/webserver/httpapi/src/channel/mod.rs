@@ -285,12 +285,12 @@ async fn write_loop(
             o = out.next() => o,
         };
         let msg = match next {
-            Out::Text(t) => Message::Text(Bytes::copy_from_slice(t.as_bytes())),
-            Out::Binary(b) => Message::Binary(Bytes::from(b)),
+            Out::Text(t) => Message::Text(Bytes::from_owner(SharedText(t))),
+            Out::Binary(f) => Message::Binary(f.wire()),
             Out::NeedFull(topic) => match srv.topics.full_item(&topic) {
                 Some(it) => {
                     out.drop_upto(&topic, it.seq);
-                    Message::Text(Bytes::copy_from_slice(it.frame.as_bytes()))
+                    Message::Text(Bytes::from_owner(SharedText(it.frame.clone())))
                 }
                 None => continue,
             },
@@ -302,6 +302,15 @@ async fn write_loop(
     }
     done.cancel();
     let _ = writer.close(1000, "").await;
+}
+
+/// 직렬화해 둔 본문을 복사 없이 `Bytes` 로 넘긴다 — 채널마다 참조 계수만 나눈다 (M4 §4).
+struct SharedText(Arc<str>);
+
+impl AsRef<[u8]> for SharedText {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
 }
 
 /// 쓰기 한 번. 마감(`WRITE_WAIT`) 안에 끝나지 않으면 실패다 — 읽지 않는 상대가 쓰기 태스크를

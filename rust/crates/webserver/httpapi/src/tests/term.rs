@@ -100,7 +100,7 @@ fn trim_overlap_cases() {
 #[test]
 fn relay_joinable_cases() {
     let c = |data: &[u8], end: i64, size: Option<TermSize>| OutChunk {
-        data: data.to_vec(),
+        data: bytes::Bytes::copy_from_slice(data),
         end,
         size,
     };

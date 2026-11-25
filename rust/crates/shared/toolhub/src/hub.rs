@@ -27,9 +27,10 @@ pub struct ToolInfo {
 
 /// 도구 출력 한 조각이다. `end` 는 조각 **끝**의 절대 오프셋이고 0 은 "모른다" 다
 /// (TERMINAL_RESUME_SRS FR-TRS-15·16). `size` 가 있으면 출력이 아니라 크기 통보다 (M9_SRS FR-M9-3 ②).
+/// `data` 는 구독자들이 참조 계수로 나눈다 — 출력 하나를 구독자마다 복사하지 않는다 (PERF M4 §4).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct OutChunk {
-    pub data: Vec<u8>,
+    pub data: bytes::Bytes,
     pub end: i64,
     pub size: Option<TermSize>,
 }
