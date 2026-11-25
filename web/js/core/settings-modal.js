@@ -20,7 +20,6 @@ class SettingsModal extends Dialog {
     this.ov=this.el;
     this.box=document.getElementById('modal');
     this._tabsAria();
-    document.getElementById('settings-btn').addEventListener('click',()=>this.open());
     document.getElementById('modal-close').addEventListener('click',()=>this.close());
     this.ov.addEventListener('click',e=>{ if(e.target===this.ov) this.close() });
     for(const tab of this.tabs()) tab.addEventListener('click',()=>this.select(tab));

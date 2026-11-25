@@ -165,7 +165,7 @@ class ChatHuman extends Controller {
       ]});
     if(ok!==true) return false;
     this._chatRoomSel().sel.clear();
-    for(const v of this.app.chat.views._chatViewMap().values()) if(v.sel) v.sel.clear();
+    for(const v of this.app.chat.views?._chatViewMap().values()||[]) if(v.sel) v.sel.clear();
     await this.app.chat._chatRestore();
     return true;
   }

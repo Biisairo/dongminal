@@ -6,7 +6,7 @@ import { load } from './harness.mjs';
  * ISSUE_AGENT_TREE_SRS TC-ITD-4 (FR-ITD-7): 트리 뷰는 자기 Run 이거나 같은 트리의 변경에만
  * 다시 받는다. 다른 트리·트리 아닌 Run 의 `run_changed` 로는 요청하지 않는다.
  */
-const ctx = load(['ui/runs-panel.js'], {
+const ctx = load(['core/screens.js', 'ui/runs-panel.js'], {
   globals: { t: (k) => k, panesOf: () => [] },
   expose: ['RunsPanel'],
 });

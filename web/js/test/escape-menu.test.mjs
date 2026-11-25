@@ -343,8 +343,8 @@ test('TC-FEE-4: 옮긴 처리기 셋에 문서 keydown 리스너가 없다', () 
   }
 });
 
-test('TC-FEE-4: #settings-btn 에 click 을 거는 자리는 settings-modal.js 하나다', () => {
+test('TC-FEE-4: #settings-btn 에 click 을 거는 자리는 settings-controller.js 하나다 — 묶음을 싣고 연다 (PERF D-41)', () => {
   const files = ['core/settings-modal.js', 'core/settings-controller.js', 'core/settings-profile.js', 'core/mobile-sheets.js'];
   const hits = files.filter((f) => /getElementById\('settings-btn'\)[^;\n]*\.addEventListener\('click'|const (\w+)=document\.getElementById\('settings-btn'\);[\s\S]{0,40}\1\.addEventListener\('click'/.test(read(f)));
-  assert.deepEqual(hits, ['core/settings-modal.js']);
+  assert.deepEqual(hits, ['core/settings-controller.js']);
 });

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { AGENTS, BASE, CHAT, LAYOUT, PANELS, controllers, load, plain } from './harness.mjs';
+import { AGENTS, BASE, CHAT, LAYOUT, PANELS, SCREENS_LOADED, controllers, load, plain } from './harness.mjs';
 
 /**
  * PEER_CHAT_SRS §3.11 — 화면 (TC-PCH-13 일부).
@@ -23,6 +23,7 @@ function loadUI() {
     expose: ['ACTIVITY_SECTIONS', 'ChatStore', 'chatRoomTitle', 'chatShortId'],
     globals: {
       App: class {},
+      Screens: SCREENS_LOADED,
       PrefStore: { local },
       STORE_KEYS: { activityTab: 'activityTab' },
       // FR-TIP-2: Activity 탭의 영어 툴팁 (constants-tips.js).
@@ -164,7 +165,7 @@ test('사람에게 온 글: 그 방의 탭이 보이면 안 읽은 수가 늘지
 test('FR-PCH-83: 같은 방의 채팅 탭은 하나다 — 이미 있으면 그리로 간다', () => {
   const ctx = load([...BASE, ...LAYOUT, ...CHAT], {
     globals: {
-      App: class {}, TAB_TYPE_RUN: 'run', TAB_TYPE_GIT: 'git', TAB_TYPE_EDITOR: 'editor', TAB_TYPE_TERMINAL: 'terminal', TAB_TYPE_CHAT: 'chat',
+      App: class {}, Screens: SCREENS_LOADED, TAB_TYPE_RUN: 'run', TAB_TYPE_GIT: 'git', TAB_TYPE_EDITOR: 'editor', TAB_TYPE_TERMINAL: 'terminal', TAB_TYPE_CHAT: 'chat',
       newEntityId: (() => { let n = 0; return () => 'tab' + (++n) })(),
       clampEntityName: (s) => s,
       findTabWhere: (wins, f) => {

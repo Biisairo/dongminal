@@ -262,9 +262,13 @@ class TerminalTool {
 
   /**
    * PERF D-16: 처음 보일 때와 잠든 뒤 다시 보일 때 렌더러(`ScreenLife`)가 부른다. 붙으면 서버가 스냅숏을 보낸다.
-   * 서버가 도구의 부재를 알린 터미널(FR-RCS-1)은 되살리지 않는다.
+   * 서버가 도구의 부재를 알린 터미널(FR-RCS-1)은 되살리지 않는다. 스크롤백은 지금 설정으로 맞춘다 — 서버가 같은
+   * 설정으로 스냅숏의 기록 행 수를 정한다(PERF 2.5.1).
    */
-  wake(){ if(!this._exited) this.connect() }
+  wake(){
+    if(this.term) this.term.options.scrollback=termScrollbackNow();
+    if(!this._exited) this.connect();
+  }
 
   /** PERF D-21·FR-TRM-5: 검색 결과(절대 줄 번호 `line`)를 기록 보기로 연다. */
   openHistoryAt(line){ this.history.openAt(line) }

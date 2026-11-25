@@ -10,7 +10,7 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 function setup(replies) {
   const posts = [];
   const toasts = [];
-  const ctx = load(['ui/runs-panel.js', 'ui/run-tree.js', 'ui/run-recover.js'], {
+  const ctx = load(['core/screens.js', 'ui/runs-panel.js', 'ui/run-tree.js', 'ui/run-recover.js'], {
     globals: {
       t: (k, o) => (o ? k + JSON.stringify(o) : k),
       panesOf: () => [],

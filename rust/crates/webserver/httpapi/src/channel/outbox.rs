@@ -29,14 +29,10 @@ enum Pending {
     NeedFull,
 }
 
-/// sid 하나의 밀린 양과, 꺼낸 프레임으로 따라간 브라우저의 좌표 (TC-CH5-11).
-///
-/// 좌표는 브라우저 `TerminalTool` 과 같은 규칙으로 센다: `SEQ` 가 세우고, 그 뒤의 `OUTPUT` 길이를
-/// 더한다. `SEQ` 전의 `OUTPUT` 은 재생분이라 세지 않는다.
+/// sid 하나의 밀린 양 (TC-CH5-11).
 #[derive(Default)]
 struct TermMirror {
     pending: usize,
-    delivered: Option<i64>,
     /// 이 sid 의 지금 세션 번호. 다른 번호로 온 프레임은 끝난 세션의 것이라 버린다.
     session: u64,
 }
@@ -152,13 +148,12 @@ impl Outbox {
         self.ready.notify_one();
     }
 
-    /// sid 의 새 세션을 연다: 밀린 프레임과 좌표를 잊고 새 세션 번호를 돌려준다.
+    /// sid 의 새 세션을 연다: 밀린 프레임을 잊고 새 세션 번호를 돌려준다.
     pub(crate) fn term_begin(&self, sid: u32) -> u64 {
         let mut g = self.inner();
-        Self::drop_term_locked(&mut g, sid);
+        Self::drop_term_locked(&mut g, sid, |_| true);
         let m = g.terms.entry(sid).or_default();
         m.session += 1;
-        m.delivered = None;
         m.session
     }
 
@@ -234,20 +229,6 @@ impl Outbox {
             g.bytes -= b.len().min(g.bytes);
             let m = g.terms.entry(sid).or_default();
             m.pending -= b.len().min(m.pending);
-            let body = &b[TERM_HEAD..];
-            match b[0] {
-                OP_SEQ if body.len() >= 8 => {
-                    let mut off = [0u8; 8];
-                    off.copy_from_slice(&body[..8]);
-                    m.delivered = Some(i64::from_be_bytes(off));
-                }
-                OP_OUTPUT => {
-                    if let Some(d) = m.delivered.as_mut() {
-                        *d += body.len() as i64;
-                    }
-                }
-                _ => {}
-            }
             return Some(Out::Binary(b));
         }
         if let Some(f) = g.hist.pop_front() {
@@ -272,46 +253,42 @@ impl Outbox {
         None
     }
 
-    /// sid 의 (밀린 바이트, 브라우저가 가진 좌표).
-    pub(crate) fn term_state(&self, sid: u32) -> (usize, Option<i64>) {
-        let g = self.inner();
-        g.terms
-            .get(&sid)
-            .map_or((0, None), |m| (m.pending, m.delivered))
+    /// sid 의 밀린 바이트.
+    pub(crate) fn term_pending(&self, sid: u32) -> usize {
+        self.inner().terms.get(&sid).map_or(0, |m| m.pending)
     }
 
-    /// sid 의 밀린 프레임만 버린다. 버린 바이트 수를 돌려준다. 좌표는 꺼낸 것까지 그대로다.
-    pub(crate) fn drop_term(&self, sid: u32) -> usize {
-        Self::drop_term_locked(&mut self.inner(), sid)
+    /// sid 의 밀린 출력(`OUTPUT`·`SEQ`)만 버린다 — 도구 id·크기·좌석 통보는 남긴다 (FR-TRM-6). 버린 바이트
+    /// 수를 돌려준다.
+    pub(crate) fn drop_term_output(&self, sid: u32) -> usize {
+        Self::drop_term_locked(&mut self.inner(), sid, |b| {
+            matches!(b[0], OP_OUTPUT | OP_SEQ)
+        })
     }
 
-    fn drop_term_locked(g: &mut Inner, sid: u32) -> usize {
-        let before = g.term.len();
+    fn drop_term_locked(g: &mut Inner, sid: u32, drop: impl Fn(&[u8]) -> bool) -> usize {
         let mut freed = 0;
         g.term.retain(|(s, b)| {
-            let keep = *s != sid;
+            let keep = *s != sid || !drop(b);
             if !keep {
                 freed += b.len();
             }
             keep
         });
-        if g.term.len() != before {
-            g.bytes -= freed.min(g.bytes);
-        }
+        g.bytes -= freed.min(g.bytes);
         if let Some(m) = g.terms.get_mut(&sid) {
-            m.pending = 0;
+            m.pending -= freed.min(m.pending);
         }
         freed
     }
 
-    /// sid 의 밀린 프레임과 좌표를 잊는다 (`term.close`). 세션 번호는 남긴다 — 닫힌 세션의 늦은
-    /// 프레임을 계속 버리려면 번호가 올라 있어야 한다.
+    /// sid 의 밀린 프레임을 잊는다 (`term.close`). 세션 번호는 남긴다 — 닫힌 세션의 늦은 프레임을 계속
+    /// 버리려면 번호가 올라 있어야 한다.
     pub(crate) fn forget_term(&self, sid: u32) {
         let mut g = self.inner();
-        Self::drop_term_locked(&mut g, sid);
+        Self::drop_term_locked(&mut g, sid, |_| true);
         if let Some(m) = g.terms.get_mut(&sid) {
             m.session += 1;
-            m.delivered = None;
         }
     }
 

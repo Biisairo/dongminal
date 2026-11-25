@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { CONSTANTS, BASE, CHAT, GIT, HELPERS, LAYOUT, controllers, load, plain } from './harness.mjs';
+import { CONSTANTS, BASE, CHAT, GIT, HELPERS, LAYOUT, SCREENS_LOADED, controllers, load, plain } from './harness.mjs';
 
 /**
  * CHAT_WINDOW_SRS — 채팅 창 (TC-CW-3~6).
@@ -14,7 +14,7 @@ import { CONSTANTS, BASE, CHAT, GIT, HELPERS, LAYOUT, controllers, load, plain }
  */
 function world() {
   const ctx = load([...BASE, 'core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', ...CONSTANTS, 'core/server-meta.js', ...HELPERS, ...CHAT, ...LAYOUT, ...GIT], {
-    globals: { App: function App() {}, ErrorLog: { push() {} }, crypto: { randomUUID: (() => { let n = 0; return () => 'id' + (++n) })() } },
+    globals: { App: function App() {}, Screens: SCREENS_LOADED, ErrorLog: { push() {} }, crypto: { randomUUID: (() => { let n = 0; return () => 'id' + (++n) })() } },
   });
   const a = controllers(ctx, new ctx.App());
   a.editor.isEditorWin = (s) => !!(s && s.type === 'editor');
