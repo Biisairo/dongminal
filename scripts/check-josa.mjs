@@ -21,11 +21,13 @@
  *
  * 사용: node scripts/check-josa.mjs [--list]
  */
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const KO = 'web/js/i18n/ko.js';
+const KO_DIR = 'web/js/i18n';
+/** 부팅 카탈로그 `ko.js` 와 지연 묶음 조각 `<묶음>.ko.js` (PERF D-46). */
+const KO_FILES = readdirSync(join(ROOT, KO_DIR)).filter((n) => n === 'ko.js' || n.endsWith('.ko.js')).sort().map((n) => KO_DIR + '/' + n);
 
 /** 자리마다 사유를 갖는 예외. */
 const EXEMPT = [];
@@ -45,11 +47,11 @@ const AVOID = /(을\(를\)|를\(을\)|이\(가\)|가\(이\)|은\(는\)|는\(은\
 /** 자리표시자 뒤의 조사 — 사이의 공백은 이 저장소의 표기 관용이다. */
 const FIXED = /(%[a-z]|\{[a-z0-9_]+\})\s*(를|을|이|가|은|는|와|과|으로|로)(?=[\s.,!?]|$)/;
 
-const lines = readFileSync(join(ROOT, KO), 'utf8').split('\n');
+const lines = KO_FILES.flatMap((KO) => readFileSync(join(ROOT, KO), 'utf8').split('\n').map((ln, i) => [KO, i, ln]));
 const bad = [];
 let entries = 0, exempted = 0;
 
-lines.forEach((ln, i) => {
+lines.forEach(([KO, i, ln]) => {
   const m = ln.match(ENTRY);
   if (!m) return;
   entries++;

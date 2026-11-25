@@ -385,4 +385,4 @@ Object.assign(RunsPanel.prototype, {
 });
 
 // PERF 3.4.9 (D-30): Run 탭의 본문은 `run` 묶음이 그린다. 렌더러는 묶음이 실릴 때까지 자리표시를 둔다.
-Screens.register('run', { css: true, tab: (at) => at.type === 'run' });
+Screens.register('run', { css: true, i18n: true, tab: (at) => at.type === 'run' });

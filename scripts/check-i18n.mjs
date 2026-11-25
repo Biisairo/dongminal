@@ -16,6 +16,8 @@
  *            `t('…')`/`tn('…')` 의 리터럴 키가 ko 에 있다
  *   미사용  ko 의 키가 소스(JS 문자열 리터럴·index.html)에 한 번은 나오거나 동적
  *            접두 등록부(`DYNAMIC_PREFIXES`)에 든다 (OPTIMIZE_REFACTOR_SRS FR-OPT-14-3)
+ *   조각    지연 묶음 하나에서만 쓰는 키는 그 묶음의 조각 `<묶음>.<locale>.js` 에 있고, 조각 키는
+ *            그 묶음 파일에서만 쓰이며, 조각의 ko·en 키 집합이 같다 (PERF D-46, `scripts/i18n-parts.mjs`)
  *
  * ## 예외 등록부 — 줄마다 사유
  *
@@ -29,6 +31,9 @@ import { fileURLToPath } from 'node:url';
 
 import * as eslintScope from 'eslint-scope';
 import * as espree from 'espree';
+
+import { readBundles } from './bundles-def.mjs';
+import { i18nFlagged, partFile, partProblems } from './i18n-parts.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const KR = /[가-힣ㄱ-ㆎ]/;
@@ -113,6 +118,13 @@ const DYNAMIC_PREFIXES = [
   { prefix: 'cacct.by.', why: "claude-accounts-view.js(옛 app-claude-accounts.js) 가 전환 기록의 by 로 `'cacct.by.' + by` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-110a)" },
   { prefix: 'cacct.alert.', why: "claude-accounts-view.js(옛 app-claude-accounts.js) 가 알림 사건으로 `'cacct.alert.' + kind` 를 조립한다 (CLAUDE_ACCOUNTS_SRS FR-CAC-100a)" },
   { prefix: 'why.', why: "action-answer.js 가 서버 답의 사유 코드로 `t('why.' + code)` 를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS M-6)" },
+];
+
+/**
+ * 조각 없이 키를 부팅 카탈로그에 두는 지연 묶음 (PERF D-46). 사유 없는 예외는 게이트의 구멍이다.
+ */
+const UNFRAGMENTED = [
+  { bundle: 'diag', why: '`Screens.load` 를 지나지 않는다 — index.html 인라인이 `?diag=1` 일 때만 `document.write` 로 싣는다(PERF 3.4.12.3). 조각을 실을 길을 따로 두면 같은 일이 두 벌이 되고(D-11), 키 9개(약 0.2 KB)뿐이다' },
 ];
 
 const problems = [];
@@ -270,14 +282,22 @@ function usedKeys(file, src, out) {
   visit(ast);
 }
 
-/** 문자열 리터럴·템플릿 조각 전부 — 키가 어디서든 한 번은 적혀 있는지 본다. */
-function stringLiterals(src, out) {
+/**
+ * 문자열 리터럴·템플릿 조각 전부 — 키가 어디서든 한 번은 적혀 있는지 본다. `place` 를 주면 리터럴마다
+ * 나온 곳(묶음 이름)을 `places` 에 모은다 — 조각 키의 소속 판정 근거다.
+ */
+function stringLiterals(src, out, place, places) {
   let ast;
   try { ast = espree.parse(src, { ecmaVersion: 2022, sourceType: 'script' }) } catch { return }
+  const add = (s) => {
+    out.add(s);
+    if (!places.has(s)) places.set(s, new Set());
+    places.get(s).add(place);
+  };
   const visit = (n) => {
     if (!n || typeof n.type !== 'string') return;
-    if (n.type === 'Literal' && typeof n.value === 'string') out.add(n.value);
-    if (n.type === 'TemplateLiteral') for (const q of n.quasis) out.add(q.value.cooked);
+    if (n.type === 'Literal' && typeof n.value === 'string') add(n.value);
+    if (n.type === 'TemplateLiteral') for (const q of n.quasis) add(q.value.cooked);
     for (const k of Object.keys(n)) {
       if (k === 'loc' || k === 'range') continue;
       const v = n[k];
@@ -322,29 +342,63 @@ function checkShadow(file, src) {
 
 // ── 실행 ────────────────────────────────────────────────────────────
 
+const bundles = readBundles(ROOT);
+const fileBundle = new Map([...bundles].flatMap(([name, d]) => d.js.map((f) => ['web/' + f, name])));
 const jsFiles = walkDir(join(ROOT, 'web', 'js'), []).filter((p) => p.endsWith('.js')).map(rel).sort();
 const used = [];
 const literals = new Set();
+const places = new Map();
+let registry = '';
 for (const f of jsFiles) {
   const src = readFileSync(join(ROOT, f), 'utf8');
   if (!SKIP_FILES.some((s) => s.re.test(f))) checkJs(f, src);
   if (!/^web\/js\/test\//.test(f)) checkShadow(f, src);
   if (!/^web\/js\/(i18n|test)\//.test(f)) {
     usedKeys(f, src, used);
-    stringLiterals(src, literals);
+    // 묶음 밖의 파일(head 인라인이 싣는 셋)은 부팅이다.
+    stringLiterals(src, literals, fileBundle.get(f) || 'boot', places);
+    registry += src + '\n';
   }
 }
 const indexHtml = readFileSync(join(ROOT, 'web', 'index.html'), 'utf8');
 checkHtml('web/index.html', indexHtml);
 // index.html 은 `data-i18n="a.b"` 꼴로 키를 든다. 따옴표 안의 키 모양 값을 전부 센다.
-for (const m of indexHtml.matchAll(/"([a-z0-9_]+(?:\.[a-z0-9_]+)+)"/g)) literals.add(m[1]);
+for (const m of indexHtml.matchAll(/"([a-z0-9_]+(?:\.[a-z0-9_]+)+)"/g)) {
+  literals.add(m[1]);
+  if (!places.has(m[1])) places.set(m[1], new Set());
+  places.get(m[1]).add('html');
+}
 for (const f of readdirSync(join(ROOT, 'web')).filter((n) => n.endsWith('.css')).sort()) {
   checkCss('web/' + f, readFileSync(join(ROOT, 'web', f), 'utf8'));
 }
 
-let ko = {}, en = {};
-try { ko = loadCatalog('web/js/i18n/ko.js') } catch (e) { say('web/js/i18n/ko.js', 0, `카탈로그를 읽지 못했다: ${e.message}`) }
-try { en = loadCatalog('web/js/i18n/en.js') } catch (e) { say('web/js/i18n/en.js', 0, `카탈로그를 읽지 못했다: ${e.message}`) }
+const readCatalog = (file) => {
+  try { return loadCatalog(file) } catch (e) { say(file, 0, `카탈로그를 읽지 못했다: ${e.message}`); return {} }
+};
+const baseKo = readCatalog('web/js/i18n/ko.js');
+const baseEn = readCatalog('web/js/i18n/en.js');
+// 조각 (PERF D-46). 아래의 카탈로그 검사는 부팅분과 조각을 합친 전체를 본다.
+const parts = new Map();
+for (const name of readdirSync(join(ROOT, 'web', 'js', 'i18n')).sort()) {
+  const p = partFile(name);
+  if (!p) continue;
+  if (!parts.has(p.bundle)) parts.set(p.bundle, { ko: null, en: null, cat: {} });
+  const cat = readCatalog('web/js/i18n/' + name);
+  parts.get(p.bundle)[p.locale] = Object.keys(cat);
+  parts.get(p.bundle).cat[p.locale] = cat;
+}
+const ko = Object.assign({}, baseKo, ...[...parts.values()].map((p) => p.cat.ko || {}));
+const en = Object.assign({}, baseEn, ...[...parts.values()].map((p) => p.cat.en || {}));
+const isDynamic = (k) => DYNAMIC_PREFIXES.some((d) => k.startsWith(d.prefix));
+for (const p of partProblems({
+  base: { ko: Object.keys(baseKo), en: Object.keys(baseEn) },
+  parts,
+  places: (k) => places.get(k) || new Set(),
+  dynamic: isDynamic,
+  bundles: new Set(bundles.keys()),
+  flagged: i18nFlagged(registry),
+  unfragmented: new Set(UNFRAGMENTED.map((u) => u.bundle)),
+})) problems.push(p);
 for (const k of Object.keys(ko)) if (!(k in en)) say('web/js/i18n/en.js', 0, `ko 에만 있는 키 (전수 번역, FR-B-1): ${k}`);
 // 복수형의 `.one` 은 언어의 것이다 — ko 는 `.other` 만 둔다 (스펙 §3.3 키 규약).
 const pluralOne = (k, cat) => k.endsWith('.one') && (k.slice(0, -4) + '.other') in cat;
@@ -363,7 +417,7 @@ for (const d of DYNAMIC_PREFIXES) {
 let unused = 0;
 for (const k of Object.keys(ko)) {
   if (literals.has(k) || literals.has(k.replace(/\.(other|one)$/, ''))) continue;
-  if (DYNAMIC_PREFIXES.some((d) => k.startsWith(d.prefix))) continue;
+  if (isDynamic(k)) continue;
   say('web/js/i18n/ko.js', 0, `쓰이지 않는 키: ${k} — 지우거나, 조립으로 쓰면 DYNAMIC_PREFIXES 에 사유와 함께 등록한다`);
   unused++;
 }
@@ -374,4 +428,4 @@ if (problems.length) {
   console.error(`\n  ${problems.length} 건. 문구는 web/js/i18n/<locale>.js 로, 코드는 t('key') 로.`);
   process.exit(1);
 }
-console.log(`i18n ok — 한글 리터럴 0 · 카탈로그 ${Object.keys(ko).length} 키 · 호출 ${used.length} · 미사용 ${unused}`);
+console.log(`i18n ok — 한글 리터럴 0 · 카탈로그 ${Object.keys(ko).length} 키(부팅 ${Object.keys(baseKo).length} · 조각 ${parts.size}묶음) · 호출 ${used.length} · 미사용 ${unused}`);
