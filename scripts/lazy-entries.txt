@@ -12,3 +12,7 @@ js/core/theme-vars.js applyThemeObj
 js/ui/renderer-pane.js Renderer.prototype._mountTabBody
 js/core/editor-open.js EditorOpen.edStore
 js/core/editor-open.js EditorOpen.edTree
+# git 묶음 (PERF 3.4.6). 패널·관측기는 묶음이 실린 뒤에만 선다 — 그 전에는 null 이고 부르는 쪽이 넘긴다.
+js/core/git-surfaces.js GitSurfaces.gitObs
+js/core/git-surfaces.js GitSurfaces.gitPanelAt
+js/core/repo-win-controller.js RepoWinController.gitDiffPanelFor

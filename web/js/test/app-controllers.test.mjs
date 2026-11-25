@@ -654,7 +654,7 @@ const DELEGATES_9D = {
 
 function load9d(globals = {}) {
   return load([...BASE, ...GIT], {
-    expose: [...CLASSES_9D, 'Controller', 'Component'],
+    expose: [...CLASSES_9D, 'Controller', 'Component', 'Screens'],
     globals: {
       App: function App() {}, Screens: SCREENS_LOADED, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
       document: { getElementById: () => null, querySelector: () => null },
@@ -693,6 +693,47 @@ test('TC-FEA-1(9d): gitPanel 접근자는 App 에 남아 포커스 칸의 지금
   app.git = { surfaces: { _gitRootOfActive: () => '/r', gitPanelAt: (root, slot) => 'p:' + root + ':' + slot } };
   app.slot = { slotFocused: () => 2 };
   assert.equal(app.gitPanel, 'p:/r:2');
+});
+
+// PERF 3.4.6 (D-30): git 패널·관측기는 git 묶음이 실린 뒤에만 선다. 그 전의 `gitPanel` 은 null 이고 부팅의 GIT 섹션
+// 배선은 패널 없이 지난다.
+test('PERF 3.4.6: git 묶음이 아직이면 gitPanelAt·gitObs 는 null 이고 패널을 만들지 않는다', () => {
+  let made = 0;
+  const ctx = load9d({ Screens: null, GitPanel: class { constructor() { made++; this.poll = { _reschedule() {} } } } }); // 실물 등록부
+  const app = new ctx.App();
+  app.git = new ctx.GitController(app);
+  controllers(ctx, app);
+  assert.equal(ctx.Screens.ready('git'), false);
+  assert.equal(app.git.surfaces.gitPanelAt('/r', 0), null);
+  assert.equal(app.git.surfaces.gitObs('/r'), null);
+  assert.equal(made, 0);
+  assert.equal(app.gitPanels, undefined, '등록부도 만들지 않는다');
+  ctx.Screens._ready.add('git');
+  app.slot.slotKey = (k, slot) => k + '#' + slot;
+  const p = app.git.surfaces.gitPanelAt('/r', 0);
+  assert.equal(made, 1);
+  assert.equal(app.git.surfaces.gitPanelAt('/r', 0), p, '실린 뒤에는 (루트, 칸)마다 하나다');
+});
+
+test('PERF 3.4.6: git 묶음이 아직이어도 _initGitSection 은 목록을 부르고 던지지 않는다', () => {
+  const ctx = load9d({ LIFE_VISIBLE: 'life:visible', LIFE_FOCUS: 'life:focus', LIFE_HIDDEN: 'life:hidden' });
+  const app = new ctx.App();
+  app.git = new ctx.GitController(app);
+  controllers(ctx, app);
+  const log = [];
+  app.git.sync.gitReposKick = () => log.push('kick');
+  Object.defineProperty(app, 'gitPanel', { value: null });
+  app.bus = { subscribe: (topic) => log.push('sub:' + topic) };
+  app.git._initGitSection();
+  assert.equal(log[0], 'kick');
+  assert.equal(log.filter((x) => x.startsWith('sub:')).length, 3);
+});
+
+test('PERF 3.4.6: git 화면은 css 를 갖고 git 탭을 맡는다', () => {
+  const ctx = load9d({ Screens: null, TAB_TYPE_GIT: 'git' }); // 실물 등록부
+  assert.equal(ctx.Screens.forTab({ type: 'git', gitView: 'history' }), 'git');
+  assert.equal(ctx.Screens.forTab({ type: 'editor' }), null);
+  assert.equal(ctx.Screens._defs.get('git').css, true);
 });
 
 test('TC-FEA-2(9d): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
@@ -1860,7 +1901,8 @@ test('TC-DLG-1(DL-5): 9k-3 의 옛 위임자 이름은 App 원형에 없고 소�
 });
 
 test('TC-FEA-1(9k-3): Diff 탭 패널은 App 의 등록부(gitPanels)에 서고 App 을 든다 — 미리보기 고정은 편집기 뿌리로 포커스를 넘긴다', () => {
-  const ctx = load9k3({ GitPanel: class { constructor(app, root) { this.app = app; this.root = root } poll = { _reschedule() {} }; diffPane = { diffTabApply() {} } } });
+  // PERF 3.4.6: 패널은 git 묶음이 실린 뒤에만 선다 — 실린 상태로 둔다.
+  const ctx = load9k3({ Screens: { ready: () => true }, GitPanel: class { constructor(app, root) { this.app = app; this.root = root } poll = { _reschedule() {} }; diffPane = { diffTabApply() {} } } });
   const app = controllers(ctx, new ctx.App());
   const p = app.repoWin.gitDiffPanelFor('/r', 0, { id: 't' });
   assert.equal(p.app, app);

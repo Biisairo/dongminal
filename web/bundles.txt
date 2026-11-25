@@ -42,21 +42,11 @@ js/core/server-meta.js
 js/core/keybar.js
 # API 경로 표 (FR-OPT-12-5). 의존이 없고 constants-git*.js 가 로드 시점에 딛는다.
 js/core/constants-api.js
+# git 의 골격 상수와 부팅 코드(사이드바·탐색기·편집기 변경 표시)가 읽는 git 상수 (PERF D-32).
+# `constants-explorer.js` 의 `ED_DD_AXIS` 가 여기의 `GIT_AXIS` 를 읽으므로 그 앞이다.
 js/core/constants-git.js
-# 탭별 git 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1). 순서는 원본 파일의 절
-# 순서와 같다 — 그 순서가 곧 로드 시점 참조의 순서였다.
-# `constants-git-diff.js` 는 `constants-editor.js`·`constants-explorer.js` 앞이어야 한다:
-# `constants-explorer.js` 의 `ED_DD_AXIS` 가 여기의 `GIT_AXIS` 를 읽는다.
-js/core/constants-git-changes.js
-js/core/constants-git-commit.js
+# 변경 감지 2계층의 주기 (FR-GIT-18~24). git/api.js·status-hub.js·git-status-helpers.js 가 부팅에서 읽는다.
 js/core/constants-git-detect.js
-js/core/constants-git-diff.js
-js/core/constants-git-history.js
-js/core/constants-git-refs.js
-js/core/constants-git-remote.js
-# GIT_ACTIONS_SRS 의 동작 상수 + GIT_WRITE_ERR (DRIFT_RECLAIM_SRS
-# FR-DRC-13). constants-git.js 뒤여야 한다.
-js/core/constants-git-actions.js
 js/core/constants-editor.js
 # 서버 hunk 좌표의 클라이언트 측 사상 (DIFF_HUNK_BAR_SRS D-2). 편집기의 변경
 # 표시와 Diff 탭의 hover 툴바가 함께 쓴다 — 순수 함수뿐이므로 상수 뒤 아무
@@ -189,73 +179,10 @@ js/ui/editor-view-life.js
 # (REFACTOR3_FE_REST5_SRS FR-FR5-23 — 종전에는 `FileEditor.prototype` 을 확장했다).
 js/ui/file-editor-diff.js
 js/ui/input-binding.js
-# REFACTOR_STABILIZATION_SRS FR-RST-21: 뷰들이 공유하는 조각. `api.js` 앞이다 —
-# gitFetch 는 호출 시점에만 필요하므로 순서가 뒤여도 되지만, 공유물이 먼저
-# 서는 것이 읽는 사람에게 자연스럽다.
-js/git/view-util.js
-js/git/git-view.js
+# git 요청 한 겹과 status 허브. 사이드바 Repo 목록·탐색기 색·편집기 변경 표시가 git 화면 없이 쓰므로
+# 부팅에 남는다 (PERF D-32). 나머지 js/git/* 는 [git] 묶음이다.
 js/git/api.js
 js/git/status-hub.js
-js/git/observer.js
-js/git/git-part.js
-js/git/panel.js
-js/git/git-changes.js
-js/git/git-change-rows.js
-js/git/git-views.js
-js/git/git-view-roots.js
-js/git/git-write.js
-js/git/git-files.js
-js/git/git-selection.js
-js/git/git-diff-pane.js
-js/git/git-blame.js
-js/git/git-hunks.js
-js/git/git-poll.js
-js/git/git-view-reload.js
-js/git/diff-cm.js
-js/git/diff-image.js
-js/git/diff-view.js
-js/git/diff-view-parity.js
-js/git/diff-view-doc.js
-# 확인·다이얼로그의 공통 골격 (FR-OPT-12-2). 두 클래스가 extends 하므로 앞이어야 한다.
-js/git/git-modal-base.js
-js/git/git-confirm.js
-js/git/git-dialog.js
-js/git/commit.js
-js/git/commit-draft.js
-js/git/lanes.js
-js/git/menu-items.js
-js/git/menu.js
-js/git/history.js
-# History 의 네 표면 (FE_MODULE_BOUNDARY_SRS FR-FMB-32). 증강이므로
-# history.js **뒤**여야 한다 — 클래스가 먼저 서야 얹을 수 있다.
-js/git/history-refs.js
-js/git/history-rows.js
-js/git/history-detail.js
-js/git/history-load.js
-js/git/branches.js
-# Branches 의 트리와 쓰기 동작 (FE_MODULE_BOUNDARY_SRS FR-FMB-30·31).
-# `branches-ops.js` 는 클래스 **객체 자신**에 얹는다 (전부 static).
-# `branches-dialogs.js` 는 구간 이동이며 자기 클래스 셋을 갖는다.
-js/git/branches-tree.js
-js/git/branches-ops.js
-js/git/input-answer.js
-js/git/branches-dialogs.js
-js/git/stash.js
-js/git/stash-dialogs.js
-js/git/tag.js
-js/git/console.js
-# Worktrees·Submodules 탭의 공통 골격 (DRIFT_RECLAIM_SRS FR-DRC-7).
-# 두 탭보다 앞이어야 한다 — 둘 다 이 클래스를 상속한다.
-js/git/git-list-tab.js
-js/git/worktrees.js
-js/git/submodules.js
-js/git/remote.js
-js/git/remote-view.js
-js/git/remote-opts.js
-js/git/remote-list.js
-js/git/remote-add.js
-js/git/jobs.js
-js/git/commit-ops.js
 # 화면 등록부와 묶음 로더 (PERF M3 §3.4, D-30). 렌더러가 `forTab`·`ready` 를 묻으므로 그 앞이다.
 js/core/screens.js
 # Run 목록·뷰 레지스트리 — `run` 화면의 껍데기 (PERF 3.4.9). 로드 시점에 화면을 등록하므로 screens.js 뒤다.
@@ -385,6 +312,88 @@ js/core/main.js
 js/ui/version-watch.js
 # 실기기 진단. ?diag=1 로 접속할 때만 동작한다
 js/ui/diag.js
+
+[git]
+# git 화면 (PERF M3 §3.4 · D-30·D-32). Repo 창의 Changes 사이드·git 뷰 탭·확인창·메뉴를 처음 쓸 때
+# `Screens.load('git')` 이 싣는다. 부팅 묶음 전부의 뒤에 서므로 부팅의 전역은 모두 서 있다.
+# 상수 파일이 맨 앞이다 — 화면 코드가 로드 시점에 읽는다.
+# 탭별 git 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1). 순서는 원본 파일의 절
+# 순서와 같다 — 그 순서가 곧 로드 시점 참조의 순서였다.
+js/core/constants-git-changes.js
+js/core/constants-git-commit.js
+js/core/constants-git-diff.js
+js/core/constants-git-history.js
+js/core/constants-git-refs.js
+js/core/constants-git-remote.js
+# GIT_ACTIONS_SRS 의 동작 상수 (DRIFT_RECLAIM_SRS FR-DRC-13).
+js/core/constants-git-actions.js
+# REFACTOR_STABILIZATION_SRS FR-RST-21: 뷰들이 공유하는 조각.
+js/git/view-util.js
+js/git/git-view.js
+js/git/observer.js
+js/git/git-part.js
+js/git/panel.js
+js/git/git-changes.js
+js/git/git-change-rows.js
+js/git/git-views.js
+js/git/git-view-roots.js
+js/git/git-write.js
+js/git/git-files.js
+js/git/git-selection.js
+js/git/git-diff-pane.js
+js/git/git-blame.js
+js/git/git-hunks.js
+js/git/git-poll.js
+js/git/git-view-reload.js
+js/git/diff-cm.js
+js/git/diff-image.js
+js/git/diff-view.js
+js/git/diff-view-parity.js
+js/git/diff-view-doc.js
+# 확인·다이얼로그의 공통 골격 (FR-OPT-12-2). 두 클래스가 extends 하므로 앞이어야 한다.
+js/git/git-modal-base.js
+js/git/git-confirm.js
+js/git/git-dialog.js
+js/git/commit.js
+js/git/commit-draft.js
+js/git/lanes.js
+js/git/menu-items.js
+js/git/menu.js
+js/git/history.js
+# History 의 네 표면 (FE_MODULE_BOUNDARY_SRS FR-FMB-32). 증강이므로
+# history.js **뒤**여야 한다 — 클래스가 먼저 서야 얹을 수 있다.
+js/git/history-refs.js
+js/git/history-rows.js
+js/git/history-detail.js
+js/git/history-load.js
+js/git/branches.js
+# Branches 의 트리와 쓰기 동작 (FE_MODULE_BOUNDARY_SRS FR-FMB-30·31).
+# `branches-ops.js` 는 클래스 **객체 자신**에 얹는다 (전부 static).
+# `branches-dialogs.js` 는 구간 이동이며 자기 클래스 셋을 갖는다.
+js/git/branches-tree.js
+js/git/branches-ops.js
+js/git/input-answer.js
+js/git/branches-dialogs.js
+js/git/stash.js
+js/git/stash-dialogs.js
+js/git/tag.js
+js/git/console.js
+# Worktrees·Submodules 탭의 공통 골격 (DRIFT_RECLAIM_SRS FR-DRC-7).
+# 두 탭보다 앞이어야 한다 — 둘 다 이 클래스를 상속한다.
+js/git/git-list-tab.js
+js/git/worktrees.js
+js/git/submodules.js
+js/git/remote.js
+js/git/remote-view.js
+js/git/remote-opts.js
+js/git/remote-list.js
+js/git/remote-add.js
+js/git/jobs.js
+js/git/commit-ops.js
+style-git.css
+style-git-commit.css
+style-git-views.css
+style-git-tabs.css
 
 [run]
 # Run 탭의 뷰 (PERF 3.4.9, D-30). `RunsPanel.prototype` 증강이므로 부팅의 runs-panel.js 뒤에서만 실린다 —

@@ -46,6 +46,8 @@ async function enter(page: Page, request: APIRequestContext, before?: (repo: str
     undefined, { timeout: 15000 });
   await switchToEditorRoot(page, REPO);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 10000 });
+  // PERF 3.4.6: 패널은 git 묶음에 있다 — 사이드가 Explorer 면 아직 실리지 않았다.
+  await page.evaluate(() => (window as any).app.testing.loadScreen('git'));
   await page.evaluate(() => (window as any).app.gitPanel.selection.openView('history'));
   await page.waitForFunction(() => {
     const h = (window as any).app.gitPanel._historyView;

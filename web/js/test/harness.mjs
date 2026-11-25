@@ -115,7 +115,8 @@ export const AGENTS = ['core/agents-controller.js', 'core/agents-sub.js', 'core/
 export const SCREENS_LOADED = Object.freeze({ register() {}, ready: () => true, load: () => Promise.resolve() });
 export const CHAT = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js'];
 export const MOBILE = ['core/mobile-controller.js', 'core/mobile-sheets.js', 'core/mobile-nav.js'];
-export const GIT = ['core/git-repos-list.js', 'core/git-topics.js', 'core/git-controller.js', 'core/git-surfaces.js', 'core/git-sync.js'];
+// `core/screens.js` 가 앞이다 — git-controller.js 가 로드 시점에 git 화면을 등록한다 (PERF 3.4.6).
+export const GIT = ['core/screens.js', 'core/git-repos-list.js', 'core/git-topics.js', 'core/git-controller.js', 'core/git-surfaces.js', 'core/git-sync.js'];
 export const WS_SYNC = ['core/ws-sync-controller.js', 'core/ws-save-controller.js', 'core/soft-reload.js'];
 export const FOCUS = ['core/focus-controller.js', 'core/focus-highlight.js', 'core/focus-owner.js'];
 export const SLOTS = ['core/slots-controller.js', 'core/slot-ops.js'];
@@ -315,7 +316,11 @@ export function load(files, opts = {}) {
   ctx.window = ctx;
 
   const parts = [];
-  for (const rel of files) {
+  // 묶음 상수 둘이 같은 파일(예: `core/screens.js` — GIT·EDITOR)을 함께 들 수 있다. 한 번만 싣는다.
+  // 등록부 대역(`globals.Screens`, 예: SCREENS_LOADED)을 주면 실물 `core/screens.js` 는 싣지 않는다 — 같은 이름이 둘이 된다.
+  const skip = opts.globals && opts.globals.Screens ? 'core/screens.js' : null;
+  for (const rel of new Set(files)) {
+    if (rel === skip) continue;
     // 실패한 줄을 찾을 수 있게 경계를 남긴다. 이어 붙이므로 스택의 줄 번호는
     // 합친 소스의 것이다.
     parts.push('/* ==== web/js/' + rel + ' ==== */');

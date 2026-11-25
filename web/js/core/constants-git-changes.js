@@ -28,14 +28,6 @@ const GIT_GROUPS=[
   // 나눠 보인다 (FR-CMG-7).
   {key:'working',  name:t('git.group.working')},
 ];
-/**
- * 화면의 그룹 하나가 서버 응답의 어느 배열들인가 (D-7·D-8).
- *
- * 서버는 네 배열을 그대로 보낸다 — 각 행이 자기 출신을 알아야 폐기가 옳은 명령으로
- * 가고(FR-CMG-4), 응답 모양은 e2e·다른 뷰·다이얼로그가 함께 딛는 공개 계약이다.
- * 여기 없는 키는 서버 배열 이름이 곧 그룹 이름이다.
- */
-const GIT_GROUP_SRC={working:['changes','untracked']};
 // REPO_FIX 05 §3A-6 (F-6.1): Changes 행이 그리는 데 읽는 항목 필드 — 행 서명이 이 목록에서
 // 파생한다. 행이 새 필드를 읽으면 여기에 더한다(단위 검사가 대조한다).
 const GIT_ROW_FIELDS=['path','origPath','staged','unstaged','conflict','untracked','score','dir','sub'];
@@ -45,11 +37,7 @@ const GIT_ROW_FIELDS=['path','origPath','staged','unstaged','conflict','untracke
  * 조용히 자르면 사용자는 파일이 없어진 것으로 읽는다. `%n` 은 실제 개수다.
  */
 const GIT_GROUP_TRUNCATED=t('git.group_truncated');
-// 그룹이 diff 축을 결정한다 (FR-GIT-52). 값은 /api/git/diff-content 의 axis 인자다.
-// commit-parent 는 다른 셋과 달리 리비전을 인자로 받는다 (FR-GIT-138·139) —
-// worktree·index·HEAD 는 암묵적 리비전이지만 커밋 축은 두 커밋을 명시해야 한다.
-const GIT_AXIS={STAGED:'index-head',UNSTAGED:'worktree-index',CONFLICT:'worktree-head',
-  COMMIT:'commit-parent'};
+// 그룹이 diff 축을 결정한다 (FR-GIT-52). 축 값 `GIT_AXIS` 는 constants-git.js 에 있다.
 const GIT_GROUP_AXIS={
   staged:GIT_AXIS.STAGED, working:GIT_AXIS.UNSTAGED, conflicts:GIT_AXIS.CONFLICT,
 };
@@ -88,13 +76,10 @@ const GIT_DIFF_SAVE_FAIL=t('git.diff_save_fail');
 // 버튼 둘만 남으면 그 줄에서 눈이 한 번 더 멎는다. 툴팁은 이미 있는
 // `GIT_FILE_VIEW_TITLE` 이 말한다 — 같은 것을 두 벌로 두지 않는다.
 const GIT_FILES_MODE_ICON={tree:'folder-tree',flat:'list'};
-const GIT_ERR_NOT_REPO=t('git.err_not_repo');
-const GIT_ERR_GIT_MISSING=t('git.err_git_missing');
 //
 // 사유 코드를 화면에 함께 싣는다. "사라졌다" 는 표시가 참인지 사용자가 판정할 수
 // 있어야 하고, 그 판정의 근거가 코드다 (접수한 말의 뒤 문장).
 const GIT_ERR_REPO_MISSING=t('git.err_repo_missing');
-const GIT_RMS_PIN_REASON=t('git.rms_pin_reason');
 const GIT_RMS_REASON_PREFIX=t('git.rms_reason_prefix');
 const GIT_RMS_CODE='repo_missing';
 const GIT_RMS_UNPIN=t('git.rms_unpin');
@@ -111,12 +96,6 @@ const GIT_FILE_VIEW_TITLE={
   tree:'Group changed files by folder',
   flat:'List changed files with their full paths',
 };
-// FR-GIT-211: 트리의 들여쓰기 단위. 탐색기 트리가 행 padding 을 이 값으로 세운다.
-// Git 트리는 padding 과 깊이 세로선을 CSS 토큰(`--git-tree-pad0`·`--git-indent`)
-// 하나에서 계산한다 (FR-OPT-1-12) — 두 곳에 적으면 한쪽만 고쳐져 선이 글자와
-// 어긋난다. 들여쓰기 단위(12)는 두 트리가 같다.
-const GIT_TREE_INDENT=12;
-const GIT_TREE_PAD0=6;
 // 우클릭 메뉴는 GIT_MENUS.file 이다 (FR-GIT-41·146, `git/menu-items.js`).
 
 // 그룹별 일괄 동작. tracked / untracked 구분은 그룹이 이미 하고 있으므로 그룹별
@@ -166,7 +145,6 @@ const GIT_DIR_ACT_TITLE={stage:'Stage this whole folder',unstage:'Unstage this w
 // FR-CMG-9: 한 폴더 아래에 두 출신이 섞일 수 있다. 정확한 내역은 확인창이
 // 보이므로(FR-CMG-7) 툴팁은 **지우는 것이 섞여 있을 수 있다**는 사실만 말한다.
 const GIT_DIR_ACT_TITLE_GROUP={working:{discard:'Discard everything in this folder — new files here are deleted and cannot be undone'}};
-const GIT_ST_CLASS={M:'mod',A:'add',D:'del',R:'ren',C:'cpy','?':'new',U:'conf'};
 // porcelain 의 상태 문자 중 **판정에 쓰는 것**. 문자열을 코드에 흩뿌리면 어느
 // 규칙의 문자인지 알 수 없게 된다 (FR-RTU-51 의 "왼쪽이 없다" 가 이 하나다).
 const GIT_ST_ADDED='A';
@@ -247,14 +225,6 @@ const GIT_DIR_ENTRY_TITLE_NESTED=t('git.dir_entry_title_nested');
 const GIT_DIR_ENTRY_NOTE_SUB=t('git.dir_entry_note_sub');
 const GIT_DIR_ENTRY_NOTE_NESTED=t('git.dir_entry_note_nested');
 
-//
-// porcelain v2 `sub` 필드(`S<c><m><u>`)의 자리값. 파싱은 `gitSubParts` 한 곳이
-// 하고(FR-SDN-2), 그 함수가 읽는 글자를 여기서 정한다 — 값을 함수 안에 박으면
-// 형식이 어디서 왔는지 알 수 없게 된다.
-const GIT_SUB_IS_SUB='S';
-const GIT_SUB_COMMIT='C';
-const GIT_SUB_MODIFIED='M';
-const GIT_SUB_UNTRACKED='U';
 
 // FR-SDN-8: 툴팁의 문장. 성분을 알면 `GIT_DIR_ENTRY_TITLE_SUB` 을 **대체한다** —
 // 뒤에 덧붙이면 "서브모듈" 이 한 툴팁에 두 번 나오고, 종전 문장이 말하던 것을

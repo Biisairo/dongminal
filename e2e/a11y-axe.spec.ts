@@ -90,7 +90,8 @@ test.describe('접근성 — axe 스모크 (FR-A11Y-11~14)', () => {
 
   test('TC-A11Y-3: git 확인창에 위반이 없다', async ({ page }) => {
     await waitForInit(page, { clearLocalStorage: true });
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
+      await (window as any).app.testing.loadScreen('git');
       (window as any).GitConfirm.open({
         action: 'discard', title: '변경을 폐기합니다', targets: ['a.txt'],
         hint: { note: '폐기 전에 아래를 실행하세요', command: 'git stash push -- a.txt' },

@@ -3,6 +3,8 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
+import { readBundles } from '../../../scripts/bundles-def.mjs';
+
 /**
  * CSS 의 **자리**가 이름으로 찾아지는가 (OPTIMIZE_REFACTOR_SRS FR-OPT-13-1).
  *
@@ -37,6 +39,17 @@ function rules(files = cssFiles('web')) {
 
 const sels = (r) => r.sel.split(',').map((s) => s.trim());
 
+/**
+ * 캐스케이드 순서. 부팅 CSS 는 index.html 의 `<link>` 순서이고, 화면 묶음의 CSS(`b/<이름>.css`)는 로더가 head 끝에
+ * 붙이므로 그 모두의 뒤다 — 묶음 안에서는 web/bundles.txt 의 순서다 (PERF D-30, 3.4.6).
+ */
+function cssOrder() {
+  const html = readFileSync('web/index.html', 'utf8');
+  const boot = [...html.matchAll(/<link rel="stylesheet" href="(style[\w-]*\.css)/g)].map((m) => m[1]);
+  const lazy = [...readBundles('.').values()].flatMap((b) => b.css).filter((f) => !boot.includes(f));
+  return { boot, all: [...boot, ...lazy] };
+}
+
 test('FEU-24: style-git-views.css 에 Runs·사이드바 탭·백그라운드 규칙이 없다', () => {
   // REFACTOR3_FE_REST5_SRS FR-FR5-1: git 뷰는 두 조각(`style-git-views.css`·`style-git-tabs.css`)이다.
   const bad = rules(['web/style-git-views.css', 'web/style-git-tabs.css'])
@@ -45,13 +58,13 @@ test('FEU-24: style-git-views.css 에 Runs·사이드바 탭·백그라운드 �
   assert.deepEqual(bad, [], 'git 과 무관한 선택자가 git 뷰 파일에 남았다');
 });
 
-test('FEU-24: 옮긴 파일이 git 뷰 바로 뒤에서 읽힌다 — 캐스케이드 순서를 보존한다', () => {
-  const html = readFileSync('web/index.html', 'utf8');
-  const order = [...html.matchAll(/<link rel="stylesheet" href="(style[\w-]*\.css)/g)].map((m) => m[1]);
+test('FEU-24: 옮긴 파일이 코어 조각 바로 뒤에서 읽힌다 — git 뷰 CSS 는 git 묶음으로 갔다 (PERF 3.4.6)', () => {
+  const order = cssOrder().boot;
   const at = (n) => order.indexOf(n);
   assert.ok(at('style-runs.css') > 0, 'style-runs.css 링크가 없다');
   assert.ok(at('style-sidebar.css') > 0, 'style-sidebar.css 링크가 없다');
-  assert.equal(at('style-runs.css'), at('style-git-tabs.css') + 1, `순서: ${order.join(' → ')}`);
+  assert.equal(at('style-git-tabs.css'), -1, 'git 뷰 CSS 는 부팅에 실리지 않는다');
+  assert.equal(at('style-runs.css'), at('style-system.css') + 1, `순서: ${order.join(' → ')}`);
   assert.equal(at('style-sidebar.css'), at('style-runs.css') + 1, `순서: ${order.join(' → ')}`);
   assert.equal(at('style-editor.css'), at('style-sidebar.css') + 1, `순서: ${order.join(' → ')}`);
   assert.ok(rules(['web/style-runs.css']).some((r) => r.sel === '.runs-row'), '.runs-row 가 style-runs.css 에 없다');
@@ -113,13 +126,13 @@ test('TC-FR4-5: 레일 숨김 목록의 클래스는 모두 JS·HTML 에 있다'
 // 이전: style.css 한 파일이 2,545줄이었다.
 const CORE_PIECES = ['style.css', 'style-main-panel.css', 'style-workspace.css', 'style-activity.css',
   'style-modal.css', 'style-status.css', 'style-mobile.css', 'style-system.css'];
-test('TC-FR4-7: 코어 조각은 키트(style-kit·style-kit-controls) 뒤·style-git 앞에 원래 순서로 실리고, 각각 500줄 이하다', () => {
-  const html = readFileSync('web/index.html', 'utf8');
-  const order = [...html.matchAll(/<link rel="stylesheet" href="(style[\w-]*\.css)/g)].map((m) => m[1]);
+test('TC-FR4-7: 코어 조각은 키트(style-kit·style-kit-controls) 뒤·style-runs 앞에 원래 순서로 실리고, 각각 500줄 이하다', () => {
+  const order = cssOrder().boot;
   const at = order.indexOf('style.css');
   assert.equal(order[at - 1], 'style-kit-controls.css', `순서: ${order.join(' → ')}`);
   assert.deepEqual(order.slice(at, at + CORE_PIECES.length), CORE_PIECES, `순서: ${order.join(' → ')}`);
-  assert.equal(order[at + CORE_PIECES.length], 'style-git.css', `순서: ${order.join(' → ')}`);
+  // PERF 3.4.6: 그 자리에 있던 style-git*.css 는 git 묶음이다.
+  assert.equal(order[at + CORE_PIECES.length], 'style-runs.css', `순서: ${order.join(' → ')}`);
   const long = CORE_PIECES.map((f) => [f, readFileSync(join('web', f), 'utf8').split('\n').length - 1]).filter(([, n]) => n > 500);
   assert.deepEqual(long, [], '500줄을 넘는 코어 조각');
 });
@@ -148,8 +161,7 @@ const KIT_FILES = ['web/style-kit.css', 'web/style-kit-controls.css'];
 const SPLIT_PAIRS = [['style-kit.css', 'style-kit-controls.css'], ['style-git.css', 'style-git-commit.css'],
   ['style-git-views.css', 'style-git-tabs.css'], ['style-editor.css', 'style-editor-tools.css']];
 test('TC-FR5-1: 나눈 CSS 조각은 바로 이어 실리고 각각 500줄 이하다', () => {
-  const html = readFileSync('web/index.html', 'utf8');
-  const order = [...html.matchAll(/<link rel="stylesheet" href="(style[\w-]*\.css)/g)].map((m) => m[1]);
+  const order = cssOrder().all;
   for (const [a, b] of SPLIT_PAIRS) {
     assert.ok(order.indexOf(a) >= 0, `${a} 링크가 없다`);
     assert.equal(order.indexOf(b), order.indexOf(a) + 1, `${b} 가 ${a} 바로 뒤가 아니다: ${order.join(' → ')}`);

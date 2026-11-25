@@ -4,6 +4,46 @@
  * `<link>` 는 style-runs.css 바로 뒤다.
  */
 
+/* --- Repo 목록의 git 표식 (PERF D-32): style-git-tabs.css 에서 옮겼다 — 그 파일은 git 묶음이 되어 부팅 때
+   실리지 않는다. 사이에 선 style-runs.css 는 이 선택자를 다루지 않으므로 캐스케이드 결과는 같다. --- */
+/* ── Git 사이드바 (FR-GIT-13~17) ── */
+/* FR-SBT-3 (D-5): 두 목록은 더 이상 같은 컬럼에서 높이를 다투지 않는다. 컨테이너
+   규칙은 `.sbl-list` 한 자리에 있다 (FR-BLP-7) — 옛 `max-height:40%` 는 세로
+   공존의 산물이었고, 공존이 사라지면 근거도 사라진다. */
+/* FR-FLW-11: 비었을 때도 자리가 보인다 — 빈 자리는 고장처럼 읽힌다 */
+/* `.git-repos-none` 이 여기 있었다 — 옛 `Git` 목록의 빈 안내다. 목록이 하나가
+   되면서(FR-RTU-1 / D-RTU-2) 그 자리는 `.ed-entries-none` 이 대신한다. */
+/* 옛 FR-GIT-214 의 여백 보정은 사라졌다 — `+ Add` 가 목록 **위**로 올라가면서
+   (UX_REVISION_SRS FR-BLP-8) WINDOWS 와 같은 배치가 되었고, 그 배치에는 애초에
+   이 문제가 없다고 그 조항이 이미 적어 두었다. */
+
+
+/* FR-GIT-219: 행 높이는 WINDOWS 목록의 `.si` 와 같다 (30px). 같은 자리·같은
+   생김새의 두 목록이 다른 높이면 사용자가 GIT 쪽을 좁다고 읽는다. */
+/* 행·이름·×·배지의 생김새는 `.sbl-*` 이 정한다 (FR-BLP-7). 여기 남는 것은
+   **Git 목록에만 있는 것**뿐이다. */
+/* 저장소가 아닌 항목은 흐리게 — 클릭 리스너 자체가 없다 (FR-GIT-10·11) */
+/* FR-RMS-11: 사라진 저장소의 행. REPO_TAB_UNIFY_SRS FR-RTU-1 로 행의 클래스가
+   `.ed-entry` 가 됐으므로 둘 다 딛는다 — 옛 선택자를 지우면 남아 있는 화면이
+   색을 잃고, 새 것만 두면 그 사실이 보이지 않는다. */
+.git-repo.norepo,.ed-entry.norepo{color:var(--text-hint);cursor:default}
+.git-repo.norepo:hover,.ed-entry.norepo:hover{background:transparent}
+/* O4: 활성 리포가 아닌 배지는 마지막 관측값일 뿐이다 */
+.git-badge.stale{background:transparent;color:var(--text-hint)}
+/* FR-GIT-239: follow 행의 자리 칸(`.git-repo-xslot`)은 `×` 와 같은 폭을 받는다 —
+   `×` 자신의 폭은 `.sbl-x` 가 준다. 자리만 잡으므로 동작·색은 없다. */
+.git-repo-xslot{width:16px;height:16px;flex-shrink:0}
+
+body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
+
+/* ── GIT 섹션 표식 (FR-GIT-192~194) ──
+   WINDOWS 목록의 `.si-dot` 과 같은 어휘다. 활성 리포 여부만 나타내고
+   (O18), follow·핀 구분은 배치가 한다 (FR-GIT-193). */
+/* 점 자체는 `.sbl-dot` 이다 — 여기 남는 것은 Git 에만 있는 상태다. */
+/* 가리키는 리포가 없으면 상태도 없다 (FR-GIT-194) */
+.git-repo-dot.none{background:transparent}
+/* follow 는 늘 최상단 1줄이다 — 그 아래 선이 핀 목록과 나눈다 (FR-GIT-216) */
+
 /* --- track: sidebar-tabs (WS-6 · GIT_SIDEBAR_TABS_SRS) --- */
 
 /* FR-SBT-1·5 / NFR-EDT-3: 탭 바. 균등 분할하고 이름이 넘치면 말줄임한다.

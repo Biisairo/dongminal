@@ -8,8 +8,6 @@
  * 이 파일은 style.css 뒤, style-git-commit.css 바로 앞에 실려야 한다.
  */
 /* ── Git 창 (FR-GIT-25~31) ── */
-/* 고정 탭·고정 이름 — 닫기·이름변경·드래그가 없으므로 커서로도 알린다 */
-.pn-tab.git{cursor:default}
 /**
  * FR-LAY-20·21·26: **기본이 실사용이다.**
  *

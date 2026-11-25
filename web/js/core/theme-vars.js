@@ -291,7 +291,8 @@ function applyThemeObj(raw){
   if(Screens.ready('editor')) FileEditor.applyTheme();
   // FR-GIT-119: 레인 색은 테마 팔레트에서 파생한다 — 테마를 바꾸면 그래프도
   // 따라 바뀐다 (V47).
-  if(typeof GitHistory!=='undefined'&&GitHistory.applyTheme) GitHistory.applyTheme();
+  // PERF D-30: History 는 git 묶음에 있다. 아직 실리지 않았으면 칠할 목록도 없다.
+  if(Screens.ready('git')) GitHistory.applyTheme();
 }
 
 function getCurrentTheme(){return customTheme||THEMES[currentThemeName]}
