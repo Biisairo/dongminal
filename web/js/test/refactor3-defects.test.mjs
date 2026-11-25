@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, PANELS, load } from './harness.mjs';
+import { BASE, MOBILE, PANELS, load } from './harness.mjs';
 
 /**
  * REFACTOR3_DEFECTS_SRS 묶음 A·I (프론트).
@@ -63,7 +63,7 @@ test('TC-RD3-80: 서랍을 닫으면 상단바를 다시 그린다', () => {
   // 이유 — 서랍 상태가 세 자리에서 따로 바뀌었다(FC-02). 그래서 열린 서랍은 `#sidebar` 의 표식으로 준다.
   const open = new Set(['open']);
   const sidebar = { classList: { contains: (k) => open.has(k), toggle: (k, on) => { if (on) open.add(k); else open.delete(k) } } };
-  const c = load([...BASE, ...PANELS, 'core/mobile-controller.js', 'core/mobile-sheets.js', 'core/mobile-nav.js'], {
+  const c = load([...BASE, ...PANELS, ...MOBILE], {
     globals: {
       App: class {}, TIMERS: { disposeOwner() {} },
       document: { body: { classList: cls }, getElementById: (id) => (id === 'sidebar' ? sidebar : null) },

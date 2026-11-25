@@ -38,8 +38,6 @@ js/core/constants-tips.js
 js/core/constants-file.js
 # 서버가 정하는 상한 (`GET /api/meta`, REFACTOR3_FE_REST2_SRS FR-FR2-5). constants.js 뒤다.
 js/core/server-meta.js
-# 모바일 키바 구성의 순수 함수 (UX_AUDIT_FIX_SRS FR-UXF-93·94). constants.js 의 MKB_KEYS 를 딛는다.
-js/core/keybar.js
 # API 경로 표 (FR-OPT-12-5). 의존이 없고 constants-git*.js 가 로드 시점에 딛는다.
 js/core/constants-api.js
 # git 의 골격 상수와 부팅 코드(사이드바·탐색기·편집기 변경 표시)가 읽는 git 상수 (PERF D-32).
@@ -108,7 +106,6 @@ js/ui/panel.js
 js/ui/tab-bar.js
 js/ui/sidebar-tab-bar.js
 js/ui/sidebar-panel.js
-js/ui/drawer-sheet.js
 js/core/activity-tab-bar.js
 js/core/activity-panel.js
 # 사이드바 탭 (GIT_SIDEBAR_TABS_SRS). renderer.js 앞이어야 한다 — 렌더러가
@@ -279,9 +276,8 @@ js/core/lsp-client.js
 js/core/lsp-paths.js
 js/core/editor-search.js
 js/core/tool-search.js
-js/core/mobile-controller.js
-js/core/mobile-sheets.js
-js/core/mobile-nav.js
+# 모바일의 부팅 쪽 껍데기 (PERF 3.4.12.8). 본체는 아래 [mobile] 묶음이다 — 껍데기가 모바일이어야 할 때 싣는다.
+js/core/mobile-shell.js
 # 폴링 주기 설정 (POLL_INTERVAL_SETTINGS_SRS). 표가 진실이므로 settings-table.js
 # **앞**이어야 한다 — `_settingsApply` 가 `POLL_SETTINGS` 를 지난다.
 js/core/poll-settings.js
@@ -483,3 +479,16 @@ style-docrender.css
 # 실기기 진단 (PERF 3.4.12.3). index.html 의 인라인 스크립트가 ?diag=1 일 때만 b/boot.js 바로 뒤에 싣는다 —
 # 실리는 자리가 종전(부팅 묶음의 끝)과 같다. 조건은 DiagOverlay.start 의 것과 같은 정규식이다.
 js/ui/diag.js
+
+[keybar]
+# 모바일 키바 구성의 순수 함수 (UX_AUDIT_FIX_SRS FR-UXF-93·94). constants.js 의 MKB_KEYS 를 딛는다.
+# 라이브러리 묶음이다 (PERF 3.4.12.8) — 키바(`mobile`)와 설정 ▸ Terminal(`settings`)이 needs 로 싣는다.
+js/core/keybar.js
+
+[mobile]
+# 모바일 본체 (PERF 3.4.12.8). 부팅의 mobile-shell.js 가 모바일이어야 할 때(부팅·resize·표시 모드) 싣고
+# `app.mobile` 을 본체로 바꾼다. 서랍은 부팅의 Panel 을, 본체는 껍데기 MobileShell 을 잇는다.
+js/ui/drawer-sheet.js
+js/core/mobile-controller.js
+js/core/mobile-sheets.js
+js/core/mobile-nav.js
