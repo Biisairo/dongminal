@@ -1,6 +1,11 @@
+import { spawn } from 'child_process';
+import { existsSync, mkdirSync, readFileSync } from 'fs';
+
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, waitShellReady, waitSettled, JSON_HDR } from './fixtures';
+import { E2E_BIN, E2E_HOME, E2E_HOST } from '../playwright.config';
+import { stopDaemon } from './daemon-cleanup';
+import { test, expect, hermeticEnv, pingUntilUp, waitForInit, waitShellReady, waitSettled, JSON_HDR } from './fixtures';
 
 /**
  * PERF M2 §2.5 깨움·잠듦 (FR-TRM-3·4, NFR-PRF-6·14, D-15·D-16·D-19).
@@ -14,6 +19,10 @@ import { test, expect, waitForInit, waitShellReady, waitSettled, JSON_HDR } from
  */
 
 const SLEEP_MS = 2000;
+/** W5 의 인스턴스가 기록을 비우기까지 기다리는 출력 없음 시간(D-50 의 5분을 당긴다). */
+const COMPACT_IDLE_MS = 1500;
+/** W5 인스턴스의 포트는 워커 포트에서 이만큼 떨어뜨린다 — 워커 수보다 크다. */
+const COMPACT_PORT_OFFSET = 40;
 
 /** 칸 `slot` 의 도구 `id` 인스턴스에 `fn` 을 건다. */
 const onPane = (page: Page, id: string, slot: number, fn: string) => page.evaluate(`(() => {
@@ -157,6 +166,70 @@ test.describe('PERF 2.5 깨움·잠듦', () => {
     expect(woke.type).toBe('alternate');
     const modes = await onPane(page, s.x, 0, 'p => ({ paste: p.term.modes.bracketedPasteMode, mouse: p.term.modes.mouseTrackingMode })');
     expect(modes).toEqual({ paste: true, mouse: 'vt200' });
+  });
+
+  test('W5 (D-50): 출력이 멎어 데몬이 기록을 비운 뒤 깨워도 화면·기록이 같고, 그 위 기록도 이어서 받는다', async ({ browser, otterServer }) => {
+    test.setTimeout(180000);
+    // 유휴 비우기 시간을 당긴 인스턴스를 따로 띄운다 — 워커 서버의 데몬은 기본 5분이다.
+    const port = otterServer.port + COMPACT_PORT_OFFSET;
+    const home = E2E_HOME + '/compact-' + otterServer.port;
+    mkdirSync(home + '/tool-home', { recursive: true });
+    const proc = spawn(E2E_BIN, ['start', '--foreground', '--port', String(port)], {
+      env: {
+        ...hermeticEnv(),
+        OTTERMINAL_HOME: home,
+        OTTERMINAL_TOOL_HOME: home + '/tool-home',
+        OTTERMINAL_SCREEN_IDLE_COMPACT_MS: String(COMPACT_IDLE_MS),
+        OTTERMINAL_LOG_LEVEL: 'debug',
+      },
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
+    try {
+      await pingUntilUp(`http://${E2E_HOST}:${port}/api/ping`, 90_000);
+      const ctx = await browser.newContext({ baseURL: `http://${E2E_HOST}:${port}`, viewport: { width: 1600, height: 900 } });
+      const page = await ctx.newPage();
+      const s = await twoTabs(page);
+      await switchIn(page, s.pane, s.xTab, 0);
+      await waitSettled(page);
+      await run(ctx.request, s.x, "printf '\\033[H\\033[2J\\033[3J'");
+      await expect.poll(() => onPane(page, s.x, 0, 'p => p.term.buffer.active.length <= p.term.rows'), { timeout: 15000 }).toBe(true);
+      await run(ctx.request, s.x, "seq -f 'C%05g tail' 1 8000; echo compact-$((1+1))-done");
+      await expect.poll(() => onPane(page, s.x, 0, hasText('compact-2-done')), { timeout: 30000 }).toBe(true);
+      await waitSettled(page);
+      const ref: any = await onPane(page, s.x, 0, dump);
+      expect(ref.lines.length, '브라우저가 기록을 전부 들고 있다 — 위로 받기를 잴 수 없다').toBeLessThan(8000);
+
+      await switchIn(page, s.pane, s.yTab, 0);
+      await expect.poll(() => onPane(page, s.x, 0, asleep), { timeout: SLEEP_MS + 5000 }).toBe(true);
+      const log = home + '/daemon.log';
+      const mark = `[tool ${s.x}] 유휴 기록 비움`;
+      await expect.poll(() => existsSync(log) && readFileSync(log, 'utf8').includes(mark), { timeout: 30000 }).toBe(true);
+
+      await switchIn(page, s.pane, s.xTab, 0);
+      await expect.poll(() => onPane(page, s.x, 0, hasText('compact-2-done')), { timeout: 15000 }).toBe(true);
+      await waitSettled(page);
+      const woke: any = await onPane(page, s.x, 0, dump);
+      expect([woke.cols, woke.rows]).toEqual([ref.cols, ref.rows]);
+      expect(woke.lines).toEqual(ref.lines);
+      expect([woke.cx, woke.cy]).toEqual([ref.cx, ref.cy]);
+
+      // 비운 기록은 줄 저장소에 있다 — 브라우저 기록 위로 올리면 실시간 버퍼 맨 윗줄 바로 앞까지 이어서 받는다.
+      const top = Number(String(woke.lines[0]).slice(1, 6));
+      expect(top, '실시간 버퍼 맨 윗줄이 번호 줄이 아니다').toBeGreaterThan(1);
+      await onPane(page, s.x, 0, `p => { p.term.scrollToTop(); p.box.dispatchEvent(new WheelEvent('wheel', { deltaY: -120, bubbles: true })); return true }`);
+      await expect.poll(() => onPane(page, s.x, 0, 'p => p.history.isOpen'), { timeout: 10000 }).toBe(true);
+      const view = (await onPane(page, s.x, 0, `p => {
+        const b = p.history.view.buffer.active, out = [];
+        for (let i = 0; i < b.length; i++) { const t = b.getLine(i).translateToString(true).trim(); if (t) out.push(t) }
+        return out;
+      }`)) as string[];
+      expect(view.length).toBeGreaterThan(0);
+      expect(view[view.length - 1]).toBe(`C${String(top - 1).padStart(5, '0')} tail`);
+      await ctx.close();
+    } finally {
+      stopDaemon(home);
+      proc.kill('SIGTERM');
+    }
   });
 
   test('W4 (NFR-PRF-14): 기록 5천 줄 터미널을 깨워 그려질 때까지 p95 100 ms 이하', async ({ page, request }, info) => {
