@@ -985,6 +985,7 @@ I18N.register('en', {
   'html.dssec_window_edge': 'Window and edges',
   'html.search_case': 'Aa',
   'html.search_regex': '.*',
+  'html.search_older': 'Search older history',
   'html.search_word': 'ab',
   'html.settings_search': 'Search settings',
   'html.settings_title': 'Settings',

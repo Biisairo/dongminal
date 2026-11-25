@@ -20,6 +20,10 @@ pub const METHOD_SNAPSHOT: &str = "snapshot";
 pub const METHOD_SCREEN: &str = "screen";
 /// 화면 상태 설정(기록 줄 수, D-25).
 pub const METHOD_SCREEN_CONFIG: &str = "screenconfig";
+/// 답장 좌석을 쥐고 놓는다(D-23). 연결마다 센다 — 연결이 끊기면 그 연결이 쥔 것을 놓는다.
+pub const METHOD_SEAT: &str = "seat";
+/// 줄 저장소 검색이다(D-21). 번호 `before` 앞의 줄을 새 줄부터 찾는다.
+pub const METHOD_SEARCH: &str = "search";
 pub const METHOD_CWD: &str = "cwd";
 pub const METHOD_BUSY: &str = "busy";
 pub const METHOD_BUSY_MANY: &str = "busymany";
@@ -252,6 +256,54 @@ pub struct ScreenResult {
     pub first_line: u64,
     pub rows: u16,
 }
+
+/// 깬 브라우저가 도구의 답장 좌석을 쥐거나(`held`) 놓는다(D-23).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.SeatParams")]
+pub struct SeatParams {
+    pub held: bool,
+    pub id: String,
+}
+
+/// 화면 상태가 마지막으로 답한 조각의 끝 오프셋이다. 그 앞에서 이어 붙이면 답한 질의를 다시 보낸다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.SeatResult")]
+pub struct SeatResult {
+    #[serde(rename = "repliedEnd")]
+    pub replied_end: i64,
+}
+
+/// 찾기 줄의 "이전 기록에서 찾기"(D-21)다. 선택지는 찾기 줄과 같다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.SearchParams")]
+pub struct SearchParams {
+    pub before: u64,
+    pub case: bool,
+    pub id: String,
+    pub limit: usize,
+    pub pattern: String,
+    pub regex: bool,
+    pub word: bool,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.SearchHit")]
+pub struct SearchHit {
+    /// 줄 글자에서 일치가 시작하는 글자(코드 포인트) 자리다.
+    pub col: usize,
+    pub line: u64,
+    pub text: String,
+}
+
+/// 새 줄부터 찾은 일치다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.SearchResult")]
+pub struct SearchResult {
+    pub hits: Vec<SearchHit>,
+}
+
+/// 검색 한 번이 돌려주는 일치 수의 상한이다.
+pub const SEARCH_LIMIT_MAX: usize = 1_000;
 
 /// 설정 `termHistoryLines` 의 범위다(D-25). 웹 설정 서술자와 같은 수다.
 pub const HISTORY_LINES_MIN: usize = 1_000;

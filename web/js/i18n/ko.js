@@ -1009,6 +1009,7 @@ I18N.register('ko', {
   'html.dssec_window_edge': '창과 가장자리',
   'html.search_case': 'Aa',
   'html.search_regex': '.*',
+  'html.search_older': '이전 기록에서 찾기',
   'html.search_word': 'ab',
   'html.settings_search': '설정 검색',
   'html.settings_title': '설정',

@@ -361,6 +361,41 @@ async fn concurrent_wakes_share_one_screen() {
     assert_eq!(e.hub.screen_calls.load(Ordering::SeqCst), 1);
 }
 
+/// PERF 2.8.2 (D-23): 좌석은 구독 전에 데몬에서 쥐고(그 뒤 출력에는 데몬이 답하지 않는다), 닫으면 놓는다.
+#[tokio::test]
+async fn daemon_seat_held_before_subscribe_and_released_on_close() {
+    let e = env(seeded("t1", "\n$ ", 0, 0)).await;
+    let mut c = chan(e.port).await;
+    open(&mut c, json!({"sid":1,"tool":"t1"})).await;
+    until_op(&mut c, 1, OP_SEQ).await;
+    assert_eq!(
+        *e.hub.seats.lock().unwrap(),
+        vec![("t1".to_owned(), true, false)]
+    );
+    send_json(&mut c, json!({"t":"term.close","sid":1})).await;
+    wait_until("좌석을 놓는다", || {
+        e.hub.seats.lock().unwrap().len() == 2
+    })
+    .await;
+    let (id, held, _) = e.hub.seats.lock().unwrap()[1].clone();
+    assert_eq!((id.as_str(), held), ("t1", false));
+}
+
+/// PERF 2.8.2 (D-23): 데몬이 답한 출력보다 앞에서 이어 붙이면 그 질의를 브라우저가 또 답한다 — 스냅숏으로 간다.
+#[tokio::test]
+async fn since_before_daemon_reply_gets_screen() {
+    let h = FakeHub {
+        replied_end: 8,
+        ..FakeHub::default()
+    };
+    let e = env(seed_into(h, "t1", "first\nsecond", 0, 0)).await;
+    let mut c = chan(e.port).await;
+    open(&mut c, json!({"sid":1,"tool":"t1","since":6})).await;
+    let (before, seq) = until_op(&mut c, 1, OP_SEQ).await;
+    assert_eq!(outputs(&before), b"\x1bcSCREEN[first\nsecond]");
+    assert_eq!(seq[9] & FLAG_SNAP, FLAG_SNAP);
+}
+
 /// TC-CH5-3
 #[tokio::test]
 async fn resume_sends_delta_without_clear() {

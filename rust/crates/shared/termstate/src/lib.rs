@@ -1,7 +1,8 @@
 //! 데몬이 도구마다 한 벌 드는 화면 상태다 (PERF SRS FR-TRM-1·7, D-13).
 //!
 //! 에뮬레이터(`alacritty_terminal =0.26.0`)는 `emu` 모듈 밖으로 나오지 않는다. 바깥에는 이 파일의
-//! 값 타입과 [`Screen`] 만 보인다. 답장 사건(DA·DSR 등의 `PtyWrite`)은 어디에도 쓰지 않는다.
+//! 값 타입과 [`Screen`] 만 보인다. DA·DSR·커서 위치 질의의 답은 [`Screen::take_replies`] 로 모아 내고, 쓸지는
+//! 도구가 정한다(D-23).
 
 mod emu;
 mod hist;
@@ -155,6 +156,8 @@ pub struct Modes {
     pub line_feed_new_line: bool,
 }
 
+#[cfg(test)]
+mod reply_tests;
 #[cfg(test)]
 mod snap_tests;
 #[cfg(test)]

@@ -58,6 +58,14 @@ pub trait ToolHub: Send + Sync {
     fn snapshot_tool_since(&self, id: &str, since: i64) -> Result<ToolSnapshot, ToolError>;
     /// 화면 상태 스냅숏 — 화면 + 최근 기록 `history` 행 (PERF FR-TRM-4).
     fn screen_tool(&self, id: &str, history: usize) -> Result<ToolScreen, ToolError>;
+    /// 깬 브라우저의 답장 좌석을 데몬에서 쥐거나 놓는다 (D-23). 답은 데몬 화면 상태가 마지막으로 답한
+    /// 출력의 끝 오프셋이다.
+    fn seat_tool(&self, id: &str, held: bool) -> Result<i64, ToolError>;
+    /// 줄 저장소 검색 (D-21). 일치는 새 줄부터다.
+    fn search_tool(
+        &self,
+        p: &otter_shared_toolipc::SearchParams,
+    ) -> Result<Vec<otter_shared_toolipc::SearchHit>, ToolError>;
     fn daemon_info(&self) -> DaemonInfo;
     fn reconnects(&self) -> i64;
     fn has_feature(&self, name: &str) -> bool;
@@ -125,6 +133,15 @@ impl ToolHub for ReqHub {
     }
     fn screen_tool(&self, id: &str, history: usize) -> Result<ToolScreen, ToolError> {
         self.hub.screen_tool(id, history)
+    }
+    fn seat_tool(&self, id: &str, held: bool) -> Result<i64, ToolError> {
+        self.hub.seat_tool(id, held)
+    }
+    fn search_tool(
+        &self,
+        p: &otter_shared_toolipc::SearchParams,
+    ) -> Result<Vec<otter_shared_toolipc::SearchHit>, ToolError> {
+        self.hub.search_tool(p)
     }
     fn daemon_info(&self) -> DaemonInfo {
         self.hub.daemon_info()

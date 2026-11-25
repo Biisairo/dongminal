@@ -20,10 +20,13 @@ use crate::snap::{self, CursorState, GridState, Pen, State};
 use crate::{Attrs, Cell, Color, Cursor, Handover, Link, Modes, MouseMode, Row, Snapshot};
 
 type Title = Arc<Mutex<Option<String>>>;
+type Replies = Arc<Mutex<Vec<u8>>>;
 
-/// 제목만 적어 두고 나머지 사건(답장 `PtyWrite`·클립보드 등)은 버린다. 답장을 PTY 에 쓰지 않는다.
+/// 제목과 DA·DSR·커서 위치 질의의 답(D-23)만 적어 두고 나머지 사건(색 질의·클립보드 등)은 버린다.
+/// 답을 PTY 에 쓸지는 도구가 정한다.
 struct Quiet {
     title: Title,
+    replies: Replies,
 }
 
 impl EventListener for Quiet {
@@ -31,10 +34,28 @@ impl EventListener for Quiet {
         let t = match event {
             Event::Title(t) => Some(t),
             Event::ResetTitle => None,
+            Event::PtyWrite(r) if is_status_reply(&r) => {
+                let mut g = self.replies.lock().unwrap_or_else(|e| e.into_inner());
+                g.extend_from_slice(r.as_bytes());
+                return;
+            }
             _ => return,
         };
         *self.title.lock().unwrap_or_else(|e| e.into_inner()) = t;
     }
+}
+
+/// DA(`CSI ? … c`·`CSI > … c`)·DSR(`CSI 0 n`)·커서 위치(`CSI r ; c R`)의 답이다. 모드(`$y`)·키보드
+/// (`u`) 답은 브라우저 xterm 이 내지 않으므로 데몬도 내지 않는다.
+fn is_status_reply(r: &str) -> bool {
+    let Some(body) = r.strip_prefix("\x1b[") else {
+        return false;
+    };
+    let body = body.strip_prefix(['?', '>']).unwrap_or(body);
+    let Some((last, params)) = body.as_bytes().split_last() else {
+        return false;
+    };
+    matches!(last, b'c' | b'n' | b'R') && params.iter().all(|b| b.is_ascii_digit() || *b == b';')
 }
 
 /// 동기 갱신(DECSET 2026)이 바이트를 붙잡지 않게 한다. 화면은 언제나 넣은 바이트 끝까지의 상태다.
@@ -90,6 +111,7 @@ pub struct Screen {
     /// (vte 0.15.0 이 이어 읽을 때 뒤 글자를 삼킨다 — `utf8_split_across_feeds_keeps_following_char`).
     carry: Vec<u8>,
     title: Title,
+    replies: Replies,
     keep: usize,
     store: LineStore,
 }
@@ -111,8 +133,10 @@ impl Screen {
             ..Config::default()
         };
         let title = Title::default();
+        let replies = Replies::default();
         let quiet = Quiet {
             title: Arc::clone(&title),
+            replies: Arc::clone(&replies),
         };
         Self {
             term: Term::new(cfg, &Size::new(cols, rows), quiet),
@@ -120,6 +144,7 @@ impl Screen {
             scan: Scan::default(),
             carry: Vec::new(),
             title,
+            replies,
             keep,
             store: LineStore::new(store_cap),
         }
@@ -135,6 +160,11 @@ impl Screen {
                 self.reload_options();
             }
         }
+    }
+
+    /// 지금까지 모인 질의의 답을 꺼낸다(D-23).
+    pub fn take_replies(&mut self) -> Vec<u8> {
+        std::mem::take(&mut *self.replies.lock().unwrap_or_else(|e| e.into_inner()))
     }
 
     fn reload_options(&mut self) {
@@ -248,6 +278,7 @@ impl Screen {
             st.push(l);
         }
         s.store = st;
+        s.take_replies();
         s
     }
 

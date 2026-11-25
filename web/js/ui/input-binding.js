@@ -358,6 +358,7 @@ class InputBinding {
         this.app.tool.search.doSearch('next');
       });
     }
+    document.getElementById('search-older').addEventListener('click',()=>this.app.tool.search.searchOlder());
     document.getElementById('search-close').addEventListener('click',()=>this.app.tool.search.closeSearch());
   }
 
