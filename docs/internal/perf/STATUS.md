@@ -1,19 +1,19 @@
 # 최적화 진행 상태 (2026-11-24)
 
-## 지금 상태 (2026-11-25 낮, 조정 세션 → 다음 조정 세션)
+## 지금 상태 (2026-11-25 오후, 일시 정지 — 사용자 지시 "지금 하고있는것들만 완료하고 일시정지")
 
-- **조정자 탭 uuid**: 다음 세션이 `otterctl who-am-i` 로 새로 얻는다(이전 673c9b37).
-- **main**: `7a2c81d0` 그대로(perf-m1 1차 병합 + 1.20 cherry-pick, push 안 함). 운영 바이너리는 다시 빌드하지 않는다.
-- **M1**: 1.1~1.21 모두 done.
-- **M2: 닫힘.** 2.2~2.10 모두 done. 2.10 은 사용자 지시로 **문서 정합만** 했다(`perf/M2_DOC_SYNC.md` 61건 전부 코드 기준, 커밋 cee4b45c·c7824299·9bd9ed65). Rust workspace 전체 시험·e2e 전량·재측정·SRS §7 M2 표는 하지 않았다 — 마일스톤 전체 시험은 다음에 M3 와 함께 정한다.
-  - 이번 세션 병합: 2.8.1 read-screen(`screentext` IPC), 2.8.3 검색 기준점, 2.8.4 검색 목록 게이트, 2.6 흐름 제어 스냅숏, 2.5.1 스냅숏 행 수 = termScrollback.
-- **M3**: 남은 것 **3.4.11**(M3 재측정·문서 정합) · **3.4.12**(부팅 코드 범위 재설계, todo — 설계는 사용자 확인 뒤). 나머지 모두 done.
-  - 이번 세션 병합: 3.5.4 탭 숨김(e2e 는 visibilitychange 흉내 — 사용자 수용), 3.6.2 부팅 GPU 지연(A안, **부팅 때만** — 사용자 결정), 3.4.6 git·3.4.7 editor·3.4.8 docrender·3.4.9.1 run·chat·3.4.9.2 settings 묶음(D-41), 3.4.10 주석·줄 끝 공백 걷기(A안, D-42, NFR-PRF-12 → 1.55 MB, 부팅 JS 2,505,579 → 1,543,764 B — 그 이상은 3.4.12).
-  - 구현 선택(조정자): 공용 CodeMirror 층·style-editor*.css·constants-editor.js 는 boot(3.4.7), markdown-it·DOMPurify 는 boot(3.4.8), D-31 유지(git 첫 열기 remote 0.35초).
+- **perf-m1**: 작업 트리 깨끗, 이슈 worktree 없음. **main** `7a2c81d0` 그대로(push 안 함). 운영 바이너리는 다시 빌드하지 않는다.
+- **M1·M2**: 닫힘.
+- **M3**: 3.4.11 done(문서 정합 `perf/M3_DOC_SYNC.md` 34건·Q1~Q7 권장안, 재측정 → SRS §7.2). **3.4.12 split** — 설계 원본 `perf/M3_BOOT_SCOPE.md`(사용자 승인), 결정 SRS D-43~D-48.
+  - done: 3.4.12.1 needs 로더 · .2 mdlib · .3 diag · .4 search · .5 remote · .6 themes · .7 cm(+LSP) · .8 mobile(+별도 keybar) · .10 uiact·chat·터치 WebGL.
+  - 단계별 단독 jsBytes: .2 −143,519 · .3 −13,833 · .4 −15,084 · .5 −9,835 · .6 −36,319 · .7 −91,577 · .8 −22,501 · .10 −20,308. **합친 실측은 아직 없다**(추정 약 1.19 MB, 시작 1,543,787 B).
+  - **남은 것**: 3.4.12.9 언어 조각(deps 모두 done, 위험 MED–HIGH) → 3.4.12.11 정합·합친 재측정(`scenario.mjs --only boot`, 회마다 새 인스턴스)·NFR-PRF-12 를 마지막 실측 기준으로 확정(사용자 결정)·회귀 상한 시험. 각 이슈 진행 기록의 "설계와 다르게 한 것"·"코드와 어긋난 문서" 를 .11 에서 모은다(예: settings-code 도 cm 진입점, keybar 별도 묶음, 부팅 잔류 3파일, diag 인라인 자리, search 감소량).
+  - 그 뒤 **마일스톤 전체 시험**(Rust workspace + e2e 전량, 사용자 결정: M3 끝에 한 번). 알려진 기존 실패: `event-timer-hub-contract` T-5·6·7·7b(스펙이 index.html 의 개별 constants-git 태그를 전제), V-LAY-1·1b(2.8.2 의 `.search-bar{position:relative}` 가 기준선과 어긋남).
+  - 그 뒤 main 일반 병합 → push 는 사용자 확인 뒤.
 - **M4**: todo.
-- 통합 브랜치 perf-m1: 프론트 단위 1801/1801, tsc, eslint web/js 0건, scripts/check-* 전부 통과(check-api-docs 포함), Rust 바꾼 crate lib·fmt·clippy 통과.
-- 문서 정합 대기: M3 몫만 남음(각 3.* 이슈 진행 기록의 "코드와 어긋난 문서" — M3_DESIGN §3.4 묶음 표·크기, §3.6 `gpu:<id>`·기준선, D-M3-4·D-M3-7, bundles.txt 머리말, FE_MODULE_BOUNDARY §7.1 CSS 기준선 등, M2_DOC_SYNC §4 의 M3 겹침). 3.4.11 에서 사용자 확인 뒤.
-- 아직 묻지 않은 것: vendor 스크립트·CSS gzip 전송(3.4.2 발견), 2.4 의 작은 차이 5건 수용 여부, 마일스톤 전체 시험(Rust workspace·e2e 전량)을 언제 돌릴지.
+- 사용자에게 아직 묻지 않은 것: 데몬 RSS 105~116 MB(M1 28 MB, 재측정 관찰, NFR-PRF-10 판정 밖)를 이슈로 볼지, vendor 스크립트·CSS gzip 전송(3.4.2), 2.4 작은 차이 5건 수용 여부.
+- 사용량 규칙: 5시간 70% 에서 멈춘다(이번 세션 사용자 결정). 시작할 때 사용자에게 다시 확인.
+- 이번 세션 교훈: 병렬 단계는 거의 모두 `web/bundles.txt`·`settings-controller.js`·`harness.mjs` 에서 충돌했다 — 하나 병합할 때마다 다음 에이전트에게 "네 worktree 에서 git merge perf-m1" 을 순서대로 시켰다(한꺼번에 시키면 같은 충돌을 두 번 푼다). `check-cross.sh` 는 cargo 가 여럿 돌면 20분을 넘긴다 — 조정자 병합 확인에서 돌린다.
 
 ## 사용자 지시 (2026-11-24)
 
