@@ -168,6 +168,9 @@ class GitSync extends Controller {
     if(this.app.gitPanel) this.app.gitPanel.views.adoptJobs(jobs);
   }
 
+  /** 마지막으로 받은 진행 중 작업 목록 — 토픽보다 늦게 선 잡 표시기가 딛는다 (4.15.3). */
+  gitJobs(){ return this.app._gitJobs||[] }
+
   // U-19 ①: `_gitJobSeen`·`_gitJobEnded`·`_gitJobChip` 은 **제거됐다.** 셋 다
   // 상태바 chip 을 즉시 갱신하기 위한 것이었고(FR-GIT-112), 그 chip 이 철회되며
   // 쓰임이 사라졌다. 작업의 진행·종료는 그것을 띄운 패널이 스트림으로 알고
