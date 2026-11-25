@@ -493,3 +493,10 @@ js/ui/diag.js
 # provideLinks(bare-link.js), loadCodeMirror(cm-load.js, CM 과 나란히), docrender 의 needs.
 vendor/markdown-it.js
 vendor/purify.js
+
+[search]
+# 터미널 찾기 (PERF 3.4.12.4, D-43). 찾기 줄을 처음 열 때(Ctrl+F·메뉴 찾기) `ToolSearch.toggleSearch` 가 싣는다.
+# 실린 뒤 살아 있는 터미널 모두에 addon 을 붙이고, 그 뒤 새 터미널은 `_loadAddons` 가 바로 붙인다.
+# `focusedTerminal` 은 상태 바·git·tool-life 가 부팅 때 부르므로 부팅의 껍데기(tool-search.js)에 남는다.
+vendor/addon-search.js
+js/core/tool-search-bar.js
