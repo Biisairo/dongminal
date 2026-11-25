@@ -48,10 +48,6 @@ js/core/constants-git.js
 # 변경 감지 2계층의 주기 (FR-GIT-18~24). git/api.js·status-hub.js·git-status-helpers.js 가 부팅에서 읽는다.
 js/core/constants-git-detect.js
 js/core/constants-editor.js
-# 서버 hunk 좌표의 클라이언트 측 사상 (DIFF_HUNK_BAR_SRS D-2). 편집기의 변경
-# 표시와 Diff 탭의 hover 툴바가 함께 쓴다 — 순수 함수뿐이므로 상수 뒤 아무
-# 자리나 되지만, 두 소비자보다 앞이어야 읽는 순서가 곧 의존 순서가 된다.
-js/core/hunk-coords.js
 # 부팅 화면 손잡이 (BOOT_SCREEN_SRS). constants.js 뒤여야 한다 — 로드 시점에
 # `BOOT_MAX_MS` 로 상한을 건다.
 # 시간과 전파의 소유자. constants 뒤(값을 딛는다) helpers 앞(visiblePoll 이
@@ -77,7 +73,6 @@ js/core/shortcuts.js
 js/core/settings-state.js
 js/core/layout-tree.js
 js/core/git-status-helpers.js
-js/core/git-path.js
 # 프론트 기반 클래스 (REFACTOR3_FE_BASE_SRS FR-FEB-16). timer-hub·event-bus·helpers 뒤, 쓰는 첫 파일 앞이다.
 # `extends` 는 로드 시점에 부모를 읽으므로 component → view → controller 순서가 계약이다.
 js/core/base/component.js
@@ -151,30 +146,13 @@ js/ui/term-touch.js
 js/ui/term-gpu.js
 # 위로 스크롤 받기의 기록 보기 (PERF FR-TRM-5). term-pane.js 가 생성자에서 만든다.
 js/ui/term-history.js
-# CodeMirror 편집기의 문서 버퍼·찾기 계산·구성 (CODEMIRROR_MIGRATION_SRS §11.1). file-editor.js
-# 앞이다 — FileEditor 가 이것들을 부른다. `CM` 은 편집기를 처음 열 때 온다(loadCodeMirror).
-# 여기부터 file-editor-diff.js 까지는 Git Diff 도 쓰므로 부팅 묶음에 남는다 (PERF 3.4.7).
+# CodeMirror 를 싣는 자리와 문서 버퍼 (CODEMIRROR_MIGRATION_SRS §11.1). `CM` 은 편집기·Diff 를 처음 열 때 온다(loadCodeMirror).
+# 부팅 코어(editor-doc.js)가 EdBuffer 를 만들므로 부팅에 남는다. 나머지 CM 공용 층은 [cm] 묶음이다 (PERF 3.4.12.7, D-44).
 js/ui/cm-load.js
 js/ui/cm-buffer.js
-js/ui/cm-find.js
-js/ui/cm-scrollbar.js
-js/ui/cm-sticky.js
-# 선택·같은 낱말·진단·커서의 ruler·미니맵 표식 (EDITOR_LINK_LSP_SRS FR-ELS-30).
-js/ui/cm-marks.js
-js/ui/cm-setup.js
-# 브라우저 LSP — 연결·소켓·문서 그룹 (CODEMIRROR_MIGRATION_SRS §11.6 L1).
-js/ui/cm-lsp.js
-# 수정키+클릭 링크 이동 (EDITOR_LINK_LSP_SRS FR-ELS-10). cm-lsp.js 뒤다 — edLspPath·edLspOffset 을 쓴다.
-js/ui/cm-link.js
-# 편집기의 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS). FileEditor.prototype 에 얹는 것은
-# file-editor.js 끝이다 (DRIFT_RECLAIM_SRS FR-DRC-13, PERF 3.4.7).
-js/ui/file-editor-find.js
 # 편집기·문서 렌더 뷰가 함께 쓰는 문서 단위 관측 edViewLifeDoc (PERF 3.5.3). 짝은 editor 묶음의 file-editor-life.js,
 # docrender 묶음의 doc-render-life.js 다.
 js/ui/editor-view-life.js
-# 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS). 칸 하나의 클릭·팝업은 FileEditor 의 부품 `EdDiffPeek` 다
-# (REFACTOR3_FE_REST5_SRS FR-FR5-23 — 종전에는 `FileEditor.prototype` 을 확장했다).
-js/ui/file-editor-diff.js
 js/ui/input-binding.js
 # git 요청 한 겹과 status 허브. 사이드바 Repo 목록·탐색기 색·편집기 변경 표시가 git 화면 없이 쓰므로
 # 부팅에 남는다 (PERF D-32). 나머지 js/git/* 는 [git] 묶음이다.
@@ -273,10 +251,6 @@ js/core/editor-watch.js
 js/core/editor-file.js
 js/core/editor-section.js
 js/core/editor-doc-render.js
-# 코드 탐색 (APP_STATE_EXTRACT_SRS FR-ASE-7). 본체 `LspClient` 와 그 증강. 바깥이 부르는 이름은 `app.js` 의
-# 위임자다 (REFACTOR3_FE_APPCTL_SRS 9a).
-js/core/lsp-client.js
-js/core/lsp-paths.js
 js/core/editor-search.js
 js/core/tool-search.js
 js/core/mobile-controller.js
@@ -309,9 +283,40 @@ js/core/app-testing.js
 js/core/main.js
 js/ui/version-watch.js
 
+[cm]
+# CodeMirror 공용 층·코드 탐색 (PERF 3.4.12.7, D-44 — 3.4.7 의 부팅 잔류를 뒤집음). 편집기 칸과 Git Diff 가 함께 쓴다.
+# loadCodeMirror(cm-load.js)가 CM vendor 와 나란히 싣고, editor·git 은 needs 로 먼저 싣는다. needs 는 mdlib 다 —
+# CM 뷰가 서면 cm·mdlib 가 늘 서 있다(FR-ELS-12 클릭 안의 동기 window.open, hover 정화).
+# 로드 시점에 `CM` 을 읽지 않는다 — CM vendor 보다 먼저 실릴 수 있다.
+# 서버 hunk 좌표의 클라이언트 측 사상 (DIFF_HUNK_BAR_SRS D-2). 편집기의 변경
+# 표시와 Diff 탭의 hover 툴바가 함께 쓴다 — 순수 함수뿐이므로 상수 뒤 아무
+# 자리나 되지만, 두 소비자보다 앞이어야 읽는 순서가 곧 의존 순서가 된다.
+js/core/hunk-coords.js
+js/core/git-path.js
+js/ui/cm-find.js
+js/ui/cm-scrollbar.js
+js/ui/cm-sticky.js
+# 선택·같은 낱말·진단·커서의 ruler·미니맵 표식 (EDITOR_LINK_LSP_SRS FR-ELS-30).
+js/ui/cm-marks.js
+js/ui/cm-setup.js
+# 브라우저 LSP — 연결·소켓·문서 그룹 (CODEMIRROR_MIGRATION_SRS §11.6 L1).
+js/ui/cm-lsp.js
+# 수정키+클릭 링크 이동 (EDITOR_LINK_LSP_SRS FR-ELS-10). cm-lsp.js 뒤다 — edLspPath·edLspOffset 을 쓴다.
+js/ui/cm-link.js
+# 편집기의 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS). FileEditor.prototype 에 얹는 것은
+# file-editor.js 끝이다 (DRIFT_RECLAIM_SRS FR-DRC-13, PERF 3.4.7).
+js/ui/file-editor-find.js
+# 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS). 칸 하나의 클릭·팝업은 FileEditor 의 부품 `EdDiffPeek` 다
+# (REFACTOR3_FE_REST5_SRS FR-FR5-23 — 종전에는 `FileEditor.prototype` 을 확장했다).
+js/ui/file-editor-diff.js
+# 코드 탐색 (APP_STATE_EXTRACT_SRS FR-ASE-7). 본체 `LspClient` 와 그 증강. 바깥이 부르는 이름은 `app.js` 의
+# 위임자다 (REFACTOR3_FE_APPCTL_SRS 9a).
+js/core/lsp-client.js
+js/core/lsp-paths.js
+
 [git]
 # git 화면 (PERF M3 §3.4 · D-30·D-32). Repo 창의 Changes 사이드·git 뷰 탭·확인창·메뉴를 처음 쓸 때
-# `Screens.load('git')` 이 싣는다. 부팅 묶음 전부의 뒤에 서므로 부팅의 전역은 모두 서 있다.
+# `Screens.load('git')` 이 싣는다. 부팅 묶음 전부의 뒤에 서므로 부팅의 전역은 모두 서 있다. CM 공용 층은 needs 로 [cm] 이 먼저 싣는다.
 # 상수 파일이 맨 앞이다 — 화면 코드가 로드 시점에 읽는다.
 # 탭별 git 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1). 순서는 원본 파일의 절
 # 순서와 같다 — 그 순서가 곧 로드 시점 참조의 순서였다.
@@ -439,10 +444,15 @@ js/core/settings-presets.js
 # 처음 열 때의 세우기 순서. 섹션 클래스를 로드 시점에 표로 읽으므로 섹션 파일 전부의 뒤다.
 js/core/settings-open.js
 
+[themes]
+# 기본 두 테마 밖의 테마 카탈로그 (PERF 3.4.12.6). 적용할 이름이 부팅 표에 없을 때 `_settingsApply` 가,
+# 설정 창은 needs 로 싣는다. 부팅의 `THEMES` 를 늘리므로 themes.js 뒤에만 실린다.
+js/ui/themes-catalog.js
+
 [editor]
 # 편집기 칸과 탐색기 (PERF 3.4.7, D-30·D-32). Editor 창을 그리거나 파일을 열 때 Screens.load('editor') 가 싣는다.
-# 부팅 코드가 읽는 편집기 상수·CodeMirror 공용 층(cm-*·file-editor-find·file-editor-diff)은 boot 에 남는다 —
-# Git Diff 가 같은 것을 쓴다. CSS(style-editor*.css)도 Repo 사이드·터미널 복사창 규칙이 섞여 있어 index.html 에 남는다.
+# 부팅 코드가 읽는 편집기 상수는 boot 에, CodeMirror 공용 층은 [cm] 에 있다 — needs 로 cm 을 먼저 싣는다 (PERF 3.4.12.7).
+# CSS(style-editor*.css)는 Repo 사이드·터미널 복사창 규칙이 섞여 있어 index.html 에 남는다.
 js/core/constants-explorer.js
 js/ui/file-editor.js
 # FileEditor 의 부품 (REFACTOR3_FE_REST5_SRS FR-FR5-21) — 알림·제안 띠 · 편집기 대신 서는 화면 · 문서 없는 저장 · 키 배선.
@@ -469,8 +479,7 @@ js/ui/file-tree-download.js
 
 [docrender]
 # 문서 렌더 뷰 (DOC_RENDER_VIEW_SRS, PERF 3.4.8). 렌더 탭을 처음 그릴 때 싣는다 — 렌더러의 자리표시가 기다린다.
-# markdown-it·DOMPurify 는 부팅에 남는다: 터미널 맨 도메인 링크(bare-link.js)·편집기 링크(cm-link.js)·LSP hover
-# 정화(lsp-client.js)가 함께 쓴다.
+# markdown-it·DOMPurify 는 needs 로 mdlib 가 먼저 싣는다(PERF 3.4.12.2, D-43).
 vendor/highlight.js
 js/core/constants-docrender.js
 js/ui/doc-render-util.js
@@ -483,6 +492,19 @@ style-docrender.css
 # 실기기 진단 (PERF 3.4.12.3). index.html 의 인라인 스크립트가 ?diag=1 일 때만 b/boot.js 바로 뒤에 싣는다 —
 # 실리는 자리가 종전(부팅 묶음의 끝)과 같다. 조건은 DiagOverlay.start 의 것과 같은 정규식이다.
 js/ui/diag.js
+
+[mdlib]
+# markdown-it·DOMPurify 라이브러리 묶음 (PERF 3.4.12.2, D-43). 처음 쓸 때 싣는다 — 터미널 맨 도메인 링크의 첫
+# provideLinks(bare-link.js), loadCodeMirror(cm-load.js, CM 과 나란히), docrender 의 needs.
+vendor/markdown-it.js
+vendor/purify.js
+
+[search]
+# 터미널 찾기 (PERF 3.4.12.4, D-43). 찾기 줄을 처음 열 때(Ctrl+F·메뉴 찾기) `ToolSearch.toggleSearch` 가 싣는다.
+# 실린 뒤 살아 있는 터미널 모두에 addon 을 붙이고, 그 뒤 새 터미널은 `_loadAddons` 가 바로 붙인다.
+# `focusedTerminal` 은 상태 바·git·tool-life 가 부팅 때 부르므로 부팅의 껍데기(tool-search.js)에 남는다.
+vendor/addon-search.js
+js/core/tool-search-bar.js
 
 [remote]
 # 원격 명령의 본체 (PERF 3.4.12.5). 부팅의 `ToolCmd._execRemote` 가 첫 명령 때 싣고, 실리는 동안 받은 명령은

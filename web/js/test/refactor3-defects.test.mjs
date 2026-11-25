@@ -6,7 +6,7 @@ import { BASE, PANELS, load } from './harness.mjs';
 /**
  * REFACTOR3_DEFECTS_SRS 묶음 A·I (프론트).
  */
-const theme = () => load(['core/contrast.js', 'ui/themes.js', 'core/theme-vars.js'], {
+const theme = () => load(['core/contrast.js', 'ui/themes.js', 'ui/themes-catalog.js', 'core/theme-vars.js'], {
   globals: { TOPTS: {}, t: (k) => k },
   expose: ['THEMES', 'sanitizeCustomTheme'],
 });

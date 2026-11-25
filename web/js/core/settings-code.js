@@ -23,9 +23,12 @@ class CodeSection extends SettingsSection {
    * 값이라 다른 탭에서 바뀔 일이 없지만, 고를 때마다 다시 칠하는 것이 이 모달의 규약이다 (FR-LVC-3).
    */
   onTab(){
-    this.app.lspClient()._lspRefresh();
-    const dcb=document.getElementById('lsp-diag');
-    if(dcb) dcb.checked=lspDiagOn;
+    // PERF 3.4.12.7: `LspClient`·`lspDiagOn` 은 cm 묶음이다 — 실은 뒤에 읽는다.
+    Screens.load('cm').then(()=>{
+      this.app.lspClient()._lspRefresh();
+      const dcb=document.getElementById('lsp-diag');
+      if(dcb) dcb.checked=lspDiagOn;
+    });
   }
 
   // FR-LSP-36: 진단 토글. 라벨과 안내문도 상수에서 온다 — 화면에 문장을 박아 두면 그 문장이 두 자리에 살게 된다.
@@ -37,9 +40,6 @@ class CodeSection extends SettingsSection {
     const dh=document.getElementById('lsp-diag-hint');
     if(dh) dh.textContent=LSP_DIAG_HINT;
     const cb=document.getElementById('lsp-diag');
-    if(cb){
-      cb.checked=lspDiagOn;
-      this.listen(cb,'change',()=>this.app.lspClient()._lspSetDiag(cb.checked));
-    }
+    if(cb) this.listen(cb,'change',()=>Screens.load('cm').then(()=>this.app.lspClient()._lspSetDiag(cb.checked)));
   }
 }

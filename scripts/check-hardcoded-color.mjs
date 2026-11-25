@@ -54,7 +54,7 @@ const ROOT = new URL('..', import.meta.url).pathname;
 
 /** 파일 단위 예외 — 통째로 지나간다. 줄마다 사유를 적는다 (FR-WRD-22). */
 const SKIP_FILES = [
-  { re: /^web\/js\/ui\/themes\.js$/, why: '팔레트 정본 — 54종의 값이 사는 자리다 (D-TOK-1)' },
+  { re: /^web\/js\/ui\/themes(-catalog)?\.js$/, why: '팔레트 정본 — 54종의 값이 사는 자리다 (D-TOK-1, 3.4.12.6 부터 부팅 표와 카탈로그 둘)' },
   { re: /^web\/js\/core\/contrast\.js$/, why: '파생 계산 자신 — 앵커와 바닥이 사는 자리다 (D-TOK-5)' },
   { re: /^web\/js\/test\//, why: '단위 테스트 — 문자열은 검사 대상이 아니라 기대값이다' },
   { re: /^web\/vendor\//, why: '제3자 자산 — 판만 기록한다 (check-vendor.sh)' },

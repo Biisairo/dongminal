@@ -123,7 +123,8 @@ export const FOCUS = ['core/focus-controller.js', 'core/focus-highlight.js', 'co
 export const SLOTS = ['core/slots-controller.js', 'core/slot-ops.js'];
 export const LAYOUT = ['core/layout-controller.js', 'core/layout-tab-add.js', 'core/layout-tab-ops.js', 'core/layout-window-state.js',
   'core/layout-dock.js', 'core/layout-tab-reopen.js', 'core/layout-dnd.js', 'core/layout-groups.js'];
-export const TOOL = ['core/screens.js', 'core/tool-cmd.js', 'core/tool-cmd-remote.js', 'core/tool-controller.js', 'core/tool-life.js', 'core/tool-work.js', 'core/tool-search.js'];
+export const TOOL = ['core/screens.js', 'core/tool-cmd.js', 'core/tool-cmd-remote.js', 'core/tool-controller.js', 'core/tool-life.js', 'core/tool-work.js', 'core/tool-search.js',
+  'core/tool-search-bar.js'];
 export const EDITOR = ['core/screens.js', 'core/editor-controller.js', 'core/editor-sync.js', 'core/editor-open.js', 'core/editor-doc.js',
   'core/editor-pane.js', 'core/editor-watch.js', 'core/editor-file.js', 'core/editor-section.js', 'core/editor-doc-render.js',
   'core/editor-search.js'];
