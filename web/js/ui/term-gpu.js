@@ -49,11 +49,47 @@ Object.assign(TerminalTool.prototype,{
     if(!this.term){ this._gpu=null; return }
     // FR-TGR-10: 손실된 칸은 한 번 숨어야 다시 붙는다.
     if(!visible) this._gpuLost=false;
-    // D-TGR-6: 터치 기기는 DOM 글자 위의 OS 선택을 쓴다 (FR-TCP-7·8) — 같은 판정으로 비켜선다.
-    const want=!!visible&&!this._gpuLost&&!TermGpu.unavailable&&TermGpu.enabled()&&typeof WebglAddon!=='undefined'&&!this._tsTouch();
+    const want=this._gpuWant(visible);
     if(want===!!this._gpu) return;
     if(want) this._gpuAttach();
     else this._gpuDetach();
+  },
+
+  /** FR-TGR-4: 붙여야 하는가. FR-TGR-7b 의 "붙일 예정" 도 이 판정 하나를 쓴다. */
+  _gpuWant(visible){
+    // D-TGR-6: 터치 기기는 DOM 글자 위의 OS 선택을 쓴다 (FR-TCP-7·8) — 같은 판정으로 비켜선다.
+    return !!visible&&!this._gpuLost&&!TermGpu.unavailable&&TermGpu.enabled()&&typeof WebglAddon!=='undefined'&&!this._tsTouch();
+  },
+
+  /** FR-TGR-7b: 부팅 때 뒤 프레임 붙이기를 기다리는(`_gpuWait`, `_afterLayout` 이 세운다) 붙일 수 있는 칸. */
+  _gpuPending(){
+    return !!this._gpuWait&&!!this.term&&!this._gpu&&this._gpuWant(!!this.el&&this.el.classList.contains('vis'));
+  },
+
+  /**
+   * FR-TGR-7b: WebGL 로 설 크기. addon-fit `proposeDimensions` 의 가용 크기를 WebGL 칸 크기
+   * (addon-webgl `WebglRenderer._updateDimensions`)로 나눈다. 문자 크기를 아직 못 쟀으면 null.
+   */
+  _gpuDims(){
+    const term=this.term, core=term&&term._core, cs=core&&core._charSizeService, el=term&&term.element;
+    if(!cs||!cs.width||!cs.height||!el||!el.parentElement) return null;
+    const dpr=window.devicePixelRatio||1, o=term.options;
+    const cellW=(Math.floor(cs.width*dpr)+Math.round(o.letterSpacing||0))/dpr;
+    const cellH=Math.floor(Math.ceil(cs.height*dpr)*(o.lineHeight||1))/dpr;
+    const ps=window.getComputedStyle(el.parentElement), es=window.getComputedStyle(el), px=(s,k)=>parseInt(s.getPropertyValue(k));
+    const sb=o.scrollback===0?0:core.viewport.scrollBarWidth;
+    const h=px(ps,'height')-(px(es,'padding-top')+px(es,'padding-bottom'));
+    const w=Math.max(0,px(ps,'width'))-(px(es,'padding-right')+px(es,'padding-left'))-sb;
+    const cols=Math.max(2,Math.floor(w/cellW)), rows=Math.max(1,Math.floor(h/cellH));
+    return Number.isNaN(cols)||Number.isNaN(rows)?null:{cols,rows};
+  },
+
+  /** FR-TGR-7b: 붙일 예정인 칸이면 예측값으로 서고 참. 아니면 거짓 — 부른 쪽이 종전 fit 을 한다. */
+  _gpuFit(){
+    const d=this._gpuPending()&&this._gpuDims();
+    if(!d) return false;
+    if(this.term.cols!==d.cols||this.term.rows!==d.rows){ this.term._core._renderService.clear(); this.term.resize(d.cols,d.rows) }
+    return true;
   },
 
   gpuRenderer(){ return this._gpu?'webgl':'dom' },

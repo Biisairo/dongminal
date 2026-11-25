@@ -151,11 +151,15 @@ Object.assign(Renderer.prototype, {
   _afterLayout(){
     const app=this.app;
     TIMERS.frame(()=>{
+      // TERMINAL_GPU_RENDER_SRS FR-TGR-7(개정, PERF D-40): **부팅 때만** 첫 페인트를 DOM 렌더러로 하고 WebGL 은 뒤 프레임에
+      // 붙인다. 부팅 = 보이는 터미널이 처음 선 렌더 한 번. 그 뒤 렌더는 그 프레임에 렌더러를 정하고 잰다(사용자 결정 2026-11-25).
+      const boot=!this._gpuBooted;
       for(const p of app.tools.values()){
-        // TERMINAL_GPU_RENDER_SRS FR-TGR-7: 렌더러를 정한 **뒤에** 잰다.
         if(p.el.classList.contains('vis')){
+          this._gpuBooted=true;
+          if(boot&&!p._gpu&&p._gpuWant(true)) this._gpuLater(p);
           if(!p._opened)p.open();
-          p.syncGpu(true);
+          if(!p._gpuWait) p.syncGpu(true);
           p.sizer.doFit();
         }else p.syncGpu(false);
       }
@@ -170,6 +174,21 @@ Object.assign(Renderer.prototype, {
         app.focus.owner.resendWindowSizes(app.ws.activeWindow);
       }
     },{owner:this,label:'render-frame'});
+  },
+
+  /**
+   * FR-TGR-7: 부팅 때 보이는 칸의 WebGL 붙이기 — 칸마다 `idle` 프레임 작업 하나다. 기다리는 동안(`_gpuWait`) 그 칸의
+   * fit 은 예측값이다(FR-TGR-7b). 그새 숨거나 파괴된 칸은 건너뛴다. 붙인 뒤 다시 잰다 — 실패했으면(FR-TGR-9) 그것이
+   * 예측값을 DOM 크기로 되돌린다.
+   */
+  _gpuLater(p){
+    p._gpuWait=true;
+    TIMERS.frame(()=>{
+      p._gpuWait=false;
+      if(p._destroyed||!p.el.classList.contains('vis')) return;
+      p.syncGpu(true);
+      p.sizer.doFit();
+    },{owner:p,coalesce:'gpu',prio:'idle',label:'gpu-attach'});
   },
 
   /**
