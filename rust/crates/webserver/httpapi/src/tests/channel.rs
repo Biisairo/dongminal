@@ -224,7 +224,7 @@ fn drain(o: &Outbox, hub: &TopicHub) -> Vec<Value> {
                     out.push(serde_json::from_str(&it.frame).unwrap());
                 }
             }
-            Out::Binary(b) => out.push(json!({"bin": b.len()})),
+            Out::Binary(b) => out.push(json!({"bin": b.wire().len()})),
             Out::Close => out.push(json!({"close": true})),
         }
     }
@@ -361,6 +361,43 @@ async fn hub_event_topic_gap_is_reset() {
     assert_eq!(drain(&o2, &hub), [json!({"t":"reset","topic":"fs"})]);
 }
 
+/// 4.12 (M4 설계 §4, FR-SRV-1): 같은 (토픽, 순번) 의 full 은 서버에서 한 번만 직렬화한다 — 발행한 프레임,
+/// 뒤늦은 `NeedFull`, 새 구독이 모두 같은 `Arc<Item>` 을 나눈다. 순번이 오르면 새로 만든다.
+#[tokio::test(start_paused = true)]
+async fn topic_full_same_seq_serialized_once() {
+    let hub = TopicHub::default();
+    hub.publish_full("x", json!({"v":1}));
+    let a = hub.full_item("x").unwrap();
+    let b = hub.full_item("x").unwrap();
+    assert!(Arc::ptr_eq(&a, &b), "같은 순번의 full 을 두 번 만들었다");
+    let (o1, o2) = (Outbox::new(), Outbox::new());
+    hub.subscribe(1, &o1, "x", None, None).await.unwrap();
+    hub.subscribe(2, &o2, "x", None, None).await.unwrap();
+    for o in [&o1, &o2] {
+        let Some(Out::Text(t)) = o.pop() else {
+            panic!("full 이 오지 않았다")
+        };
+        assert!(
+            Arc::ptr_eq(&t, &a.frame),
+            "구독마다 full 을 다시 직렬화했다"
+        );
+    }
+    hub.publish_full("x", json!({"v":2}));
+    let Some(Out::Text(sent)) = o1.pop() else {
+        panic!("발행이 오지 않았다")
+    };
+    let c = hub.full_item("x").unwrap();
+    assert!(!Arc::ptr_eq(&a, &c), "순번이 올랐는데 옛 full 을 돌려준다");
+    assert!(
+        Arc::ptr_eq(&sent, &c.frame),
+        "발행한 full 을 다시 직렬화했다"
+    );
+    hub.publish_event("x", json!(null));
+    let d = hub.full_item("x").unwrap();
+    assert_eq!(d.seq, 3);
+    assert!(Arc::ptr_eq(&d, &hub.full_item("x").unwrap()));
+}
+
 #[tokio::test]
 async fn hub_full_topic_publish_replaces_value() {
     let hub = TopicHub::default();
@@ -435,7 +472,7 @@ fn outbox_term_frame_is_op_sid_payload() {
     let Some(Out::Binary(b)) = o.pop() else {
         panic!("바이너리가 아니다")
     };
-    assert_eq!(b, [4, 1, 2, 3, 4, b'a', b'b']);
+    assert_eq!(b.wire(), [4, 1, 2, 3, 4, b'a', b'b'][..]);
 }
 
 #[test]
@@ -611,7 +648,7 @@ fn outbox_term_pending_and_drop_output() {
     assert_eq!(o.term_pending(1), 5 + 2 + 5 + 4 + 5 + 1, "남은 통보만 센다");
     let mut left = Vec::new();
     while let Some(Out::Binary(b)) = o.pop() {
-        left.push((b[0], b[4]));
+        left.push((b.op, b.sid));
     }
     assert_eq!(
         left,
