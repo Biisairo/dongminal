@@ -101,7 +101,7 @@ export const SETTINGS = ['core/settings-apply.js', 'core/settings-section.js', '
   'core/settings-save-state.js', 'core/settings-sandbox.js',
   'core/settings-access.js', 'core/settings-edges.js', 'core/settings-profile.js', 'core/settings-telegram.js',
   'core/settings-server.js', 'core/settings-claude.js', 'core/settings-backup.js', 'core/settings-presets.js',
-  'core/settings-controller.js'];
+  'core/screens.js', 'core/settings-controller.js', 'core/settings-open.js'];
 
 /**
  * App 컨트롤러 묶음 — index.html 의 순서다 (REFACTOR3_FE_APPCTL_SRS 9c). `BASE` 뒤에 싣는다. 뿌리가 부품을 생성자에서

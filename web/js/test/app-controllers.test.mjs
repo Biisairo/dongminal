@@ -201,7 +201,7 @@ const LSP_DELEGATES = ['_lspRefresh', '_lspGotoDef', '_lspFindRefs', '_lspRootOf
 const RUNS_DELEGATES = ['_runsModalToggle', '_findRunTab', 'runViewEl', '_runDisposeView', '_onRunChanged', '_runPaint'];
 
 function load9a(globals = {}) {
-  return load([...BASE, 'core/state-registry.js', 'core/edges-controller.js', 'core/edges-mesh.js', 'core/update-controller.js',
+  return load([...BASE, 'core/state-registry.js', 'core/edges-controller.js', 'core/edges-mesh.js', 'core/edges-mesh-view.js', 'core/update-controller.js',
     'core/poll-settings.js', 'core/settings-table.js', ...SETTINGS], {
     expose: [...CLASSES_9A, 'Controller', 'Component'],
     globals: {

@@ -118,10 +118,7 @@ class FileEditorNotice {
       set.addEventListener('click', () => {
         // 받을 수 없을 때의 다음 걸음은 설정창이다 — 거기에 무엇이 없는지와
         // 어디서 찾았는지가 다 있다.
-        const b = document.getElementById('settings-btn');
-        if (b) b.click();
-        const tab = document.querySelector('button.mtab[data-tab="code"]');
-        if (tab) tab.click();
+        if (window.app) window.app.settings._openSettings('code');
         this.ed.offerClose();
       });
     }

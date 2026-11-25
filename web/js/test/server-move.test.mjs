@@ -105,8 +105,9 @@ function setupPanel({ confirm = true } = {}) {
     calls.push([method, path, body]);
     return replies[method + ' ' + path] || { ok: true, status: 200, data: null };
   };
-  const ctx = load([...BASE, 'core/settings-section.js', 'core/server-move.js', 'core/settings-server.js'], {
-    expose: ['ServerSection'],
+  const ctx = load([...BASE, 'core/settings-section.js', 'core/server-move.js', 'core/settings-server.js', 'core/screens.js',
+    'core/settings-controller.js'], {
+    expose: ['ServerSection', 'SettingsController'],
     globals: {
       App: function App() {},
       t: (k, p) => k + (p ? JSON.stringify(p) : ''),
@@ -117,11 +118,14 @@ function setupPanel({ confirm = true } = {}) {
       UIKit: { ask: async () => confirm },
     },
   });
-  // REFACTOR3_FE_SETTINGS_SRS 8c: 패널은 `ServerSection` 이다. App 의 `_onServerMoving` 은 이리로 잇는 위임자다.
-  const srv = new ctx.ServerSection(new ctx.App());
-  srv._serverMoveTo = (port) => moved.push(port);
+  // REFACTOR3_FE_SETTINGS_SRS 8c: 패널은 `ServerSection` 이다. 이사(`_onServerMoving`)는 설정 창을 열지 않아도 가야 하므로
+  // 부팅 껍데기 `SettingsController` 의 것이다 (PERF D-41).
+  const app = new ctx.App();
+  app.settings = Object.create(ctx.SettingsController.prototype);
+  app.settings._serverMoveTo = (port) => moved.push(port);
+  const srv = new ctx.ServerSection(app);
   srv.init();
-  return { srv, dom, calls, replies, moved };
+  return { srv, settings: app.settings, dom, calls, replies, moved };
 }
 
 const bindView = (o) => ({ host: '127.0.0.1', port: '58146', expose: false, url: 'http://127.0.0.1:58146', local: true, source: { host: 'default', port: 'file' }, ...o });
@@ -180,8 +184,8 @@ test('적용: 확인에서 물리면 보내지 않는다. 바뀐 것이 없어�
 });
 
 test('server_moving 은 한 번만 이사한다', () => {
-  const { srv, moved } = setupPanel();
-  srv._onServerMoving({ port: '9100' });
-  srv._onServerMoving({ port: '9100' });
+  const { settings, moved } = setupPanel();
+  settings._onServerMoving({ port: '9100' });
+  settings._onServerMoving({ port: '9100' });
   assert.deepEqual(moved, ['9100']);
 });

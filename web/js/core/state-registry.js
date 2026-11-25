@@ -246,7 +246,7 @@ const STATE_REGISTRY=[
   {
     /** HOT_REBIND_SRS FR-HRB-26 — 서버가 포트를 옮겼다. 화면은 설정을 맡기고 새 주소로 간다. */
     id:'server.move',
-    events:{server_moving:'settings.section(server)._onServerMoving'},
+    events:{server_moving:'settings._onServerMoving'},
   },
 ];
 
