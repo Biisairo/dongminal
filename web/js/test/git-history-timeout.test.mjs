@@ -18,7 +18,7 @@ const TIMEOUT_MS = 20;
 function blackhole() {
   const calls = [];
   const fn = (url, init) => {
-    calls.push({ url, init: init || {} });
+    calls.push({ url, init: init || {}, loading: fn.loading && fn.loading() });
     return new Promise((_, reject) => {
       const s = init && init.signal;
       if (s) s.addEventListener('abort', () => reject(s.reason));
@@ -53,11 +53,14 @@ function history(fetch) {
 test('V-GRF-4 (FR-GRF-6): 무응답 연결에서도 기본 시한 뒤 잠금이 풀리고 사유가 선다', async () => {
   const f = blackhole();
   const h = history(f);
+  // 잠금은 요청이 나가는 그 순간에 본다. 기다린 뒤에 보면 부하로 루프가 20ms 넘게 밀린 회차에
+  // 시한이 먼저 터져 이미 풀려 있다(PERF 4.15.6).
+  f.loading = () => h._loading;
   const p = h._load(false);
   // 정책을 받은 뒤에 요청이 나간다 — 마이크로태스크를 비운다.
   await new Promise((r) => setImmediate(r));
-  assert.equal(h._loading, true, '전제가 깨졌다 — 적재가 시작되지 않았다');
   assert.equal(f.calls.length, 1);
+  assert.equal(f.calls[0].loading, true, '전제가 깨졌다 — 적재가 시작되지 않았다');
   assert.ok(f.calls[0].init.signal, '호출자가 시한을 주지 않았는데 기본 시한이 붙지 않았다');
 
   // 종전에는 여기서 영원히 참이었다 — `finally` 가 실행되지 않는다. 상한을 두어 멈추지 않게 한다.

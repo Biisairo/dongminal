@@ -605,7 +605,10 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
       // ③ diff — 다른 진입점(`openView`)이고 같은 규약이다.
       await seg(page, 'changes').click();
       await expect(indicator(page)).toHaveText('1/2');
-      const changed = side(page).locator('.git-view.git-changes .git-file').first();
+      // 픽스처가 만든 변경(`src/a.ts`, working)을 집는다. `.first()` 는 앞선 X6 이 스테이지한 새 파일(staged `A`)을
+      // 집어 FR-RTU-51 대로 편집기가 열렸다 — 같은 워커에서 X6 뒤에 돌면 늘 실패했다(PERF 4.15.6).
+      const changed = side(page).locator(
+        `.git-view.git-changes .git-group[data-group="working"] .git-file[data-path="${cssPath('src/a.ts')}"]`);
       await expect(changed).toBeVisible({ timeout: 15000 });
       await changed.click();
       await expect(page.locator('#area .ed-area .git-view.git-diff')).toBeVisible({ timeout: 15000 });

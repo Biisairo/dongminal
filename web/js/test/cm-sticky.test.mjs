@@ -25,11 +25,13 @@ const SH = await langOf('Shell');
  * `ensureSyntaxTree` 는 파싱을 끝까지 밀지만 그 결과는 파서 문맥에만 남고 이 상태의 나무는 그대로다 — 다음
  * 트랜잭션이 받아 간다. 그래서 빈 트랜잭션 하나로 다 된 나무를 상태에 싣는다. 종전에는 그 한 줄이 없어,
  * 부하가 걸려 첫 20ms 안에 JS 파싱이 끝나지 않으면 덜 된 나무로 판정했다(병렬 4벌 실행에서 12회 중 3회).
+ *
+ * 파싱 상한은 시간을 재지 않는다 — 멈춤만 막는다. 2만 줄 문서는 혼자 0.4초, 병렬 6벌에서 5초를 넘었다(PERF 4.15.6).
  */
 const stateOf = (doc, lang) => {
   const st = CM.EditorState.create({ doc, extensions: lang ? [lang] : [] });
   if (!lang) return st;
-  assert.ok(CM.ensureSyntaxTree(st, st.doc.length, 5000), '파싱이 5초 안에 끝나지 않았다');
+  assert.ok(CM.ensureSyntaxTree(st, st.doc.length, 60000), '파싱이 60초 안에 끝나지 않았다');
   return st.update({}).state;
 };
 const sticky = (st, line, max = 5) => [...ctx.edStickyLines(st, line, max)];
