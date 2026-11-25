@@ -1957,6 +1957,7 @@ version = "1.3.7"
 dependencies = [
  "flate2",
  "libc",
+ "otter-shared-termlimit",
  "serde_json",
 ]
 
@@ -2115,11 +2116,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "otter-shared-termlimit"
+version = "1.3.7"
+
+[[package]]
 name = "otter-shared-termstate"
 version = "1.3.7"
 dependencies = [
  "alacritty_terminal",
  "otter-shared-linestore",
+ "otter-shared-termlimit",
  "serde",
  "serde_json",
 ]
@@ -2156,6 +2162,7 @@ dependencies = [
  "otter-shared-outbuf",
  "otter-shared-platform",
  "otter-shared-pollwait",
+ "otter-shared-termlimit",
  "otter-shared-termstate",
  "otter-shared-uuid",
  "regex",
@@ -2171,6 +2178,7 @@ version = "1.3.7"
 dependencies = [
  "otter-gocompat",
  "otter-shared-chatwire",
+ "otter-shared-termlimit",
  "otter-shared-toolhub",
  "serde",
 ]
@@ -2573,6 +2581,7 @@ dependencies = [
  "otter-shared-serverconf",
  "otter-shared-settingsschema",
  "otter-shared-statusline",
+ "otter-shared-termlimit",
  "otter-shared-textenc",
  "otter-shared-toolhub",
  "otter-shared-toolipc",

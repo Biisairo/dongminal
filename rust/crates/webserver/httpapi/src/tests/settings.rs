@@ -307,16 +307,17 @@ impl crate::ScreenDaemon for FakeScreenDaemon {
 #[test]
 fn history_lines_is_read_from_the_blob_and_falls_back_to_the_default() {
     use crate::screen_config::parse_history_lines;
+    use otter_shared_termlimit::HISTORY_LINES_DEFAULT as DEF;
     for (blob, want) in [
-        ("", 50_000),
-        ("{}", 50_000),
+        ("", DEF),
+        ("{}", DEF),
         (r#"{"termHistoryLines":2000}"#, 2_000),
         (r#"{"termHistoryLines":1000}"#, 1_000),
         (r#"{"termHistoryLines":200000}"#, 200_000),
-        (r#"{"termHistoryLines":999}"#, 50_000),
-        (r#"{"termHistoryLines":200001}"#, 50_000),
-        (r#"{"termHistoryLines":1500.5}"#, 50_000),
-        (r#"{"termHistoryLines":"3000"}"#, 50_000),
+        (r#"{"termHistoryLines":999}"#, DEF),
+        (r#"{"termHistoryLines":200001}"#, DEF),
+        (r#"{"termHistoryLines":1500.5}"#, DEF),
+        (r#"{"termHistoryLines":"3000"}"#, DEF),
     ] {
         assert_eq!(parse_history_lines(blob.as_bytes()), Some(want), "{blob:?}");
     }
@@ -329,11 +330,39 @@ fn history_lines_schema_matches_daemon_range() {
     let by = otter_shared_settingsschema::by_key(&specs);
     let s = &by["termHistoryLines"];
     assert_eq!(s.kind, "int");
-    assert_eq!(s.min, Some(otter_shared_toolipc::HISTORY_LINES_MIN as i64));
-    assert_eq!(s.max, Some(otter_shared_toolipc::HISTORY_LINES_MAX as i64));
+    assert_eq!(
+        s.min,
+        Some(otter_shared_termlimit::HISTORY_LINES_MIN as i64)
+    );
+    assert_eq!(
+        s.max,
+        Some(otter_shared_termlimit::HISTORY_LINES_MAX as i64)
+    );
     assert_eq!(
         s.def.as_u64(),
-        Some(otter_shared_toolhub::HISTORY_CAP as u64)
+        Some(otter_shared_termlimit::HISTORY_LINES_DEFAULT as u64)
+    );
+    assert_eq!(
+        otter_shared_toolipc::HISTORY_LINES_MIN,
+        otter_shared_termlimit::HISTORY_LINES_MIN
+    );
+    assert_eq!(
+        otter_shared_toolipc::HISTORY_LINES_MAX,
+        otter_shared_termlimit::HISTORY_LINES_MAX
+    );
+    assert_eq!(
+        otter_shared_toolhub::HISTORY_CAP,
+        otter_shared_termlimit::HISTORY_LINES_DEFAULT
+    );
+}
+
+/// 기본값을 낮춰도(D-51) 이미 저장된 사용자 값은 그대로 쓴다 — 옛 기본값 5만도 마찬가지다.
+#[test]
+fn saved_history_lines_survive_the_default_change() {
+    use crate::screen_config::parse_history_lines;
+    assert_eq!(
+        parse_history_lines(br#"{"termHistoryLines":50000}"#),
+        Some(50_000)
     );
 }
 
@@ -362,5 +391,6 @@ async fn settings_put_sends_history_lines_to_the_daemon() {
             .status,
         200
     );
-    assert_eq!(*daemon.sent.lock().unwrap(), [50_000, 3_000, 50_000]);
+    use otter_shared_termlimit::HISTORY_LINES_DEFAULT as DEF;
+    assert_eq!(*daemon.sent.lock().unwrap(), [DEF, 3_000, DEF]);
 }

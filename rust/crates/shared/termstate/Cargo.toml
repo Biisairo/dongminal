@@ -12,6 +12,7 @@ workspace = true
 [dependencies]
 alacritty_terminal = { workspace = true }
 otter-shared-linestore = { path = "../linestore" }
+otter-shared-termlimit = { path = "../termlimit" }
 
 [dev-dependencies]
 serde = { workspace = true }

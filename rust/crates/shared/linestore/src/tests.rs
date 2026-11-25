@@ -88,11 +88,16 @@ fn clear_empties_the_store_and_numbering_continues() {
 }
 
 #[test]
-fn default_cap_is_fifty_thousand() {
-    assert_eq!(LineStore::default().cap(), 50_000);
+fn default_cap_is_the_history_lines_default() {
+    assert_eq!(DEFAULT_CAP, otter_shared_termlimit::HISTORY_LINES_DEFAULT);
+    assert_eq!(LineStore::default().cap(), DEFAULT_CAP);
+    assert_eq!(BLOCK_LINES, otter_shared_termlimit::STORE_BLOCK_LINES);
 }
 
 // ── 크기 어림 (NFR-PRF-10, 터미널당 8 MB) ──
+
+/// 크기 어림의 기준 줄 수다. 기본값(2만)보다 큰 5만 줄을 참고로 잰다(D-55).
+const REF_LINES: usize = 50_000;
 
 /// 결정적인 의사 난수(xorshift) — 시험이 늘 같은 줄을 만든다.
 struct Rng(u64);
@@ -186,9 +191,9 @@ fn realistic_line(r: &mut Rng) -> Line {
 #[test]
 fn fifty_thousand_realistic_lines_fit_well_under_eight_megabytes() {
     let mut r = Rng(0x2545_f491_4f6c_dd1d);
-    let mut s = LineStore::default();
+    let mut s = LineStore::new(REF_LINES);
     let mut text = 0;
-    for _ in 0..DEFAULT_CAP {
+    for _ in 0..REF_LINES {
         let l = realistic_line(&mut r);
         text += l.text().len();
         s.push(l);
@@ -224,8 +229,8 @@ fn max_rss_bytes() -> u64 {
 fn measure_twelve_terminals_of_fifty_thousand_lines() {
     let before = max_rss_bytes();
     let mut r = Rng(0x9e37_79b9_7f4a_7c15);
-    let mut stores: Vec<LineStore> = (0..12).map(|_| LineStore::default()).collect();
-    for _ in 0..DEFAULT_CAP {
+    let mut stores: Vec<LineStore> = (0..12).map(|_| LineStore::new(REF_LINES)).collect();
+    for _ in 0..REF_LINES {
         for s in &mut stores {
             s.push(realistic_line(&mut r));
         }

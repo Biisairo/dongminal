@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 otter-shared-chatwire = { path = "../chatwire" }
+otter-shared-termlimit = { path = "../termlimit" }
 otter-shared-toolhub = { path = "../toolhub" }
 otter-gocompat = { path = "../../gocompat" }
 serde = { workspace = true }

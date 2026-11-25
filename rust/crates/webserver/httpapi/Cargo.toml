@@ -79,6 +79,7 @@ otter-webserver-sse = { path = "../sse" }
 
 [dev-dependencies]
 otter-shared-gittest = { path = "../../shared/gittest" }
+otter-shared-termlimit = { path = "../../shared/termlimit" }
 tempfile = { workspace = true }
 # 시험의 WebSocket 클라이언트가 `SinkExt::send` 를 쓴다.
 futures-util = { workspace = true, features = ["sink"] }

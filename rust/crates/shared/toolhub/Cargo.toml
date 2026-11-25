@@ -18,6 +18,7 @@ otter-shared-platform = { path = "../platform" }
 otter-shared-pollwait = { path = "../pollwait" }
 otter-shared-termstate = { path = "../termstate" }
 otter-shared-linestore = { path = "../linestore" }
+otter-shared-termlimit = { path = "../termlimit" }
 otter-shared-uuid = { path = "../uuid" }
 otter-gocompat = { path = "../../gocompat" }
 regex = { workspace = true }
