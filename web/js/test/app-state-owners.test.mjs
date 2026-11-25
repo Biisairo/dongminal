@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, GIT, controllers, load } from './harness.mjs';
+import { BASE, GIT, SCREENS_LOADED, controllers, load } from './harness.mjs';
 
 /**
  * APP_STATE_EXTRACT_SRS 묶음 E (FR-OPT-16-1) — App 필드 가족을 소유 클래스로 옮긴다.
@@ -31,7 +31,8 @@ function loadLsp() {
   const store = { bool: (_k, d) => d, remove() {}, json: () => null, setJson() {}, setBool() {} };
   return load([...BASE, 'core/app.js', 'core/lsp-client.js', 'core/lsp-paths.js'], {
     expose: ['LspClient', 'App'],
-    globals: { PrefStore: { local: store }, LSP_DIAG_KEY: 'k', STORE_KEYS: {}, TIMERS: { disposeOwner() {} } },
+    // PERF 3.4.12.7: lspClient() 는 cm 묶음이 실린 뒤에만 본체를 만든다.
+    globals: { PrefStore: { local: store }, LSP_DIAG_KEY: 'k', STORE_KEYS: {}, TIMERS: { disposeOwner() {} }, Screens: SCREENS_LOADED },
   });
 }
 
