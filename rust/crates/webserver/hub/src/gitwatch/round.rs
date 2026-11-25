@@ -116,7 +116,7 @@ impl GitWatcher {
             return self.drop_repo(repo, e);
         }
 
-        let (pending, pending_at, need, invalidate) = {
+        let (pending, pending_at, need, invalidate, worktree_round) = {
             let mut g = self.lock();
             let now = (self.now)();
             let Some(e) = g.watch.get_mut(repo) else {
@@ -132,7 +132,7 @@ impl GitWatcher {
             let (next, inv) = pending_step(&e.pend, &e.last_sig, e.has_sig, sig_value, sig_ok, now);
             e.pend = next;
             let need = need_status(e.pend.on, worktree_round, !sig_ok, force);
-            (e.pend.on, e.pend.at, need, inv || force)
+            (e.pend.on, e.pend.at, need, inv || force, worktree_round)
         };
 
         // FR-GDT-7: 2차를 건너뛴 회차는 방송하지 않는다.
@@ -141,6 +141,10 @@ impl GitWatcher {
         }
         if invalidate {
             git.invalidate(repo);
+        }
+        // 감시가 없으니 `.git` 변화도 물러섬 회차에서 다시 해석해 본다.
+        if worktree_round {
+            git.forget_dirs(repo);
         }
 
         let mut res = git.status(ctx, repo).await;

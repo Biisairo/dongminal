@@ -350,10 +350,12 @@ fn prune_cache_expired_first() {
             },
         ),
     ]);
-    prune_cache(&mut m, 3, now, Duration::from_secs(1));
+    prune_cache(&mut m, 3, now, Some(Duration::from_secs(1)));
     assert!(!m.contains_key("old") && m.len() == 2);
-    prune_cache(&mut m, 2, now, Duration::from_secs(1));
+    prune_cache(&mut m, 2, now, Some(Duration::from_secs(1)));
     assert!(!m.contains_key("fresh") && m.len() == 1);
+    prune_cache(&mut m, 1, now, None);
+    assert!(m.is_empty(), "만료 없는 캐시도 상한은 지킨다");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -473,6 +475,67 @@ async fn signature_caches_git_dirs_and_invalidate() {
         Store::new(svc.clone(), StoreOptions::default()).service(),
         &svc
     ));
+}
+
+/// 4.14: gitdir 해석은 시간으로 만료되지 않는다. 다시 묻는 것은 `forget_dirs`·`forget_root` 뿐이다.
+#[tokio::test]
+async fn git_dirs_do_not_expire_by_time() {
+    let g = FakeGit::new();
+    let base = SystemTime::now();
+    let (clock, t) = movable(base);
+    let st = store(&g, StoreOptions::default().clock(clock));
+    st.signature(&bg(), &abs("r")).await.unwrap();
+    *t.lock().unwrap() = base + Duration::from_secs(24 * 3600);
+    st.signature(&bg(), &abs("r")).await.unwrap();
+    st.common_dir(&bg(), &abs("r")).await.unwrap();
+    assert_eq!(
+        g.count("rev-parse --absolute-git-dir"),
+        1,
+        "시간이 지났다고 gitdir 을 다시 물었다"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn forget_dirs_reresolves_and_detaches_flight() {
+    let g = FakeGit::new();
+    let st = store(&g, StoreOptions::default().clock(fixed(SystemTime::now())));
+    st.signature(&bg(), &abs("r")).await.unwrap();
+    st.signature(&bg(), &abs("other")).await.unwrap();
+    st.forget_dirs(&abs("r"));
+    assert!(
+        st.lock().dirs.contains_key(&abs("other")),
+        "다른 저장소의 해석까지 지웠다"
+    );
+    st.signature(&bg(), &abs("r")).await.unwrap();
+    assert_eq!(g.count("rev-parse --absolute-git-dir"), 3);
+
+    let gate = Gate::default();
+    g.hold.lock().unwrap().insert("gitdir".into(), gate.clone());
+    st.forget_dirs(&abs("r"));
+    let st2 = st.clone();
+    let h = tokio::spawn(async move { st2.common_dir(&bg(), &abs("r")).await });
+    until(|| st.lock().dir_flights.contains_key(&abs("r"))).await;
+    st.forget_dirs(&abs("r"));
+    gate.open();
+    h.await.unwrap().unwrap();
+    assert!(
+        !st.lock().dirs.contains_key(&abs("r")),
+        "잊은 뒤 끝난 비행의 결과를 캐시에 올렸다"
+    );
+}
+
+/// 캐시한 gitdir 로 signature 를 읽지 못하면(저장소가 옮겨졌거나 바뀌었다) 다음에 다시 해석한다.
+#[tokio::test]
+async fn signature_read_failure_forgets_dirs() {
+    let g = FakeGit::new();
+    let st = store(&g, StoreOptions::default().clock(fixed(SystemTime::now())));
+    st.signature(&bg(), &abs("r")).await.unwrap();
+    let head = g.git_dir.path().join("HEAD");
+    std::fs::remove_file(&head).unwrap();
+    assert!(st.signature(&bg(), &abs("r")).await.is_err());
+    std::fs::write(&head, "ref: refs/heads/main\n").unwrap();
+    st.signature(&bg(), &abs("r")).await.unwrap();
+    assert_eq!(g.count("rev-parse --absolute-git-dir"), 2);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
