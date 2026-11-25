@@ -97,7 +97,7 @@ const SETTINGS_ACCESS={
     termFontSize=clampSetting('termFontSize',v);
     if(this.settings.apply._termApplyFontSize) this.settings.apply._termApplyFontSize();
   }},
-  // PERF D-25: 데몬 기록은 서버가 쓴다. 스크롤백은 새로 만드는 터미널부터다 — 얹을 화면이 없다.
+  // PERF D-25: 데몬 기록은 서버가 쓴다. 스크롤백은 터미널이 다음에 깰 때 맞춘다(2.5.1) — 얹을 화면이 없다.
   termHistoryLines:{get:()=>termHistoryLines,set(v){termHistoryLines=clampSetting('termHistoryLines',v)}},
   termScrollback:{get:()=>termScrollback,set(v){termScrollback=clampSetting('termScrollback',v)}},
   // AGENT_RENDER_ENV_SRS FR-ARE-8: 얹을 화면이 없다 — 값은 서버가 쓴다.

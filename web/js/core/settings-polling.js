@@ -45,7 +45,7 @@ class PollingSection extends SettingsSection {
   }
 
   // 표의 값을 화면에 얹는다. `_settingsApply` 가 `_paintSettingControls` 로 이것을 부르므로 다른 창에서
-  // 바뀐 값이 SSE 로 왔을 때 열려 있는 설정창이 옛 값을 든 채 남지 않는다.
+  // 바뀐 값이 채널로 왔을 때 열려 있는 설정창이 옛 값을 든 채 남지 않는다.
   paint(){
     for(const spec of POLL_SETTINGS){
       const sel=document.getElementById(spec.id);

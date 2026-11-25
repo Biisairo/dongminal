@@ -31,7 +31,7 @@ const git = (d: string, ...a: string[]) => execFileSync('git', ['-C', d, ...a], 
 
 let saved: Record<string, unknown> | null = null;
 
-async function slowPolling(request: APIRequestContext, extra: Record<string, unknown> = {}) {
+async function slowWorktreeRounds(request: APIRequestContext, extra: Record<string, unknown> = {}) {
   saved = await (await request.get('/api/settings')).json();
   const r = await request.put('/api/settings', { data: { ...saved, ...SLOW, ...extra } });
   expect(r.ok()).toBeTruthy();
@@ -105,7 +105,7 @@ const dirtyOf = (page: Page, name: string) => page.evaluate((n: string) => {
 }, name);
 
 test('V-ELR-27: 주기 폴링 없이도 열린 문서는 1.5초 안에 바뀐다 — 일반 쓰기와 원자적 쓰기', async ({ page, request }) => {
-  await slowPolling(request);
+  await slowWorktreeRounds(request);
   const { root, savedRoot } = await mkroot(request, page, 'doc', { 'a.txt': 'before\n' });
   const log = watchLog(page);
   await enter(page, savedRoot);
@@ -122,7 +122,7 @@ test('V-ELR-27: 주기 폴링 없이도 열린 문서는 1.5초 안에 바뀐다
 });
 
 test('V-ELR-29: dirty 인 문서는 밖에서 바뀌어도 편집본 그대로다', async ({ page, request }) => {
-  await slowPolling(request);
+  await slowWorktreeRounds(request);
   const { root, savedRoot } = await mkroot(request, page, 'dirty', { 'b.txt': 'disk\n' });
   const log = watchLog(page);
   await enter(page, savedRoot);
@@ -147,7 +147,7 @@ test('V-ELR-29: dirty 인 문서는 밖에서 바뀌어도 편집본 그대로�
 });
 
 test('V-ELR-30: 주기 폴링 없이도 탐색기의 추가·삭제가 2초 안에 보인다', async ({ page, request }) => {
-  await slowPolling(request);
+  await slowWorktreeRounds(request);
   const { root, savedRoot } = await mkroot(request, page, 'tree', { 'keep.txt': 'k' });
   const log = watchLog(page);
   await enter(page, savedRoot);
@@ -163,7 +163,7 @@ test('V-ELR-30: 주기 폴링 없이도 탐색기의 추가·삭제가 2초 안�
 });
 
 test('V-ELR-31: 워크트리 회차를 늦춰도 추적 파일을 고치면 git 색이 3초 안에 바뀐다', async ({ page, request }) => {
-  await slowPolling(request);
+  await slowWorktreeRounds(request);
   const { root, savedRoot } = await mkroot(request, page, 'gitc', { 'tracked.txt': 'one\n' }, true);
   const log = watchLog(page);
   await enter(page, savedRoot);
@@ -178,7 +178,7 @@ test('V-ELR-31: 워크트리 회차를 늦춰도 추적 파일을 고치면 git 
 });
 
 test('V-ELR-28: 주기 폴링 없이도 Diff 탭 문서가 1.5초 안에 바뀐다', async ({ page, request }) => {
-  await slowPolling(request);
+  await slowWorktreeRounds(request);
   const { root, savedRoot } = await mkroot(request, page, 'diff', { 'd.txt': 'one\n' }, true);
   writeFileSync(join(root, 'd.txt'), 'one\ntwo\n');
   const log = watchLog(page);

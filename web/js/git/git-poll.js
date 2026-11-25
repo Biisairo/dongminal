@@ -9,7 +9,8 @@
  * `git-diff-pane.js` 로 갔다 (REFACTOR3_FE_GITPANEL_SRS 7c). 뒤쪽은 **관측을 받아 오는 일**이다 — `collect` 가
  * `/api/git/status` 를 한 벌만 내보내고(single-flight 는 GitObserver 가 쥔다),
  * `_applyStatus` 가 그 응답을 패널의 상태로 바꾸며, `_cadence` 가 실패 누적에 따라
- * 주기를 늦춘다 (FR-RMS-22).
+ * 주기를 늦춘다 (FR-RMS-22). 평상시에는 주기로 묻지 않는다 — 채널 `git:<root>` 토픽이 변화를 알리고,
+ * 주기 타이머는 실패·소실 동안의 회복용이다(PERF M1 C4, `_applyCadence`). 이름의 "폴링" 은 그 전 것이다.
  */
 /**
  * status 응답 하나의 판정 (REFACTOR3_FE_REST3_SRS FR-FR3-20). 세대 검사 **뒤**에 부른다. `repo` 는 보낸 요청의 저장소다.

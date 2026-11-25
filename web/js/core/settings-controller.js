@@ -76,7 +76,7 @@ class SettingsController extends Controller {
   }
 
   /**
-   * HOT_REBIND_SRS FR-HRB-26: SSE `server_moving` — 이 화면도 새 주소로 간다. 적용 응답(`ServerSection._srvApply`)과 겹쳐
+   * HOT_REBIND_SRS FR-HRB-26: 채널 `cmd` 의 `server_moving` — 이 화면도 새 주소로 간다. 적용 응답(`ServerSection._srvApply`)과 겹쳐
    * 와도 한 번만 간다. 설정 창을 연 적이 없어도 가야 하므로 부팅 껍데기에 있다 (PERF D-41).
    */
   _onServerMoving(a){

@@ -27,7 +27,7 @@ class WsSyncController extends Controller {
    * 하지 않는다.** 이 한 규칙이 두 방향을 다 막는다.
    *
    * 비행을 집합의 **동일성**으로 식별하는 이유는 추월 때문이다. `_activityRestore`
-   * 는 `agentsPollMs`(기본 5초)마다 불리므로 앞 응답이 늦으면 새 비행이 시작되는데,
+   * 는 채널 `activity` 토픽의 full 마다 불리므로(옛 `agentsPollMs` 주기의 자리) 앞 응답이 늦으면 새 비행이 시작되는데,
    * 그때 앞 응답이 새 비행의 빈 집합을 보고 전부 적용하면 결함이 그대로 돌아온다.
    *
    * FG_RESTORE_RACE_SRS 는 이 규약을 주석으로 선언만 하고 손으로 옮겨 적다

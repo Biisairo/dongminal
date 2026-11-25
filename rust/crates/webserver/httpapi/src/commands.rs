@@ -199,7 +199,8 @@ impl Server {
         );
     }
 
-    /// Go `attachSSELeases`: 이 구독이 붙어 있는 동안의 임대(포커스 소유 등)다. 역순으로 푼다.
+    /// Go `attachSSELeases`: 채널이 `hello` 로 밝힌 신원이 붙어 있는 동안의 임대(포커스 소유 등)다.
+    /// 역순으로 푼다. 이름은 SSE 시절 것이다 — 지금은 채널(`channel/mod.rs`)이 부른다.
     pub(crate) fn attach_sse_leases(
         self: &Arc<Self>,
         cid: &str,

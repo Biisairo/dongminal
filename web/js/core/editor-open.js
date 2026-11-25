@@ -303,7 +303,8 @@ class EditorOpen extends Controller {
    *   이전 동작: 방송을 듣는 것은 Git 관측기뿐이었다. 탐색기의 색은 다음 3초 틱까지
    *             몰랐고, 그 틱은 변화가 없어도 status 전량을 받았다
    *   새  동작: 방송이 가리키는 저장소를 보는 탐색기가 곧바로 묻는다. 주기 status 는
-   *             안전망(`gitStatusInterval`)으로 내렸다
+   *             안전망(`gitStatusInterval`)으로 내렸다 — 이슈 1.14·1.15 뒤로는 그 안전망도 없다.
+   *             변화는 채널 `git:<root>` 토픽이 알린다
    *   이유:     서버는 이미 안다 (GIT_PUSH_OBSERVE_SRS)
    *
    * 판정은 Git 관측기와 같다 — 요청한 루트 또는 서버가 푼 저장소 루트가 방송의 것과

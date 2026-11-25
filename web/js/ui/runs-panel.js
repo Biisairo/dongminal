@@ -17,7 +17,7 @@
  * 바깥이 부르는 이름 여섯은 `app.js` 에 위임자로 남아 있다(REFACTOR3_FE_APPCTL_SRS 9a, 옛 `app-runs.js`) — 호출부를
  * 한 글자도 바꾸지 않기 위해서다.
  *
- * PERF 3.4.9 (D-30): 이 파일은 부팅에 남는 껍데기다 — 목록·확인·탭 찾기·뷰 레지스트리와 SSE 계기. Run 탭의 뷰
+ * PERF 3.4.9 (D-30): 이 파일은 부팅에 남는 껍데기다 — 목록·확인·탭 찾기·뷰 레지스트리와 채널 사건 계기. Run 탭의 뷰
  * (`runViewEl`·그리기·`run:<id>` 구독)는 `run` 화면 묶음(`run-view.js` 와 증강 파일들)에 있다. 뷰는 그 묶음이 실린 뒤에만
  * 생기므로, 뷰를 도는 메서드(`_runViewsRefresh`)가 묶음의 메서드를 불러도 묶음보다 먼저 닿지 않는다.
  *
@@ -103,7 +103,7 @@ Object.assign(RunsPanel.prototype, {
     return this._runsRefP;
   },
 
-  // SSE 계기는 창 하나로 모은다 — 창이 열려 있는 동안 온 것은 그 창의 조회가 받는다.
+  // 채널 사건 계기는 창 하나로 모은다 — 창이 열려 있는 동안 온 것은 그 창의 조회가 받는다.
   _runsRefreshSoon() {
     if (this._runsSoonT) return;
     this._runsSoonT = TIMERS.after(RUN_LIST_COALESCE_MS, () => { this._runsSoonT = null; this._runsRefresh() },
@@ -333,7 +333,7 @@ Object.assign(RunsPanel.prototype, {
     return this._runViews;
   },
 
-  // FR-RVZ-16: SSE `run_changed`. 열려 있는 그 Run 의 탭만 /graph 를 다시 부른다.
+  // FR-RVZ-16: 채널 `cmd` 의 `run_changed`. 열려 있는 그 Run 의 탭만 /graph 를 다시 부른다.
   // 열린 Run 탭이 없으면 아무 요청도 나가지 않는다 (V-RVZ-4).
   _onRunChanged(args) {
     const runId = args && args.runId;
@@ -368,7 +368,7 @@ Object.assign(RunsPanel.prototype, {
   },
 
   /**
-   * FR-RLV-5·6: SSE `tool_activity`. 멤버의 상태는 서버가 물을 때 계산하므로 서버는 그
+   * FR-RLV-5·6: 채널로 온 `tool_activity`. 멤버의 상태는 서버가 물을 때 계산하므로 서버는 그
    * 변화를 `run_changed` 로 알리지 못한다 (D-RLV-2) — 같은 사실을 여기서 받는다.
    * 상태가 그대로면(도구 이름·detail 만 바뀜) 화면의 노드는 같으므로 받지 않는다.
    */

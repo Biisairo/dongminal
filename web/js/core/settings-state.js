@@ -105,7 +105,7 @@ function applyTabWidth(){
 var uiFontSize;
 var termFontSize;
 // PERF D-25: 기록 줄 수 둘. `termHistoryLines` 는 서버가 데몬에 보낸다 — 화면은 들고 저장만 한다.
-// `termScrollback` 은 새로 만드는 터미널의 스크롤백이다(`term-pane.js`).
+// `termScrollback` 은 터미널이 깨어날 때(처음 보일 때·잠든 뒤 다시 보일 때) 맞추는 스크롤백이다(`term-pane.js` `wake`).
 var termHistoryLines;
 var termScrollback;
 // AGENT_RENDER_ENV_SRS FR-ARE-8: 값을 들고 저장할 뿐, 얹을 화면이 없다 —

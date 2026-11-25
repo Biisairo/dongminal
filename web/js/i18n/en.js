@@ -1020,7 +1020,7 @@ I18N.register('en', {
   'html.term_history_lines': 'Server history (lines)',
   'html.term_history_lines_hint': 'How many lines of history the server keeps for each terminal. 1,000–200,000, default 50,000. Applies right away; lowering it drops the oldest lines beyond the new limit. A larger value uses more server memory per terminal.',
   'html.term_scrollback': 'Screen history (lines)',
-  'html.term_scrollback_hint': 'How many lines of scrollback the terminal in the browser holds. 500–50,000, default 5,000. **Applies to terminals you open from now on.**',
+  'html.term_scrollback_hint': 'How many lines of scrollback the terminal in the browser holds. 500–50,000, default 5,000. **Applies the next time a terminal becomes visible (wakes).**',
   'html.claude_scroll_speed_hint': 'How many lines one mouse-wheel notch scrolls inside Claude Code. 1–20, default 3. **Applies to terminals you open from now on** — the environment is fixed when the program starts.',
   'html.fg_names': 'Process name as tab name',
   'html.fg_names_hint': 'The name of the program running in the terminal (vim · claude · ssh…) becomes the tab name. Names you set yourself are not overwritten.',

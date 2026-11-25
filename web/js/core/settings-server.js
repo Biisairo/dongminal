@@ -5,7 +5,7 @@
  * 같은 망의 화면은 값을 볼 수만 있다. 포트가 바뀌면 이 화면은 새 주소로 이사하고(FR-HRB-26),
  * 새 주소의 화면이 새 값을 보인다 (FR-HRB-44).
  *
- * REFACTOR3_FE_SETTINGS_SRS 8c: 읽은 값(`_srv`)은 이 섹션이 든다. 이사(`_onServerMoving`, SSE `server_moving` 포함)는 설정 창을
+ * REFACTOR3_FE_SETTINGS_SRS 8c: 읽은 값(`_srv`)은 이 섹션이 든다. 이사(`_onServerMoving`, 채널 `cmd` 의 `server_moving` 포함)는 설정 창을
  * 열지 않아도 가야 하므로 부팅의 `SettingsController` 가 진다 (PERF D-41).
  */
 

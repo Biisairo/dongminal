@@ -36,7 +36,7 @@ pub trait GitHandler: Send + Sync {
         req_id: Option<String>,
     ) -> Pin<Box<dyn Future<Output = Option<Response>> + Send + '_>>;
 
-    /// 진행 중 git 작업이다 (`/api/stats?jobs=1`). git 이 없으면 `None` 이다.
+    /// 진행 중 git 작업이다 (채널 `git.jobs` 토픽). git 이 없으면 `None` 이다.
     fn active_jobs(&self) -> Option<Vec<otter_webserver_domain_git_jobs::Job>> {
         None
     }

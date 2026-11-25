@@ -366,7 +366,7 @@ impl ToolClient {
             .unwrap_or_default()
     }
 
-    /// 화면 상태 스냅숏을 부른다 (PERF FR-TRM-4). FEATURE_SCREEN_STATE 를 말한 데몬에만 부른다.
+    /// 화면 상태 스냅숏을 부른다 (PERF FR-TRM-4). 기능 확인 없이 부른다 — 인계 판 2 의 데몬만 쓴다(D-27).
     /// "없음" 은 [`Error::ToolNotFound`] 다.
     pub fn screen_tool(&self, id: &str, history: usize) -> Result<ToolScreen, Error> {
         let params = ScreenParams {

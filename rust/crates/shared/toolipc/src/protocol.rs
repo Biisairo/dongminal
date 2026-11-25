@@ -16,7 +16,7 @@ pub const METHOD_PASTE: &str = "paste";
 pub const METHOD_RESIZE: &str = "resize";
 pub const METHOD_LIST: &str = "list";
 pub const METHOD_SNAPSHOT: &str = "snapshot";
-/// 화면 상태 스냅숏 (PERF FR-TRM-4). FEATURE_SCREEN_STATE 를 말한 데몬에만 보낸다.
+/// 화면 상태 스냅숏 (PERF FR-TRM-4). 서버는 기능 확인 없이 보낸다 — 인계 판 2 의 데몬만 쓴다(D-27).
 pub const METHOD_SCREEN: &str = "screen";
 /// 화면 상태의 글자 (PERF FR-TRM-8, D-22). read-screen 이 부른다.
 pub const METHOD_SCREEN_TEXT: &str = "screentext";

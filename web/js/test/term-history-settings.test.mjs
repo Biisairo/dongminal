@@ -8,7 +8,7 @@ import { load } from './harness.mjs';
  * PERF D-25 (D-M2-11) — 기록 줄 수 설정 둘.
  *
  *   `termHistoryLines`  데몬 줄 저장소의 상한. 서버가 읽어 데몬에 보낸다(화면은 들고 저장만 한다)
- *   `termScrollback`    브라우저 xterm 의 스크롤백. 새로 만드는 터미널부터 쓴다
+ *   `termScrollback`    브라우저 xterm 의 스크롤백. 터미널이 깰 때 맞춘다(2.5.1)
  *
  * 이전: 브라우저 스크롤백은 상수 `TERM_SCROLLBACK_LINES = 50000` 이었다.
  */
