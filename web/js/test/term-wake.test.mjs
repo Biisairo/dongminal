@@ -32,7 +32,7 @@ function pane() {
   const ctx = load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS, 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', ...TERM_PANE], {
     clock,
     globals: { location: { protocol: 'http:', host: 'h' } },
-    expose: ['TerminalTool', 'TIMERS', 'OP', 'TERM_MUX', 'SEQ_FLAG_FULL', 'SEQ_FLAG_ALT', 'SEQ_FLAG_SNAP'],
+    expose: ['TerminalTool', 'TIMERS', 'OP', 'TERM_MUX', 'SEQ_FLAG_FULL', 'SEQ_FLAG_ALT', 'SEQ_FLAG_SNAP', 'TERM_PAGE_SLEEP_MS'],
   });
   const unmounted = [];
   ctx.app = {
@@ -191,4 +191,9 @@ test('파괴하면 생명주기에서 뗀다', () => {
   p.el.remove = () => {};
   p.destroy();
   assert.deepEqual(unmounted, [p]);
+});
+
+test('브라우저 탭이 숨으면 터미널은 30초 뒤 잔다 — pageSleepMs (PERF 3.5.4, D-36)', () => {
+  const { ctx, p } = pane();
+  assert.equal(p.pageSleepMs, ctx.TERM_PAGE_SLEEP_MS);
 });

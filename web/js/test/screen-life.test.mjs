@@ -12,7 +12,7 @@ function setup() {
   const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/timer-hub.js', 'core/event-bus.js',
     'core/channel.js', ...BASE, 'ui/screen-life.js', 'ui/renderer.js', 'ui/renderer-layout.js'], {
     clock,
-    expose: ['TimerHub', 'EventBus', 'Channel', 'Component', 'View', 'Awake', 'ScreenLife', 'Renderer', 'SCREEN_SLEEP_MS'],
+    expose: ['TimerHub', 'EventBus', 'Channel', 'Component', 'View', 'Awake', 'ScreenLife', 'Renderer', 'SCREEN_SLEEP_MS', 'TERM_PAGE_SLEEP_MS'],
   });
   const timers = new ctx.TimerHub();
   const bus = new ctx.EventBus({}, timers);
@@ -308,4 +308,121 @@ test('렌더러: 본문이 빠지면 sleep 을 예약하고, 다시 붙으면 �
   r._lifeCommit();
   await clock.advance(ctx.SCREEN_SLEEP_MS);
   assert.deepEqual(plain(log), ['o:mount:body', 'o:wake', 'o:sleep']);
+});
+
+// ── 브라우저 탭 숨김 (PERF 3.5.4, D-36) ─────────────────────────────────
+
+function pageHide(ctx, hidden) {
+  ctx.document.hidden = hidden;
+  ctx.document._fire('visibilitychange');
+}
+
+/** 브라우저 탭이 숨으면 `pageSleepMs` 뒤 잠드는 주인 — 터미널(`TerminalTool`)이 이 값을 갖는다. */
+function termOwner(ctx, log, name = 't') {
+  return Object.assign(logOwner(log, name), { pageSleepMs: ctx.TERM_PAGE_SLEEP_MS });
+}
+
+test('TERM_PAGE_SLEEP_MS 는 30초다 (D-36)', () => {
+  const { ctx } = setup();
+  assert.equal(ctx.TERM_PAGE_SLEEP_MS, 30000);
+});
+
+test('브라우저 탭 숨김: 터미널 밖 화면은 1.9초에 깨어 있고 2초에 잔다', async () => {
+  const { ctx, clock, app } = setup();
+  const life = new ctx.ScreenLife(app);
+  const log = [];
+  life.commit(new Map([[logOwner(log), {}]]));
+  pageHide(ctx, true);
+  await clock.advance(1900);
+  assert.deepEqual(plain(log), ['o:mount:undefined', 'o:wake']);
+  await clock.advance(100);
+  assert.deepEqual(plain(log), ['o:mount:undefined', 'o:wake', 'o:sleep']);
+});
+
+test('브라우저 탭 숨김: 터미널은 29초에 깨어 있고 30초에 잔다', async () => {
+  const { ctx, clock, app } = setup();
+  const life = new ctx.ScreenLife(app);
+  const log = [];
+  life.commit(new Map([[termOwner(ctx, log), {}], [logOwner(log), {}]]));
+  log.length = 0;
+  pageHide(ctx, true);
+  await clock.advance(29000);
+  assert.deepEqual(plain(log), ['o:sleep']);
+  await clock.advance(1000);
+  assert.deepEqual(plain(log), ['o:sleep', 't:sleep']);
+});
+
+test('브라우저 탭 숨김: 그 사이 다시 보이면 둘 다 잠들지 않는다', async () => {
+  const { ctx, clock, app } = setup();
+  const life = new ctx.ScreenLife(app);
+  const log = [];
+  life.commit(new Map([[termOwner(ctx, log), {}], [logOwner(log), {}]]));
+  log.length = 0;
+  pageHide(ctx, true);
+  await clock.advance(1900);
+  pageHide(ctx, false);
+  assert.equal(life.pending(), 0);
+  await clock.advance(60000);
+  assert.deepEqual(plain(log), []);
+});
+
+test('브라우저 탭 숨김: 화면이 잔 뒤 다시 보이면 깨고, 터미널은 그대로다', async () => {
+  const { ctx, clock, app } = setup();
+  const life = new ctx.ScreenLife(app);
+  const log = [];
+  life.commit(new Map([[termOwner(ctx, log), {}], [logOwner(log), {}]]));
+  log.length = 0;
+  pageHide(ctx, true);
+  await clock.advance(5000);
+  pageHide(ctx, false);
+  assert.deepEqual(plain(log), ['o:sleep', 'o:wake']);
+  await clock.advance(60000);
+  assert.deepEqual(plain(log), ['o:sleep', 'o:wake']);
+});
+
+test('브라우저 탭 숨김: 30초 뒤 다시 보이면 보이는 주인만 깨고, 칸에서 가려져 잠든 주인은 그대로다', async () => {
+  const { ctx, clock, app } = setup();
+  const life = new ctx.ScreenLife(app);
+  const log = [];
+  const t = termOwner(ctx, log), gone = termOwner(ctx, log, 'g');
+  life.commit(new Map([[t, {}], [gone, {}]]));
+  life.commit(new Map([[t, {}]]));
+  await clock.advance(ctx.SCREEN_SLEEP_MS);
+  log.length = 0;
+  pageHide(ctx, true);
+  await clock.advance(ctx.TERM_PAGE_SLEEP_MS);
+  pageHide(ctx, false);
+  assert.deepEqual(plain(log), ['t:sleep', 't:wake']);
+});
+
+test('브라우저 탭 숨김 중의 그리기: 잠든 주인을 깨우지 않고, 새로 보인 주인도 숨김 규칙대로 잠든다', async () => {
+  const { ctx, clock, app } = setup();
+  const life = new ctx.ScreenLife(app);
+  const log = [];
+  const o = logOwner(log), t = termOwner(ctx, log);
+  life.commit(new Map([[o, {}]]));
+  log.length = 0;
+  pageHide(ctx, true);
+  await clock.advance(ctx.SCREEN_SLEEP_MS);
+  life.commit(new Map([[o, {}], [t, {}]]));
+  await clock.advance(ctx.TERM_PAGE_SLEEP_MS - 1);
+  assert.deepEqual(plain(log), ['o:sleep', 't:mount:undefined', 't:wake']);
+  await clock.advance(1);
+  assert.deepEqual(plain(log), ['o:sleep', 't:mount:undefined', 't:wake', 't:sleep']);
+});
+
+test('브라우저 탭 숨김 중 칸에서도 가려진 터미널은 2초 안에 잔다 — 30초를 기다리지 않는다', async () => {
+  const { ctx, clock, app } = setup();
+  const life = new ctx.ScreenLife(app);
+  const log = [];
+  const t = termOwner(ctx, log);
+  life.commit(new Map([[t, {}]]));
+  log.length = 0;
+  pageHide(ctx, true);
+  await clock.advance(1000);
+  life.commit(new Map());
+  await clock.advance(ctx.SCREEN_SLEEP_MS);
+  assert.deepEqual(plain(log), ['t:sleep']);
+  pageHide(ctx, false);
+  assert.deepEqual(plain(log), ['t:sleep'], '보이지 않는 주인은 깨지 않는다');
 });

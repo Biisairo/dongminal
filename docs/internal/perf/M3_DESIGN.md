@@ -148,7 +148,7 @@
 
 - 단위(하네스): 전이 `mount→wake→sleep→wake→unmount`. `sleep` 을 두 번 불러도 한 번만 걷는다. `awake` 안에서 건 구독·타이머가 `sleep` 뒤 0, `wake` 뒤 다시 1. 지연 안에 다시 보이면 `sleep` 이 불리지 않는다. `unmount` 는 잠든 상태에서도 모두 놓는다.
 - e2e(SRS §6 "잠든 화면의 타이머 0"): git 창을 열었다가 다른 탭으로 바꾸고 2초 뒤 → 그 패널 주인의 타이머 0, 채널의 `git:<root>` 구독 0(다른 칸에서 보지 않을 때). 다시 열면 상태가 서버와 같다.
-- e2e: 브라우저 탭 숨김(`page.evaluate` 로 `visibilityState` 를 흉내 내지 않고, 새 탭을 앞으로 띄워 실제로 숨긴다) 뒤 D-M3-8 의 규칙대로 잠든다.
+- e2e: 브라우저 탭 숨김 뒤 D-M3-8 의 규칙대로 잠든다. 숨김은 `visibilitychange` 신호를 흉내 내고(`document.hidden`·`visibilityState` 를 덮고 이벤트를 냄) 그 뒤 경로(TimerHub → ScreenLife → `term.close` → 깨움 스냅숏)는 실제로 돈다. 러너에서 실제 숨김은 불가하다 — 시도한 방법: 새 탭+`bringToFront`, CDP `Browser.setWindowBounds` 최소화, 헤드리스 셸·새 헤드리스(풀 Chromium)·헤드풀, 백그라운드 억제 플래그 제거, 포커스 에뮬레이션 끔(2026-11-25 실측, 사용자 수용).
 
 ### 3.6 프레임 스케줄러 (FR-SPA-4)
 
