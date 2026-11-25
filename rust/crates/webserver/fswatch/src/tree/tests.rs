@@ -1,9 +1,11 @@
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 use std::time::{Duration, Instant};
 
 use super::*;
 
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 const WAIT: Duration = Duration::from_secs(10);
 
 fn collector() -> (TreeSink, Arc<Mutex<Vec<TreeMsg>>>) {
@@ -13,6 +15,7 @@ fn collector() -> (TreeSink, Arc<Mutex<Vec<TreeMsg>>>) {
     (sink, got)
 }
 
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn wait_for(got: &Mutex<Vec<TreeMsg>>, pred: impl Fn(&[TreeMsg]) -> bool) -> bool {
     let end = Instant::now() + WAIT;
     while Instant::now() < end {

@@ -31,8 +31,10 @@ async function waitForInit(page: Page, mode: 'desktop' | 'mobile' = 'desktop') {
   await fxWaitForInit(page, {
     mode,
     viewport: mode === 'mobile' ? MOBILE : DESKTOP,
-    readyFor: { fn: () => !!document.querySelector('#area') && !!(window as any).GitDialog },
+    readyFor: { fn: () => !!document.querySelector('#area') },
   });
+  // PERF 3.4.6: `GitDialog` 는 git 묶음에 있다 — 부팅은 싣지 않는다.
+  await page.evaluate(() => Screens.load('git'));
 }
 
 async function openGit(page: Page, repo: string) {

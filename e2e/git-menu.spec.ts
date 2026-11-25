@@ -53,6 +53,8 @@ async function otherCommit(page: Page, repo: string) {
 // 가짜 kind 를 선언한다 — 프레임워크가 항목 집합만으로 동작해야 한다 (V52).
 // 실행 결과는 window.__menuRan 에 남긴다.
 async function declareFakeKind(page: Page) {
+  // PERF 3.4.6: `GIT_MENUS`·`GitMenu` 는 git 묶음에 있다 — 부팅은 싣지 않는다.
+  await page.evaluate(() => Screens.load('git'));
   await page.evaluate(() => {
     const w = window as any;
     w.__menuRan = [];
@@ -139,6 +141,7 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
 
   test('N5 (V52): warn:true 와 destructive:true 는 각각 자동으로 확인을 거치고, 파괴 여부가 테두리로 갈린다', async ({ page }) => {
     await waitForInit(page);
+    await page.evaluate(() => Screens.load('git'));
     await page.evaluate(() => {
       const w = window as any;
       w.__menuRan = [];

@@ -492,7 +492,7 @@ test.describe('탐색기 머리의 아이콘', () => {
      * `elementFromPoint` 가 `null` 인 자리에 떨어져 롱프레스가 시작되지 않는다.
      * 전량을 **샤드로** 돌 때만 보인다 — 한 프로세스로 돌면 파일 순서가 달라진다.
      */
-    const uifsBefore = await num0(page, 'ds-uifs');
+    const uifsBefore = await getUifs(page);
     await setUifs(page, 20);
     await expect.poll(sizeOf).toBeGreaterThan(base);
     await setUifs(page, uifsBefore);
@@ -501,16 +501,30 @@ test.describe('탐색기 머리의 아이콘', () => {
 });
 
 /** 설정의 수 하나를 읽는다 — 되돌릴 값을 상수로 적지 않기 위해서다. */
-const num0 = (page: Page, id: string) =>
-  page.evaluate((i) => Number((document.getElementById(i) as HTMLInputElement).value), id);
+/**
+ * 지금의 UI 글자 크기. 입력칸은 설정 창이 그려야 값이 찬다(PERF 3.4.x: 설정은 settings 묶음이다) —
+ * 창을 열기 전에 읽으면 빈 값(0)이고, 그것으로 되돌리면 최소값 8 이 워커의 뒤 스펙에 남는다.
+ */
+async function getUifs(page: Page) {
+  const num = await openDisplay(page);
+  const v = Number(await num.inputValue());
+  await page.click('#modal-close');
+  await expect(page.locator('#modal-overlay')).not.toHaveClass(/open/, { timeout: 10000 });
+  return v;
+}
 
-/** UI 글자 크기를 사용자가 지나는 길 그대로 바꾼다. */
-async function setUifs(page: Page, v: number) {
+async function openDisplay(page: Page) {
   await page.click('#settings-btn');
   await expect(page.locator('#modal-overlay')).toHaveClass(/open/, { timeout: 10000 });
   await page.click('.mtab[data-tab="display"]');
   const num = page.locator('#ds-uifs');
   await expect(num).toBeVisible({ timeout: 10000 });
+  return num;
+}
+
+/** UI 글자 크기를 사용자가 지나는 길 그대로 바꾼다. */
+async function setUifs(page: Page, v: number) {
+  const num = await openDisplay(page);
   await num.fill(String(v));
   await num.blur();
   await page.click('#modal-close');

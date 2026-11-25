@@ -29,7 +29,10 @@ fn daemon_version_query_prints_handover_version_only() {
     let home = d.path().join("h");
     let out = run(&home, &["d", "--handover-version"]);
     assert_eq!(out.status.code(), Some(0));
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "1\n");
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        format!("{}\n", otter_shared_handover::VERSION)
+    );
     // FR-DSK-12: 홈을 건드리지 않는다.
     assert!(!home.exists());
 }

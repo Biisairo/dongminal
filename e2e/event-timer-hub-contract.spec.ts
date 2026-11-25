@@ -46,14 +46,14 @@ const TIMER_HUB_JS = join(WEB, 'core', 'timer-hub.js');
 /**
  * git 상수는 **여러 파일**이다 (FE_MODULE_BOUNDARY_SRS FR-FMB-1) — 탭별로 갈렸다.
  *
- * 목록을 여기 손으로 적지 않고 `index.html` 의 순서에서 **파생시킨다.** 손으로
- * 적으면 상수 하나가 다른 절로 옮겨 갈 때 이 하네스가 조용히 죽는다 — 실제로
+ * 목록을 여기 손으로 적지 않고 묶음 정의 `web/bundles.txt` 의 순서에서 **파생시킨다.**
+ * 손으로 적으면 상수 하나가 다른 절로 옮겨 갈 때 이 하네스가 조용히 죽는다 — 실제로
  * 그렇게 죽었다(`GIT_FAIL_BACKOFF_MAX_MS` 가 `constants-git-detect.js` 로 갔다).
- * 합성 페이지는 index.html 의 로드 순서를 물려받지 않으므로 그 순서를 읽어 쓴다.
+ * index.html 은 이제 묶음(`b/<이름>.js`)만 싣는다 (PERF D-29) — 개별 태그에서 읽던 종전
+ * 파생은 빈 목록이 되어 `GIT_STATUS_RETRY_MS` 없이 git-poll.js 를 실었다.
  */
 const CONST_GIT_JS = [
-  ...readFileSync(join(process.cwd(), 'web', 'index.html'), 'utf8')
-    .matchAll(/<script src="js\/core\/(constants-git[\w.-]*)\.js\?/g),
+  ...readFileSync(join(process.cwd(), 'web', 'bundles.txt'), 'utf8').matchAll(/^js\/core\/(constants-git[\w.-]*)\.js$/gm),
 ].map((m) => join(WEB, 'core', `${m[1]}.js`));
 // OPTIMIZE_REFACTOR_SRS FR-OPT-12-5: git 경로 표는 constants-git*.js 가 로드 시점에 딛고,
 // git 조회는 `gitFetch`(git/api.js) 한 길이다. 합성 페이지도 그 둘을 싣는다.
