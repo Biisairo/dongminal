@@ -487,6 +487,7 @@ pub(crate) struct FakeBroker {
     pub(crate) published: Mutex<Vec<String>>,
     pub(crate) await_result: CmdResult,
     pub(crate) await_delivered: usize,
+    pub(crate) await_timed_out: bool,
     pub(crate) delivered: Mutex<Vec<(String, CmdResult)>>,
     pub(crate) tap: Mutex<Option<otter_webserver_hub::BroadcastTap>>,
 }
@@ -520,7 +521,13 @@ impl CommandBroker for FakeBroker {
         _: Duration,
     ) -> BoxFuture<'a, (CmdResult, usize, bool)> {
         self.broadcast(payload);
-        Box::pin(async move { (self.await_result.clone(), self.await_delivered, false) })
+        Box::pin(async move {
+            (
+                self.await_result.clone(),
+                self.await_delivered,
+                self.await_timed_out,
+            )
+        })
     }
     fn set_broadcast_tap(&self, f: Option<otter_webserver_hub::BroadcastTap>) {
         *self.tap.lock().unwrap() = f;

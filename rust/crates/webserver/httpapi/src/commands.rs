@@ -94,6 +94,9 @@ struct CommandResp {
     delivered: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
+    /// 시간 초과로 끝난 단일 실행자 명령의 지정 실행자다 — 받지 못한 쪽을 알아챌 길 (4.3).
+    #[serde(rename = "execClientId", skip_serializing_if = "Option::is_none")]
+    exec_client_id: Option<String>,
     location: String,
     #[serde(rename = "newGroups", skip_serializing_if = "Option::is_none")]
     new_groups: Option<Vec<String>>,
@@ -184,9 +187,14 @@ impl Server {
             }
             let tabs = res.new_tabs.as_ref().map_or(0, Vec::len);
             put_command_result(resp, res, n, timed_out);
+            let mut exec = String::new();
+            if timed_out && !req.exec_client_id.is_empty() {
+                exec = format!(" execClientId={}", req.exec_client_id);
+                resp.exec_client_id = Some(req.exec_client_id.clone());
+            }
             infof!(
                 None,
-                "[cmd] action={}{loc} delivered={n} newTabs={tabs} timedOut={timed_out}",
+                "[cmd] action={}{loc} delivered={n} newTabs={tabs} timedOut={timed_out}{exec}",
                 req.action
             );
             return;

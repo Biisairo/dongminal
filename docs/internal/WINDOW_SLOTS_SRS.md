@@ -246,6 +246,8 @@ PUT 에서 `activeWindow`·`focusedPane` 을 벗기므로 (§2.7) 그 판정은 
 "내 신원" 을 **슬롯 신원의 집합**으로 판정한다. 어느 슬롯이든 소유하고 있으면 내
 것이다.
 
+> **PERF 4.3 으로 개정 (2026-11-25)**: 이전 — 이 집합은 `resizeCheck`·`applyFocusOverlay` 만 썼다 / 지금 — 원격 명령의 지명 판정(`EventBus.route`, WORKSPACE_IDENTITY_SRS FR-SXE-3)도 같은 집합(`_slotIdentities()`)을 쓴다. 지명이 집합에 있으면 이 창이 한 번, 포커스 칸의 문맥으로 수행한다(FR-WSL-54) / 이유 — 칸 [1] 이상에 포커스가 있으면 서버가 그 칸 신원을 실행자로 지명하고, 칸 [0] 신원과만 비교하던 라우터가 그 명령을 버렸다.
+
 **FR-WSL-14** 같은 창이 두 슬롯에 있으면 **포커스 슬롯이 소유**한다. 다른 슬롯의 pane
 은 `.pn-dimmed` 가 되고 PTY 크기를 보내지 않는다.
 
