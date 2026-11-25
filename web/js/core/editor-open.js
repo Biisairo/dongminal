@@ -140,11 +140,11 @@ class EditorOpen extends Controller {
    * EDITOR_DIRTY_DIFF_SRS FR-EDD-5: 이 파일의 변경 표시. 문서마다 하나이므로
    * 같은 파일을 두 칸에서 열어도 기준 취득과 계산은 한 번이다 (NFR-EDD-2).
    *
-   * `file-editor-diff.js` 가 없으면 `null` 이다 — 편집기가 그 경우를 그대로
-   * 지난다 (NFR-EDD-3).
+   * cm 묶음(`file-editor-diff.js`)이 실리기 전이면 `null` 이다 — 편집기가 그 경우를 그대로
+   * 지난다 (NFR-EDD-3, PERF 3.4.12.7).
    */
   edDirtyDiff(filePath){
-    if(typeof EdDirtyDiff!=='function') return null;
+    if(!Screens.ready('cm')) return null;
     const d=this.edDoc(filePath);
     if(!d.dd) d.dd=new EdDirtyDiff(this.app,filePath);
     return d.dd;

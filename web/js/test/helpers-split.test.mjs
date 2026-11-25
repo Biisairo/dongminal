@@ -21,11 +21,12 @@ test('주제 파일이 있고 helpers.js 는 작다', () => {
   assert.ok(lines('core/helpers.js') < 250, 'helpers.js 가 ' + lines('core/helpers.js') + '줄이다');
 });
 
-test('주제 파일이 contrast.js 와 git-path.js 사이에 순서대로 실린다', () => {
+// PERF 3.4.12.7: git-path.js 는 cm 묶음으로 옮겼다 — 뒤는 프론트 기반 클래스다.
+test('주제 파일이 contrast.js 와 base/component.js 사이에 순서대로 실린다', () => {
   const src = repoLoadOrder(join(JS, '..', '..')).map((f) => f.slice('js/'.length));
   const i = src.indexOf('core/contrast.js');
   assert.deepEqual(src.slice(i + 1, i + 1 + HELPER_FILES.length), HELPER_FILES);
-  assert.equal(src[i + 1 + HELPER_FILES.length], 'core/git-path.js');
+  assert.equal(src[i + 1 + HELPER_FILES.length], 'core/base/component.js');
 });
 
 test('주제 파일을 이어 실으면 옛 helpers.js 의 이름이 전부 선다', () => {

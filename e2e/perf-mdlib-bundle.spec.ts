@@ -75,7 +75,8 @@ test('TC-MDL-2: 편집기를 처음 열면 mdlib 가 함께 실리고, 수정키
   }));
   const seen = countBundle(page);
   const root = await enterDocRoot(page, request, BASE, 'url');
-  expect(seen.n).toBe(0);
+  // PERF 3.4.12.7: Repo 창의 사이드(git·editor 묶음)가 needs 로 cm → mdlib 를 먼저 실을 수 있다 — 받아도 한 번이다.
+  expect(seen.n).toBeLessThanOrEqual(1);
   await openDocFile(page, root);
   expect(seen.n).toBe(1);
   const url = 'https://example.com/x';

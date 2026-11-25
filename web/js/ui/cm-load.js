@@ -2,6 +2,7 @@
  * CodeMirror 벤더 묶음을 싣는 자리 (CODEMIRROR_MIGRATION_SRS 묶음 V · FR-CMR-6).
  *
  * 편집기 칸(`editor` 화면 묶음)과 Git Diff 가 함께 부른다. 그래서 부팅 묶음에 둔다 (PERF 3.4.7).
+ * CM 공용 층은 cm 묶음이고 여기서 함께 싣는다 (PERF 3.4.12.7, D-44).
  */
 
 // CODEMIRROR_MIGRATION_SRS 묶음 V. 출력은 `scripts/build-codemirror.mjs` 가 만든다.
@@ -21,8 +22,9 @@ function loadCodeMirror() {
   if (cmLoading) return cmLoading;
   const url = cmAttempt ? `${CM_ENTRY}?r=${cmAttempt}` : CM_ENTRY;
   cmAttempt++;
-  // PERF 3.4.12.2 (D-43): CM 뷰의 링크·hover 정화가 쓰는 mdlib 를 나란히 싣는다 — `CM` 이 서면 mdlib 도 실려 있다.
-  cmLoading = Promise.all([import(url), Screens.load('mdlib')]).then(([m]) => { window.CM = m });
+  // PERF 3.4.12.2·3.4.12.7 (D-43·D-44): CM 뷰가 쓰는 cm 묶음(CM 공용 층·LSP)을 나란히 싣는다. cm 은 needs 로 mdlib(링크·hover
+  // 정화)를 먼저 싣는다 — `CM` 이 서면 cm·mdlib 도 실려 있다.
+  cmLoading = Promise.all([import(url), Screens.load('cm')]).then(([m]) => { window.CM = m });
   cmLoading.catch(() => { cmLoading = null });
   return cmLoading;
 }

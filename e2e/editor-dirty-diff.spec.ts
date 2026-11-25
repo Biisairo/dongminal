@@ -77,9 +77,10 @@ const peek = (page: Page) => page.locator('.file-editor .fe-dd-peek');
 
 test.describe('묶음 C — diff 계산 (FR-EDD-10~13)', () => {
   // 순수 함수이므로 브라우저 안에서 바로 잰다. e2e 를 한 벌 더 세우지 않고
-  // 경계 조건을 싸게 덮는 자리다.
+  // 경계 조건을 싸게 덮는 자리다. 함수는 cm 묶음에 있다 — 먼저 싣는다 (PERF 3.4.12.7).
   test.beforeEach(async ({ page }) => {
     await waitForInit(page);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('cm'));
   });
 
   const run = (page: Page, a: string[], b: string[]) =>

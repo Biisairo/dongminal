@@ -93,3 +93,5 @@ const Screens={
 
 // markdown-it·DOMPurify (PERF 3.4.12.2, D-43). 맨 도메인 링크·CM 뷰·문서 렌더가 함께 쓰는 라이브러리 묶음이다.
 Screens.register('mdlib');
+// CM 공용 층·코드 탐색 (PERF 3.4.12.7, D-44). loadCodeMirror 가 CM vendor 와 나란히 싣고, editor·git 이 needs 로 먼저 싣는다.
+Screens.register('cm',{needs:['mdlib']});
