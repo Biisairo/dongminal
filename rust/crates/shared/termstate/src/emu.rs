@@ -16,6 +16,7 @@ use otter_shared_linestore::{LineStore, split_for_rows};
 // 넣기 조각 하나가 기록으로 밀어 올릴 수 있는 행 수다([`split_for_rows`] 상한). 이만큼 넘을 때까지는
 // 걸친 논리 줄이 끝나기를 기다리고, 넘으면 끊어 옮긴다.
 use otter_shared_termlimit::FEED_SLACK as SLACK;
+use otter_shared_termlimit::{emu_cap, emu_keep};
 
 use crate::hist;
 use crate::scan::Scan;
@@ -99,8 +100,9 @@ impl Dimensions for Size {
     }
 }
 
-/// 에뮬레이터가 화면 위에 남기는 기록 줄 수다. 넘는 줄은 줄 저장소로 옮긴다(EMULATOR §6, D-14).
-pub const EMU_KEEP: usize = 1_000;
+/// 좁히기 재흐름에서 행 하나가 제 몫(`옛 폭 / 새 폭` 올림)보다 더 낼 수 있는 행 수다. 앞 행이 넘긴
+/// 조각과 행 끝에 걸친 넓은 글자 자리 몫이다.
+const REFLOW_CARRY_ROWS: usize = 1;
 
 /// 도구 하나의 화면 상태다. 에뮬레이터 화면·짧은 기록과, 그 위의 줄 저장소를 함께 든다.
 pub struct Screen {
@@ -112,24 +114,22 @@ pub struct Screen {
     carry: Vec<u8>,
     title: Title,
     replies: Replies,
-    keep: usize,
+    /// 에뮬레이터가 화면 위에 남기는 기록 줄 수를 덮어쓴다(시험용). 없으면 화면 행 수로 정한다
+    /// ([`emu_keep`], D-52). 넘는 줄은 줄 저장소로 옮긴다(EMULATOR §6, D-14).
+    keep: Option<usize>,
     store: LineStore,
-}
-
-/// 에뮬레이터 기록 상한이다. ED2·CSI S 처럼 조각 나누기가 세지 않는 밀어 올림(화면 한 벌)까지 담는다.
-fn emu_cap(keep: usize, rows: u16) -> usize {
-    keep + 2 * SLACK + usize::from(rows)
 }
 
 impl Screen {
     /// `store_cap` 은 줄 저장소의 상한(논리 줄 수)이다. 크기 0 은 1 로 올린다.
     pub fn new(cols: u16, rows: u16, store_cap: usize) -> Self {
-        Self::with_keep(cols, rows, EMU_KEEP, store_cap)
+        Self::with_keep(cols, rows, None, store_cap)
     }
 
-    pub(crate) fn with_keep(cols: u16, rows: u16, keep: usize, store_cap: usize) -> Self {
+    pub(crate) fn with_keep(cols: u16, rows: u16, keep: Option<usize>, store_cap: usize) -> Self {
+        let rows = rows.max(1);
         let cfg = Config {
-            scrolling_history: emu_cap(keep, rows.max(1)),
+            scrolling_history: emu_cap(keep.unwrap_or(emu_keep(rows)), rows),
             ..Config::default()
         };
         let title = Title::default();
@@ -167,9 +167,15 @@ impl Screen {
         std::mem::take(&mut *self.replies.lock().unwrap_or_else(|e| e.into_inner()))
     }
 
+    /// 화면 위에 남기는 기록 줄 수다.
+    fn keep(&self) -> usize {
+        self.keep.unwrap_or_else(|| emu_keep(self.size().1))
+    }
+
+    /// 기록 상한을 지금 크기로 다시 건다.
     fn reload_options(&mut self) {
         let cfg = Config {
-            scrolling_history: emu_cap(self.keep, self.size().1),
+            scrolling_history: emu_cap(self.keep(), self.size().1),
             ..Config::default()
         };
         self.term.set_options(cfg);
@@ -185,20 +191,39 @@ impl Screen {
         if alt {
             return;
         }
-        let g = self.term.grid();
-        let hl = g.history_size();
-        let Some(excess) = hl.checked_sub(self.keep).filter(|e| *e > 0) else {
+        let hl = self.term.grid().history_size();
+        let Some(excess) = hl.checked_sub(self.keep()).filter(|e| *e > 0) else {
             return;
         };
+        self.move_oldest(excess, excess > SLACK);
+    }
+
+    /// 가장 오래된 기록 `limit` 행 안에서 끝나는 논리 줄을 저장소로 옮기고 그 행을 지운다.
+    /// `cut` 이면 끝나지 않는 줄도 `limit` 행까지 끊어 옮긴다.
+    fn move_oldest(&mut self, limit: usize, cut: bool) {
+        let g = self.term.grid();
+        let hl = g.history_size();
         let rows: Vec<Row> = (0..hl)
-            .take(excess)
+            .take(limit)
             .map(|i| row_of(g, -i32::try_from(hl - i).unwrap_or(i32::MAX)))
             .collect();
-        let (lines, moved) = hist::complete_lines(&rows, excess, excess > SLACK);
+        let (lines, moved) = hist::complete_lines(&rows, limit, cut);
         for l in lines {
             self.store.push(l);
         }
         self.drop_oldest(moved);
+    }
+
+    /// 에뮬레이터 기록을 모두 줄 저장소로 옮기고 그리드 저장 공간을 화면만큼으로 줄인다(D-50, 설계 §3).
+    /// 화면 첫 행으로 이어지는 논리 줄의 기록 쪽 행은 남긴다. 대체 화면이면 아무것도 하지 않는다.
+    /// 다시 출력이 오면 그리드는 평소대로 저장 단위 하나를 잡는다.
+    pub fn compact(&mut self) {
+        if self.term.mode().contains(TermMode::ALT_SCREEN) {
+            return;
+        }
+        let hl = self.term.grid().history_size();
+        self.move_oldest(hl, false);
+        self.term.grid_mut().truncate();
     }
 
     fn feed_piece(&mut self, bytes: &[u8]) {
@@ -226,9 +251,20 @@ impl Screen {
         self.scan.pending().to_vec()
     }
 
+    /// 크기를 바꾼다(설계 §4). 좁힐 때 재흐름이 기록을 상한에서 자르지 않게 상한을 재흐름이 낼 수 있는
+    /// 행 수까지 올려 두고, 바꾼 뒤 기록을 옮겨 비운다. 늘릴 때 화면은 기록에서 행을 끌어 내린다(xterm 과 같다).
+    /// 대체 화면에서는 상한을 올리지 않는다(대체 화면 격자에 기록이 생긴다).
     pub fn resize(&mut self, cols: u16, rows: u16) {
-        self.term.resize(Size::new(cols, rows));
+        let size = Size::new(cols, rows);
+        if !self.term.mode().contains(TermMode::ALT_SCREEN) {
+            let g = self.term.grid_mut();
+            let grow = g.columns().div_ceil(size.cols) + REFLOW_CARRY_ROWS;
+            let most = (g.history_size() + g.screen_lines()).saturating_mul(grow);
+            g.update_history(most);
+        }
+        self.term.resize(size);
         self.scan.resized();
+        self.compact();
         self.reload_options();
     }
 
@@ -257,13 +293,13 @@ impl Screen {
     /// [`handover`](Self::handover) 의 스냅숏과 저장소 그림으로 되세운다. 그림이 깨졌으면 저장소는 비운 채
     /// 시작한다(화면은 되세운다).
     pub fn restore(cols: u16, rows: u16, store_cap: usize, snapshot: &[u8], store: &[u8]) -> Self {
-        Self::restore_with_keep(cols, rows, EMU_KEEP, store_cap, snapshot, store)
+        Self::restore_with_keep(cols, rows, None, store_cap, snapshot, store)
     }
 
     pub(crate) fn restore_with_keep(
         cols: u16,
         rows: u16,
-        keep: usize,
+        keep: Option<usize>,
         store_cap: usize,
         snapshot: &[u8],
         store: &[u8],
@@ -359,7 +395,7 @@ impl Screen {
 
     /// 가장 오래된 기록 `n` 줄을 지운다. 상한은 그대로다.
     fn drop_oldest(&mut self, n: usize) {
-        let cap = emu_cap(self.keep, self.size().1);
+        let cap = emu_cap(self.keep(), self.size().1);
         let g = self.term.grid_mut();
         let left = g.history_size().saturating_sub(n);
         g.update_history(left);
