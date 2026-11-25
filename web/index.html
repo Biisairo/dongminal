@@ -183,7 +183,7 @@
            (sidebar-tabs.js). 여기 비워 두는 것이 "새 탭 = 서술자 1개" 를 지키는
            자리다 — 탭이 늘어도 이 파일을 다시 열지 않는다. -->
       <div id="sb-tabs" class="ui-panel-tabs"></div>
-      <!-- FR-PNT-3·12: 끝 단추. 모바일의 닫기(`#drawer-close`)를 mobile-controller.js 가 여기 넣는다. -->
+      <!-- FR-PNT-3·12: 끝 단추. 모바일의 닫기(`#drawer-close`)를 mobile-controller.js 가 여기 넣는다 — 모바일 본체(`mobile` 묶음)가 선 뒤에만이다(PERF 3.4.12.8). -->
       <div id="sb-acts" class="ui-panel-acts"></div>
     </div>
     <!-- UX_REVISION_SRS FR-BLP-5: 두 패널의 골격은 같다 — 액션 버튼 행이 먼저,
@@ -237,7 +237,7 @@
   <div id="sb-handle" class="ui-resize-handle" title="Drag to resize — drag all the way in to collapse"></div>
   <div id="content">
     <div id="topbar">
-      <!-- UX_AUDIT_FIX_SRS FR-UXF-91 (D-30): 모바일 연결 점. 칠하기는 mobile-controller.js `mTopPaint` 다. -->
+      <!-- UX_AUDIT_FIX_SRS FR-UXF-91 (D-30): 모바일 연결 점. 칠하기는 mobile-controller.js `mTopPaint` 다 — 모바일 본체(`mobile` 묶음)가 선 뒤에만이다(PERF 3.4.12.8). -->
       <span class="m-conn-dot mobile-only" role="img" title="Disconnected" aria-label="Disconnected"></span>
       <span id="window-name"></span>
       <!-- SLOT_MARKER_SRS FR-SMK-1·2: 칸이 여럿이면 **이 자리는 빈다**
@@ -946,7 +946,9 @@
      정한다 — 순서 계약과 그 이유도 그 파일에 있다. b/pre.js 맨 앞이 error-log.js 다. -->
 <script src="b/pre.js?v=__ASSETV__"></script>
 <!-- M8_UNIFIED_SRS FR-B-2: 언어 카탈로그는 i18n.js(pre) 뒤, 모든 상수(boot) 앞이다.
-     PERF D-34: i18n.js 가 정한 활성 로케일의 파일 하나만 싣는다. 바꾸기는 새로고침이다. -->
+     PERF D-34: i18n.js 가 정한 활성 로케일의 파일 하나만 싣는다. 바꾸기는 새로고침이다.
+     이 파일은 부팅분이다. 지연 묶음에서만 쓰는 문장은 묶음별 조각(js/i18n/<묶음>.<로케일>.js)이고
+     Screens.load 가 그 묶음 JS 앞에 싣는다(PERF D-46). -->
 <script>var i18nSrc='js/i18n/'+I18N.locale+'.js?v=__ASSETV__';document.write('<script src="'+i18nSrc+'"><\/script>')</script>
 <script src="b/boot.js?v=__ASSETV__"></script>
 <!-- PERF 3.4.12.3: 진단 오버레이 묶음은 ?diag=1 일 때만 b/boot.js 바로 뒤에 싣는다. 조건은 DiagOverlay.start 와 같다. -->
