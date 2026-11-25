@@ -75,10 +75,10 @@
 
 **모양(권장안 기준)**
 
-1. **묶음 정의 한 자리** — `web/bundles.txt`(줄 단위: `[이름]` 아래 `.js`·`.css` 줄, 순서가 곧 로드 순서). 부팅 묶음은 `pre`(error-log·pref-store·panel-dock·i18n.js)와 `boot` 둘이다 — 언어 파일이 `i18n.js` 뒤·상수 앞에 서야 하기 때문이다. index.html 에는 vendor 8개, head 의 src 스크립트 셋(server-move·storage-rename·panel-layout), 부팅 CSS `<link>`, `b/pre.js` → 언어 인라인 → `b/boot.js` 가 남는다. (정정 2026-11-25, PERF 3.4.11 — 처음 안은 `web/bundles.json`(가칭)·`boot` 하나였다. 3.4.2 조정자 결정)
+1. **묶음 정의 한 자리** — `web/bundles.txt`(줄 단위: `[이름]` 아래 `.js`·`.css` 줄, 순서가 곧 로드 순서). 부팅 묶음은 `pre`(error-log·pref-store·panel-dock·i18n.js)와 `boot` 둘이다 — 언어 파일이 `i18n.js` 뒤·상수 앞에 서야 하기 때문이다. index.html 에는 vendor 8개, head 의 src 스크립트 셋(server-move·storage-rename·panel-layout), 부팅 CSS `<link>`, `b/pre.js` → 언어 인라인 → `b/boot.js` 가 남는다. (정정 2026-11-25, PERF 3.4.11 — 처음 안은 `web/bundles.json`(가칭)·`boot` 하나였다. 3.4.2 조정자 결정) (정정 2026-11-25, PERF 3.4.12.11: 지금은 vendor 태그가 넷(xterm·fit·web-links·unicode11)이다. addon-webgl 은 터치 기기가 아닐 때만 싣는 인라인이고, `b/boot.js` 뒤에 `?diag=1` 일 때만 `b/diag.js` 를 싣는 인라인이 있다. markdown-it·DOMPurify·addon-search 는 `mdlib`·`search` 묶음으로 갔다 — 3.4.12)
 2. **서버가 묶음을 만든다** — `StaticAssets` 가 시작할 때 묶음 정의를 읽어 파일을 순서대로 이어 붙이고 `/b/<name>.js` 로 낸다. 이미 하는 일(해시·`.gz` 바이트를 한 번만 만들어 기억, `static_assets.rs:3`)에 얹는다. 파일 사이에 `/* ==== js/… ==== */` 경계를 남긴다(하네스와 같은 규약). 판 해시에 묶음 정의도 넣는다.
 3. **등록부와 로더(프론트)** — `js/core/screens.js`. `boot` 묶음 안, 렌더러와 `screen-life.js` 앞이다.
-   - `Screens.register(name, {bundle, css, tab})` — 이름과 싣기 정보. `tab(at)` 은 이 화면이 맡는 탭인가를 답한다.
+   - `Screens.register(name, {bundle, css, tab})` — 이름과 싣기 정보. `tab(at)` 은 이 화면이 맡는 탭인가를 답한다. (정정 2026-11-25, PERF 3.4.12.11: 지금은 `{bundle, css, tab, needs, i18n}` 이다. `needs` 는 먼저 실을 묶음(D-45), `i18n` 은 그 묶음의 언어 조각을 묶음 JS 앞에 싣는 표시다(D-46). 탭이 없는 라이브러리 묶음도 등록한다. 껍데기의 자리표시는 `Screens.call` 로 묶음을 실은 뒤 본체를 부른다 — 3.4.12)
    - `Screens.forTab(at)` — 탭을 맡는 화면 이름(없으면 null, 부팅 묶음에 있다).
    - `Screens.load(name)` → Promise. 같은 이름은 같은 Promise 를 나눈다. `<link>` 와 `<script src="b/<bundle>.js?v=…">`(클래식 스크립트, FR-SPA-6)를 붙이고 둘 다 끝나면 푼다. 실패는 기억하지 않고 URL 을 바꿔 다시 시도한다(`loadCodeMirror` 와 같은 규약).
    - `Screens.ready(name)` — 동기 질문. 이미 실렸는가.
@@ -87,7 +87,7 @@
    - 메뉴·단축키·서버 명령(`tool-cmd.js`)·모달 여는 자리: 진입 함수 첫 줄에서 `await Screens.load(…)`. `edOpenFile` 은 이미 async 다.
    - App 생성자의 화면 컨트롤러(설정·채팅·간선·Run 등)는 "부팅에 남는 얇은 껍데기(상태·토픽 연결) + 묶음에 든 본체" 로 나눈다. 어디까지가 껍데기인지는 3.4.4 게이트가 알려 준다.
 5. **경계 게이트** — `scripts/check-lazy-boundary.mjs`(가칭). 부팅 묶음 파일이 화면 묶음의 전역(클래스·상수·함수)을 참조하면 실패한다. 허용은 등록된 진입점(앞 줄에서 `Screens.load` 를 기다린 함수)뿐이다. 이것이 "옮겼더니 런타임에서 `ReferenceError`" 를 미리 잡는다(`check-load-order.mjs` 머리말의 같은 함정).
-6. **언어 한 벌** — `b/pre.js` 바로 뒤의 인라인 한 줄이 `I18N.locale`(pre 의 `i18n.js` 가 정함)로 활성 언어 파일 하나만 `document.write` 로 싣는다(D-M3-6). head 인라인은 `lang` 속성만 정한다. (정정 2026-11-25, PERF 3.4.11 — 처음 안은 "head 인라인". `i18n.js` 뒤여야 해서 body 끝이 됐다) 언어 바꾸기는 지금처럼 새로고침이다.
+6. **언어 한 벌** — `b/pre.js` 바로 뒤의 인라인 한 줄이 `I18N.locale`(pre 의 `i18n.js` 가 정함)로 활성 언어 파일 하나만 `document.write` 로 싣는다(D-M3-6). head 인라인은 `lang` 속성만 정한다. (정정 2026-11-25, PERF 3.4.11 — 처음 안은 "head 인라인". `i18n.js` 뒤여야 해서 body 끝이 됐다) 언어 바꾸기는 지금처럼 새로고침이다. (정정 2026-11-25, PERF 3.4.12.11: 지금은 이 파일은 활성 언어의 부팅분이다. 지연 묶음에서만 쓰는 문장은 묶음별 조각 `js/i18n/<묶음>.<locale>.js` 이고 `Screens.load` 가 그 묶음 JS 앞에 싣는다 — D-46, 3.4.12.9)
 
 **묶음 경계(첫 제안, 숫자는 압축 전)**
 
@@ -106,16 +106,17 @@
 | 묶음 | 든 것 | 원본 크기 |
 |---|---|---|
 | `pre` | error-log·pref-store·panel-dock·i18n.js 4개 | 20,859 B |
-| `boot` | 나머지 175개. git 의 `api.js`·`status-hub.js`, `constants-git.js`·`constants-git-detect.js`, `constants-editor.js`, 공용 CodeMirror 층(`cm-*`·`file-editor-find`·`file-editor-diff`·`cm-buffer`), 화면 껍데기(Run 목록·채팅 컨트롤러·설정 컨트롤러)가 여기 남는다 | 1,790,432 B |
+| `boot` | 나머지 175개. git 의 `api.js`·`status-hub.js`, `constants-git.js`·`constants-git-detect.js`, `constants-editor.js`, 공용 CodeMirror 층(`cm-*`·`file-editor-find`·`file-editor-diff`·`cm-buffer`), 화면 껍데기(Run 목록·채팅 컨트롤러·설정 컨트롤러)가 여기 남는다 (정정 2026-11-25, PERF 3.4.12.11: 지금은 공용 CodeMirror 층은 `cm` 묶음이다 — 3.4.12.7) | 1,790,432 B |
 | `git` | `js/git` 54개, `constants-git*.js` 7개, `style-git*.css` 4개 | 859,501 B(CSS 93,637 포함) |
 | `editor` | `constants-explorer.js`, `file-editor*` 7개(화면 부분), `file-tree*` 11개 — 19개. `style-editor*.css` 는 Repo 사이드·터미널 복사창 규칙이 섞여 부팅 CSS 에 남는다 | 203,094 B |
-| `docrender` | vendor `highlight`, `constants-docrender`, `doc-render*` 3개, `style-docrender.css`. markdown-it·DOMPurify 는 터미널·편집기 링크와 LSP hover 가 써서 부팅에 남는다(3.4.8) | 172,056 B |
+| `docrender` | vendor `highlight`, `constants-docrender`, `doc-render*` 3개, `style-docrender.css`. markdown-it·DOMPurify 는 터미널·편집기 링크와 LSP hover 가 써서 부팅에 남는다(3.4.8) (정정 2026-11-25, PERF 3.4.12.11: 지금은 `mdlib` 묶음이고 `docrender` 가 needs 로 먼저 싣는다 — 3.4.12.2) | 172,056 B |
 | `run` | `run-view*`·`run-graph-fit`·`run-dashboard`·`run-tree*`·`run-recover` 7개, `style-run-view.css`. `style-runs.css` 는 활동 패널 목록이 써서 부팅이다 | 77,308 B |
 | `settings` | 설정 모달·섹션·`settings-open.js`(처음 열 때 세우기)·간선 망 그림 `edges-mesh-view.js` — 23개. 간선 화면은 설정 ▸ Edges 탭이라 따로 묶지 않았다(D-41) | 147,459 B |
 | `chat` | `chat-views.js` 1개 | 9,195 B |
 
 - 모두 빼면 부팅 JS 는 주석을 둔 채로 **약 1.9~2.0 MB** 로 예상한다. 1.5 MB 에는 못 미친다. 주석(48%)을 묶음에서 걷으면 **약 1.2~1.3 MB** 로 예상한다(D-M3-7).
   - 실측(PERF 3.4.10): 나눈 뒤 **2,505,579 B**, 주석·줄 끝 공백을 걷은 뒤 **1,543,764 B**. 예상보다 큰 것은 markdown-it·DOMPurify(144 KB)가 부팅에 남고, 묶음 밖에서 부팅 때 실리는 양(vendor 8·`ko.js`·head 3)이 약 0.69 MB 이기 때문이다. 목표는 D-42 로 1.55 MB 가 됐고, 1.5 MB 아래로는 3.4.12 가 다시 한다.
+  - 3.4.12 결과(PERF 3.4.12.11): 부팅 범위를 다시 정해(첫 화면에 쓰이지 않는 코드는 처음 쓸 때 싣는다) **1,142,951 B**, 부팅 요청 42 다. 목표는 D-48 로 1,150,000 B 다. 새 묶음(`mdlib`·`cm`·`search`·`remote`·`themes`·`keybar`·`mobile`·`uiact`·`diag`, `chat` 확장)과 단계별 감소는 `M3_BOOT_SCOPE.md` §7 이다.
 - 부팅 요청은 HTML 1 + CSS 약 11 + JS 약 12(vendor 6·head 3·언어 1·`boot` 1·기타) + 그 밖 약 19(아이콘·매니페스트·API) ≈ **45 안팎**으로 예상한다. 80 이하다.
 
 **하위 이슈**
@@ -133,6 +134,7 @@
 | 3.4.9 | 설정·Run·채팅·간선 묶음 | App 생성자의 컨트롤러를 껍데기/본체로 나눈다. 설정 창 `initModal` 을 처음 열 때로(구현은 `settingsBuild`, 3.4.9.1·3.4.9.2 로 나뉨) | 3.4.3·3.4.4 | L | 예 |
 | 3.4.10 | 묶음의 주석 걷기 | 3.4.6~9 뒤 재서 1.5 MB 를 넘을 때만(D-35) | 3.4.6~9 | M | — |
 | 3.4.11 | 재측정·문서 정합 | SRS §7 에 M3 값, FR-SPA-1·2 상태 | 전부 | S | — |
+| 3.4.12 | 부팅 코드 범위 재설계 | 3.4.12.1~3.4.12.11. 설계·결과는 `M3_BOOT_SCOPE.md` | 3.4.10 | L | 단계별 |
 
 **RED 로 쓸 핵심 시험**
 
@@ -146,6 +148,7 @@
 - 부팅 요청(NFR-PRF-11): 지금처럼 `scenario.mjs` 의 `requests`(이동부터 `#boot` 사라짐 + 2초까지).
 - 부팅 JS(NFR-PRF-12): 3.4.1 에서 더하는 "스크립트 응답의 풀린 바이트 합". 같은 구간이다. 숫자 정의(주석을 걷은 바이트를 그대로 세는가)는 D-M3-7 이 정한다.
 - 둘 다 3.4.1 에서 기준선을 다시 잰다(지금 SRS 값 332·3.8 MB 는 M1 시점이다).
+- 회귀(PERF 3.4.12.11): 게이트 `scripts/check-boot-bytes.mjs` 가 `index.html`·`bundles.txt` 로 데스크톱 기본 부팅의 스크립트를 묶음 규칙(`js_strip`·`concat`, `scripts/js-strip.mjs`)대로 더해 SRS 의 NFR-PRF-12 와 견준다. 바이너리 없이 결정적이고, 계산 값은 `jsBytes` 실측과 같다.
 
 ### 3.5 생명주기 wake/sleep (FR-SPA-3)
 

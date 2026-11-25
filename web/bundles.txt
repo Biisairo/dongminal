@@ -8,8 +8,11 @@
 # 형식: '#' 줄과 빈 줄은 건너뛴다. .css 줄은 그 묶음의 CSS 다(서버가 이어 붙여 /b/<이름>.css 로 낸다).
 # 한 파일은 한 묶음에만 둔다. 파일 경로는 web/ 기준이다.
 #
-# index.html 이 싣는 차례: vendor → b/pre.js → 활성 언어 파일 하나(js/i18n/<locale>.js) → b/boot.js.
-# 언어 파일은 I18N.register 를 부르므로 pre(i18n.js) 뒤, 상수(boot) 앞이다.
+# index.html 이 싣는 차례: vendor → b/pre.js → 활성 언어의 부팅분 하나(js/i18n/<locale>.js) → b/boot.js
+# (→ ?diag=1 일 때만 b/diag.js). 언어 파일은 I18N.register 를 부르므로 pre(i18n.js) 뒤, 상수(boot) 앞이다.
+# pre·boot 밖의 묶음은 처음 쓸 때 Screens.load 가 싣는다. needs 로 다른 묶음을 먼저 싣고(D-45), i18n 으로 등록한
+# 묶음은 그 언어 조각(js/i18n/<묶음>.<locale>.js)을 묶음 JS 앞에 싣는다(D-46). 데스크톱 기본 부팅 JS 의 상한
+# (NFR-PRF-12)은 scripts/check-boot-bytes.mjs 가 이 파일과 index.html 로 잰다.
 
 [pre]
 # 잡히지 않은 오류의 기록 (OBSERVABILITY_SRS FR-OBS-18). **가장 앞이어야 한다**
