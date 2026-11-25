@@ -16,44 +16,48 @@
  * 주인이 사라질 때는 걷는 자리가 `unmount(owner)` 를 부른다 — 예약을 걷고 잊는다. 잠든 상태여도 같다.
  *
  * 브라우저 탭 숨김은 `TimerHub` 의 하나뿐인 `visibilitychange` 에서 받아 `pageHidden` 에 둔다(FR-BUS-8).
- * 그 신호로 잠드는 규칙은 3.5.4 가 정한다(D-M3-8).
+ * 숨으면 보이던 주인마다 `pageSleepMs`(없으면 `SCREEN_SLEEP_MS`) 뒤 sleep() 을 예약한다 — 터미널은 30초다(D-36).
+ * 숨은 동안의 그리기는 잠든 주인을 깨우지 않는다. 다시 보이면 숨김 때문에 건 예약을 걷고, 보이는데 잠든 주인을 깨운다.
+ * 칸에서 가려지는 것은 숨김과 겹쳐도 `SCREEN_SLEEP_MS` 를 넘기지 않는다.
  */
 class ScreenLife extends Component {
   constructor(app){
     super();
     this.app=app;
-    this._owners=new Map();   // owner → {state:'awake'|'pending'|'asleep', timer}
+    this._owners=new Map();   // owner → {state:'awake'|'pending'|'asleep', timer, at, page}
+    this._shown=new Map();
     this.pageHidden=false;
-    this.own(this._hub().onVisibility(hidden=>{ this.pageHidden=hidden }).stop);
+    this.own(this._hub().onVisibility(hidden=>this._page(hidden)).stop);
   }
 
   /** @param {Map<object, Element>} shown 이번 그리기에 보인 주인 → 그 본문이 붙은 자리 */
   commit(shown){
+    this._shown=shown;
     for(const [o,host] of shown){
       if(typeof o.wake!=='function'||typeof o.sleep!=='function') continue;
       const e=this._owners.get(o);
       if(!e){
-        this._owners.set(o,{state:'awake',timer:null});
+        this._owners.set(o,{state:'awake',timer:null,at:0,page:false});
         if(typeof o.mount==='function') o.mount(host);
         o.wake();
-      }else if(e.state==='pending'){
-        e.timer.stop(); e.timer=null; e.state='awake';
-      }else if(e.state==='asleep'){
+      }else if(e.state==='pending'&&!(this.pageHidden&&e.page)){
+        this._unplan(e); e.state='awake';
+      }else if(e.state==='asleep'&&!this.pageHidden){
         e.state='awake';
         o.wake();
       }
     }
     for(const [o,e] of this._owners){
-      if(e.state!=='awake'||shown.has(o)) continue;
-      e.state='pending';
-      e.timer=this.after(SCREEN_SLEEP_MS,()=>this._sleep(o));
+      if(shown.has(o)) continue;
+      if(e.state==='awake'||(e.state==='pending'&&e.page)) this._plan(o,e,SCREEN_SLEEP_MS,false);
     }
+    if(this.pageHidden) this._planPage();
   }
 
   unmount(o){
     const e=this._owners.get(o);
     if(!e) return;
-    if(e.timer) e.timer.stop();
+    this._unplan(e);
     this._owners.delete(o);
     if(typeof o.unmount==='function') o.unmount();
   }
@@ -85,7 +89,40 @@ class ScreenLife extends Component {
   _sleep(o){
     const e=this._owners.get(o);
     if(!e||e.state!=='pending') return;
-    e.state='asleep'; e.timer=null;
+    e.state='asleep'; e.timer=null; e.page=false;
     o.sleep();
+  }
+
+  /** `ms` 뒤 잠들게 예약한다. 이미 더 이른 예약이 있으면 그대로 둔다 — 지연은 늘지 않는다. */
+  _plan(o,e,ms,page){
+    const at=Date.now()+ms;
+    if(e.state==='pending'&&e.at<=at) return;
+    this._unplan(e);
+    e.state='pending'; e.at=at; e.page=page;
+    e.timer=this.after(ms,()=>this._sleep(o));
+  }
+
+  _unplan(e){
+    if(e.timer) e.timer.stop();
+    e.timer=null; e.at=0; e.page=false;
+  }
+
+  /** 브라우저 탭 숨김 (D-36): 보이던 주인을 `pageSleepMs` 뒤 잠들게 예약한다. */
+  _planPage(){
+    for(const o of this._shown.keys()){
+      const e=this._owners.get(o);
+      if(e&&e.state==='awake') this._plan(o,e,typeof o.pageSleepMs==='number'?o.pageSleepMs:SCREEN_SLEEP_MS,true);
+    }
+  }
+
+  _page(hidden){
+    this.pageHidden=hidden;
+    if(hidden){ this._planPage(); return }
+    for(const o of this._shown.keys()){
+      const e=this._owners.get(o);
+      if(!e) continue;
+      if(e.state==='pending'&&e.page){ this._unplan(e); e.state='awake' }
+      else if(e.state==='asleep'){ e.state='awake'; o.wake() }
+    }
   }
 }

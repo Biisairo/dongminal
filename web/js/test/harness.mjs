@@ -118,7 +118,7 @@ export const SLOTS = ['core/slots-controller.js', 'core/slot-ops.js'];
 export const LAYOUT = ['core/layout-controller.js', 'core/layout-tab-add.js', 'core/layout-tab-ops.js', 'core/layout-window-state.js',
   'core/layout-dock.js', 'core/layout-tab-reopen.js', 'core/layout-dnd.js', 'core/layout-groups.js'];
 export const TOOL = ['core/tool-cmd.js', 'core/tool-controller.js', 'core/tool-life.js', 'core/tool-work.js', 'core/tool-search.js'];
-export const EDITOR = ['core/editor-controller.js', 'core/editor-sync.js', 'core/editor-open.js', 'core/editor-doc.js',
+export const EDITOR = ['core/screens.js', 'core/editor-controller.js', 'core/editor-sync.js', 'core/editor-open.js', 'core/editor-doc.js',
   'core/editor-pane.js', 'core/editor-watch.js', 'core/editor-file.js', 'core/editor-section.js', 'core/editor-doc-render.js',
   'core/editor-search.js'];
 export const REPO_WIN = ['core/repo-preview.js', 'core/repo-win-controller.js'];
@@ -311,7 +311,8 @@ export function load(files, opts = {}) {
   ctx.window = ctx;
 
   const parts = [];
-  for (const rel of files) {
+  // 묶음 상수 둘이 같은 파일(예: `core/screens.js` — GIT·EDITOR)을 함께 들 수 있다. 한 번만 싣는다.
+  for (const rel of new Set(files)) {
     // 실패한 줄을 찾을 수 있게 경계를 남긴다. 이어 붙이므로 스택의 줄 번호는
     // 합친 소스의 것이다.
     parts.push('/* ==== web/js/' + rel + ' ==== */');

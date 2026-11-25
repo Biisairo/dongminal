@@ -112,22 +112,3 @@ test('등록된 화면이 맡지 않는 탭은 그대로 그린다', () => {
   r._mountTabBody(body, { type: 'terminal', id: 'c' });
   assert.equal(head.children.length, 0);
 });
-
-// PERF 3.4.6: 탭 밖의 자리(Repo 창의 Changes 사이드)도 같은 규약으로 기다린다.
-test('_screenHold: 이름으로 기다리는 자리도 자리표시·한 번 싣기·실린 뒤 null 이다', async () => {
-  const { r, head, calls } = setup();
-  const a = r._screenHold('tscreen', 'wait:side:k');
-  assert.ok(a.classList.contains('ui-empty-center'));
-  assert.equal(r._screenHold('tscreen', 'wait:side:k'), a, '같은 자리는 같은 자리표시다');
-  assert.equal(head.children.length, 1, '태그는 하나다');
-  head.children[0].onload();
-  await drain();
-  assert.equal(calls.render, 1);
-  assert.equal(r._screenHold('tscreen', 'wait:side:k'), null, '실린 뒤에는 자리표시가 없다');
-});
-
-test('_screenHold: 이름이 없으면(맡는 화면이 없다) 아무것도 싣지 않는다', () => {
-  const { r, head } = setup();
-  assert.equal(r._screenHold(null, 'wait:side:k'), null);
-  assert.equal(head.children.length, 0);
-});

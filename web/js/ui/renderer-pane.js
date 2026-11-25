@@ -53,7 +53,8 @@ Object.assign(Renderer.prototype, {
       return;
     }
     // PERF D-30: 이 탭을 맡는 화면의 묶음이 아직이면 자리표시를 붙인다. 렌더러는 동기로 남는다.
-    const wait=this._screenWait(at,slot);
+    const screen=Screens.forTab(at);
+    const wait=screen&&!Screens.ready(screen)?this._screenHold(screen,'wait:'+slot+':'+at.id):null;
     if(wait){
       el=wait;
     }else if(at.type===TAB_TYPE_GIT){
@@ -139,19 +140,14 @@ Object.assign(Renderer.prototype, {
   },
 
   /**
-   * 탭 `at` 을 맡는 화면(`Screens.forTab`)이 아직 실리지 않았으면 자리표시를 돌려주고 묶음을 싣기 시작한다.
+   * 아직 실리지 않은 화면 `name` 의 자리표시를 돌려주고 묶음을 싣기 시작한다. 부르는 쪽이 먼저
+   * `Screens.ready` 로 묻는다 — 탭 본문(`_mountTabBody`)과 Editor 창의 사이드(`_rSide`)가 부른다.
    * 실리면 `app.render()` 를 한 번 부른다 — 그 그리기가 실제 본문을 붙인다. 실패는 기억하지 않는다(다음
-   * 그리기가 다시 싣는다). 맡는 화면이 없거나 이미 실렸으면 null.
+   * 그리기가 다시 싣는다).
    *
-   * 자리표시는 `_keep` 으로 탭·칸마다 하나다. 쓰이지 않으면 그리기 끝에서 거둔다.
+   * 자리표시는 `_keep(key)` 로 자리마다 하나다. 쓰이지 않으면 그리기 끝에서 거둔다.
    */
-  _screenWait(at,slot){
-    return this._screenHold(Screens.forTab(at),'wait:'+slot+':'+at.id);
-  },
-
-  /** 화면 `name` 이 아직이면 `key` 자리의 자리표시를 돌려주고 싣기 시작한다(`_screenWait` 와 같은 규약). 탭 밖의 자리(Repo 창 사이드)도 쓴다. */
   _screenHold(name,key){
-    if(!name||Screens.ready(name)) return null;
     if(!this._screenLoads.has(name)){
       this._screenLoads.add(name);
       Screens.load(name).then(()=>{ this._screenLoads.delete(name); this.app.render() },()=>{ this._screenLoads.delete(name) });

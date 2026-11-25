@@ -22,6 +22,8 @@ class TerminalTool {
     // 그때는 종전대로 자기 `fit()` 이 화면을 정한다 — 옛 서버에 붙은 탭의 동작이
     // 그대로여야 한다 (FR-TRS-9 와 같은 규약).
     this._ptyCols=0; this._ptyRows=0;
+    // PERF D-36: 브라우저 탭이 숨으면 터미널은 다른 화면(2초)보다 늦게 잔다. `ScreenLife` 가 읽는다.
+    this.pageSleepMs=TERM_PAGE_SLEEP_MS;
     this._decoder=new TextDecoder('utf-8',{fatal:false}); this._outputBuf=''; this._flushScheduled=false; this._carryTimer=null;
     // TERMINAL_RESUME_SRS FR-TRS-7: `_seq` 는 **마지막으로 본 바이트 오프셋**이고
     // 다음 접속의 `since` 다. -1 은 "모른다" — 그때는 서버가 전량을 뿌린다.
@@ -260,9 +262,13 @@ class TerminalTool {
 
   /**
    * PERF D-16: 처음 보일 때와 잠든 뒤 다시 보일 때 렌더러(`ScreenLife`)가 부른다. 붙으면 서버가 스냅숏을 보낸다.
-   * 서버가 도구의 부재를 알린 터미널(FR-RCS-1)은 되살리지 않는다.
+   * 서버가 도구의 부재를 알린 터미널(FR-RCS-1)은 되살리지 않는다. 스크롤백은 지금 설정으로 맞춘다 — 서버가 같은
+   * 설정으로 스냅숏의 기록 행 수를 정한다(PERF 2.5.1).
    */
-  wake(){ if(!this._exited) this.connect() }
+  wake(){
+    if(this.term) this.term.options.scrollback=termScrollbackNow();
+    if(!this._exited) this.connect();
+  }
 
   /** PERF D-21·FR-TRM-5: 검색 결과(절대 줄 번호 `line`)를 기록 보기로 연다. */
   openHistoryAt(line){ this.history.openAt(line) }

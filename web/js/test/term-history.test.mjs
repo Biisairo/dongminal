@@ -51,7 +51,7 @@ function fakeView() {
 }
 
 function pane(rows) {
-  const ctx = load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS, 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', ...TERM_PANE], {
+  const ctx = load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS, 'core/settings-schema.js', 'core/settings-state.js', 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', ...TERM_PANE], {
     clock: fakeClock(),
     globals: { location: { protocol: 'http:', host: 'h' } },
     expose: ['TerminalTool', 'OP', 'TERM_MUX', 'SEQ_FLAG_FULL', 'SEQ_FLAG_SNAP', 'TERM_HISTORY_CHUNK'],

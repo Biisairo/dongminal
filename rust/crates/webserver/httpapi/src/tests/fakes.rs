@@ -53,6 +53,10 @@ pub(crate) struct FakeHub {
     pub(crate) screens: Mutex<HashMap<String, ToolScreen>>,
     /// `screen_tool` 을 부른 수.
     pub(crate) screen_calls: AtomicUsize,
+    /// `screen_tool` 이 받은 기록 행 수.
+    pub(crate) screen_history: Mutex<Vec<usize>>,
+    /// `snapshot_tool_since` 를 부른 수.
+    pub(crate) since_calls: AtomicUsize,
     /// `screen_tool` 이 답하기 전에 기다리는 시간 — 동시 깨움을 겹치게 한다.
     pub(crate) screen_delay: Duration,
     /// 줄 저장소의 줄(번호 0 부터) — `history_tool` 의 답을 만든다.
@@ -105,6 +109,7 @@ impl ToolHub for FakeHub {
         if !self.has(id) {
             return Err(ToolError::NotFound(format!("tool {id} not found")));
         }
+        self.since_calls.fetch_add(1, Ordering::SeqCst);
         let mut snap = self
             .snaps
             .lock()
@@ -120,11 +125,12 @@ impl ToolHub for FakeHub {
         }
         Ok(snap)
     }
-    fn screen_tool(&self, id: &str, _history: usize) -> Result<ToolScreen, ToolError> {
+    fn screen_tool(&self, id: &str, history: usize) -> Result<ToolScreen, ToolError> {
         if !self.has(id) {
             return Err(ToolError::NotFound(format!("tool {id} not found")));
         }
         std::thread::sleep(self.screen_delay);
+        self.screen_history.lock().unwrap().push(history);
         self.screen_calls.fetch_add(1, Ordering::SeqCst);
         Ok(self
             .screens

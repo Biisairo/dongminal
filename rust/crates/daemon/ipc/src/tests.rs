@@ -197,6 +197,11 @@ async fn response_wire_golden() {
             r#"{"id":1,"error":{"code":-32011,"message":"toolhub: tool not found"}}"#,
         ),
         (
+            "screentext",
+            r#"{"id":"x","bytes":10}"#,
+            r#"{"id":1,"error":{"code":-32011,"message":"toolhub: tool not found"}}"#,
+        ),
+        (
             "kill",
             r#"{"id":"x"}"#,
             r#"{"id":1,"error":{"code":-32000,"message":"toolhub: tool not found"}}"#,
