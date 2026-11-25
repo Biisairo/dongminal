@@ -71,6 +71,9 @@ impl crate::WorkspaceStore for FakeWork {
     fn is_known_tab_id(&self, _: &str) -> bool {
         false
     }
+    fn changes(&self) -> otter_shared_pollwait::Changed {
+        otter_shared_pollwait::Signal::default().c()
+    }
     fn entries(&self) -> Vec<otter_shared_workspace::TabEntry> {
         Vec::new()
     }

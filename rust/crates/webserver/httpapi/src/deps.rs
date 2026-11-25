@@ -10,6 +10,8 @@ pub trait WorkspaceStore: otter_webserver_domain_wsentry::WorkspaceStore {
     fn persist_err(&self) -> String;
     fn coordinate_of(&self, id: &str) -> Result<String, WorkspaceError>;
     fn is_known_tab_id(&self, id: &str) -> bool;
+    /// 다음 색인 교체에 울릴 구독이다 (FR-OPT-8-4).
+    fn changes(&self) -> otter_shared_pollwait::Changed;
     fn entries(&self) -> Vec<TabEntry>;
     /// `None` 은 판단 근거가 없다는 뜻이다(읽지 못했다) — 창이 없는 것과 다르다 (FR-SBX-9).
     fn windows(&self) -> Option<Vec<WindowInfo>>;

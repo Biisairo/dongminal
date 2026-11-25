@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use otter_webserver_action as action;
 use otter_webserver_apierr as apierr;
@@ -11,8 +12,9 @@ use serde_json::Value;
 
 use super::fakes::*;
 use super::support::*;
+use crate::commands::NEW_TAB_INDEX_WAIT;
 use crate::entity_name::{ENTITY_NAME_MAX, entity_name_answer};
-use crate::{Deps, Server};
+use crate::{Deps, Server, WorkspaceStore};
 
 fn srv(deps: Deps) -> (tempfile::TempDir, Arc<Server>) {
     let dir = tempfile::tempdir().unwrap();
@@ -480,4 +482,69 @@ async fn focus_claim_rejects_bad_body() {
             "{body}"
         );
     }
+}
+
+// ── 생성 명령: 새 탭이 색인에 들어온 뒤 답한다 (4.2) ──
+
+fn creating_broker(uuid: &str) -> Arc<FakeBroker> {
+    Arc::new(FakeBroker {
+        await_delivered: 1,
+        await_result: CmdResult {
+            new_tabs: Some(vec![TabRef {
+                uuid: uuid.into(),
+                tool_id: "410".into(),
+            }]),
+            ..CmdResult::default()
+        },
+        ..FakeBroker::default()
+    })
+}
+
+#[tokio::test]
+async fn creating_answers_after_new_tab_is_indexed() {
+    let w = work_with(&[]);
+    let (_d, s) = srv(deps_cw(creating_broker(UUID), w.clone()));
+    let late = w.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        late.register_tab(UUID);
+    });
+    let v = post_cmd(&s, r#"{"action":"newWindow","args":{}}"#)
+        .await
+        .json();
+    assert!(w.is_known_tab_id(UUID), "색인에 들어오기 전에 답했다: {v}");
+    assert_eq!(v["newTabs"][0]["uuid"], UUID);
+    assert_eq!(v["timedOut"], false);
+}
+
+#[tokio::test]
+async fn creating_answers_at_once_when_already_indexed() {
+    let w = work_with(&[(UUID, "W2.P1.T1")]);
+    let (_d, s) = srv(deps_cw(creating_broker(UUID), w));
+    let t0 = Instant::now();
+    let v = post_cmd(&s, r#"{"action":"newTab","args":{}}"#)
+        .await
+        .json();
+    assert!(t0.elapsed() < NEW_TAB_INDEX_WAIT, "이미 있는데 기다렸다");
+    assert_eq!(v["newTabs"][0]["uuid"], UUID);
+}
+
+#[tokio::test]
+async fn creating_answers_anyway_after_index_wait_cap() {
+    let w = work_with(&[]);
+    let (_d, s) = srv(deps_cw(creating_broker(UUID), w.clone()));
+    let t0 = Instant::now();
+    let v = post_cmd(&s, r#"{"action":"newWindow","args":{}}"#)
+        .await
+        .json();
+    assert!(
+        t0.elapsed() >= NEW_TAB_INDEX_WAIT,
+        "상한까지 기다리지 않았다"
+    );
+    assert!(!w.is_known_tab_id(UUID));
+    assert_eq!(
+        (v["ok"].as_bool(), v["timedOut"].as_bool()),
+        (Some(true), Some(false))
+    );
+    assert_eq!(v["newTabs"][0]["uuid"], UUID);
 }

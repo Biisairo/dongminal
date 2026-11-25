@@ -241,6 +241,9 @@ impl WorkspaceStore for Work {
     fn is_known_tab_id(&self, id: &str) -> bool {
         self.0.is_known_tab_id(id)
     }
+    fn changes(&self) -> otter_shared_pollwait::Changed {
+        self.0.changes()
+    }
     fn entries(&self) -> Vec<TabEntry> {
         self.0.entries()
     }
