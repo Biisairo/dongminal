@@ -25,9 +25,13 @@ test('워크스페이스 동기화 메서드는 ws-sync-controller.js 에 있다
   assert.deepEqual(methods('core/ws-sync-controller.js').filter((n) => n !== 'constructor').sort(), [...SYNC, ...SYNC_STEPS, ...SYNC_TOPIC].sort());
 });
 
-test('tool-cmd.js 에는 원격 명령만 남고, 합치면 33개다', () => {
-  const cmd = methods('core/tool-cmd.js');
-  for (const m of SYNC) assert.ok(!cmd.includes(m), m + ' 가 tool-cmd.js 에 남았다');
+// PERF 3.4.12.5: 원격 명령은 부팅 껍데기 `tool-cmd.js` 와 `remote` 묶음의 본체 `tool-cmd-remote.js` 로 갈렸다.
+// 껍데기의 `_execRemote` 는 묶음을 싣는 입구이고, 옛 `_execRemote` 의 본문은 본체의 `_execRemoteNow` 다 — 33 은 그것을 하나로 센다.
+test('tool-cmd.js·tool-cmd-remote.js 에는 원격 명령만 남고, 합치면 33개다', () => {
+  const shell = methods('core/tool-cmd.js');
+  const cmd = [...shell, ...methods('core/tool-cmd-remote.js').filter((n) => n !== '_execRemoteNow')];
+  for (const m of SYNC) assert.ok(!cmd.includes(m), m + ' 가 tool-cmd 에 남았다');
+  assert.deepEqual(shell.sort(), ['_echoResult', '_execRemote', '_findTabById']);
   assert.ok(cmd.includes('_execRemote') && cmd.includes('_focusLocation'));
   assert.equal(new Set([...cmd, ...SYNC]).size, 33);
   assert.equal(cmd.length + SYNC.length, 33);
