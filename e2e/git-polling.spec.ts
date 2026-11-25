@@ -1,9 +1,9 @@
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 
-import { APIRequestContext, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture, setSafetyNet, scopedSettings, nextFrames } from './fixtures';
+import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture, setSafetyNet, nextFrames } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 /**
@@ -60,17 +60,6 @@ function counter(page: Page, needle: string) {
 const quiet = (c: { n: number; done: number }) =>
   expect.poll(() => c.n >= 1 && c.done >= c.n, { timeout: 5000 }).toBe(true);
 
-// 새 파일은 서버의 워크트리 회차가 잡는다 — 기본 4초를 하한 1초로 줄인다 (§8.2 (b)).
-// 바꾼 시험은 `restoreSettings` 에 복원 함수를 남기고 afterEach 가 되돌린다.
-let restoreSettings: (() => Promise<void>) | null = null;
-const fastWorktree = async (request: APIRequestContext) => {
-  restoreSettings = await scopedSettings(request, { gitWorktreeInterval: 1000 });
-};
-test.afterEach(async () => {
-  if (restoreSettings) await restoreSettings();
-  restoreSettings = null;
-});
-
 const switchToWindow = (page: Page, id: string) =>
   page.evaluate((i) => (window as any).app.layout.switchWindow(i), id);
 
@@ -98,7 +87,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
   // 폴링 횟수로 셌다. 이제 관측은 서버가 밀어 주므로 **화면이 따라오는가**로 잰다 —
   // 폴링이 도는지가 아니라, 이 창이 살아 있는 관측을 갖는지가 계약이다.
   test('P1 (V6): Git 창이 활성이면 변화가 화면에 따라온다', async ({ page, request }) => {
-    await fastWorktree(request);
     const repo = copyFx('basic', 'p1');
     await waitForInit(page);
     const c = counter(page, '/api/git/status');
@@ -253,7 +241,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
    * 짧게 줄여 그 겹침을 촘촘히 만든 뒤, 잠금이 풀린 채로 남는지 본다.
    */
   test('P7 (회귀): 관측이 겹쳐도 단일 비행 잠금이 고착되지 않는다', async ({ page, request }) => {
-    await fastWorktree(request);
     const repo = copyFx('basic', 'p7');
     await waitForInit(page);
     await openGit(page, repo);
@@ -325,7 +312,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
    * 굳었고, 사유는 어디에도 보이지 않았다.
    */
   test('P9 (회귀): _paint 가 한 번 터져도 다음 관측이 다시 그린다', async ({ page, request }) => {
-    await fastWorktree(request);
     const repo = copyFx('basic', 'p9-paint');
     await waitForInit(page);
     await openGit(page, repo);

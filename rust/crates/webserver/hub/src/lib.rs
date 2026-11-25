@@ -30,9 +30,9 @@ pub use foreground::{
 };
 pub use gitwatch::{
     AfterFn, GIT_KICK_COOLDOWN, GIT_KICK_DEBOUNCE, GIT_WATCH_BACKOFF_MAX, GIT_WATCH_CAP,
-    GIT_WATCH_INTERVAL, GIT_WATCH_PARALLEL, GIT_WATCH_ROUND_TIMEOUT, GIT_WATCH_TTL,
-    GIT_WATCH_WORKTREE_EVERY, GitObserver, GitWatcher, MarkHook, RepoHook, WallClock,
-    start_git_watch,
+    GIT_WATCH_FALLBACK_EVERY, GIT_WATCH_FALLBACK_ROUNDS, GIT_WATCH_INTERVAL, GIT_WATCH_PARALLEL,
+    GIT_WATCH_ROUND_TIMEOUT, GIT_WATCH_TTL, GitObserver, GitWatcher, MarkHook, RepoHook, TreeEvent,
+    TreeHook, TreeWatcher, WallClock, WatchGuard, start_git_watch,
 };
 pub use payloads::{background_changed_payload, foreground_snapshot, valid_activity_state};
 pub use replyseat::{ReplySeats, SeatClosed, SeatConn};

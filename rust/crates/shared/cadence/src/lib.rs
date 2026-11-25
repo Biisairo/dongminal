@@ -39,9 +39,6 @@
 //! | `FOREGROUND_REFRESH_EVERY` | 2초 | `shared/toolhub` 전경 이름 재조회, `webserver/hub` 서버 전경 poll | D1 · S5, 4.6 · 4.8 |
 //! | `ATTENTION_SWEEP_EVERY` | 1초 | `shared/toolhub` 데몬 유휴 판정 | D2, 4.8 |
 //! | `SERVER_ATTN_SWEEP_EVERY` | 1초 | `webserver/hub` 서버 L2 스위퍼 틱 | S4, 4.8 |
-//! | `GIT_WATCH_ROUND_EVERY` | 1초 | `webserver/hub` git 감시 회차 | S1, 4.9 |
-//! | `GIT_WATCH_WORKTREE_ROUNDS` | 4회차 | `webserver/hub` 워크트리 회차 간격 | S1, 4.9 |
-//! | `GIT_WATCH_BACKOFF_MAX` | 30초 | `webserver/hub` 관측 실패 뒤 건너뛰기 상한 | S1, 4.9 |
 //! | `SYSSTAT_SAMPLE_EVERY` | 2초 | `webserver/domain/sysstat` 샘플러 | S2, 4.10 |
 //! | `RUN_REAP_EVERY` | 15초 | `webserver/httpapi` Run 자동 수거 | S7, 4.11 |
 //! | `LSP_SWEEP_EVERY` | 2분 | `webserver/domain/lsp` 유휴 세션 정리 | S9, 4.11 |
@@ -55,9 +52,11 @@
 //!
 //! | 상수 | 값 | 쓰는 곳 | 설계 · 단계 |
 //! |---|---|---|---|
+//! | `GIT_WATCH_ROUND_EVERY` | 1초 | `webserver/hub` git 감시 회차(감시 대상이 있을 때만) | S1, 4.9 |
+//! | `GIT_WATCH_FALLBACK_EVERY` | 4초 | `webserver/hub` 파일 감시 실패·넘침 뒤 워크트리 status 간격 | S1 Q4·Q5, 4.9 |
+//! | `GIT_WATCH_BACKOFF_MAX` | 30초 | `webserver/hub` 관측 실패 뒤 건너뛰기 상한 | S1, 4.9 |
 //!
-//! 넣을 값: 전경 이름의 정착 창(D1, 4.6, 기본 2초), sysstat 예열 표본 간격(S2, 4.10),
-//! git 감시 실패·넘침 뒤 회차로 물러서는 간격(S1, 4.9).
+//! 넣을 값: 전경 이름의 정착 창(D1, 4.6, 기본 2초), sysstat 예열 표본 간격(S2, 4.10).
 
 use std::time::Duration;
 
@@ -90,13 +89,6 @@ pub const FOREGROUND_REFRESH_EVERY: Duration = Duration::from_secs(2);
 pub const ATTENTION_SWEEP_EVERY: Duration = Duration::from_secs(1);
 /// 서버 L2 스위퍼에 주는 틱의 주기다. 4.8 이 지운다(임계 0 이면 빈 틱).
 pub const SERVER_ATTN_SWEEP_EVERY: Duration = Duration::from_secs(1);
-/// git 감시 회차의 주기다 (FR-GPO-2). 4.9 가 대상 0 정지와 파일 감시로 바꾼다.
-pub const GIT_WATCH_ROUND_EVERY: Duration = Duration::from_secs(1);
-/// 워크트리 `git status` 를 도는 회차 간격(회차 수)이다 (FR-GDT-3). 4.9 가 파일 감시 사건으로 바꾼다.
-pub const GIT_WATCH_WORKTREE_ROUNDS: u64 = 4;
-/// 일시적 관측 실패 뒤 건너뛰는 시간의 상한이다 (min(2^(n-1), 30)s). 실패한 저장소를 매 회차 다시
-/// 묻지 않게 한다.
-pub const GIT_WATCH_BACKOFF_MAX: Duration = Duration::from_secs(30);
 /// 시스템 통계 샘플 주기다 (SYSTEM_STATS_SRS D-3). 4.10 이 `stats:*` 구독 동안만 돌게 바꾼다.
 pub const SYSSTAT_SAMPLE_EVERY: Duration = Duration::from_secs(2);
 /// Run 자동 수거의 주기다 (FR-ARD-5). 4.11 이 도구 종료·Run 상태 변화 사건으로 바꾼다.
@@ -112,6 +104,18 @@ pub const MESH_REDIAL_MAX: Duration = Duration::from_secs(60);
 pub const MESH_PING_EVERY: Duration = Duration::from_secs(15);
 
 // ── 3. 사건 기반 작업의 시간 값 (4.6·4.9·4.10 이 더한다) ──
+
+/// git 감시 회차의 주기다 (FR-GPO-2). 감시 대상(관심 표명·토픽 임대)이 있을 때만 돈다. 회차는
+/// git 을 띄우지 않고 signature(파일 stat)만 본다 — `.git` 아래 변화(커밋·체크아웃·스테이지)를
+/// 알아채는 자리다. 대상이 0 이면 멈춘다 (D-61).
+pub const GIT_WATCH_ROUND_EVERY: Duration = Duration::from_secs(1);
+/// 저장소 트리의 파일 감시를 세우지 못했거나 감시가 넘쳤을 때 워크트리 `git status` 를 도는
+/// 간격이다 (D-61 Q4·Q5). 감시가 있으면 작업 트리 변화는 감시 사건이 알리므로 돌지 않는다. 값은
+/// 지운 설정 `gitWorktreeInterval` 의 기본값(4000ms)이다.
+pub const GIT_WATCH_FALLBACK_EVERY: Duration = Duration::from_secs(4);
+/// 일시적 관측 실패 뒤 건너뛰는 시간의 상한이다 (min(2^(n-1), 30)s). 실패한 저장소를 매 회차 다시
+/// 묻지 않게 한다.
+pub const GIT_WATCH_BACKOFF_MAX: Duration = Duration::from_secs(30);
 
 #[cfg(test)]
 mod tests;

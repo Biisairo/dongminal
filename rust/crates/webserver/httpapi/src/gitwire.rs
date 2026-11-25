@@ -13,14 +13,14 @@ use otter_webserver_domain_git_jobs::Job;
 use otter_webserver_domain_git_store::{Observation, Store};
 use otter_webserver_domain_submodule as submodule;
 use otter_webserver_domain_wsentry as wsentry;
+use otter_webserver_fswatch::{TreeMsg, watch_tree};
 use otter_webserver_gitapi::{GitServer, RepoWatcher, ToolLocator};
-use otter_webserver_hub::{GitObserver, GitWatcher};
+use otter_webserver_hub::{GitObserver, GitWatcher, TreeEvent, TreeHook, TreeWatcher, WatchGuard};
 use tokio_util::sync::CancellationToken;
 
-use crate::deps::SettingsStore;
 use crate::serve::GitHandler;
 use crate::toolhub::ToolHub;
-use crate::{BrokerCast, Deps, ReqBody, Server, fs_watch};
+use crate::{BrokerCast, Deps, ReqBody, Server};
 
 /// gitapi 를 `GitHandler` 로 감싼다.
 pub(crate) struct GitApi(pub(crate) Arc<GitServer>);
@@ -115,26 +115,32 @@ impl RepoWatcher for WatchNote {
     }
 }
 
+/// 저장소 트리를 OS 파일 감시로 본다 (PERF D-61).
+struct FsTree;
+
+impl TreeWatcher for FsTree {
+    fn watch(&self, root: &str, hook: TreeHook) -> Result<WatchGuard, String> {
+        let w = watch_tree(
+            root,
+            Arc::new(move |m: TreeMsg| match m {
+                TreeMsg::Paths(p) => hook(TreeEvent::Paths(&p)),
+                TreeMsg::Lost => hook(TreeEvent::Lost),
+            }),
+        )?;
+        Ok(Box::new(w))
+    }
+}
+
 /// signature 감시자를 세운다 (GIT_PUSH_OBSERVE_SRS). 저장소 계층이 없으면 서지 않는다 — 감시할
-/// 대상이 없고, 그때 gitapi 의 표명 자리는 비어 무해하게 지나간다.
+/// 대상이 없고, 그때 gitapi 의 표명 자리는 비어 무해하게 지나간다. 작업 트리 변화는 파일 감시가
+/// 계기 관측으로 당긴다 (PERF D-61).
 pub(crate) fn new_git_watch(deps: &Deps) -> Option<Arc<GitWatcher>> {
     let store = deps.git_store.clone()?;
     let w = GitWatcher::new(Some(Arc::new(store) as Arc<dyn GitObserver>));
     w.set_on_changed(deps.on_git_changed.clone());
     w.set_on_baseline(deps.on_git_baseline.clone());
-    apply_git_worktree(Some(&w), deps.settings.as_deref());
+    w.set_tree_watcher(Some(Arc::new(FsTree)));
     Some(w)
-}
-
-/// Go `applyGitWorktree`: 설정의 워크트리 회차 간격을 감시자에 얹는다 (FR-ELR-76).
-pub(crate) fn apply_git_worktree(
-    w: Option<&Arc<GitWatcher>>,
-    settings: Option<&dyn SettingsStore>,
-) {
-    let (Some(w), Some(s)) = (w, settings) else {
-        return;
-    };
-    w.set_worktree_every(fs_watch::git_worktree_rounds(&s.get()));
 }
 
 impl Server {

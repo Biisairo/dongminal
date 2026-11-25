@@ -62,7 +62,7 @@ fn values_unchanged_from_previous_homes() {
     assert_eq!(ATTENTION_SWEEP_EVERY, Duration::from_millis(1000));
     assert_eq!(SERVER_ATTN_SWEEP_EVERY, s(1));
     assert_eq!(GIT_WATCH_ROUND_EVERY, Duration::from_millis(1000));
-    assert_eq!(GIT_WATCH_WORKTREE_ROUNDS, 4);
+    assert_eq!(GIT_WATCH_FALLBACK_EVERY, s(4));
     assert_eq!(GIT_WATCH_BACKOFF_MAX, s(30));
     assert_eq!(SYSSTAT_SAMPLE_EVERY, s(2));
     assert_eq!(RUN_REAP_EVERY, s(15));

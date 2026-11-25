@@ -19,7 +19,7 @@ use crate::fs_search::{
     FS_GREP_MAX_LINE, FindHit, GREP_ENGINE_GO, GREP_ENGINE_RIPGREP, GrepMatch, find_files,
     grep_with_go, grep_with_ripgrep, look_ripgrep, parse_ripgrep_json,
 };
-use crate::fs_watch::{FS_WATCH_DIRS_MAX, fs_changed_args, git_worktree_rounds};
+use crate::fs_watch::{FS_WATCH_DIRS_MAX, fs_changed_args};
 use crate::fs_zip::{ZIP_MAX_CONCURRENT, zip_download_name, zip_many_name};
 use crate::routes::API_ROUTES;
 use crate::{Deps, Server};
@@ -635,25 +635,6 @@ fn fs_changed_args_shape() {
         r#"{"overflow":true}"#
     );
     assert_eq!(fs_changed_args(&[], false).to_string(), r#"{"changes":[]}"#);
-}
-
-/// V-ELR-35 (FR-ELR-76).
-#[test]
-fn git_worktree_rounds_table() {
-    for (blob, want) in [
-        ("{}", 4),
-        ("", 4),
-        ("not json", 4),
-        (r#"{"gitWorktreeInterval":4000}"#, 4),
-        (r#"{"gitWorktreeInterval":1000}"#, 1),
-        (r#"{"gitWorktreeInterval":2500}"#, 3),
-        (r#"{"gitWorktreeInterval":30000}"#, 30),
-        (r#"{"gitWorktreeInterval":500}"#, 4),
-        (r#"{"gitWorktreeInterval":60000}"#, 4),
-        (r#"{"gitWorktreeInterval":"x"}"#, 4),
-    ] {
-        assert_eq!(git_worktree_rounds(blob.as_bytes()), want, "{blob}");
-    }
 }
 
 // ── zip ───────────────────────────────────────────────────────────────────────────

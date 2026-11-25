@@ -52,6 +52,8 @@ impl GitWatcher {
             return;
         }
         // 첫 표명은 기준선을 함께 받는다 — 브라우저가 방금 받은 관측이다.
+        g.watch_ids += 1;
+        let id = g.watch_ids;
         let e = Entry {
             last_mark: mark,
             seen_at: now,
@@ -59,6 +61,9 @@ impl GitWatcher {
             last_sig: obs.signature.value.clone(),
             has_sig: !obs.signature.value.is_empty(),
             phase: phase_hash(repo),
+            fallback: true,
+            tree: None,
+            watch_id: id,
             held: hold,
             pend: WatchPend::default(),
             fails: 0,
@@ -68,6 +73,9 @@ impl GitWatcher {
         self.evict_locked(&mut g, now);
         let f = g.on_baseline.clone();
         drop(g);
+        self.watch_tree(repo, id);
+        // 대상이 0 이었으면 회차 주체가 잠들어 있다 (D-61).
+        self.wake.notify_one();
         if let Some(f) = f {
             f(repo);
         }

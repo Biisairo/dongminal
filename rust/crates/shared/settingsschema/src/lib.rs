@@ -18,11 +18,13 @@ pub use theme::CUSTOM_THEME_KEY;
 /// `agentsPollInterval`: 활동이 채널 토픽으로 와서 주기가 없어졌다 (PERF_OPTIMIZATION_SRS M1 C6).
 /// `gitConsoleInterval`: Console 기록이 `gitconsole` 토픽으로 와서 주기가 없어졌다 (PERF 1.9).
 /// `gitStatusInterval`·`gitReposInterval`: git 관측 실패 재시도 간격만 남아 상수가 됐다 (PERF 1.15).
+/// `gitWorktreeInterval`: 작업 트리 변화는 서버의 파일 감시가 알린다 (PERF 4.9, D-61).
 pub const RETIRED_KEYS: &[&str] = &[
     "agentsPollInterval",
     "gitConsoleInterval",
     "gitStatusInterval",
     "gitReposInterval",
+    "gitWorktreeInterval",
 ];
 
 /// 원천 파일의 임베드 안 경로다.

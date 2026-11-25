@@ -630,8 +630,6 @@ I18N.register('ko', {
   'err.telegram_no_token': '먼저 봇 token 을 저장하세요.',
 
   // ── poll ──
-  'poll.git_worktree.hint': '서버가 작업 트리의 git 변화를 확인하는 주기. 화면에 펼친 폴더의 변화는 파일 감시가 곧바로 알리고, 이 주기는 접힌 폴더 안의 변화를 맡습니다. Windows 는 파일 감시를 하지 않으므로 모든 변화를 이 주기로 확인합니다.',
-  'poll.git_worktree.label': 'git 작업 트리',
   'poll.stats.hint': '하단 상태바의 CPU·메모리·지연',
   'poll.stats.label': '시스템 통계',
 
