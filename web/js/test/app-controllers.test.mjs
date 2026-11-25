@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { runInContext } from 'node:vm';
 
 import { repoLoadOrder } from '../../../scripts/bundles-def.mjs';
-import { BASE, EDITOR, FOCUS, GIT, LAYOUT, PANELS, REPO_WIN, SCREENS_LOADED, SETTINGS, SLOTS, TOOL, WS_SYNC, controllers, load, plain } from './harness.mjs';
+import { BASE, EDITOR, FOCUS, GIT, LAYOUT, MOBILE, PANELS, REPO_WIN, SCREENS_LOADED, SETTINGS, SLOTS, TOOL, WS_SYNC, controllers, load, plain } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_APPCTL_SRS — App mixin 을 주제별 `Controller` 로 (단계 9).
@@ -536,8 +536,7 @@ const DELEGATES_9C = {
 };
 
 const FILES_9C = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js', 'core/chat-window-open.js',
-  'core/agents-controller.js', 'core/agents-sub.js', 'core/activity-list.js', 'core/mobile-controller.js', 'core/mobile-sheets.js',
-  'core/mobile-nav.js'];
+  'core/agents-controller.js', 'core/agents-sub.js', 'core/activity-list.js', ...MOBILE];
 
 function load9c(globals = {}) {
   return load([...BASE, ...PANELS, ...FILES_9C], {
@@ -575,7 +574,8 @@ test('TC-FEA-1(9c): App 생성자가 컨트롤러를 만든다', () => {
   const src = read('core/app.js');
   const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
   for (const line of ['this.chat=new ChatController(this);', 'this.agents=new AgentsController(this);',
-    'this.mobile=new MobileController(this);']) assert.ok(ctor.includes(line), line);
+    // PERF 3.4.12.8: App 은 부팅 쪽 껍데기를 든다 — 본체(MobileController)는 mobile 묶음이 실린 뒤 껍데기가 바꾼다.
+    'this.mobile=new MobileShell(this);']) assert.ok(ctor.includes(line), line);
 });
 
 test('TC-DLG-1(DL-6): 9c 의 옛 위임자 이름은 App 원형에 없고 소유 클래스 원형의 메서드다', () => {

@@ -38,7 +38,7 @@ test('동기 몫과 부팅에 남기는 파일은 부팅 묶음에 있다', () =
 
 test('settings 는 chat 을 needs 로 싣는다 (edges-mesh-view 가 망 그림 계산을 쓴다)', () => {
   const src = readFileSync(join(ROOT, 'web', 'js', 'core', 'settings-controller.js'), 'utf8');
-  assert.match(src, /Screens\.register\('settings',\s*\{\s*needs:\s*\['chat'\]\s*\}\)/);
+  assert.match(src, /Screens\.register\('settings',\s*\{\s*needs:\s*\[[^\]]*'chat'[^\]]*\]\s*\}\)/);
 });
 
 test('addon-webgl 은 터치 기기(pointer: coarse)가 아닐 때만 vendor 자리에서 동기로 쓴다', () => {

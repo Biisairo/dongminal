@@ -664,6 +664,7 @@ test('V-RUN-1 (FR-RUN-2): 단일 슬롯의 점프는 종전과 같다', async ({
 // 좌표는 자리라 앞의 탭이 닫히면 뒤의 것이 밀린다.
 test('V-RUN-4 (FR-RUN-6a): uuid 로 지목한 탭이 닫힌다', async ({ page }) => {
   await waitForInit(page);
+  await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
   const got = await page.evaluate(async () => {
     const a = (window as any).app;
     await a.layout.tabAdd.addTab();
@@ -685,6 +686,7 @@ test('V-RUN-4 (FR-RUN-6a): uuid 로 지목한 탭이 닫힌다', async ({ page }
 test('V-RUN-4 (FR-RUN-6b): 없는 자리를 지목한 closeTab 은 아무것도 닫지 않는다',
   async ({ page }) => {
     await waitForInit(page);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     const got = await page.evaluate(async () => {
       const a = (window as any).app;
       const before = (a.testing.aw().layout.tabs || []).map((t: any) => t.id);

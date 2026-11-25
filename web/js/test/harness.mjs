@@ -58,7 +58,7 @@ export const BASE = ['core/base/component.js', 'core/base/view.js', 'core/base/c
  * 패널과 탭 줄 — `web/bundles.txt` 의 순서다 (REFACTOR3_FE_BASE_SRS FR-FEB-20~25). `BASE` 뒤에 싣는다.
  * 부모(`Panel`·`TabBar`)가 하위보다 먼저다.
  */
-export const PANELS = ['ui/panel.js', 'ui/tab-bar.js', 'ui/sidebar-tab-bar.js', 'ui/sidebar-panel.js', 'ui/drawer-sheet.js',
+export const PANELS = ['ui/panel.js', 'ui/tab-bar.js', 'ui/sidebar-tab-bar.js', 'ui/sidebar-panel.js',
   'core/activity-tab-bar.js', 'core/activity-panel.js'];
 
 /**
@@ -115,7 +115,9 @@ export const AGENTS = ['core/agents-controller.js', 'core/agents-sub.js', 'core/
  */
 export const SCREENS_LOADED = Object.freeze({ register() {}, ready: () => true, load: () => Promise.resolve() });
 export const CHAT = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js', 'core/chat-window-open.js'];
-export const MOBILE = ['core/mobile-controller.js', 'core/mobile-sheets.js', 'core/mobile-nav.js'];
+// 부팅의 껍데기(mobile-shell.js)와 mobile 묶음의 본체 (PERF 3.4.12.8). 본체가 껍데기를 잇고 서랍이 Panel 을 이으므로 `PANELS` 뒤에 싣는다.
+// `core/screens.js` 가 앞이다 — 껍데기가 로드 시점에 묶음을 등록한다.
+export const MOBILE = ['core/screens.js', 'core/mobile-shell.js', 'ui/drawer-sheet.js', 'core/mobile-controller.js', 'core/mobile-sheets.js', 'core/mobile-nav.js'];
 // `core/screens.js` 가 앞이다 — git-controller.js 가 로드 시점에 git 화면을 등록한다 (PERF 3.4.6).
 export const GIT = ['core/screens.js', 'core/git-repos-list.js', 'core/git-topics.js', 'core/git-controller.js', 'core/git-surfaces.js', 'core/git-sync.js'];
 export const WS_SYNC = ['core/ws-sync-controller.js', 'core/ws-save-controller.js', 'core/soft-reload.js'];
@@ -123,7 +125,8 @@ export const FOCUS = ['core/focus-controller.js', 'core/focus-highlight.js', 'co
 export const SLOTS = ['core/slots-controller.js', 'core/slot-ops.js'];
 export const LAYOUT = ['core/layout-controller.js', 'core/layout-tab-add.js', 'core/layout-tab-ops.js', 'core/layout-window-state.js',
   'core/layout-dock.js', 'core/layout-tab-reopen.js', 'core/layout-dnd.js', 'core/layout-dnd-move.js', 'core/layout-groups.js'];
-export const TOOL = ['core/tool-cmd.js', 'core/tool-controller.js', 'core/tool-life.js', 'core/tool-work.js', 'core/tool-search.js'];
+export const TOOL = ['core/screens.js', 'core/tool-cmd.js', 'core/tool-cmd-remote.js', 'core/tool-controller.js', 'core/tool-life.js', 'core/tool-work.js', 'core/tool-search.js',
+  'core/tool-search-bar.js'];
 export const EDITOR = ['core/screens.js', 'core/editor-controller.js', 'core/editor-sync.js', 'core/editor-open.js', 'core/editor-doc.js',
   'core/editor-pane.js', 'core/editor-watch.js', 'core/editor-file.js', 'core/editor-section.js', 'core/editor-doc-render.js',
   'core/editor-search.js'];

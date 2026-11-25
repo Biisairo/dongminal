@@ -939,12 +939,9 @@
 <script src="vendor/addon-fit.js"></script>
 <script src="vendor/addon-web-links.js"></script>
 <script src="vendor/addon-unicode11.js"></script>
-<script src="vendor/addon-search.js"></script>
 <!-- 터치 기기(pointer: coarse)는 WebGL 을 쓰지 않으므로(term-gpu.js `_gpuWant`, D-TGR-6) addon-webgl 을 받지 않는다.
      데스크톱은 종전 자리에서 동기로 받는다 — 첫 페인트 직후 붙인다(PERF D-40·D-47). -->
 <script>if(!(window.matchMedia&&matchMedia('(pointer: coarse)').matches)){var webglSrc='vendor/addon-webgl.js';document.write('<script src="'+webglSrc+'"><\/script>')}</script>
-<script src="vendor/markdown-it.js"></script>
-<script src="vendor/purify.js"></script>
 <!-- 앱 스크립트는 묶음으로 싣는다 (PERF D-29). 무엇을 어떤 순서로 잇는지는 web/bundles.txt 가
      정한다 — 순서 계약과 그 이유도 그 파일에 있다. b/pre.js 맨 앞이 error-log.js 다. -->
 <script src="b/pre.js?v=__ASSETV__"></script>

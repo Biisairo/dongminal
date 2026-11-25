@@ -219,7 +219,7 @@ Object.assign(LspClient.prototype, {
         // 갱신 도중에 불린다 — 그리기는 그 뒤로 미룬다.
         joined:(path)=>queueMicrotask(()=>edLspDiagShow(bufOf(path),lspDiagOn)),
         // FR-CMR-94: hover Markdown 은 DOMPurify 를 지난다.
-        sanitizeHTML:(html)=>DOMPurify.sanitize(html),
+        sanitizeHTML:(html)=>Screens.ready('mdlib')?DOMPurify.sanitize(html):'',
         extensions:[CM.hoverTooltips(),edLspDiagnostics({bufOf,on:()=>lspDiagOn})],
       });
       this._lspConns.set(key,c);

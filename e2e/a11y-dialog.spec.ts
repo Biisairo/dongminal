@@ -286,6 +286,7 @@ test.describe('접근성 — 버튼 줄의 화살표 이동 (FR-A11Y-30)', () =>
   async function openDialog(page: Page) {
     // classic script 의 최상위 `const` 는 `window` 에 붙지 않는다 — 이름으로
     // 직접 부른다 (`slot-title-boundary.spec.ts` 가 `THEMES` 를 쓰는 것과 같다).
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate(() => OpenUrl.handle('https://example.com/'));
     await expect(page.locator('.ui-modal-foot .ui-btn').first()).toBeVisible({ timeout: 10000 });
   }

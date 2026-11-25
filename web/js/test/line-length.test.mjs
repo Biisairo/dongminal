@@ -6,12 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 /**
  * REFACTOR3_FE_REST2_SRS FR-FR2-10·11 · TC-FR2-4 (FC-18): `web/js` 의 줄은 코드포인트 198 이하다.
- * `i18n/`(데이터)·`test/`·`vendor/`(남의 코드)·`ui/themes.js`(테마 데이터)는 세지 않는다. 기준은 D-FR2-10.
+ * `i18n/`(데이터)·`test/`·`vendor/`(남의 코드)·`ui/themes.js`·`ui/themes-catalog.js`(테마 데이터)는 세지 않는다. 기준은 D-FR2-10.
  */
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const LIMIT = 198;
 const SKIP_DIRS = new Set(['i18n', 'test', 'vendor']);
-const SKIP_FILES = new Set(['ui/themes.js']);
+const SKIP_FILES = new Set(['ui/themes.js', 'ui/themes-catalog.js']);
 
 function* jsFiles(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {

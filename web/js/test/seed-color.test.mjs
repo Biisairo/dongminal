@@ -6,7 +6,7 @@ import { load } from './harness.mjs';
 /**
  * THEME_SEED_COLOR_SRS: 메인색 하나로 테마 전체를 그 방향으로 계산한다.
  */
-const ctx = load(['core/contrast.js', 'ui/themes.js', 'core/theme-vars.js'], {
+const ctx = load(['core/contrast.js', 'ui/themes.js', 'ui/themes-catalog.js', 'core/theme-vars.js'], {
   globals: { TOPTS: {}, t: (k) => k },
   expose: ['THEMES', 'SEED_MIN_CHROMA', 'SEED_HARMONY_MAX', 'SEED_THEME_UI_KEYS', 'SEED_THEME_TERM_KEYS',
     'SEED_MEANING_TERM_KEYS'],

@@ -37,6 +37,8 @@ const CASES = [
   ['core/ws-save-controller.js', '  save(){'],
   ['core/app.js', '  async init(){'],
   ['core/tool-cmd.js', '  _execRemote(action, args){'],
+  // PERF 3.4.12.5: 옛 `_execRemote` 의 본문은 `remote` 묶음의 `_execRemoteNow` 다.
+  ['core/tool-cmd-remote.js', '  _execRemoteNow(action, args){'],
   ['core/mobile-controller.js', '  initMobileKeybar('],
   ['core/ws-sync-controller.js', '  _applyRemoteWorkspace('],
   ['core/ws-save-controller.js', '  async _saveAdoptRemote('],

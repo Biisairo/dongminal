@@ -502,7 +502,7 @@ test('FR-CAC-91·92: 전환·다음 계정·새로 고침은 서버 종단을 �
 // ── 계정 색 (FR-CAC-98) ──
 
 test('FR-CAC-98: 계정 색 8개는 모드별 고정 팔레트이고, 54종 전부의 표면에서 3:1 을 넘는다', () => {
-  const ctx = load(['core/contrast.js', 'ui/themes.js'], { globals: { TOPTS: {} }, expose: ['THEMES', 'CONTRAST_FLOORS'] });
+  const ctx = load(['core/contrast.js', 'ui/themes.js', 'ui/themes-catalog.js'], { globals: { TOPTS: {} }, expose: ['THEMES', 'CONTRAST_FLOORS'] });
   const keys = Array.from({ length: 8 }, (_, i) => '--acct-' + (i + 1));
   const dark = plain(ctx.deriveAccountColors('dark'));
   const light = plain(ctx.deriveAccountColors('light'));

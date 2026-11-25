@@ -104,6 +104,10 @@ const Screens={
   },
 };
 
+// markdown-it·DOMPurify (PERF 3.4.12.2, D-43). 맨 도메인 링크·CM 뷰·문서 렌더가 함께 쓰는 라이브러리 묶음이다.
+Screens.register('mdlib');
+// CM 공용 층·코드 탐색 (PERF 3.4.12.7, D-44). loadCodeMirror 가 CM vendor 와 나란히 싣고, editor·git 이 needs 로 먼저 싣는다.
+Screens.register('cm',{needs:['mdlib']});
 // 사용자 동작 부품의 본체 (PERF 3.4.12.10, D-47). 끌어 놓기의 옮기기·주의 센터 그리기·경로 후보·터미널 올리기/내려받기 —
 // 부팅 껍데기의 자리표시가 처음 불릴 때(`Screens.call`) 싣는다.
 Screens.register('uiact');

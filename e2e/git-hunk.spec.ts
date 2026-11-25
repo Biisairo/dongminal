@@ -550,8 +550,11 @@ test.describe('묶음 S — 편집기 선택으로 고르는 줄 범위', () => 
 test.describe('묶음 S — 좌표 사상 (연결)', () => {
   // V-DHB-13: 순수 함수의 사상은 `web/js/test/hunk-coords.test.mjs` 가 잰다 (scan·짝·삭제만·
   // no-newline·좁힌 좌표). 여기는 브라우저가 그 `core/hunk-coords.js` 를 싣고 Diff 탭과 편집기
-  // 두 경로가 같은 전역을 쓰는지만 본다.
-  test.beforeEach(async ({ page }) => { await waitForInit(page) });
+  // 두 경로가 같은 전역을 쓰는지만 본다. 그 전역은 cm 묶음에 있다 — 먼저 싣는다 (PERF 3.4.12.7).
+  test.beforeEach(async ({ page }) => {
+    await waitForInit(page);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('cm'));
+  });
 
   const H = {
     index: 0, header: '@@ -1,8 +1,8 @@', oldStart: 1, oldLines: 8, newStart: 1, newLines: 8,

@@ -2,10 +2,10 @@
  * Remote Terminal — App 모바일 시트 (MOBILE_UX_OVERHAUL_SRS)
  *
  * 모바일의 전체 높이 시트(서랍·Activity·설정)가 하단 크롬과 맞물리는 규칙, 설정의
- * 목록 → 상세, 길게 누르기 → 컨텍스트 메뉴. `MobileController` 의 `initMobile` 이
+ * 목록 → 상세, 길게 누르기 → 컨텍스트 메뉴. `MobileController` 의 `_mobileBind` 가
  * `_initMobileSheets` 를 부른다. 설정의 두 화면(`_initSettingsMobile`)은 설정 창을 처음 열 때 모달 뒤에 선다(PERF D-41).
  * `MobileSheets` 는 `MobileController` 의 부품이다(`mobile.sheets`, REFACTOR3_FE_APPCTL_SRS 9c).
- * mobile-controller.js 뒤, main.js 앞에 로드된다.
+ * mobile 묶음에서 mobile-controller.js 뒤에 실린다 (PERF 3.4.12.8).
  */
 class MobileSheets extends Controller {
   /**

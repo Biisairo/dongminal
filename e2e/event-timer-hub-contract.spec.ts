@@ -33,6 +33,8 @@ const WEB = join(process.cwd(), 'web', 'js');
 const API_JS = join(WEB, 'core', 'api.js');
 // REFACTOR3_FE_APPCTL_SRS 9j: 원격 커맨드는 `ToolController` 의 부품 `ToolCmd`(옛 `app-cmd.js`)이고 App 원형에는 위임자가 선다.
 const TOOL_CMD_JS = join(WEB, 'core', 'tool-cmd.js');
+// PERF 3.4.12.5: 그 껍데기는 로드 시점에 `remote` 묶음을 등록한다 — 등록부가 앞이다.
+const SCREENS_JS = join(WEB, 'core', 'screens.js');
 // SSE 배선(`_subscribeCommands`)과 `_sse` 껍데기는 `ws-sync-controller.js` 에 있다 (REFACTOR PROD2 §8).
 // REFACTOR3_FE_APPCTL_SRS 9f: 그 본체는 `WsSyncController`(부품 `SoftReload`)이고 App 원형에는 위임자가 선다.
 // 기반(`Component` → `Controller`)을 앞에 싣고, 대역을 만든 뒤 `wsSync` 를 세운다.
@@ -113,6 +115,7 @@ async function loadRestoreProtocol(page: Page) {
   await page.addScriptTag({ path: API_JS });
   await page.addScriptTag({ path: COMPONENT_JS });
   await page.addScriptTag({ path: BASE_CONTROLLER_JS });
+  await page.addScriptTag({ path: SCREENS_JS });
   await page.addScriptTag({ path: TOOL_CMD_JS });
   await page.addScriptTag({ path: APP_WS_SYNC_JS });
   await page.addScriptTag({ path: SOFT_RELOAD_JS });

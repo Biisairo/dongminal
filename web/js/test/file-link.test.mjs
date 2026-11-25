@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { CONSTANTS, load, fakeClock, plain } from './harness.mjs';
+import { CONSTANTS, SCREENS_LOADED, load, fakeClock, plain } from './harness.mjs';
 
 /**
  * `web/js/ui/file-link.js` — 터미널 출력의 파일 경로 링크 (UX_BATCH11_SRS FR-FPL).
@@ -15,6 +15,7 @@ function ctxWith(api) {
     clock,
     globals: {
       atob,
+      Screens: SCREENS_LOADED,
       apiPost: async (path, body) => { calls.push({ path, body: plain(body) }); return api(body) },
     },
   });

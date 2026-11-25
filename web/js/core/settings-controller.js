@@ -269,5 +269,8 @@ class SettingsController extends Controller {
 
 
 // PERF D-41: 설정 창 본체는 `settings` 묶음이다. 탭이 아니라 모달이라 `tab` 이 없다 — `ready` 가 싣는다.
-// 설정 ▸ Edges 의 망 그림이 `chat` 묶음의 `edges-mesh.js` 를 쓰므로 그것을 먼저 싣는다 (PERF 3.4.12.10, D-47).
-Screens.register('settings',{needs:['chat']});
+// PERF 3.4.12.6: 테마 목록이 카탈로그 전부를 그리므로 `themes`(라이브러리 묶음)를 먼저 싣는다.
+// PERF 3.4.12.8: 설정 ▸ Terminal 의 키바 구성이 keybar.js(`keybar` 라이브러리 묶음)를 쓴다.
+// PERF 3.4.12.10: 설정 ▸ Edges 의 망 그림이 `chat` 묶음의 `edges-mesh.js` 를 쓴다(D-47).
+Screens.register('themes');
+Screens.register('settings',{needs:['themes','keybar','chat']});
