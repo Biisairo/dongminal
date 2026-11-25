@@ -39,6 +39,7 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         get("/api/tools/activity", h!(api_tools_activity)),
         // 에이전트 접합면 (SKILL_INJECTION_SRS FR-API-1/2/3).
         get("/api/tools/output", h!(api_tool_output)),
+        get("/api/tools/search", h!(api_tool_search)),
         post("/api/tools/input", h!(api_tool_input)),
         post("/api/tools/message", h!(api_tool_message)),
         get("/api/tools/background", h!(api_tools_background)),

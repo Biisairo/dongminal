@@ -28,6 +28,8 @@ class TerminalTool {
     // `_seqLive` 가 따로 있는 이유: 재생분(스냅샷·델타)은 좌표 통보 **앞에** 오므로
     // 세면 안 된다 (FR-TRS-8). 통보를 받은 뒤의 OpOutput 만이 라이브 PTY 바이트다.
     this._seq=-1; this._seqLive=false;
+    // PERF D-21: 마지막 스냅숏에 실린 가장 오래된 기록 줄의 절대 번호. 그 앞은 데몬 저장소에서 찾는다. -1 은 모른다.
+    this._firstLine=-1;
     // TERM_REPLY_SEAT_SRS FR-RPS-9: **통보를 받기 전에는 주인이다.** 좌석을 모르는
     // 서버에 붙은 탭은 종전 그대로 돌아야 하고, 그때의 최악은 **종전 동작**이다.
     this._replySeat=true;
@@ -245,6 +247,7 @@ class TerminalTool {
     this._seqLive=true;
     const flag=p[8];
     this._srvAlt=!!(flag&SEQ_FLAG_ALT); if(flag&SEQ_FLAG_FULL) this._widthDebt=false;   // FR-OTR-3·9
+    if(flag&SEQ_FLAG_SNAP&&p.length>=17) this._firstLine=dv.getUint32(9,false)*4294967296+dv.getUint32(13,false);
     if(flag&SEQ_FLAG_SNAP&&p.length>17){
       const cwd=dec.decode(p.subarray(17));
       if(cwd!==this._cwd) this.output._onCwd(cwd);

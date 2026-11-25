@@ -55,6 +55,13 @@ pub(crate) struct FakeHub {
     pub(crate) screen_calls: AtomicUsize,
     /// `screen_tool` 이 답하기 전에 기다리는 시간 — 동시 깨움을 겹치게 한다.
     pub(crate) screen_delay: Duration,
+    /// `seat_tool` 을 부른 차례 (도구, 쥠, 그때 구독이 있었는가).
+    pub(crate) seats: Mutex<Vec<(String, bool, bool)>>,
+    /// `seat_tool` 의 답 — 데몬이 마지막으로 답한 끝 오프셋.
+    pub(crate) replied_end: i64,
+    /// `search_tool` 이 받은 인자와 그 답.
+    pub(crate) searches: Mutex<Vec<otter_shared_toolipc::SearchParams>>,
+    pub(crate) search_hits: Mutex<Vec<otter_shared_toolipc::SearchHit>>,
     pub(crate) inputs: Mutex<Vec<(String, Vec<u8>)>>,
     pub(crate) resizes: Mutex<Vec<(String, u16, u16)>>,
     /// 데몬이 hello 에서 말한 판 (Go `infoHub`).
@@ -120,6 +127,27 @@ impl ToolHub for FakeHub {
             .get(id)
             .cloned()
             .unwrap_or_default())
+    }
+    fn seat_tool(&self, id: &str, held: bool) -> Result<i64, ToolError> {
+        if !self.has(id) {
+            return Err(ToolError::NotFound(format!("tool {id} not found")));
+        }
+        let subscribed = self.subs.lock().unwrap().contains_key(id);
+        self.seats
+            .lock()
+            .unwrap()
+            .push((id.to_owned(), held, subscribed));
+        Ok(self.replied_end)
+    }
+    fn search_tool(
+        &self,
+        p: &otter_shared_toolipc::SearchParams,
+    ) -> Result<Vec<otter_shared_toolipc::SearchHit>, ToolError> {
+        if !self.has(&p.id) {
+            return Err(ToolError::NotFound(format!("tool {} not found", p.id)));
+        }
+        self.searches.lock().unwrap().push(p.clone());
+        Ok(self.search_hits.lock().unwrap().clone())
     }
     fn daemon_info(&self) -> DaemonInfo {
         self.daemon.clone()

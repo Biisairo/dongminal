@@ -60,6 +60,15 @@ impl ToolHub for Hub {
     fn screen_tool(&self, id: &str, history: usize) -> Result<ToolScreen, ToolError> {
         self.0.screen_tool(id, history).map_err(tool_err)
     }
+    fn seat_tool(&self, id: &str, held: bool) -> Result<i64, ToolError> {
+        self.0.seat_tool(id, held).map_err(tool_err)
+    }
+    fn search_tool(
+        &self,
+        p: &otter_shared_toolipc::SearchParams,
+    ) -> Result<Vec<otter_shared_toolipc::SearchHit>, ToolError> {
+        self.0.search_tool(p).map_err(tool_err)
+    }
     fn daemon_info(&self) -> DaemonInfo {
         self.0.daemon_info()
     }

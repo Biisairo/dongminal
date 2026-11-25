@@ -295,6 +295,51 @@ pub(crate) fn screen(c: &Conn, req: &PanedRequest) -> Line {
     )
 }
 
+/// 답장 좌석을 쥐고 놓는다(D-23). 없는 도구는 screen 과 같이 CODE_NOT_FOUND 다.
+pub(crate) fn seat(c: &Conn, req: &PanedRequest) -> Line {
+    let p: ipc::SeatParams = match decode(req) {
+        Ok(p) => p,
+        Err(l) => return l,
+    };
+    let Some(replied_end) = c.hold_seat(&p.id, p.held) else {
+        return err_msg(
+            req.id,
+            ipc::CODE_NOT_FOUND,
+            &ManagerError::NotFound.to_string(),
+        );
+    };
+    ok(req.id, &ipc::SeatResult { replied_end })
+}
+
+/// 줄 저장소 검색이다(D-21). 깨진 정규식은 CODE_INVALID_PARAMS, 없는 도구는 CODE_NOT_FOUND 다.
+pub(crate) fn search(c: &Conn, req: &PanedRequest) -> Line {
+    let p: ipc::SearchParams = match decode(req) {
+        Ok(p) => p,
+        Err(l) => return l,
+    };
+    let q = match otter_shared_toolhub::Query::new(&p.pattern, p.regex, p.case, p.word) {
+        Ok(q) => q,
+        Err(e) => return err_msg(req.id, ipc::CODE_INVALID_PARAMS, &e.to_string()),
+    };
+    let limit = p.limit.clamp(1, ipc::SEARCH_LIMIT_MAX);
+    let Some(hits) = c.pm.search_tool(&p.id, &q, p.before, limit) else {
+        return err_msg(
+            req.id,
+            ipc::CODE_NOT_FOUND,
+            &ManagerError::NotFound.to_string(),
+        );
+    };
+    let hits = hits
+        .into_iter()
+        .map(|h| ipc::SearchHit {
+            col: h.col,
+            line: h.line,
+            text: h.text,
+        })
+        .collect();
+    ok(req.id, &ipc::SearchResult { hits })
+}
+
 pub(crate) fn cwd(c: &Conn, req: &PanedRequest) -> Line {
     match decode::<ipc::IdParams>(req) {
         Ok(p) => ok(
