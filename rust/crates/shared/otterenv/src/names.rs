@@ -33,6 +33,8 @@ pub const ENV_ATTENTION_IDLE_MS: &str = "OTTERMINAL_ATTENTION_IDLE_MS";
 pub const ENV_ATTENTION_BELL: &str = "OTTERMINAL_ATTENTION_BELL";
 /// 커맨드 결과 long-poll 의 상한(ms) (NFR-RCR-1).
 pub const ENV_CMD_RESULT_TIMEOUT_MS: &str = "OTTERMINAL_CMD_RESULT_TIMEOUT_MS";
+/// 출력이 이만큼(ms) 없으면 도구의 에뮬레이터 기록을 줄 저장소로 옮겨 비운다(PERF D-50). 검사용 덮어쓰기다.
+pub const ENV_SCREEN_IDLE_COMPACT_MS: &str = "OTTERMINAL_SCREEN_IDLE_COMPACT_MS";
 
 // 홈(`$OTTERMINAL_HOME`) 바로 아래 이름들 (FR-OPT-10-2). 값은 디스크의 계약이다.
 pub const WORKSPACE_FILE: &str = "workspace.json";

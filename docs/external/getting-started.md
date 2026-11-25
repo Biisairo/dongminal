@@ -369,6 +369,7 @@ CI 가 잡습니다 (`scripts/check-env-docs.sh`) — 문서는 조용히 낡으
 | `OTTERMINAL_ATTENTION_IDLE_MS` | `10000` | 도구가 이만큼 조용하면 "대기" 로 봅니다(L2 판정). `0` 이면 그 판정을 끕니다 |
 | `OTTERMINAL_ATTENTION_BELL` | (꺼짐) | `1` 이면 맨 BEL(`\a`) 하나도 주의 신호로 셉니다. 기본이 꺼짐인 것은 BEL 이 시끄럽기 때문입니다 — 탭 자동완성 하나에도 울립니다 |
 | `OTTERMINAL_CMD_RESULT_TIMEOUT_MS` | `3000` | 명령 결과를 기다리는 long-poll 상한 |
+| `OTTERMINAL_SCREEN_IDLE_COMPACT_MS` | `300000` | 터미널 출력이 이만큼 멈추면 데몬이 그 터미널의 화면 위 기록을 압축한 줄 저장소로 옮겨 메모리를 줄입니다. 검사에서 시간을 당길 때 씁니다 |
 | `OTTERMINAL_URL_OPEN` | (자동 판정) | `local` 또는 `viewer`. 서버가 URL 을 **어디서** 열지의 판정을 강제합니다 |
 
 ### 빌드
