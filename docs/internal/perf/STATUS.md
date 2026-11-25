@@ -1,16 +1,19 @@
 # 최적화 진행 상태 (2026-11-24)
 
-## 지금 상태 (2026-11-25 아침, 조정 세션 → 다음 조정 세션)
+## 지금 상태 (2026-11-25 낮, 조정 세션 → 다음 조정 세션)
 
-- **조정자 탭 uuid**: 다음 세션이 `otterctl who-am-i` 로 새로 얻는다(이전 358d08c3).
-- **main**: `7a2c81d0` = perf-m1 1차 병합(abbcedd6, origin push 됨) + 1.20 fd 상한 cherry-pick(push 안 함). 운영 바이너리는 다시 빌드하지 않았다(사용자가 직접).
-- **M1**: 1.1~1.21 모두 done. 1.17 명령 펌프 결함 수정, 1.18 SSE 잔재 삭제, 1.19 보안 확인(우회 없음), 1.20 RLIMIT_NOFILE(Go 처럼 시작 때 올리고 자식에 원래 값), 1.21 게이트 실패 0.
-- **M2**: 2.2~2.9(하위 포함) 모두 done. **2.10** 진행 중 — 문서 정합(`perf/M2_DOC_SYNC.md`, 2026-11-25 사용자 결정으로 61건 전부 코드 기준으로 고침)을 끝냈다. Rust workspace 전체 시험·e2e 전량·재측정은 아직이다.
-- **M3**: 3.1~3.3·3.4.1~3.4.5·3.5.1~3.5.3·3.6.1·3.6.3·3.6.4·3.7·3.8 done. 남은 것: **3.6.2**(A안 확정, 착수 블록 /private/tmp/pf3.6.2/HANDOFF-A.md·이슈 진행 기록), **3.4.6~3.4.9** 화면 묶음(병렬, check-lazy-boundary 가 경계를 잡는다 — git 이동 시 17건 예상), **3.5.4** 브라우저 탭 숨김 규칙, 그 뒤 3.4.10(조건부)·3.4.11.
-- **M4**: todo. otter-webserver-sse crate 이름 정리(사용자 결정)가 이슈 4 진행 기록에 있다.
-- 통합 브랜치 perf-m1 상태: 프론트 단위 1763/1763, tsc, load-order 291, Rust 바꾼 crate lib·fmt·clippy 통과. check-css-vars 1건(2.8.3).
-- 전체 시험(Rust workspace·e2e 전량)은 마일스톤 끝에서 한 번만.
-- 문서 정합 대기 목록: 각 이슈 진행 기록의 "코드와 어긋난 문서"(CHANNEL_PROTOCOL §4.1·§4.2·§6·§10.2, M2_DESIGN §1~§2.9, M3_DESIGN 3.4.1·§3.6 67~74 ms, SPA_PROFILE §1·§2, EMULATOR §6·§8, TERMINAL_RESUME·TERMINAL_MODE_RESTORE, ACCESS_ALLOWLIST FR-ACL-11·12·REQUEST_GATE FR-RQG-11~13 의 /ws, EDITOR_LIVE_RELOAD FR-ELR-65, EDITOR_DIRTY_DIFF FR-EDD-50·51, CODEMIRROR_MIGRATION FR-CMR-53, EVENT_TIMER_HUB FR-SCH-15, GIT_WATCH_LEASE TC-GWL-11 등). 2.10·3.4.11 에서 사용자 확인 뒤 고친다. — **M1·M2 몫은 2.10 에서 고쳤다(`perf/M2_DOC_SYNC.md`). 남은 것은 M3 몫(3.4.11).**
+- **조정자 탭 uuid**: 다음 세션이 `otterctl who-am-i` 로 새로 얻는다(이전 673c9b37).
+- **main**: `7a2c81d0` 그대로(perf-m1 1차 병합 + 1.20 cherry-pick, push 안 함). 운영 바이너리는 다시 빌드하지 않는다.
+- **M1**: 1.1~1.21 모두 done.
+- **M2: 닫힘.** 2.2~2.10 모두 done. 2.10 은 사용자 지시로 **문서 정합만** 했다(`perf/M2_DOC_SYNC.md` 61건 전부 코드 기준, 커밋 cee4b45c·c7824299·9bd9ed65). Rust workspace 전체 시험·e2e 전량·재측정·SRS §7 M2 표는 하지 않았다 — 마일스톤 전체 시험은 다음에 M3 와 함께 정한다.
+  - 이번 세션 병합: 2.8.1 read-screen(`screentext` IPC), 2.8.3 검색 기준점, 2.8.4 검색 목록 게이트, 2.6 흐름 제어 스냅숏, 2.5.1 스냅숏 행 수 = termScrollback.
+- **M3**: 남은 것 **3.4.11**(M3 재측정·문서 정합) · **3.4.12**(부팅 코드 범위 재설계, todo — 설계는 사용자 확인 뒤). 나머지 모두 done.
+  - 이번 세션 병합: 3.5.4 탭 숨김(e2e 는 visibilitychange 흉내 — 사용자 수용), 3.6.2 부팅 GPU 지연(A안, **부팅 때만** — 사용자 결정), 3.4.6 git·3.4.7 editor·3.4.8 docrender·3.4.9.1 run·chat·3.4.9.2 settings 묶음(D-41), 3.4.10 주석·줄 끝 공백 걷기(A안, D-42, NFR-PRF-12 → 1.55 MB, 부팅 JS 2,505,579 → 1,543,764 B — 그 이상은 3.4.12).
+  - 구현 선택(조정자): 공용 CodeMirror 층·style-editor*.css·constants-editor.js 는 boot(3.4.7), markdown-it·DOMPurify 는 boot(3.4.8), D-31 유지(git 첫 열기 remote 0.35초).
+- **M4**: todo.
+- 통합 브랜치 perf-m1: 프론트 단위 1801/1801, tsc, eslint web/js 0건, scripts/check-* 전부 통과(check-api-docs 포함), Rust 바꾼 crate lib·fmt·clippy 통과.
+- 문서 정합 대기: M3 몫만 남음(각 3.* 이슈 진행 기록의 "코드와 어긋난 문서" — M3_DESIGN §3.4 묶음 표·크기, §3.6 `gpu:<id>`·기준선, D-M3-4·D-M3-7, bundles.txt 머리말, FE_MODULE_BOUNDARY §7.1 CSS 기준선 등, M2_DOC_SYNC §4 의 M3 겹침). 3.4.11 에서 사용자 확인 뒤.
+- 아직 묻지 않은 것: vendor 스크립트·CSS gzip 전송(3.4.2 발견), 2.4 의 작은 차이 5건 수용 여부, 마일스톤 전체 시험(Rust workspace·e2e 전량)을 언제 돌릴지.
 
 ## 사용자 지시 (2026-11-24)
 
