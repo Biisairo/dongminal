@@ -8,7 +8,7 @@ import { pageScripts, readBundles } from '../bundles-def.mjs';
 
 /**
  * PERF 3.4.12.3 (perf/M3_BOOT_SCOPE.md §3 `diag`): 진단 오버레이는 부팅 묶음 밖의 `[diag]` 묶음이다.
- * 페이지의 인라인 스크립트가 `?diag=1` 일 때만 `b/diag.js` 를 `b/boot.js` 바로 뒤에 쓴다.
+ * 페이지의 인라인 스크립트가 `?diag=1` 일 때만 `b/diag.js` 를 부팅 묶음 태그 바로 뒤에 쓴다.
  */
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const html = readFileSync(join(ROOT, 'web', 'index.html'), 'utf8');
