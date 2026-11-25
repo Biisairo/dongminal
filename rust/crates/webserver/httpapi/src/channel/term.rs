@@ -25,7 +25,8 @@ use crate::ws::{
     unix_nanos,
 };
 
-/// sid 하나에 밀린 바이트가 이보다 많으면 밀린 것을 버리고 다시 재생한다 (§6, 데몬 링 `BUF_MAX` 와 같다).
+/// sid 하나에 밀린 출력이 이보다 많아지면 밀린 출력을 버리고 화면 상태 스냅숏으로 다시 맞춘다 (§6, FR-TRM-6).
+/// 마지막으로 보낸 맞춤 프레임(스냅숏)은 이 상한 밖이다 — 스냅숏이 상한보다 커도 출력마다 다시 맞추지 않는다.
 pub(crate) const TERM_PENDING_MAX: usize = 1 << 20;
 /// 도구 구독 채널의 크기다.
 const OUTPUT_QUEUE: usize = 256;
@@ -348,9 +349,9 @@ impl Session {
                     og: self.og,
                 });
                 self.srv.seats.join(&tool, seat.clone()).await;
-                self.send(&sync);
+                let held = self.send(&sync);
                 self.ready(terms, ver, &tool);
-                let end = self.relay(&tool, rx, exit, sync.end()).await;
+                let end = self.relay(&tool, rx, exit, sync.end(), held).await;
                 self.srv.seats.leave(&tool, &seat).await;
                 end
             }
@@ -438,8 +439,8 @@ impl Session {
         }
     }
 
-    /// 화면을 맞추는 `OUTPUT` → 좌표 `SEQ`. 둘 사이에 다른 프레임을 끼우지 않는다.
-    fn send(&self, sync: &Sync) {
+    /// 화면을 맞추는 `OUTPUT` → 좌표 `SEQ`. 둘 사이에 다른 프레임을 끼우지 않는다. 넣은 바이트 수를 돌려준다.
+    fn send(&self, sync: &Sync) -> usize {
         match sync {
             Sync::Delta(s) => self.frames(
                 &replay_delta(&s.data),
@@ -449,29 +450,34 @@ impl Session {
         }
     }
 
-    fn frames(&self, payload: &[u8], seq: &[u8]) {
+    fn frames(&self, payload: &[u8], seq: &[u8]) -> usize {
+        let mut n = HEAD + seq.len();
         if !payload.is_empty() {
             self.out.push_term_as(self.og, OP_OUTPUT, self.sid, payload);
+            n += HEAD + payload.len();
         }
         self.out.push_term_as(self.og, OP_SEQ, self.sid, seq);
+        n
     }
 
-    /// 데몬에서 `since` 부터 다시 맞춘다. 새 보낸 끝을 돌려준다.
-    async fn resync(&self, tool: &str, since: i64) -> Result<i64, End> {
-        let sync = self.sync(tool, since).await?;
+    /// 화면 상태 스냅숏으로 다시 맞춘다 (FR-TRM-6). 새 보낸 끝과 넣은 바이트 수를 돌려준다.
+    async fn resync(&self, tool: &str) -> Result<(i64, usize), End> {
+        let r = self.srv.screens.get(&self.hub, tool).await;
+        let sync = Sync::Screen(self.verdict(tool, r).await?);
         self.size(&sync);
-        self.send(&sync);
-        Ok(sync.end())
+        let held = self.send(&sync);
+        Ok((sync.end(), held))
     }
 
-    /// 도구 출력을 이어 붙여 보낸다 (옛 `relay_output`). 틈이 생기거나 밀린 양이 상한을 넘으면
-    /// 이 sid 만 다시 맞춘다.
+    /// 도구 출력을 이어 붙여 보낸다 (옛 `relay_output`). 틈이 생기거나 밀린 출력이 상한을 넘으면
+    /// 이 sid 만 스냅숏으로 다시 맞춘다. `held` 는 마지막 맞춤 프레임의 바이트 수다.
     async fn relay(
         &self,
         tool: &str,
         mut rx: mpsc::Receiver<OutChunk>,
         exit: CancellationToken,
         mut sent: i64,
+        mut held: usize,
     ) -> End {
         let mut pending: Option<OutChunk> = None;
         let mut pending_closed = false;
@@ -510,8 +516,8 @@ impl Session {
                     chunk.end - chunk.data.len() as i64,
                     self.sid
                 );
-                match self.resync(tool, sent).await {
-                    Ok(end) => sent = end,
+                match self.resync(tool).await {
+                    Ok((end, n)) => (sent, held) = (end, n),
                     Err(end) => return end,
                 }
                 continue;
@@ -540,23 +546,24 @@ impl Session {
                     Err(mpsc::error::TryRecvError::Empty) => break,
                 }
             }
-            if !frame.is_empty() {
-                self.out.push_term_as(self.og, OP_OUTPUT, self.sid, &frame);
+            if frame.is_empty() {
+                continue;
             }
-            if self.out.term_state(self.sid).0 > TERM_PENDING_MAX {
-                self.out.drop_term(self.sid);
-                let since = self.out.term_state(self.sid).1.unwrap_or(-1);
+            if self.out.term_pending(self.sid) + HEAD + frame.len() > TERM_PENDING_MAX + held {
+                let dropped = self.out.drop_term_output(self.sid);
                 warnf!(
                     None,
-                    "[tool {tool}] channel slow sid={} — dropped backlog, replay since={since}",
+                    "[tool {tool}] channel slow sid={} — dropped {dropped} bytes, resync with screen",
                     self.sid
                 );
                 pending = None;
-                match self.resync(tool, since).await {
-                    Ok(end) => sent = end,
+                match self.resync(tool).await {
+                    Ok((end, n)) => (sent, held) = (end, n),
                     Err(end) => return end,
                 }
+                continue;
             }
+            self.out.push_term_as(self.og, OP_OUTPUT, self.sid, &frame);
         }
     }
 }
