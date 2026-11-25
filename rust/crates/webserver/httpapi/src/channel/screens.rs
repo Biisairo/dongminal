@@ -10,9 +10,6 @@ use tokio::sync::oneshot;
 
 use crate::toolhub::{ToolError, ToolHub};
 
-/// 깨움 스냅숏에 싣는 기록 행 수 (FR-TRM-4, D-7).
-pub(crate) const WAKE_HISTORY: usize = 5_000;
-
 pub(crate) type ScreenResult = Result<Arc<ToolScreen>, ToolError>;
 
 type Waiters = HashMap<String, Vec<oneshot::Sender<ScreenResult>>>;
@@ -21,9 +18,14 @@ type Waiters = HashMap<String, Vec<oneshot::Sender<ScreenResult>>>;
 pub(crate) struct ScreenFlights(Arc<Mutex<Waiters>>);
 
 impl ScreenFlights {
-    /// `tool` 의 스냅숏. 이미 묻는 중이면 그 답을 함께 받는다. 묻기는 따로 띄운 일이 하므로 부른
-    /// 쪽이 도중에 멈춰도 기다리던 쪽은 답을 받는다.
-    pub(crate) async fn get(&self, hub: &Arc<dyn ToolHub>, tool: &str) -> ScreenResult {
+    /// 기록 `history` 행을 실은 `tool` 의 스냅숏. 이미 묻는 중이면 그 답을 함께 받는다(행 수는 먼저 물은
+    /// 쪽의 것). 묻기는 따로 띄운 일이 하므로 부른 쪽이 도중에 멈춰도 기다리던 쪽은 답을 받는다.
+    pub(crate) async fn get(
+        &self,
+        hub: &Arc<dyn ToolHub>,
+        tool: &str,
+        history: usize,
+    ) -> ScreenResult {
         let (tx, rx) = oneshot::channel();
         let lead = {
             let mut g = self.0.lock().unwrap_or_else(|e| e.into_inner());
@@ -39,7 +41,7 @@ impl ScreenFlights {
                 tool.to_owned(),
             );
             tokio::spawn(async move {
-                let r = tokio::task::spawn_blocking(move || hub.screen_tool(&id, WAKE_HISTORY))
+                let r = tokio::task::spawn_blocking(move || hub.screen_tool(&id, history))
                     .await
                     .unwrap_or_else(|e| Err(ToolError::Other(e.to_string())))
                     .map(Arc::new);

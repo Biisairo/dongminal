@@ -415,7 +415,11 @@ impl Session {
                 return Ok(Sync::Delta(s));
             }
         }
-        let r = self.srv.screens.get(&self.hub, tool).await;
+        let r = self
+            .srv
+            .screens
+            .get(&self.hub, tool, self.srv.wake_history())
+            .await;
         self.verdict(tool, r).await.map(Sync::Screen)
     }
 
@@ -462,7 +466,11 @@ impl Session {
 
     /// 화면 상태 스냅숏으로 다시 맞춘다 (FR-TRM-6). 새 보낸 끝과 넣은 바이트 수를 돌려준다.
     async fn resync(&self, tool: &str) -> Result<(i64, usize), End> {
-        let r = self.srv.screens.get(&self.hub, tool).await;
+        let r = self
+            .srv
+            .screens
+            .get(&self.hub, tool, self.srv.wake_history())
+            .await;
         let sync = Sync::Screen(self.verdict(tool, r).await?);
         self.size(&sync);
         let held = self.send(&sync);

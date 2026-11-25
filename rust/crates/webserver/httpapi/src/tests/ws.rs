@@ -342,6 +342,45 @@ async fn output_after_screen_has_no_gap_or_overlap() {
     assert_eq!(e.hub.screen_calls.load(Ordering::SeqCst), 1);
 }
 
+/// PERF 2.5.1 (D-25): 깨움 스냅숏의 기록 행 수는 설정 `termScrollback` 이다. 바꾸면 다음 깨움부터 따르고,
+/// 없거나 범위 밖이면 표의 기본값이다. 흐름 제어의 스냅숏도 같은 값을 쓴다.
+#[tokio::test]
+async fn wake_history_follows_term_scrollback_setting() {
+    let dir = tempfile::tempdir().unwrap();
+    let settings = Arc::new(crate::settings::FileSettings::new(
+        dir.path().join("settings.json"),
+    ));
+    let hub = Arc::new(seeded("t1", "\n$ ", 0, 0));
+    let srv = Server::new(
+        Config {
+            data_dir: dir.path().to_path_buf(),
+            ..Config::default()
+        },
+        Deps {
+            tools: Some(hub.clone()),
+            settings: Some(settings.clone()),
+            ..Deps::default()
+        },
+    );
+    let port = listen(srv.clone()).await;
+    let mut c = chan(port).await;
+    for (sid, blob, want) in [
+        (1u32, "{}", 5_000),
+        (2, r#"{"termScrollback":800}"#, 800),
+        (3, r#"{"termScrollback":50000}"#, 50_000),
+        (4, r#"{"termScrollback":499}"#, 5_000),
+    ] {
+        crate::SettingsStore::set(&*settings, blob.as_bytes().to_vec());
+        open(&mut c, json!({"sid":sid,"tool":"t1"})).await;
+        until_op(&mut c, sid, OP_SEQ).await;
+        assert_eq!(
+            hub.screen_history.lock().unwrap().last().copied(),
+            Some(want),
+            "{blob}"
+        );
+    }
+}
+
 /// PERF 2.5: 같은 도구를 여럿이 한꺼번에 깨우면 스냅숏은 한 번만 만든다.
 #[tokio::test]
 async fn concurrent_wakes_share_one_screen() {
