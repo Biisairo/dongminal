@@ -113,6 +113,13 @@ impl otter_webserver_seam_adapters::ToolSource for NoTools {
     ) -> Result<otter_shared_toolhub::ToolSnapshot, otter_webserver_seam_toolaccess::Error> {
         Err("없다".into())
     }
+    fn screen_text(
+        &self,
+        _: &str,
+        _: usize,
+    ) -> Result<String, otter_webserver_seam_toolaccess::Error> {
+        Err("없다".into())
+    }
     fn send_paste(
         &self,
         _: &str,
