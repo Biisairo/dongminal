@@ -1,14 +1,16 @@
 # 최적화 진행 상태 (2026-11-24)
 
-## 지금 상태 (2026-11-24 저녁)
+## 지금 상태 (2026-11-25 아침, 조정 세션 → 다음 조정 세션)
 
-- M1 코드·측정 끝: 1.1~1.11·1.13·1.14 done. 측정 결과 SRS §7.1 (유휴 요청 81.8→0/분, 유휴 메인 스레드 0.7→0.29%).
-- **1.16 ready — 다음에 할 첫 일.** 1.15 병합 뒤 프론트 단위 9건 실패(`GIT_STATUS_RETRY_MS` 를 정의한 `constants-git-detect.js` 가 i18n `t()` 를 부르는데 시험이 싣지 않음)와 e2e `editor-fs-watch` V-ELR-34(1.14 가 지운 대체 폴링). 1.15 는 review 로 되돌렸다 — 1.16 이 끝나면 함께 done.
-- 1.16 뒤: 통합 브랜치에서 프론트 단위 전체·관련 e2e 확인 → **main 병합(사용자 승인됨, 2026-11-24 "테스트 문제 없으면 main 병합까지")**. main 체크아웃(`/Users/dykim/personal/dongminal`)에서 `git merge --ff-only perf-m1` 이 되는지 먼저 본다. 운영 바이너리는 다시 빌드하지 않는다. push 는 따로 확인.
-- 1.12 문서 정합은 사용자 확인 대기(main 병합 때 함께 여쭙는다). 각 이슈 진행 기록의 "코드와 어긋난 문서" 목록을 모은다.
-- M2: 2.1 done(D-13 alacritty_terminal, D-14 줄 저장소). 다음은 2 를 하위 이슈로 나누는 설계(데몬 화면 상태·줄 저장소·스냅숏 op·구독/해지·위로 스크롤 받기) — 설계는 사용자 확인 뒤 시험·구현.
-- M3: 3.1 done(`perf/SPA_PROFILE_2026-11-24.md` §5 에 3.2~3.7 제안). 미확인: git 기록 화면(커밋 401개)을 열면 트레이스가 4분 넘게 끝나지 않음 — 메인 스레드 멈춤 가능성, 3.2 에서 먼저 재현. `openGitWindow` 에 심볼릭 링크 경로를 주면 창을 못 찾고 null(범위 밖 결함).
-- 정리할 것: 남은 worktree `dongminal-pf/*` 없음. 측정 바이너리 `/private/tmp/otter-perf/`.
+- **조정자 탭 uuid**: 다음 세션이 `otterctl who-am-i` 로 새로 얻는다(이전 358d08c3).
+- **main**: `7a2c81d0` = perf-m1 1차 병합(abbcedd6, origin push 됨) + 1.20 fd 상한 cherry-pick(push 안 함). 운영 바이너리는 다시 빌드하지 않았다(사용자가 직접).
+- **M1**: 1.1~1.21 모두 done. 1.17 명령 펌프 결함 수정, 1.18 SSE 잔재 삭제, 1.19 보안 확인(우회 없음), 1.20 RLIMIT_NOFILE(Go 처럼 시작 때 올리고 자식에 원래 값), 1.21 게이트 실패 0.
+- **M2**: 2.2·2.3·2.4(.1~.3)·2.5·2.7·2.8.2·2.9 done. 남은 것: **2.8.1**(read-screen, 에이전트가 끝내던 중 — worktree dongminal-pf/2.8.1 에 커밋 안 된 변경, 진행 기록 확인), **2.6** 흐름 제어를 스냅숏으로, **2.5.1** 스냅숏 행 수 = termScrollback, **2.8.3** css-vars·검색 기준점, 그 뒤 **2.10** 전체 시험·재측정·문서 정합.
+- **M3**: 3.1~3.3·3.4.1~3.4.5·3.5.1~3.5.3·3.6.1·3.6.3·3.6.4·3.7·3.8 done. 남은 것: **3.6.2**(A안 확정, 착수 블록 /private/tmp/pf3.6.2/HANDOFF-A.md·이슈 진행 기록), **3.4.6~3.4.9** 화면 묶음(병렬, check-lazy-boundary 가 경계를 잡는다 — git 이동 시 17건 예상), **3.5.4** 브라우저 탭 숨김 규칙, 그 뒤 3.4.10(조건부)·3.4.11.
+- **M4**: todo. otter-webserver-sse crate 이름 정리(사용자 결정)가 이슈 4 진행 기록에 있다.
+- 통합 브랜치 perf-m1 상태: 프론트 단위 1763/1763, tsc, load-order 291, Rust 바꾼 crate lib·fmt·clippy 통과. check-css-vars 1건(2.8.3).
+- 전체 시험(Rust workspace·e2e 전량)은 마일스톤 끝에서 한 번만.
+- 문서 정합 대기 목록: 각 이슈 진행 기록의 "코드와 어긋난 문서"(CHANNEL_PROTOCOL §4.1·§4.2·§6·§10.2, M2_DESIGN §1~§2.9, M3_DESIGN 3.4.1·§3.6 67~74 ms, SPA_PROFILE §1·§2, EMULATOR §6·§8, TERMINAL_RESUME·TERMINAL_MODE_RESTORE, ACCESS_ALLOWLIST FR-ACL-11·12·REQUEST_GATE FR-RQG-11~13 의 /ws, EDITOR_LIVE_RELOAD FR-ELR-65, EDITOR_DIRTY_DIFF FR-EDD-50·51, CODEMIRROR_MIGRATION FR-CMR-53, EVENT_TIMER_HUB FR-SCH-15, GIT_WATCH_LEASE TC-GWL-11 등). 2.10·3.4.11 에서 사용자 확인 뒤 고친다.
 
 ## 사용자 지시 (2026-11-24)
 
