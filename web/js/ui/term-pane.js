@@ -22,6 +22,8 @@ class TerminalTool {
     // 그때는 종전대로 자기 `fit()` 이 화면을 정한다 — 옛 서버에 붙은 탭의 동작이
     // 그대로여야 한다 (FR-TRS-9 와 같은 규약).
     this._ptyCols=0; this._ptyRows=0;
+    // PERF D-36: 브라우저 탭이 숨으면 터미널은 다른 화면(2초)보다 늦게 잔다. `ScreenLife` 가 읽는다.
+    this.pageSleepMs=TERM_PAGE_SLEEP_MS;
     this._decoder=new TextDecoder('utf-8',{fatal:false}); this._outputBuf=''; this._flushScheduled=false; this._carryTimer=null;
     // TERMINAL_RESUME_SRS FR-TRS-7: `_seq` 는 **마지막으로 본 바이트 오프셋**이고
     // 다음 접속의 `since` 다. -1 은 "모른다" — 그때는 서버가 전량을 뿌린다.
