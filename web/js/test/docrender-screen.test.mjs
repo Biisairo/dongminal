@@ -9,7 +9,7 @@ import { BASE, EDITOR, GIT, controllers, load } from './harness.mjs';
  */
 function setup() {
   const ctx = load([...BASE, ...GIT, ...EDITOR], {
-    globals: { App: class {}, TAB_TYPE_EDITOR: 'editor' },
+    globals: { App: class {}, TAB_TYPE_EDITOR: 'editor', TAB_TYPE_GIT: 'git' },
     expose: ['Screens'],
   });
   controllers(ctx, new ctx.App());
