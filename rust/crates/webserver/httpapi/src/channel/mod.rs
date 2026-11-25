@@ -14,6 +14,8 @@ pub(crate) use screens::ScreenFlights;
 #[cfg(test)]
 pub(crate) use term::TERM_HISTORY_MAX;
 #[cfg(test)]
+pub(crate) use term::{TERM_PENDING_MAX, Terms};
+#[cfg(test)]
 pub(crate) use topics::TOPIC_RING;
 pub(crate) use topics::{DeltaOp, Seed, SubError, TopicHub};
 

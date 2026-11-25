@@ -587,39 +587,46 @@ async fn ws_on_demand_follows_subscribers() {
     );
 }
 
-/// TC-CH5-11: sid 마다 브라우저가 가진 좌표를 꺼낸 프레임으로 따라가고, 밀린 프레임은 sid 단위로 버린다.
+/// TC-CH5-11 · PERF 2.6: 밀린 양은 sid 마다 센다. 흐름 제어는 그 sid 의 밀린 출력(`OUTPUT`·`SEQ`)만 버리고
+/// 도구 id·크기·좌석 통보는 남긴다.
 #[test]
-fn outbox_term_mirror_and_drop() {
-    use otter_shared_toolhub::{OP_OUTPUT, OP_SEQ, OP_SIZE};
+fn outbox_term_pending_and_drop_output() {
+    use otter_shared_toolhub::{OP_OUTPUT, OP_REPLY_SEAT, OP_SEQ, OP_SIZE, OP_TOOL_ID};
     let o = Outbox::new();
     o.push_term(OP_OUTPUT, 1, b"replay");
-    assert_eq!(o.term_state(1), (11, None));
+    assert_eq!(o.term_pending(1), 11);
     let _ = o.pop();
-    assert_eq!(o.term_state(1), (0, None), "SEQ 전의 출력은 재생분이다");
+    assert_eq!(o.term_pending(1), 0);
+    o.push_term(OP_TOOL_ID, 1, b"t1");
     let mut seq = 100i64.to_be_bytes().to_vec();
     seq.push(0);
     o.push_term(OP_SEQ, 1, &seq);
     o.push_term(OP_OUTPUT, 1, b"abc");
     o.push_term(OP_OUTPUT, 2, b"other");
     o.push_term(OP_SIZE, 1, &[0, 80, 0, 24]);
+    o.push_term(OP_REPLY_SEAT, 1, &[1]);
     o.push_term(OP_OUTPUT, 1, b"defg");
-    let _ = o.pop();
-    let _ = o.pop();
-    assert_eq!(o.term_state(1).1, Some(103));
-    let dropped = o.drop_term(1);
-    assert!(dropped > 0);
-    assert_eq!(
-        o.term_state(1),
-        (0, Some(103)),
-        "버린 것은 좌표에 들지 않는다"
-    );
-    match o.pop() {
-        Some(Out::Binary(b)) => assert_eq!(&b[..5], &[OP_OUTPUT, 0, 0, 0, 2]),
-        _ => panic!("다른 sid 의 프레임이 남아야 한다"),
+    let dropped = o.drop_term_output(1);
+    assert_eq!(dropped, 5 + 9 + 5 + 3 + 5 + 4);
+    assert_eq!(o.term_pending(1), 5 + 2 + 5 + 4 + 5 + 1, "남은 통보만 센다");
+    let mut left = Vec::new();
+    while let Some(Out::Binary(b)) = o.pop() {
+        left.push((b[0], b[4]));
     }
-    assert!(o.pop().is_none());
+    assert_eq!(
+        left,
+        [
+            (OP_TOOL_ID, 1),
+            (OP_OUTPUT, 2),
+            (OP_SIZE, 1),
+            (OP_REPLY_SEAT, 1)
+        ]
+    );
+    assert_eq!(o.term_pending(1), 0);
+    o.push_term(OP_SIZE, 1, &[0, 80, 0, 24]);
     o.forget_term(1);
-    assert_eq!(o.term_state(1), (0, None));
+    assert_eq!(o.term_pending(1), 0);
+    assert!(o.pop().is_none(), "term.close 는 통보까지 버린다");
 }
 
 /// TC-CH6-1: 채널은 permessage-deflate 를 협상한다. 서버 압축기의 창은 13 비트다.

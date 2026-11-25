@@ -29,7 +29,7 @@ class FakeChannel {
 
 function pane() {
   const clock = fakeClock();
-  const ctx = load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS, 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', ...TERM_PANE], {
+  const ctx = load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS, 'core/settings-schema.js', 'core/settings-state.js', 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', ...TERM_PANE], {
     clock,
     globals: { location: { protocol: 'http:', host: 'h' } },
     expose: ['TerminalTool', 'TIMERS', 'OP', 'TERM_MUX', 'SEQ_FLAG_FULL', 'SEQ_FLAG_ALT', 'SEQ_FLAG_SNAP', 'TERM_PAGE_SLEEP_MS'],
@@ -46,7 +46,7 @@ function pane() {
   p._showOverlay = () => {};
   p._hideOverlay = () => {};
   p.resets = 0;
-  p.term = { cols: 100, rows: 30, write() {}, scrollToBottom() {}, focus() {}, dispose() {}, reset() { p.resets++ } };
+  p.term = { cols: 100, rows: 30, options: { scrollback: 5000 }, write() {}, scrollToBottom() {}, focus() {}, dispose() {}, reset() { p.resets++ } };
   return { ctx, p, clock, ch, unmounted };
 }
 
@@ -81,6 +81,15 @@ test('깨면 term.open{snap} 을 보낸다 — since 는 싣지 않는다', () =
   assert.equal(opens(ch).length, 1);
   assert.equal(opens(ch)[0].snap, true);
   assert.equal(opens(ch)[0].since, undefined);
+});
+
+// PERF 2.5.1 (D-25): 스크롤백 설정을 바꾸면 다음 깨움부터 따른다 — 서버가 같은 설정으로 스냅숏 기록 행 수를 정한다.
+test('깨면 xterm 스크롤백을 지금 설정 termScrollback 으로 맞춘다', () => {
+  const { ctx, p, ch } = pane();
+  ch.hello();
+  ctx.termScrollback = 800;
+  p.wake();
+  assert.equal(p.term.options.scrollback, 800);
 });
 
 test('잠들면 term.close 를 보내고 그 sid 의 프레임을 받지 않으며 버퍼를 비운다', () => {
