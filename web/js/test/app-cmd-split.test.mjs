@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { repoLoadOrder } from '../../../scripts/bundles-def.mjs';
 
 /**
  * REFACTOR PROD2 §8 (R-ACS-1~3): `tool-cmd.js`(옛 `app-cmd.js`, REFACTOR3_FE_APPCTL_SRS 9j) 는 원격 명령, `ws-sync-controller.js`(옛 `app-ws-sync.js`,
@@ -32,7 +33,7 @@ test('tool-cmd.js 에는 원격 명령만 남고, 합치면 33개다', () => {
   assert.equal(cmd.length + SYNC.length, 33);
 });
 
-test('index.html 은 ws-sync-controller.js 를 tool-cmd.js 뒤에 싣는다', () => {
-  const html = readFileSync(join(JS, '..', 'index.html'), 'utf8');
-  assert.match(html, /js\/core\/tool-cmd\.js\?v=__ASSETV__"><\/script>\n(?:<!--[\s\S]*?-->\n)?<script src="js\/core\/ws-sync-controller\.js\?v=__ASSETV__"><\/script>/);
+test('ws-sync-controller.js 는 tool-cmd.js 바로 뒤에 실린다', () => {
+  const order = repoLoadOrder(join(JS, '..', '..'));
+  assert.equal(order.indexOf('js/core/ws-sync-controller.js'), order.indexOf('js/core/tool-cmd.js') + 1);
 });

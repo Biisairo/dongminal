@@ -2,7 +2,8 @@
 /**
  * 재현 시나리오 측정 (성능 기준선). 격리 인스턴스에 브라우저를 붙여 단계별로 잰다.
  *
- *   boot        첫 로드 — 걸린 시간, 힙, DOM, 요청 수
+ *   boot        첫 로드 — 걸린 시간, 힙, DOM, 요청 수(자원 종류별), 부팅 JS 바이트(풀린 크기·전송 크기),
+ *               렌더러 메인 스레드의 16 ms 초과 작업(트레이스 RunTask). 구간은 이동부터 #boot 사라짐 + 2초
  *   idle        창·탭을 연 채 아무것도 하지 않는다
  *   load        에이전트 흉내(agent-sim.py)가 보이는 칸 V 개와 숨은 탭 A 개에서 출력한다
  *   contention  load + 기계에 CPU 부하(yes × 코어 수)
@@ -23,6 +24,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { chromium } from '@playwright/test';
+
+import { bootNetCollector, longTasksFromTrace } from './boot-metrics.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const arg = (k, d) => {
@@ -99,6 +102,11 @@ cdp.on('Network.requestWillBeSent', (e) => {
   const k = e.request.method + ' ' + u.pathname.replace(/[0-9a-f]{8}-[0-9a-f-]{27}|\d{3,}/g, ':id');
   net.byPath[k] = (net.byPath[k] || 0) + 1;
 });
+const bootNet = bootNetCollector();
+cdp.on('Network.requestWillBeSent', (e) => bootNet.request(e));
+cdp.on('Network.responseReceived', (e) => bootNet.response(e));
+cdp.on('Network.dataReceived', (e) => bootNet.data(e));
+cdp.on('Network.loadingFinished', (e) => bootNet.finished(e));
 cdp.on('Network.webSocketFrameReceived', (e) => {
   net.wsFrames++;
   net.wsBytes += (e.response.payloadData || '').length;
@@ -115,6 +123,7 @@ const metrics = async () => {
 const result = { config: CFG, phases: {} };
 
 // boot
+await browser.startTracing(page, { categories: ['devtools.timeline', 'disabled-by-default-devtools.timeline'] });
 const t0 = Date.now();
 await page.goto(URL);
 await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
@@ -122,18 +131,28 @@ await page.waitForFunction(() => !!(window.app && window.app.testing && window.a
 const bootMs = Date.now() - t0;
 await sleep(2000);
 {
+  const boot = bootNet.summary();
+  const long = longTasksFromTrace(JSON.parse((await browser.stopTracing()).toString()).traceEvents);
   const m = await metrics();
   const scripts = await page.evaluate(() => document.scripts.length);
   result.phases.boot = {
     bootMs,
     scripts,
     requests: net.requests,
+    requestsByType: boot.byType,
+    jsFiles: boot.jsFiles,
+    jsBytes: boot.jsBytes,
+    jsEncodedBytes: boot.jsEncodedBytes,
+    longTasks16: long.count,
+    longTask16MsMax: long.maxMs,
+    longTask16Ms: long.tasksMs,
     jsHeapMB: m.JSHeapUsedSize / 2 ** 20,
     nodes: m.Nodes,
     listeners: m.JSEventListeners,
     scriptS: m.ScriptDuration,
     taskS: m.TaskDuration,
   };
+  console.log('── boot', JSON.stringify(result.phases.boot, (_k, v) => (typeof v === 'number' ? Math.round(v * 10) / 10 : v)));
 }
 
 // in-page 계측: 긴 작업과 입력 지연

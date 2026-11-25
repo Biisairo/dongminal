@@ -101,6 +101,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-file-size.mjs
 	@echo "── 로드 순서 (스크립트가 아직 서지 않은 이름을 읽지 않는가)"
 	@node scripts/check-load-order.mjs
+	@echo "── 지연 묶음 경계 (부팅 코드가 화면 묶음의 전역을 진입점 밖에서 읽지 않는가)"
+	@node scripts/check-lazy-boundary.mjs
 	@echo "── 위임자 (컨트롤러·부품의 옛 이름을 주인 원형에 다시 두지 않는가)"
 	@node scripts/check-delegates.mjs
 	@echo "── 저장소의 단일 경로 (localStorage·sessionStorage 가 PrefStore 를 지나는가 · core 에 빈 catch 가 없는가)"

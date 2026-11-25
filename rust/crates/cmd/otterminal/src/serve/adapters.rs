@@ -10,7 +10,8 @@ use otter_gocompat::json::RawMessage;
 use otter_shared_sandbox as sandbox;
 use otter_shared_sandboxplace::Placer;
 use otter_shared_toolhub::{
-    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolInfo, ToolSnapshot,
+    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolHistory, ToolInfo,
+    ToolScreen, ToolSnapshot,
 };
 use otter_shared_toolipc::{
     ChatParams, ChatResult, EdgeParams, EdgePortParams, EdgeResult, RecordsResult,
@@ -23,8 +24,9 @@ use otter_webserver_domain_lsp::{
 };
 use otter_webserver_domain_sysstat::{Sampler, Snapshot as StatsSnapshot};
 use otter_webserver_httpapi::{
-    ChatDaemon, DaemonCallError, EdgeDaemon, LspService, RecordSink, SandboxReaper, Server,
-    StatsSnapshotter, ToolError, ToolHub, ToolIdentity, Unsubscribe, UpdateService, WorkspaceStore,
+    ChatDaemon, DaemonCallError, EdgeDaemon, LspService, RecordSink, SandboxReaper, ScreenDaemon,
+    Server, StatsSnapshotter, ToolError, ToolHub, ToolIdentity, Unsubscribe, UpdateService,
+    WorkspaceStore,
 };
 use otter_webserver_hub::ForegroundSource;
 use otter_webserver_recordsync::Writer;
@@ -54,6 +56,21 @@ impl ToolHub for Hub {
     }
     fn snapshot_tool_since(&self, id: &str, since: i64) -> Result<ToolSnapshot, ToolError> {
         self.0.snapshot_tool_since(id, since).map_err(tool_err)
+    }
+    fn screen_tool(&self, id: &str, history: usize) -> Result<ToolScreen, ToolError> {
+        self.0.screen_tool(id, history).map_err(tool_err)
+    }
+    fn history_tool(&self, id: &str, before: u64, count: usize) -> Result<ToolHistory, ToolError> {
+        self.0.history_tool(id, before, count).map_err(tool_err)
+    }
+    fn seat_tool(&self, id: &str, held: bool) -> Result<i64, ToolError> {
+        self.0.seat_tool(id, held).map_err(tool_err)
+    }
+    fn search_tool(
+        &self,
+        p: &otter_shared_toolipc::SearchParams,
+    ) -> Result<Vec<otter_shared_toolipc::SearchHit>, ToolError> {
+        self.0.search_tool(p).map_err(tool_err)
     }
     fn daemon_info(&self) -> DaemonInfo {
         self.0.daemon_info()
@@ -332,6 +349,12 @@ impl ChatDaemon for Daemon {
     }
     fn chat(&self, p: ChatParams) -> Result<ChatResult, String> {
         self.0.chat(&p).map_err(|e| e.to_string())
+    }
+}
+
+impl ScreenDaemon for Daemon {
+    fn set_history_lines(&self, lines: usize) -> Result<(), DaemonCallError> {
+        self.0.screen_config(lines).map_err(call_err)
     }
 }
 

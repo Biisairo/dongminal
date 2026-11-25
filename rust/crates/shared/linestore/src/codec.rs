@@ -178,3 +178,50 @@ impl Reader<'_> {
         })
     }
 }
+
+/// 인계용 저장소 그림의 형식 번호다. 모양을 바꾸면 올리고, 모르는 번호는 읽지 않는다.
+const IMAGE_FORMAT: u8 = 1;
+
+/// 블록 하나: 첫 번호, 줄 수, deflate 바이트.
+pub(crate) type RawBlock = (u64, usize, Vec<u8>);
+
+pub(crate) fn write_image(first: u64, end: u64, blocks: &[(u64, usize, &[u8])]) -> Vec<u8> {
+    let mut out = vec![IMAGE_FORMAT];
+    put(&mut out, first);
+    put(&mut out, end);
+    put(&mut out, blocks.len() as u64);
+    for (f, count, data) in blocks {
+        put(&mut out, *f);
+        put(&mut out, *count as u64);
+        put(&mut out, data.len() as u64);
+        out.extend_from_slice(data);
+    }
+    out
+}
+
+/// 그림을 읽는다. 블록이 `first` 부터 `end` 까지 빈틈없이 이어지지 않거나 바이트가 남으면 `None` 이다.
+pub(crate) fn read_image(buf: &[u8]) -> Option<(u64, u64, Vec<RawBlock>)> {
+    let mut r = Reader { buf, pos: 0 };
+    if r.byte()? != IMAGE_FORMAT {
+        return None;
+    }
+    let first = r.num()? as u64;
+    let end = r.num()? as u64;
+    let n = r.num()?;
+    let mut blocks = Vec::with_capacity(n.min(buf.len()));
+    let mut at = first;
+    for _ in 0..n {
+        let f = r.num()? as u64;
+        let count = r.num()?;
+        let len = r.num()?;
+        let stop = r.pos.checked_add(len)?;
+        let data = r.buf.get(r.pos..stop)?.to_vec();
+        r.pos = stop;
+        if f != at || count == 0 {
+            return None;
+        }
+        at = f.checked_add(count as u64)?;
+        blocks.push((f, count, data));
+    }
+    (at == end && r.pos == buf.len()).then_some((first, end, blocks))
+}

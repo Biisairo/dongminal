@@ -2,6 +2,7 @@ use std::sync::Mutex as StdMutex;
 use std::sync::atomic::AtomicI32;
 
 use super::*;
+use crate::search::Query;
 
 /// 프로세스 정보의 가짜다. pid 1000 대의 도구만 다룬다.
 #[derive(Default)]
@@ -522,12 +523,24 @@ fn screen_and_offset_are_read_together() {
     );
 }
 
+/// D-23: 좌석을 쥔 동안은 어떤 답도 쓰지 않고, 비면 DA·DSR·커서 위치만 답한다(창 크기·색·클립보드는 아니다).
 #[test]
-fn screen_does_not_write_replies_to_pty() {
+fn screen_replies_only_status_queries_and_only_while_seat_is_vacant() {
+    const QUERIES: &[u8] =
+        b"\x1b[c\x1b[>c\x1b[5n\x1b[6n\x1b]11;?\x07\x1b[18t\x1b[14t\x1b]52;c;?\x07";
     let (p, written) = written_tool("a");
-    p.handle_chunk(b"\x1b[c\x1b[>c\x1b[5n\x1b[6n\x1b]11;?\x07\x1b[18t\x1b[14t\x1b]52;c;?\x07");
+    p.hold_seat(true);
+    p.handle_chunk(QUERIES);
     assert_eq!(p.with_screen(|s, _| s.cursor().col), Some(0));
     assert!(written.lock().unwrap().is_empty());
+    p.hold_seat(false);
+    p.handle_chunk(QUERIES);
+    let w = String::from_utf8(take(&written)).unwrap();
+    assert!(
+        w.starts_with("\x1b[?") && w.ends_with("\x1b[0n\x1b[1;1R"),
+        "{w:?}"
+    );
+    assert!(!w.contains('t') && !w.contains(']'), "{w:?}");
 }
 
 #[test]
@@ -726,7 +739,7 @@ fn handover_tool_json_shape() {
     };
     assert_eq!(
         String::from_utf8(json::marshal(&ht).unwrap()).unwrap(),
-        r#"{"id":"a","name":"S","fd":7,"pid":9,"cols":80,"rows":24,"offset":0,"agent":{"agentSeen":false,"armed":false,"attention":false,"lastOutputAt":0,"rearmLocked":false,"turn":{"inProgress":false,"waitingSignaled":false,"turnRan":false}}}"#
+        r#"{"id":"a","name":"S","fd":7,"pid":9,"cols":80,"rows":24,"offset":0,"screenState":"","screenBack":0,"history":"","agent":{"agentSeen":false,"armed":false,"attention":false,"lastOutputAt":0,"rearmLocked":false,"turn":{"inProgress":false,"waitingSignaled":false,"turnRan":false}}}"#
     );
     let full = HandoverTool {
         screen: b"hi".to_vec(),
@@ -737,7 +750,7 @@ fn handover_tool_json_shape() {
     };
     let s = String::from_utf8(json::marshal(&full).unwrap()).unwrap();
     assert!(
-        s.contains(r#""background":true,"screen":"aGk=","offset":0,"modes":4294967296,"cwd":"/c""#),
+        s.contains(r#""background":true,"screen":"aGk=","offset":0,"screenState":"","screenBack":0,"history":"","modes":4294967296,"cwd":"/c""#),
         "{s}"
     );
     let back: HandoverTool = json::unmarshal(s.as_bytes()).unwrap();
@@ -1024,4 +1037,172 @@ fn env_overlay_reaches_tool_shell() {
     m.stop_saving();
     assert!(out.contains(&want_home), "{out}");
     assert!(out.contains(&want_bin), "{out}");
+}
+
+/// 기록 줄 수 설정(D-25)은 있는 도구와 뒤에 오는 도구의 줄 저장소 상한이 된다.
+#[test]
+fn history_lines_setting_reaches_every_screen() {
+    let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));
+    let (a, _) = written_tool("a");
+    m.adopt(Arc::clone(&a));
+    let cap = |p: &Tool| p.with_screen(|s, _| s.store().cap()).unwrap();
+    assert_eq!(cap(&a), otter_shared_termstate::HISTORY_CAP);
+    m.set_history_lines(2_000);
+    assert_eq!(cap(&a), 2_000);
+    let (b, _) = written_tool("b");
+    m.adopt(Arc::clone(&b));
+    assert_eq!(cap(&b), 2_000, "뒤에 온 도구도 설정을 따른다");
+}
+
+/// 위로 받기(FR-TRM-5): 저장소 구간을 순서대로 준다. 맨 위를 넘으면 있는 만큼만, ED3 뒤의 옛 번호는 빈 답이다.
+#[test]
+fn history_tool_reads_store_range() {
+    let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));
+    assert!(m.history_tool("a", 10, 5).is_none());
+    let p = pid_tool("a", 1001);
+    let text: String = (0..3000).map(|i| format!("L{i:04}\r\n")).collect();
+    p.handle_chunk(text.as_bytes());
+    m.adopt(Arc::clone(&p));
+
+    let h = m.history_tool("a", 100, 50).unwrap();
+    assert_eq!((h.from, h.top), (50, 0));
+    let want: Vec<String> = (50..100).map(|i| format!("L{i:04}")).collect();
+    assert_eq!(h.lines, want);
+
+    let h = m.history_tool("a", 30, 50).unwrap();
+    assert_eq!((h.from, h.top, h.lines.len()), (0, 0, 30));
+    assert_eq!(h.lines[0], "L0000");
+
+    p.handle_chunk(b"\x1b[3J");
+    let h = m.history_tool("a", 100, 50).unwrap();
+    assert!(h.lines.is_empty());
+    assert!(h.top >= 100);
+}
+
+fn take(w: &StdMutex<Vec<u8>>) -> Vec<u8> {
+    std::mem::take(&mut *w.lock().unwrap())
+}
+
+#[test]
+fn vacant_seat_tool_answers_status_queries() {
+    let (t, w) = written_tool("r");
+    t.handle_chunk(b"ab\x1b[6n");
+    assert_eq!(take(&w), b"\x1b[1;3R");
+    t.handle_chunk(b"\x1b]11;?\x07");
+    assert!(take(&w).is_empty(), "색 질의는 답하지 않는다");
+}
+
+#[test]
+fn held_seat_silences_tool_until_every_hold_is_released() {
+    let (t, w) = written_tool("r");
+    t.hold_seat(true);
+    t.hold_seat(true);
+    t.handle_chunk(b"\x1b[5n");
+    assert!(take(&w).is_empty());
+    t.hold_seat(false);
+    t.handle_chunk(b"\x1b[5n");
+    assert!(take(&w).is_empty(), "하나라도 쥐고 있으면 답하지 않는다");
+    t.hold_seat(false);
+    t.hold_seat(false);
+    t.handle_chunk(b"\x1b[5n");
+    assert_eq!(take(&w), b"\x1b[0n", "넘치게 놓아도 다시 답한다");
+}
+
+#[test]
+fn hold_reports_end_of_last_answered_output() {
+    let (t, w) = written_tool("r");
+    assert_eq!(t.hold_seat(true), 0);
+    t.hold_seat(false);
+    t.handle_chunk(b"xx");
+    t.handle_chunk(b"\x1b[5n");
+    t.handle_chunk(b"yyy");
+    assert_eq!(take(&w), b"\x1b[0n");
+    assert_eq!(t.hold_seat(true), 6, "답한 조각의 끝 오프셋");
+    t.handle_chunk(b"\x1b[5n");
+    assert_eq!(t.hold_seat(true), 6, "쥔 동안의 질의는 세지 않는다");
+}
+
+// PERF 2.8.2 (D-21): 줄 저장소 검색.
+
+fn tool_with_lines(n: usize) -> Arc<Tool> {
+    let (t, _) = written_tool("s");
+    let mut out = String::new();
+    for i in 0..n {
+        out.push_str(&format!("row-{i} tail\r\n"));
+    }
+    t.handle_chunk(out.as_bytes());
+    t
+}
+
+fn sq(p: &str, regex: bool, case: bool, word: bool) -> Query {
+    Query::new(p, regex, case, word).unwrap()
+}
+
+#[test]
+fn finds_store_lines_before_anchor_newest_first() {
+    let t = tool_with_lines(3_000);
+    let (first, end) = t
+        .with_screen(|s, _| (s.store().first(), s.store().end()))
+        .unwrap();
+    assert!(end > 100, "저장소에 줄이 옮겨지지 않았다");
+    let hits = t
+        .search(&sq("row-1 ", false, true, false), end, 10)
+        .unwrap();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(
+        (hits[0].line, hits[0].col, hits[0].text.as_str()),
+        (first + 1, 0, "row-1 tail")
+    );
+    let hits = t.search(&sq("tail", false, true, false), end, 3).unwrap();
+    let lines: Vec<u64> = hits.iter().map(|h| h.line).collect();
+    assert_eq!(lines, vec![end - 1, end - 2, end - 3]);
+    assert!(
+        t.search(&sq("tail", false, true, false), first, 3)
+            .unwrap()
+            .is_empty(),
+        "앵커 앞만 찾는다"
+    );
+}
+
+#[test]
+fn options_follow_find_bar() {
+    let t = tool_with_lines(3_000);
+    let end = t.with_screen(|s, _| s.store().end()).unwrap();
+    assert!(
+        t.search(&sq("ROW-12 ", false, true, false), end, 5)
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        t.search(&sq("ROW-12 ", false, false, false), end, 5)
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        t.search(&sq(r"row-1\d tail", true, true, false), end, 50)
+            .unwrap()
+            .len(),
+        10
+    );
+    assert_eq!(
+        t.search(&sq("row-1", false, true, true), end, 50)
+            .unwrap()
+            .len(),
+        1,
+        "낱말 단위"
+    );
+    let h = &t.search(&sq("tail", false, true, false), end, 1).unwrap()[0];
+    assert_eq!(h.col, h.text.find("tail").unwrap());
+}
+
+#[test]
+fn bad_regex_is_an_error_and_tool_without_terminal_is_none() {
+    assert!(Query::new("(", true, true, false).is_err());
+    assert!(
+        Query::new("(", false, true, false).is_ok(),
+        "정규식이 아니면 글자 그대로"
+    );
+    let d = Tool::new_detached("d", None);
+    assert!(d.search(&sq("x", false, true, false), 10, 1).is_none());
 }

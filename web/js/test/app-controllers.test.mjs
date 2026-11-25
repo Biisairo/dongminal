@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { runInContext } from 'node:vm';
 
+import { repoLoadOrder } from '../../../scripts/bundles-def.mjs';
 import { BASE, EDITOR, FOCUS, GIT, LAYOUT, PANELS, REPO_WIN, SETTINGS, SLOTS, TOOL, WS_SYNC, controllers, load, plain } from './harness.mjs';
 
 /**
@@ -359,7 +360,7 @@ test('TC-FEA-3(9a): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   for (const f of issue.plainNow) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
   assert.ok(mixins.length <= issue.mixins, 'mixin 파일 ' + mixins.length + ' > ' + issue.mixins);
@@ -495,7 +496,7 @@ test('TC-FEA-3(9b): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   const issue = ISSUES['9b'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -619,7 +620,7 @@ test('TC-FEA-3(9c): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   const issue = ISSUES['9c'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -645,7 +646,7 @@ const DELEGATES_9D = {
     '_initGitSection', 'gitSignal', 'gitStatusHub', 'gitOpenFile', 'gitOpenFileHead', 'gitOpenTerminal', 'gitBadgeFor', 'gitPinEntry',
     '_gitTermToolId'],
   'git.surfaces': ['gitObs', '_gitRescheduleAll', '_gitNotifyPinsAll', 'gitPanelAt', '_gitDropView',
-    '_gitViewDirty', '_gitDiffDocPaths', '_gitViewSave', 'gitSurfaceOn', '_gitPanelKey', '_gitPanelRoot', '_gitPanelReap',
+    '_gitViewDirty', '_gitDiffDocPaths', '_gitViewSave', 'gitSideOn', '_gitPanelKey', '_gitPanelRoot', '_gitPanelReap',
     '_gitRootOfActive'],
   'git.sync': ['gitReposKick', '_gitObserveOk', '_onGitChanged', 'gitReposRefresh', 'gitPin', 'gitUnpin',
     '_gitPinsApply', '_gitJobsAdopt'],
@@ -753,7 +754,7 @@ test('TC-FEA-3(9d): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   const issue = ISSUES['9d'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -893,7 +894,7 @@ test('TC-FEA-3(9f): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   const issue = ISSUES['9f'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1009,7 +1010,7 @@ test('TC-FEA-3(9g): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   const issue = ISSUES['9g'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1120,7 +1121,7 @@ test('TC-FEA-3(9h): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   const issue = ISSUES['9h'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1235,7 +1236,7 @@ test('TC-FEA-3(9i-1): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 
   const issue = ISSUES['9i-1'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1374,7 +1375,7 @@ test('TC-FEA-3(9i-2): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 
   const issue = ISSUES['9i-2'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1487,7 +1488,7 @@ test('TC-FEA-3(9j): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   const issue = ISSUES['9j'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1669,7 +1670,7 @@ test('TC-FEA-3(9k-1): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 
   const issue = ISSUES['9k-1'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1787,7 +1788,7 @@ test('TC-FEA-3(9k-2): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 
   const issue = ISSUES['9k-2'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1909,7 +1910,7 @@ test('TC-FEA-3(9k-3): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 
   const issue = ISSUES['9k-3'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
   assert.deepEqual(mixins, []);

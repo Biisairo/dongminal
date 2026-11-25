@@ -9,6 +9,7 @@ mod env;
 mod hub;
 mod manager;
 mod records;
+mod search;
 mod shellprobe;
 mod termmodes;
 mod tool;
@@ -24,7 +25,8 @@ pub use conn::{
     WRITE_WAIT, size_payload,
 };
 pub use hub::{
-    BackgroundEntry, DaemonInfo, OutChunk, TermSize, ToolInfo, ToolScreen, ToolSnapshot,
+    BackgroundEntry, DaemonInfo, OutChunk, TermSize, ToolHistory, ToolInfo, ToolScreen,
+    ToolSnapshot,
 };
 pub use manager::{
     DEFAULT_COLS, DEFAULT_ROWS, FOREGROUND_REFRESH_INTERVAL, ForegroundFn, ForegroundProbeFn,
@@ -32,9 +34,11 @@ pub use manager::{
     Placement, PlacerFn, StartFn, StartReq, TOOL_CAP, ToolManager, ToolState, parse_size,
     wrap_paste,
 };
+pub use otter_shared_termstate::HISTORY_CAP;
 pub use records::{AgentState, ExitInfo};
+pub use search::{HIT_TEXT_MAX, Query, SearchHit};
 pub use shellprobe::{ShellState, judge_shell};
-pub use termmodes::{MODE_MAX_CARRY, ModeObserver, TermModes, alt_screen_at_head, scan_modes};
+pub use termmodes::{MODE_MAX_CARRY, ModeObserver, TermModes, scan_modes};
 pub use tool::{
     ActivityFn, AttentionFn, BUF_MAX, BusyProbeFn, ClearFn, ExitFn, OutputFn, Restore, SizeFn,
     TERMINATE_GRACE, Tool, ToolHooks, busy_of, set_attn_busy_probe, set_attn_now,

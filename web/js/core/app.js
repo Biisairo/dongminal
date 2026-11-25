@@ -119,6 +119,8 @@ class App {
   // 분할 트리 → pane 배열 (L→R, T→B). 순회는 `panesOf` 한 벌이다 (FR-OPT-11-1 · FEC-21) —
   // 이 이름은 호출처와 e2e 계약(app.testing)을 위해 남는다.
   flattenPanes(node){ return panesOf(node) }
+  // 화면 묶음을 싣는다 (PERF D-30). `app.testing.loadScreen(name)` — 화면을 열기 전에 그 전역을 부르는 e2e 가 먼저 기다린다.
+  loadScreen(name){ return Screens.load(name) }
 
   /**
    * TOOL_LIST_UNKNOWN_SRS FR-TLU-9: 첫 화면은 **도구를 아는 스냅숏**으로 세운다.
@@ -286,7 +288,8 @@ class App {
 
   // FR-WSL-20: 슬롯을 명시하지 않으면 슬롯 0 이다 — 단일 슬롯 모드의 호출부가
   // 한 글자도 바뀌지 않아야 한다. 같은 도구를 두 슬롯에 그리면 인스턴스가 둘이고
-  // WebSocket 도 둘이다 (§7 R-1, 회수는 _slotReap).
+  // 붙음도 둘이다 (§7 R-1, 회수는 _slotReap). PERF D-16: 여기서 붙지 않는다 — 처음 보일 때
+  // 렌더러가 `wake()` 를 부른다.
   mkTool(id,name,slot){
     const key=this.slot.slotKey(id,slot||0);
     if(this.tools.has(key)) return this.tools.get(key);
@@ -295,7 +298,6 @@ class App {
     this.toolIds.add(id);
     if(this._toolsBoot.delete(id)){p._reconnecting=true;p.el.style.opacity='0'}
     document.getElementById('area').appendChild(p.el);
-    p.connect();
     this.tools.set(key,p);
     this.focus.owner.applyFocusOverlay();
     return p;

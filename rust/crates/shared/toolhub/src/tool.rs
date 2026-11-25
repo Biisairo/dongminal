@@ -12,14 +12,14 @@ use otter_shared_activity as activity;
 use otter_shared_otterlog::{errorf, infof};
 use otter_shared_outbuf::Stream;
 use otter_shared_platform::{ProcSpec, Terminal};
-use otter_shared_termstate::{HISTORY_CAP, Screen};
+use otter_shared_termstate::{HISTORY_CAP, Handover, Screen};
 use tokio_util::sync::CancellationToken;
 
 use crate::env::{Getenv, tool_bin_dir, tool_env, tool_start_dir};
 use crate::{
     ATTN_MAX_CARRY, ActivityState, AgentState, AgentTurn, DEFAULT_COLS, DEFAULT_ROWS, EscClass,
-    ExitInfo, ModeObserver, TermModes, ToolScreen, activity_still_working, classify_esc,
-    detect_attention_signal, detect_cwd_report,
+    ExitInfo, ModeObserver, TermModes, ToolHistory, ToolScreen, activity_still_working,
+    classify_esc, detect_attention_signal, detect_cwd_report,
 };
 
 /// 출력 링버퍼의 크기다(1MB).
@@ -65,6 +65,10 @@ struct ReadState {
 struct Cmu {
     exited: bool,
     screen: Option<Screen>,
+    /// 답장 좌석을 쥔 수다(서버가 깬 브라우저마다 쥔다). 0 이면 화면 상태가 질의에 답한다(D-23).
+    seat_holds: usize,
+    /// 화면 상태가 마지막으로 답한 조각의 끝 오프셋이다.
+    replied_end: i64,
 }
 
 #[derive(Default)]
@@ -180,8 +184,8 @@ impl Tool {
             stream,
             sandboxed: AtomicBool::new(false),
             cmu: Mutex::new(Cmu {
-                exited: false,
                 screen,
+                ..Cmu::default()
             }),
             done: CancellationToken::new(),
             killed: Once::new(),
@@ -393,12 +397,41 @@ impl Tool {
         self.observe_modes_classified(&mut rs, chunk, c.modes);
     }
 
+    /// 링과 화면 상태에 넣는다. 좌석이 비었으면 화면 상태가 낸 질의의 답을 PTY 에 쓴다(D-23).
+    /// 답할지는 넣은 잠금 안에서 정한다 — 좌석을 쥔 뒤의 조각에는 답하지 않는다.
     fn feed(&self, chunk: &[u8]) -> i64 {
         let mut g = lock(&self.cmu);
-        if let Some(s) = g.screen.as_mut() {
+        let replies = g.screen.as_mut().map(|s| {
             s.feed(chunk);
+            s.take_replies()
+        });
+        let end = self.stream.as_ref().map_or(0, |s| s.feed(chunk).1);
+        let answer = replies.filter(|r| !r.is_empty() && g.seat_holds == 0);
+        if answer.is_some() {
+            g.replied_end = end;
         }
-        self.stream.as_ref().map_or(0, |s| s.feed(chunk).1)
+        drop(g);
+        if let Some(r) = answer {
+            let _ = self.write(&r);
+        }
+        end
+    }
+
+    /// 답장 좌석을 쥐거나(`true`) 놓는다. 쥔 수가 0 일 때만 화면 상태가 답한다. 돌려주는 값은 화면 상태가
+    /// 마지막으로 답한 조각의 끝 오프셋이다 — 그보다 앞에서 이어 붙이면 이미 답한 질의를 다시 보낸다.
+    pub fn hold_seat(&self, held: bool) -> i64 {
+        let mut g = lock(&self.cmu);
+        g.seat_holds = if held {
+            g.seat_holds + 1
+        } else {
+            g.seat_holds.saturating_sub(1)
+        };
+        g.replied_end
+    }
+
+    /// 화면 상태가 마지막으로 답한 조각의 끝 오프셋이다([`hold_seat`](Self::hold_seat)).
+    pub fn replied_end(&self) -> i64 {
+        lock(&self.cmu).replied_end
     }
 
     /// 화면 상태 스냅숏과 그 뒤를 이을 출력 오프셋이다. 링과 같은 잠금 안에서 만들어 한 순간을 맞춘다.
@@ -425,6 +458,51 @@ impl Tool {
     /// 화면 상태의 글자다(read-screen, FR-TRM-8). 터미널이 없는 도구는 `None` 이다.
     pub fn screen_text(&self, bytes: usize) -> Option<String> {
         lock(&self.cmu).screen.as_ref().map(|s| s.text(bytes))
+    }
+
+    /// 줄 저장소에서 번호 `before` 앞의 `count` 줄이다 (FR-TRM-5). 잠금 안에서는 줄만 꺼내고 ANSI 는 밖에서
+    /// 쓴다. 터미널이 없는 도구는 `None` 이다.
+    pub fn history(&self, before: u64, count: usize) -> Option<ToolHistory> {
+        let g = lock(&self.cmu);
+        let store = g.screen.as_ref()?.store();
+        let start = before.saturating_sub(count as u64);
+        let (from, lines) = store.lines(start, (before - start) as usize);
+        let top = store.first();
+        drop(g);
+        Some(ToolHistory {
+            from,
+            top,
+            lines: lines.iter().map(|l| l.to_ansi()).collect(),
+        })
+    }
+
+    /// 데몬 교체로 넘길 화면 상태다(D-27). 터미널이 없는 도구는 `None` 이다.
+    pub fn screen_handover(&self) -> Option<Handover> {
+        lock(&self.cmu).screen.as_mut().map(Screen::handover)
+    }
+
+    /// 넘겨받은 화면 상태를 되세운다(D-27, 인계 판 2). 스냅숏과 저장소 그림으로 되세우고 링의 마지막
+    /// `back` 바이트를 이어 넣는다. 스냅숏이 비면(터미널이 없던 도구) 새 화면 그대로 둔다.
+    pub fn adopt_screen(&self, ring: &[u8], state: &[u8], back: usize, history: &[u8], cap: usize) {
+        if state.is_empty() {
+            return;
+        }
+        let mut g = lock(&self.cmu);
+        let Some(sc) = g.screen.as_mut() else {
+            return;
+        };
+        let (cols, rows) = sc.size();
+        let mut s = Screen::restore(cols, rows, cap, state, history);
+        s.feed(&ring[ring.len().saturating_sub(back)..]);
+        s.take_replies();
+        *sc = s;
+    }
+
+    /// 줄 저장소 상한을 바꾼다(D-25). 터미널이 없는 도구는 할 일이 없다.
+    pub fn set_history_lines(&self, lines: usize) {
+        if let Some(sc) = lock(&self.cmu).screen.as_mut() {
+            sc.set_store_cap(lines);
+        }
     }
 
     /// 화면 상태와 그 화면이 반영한 누적 오프셋(`end`)을 한 잠금 안에서 읽는다.

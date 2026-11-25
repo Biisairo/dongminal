@@ -327,6 +327,7 @@ fn exec_shim(ctx: &mut Ctx<'_>, path: &str, argv: &[String], environ: &[String])
     if let Some(a0) = argv.first() {
         c.arg0(a0);
     }
+    otter_shared_platform::restore_nofile_on_exec(&mut c);
     let e = c.exec();
     errf!(
         ctx,

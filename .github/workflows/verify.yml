@@ -227,6 +227,11 @@ jobs:
       - name: 로드 순서
         run: node scripts/check-load-order.mjs
 
+      # PERF M3 §3.4 (D-30·D-32): 화면 묶음은 Screens.load 가 부를 때 실린다. 부팅 코드가 그 전역을
+      # 진입점 밖에서 읽으면 그 경로가 돌 때만 ReferenceError 가 난다.
+      - name: 지연 묶음 경계
+        run: node scripts/check-lazy-boundary.mjs
+
       # REFACTOR3_FE_DELEG_SRS FR-DLG-7: 컨트롤러·부품으로 옮긴 이름을 주인 원형에 위임자로 다시 두지 않는다.
       - name: 위임자
         run: node scripts/check-delegates.mjs

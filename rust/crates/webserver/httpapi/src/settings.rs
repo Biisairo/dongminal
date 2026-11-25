@@ -237,6 +237,8 @@ impl Server {
         }
         // FR-ELR-76: 워크트리 회차 간격은 재시작 없이 다음 회차부터다.
         self.apply_git_worktree();
+        // PERF D-25: 기록 줄 수는 데몬이 곧바로 적용한다.
+        self.apply_screen_config().await;
         // 저장이 끝난 **뒤에** 알린다 (CHANNEL_PROTOCOL C2b).
         self.refresh_full_topic("settings");
         let mut res = Response::new(httpresp::empty());

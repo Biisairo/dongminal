@@ -402,6 +402,20 @@ fn erase_saved_lines_clears_store_and_numbers_go_on() {
     assert_eq!(s.store().first(), 76);
 }
 
+/// 기록 줄 수 설정(D-25)을 바꾸면 저장소 상한이 곧바로 바뀐다.
+#[test]
+fn store_cap_follows_history_setting() {
+    let mut s = Screen::with_keep(10, 5, 20, 2_000);
+    s.feed(&lines(3_000));
+    assert!(s.store().len() >= 2_000);
+    s.set_store_cap(1_000);
+    assert_eq!(s.store().cap(), 1_000);
+    assert!(s.store().len() < 1_000 + 256, "{}", s.store().len());
+    s.set_store_cap(4_000);
+    s.feed(&lines(4_000));
+    assert!(s.store().len() >= 4_000, "{}", s.store().len());
+}
+
 /// 64 KB 청크 하나로 수천 줄을 밀어도 줄을 잃지 않는다(2.3 에서 넘어온 연결 시험).
 #[test]
 fn burst_chunk_loses_no_lines() {

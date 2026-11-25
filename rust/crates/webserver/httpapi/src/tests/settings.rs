@@ -289,3 +289,78 @@ async fn start_git_watch_without_watcher_is_noop() {
     let s = server(d.path(), Deps::default());
     s.start_git_watch(tokio_util::sync::CancellationToken::new());
 }
+
+// ── 기록 줄 수 설정 (PERF D-25, `termHistoryLines`) ──
+
+#[derive(Default)]
+struct FakeScreenDaemon {
+    sent: Mutex<Vec<usize>>,
+}
+
+impl crate::ScreenDaemon for FakeScreenDaemon {
+    fn set_history_lines(&self, lines: usize) -> Result<(), crate::DaemonCallError> {
+        self.sent.lock().unwrap().push(lines);
+        Ok(())
+    }
+}
+
+#[test]
+fn history_lines_is_read_from_the_blob_and_falls_back_to_the_default() {
+    use crate::screen_config::parse_history_lines;
+    for (blob, want) in [
+        ("", 50_000),
+        ("{}", 50_000),
+        (r#"{"termHistoryLines":2000}"#, 2_000),
+        (r#"{"termHistoryLines":1000}"#, 1_000),
+        (r#"{"termHistoryLines":200000}"#, 200_000),
+        (r#"{"termHistoryLines":999}"#, 50_000),
+        (r#"{"termHistoryLines":200001}"#, 50_000),
+        (r#"{"termHistoryLines":1500.5}"#, 50_000),
+        (r#"{"termHistoryLines":"3000"}"#, 50_000),
+    ] {
+        assert_eq!(parse_history_lines(blob.as_bytes()), Some(want), "{blob:?}");
+    }
+}
+
+/// 설정 서술자의 범위·기본값이 데몬이 받는 범위·저장소 기본 상한과 같다.
+#[test]
+fn history_lines_schema_matches_daemon_range() {
+    let specs = otter_shared_settingsschema::load().unwrap();
+    let by = otter_shared_settingsschema::by_key(&specs);
+    let s = &by["termHistoryLines"];
+    assert_eq!(s.kind, "int");
+    assert_eq!(s.min, Some(otter_shared_toolipc::HISTORY_LINES_MIN as i64));
+    assert_eq!(s.max, Some(otter_shared_toolipc::HISTORY_LINES_MAX as i64));
+    assert_eq!(
+        s.def.as_u64(),
+        Some(otter_shared_toolhub::HISTORY_CAP as u64)
+    );
+}
+
+#[tokio::test]
+async fn settings_put_sends_history_lines_to_the_daemon() {
+    let d = tempfile::tempdir().unwrap();
+    let daemon = Arc::new(FakeScreenDaemon::default());
+    let s = server(
+        d.path(),
+        Deps {
+            settings: Some(file_settings(d.path())),
+            screen_daemon: Some(daemon.clone() as Arc<dyn crate::ScreenDaemon>),
+            ..Deps::default()
+        },
+    );
+    s.sync_screen_config();
+    assert_eq!(
+        put(&s, "/api/settings", r#"{"termHistoryLines":3000}"#)
+            .await
+            .status,
+        200
+    );
+    assert_eq!(
+        put(&s, "/api/settings", r#"{"termHistoryLines":5}"#)
+            .await
+            .status,
+        200
+    );
+    assert_eq!(*daemon.sent.lock().unwrap(), [50_000, 3_000, 50_000]);
+}

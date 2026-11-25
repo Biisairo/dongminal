@@ -17,13 +17,16 @@ use otter_shared_linestore::{LineStore, split_for_rows};
 use crate::hist;
 use crate::scan::Scan;
 use crate::snap::{self, CursorState, GridState, Pen, State};
-use crate::{Attrs, Cell, Color, Cursor, Link, Modes, MouseMode, Row, Snapshot};
+use crate::{Attrs, Cell, Color, Cursor, Handover, Link, Modes, MouseMode, Row, Snapshot};
 
 type Title = Arc<Mutex<Option<String>>>;
+type Replies = Arc<Mutex<Vec<u8>>>;
 
-/// 제목만 적어 두고 나머지 사건(답장 `PtyWrite`·클립보드 등)은 버린다. 답장을 PTY 에 쓰지 않는다.
+/// 제목과 DA·DSR·커서 위치 질의의 답(D-23)만 적어 두고 나머지 사건(색 질의·클립보드 등)은 버린다.
+/// 답을 PTY 에 쓸지는 도구가 정한다.
 struct Quiet {
     title: Title,
+    replies: Replies,
 }
 
 impl EventListener for Quiet {
@@ -31,10 +34,28 @@ impl EventListener for Quiet {
         let t = match event {
             Event::Title(t) => Some(t),
             Event::ResetTitle => None,
+            Event::PtyWrite(r) if is_status_reply(&r) => {
+                let mut g = self.replies.lock().unwrap_or_else(|e| e.into_inner());
+                g.extend_from_slice(r.as_bytes());
+                return;
+            }
             _ => return,
         };
         *self.title.lock().unwrap_or_else(|e| e.into_inner()) = t;
     }
+}
+
+/// DA(`CSI ? … c`·`CSI > … c`)·DSR(`CSI 0 n`)·커서 위치(`CSI r ; c R`)의 답이다. 모드(`$y`)·키보드
+/// (`u`) 답은 브라우저 xterm 이 내지 않으므로 데몬도 내지 않는다.
+fn is_status_reply(r: &str) -> bool {
+    let Some(body) = r.strip_prefix("\x1b[") else {
+        return false;
+    };
+    let body = body.strip_prefix(['?', '>']).unwrap_or(body);
+    let Some((last, params)) = body.as_bytes().split_last() else {
+        return false;
+    };
+    matches!(last, b'c' | b'n' | b'R') && params.iter().all(|b| b.is_ascii_digit() || *b == b';')
 }
 
 /// 동기 갱신(DECSET 2026)이 바이트를 붙잡지 않게 한다. 화면은 언제나 넣은 바이트 끝까지의 상태다.
@@ -90,6 +111,7 @@ pub struct Screen {
     /// (vte 0.15.0 이 이어 읽을 때 뒤 글자를 삼킨다 — `utf8_split_across_feeds_keeps_following_char`).
     carry: Vec<u8>,
     title: Title,
+    replies: Replies,
     keep: usize,
     store: LineStore,
 }
@@ -111,8 +133,10 @@ impl Screen {
             ..Config::default()
         };
         let title = Title::default();
+        let replies = Replies::default();
         let quiet = Quiet {
             title: Arc::clone(&title),
+            replies: Arc::clone(&replies),
         };
         Self {
             term: Term::new(cfg, &Size::new(cols, rows), quiet),
@@ -120,6 +144,7 @@ impl Screen {
             scan: Scan::default(),
             carry: Vec::new(),
             title,
+            replies,
             keep,
             store: LineStore::new(store_cap),
         }
@@ -135,6 +160,11 @@ impl Screen {
                 self.reload_options();
             }
         }
+    }
+
+    /// 지금까지 모인 질의의 답을 꺼낸다(D-23).
+    pub fn take_replies(&mut self) -> Vec<u8> {
+        std::mem::take(&mut *self.replies.lock().unwrap_or_else(|e| e.into_inner()))
     }
 
     fn reload_options(&mut self) {
@@ -206,7 +236,7 @@ impl Screen {
     /// 새 터미널에 `bytes` 를 넣고, 이어서 원래 출력을 지금까지 넣은 끝에서 `back` 바이트 앞부터
     /// 넣으면 이 화면에서 그대로 이어진다.
     pub fn snapshot(&mut self, history: usize) -> Snapshot {
-        let st = self.state(history);
+        let st = self.state_from(history, true);
         Snapshot {
             bytes: snap::encode(&st),
             back: st.back,
@@ -214,7 +244,51 @@ impl Screen {
         }
     }
 
+    /// 데몬 교체로 넘길 화면 상태다. 에뮬레이터 기록은 모두 스냅숏에, 저장소는 그림으로 담는다.
+    pub fn handover(&mut self) -> Handover {
+        let st = self.state_from(usize::MAX, false);
+        Handover {
+            snapshot: snap::encode(&st),
+            back: st.back,
+            store: self.store.export(),
+        }
+    }
+
+    /// [`handover`](Self::handover) 의 스냅숏과 저장소 그림으로 되세운다. 그림이 깨졌으면 저장소는 비운 채
+    /// 시작한다(화면은 되세운다).
+    pub fn restore(cols: u16, rows: u16, store_cap: usize, snapshot: &[u8], store: &[u8]) -> Self {
+        Self::restore_with_keep(cols, rows, EMU_KEEP, store_cap, snapshot, store)
+    }
+
+    pub(crate) fn restore_with_keep(
+        cols: u16,
+        rows: u16,
+        keep: usize,
+        store_cap: usize,
+        snapshot: &[u8],
+        store: &[u8],
+    ) -> Self {
+        let mut s = Self::with_keep(cols, rows, keep, store_cap);
+        s.feed(snapshot);
+        // 스냅숏을 넣는 동안 `keep` 을 넘어 옮겨진 줄은 넘겨받은 저장소 뒤에 잇는다.
+        let moved = s.store.lines(s.store.first(), s.store.len()).1;
+        let mut st =
+            LineStore::import(store_cap, store).unwrap_or_else(|| LineStore::new(store_cap));
+        for l in moved {
+            st.push(l);
+        }
+        s.store = st;
+        s.take_replies();
+        s
+    }
+
+    #[cfg(test)]
     pub(crate) fn state(&mut self, history: usize) -> State {
+        self.state_from(history, true)
+    }
+
+    /// `from_store` 가 거짓이면 에뮬레이터 기록만 싣는다.
+    fn state_from(&mut self, history: usize, from_store: bool) -> State {
         let back = self.scan.rewind();
         let (main, alt) = if self.term.mode().contains(TermMode::ALT_SCREEN) {
             let alt = grid_state(self.term.grid(), 0);
@@ -235,7 +309,11 @@ impl Screen {
         } else {
             (grid_state(self.term.grid(), history), None)
         };
-        let want = history.saturating_sub(main.history.len());
+        let want = if from_store {
+            history.saturating_sub(main.history.len())
+        } else {
+            0
+        };
         let (first_line, older) = hist::newest_rows(&self.store, want, usize::from(self.size().0));
         State {
             first_line,
@@ -291,6 +369,11 @@ impl Screen {
     /// 줄 저장소다(위로 받기 FR-TRM-5 가 읽는다).
     pub fn store(&self) -> &LineStore {
         &self.store
+    }
+
+    /// 줄 저장소 상한을 바꾼다(D-25 `termHistoryLines`). 줄이면 곧바로 버린다.
+    pub fn set_store_cap(&mut self, cap: usize) {
+        self.store.set_cap(cap);
     }
 
     pub fn cursor(&self) -> Cursor {

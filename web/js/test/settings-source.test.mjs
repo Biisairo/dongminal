@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { repoLoadOrder } from '../../../scripts/bundles-def.mjs';
 import { load } from './harness.mjs';
 
 /**
@@ -123,9 +124,8 @@ test('FR-OPT-11-4: 주기 선택지의 최소·최대가 표의 min·max 와 같
   }
 });
 
-test('FR-OPT-11-4: 표가 상수보다 먼저 선다 (index.html 로드 순서)', () => {
-  const html = read('../index.html');
-  const order = [...html.matchAll(/<script\s+src="js\/([^"?]+)/g)].map((m) => m[1]);
+test('FR-OPT-11-4: 표가 상수보다 먼저 선다 (로드 순서)', () => {
+  const order = repoLoadOrder(join(JS, '..', '..')).map((f) => f.slice('js/'.length));
   const at = (f) => { const i = order.indexOf(f); assert.notEqual(i, -1, f + ' 가 실리지 않는다'); return i };
   assert.equal(at('core/settings-defaults.js'), at('core/settings-schema.js') + 1);
   assert.ok(at('core/settings-defaults.js') < at('core/constants.js'));

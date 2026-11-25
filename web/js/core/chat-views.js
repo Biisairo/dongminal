@@ -24,12 +24,35 @@ class ChatViews extends Controller {
     const m=this._chatViewMap();
     const key=this.app.slot.slotKey(tab.id,slot||0);
     let v=m.get(key);
-    if(!v){ v=this._chatViewBuild(key,tab); m.set(key,v) }
+    if(!v){
+      v=this._chatViewBuild(key,tab);
+      // 생명주기 계약 (PERF M3 §3.5) — 뷰가 탭 본문의 주인이다.
+      v.lifeKind='ChatView'; v.wake=()=>this._chatViewWake(v); v.sleep=()=>this._chatViewSleep(v);
+      m.set(key,v);
+    }
     v.roomId=tab.roomId;
     this._chatViewPaint(v);
     // 탭이 보였다 — 그 방의 안 읽은 수가 0 이 된다. 패널은 그리는 중이 아닐 때 다시 그린다.
     if(this.app.chat._chatS().read(v.roomId)) TIMERS.defer(()=>{if(this.app.chat.window._chatRepaint)this.app.chat.window._chatRepaint()},{owner:this.app,label:'chat-read'});
     return v.root;
+  }
+
+  /** 렌더러가 생명주기에 넘길 그 탭·칸의 뷰 (`chatViewEl` 뒤에 부른다). */
+  chatViewOwner(tab,slot){ return this._chatViewMap().get(this.app.slot.slotKey(tab.id,slot||0))||null }
+
+  /**
+   * PERF M3 §3.5 (FR-SPA-3): 잠든 뷰는 다시 그리지 않는다. 그동안 온 변화는 표시만 해 두고 깰 때 한 번 그린다.
+   *   이전: 가려진 채팅 탭도 방이 바뀔 때마다 다시 그렸다
+   *   새:   가려지고 2초 뒤 잠들면 그리기가 0 이고, 깰 때 밀린 것을 한 번 그린다
+   *   이유: 잠든 화면은 그리기를 하지 않는다
+   */
+  _chatViewSleep(v){ v.asleep=true }
+
+  _chatViewWake(v){
+    v.asleep=false;
+    if(!v.stale) return;
+    v.stale=false;
+    this._chatViewPaint(v);
   }
 
   _chatViewBuild(key,tab){
@@ -82,8 +105,10 @@ class ChatViews extends Controller {
   _chatViewsPaint(roomId){
     const live=this._chatLiveTabIds();
     for(const [key,v] of this._chatViewMap()){
-      if(!live.has(v.tabId)){ this._chatViewMap().delete(key); continue }
-      if(!roomId||v.roomId===roomId) this._chatViewPaint(v);
+      if(!live.has(v.tabId)){ this.app.renderer.life.unmount(v); this._chatViewMap().delete(key); continue }
+      if(roomId&&v.roomId!==roomId) continue;
+      if(v.asleep){ v.stale=true; continue }
+      this._chatViewPaint(v);
     }
   }
 

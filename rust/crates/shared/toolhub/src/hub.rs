@@ -78,6 +78,15 @@ pub struct ToolScreen {
     pub cwd: String,
 }
 
+/// 줄 저장소의 기록 구간이다 (PERF FR-TRM-5). `lines` 는 번호 `from` 부터의 논리 줄 ANSI 이고, `top` 은
+/// 저장소에 남은 가장 오래된 줄 번호다 — `from <= top` 이면 그 위는 없다.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ToolHistory {
+    pub from: u64,
+    pub top: u64,
+    pub lines: Vec<String>,
+}
+
 /// 백그라운드 도구 한 건이다 (FR-BG-6).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename = "toolhub.BackgroundEntry")]

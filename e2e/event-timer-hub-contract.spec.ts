@@ -258,6 +258,8 @@ async function loadPanelPoll(page: Page) {
       _staleNote = false;
       _obsSig = null as any;
       _pollOn = false;
+      // PERF M3 §3.5: 탭 본문으로 깬 패널이다 — 폴링 판정이 이것을 본다.
+      _bodyAwake = true;
       // POLL_INTERVAL_SETTINGS_SRS FR-PIS-1: signature 폴링 계층이 사라졌다 —
       // `_sigPoll` 도 함께 걷는다.
       _stPoll = null as any;
@@ -265,7 +267,7 @@ async function loadPanelPoll(page: Page) {
       app = {
         // 소유 경로의 대역 (REFACTOR3_FE_DELEG_SRS FR-DLG-5).
         git: {
-          gitWindow: () => ({ id: 'w1' }), surfaces: { gitSurfaceOn: () => true },
+          gitWindow: () => ({ id: 'w1' }), surfaces: { gitSideOn: () => true },
           topics: new ((window as any).eval('GitTopics'))({ onChange() {}, onJobs() {} }),
         },
         editor: { edWindowFor: () => ({ id: 'w1' }) },

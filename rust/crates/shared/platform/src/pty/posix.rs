@@ -193,7 +193,7 @@ impl Pty for PosixPty {
         if !spec.dir.is_empty() {
             cmd.current_dir(&spec.dir);
         }
-        // SAFETY: fork 뒤 exec 전에 돈다. setsid·ioctl·execve 는 async-signal-safe 이고, 쓰는
+        // SAFETY: fork 뒤 exec 전에 돈다. setsid·ioctl·setrlimit·execve 는 async-signal-safe 이고, 쓰는
         // 메모리는 fork 전에 만든 image 뿐이다. execve 가 돌아오면 그 errno 를 낸다.
         unsafe {
             cmd.pre_exec(move || {
@@ -203,6 +203,7 @@ impl Pty for PosixPty {
                 if libc::ioctl(0, libc::TIOCSCTTY as _, 0) == -1 {
                     return Err(io::Error::last_os_error());
                 }
+                crate::nofile::restore_in_child();
                 Err(image.exec())
             });
         }

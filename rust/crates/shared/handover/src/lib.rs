@@ -14,7 +14,7 @@ use otter_shared_platform::IpcStream;
 use serde::{Deserialize, Serialize};
 
 /// 인계 상태의 모양을 세는 판 (FR-DSK-18·D-DSK-11).
-pub const VERSION: i64 = 1;
+pub const VERSION: i64 = 2;
 
 /// 보고 소켓의 교체 메서드 (FR-DSK-10·17).
 pub const METHOD_RELOAD: &str = "daemon.reload";

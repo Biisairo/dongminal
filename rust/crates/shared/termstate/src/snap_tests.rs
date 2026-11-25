@@ -690,3 +690,97 @@ fn measure_snapshot_5000_rows() {
         );
     }
 }
+
+// ── 데몬 교체 (D-27): 스냅숏 + 저장소 그림으로 되세운다 ──
+
+/// 바이트[..k] 를 넣은 화면을 넘겨 되세우고, 끝나지 않은 바이트(`back`)를 이어 넣으면 원본과 같다.
+/// 그 뒤 나머지를 둘 다 넣어도 같고, 저장소 번호도 같다.
+fn check_handover(
+    data: &[u8],
+    (cols, rows): (u16, u16),
+    keep: usize,
+    ks: impl Iterator<Item = usize>,
+) {
+    let mut errs = Vec::new();
+    for k in ks {
+        let mut a = Screen::with_keep(cols, rows, keep, HIST);
+        a.feed(&data[..k]);
+        let h = a.handover();
+        let mut b = Screen::restore_with_keep(cols, rows, keep, HIST, &h.snapshot, &h.store);
+        b.feed(&data[k - h.back..k]);
+        let mut sa = norm(a.state(HIST));
+        let mut sb = norm(b.state(HIST));
+        sa.back = 0;
+        sb.back = 0;
+        if sa != sb {
+            errs.push(format!("k={k} 되세운 직후: {}", first_diff(&sa, &sb)));
+            continue;
+        }
+        a.feed(&data[k..]);
+        b.feed(&data[k..]);
+        let (sa, sb) = (norm(a.state(HIST)), norm(b.state(HIST)));
+        if sa != sb {
+            errs.push(format!("k={k} 나머지 뒤: {}", first_diff(&sa, &sb)));
+        } else if (a.store().first(), a.store().end()) != (b.store().first(), b.store().end()) {
+            errs.push(format!(
+                "k={k} 저장소 번호 {:?} != {:?}",
+                (a.store().first(), a.store().end()),
+                (b.store().first(), b.store().end())
+            ));
+        }
+    }
+    assert!(
+        errs.is_empty(),
+        "{}건 어긋남, 처음:\n{}",
+        errs.len(),
+        errs.first().map_or("", String::as_str)
+    );
+}
+
+#[test]
+fn handover_keeps_screen_history_and_store_numbers() {
+    let mut data = Vec::new();
+    for i in 0..80 {
+        data.extend_from_slice(format!("\x1b[3{}mline {i} ", i % 8).as_bytes());
+        data.extend(std::iter::repeat_n(b'x', i % 23));
+        data.extend_from_slice("\x1b]8;;http://e\x1b\\한\x1b]8;;\x1b\\\x1b[0m\r\n".as_bytes());
+    }
+    // 두 바이트마다 + 끝. 시퀀스·UTF-8 한가운데도 지난다.
+    check_handover(
+        &data,
+        (12, 6),
+        5,
+        (0..data.len()).step_by(2).chain([data.len()]),
+    );
+}
+
+#[test]
+fn handover_in_alt_screen_keeps_main_history() {
+    let mut data: Vec<u8> = (0..40)
+        .flat_map(|i| format!("main {i}\r\n").into_bytes())
+        .collect();
+    data.extend_from_slice(b"\x1b[?1049h\x1b[2Jalt\x1b[3;3Hx");
+    let k = data.len();
+    data.extend_from_slice(b"y\x1b[?1049lafter\r\n");
+    check_handover(&data, (10, 5), 8, [k - 3, k, data.len()].into_iter());
+}
+
+#[test]
+fn handover_of_agent_sim_matches() {
+    let line = corpus("sim-line.bin");
+    check_handover(&line, (120, 40), 50, sampled(line.len(), 6, 9));
+}
+
+#[test]
+fn restore_with_a_broken_store_keeps_the_screen() {
+    let mut a = Screen::with_keep(10, 5, 5, HIST);
+    a.feed(
+        &(0..40)
+            .flat_map(|i| format!("L{i:02}\r\n").into_bytes())
+            .collect::<Vec<_>>(),
+    );
+    let h = a.handover();
+    let b = Screen::restore(10, 5, HIST, &h.snapshot, b"broken");
+    assert_eq!(b.cursor(), a.cursor());
+    assert_eq!(b.row(0), a.row(0));
+}

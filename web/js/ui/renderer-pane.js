@@ -46,12 +46,17 @@ Object.assign(Renderer.prototype, {
   // 서므로 (FR-WSL-20·23), 붙일 실체를 고를 때 그것을 딛는다.
   _mountTabBody(body,at){
     const slot=this._rSlot||0;
-    let el=null,term=null,diffPanel=null;
+    // `owner` 는 이 본문의 주인 — 생명주기 전이의 대상이다 (PERF M3 §3.5).
+    let el=null,term=null,diffPanel=null,owner=null;
     if(!at){
       this._hideOthers(body,null);
       return;
     }
-    if(at.type===TAB_TYPE_GIT){
+    // PERF D-30: 이 탭을 맡는 화면의 묶음이 아직이면 자리표시를 붙인다. 렌더러는 동기로 남는다.
+    const wait=this._screenWait(at,slot);
+    if(wait){
+      el=wait;
+    }else if(at.type===TAB_TYPE_GIT){
       // 패널은 **(루트, 칸)마다** 있다 (FR-SVS-40·42 + FR-RTU-60). 루트는 **이 탭이
       // 있는 창**의 것이다 — 그리는 중인 창이 활성 창이 아닐 수 있다(슬롯).
       const root=this.app.editor.isEditorWin(this._rWin)?this.app.editor.edRootOf(this._rWin):'';
@@ -59,6 +64,7 @@ Object.assign(Renderer.prototype, {
       const p=(root&&at.gitView==='diff')?this.app.repoWin.gitDiffPanelFor(root,slot,at):this.app.git.surfaces.gitPanelAt(root,slot);
       if(p.diffTabId) diffPanel=p;
       el=p.viewRoots.elFor(at.gitView);
+      owner=p;
     }else if(at.type==='editor'){
       const key=this.app.slot.slotKey(at.id,slot);
       let editor=this.app.fileEditors.get(key);
@@ -68,6 +74,7 @@ Object.assign(Renderer.prototype, {
       if(editor&&editor.filePath!==at.filePath){
         const moved=this.app.editor.doc.edDocMove(editor.filePath,at.filePath);
         if(editor.filePath!==at.filePath||moved.conflicts.length){
+          this.life.unmount(editor);
           try{editor.destroy()}catch{ /* 이미 파괴된 것은 오류가 아니다 */ }
           this.app.fileEditors.delete(key);
           editor=null;
@@ -81,16 +88,19 @@ Object.assign(Renderer.prototype, {
         this.app.fileEditors.set(key,editor);
       }
       el=editor.el;
+      owner=editor;
     }else if(at.type==='run'){
       // FR-RVZ-6: 네 번째 타입. 루트 DOM 은 탭마다 캐시된다 (NFR-RVZ-2).
       el=this.app.runsPanel().runViewEl(at,slot);
+      owner=this.app.runsPanel().runViewOwner(at,slot);
     }else if(at.type===TAB_TYPE_CHAT){
       // PEER_CHAT_SRS §3.11: 채팅 탭. 루트 DOM 은 탭과 칸마다 캐시된다.
       el=this.app.chat.views.chatViewEl(at,slot);
+      owner=this.app.chat.views.chatViewOwner(at,slot);
     }else{
       // 슬롯 1 의 인스턴스는 그 슬롯이 처음 이 도구를 그릴 때 선다 (FR-WSL-20).
       const p=at.toolId?this.app.mkTool(at.toolId,at.name||'',slot):null;
-      if(p){ el=p.el; term=p }
+      if(p){ el=p.el; term=p; owner=p }
     }
     if(!el) { this._hideOthers(body,null); return }
     let moved=false;
@@ -124,8 +134,30 @@ Object.assign(Renderer.prototype, {
      *   이유:     그 자리가 이미 *"요소가 문서에 붙은 뒤"* 의 자리다 (FR-SCR-2).
      *             **규약은 있었고 이 한 자리만 그 밖에 있었다**
      */
-    this._mounted.add(el);
+    this._mounted.set(el,owner);
     this._hideOthers(body,el);
+  },
+
+  /**
+   * 탭 `at` 을 맡는 화면(`Screens.forTab`)이 아직 실리지 않았으면 자리표시를 돌려주고 묶음을 싣기 시작한다.
+   * 실리면 `app.render()` 를 한 번 부른다 — 그 그리기가 실제 본문을 붙인다. 실패는 기억하지 않는다(다음
+   * 그리기가 다시 싣는다). 맡는 화면이 없거나 이미 실렸으면 null.
+   *
+   * 자리표시는 `_keep` 으로 탭·칸마다 하나다. 쓰이지 않으면 그리기 끝에서 거둔다.
+   */
+  _screenWait(at,slot){
+    const name=Screens.forTab(at);
+    if(!name||Screens.ready(name)) return null;
+    if(!this._screenLoads.has(name)){
+      this._screenLoads.add(name);
+      Screens.load(name).then(()=>{ this._screenLoads.delete(name); this.app.render() },()=>{ this._screenLoads.delete(name) });
+    }
+    return this._keep('wait:'+slot+':'+at.id,()=>{
+      const el=document.createElement('div');
+      el.className='ui-empty ui-empty-center';
+      el.textContent=t('core.screen_loading');
+      return el;
+    });
   },
 
   /**

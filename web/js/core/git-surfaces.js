@@ -176,23 +176,21 @@ class GitSurfaces extends Controller {
   }
 
   /**
-   * FR-RTU-62: **이 창에 git 표면이 서 있는가.**
+   * FR-RTU-62: **이 창의 사이드에 git 표면(Changes)이 서 있는가.**
    *
    * 창이 보이는 것만으로는 부족하다 — Repo 창은 사이드가 `Explorer` 이고 본문에
    * git 뷰 탭도 없을 수 있고, 그때 그 저장소의 관측을 쓰는 화면은 하나도 없다.
    * 그것을 세지 않으면 **저장소가 아닌 루트에도** status 가 3초마다 나간다
    * (실측: V-EDT-47 이 1회를 기대하는데 4회였다).
    *
-   * 탭은 **있는지**만 본다. 활성인지까지 따지면 사용자가 Diff 와 History 를
-   * 오갈 때마다 관측이 멎었다 살아나고, 돌아온 탭이 낡은 내용을 먼저 보인다.
+   * 본문의 git 뷰 탭은 여기서 보지 않는다 — 생명주기가 정한다(PERF M3 §3.5, 패널의 `wake`·`sleep`).
+   *   이전: 창의 어느 pane 에든 git 탭이 **있으면** 참이었다
+   *   새:   사이드만 본다. 본문은 깬 동안만 표면이다
+   *   이유: 다른 탭 뒤에 가려진 git 탭이 구독·회복 주기를 쥐었다. 탭을 오갈 때의 멎음은 잠들기 전 2초
+   *         지연(`SCREEN_SLEEP_MS`)이 받는다
    */
-  gitSurfaceOn(w){
-    if(!w) return false;
-    if(this.app.editor.pane.edSideOf(w)===REPO_SIDE_CHANGES) return true;
-    if(!w.layout) return false;
-    for(const pn of this.app.flattenPanes(w.layout))
-      if((pn.tabs||[]).some(tab=>tab&&tab.type===TAB_TYPE_GIT)) return true;
-    return false;
+  gitSideOn(w){
+    return !!w&&this.app.editor.pane.edSideOf(w)===REPO_SIDE_CHANGES;
   }
 
   // 키의 조립은 여기 하나다 — 회수(`_gitPanelReap`)가 같은 규칙으로 되풀어야

@@ -19,6 +19,9 @@ class TerminalSection extends SettingsSection {
       // FONT_SIZE_SETTING_SRS FR-FSS-11·12: 터미널만 움직인다.
       {key:'termFontSize',id:'ds-termfs',kind:'number',guard:true},
       {key:'claudeScrollSpeed',id:'ds-scrollspeed',kind:'number',guard:true},
+      // PERF D-25: 기록 줄 수 둘.
+      {key:'termHistoryLines',id:'ds-termhist',kind:'number',guard:true},
+      {key:'termScrollback',id:'ds-termsb',kind:'number',guard:true},
       {key:'migrationHook',id:'ds-mighook',kind:'check'},
       {key:'migrationHookCtxPct',id:'ds-mighookpct',kind:'number',guard:true},
       {key:'issueTreeMigration',id:'ds-treemig',kind:'check'},

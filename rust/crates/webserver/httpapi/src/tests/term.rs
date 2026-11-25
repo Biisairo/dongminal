@@ -4,99 +4,51 @@
 
 use std::time::{Duration, Instant, SystemTime};
 
-use otter_shared_toolhub::{OP_ERROR, OP_EXIT, OP_OUTPUT, OP_SEQ, OP_TOOL_ID, OutChunk, TermSize};
-
-use crate::ws::{
-    BrowserInputs, MISS_REPEAT_WINDOW, MissTracker, TERM_HARD_CLEAR, TERM_RESET, TRS_ALIGN_SCAN,
-    align_head, build_replay, relay_joinable, seq_payload, strip_snapshot_queries, trim_overlap,
+use otter_shared_toolhub::{
+    OP_ERROR, OP_EXIT, OP_OUTPUT, OP_SEQ, OP_TOOL_ID, OutChunk, TermSize, ToolScreen,
 };
 
-fn contains(h: &[u8], n: &[u8]) -> bool {
-    find(h, n).is_some()
-}
+use crate::ws::{
+    BrowserInputs, MISS_REPEAT_WINDOW, MissTracker, relay_joinable, replay_delta, seq_payload,
+    snap_seq_payload, strip_snapshot_queries, trim_overlap,
+};
 
-fn find(h: &[u8], n: &[u8]) -> Option<usize> {
-    h.windows(n.len()).position(|w| w == n)
+#[test]
+fn replay_delta_strips_osc777_and_queries() {
+    assert_eq!(replay_delta(b"FRAME"), b"FRAME");
+    assert_eq!(replay_delta("앞\n뒤".as_bytes()), "앞\n뒤".as_bytes());
+    assert_eq!(replay_delta(b"a\x1b]777;Cwd;/tmp\x07b\x1b[?6nc"), b"abc");
+    assert!(replay_delta(b"").is_empty());
 }
 
 #[test]
-fn align_head_cases() {
-    assert_eq!(
-        align_head("2;34m깨진앞머리\nOK부터\n뒤".as_bytes()),
-        "OK부터\n뒤".as_bytes()
-    );
-    let long = vec![b'x'; TRS_ALIGN_SCAN + 100];
-    assert_eq!(align_head(&long).len(), long.len(), "밀면 안 된다");
-    let mut beyond = vec![b'x'; TRS_ALIGN_SCAN + 10];
-    beyond.extend_from_slice(b"\na");
-    assert_eq!(align_head(&beyond).len(), beyond.len());
-    assert_eq!(align_head(b"\nabc"), b"abc");
-    assert!(align_head(b"").is_empty());
-}
-
-#[test]
-fn build_replay_full_order_and_clear() {
-    let got = build_replay(b"\nBODY", true, false);
-    let (r, c, b) = (
-        find(&got, TERM_RESET),
-        find(&got, TERM_HARD_CLEAR),
-        find(&got, b"BODY"),
-    );
-    assert_eq!(r, Some(0));
-    assert!(r < c && c < b, "{r:?} {c:?} {b:?}");
-    let got = build_replay(b"\nx", true, false);
-    for want in ["\x1b[2J", "\x1b[3J", "\x1b[?1049l", "\x1b[H"] {
-        assert!(contains(&got, want.as_bytes()), "{want:?}");
-    }
-}
-
-#[test]
-fn build_replay_restores_alt_at_head() {
-    let alt_on = b"\x1b[?1049h";
-    let cases = [
-        ("전환 없음·지금 대체 화면", "\nFRAME", true, true),
-        ("전환 없음·지금 주 화면", "\nFRAME", false, false),
-        (
-            "첫 전환이 끄기",
-            "\nFRAME\x1b[?1049l$ \x1b[?1049hVIM",
-            true,
-            true,
-        ),
-        ("첫 전환이 켜기", "\n$ vim\x1b[?1049hVIM", true, false),
-        ("옛 형태 47 끄기", "\nFRAME\x1b[?47l$ ", false, true),
-    ];
-    for (name, body, alt, want) in cases {
-        let got = build_replay(body.as_bytes(), true, alt);
-        let i = find(&got, TERM_HARD_CLEAR).unwrap() + TERM_HARD_CLEAR.len();
-        assert_eq!(got[i..].starts_with(alt_on), want, "{name}");
-    }
-}
-
-#[test]
-fn build_replay_delta() {
-    assert_eq!(build_replay(b"FRAME", false, true), b"FRAME");
-    let got = build_replay(b"delta", false, false);
-    assert_eq!(got, b"delta");
-    assert!(!contains(&got, TERM_HARD_CLEAR) && !contains(&got, TERM_RESET));
-    assert_eq!(
-        build_replay("앞\n뒤".as_bytes(), false, false),
-        "앞\n뒤".as_bytes()
-    );
-    assert_eq!(
-        build_replay(b"a\x1b]777;Cwd;/tmp\x07b\x1b[?6nc", false, false),
-        b"abc"
-    );
-    assert!(build_replay(b"", false, false).is_empty());
-    let full = build_replay(b"\na\x1b]777;Cwd;/tmp\x07b", true, false);
-    assert!(!contains(&full, b"777"));
-}
-
-#[test]
-fn build_replay_strips_startup_probes() {
+fn replay_delta_strips_startup_probes() {
     let probes =
         "\x1b]11;?\x07\x1b[?2026$p\x1b[?2048$p\x1b[?2031$p\x1b[?1010$p\x1b[?1011$p\x1bP$q q\x1b\\";
-    let got = build_replay(format!("$ claude{probes}\nready").as_bytes(), false, false);
+    let got = replay_delta(format!("$ claude{probes}\nready").as_bytes());
     assert_eq!(got, b"$ claude\nready");
+}
+
+/// PERF D-19: 스냅숏의 `SEQ` 는 FULL·SNAP 깃발을 세우고, 뒤에 첫 기록 줄 번호(u64 BE)와 cwd 를 붙인다.
+#[test]
+fn snap_seq_payload_layout() {
+    let s = ToolScreen {
+        end: 0x0102030405060708,
+        alt: true,
+        first_line: 77,
+        cwd: "/tmp/깨움".to_owned(),
+        ..ToolScreen::default()
+    };
+    let p = snap_seq_payload(&s);
+    assert_eq!(
+        i64::from_be_bytes(p[..8].try_into().unwrap()),
+        0x0102030405060708
+    );
+    assert_eq!(p[8], 1 | 2 | 4);
+    assert_eq!(u64::from_be_bytes(p[9..17].try_into().unwrap()), 77);
+    assert_eq!(&p[17..], "/tmp/깨움".as_bytes());
+    let main = snap_seq_payload(&ToolScreen::default());
+    assert_eq!((main[8], main.len()), (1 | 4, 17));
 }
 
 #[test]
@@ -123,21 +75,14 @@ fn strip_snapshot_queries_shared_vectors() {
 
 #[test]
 fn seq_payload_layout() {
-    let p = seq_payload(0x0102030405060708, true, false);
+    let p = seq_payload(0x0102030405060708, false);
     assert_eq!(p.len(), 9);
     assert_eq!(
         i64::from_be_bytes(p[..8].try_into().unwrap()),
         0x0102030405060708
     );
-    assert_eq!(p[8], 1);
-    for (full, alt, want) in [
-        (false, false, 0),
-        (true, false, 1),
-        (false, true, 2),
-        (true, true, 3),
-    ] {
-        assert_eq!(seq_payload(0, full, alt)[8], want);
-    }
+    assert_eq!(p[8], 0, "이어 붙이기에는 FULL 깃발이 없다");
+    assert_eq!(seq_payload(0, true)[8], 2);
     for op in [OP_OUTPUT, OP_ERROR, OP_EXIT, OP_TOOL_ID] {
         assert_ne!(OP_SEQ, op);
     }

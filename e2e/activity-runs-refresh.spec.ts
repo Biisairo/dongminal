@@ -42,7 +42,7 @@ test('TC-CH3-8: 펼친 패널은 /api/runs 를 주기로 받지 않고, 새 Run 
     return (await r.json()).id;
   }, toolId);
   await expect.poll(() => page.evaluate((id) =>
-    ((window as any).app._runs._runsList || []).some((rv: any) => rv.id === id), runId), { timeout: 5000 }).toBe(true);
+    ((window as any).app.testing.runsPanel()._runsList || []).some((rv: any) => rv.id === id), runId), { timeout: 5000 }).toBe(true);
   // POST 한 건 말고 목록 GET 은 늘지 않았다.
   expect(runs.n).toBe(afterOpen + 1);
 });

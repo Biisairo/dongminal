@@ -617,6 +617,8 @@ fn ext_request_wire() {
         op: "rooms".into(),
         ..Default::default()
     });
+    let _ = pc.screen_config(2000);
+    let _ = pc.seat_tool("t1", true);
     let want = [
         r#"{"id":1,"method":"recordset","params":{"kind":"agent","tool":"t1","value":{"a":1}}}"#,
         r#"{"id":2,"method":"recordset","params":{"kind":"limits","value":null}}"#,
@@ -628,6 +630,8 @@ fn ext_request_wire() {
         r#"{"id":8,"method":"edge","params":{"op":"list"}}"#,
         r#"{"id":9,"method":"edgeport","params":{"addr":"127.0.0.1:60200","listening":true}}"#,
         r#"{"id":10,"method":"chat","params":{"op":"rooms"}}"#,
+        r#"{"id":11,"method":"screenconfig","params":{"historyLines":2000}}"#,
+        r#"{"id":12,"method":"seat","params":{"held":true,"id":"t1"}}"#,
     ];
     for w in want {
         assert_eq!(next_line(&lines), w);

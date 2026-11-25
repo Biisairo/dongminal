@@ -104,6 +104,10 @@ function applyTabWidth(){
  */
 var uiFontSize;
 var termFontSize;
+// PERF D-25: 기록 줄 수 둘. `termHistoryLines` 는 서버가 데몬에 보낸다 — 화면은 들고 저장만 한다.
+// `termScrollback` 은 새로 만드는 터미널의 스크롤백이다(`term-pane.js`).
+var termHistoryLines;
+var termScrollback;
 // AGENT_RENDER_ENV_SRS FR-ARE-8: 값을 들고 저장할 뿐, 얹을 화면이 없다 —
 // 서버가 도구를 띄울 때 환경변수로 넣는다.
 var claudeScrollSpeed;
@@ -119,6 +123,7 @@ var keybarCfg;
 /** 지금 쓸 값. 설정이 아직 오지 않았으면 표의 기본값이다. */
 function uiFontSizeNow(){ return uiFontSize??SETTINGS_BY_KEY.uiFontSize.def }
 function termFontSizeNow(){ return termFontSize??SETTINGS_BY_KEY.termFontSize.def }
+function termScrollbackNow(){ return termScrollback??SETTINGS_BY_KEY.termScrollback.def }
 
 /**
  * FR-FSS-3: 배율을 **CSS 변수 하나**로 전달한다.

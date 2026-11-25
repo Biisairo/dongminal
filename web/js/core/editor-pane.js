@@ -333,6 +333,11 @@ class EditorPane extends Controller {
     if(tree) tree.loader.pollGit({now:true});
     // EDITOR_DIRTY_DIFF_SRS FR-EDD-50·51: 편집기의 기준도 이 신호로 따라온다.
     // 편집기는 자기 주기의 폴링을 갖지 않으므로(D-5) 이 자리가 그 유일한 계기다.
-    if(this.app._edDocs) for(const d of this.app._edDocs.values()) if(d.dd) d.dd.refresh();
+    // PERF 3.5.3: 모든 뷰가 잠든 문서는 밀린 표시만 남기고 깰 때 받는다.
+    if(this.app._edDocs) for(const d of this.app._edDocs.values()){
+      if(!d.dd) continue;
+      if(this.app.editor.open.edDocAsleep(d)) d.dd.stale=true;
+      else d.dd.refresh();
+    }
   }
 }

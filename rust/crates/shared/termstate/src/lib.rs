@@ -1,7 +1,8 @@
 //! 데몬이 도구마다 한 벌 드는 화면 상태다 (PERF SRS FR-TRM-1·7, D-13).
 //!
 //! 에뮬레이터(`alacritty_terminal =0.26.0`)는 `emu` 모듈 밖으로 나오지 않는다. 바깥에는 이 파일의
-//! 값 타입과 [`Screen`] 만 보인다. 답장 사건(DA·DSR 등의 `PtyWrite`)은 어디에도 쓰지 않는다.
+//! 값 타입과 [`Screen`] 만 보인다. DA·DSR·커서 위치 질의의 답은 [`Screen::take_replies`] 로 모아 내고, 쓸지는
+//! 도구가 정한다(D-23).
 
 mod emu;
 mod hist;
@@ -21,6 +22,17 @@ pub struct Snapshot {
     pub back: usize,
     /// 스냅숏에 실린 가장 오래된 기록 줄의 절대 번호(줄 저장소 번호)다. 위로 받기는 이 앞을 묻는다.
     pub first_line: u64,
+}
+
+/// 데몬 교체(D-27)로 넘기는 화면 상태다. [`Screen::handover`] 가 만들고 [`Screen::restore`] 가 받는다.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Handover {
+    /// 에뮬레이터의 화면·기록(저장소 줄은 빼고)을 다시 그리는 ANSI 다.
+    pub snapshot: Vec<u8>,
+    /// 끝나지 않은 시퀀스·UTF-8 글자의 바이트 수다. 받는 쪽은 출력 원본의 마지막 `back` 바이트를 이어 넣는다.
+    pub back: usize,
+    /// 줄 저장소 그림이다(블록과 절대 줄 번호).
+    pub store: Vec<u8>,
 }
 
 /// 셀의 색이다. 16색 이름 색도 번호로 적는다(xterm.js 와 같은 꼴).
@@ -145,6 +157,8 @@ pub struct Modes {
     pub line_feed_new_line: bool,
 }
 
+#[cfg(test)]
+mod reply_tests;
 #[cfg(test)]
 mod snap_tests;
 #[cfg(test)]

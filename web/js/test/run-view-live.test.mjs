@@ -15,7 +15,8 @@ const ctx = load(['ui/runs-panel.js'], {
 });
 
 function panel(views, live, list = []) {
-  const p = new ctx.RunsPanel({ ws: { windows: [] }, slot: { slotBase: (k) => k } });
+  // `renderer.life` — 사라진 뷰는 생명주기에서도 빠진다 (PERF M3 §3.5).
+  const p = new ctx.RunsPanel({ ws: { windows: [] }, slot: { slotBase: (k) => k }, renderer: { life: { unmount() {} } } });
   const fetched = [];
   let soon = 0;
   p._runsRefreshSoon = () => { soon++ };
@@ -80,7 +81,7 @@ function topicPanel() {
   const subs = new Map();
   const stopped = [];
   const p = new ctx.RunsPanel({
-    ws: { windows: [] }, slot: { slotBase: (k) => k },
+    ws: { windows: [] }, slot: { slotBase: (k) => k }, renderer: { life: { unmount() {} } },
     channel: { sub: (topic, fn) => { subs.set(topic, fn); return { stop: () => stopped.push(topic) } } },
   });
   const painted = [];
