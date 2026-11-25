@@ -29,7 +29,6 @@ use otter_webserver_httpapi::{Config, Server, WebAssets};
 use otter_webserver_hub as hub;
 use otter_webserver_recordsync::Writer;
 use otter_webserver_toolclient::ToolClient;
-use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use crate::daemon::{DaemonUnavailable, dial_or_start_daemon};
@@ -392,7 +391,7 @@ impl App {
         })));
     }
 
-    /// 기동이다 — 스위퍼·폴·감시·리퍼를 ctx 에 묶어 띄우고 HTTP 서버를 돌린다. ctx 가 끝나면 서버가
+    /// 기동이다 — 감시·리퍼를 ctx 에 묶어 띄우고 HTTP 서버를 돌린다. ctx 가 끝나면 서버가
     /// 멈추고 돌아온다. 종료는 [`App::shutdown`] 의 일이다.
     pub(crate) async fn run(&self, ctx: CancellationToken) -> std::io::Result<()> {
         let Some(srv) = self.srv.clone() else {
@@ -410,9 +409,6 @@ impl App {
         if let Some(w) = &self.records {
             w.start(ctx.clone());
         }
-        if let Some(tr) = &self.bd.attn_tracker {
-            tr.start_sweeper(ctx.clone(), ticker(hub::SWEEPER_INTERVAL, ctx.clone()));
-        }
         if let Some(sampler) = &self.bd.sampler {
             let stopper = sampler.start();
             let ctx = ctx.clone();
@@ -421,17 +417,6 @@ impl App {
                 stopper.stop();
             });
         }
-        // FR-TAN-8: 전경 조회는 데몬이 스스로 돌리므로 틱을 흘려보낸다 — 전경 티커가 없는 옛 데몬에만
-        // list RPC 로 조회를 시킨다 (FR-OPT-2-1).
-        let fg: Option<Arc<dyn hub::ForegroundSource>> = self
-            .client
-            .clone()
-            .map(|c| Arc::new(adapters::Hub(c)) as Arc<dyn hub::ForegroundSource>);
-        hub::start_foreground_poll(
-            fg,
-            ctx.clone(),
-            ticker(hub::FOREGROUND_INTERVAL, ctx.clone()),
-        );
         // GIT_PUSH_OBSERVE_SRS FR-GPO-1·13: 저장소 signature 가 바뀌었을 때만 알린다.
         srv.start_git_watch(ctx.clone());
         // UX_REVISION_SRS FR-DEL-14/18: 끝난 Run 과 조정자를 잃은 Run 을 거둔다.
@@ -602,23 +587,6 @@ fn drain_git() -> bool {
             .map(|rt| rt.block_on(wait))
             .unwrap_or(true),
     }
-}
-
-/// `every` 마다 틱을 하나 낸다. 받는 쪽이 밀려 있으면 그 틱은 버린다(Go `time.Ticker`). `stop` 이
-/// 끝나면 멈춘다.
-fn ticker(every: Duration, stop: CancellationToken) -> mpsc::Receiver<()> {
-    let (tx, rx) = mpsc::channel(1);
-    tokio::spawn(async move {
-        let mut iv = tokio::time::interval_at(tokio::time::Instant::now() + every, every);
-        iv.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        loop {
-            tokio::select! {
-                _ = iv.tick() => { let _ = tx.try_send(()); }
-                _ = stop.cancelled() => return,
-            }
-        }
-    });
-    rx
 }
 
 /// 노드 포트를 ctx 가 끝나거나 돌려준 future 를 기다리면 닫히게 띄운다. 돌려준 future 는 닫기가
