@@ -39,7 +39,7 @@ const TIMER_HUB_JS = join(process.cwd(), 'web', 'js', 'core', 'timer-hub.js');
 // REFACTOR3_FE_REST5_SRS D-FR5-9: 터미널의 전송·보류 배너·출력·크기 판정이 부품 넷으로 갈라졌다. 부품 파일 끝의
 // 위임자 표가 `Controller.delegate` 를 부르므로 기반 클래스 둘을 함께 싣는다.
 const BASE_JS = ['component.js', 'controller.js'].map((f) => join(process.cwd(), 'web', 'js', 'core', 'base', f));
-const TERM_PARTS_JS = ['term-transfer.js', 'term-held.js', 'term-output.js', 'term-fit.js']
+const TERM_PARTS_JS = ['term-transfer.js', 'term-held.js', 'term-output.js', 'term-fit.js', 'term-history.js']
   .map((f) => join(process.cwd(), 'web', 'js', 'ui', f));
 
 // term-pane.js 가 기대하는 전역 중 재연결 경로가 쓰는 것만 세운다.
@@ -62,6 +62,8 @@ async function loadTermPane(page: Page) {
       TERM_WS_RETRY_JITTER: 0.2,
       TERM_OVERLAY_HIDE_MS: 300,
       TERM_SEND_QUEUE_MAX: 64,
+      // PERF D-36: 숨은 브라우저 탭에서 터미널이 잠드는 지연.
+      TERM_PAGE_SLEEP_MS: 30000,
     });
     (window as any).OSC_CARRY_MS = 50;
     // `12-func-ui.md FUI-14`: 종료 오버레이의 문구·라벨. 이 하네스는 `term-pane.js`

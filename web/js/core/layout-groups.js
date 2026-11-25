@@ -130,10 +130,12 @@ class LayoutGroups extends Controller {
       if(!Number.isInteger(n)||n<1||n>ids.length+1) return {error:'out_of_range'};
       if(n<=ids.length){before=ids[n-1];insertBefore=true}
     }
-    this.app.layout.dnd.moveTabToPane(src.pane.id,tabId,dst.pane.id,before,insertBefore);
-    const pos=this._tabPosition(tabId);
-    if(!pos||pos.container!==dst.pane.id) return {error:'rejected'};
-    return {position:pos};
+    // 옮기기 본체는 uiact 묶음이다(PERF 3.4.12.10) — 처음 부르면 묶음을 실은 뒤에 옮기므로 끝난 뒤에 자리를 잰다.
+    return Promise.resolve(this.app.layout.dnd.moveTabToPane(src.pane.id,tabId,dst.pane.id,before,insertBefore)).then(()=>{
+      const pos=this._tabPosition(tabId);
+      if(!pos||pos.container!==dst.pane.id) return {error:'rejected'};
+      return {position:pos};
+    });
   }
 
   // ── 사이드바 (FR-WGR-20~25) ──

@@ -65,13 +65,14 @@ test('TC-LZ9-1: 부팅은 run·chat 묶음을 싣지 않고, Run 탭을 처음 �
   expect(seen.filter((n) => n.startsWith('chat.'))).toEqual([]);
 });
 
-test('TC-LZ9-2: 채팅 방을 처음 열 때 b/chat.js 가 실리고 대화 화면이 그려진다', async ({ page }) => {
+test('TC-LZ9-2: 채팅 목록을 처음 그릴 때 b/chat.js 가 한 번 실리고, 방을 열면 대화 화면이 그려진다', async ({ page }) => {
   const seen = bundleRequests(page);
   await mockChat(page);
   await waitForInit(page);
   await page.locator('#sb-tabs .sb-tab[data-panel="chat"]').click();
   await expect(page.locator('#sb-panel-chat .chat-room[data-room="r1"]')).toBeVisible();
-  expect(seen.filter((n) => n.startsWith('chat.'))).toEqual([]);
+  // PERF 3.4.12.10: 사람 명령(`ChatHuman`)이 chat 묶음으로 옮겨 가 목록을 처음 그릴 때 묶음이 실린다.
+  expect(seen.filter((n) => n.startsWith('chat.'))).toEqual(['chat.js']);
   await page.locator('#sb-panel-chat .chat-room[data-room="r1"]').click();
   await expect(page.locator('#area .chat-view .chat-title')).toHaveText('#ops');
   expect(seen.filter((n) => n.startsWith('chat.'))).toEqual(['chat.js']);
