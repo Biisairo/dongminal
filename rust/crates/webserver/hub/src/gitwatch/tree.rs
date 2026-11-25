@@ -47,6 +47,9 @@ impl GitWatcher {
             };
             match ev {
                 TreeEvent::Paths(p) => {
+                    if touches_dot_git(&r, p) {
+                        w.forget_dirs(&r);
+                    }
                     let _g = rt.enter();
                     w.kick(p);
                 }
@@ -90,9 +93,30 @@ impl GitWatcher {
             }
         };
         drop(guard);
+        self.forget_dirs(repo);
         otter_shared_otterlog::infof!(
             None,
             "[gitwatch] 파일 감시가 넘쳐 회차로 물러선다 (repo={repo})"
         );
     }
+
+    /// 저장소의 gitdir 해석을 잊는다. 다음 signature 가 다시 해석한다.
+    pub(super) fn forget_dirs(&self, repo: &str) {
+        if let Some(git) = &self.git {
+            git.forget_dirs(repo);
+        }
+    }
+}
+
+/// `.git` 자체가 바뀌었을 수 있는 사건인가다. Linux(inotify)는 `<repo>/.git` 로, macOS
+/// FSEvents 는 디렉터리 단위라 그 부모 `<repo>/` 로 알린다. `.git` 안의 파일(`index` 등)은
+/// gitdir 해석을 바꾸지 않는다 — linked worktree 의 gitdir·common_dir 는 `.git` 파일이 가리킨다.
+fn touches_dot_git(repo: &str, paths: &[String]) -> bool {
+    let sep = std::path::MAIN_SEPARATOR_STR;
+    let repo = repo.strip_suffix(sep).unwrap_or(repo);
+    let root = format!("{repo}{sep}");
+    let dot_git = format!("{root}.git");
+    paths
+        .iter()
+        .any(|p| p == repo || *p == root || *p == dot_git)
 }

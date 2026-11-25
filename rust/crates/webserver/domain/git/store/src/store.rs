@@ -13,7 +13,6 @@ use tokio::sync::Notify;
 /// O3. status 폴링 주기(1s)보다 짧다.
 pub const DEFAULT_STATUS_TTL: Duration = Duration::from_millis(200);
 pub const DEFAULT_REPO_ROOT_TTL: Duration = Duration::from_secs(2);
-pub const DEFAULT_GIT_DIRS_TTL: Duration = Duration::from_secs(30);
 /// 관측값을 들고 있을 리포 수 상한.
 pub const DEFAULT_OBSERVED_CAP: usize = 64;
 
@@ -148,7 +147,6 @@ pub struct Store {
     now: Clock,
     status_ttl: Duration,
     repo_root_ttl: Duration,
-    git_dirs_ttl: Duration,
     observed_cap: usize,
     pub(crate) mu: Mutex<Inner>,
 }
@@ -175,7 +173,6 @@ impl Store {
             now: opts.clock.unwrap_or_else(|| Arc::new(SystemTime::now)),
             status_ttl: opts.status_ttl.unwrap_or(DEFAULT_STATUS_TTL),
             repo_root_ttl: DEFAULT_REPO_ROOT_TTL,
-            git_dirs_ttl: DEFAULT_GIT_DIRS_TTL,
             observed_cap: opts.observed_cap.unwrap_or(DEFAULT_OBSERVED_CAP),
             mu: Mutex::new(Inner::default()),
         })
@@ -287,7 +284,16 @@ impl Store {
 
     pub async fn signature(self: &Arc<Self>, ctx: &Ctx, repo: &str) -> Result<Signature, Error> {
         let (git_dir, common) = self.git_dirs(ctx, repo).await?;
-        query::read_signature(&git_dir, &common)
+        self.read_signature(repo, &git_dir, &common)
+    }
+
+    /// 캐시한 gitdir 로 읽지 못하면 그 해석을 잊는다 — 저장소가 옮겨졌거나 바뀌었을 수 있다.
+    fn read_signature(&self, repo: &str, git_dir: &str, common: &str) -> Result<Signature, Error> {
+        let r = query::read_signature(git_dir, common);
+        if r.is_err() {
+            self.forget_dirs(repo);
+        }
+        r
     }
 
     /// cwd 의 저장소 루트다. 실패도 TTL 동안 캐시한다.
@@ -319,7 +325,12 @@ impl Store {
                             {
                                 g.root_flights.remove(&cwd);
                                 let now = (me.now)();
-                                prune_cache(&mut g.roots, me.observed_cap, now, me.repo_root_ttl);
+                                prune_cache(
+                                    &mut g.roots,
+                                    me.observed_cap,
+                                    now,
+                                    Some(me.repo_root_ttl),
+                                );
                                 g.roots.insert(
                                     cwd,
                                     Cached {
@@ -358,13 +369,19 @@ impl Store {
         g.dir_flights.retain(|k, _| !under(k));
     }
 
+    /// 그 저장소의 gitdir 해석을 지운다. 진행 중 비행의 결과는 캐시에 오르지 않는다.
+    pub fn forget_dirs(&self, repo: &str) {
+        let mut g = self.lock();
+        g.dirs.remove(repo);
+        g.dir_flights.remove(repo);
+    }
+
+    /// gitdir·common_dir 해석이다. 시간으로 만료되지 않는다 — `.git` 이 바뀌면 감시가
+    /// `forget_dirs` 로, 저장소가 사라지면 `forget_root` 로 지운다.
     async fn git_dirs(self: &Arc<Self>, ctx: &Ctx, repo: &str) -> DirsResult {
         let f = {
             let mut g = self.lock();
-            let now = (self.now)();
-            if let Some(e) = g.dirs.get(repo)
-                && since(now, Some(e.at)) < self.git_dirs_ttl
-            {
+            if let Some(e) = g.dirs.get(repo) {
                 return Ok(e.val.clone());
             }
             match g.dir_flights.get(repo) {
@@ -387,7 +404,7 @@ impl Store {
                                 g.dir_flights.remove(&repo);
                                 if let Ok(v) = &res {
                                     let now = (me.now)();
-                                    prune_cache(&mut g.dirs, me.observed_cap, now, me.git_dirs_ttl);
+                                    prune_cache(&mut g.dirs, me.observed_cap, now, None);
                                     g.dirs.insert(
                                         repo,
                                         Cached {
@@ -410,7 +427,7 @@ impl Store {
     async fn observe(self: &Arc<Self>, ctx: &Ctx, repo: &str) -> StatusResult {
         let mut status = query::status_of(&self.svc, ctx, repo).await?;
         let (git_dir, common) = self.git_dirs(ctx, repo).await?;
-        let signature = query::read_signature(&git_dir, &common)?;
+        let signature = self.read_signature(repo, &git_dir, &common)?;
         status.operation = query::detect_operation(&git_dir);
         Ok(Observation {
             status,
@@ -472,17 +489,19 @@ async fn wait_or<T: Clone>(
     }
 }
 
-/// 상한에 닿으면 만료된 것을 버리고, 그래도 차 있으면 가장 오래된 것부터 버린다.
+/// 상한에 닿으면 만료된 것(ttl 이 있을 때)을 버리고, 그래도 차 있으면 가장 오래된 것부터 버린다.
 pub(crate) fn prune_cache<V>(
     m: &mut HashMap<String, Cached<V>>,
     cap: usize,
     now: SystemTime,
-    ttl: Duration,
+    ttl: Option<Duration>,
 ) {
     if m.len() < cap {
         return;
     }
-    m.retain(|_, v| since(now, Some(v.at)) < ttl);
+    if let Some(ttl) = ttl {
+        m.retain(|_, v| since(now, Some(v.at)) < ttl);
+    }
     while m.len() >= cap {
         let Some(oldest) = m.iter().min_by_key(|(_, v)| v.at).map(|(k, _)| k.clone()) else {
             return;

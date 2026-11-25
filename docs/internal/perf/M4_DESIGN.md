@@ -4,7 +4,7 @@
 
 ## 0. 발견 [확인]
 
-1. 데몬이 유휴에도 2초마다 `ps` 를 띄운다 — `daemon/boot/src/lib.rs:183` `spawn_foreground_refresh(2s)`(`shared/toolhub/src/manager.rs:43`, `:1170-1189`, `:1274`), `platform/src/procinfo/darwin.rs:134-142`. 셸 훅 cwd 가 없으면 `lsof -d cwd` 도(`darwin.rs:123-131`, `manager.rs:1283-1307`). FR-SRV-3·NFR-PRF-5 위반.
+1. 데몬이 유휴에도 2초마다 `ps` 를 띄운다 — **탭의 전경이 셸이 아닐 때만**이다(4.4 기준선: 전경이 셸이면 0, `sleep` 이면 60초에 17~21번. 셸이면 이름 대신 cwd 를 묻는다). `daemon/boot/src/lib.rs:183` `spawn_foreground_refresh(2s)`(`shared/toolhub/src/manager.rs:43`, `:1170-1189`, `:1274`), `platform/src/procinfo/darwin.rs:134-142`. 셸 훅 cwd 가 없으면 `lsof -d cwd` 도(`darwin.rs:123-131`, `manager.rs:1283-1307`). FR-SRV-3·NFR-PRF-5 위반.
 2. `scenario.mjs` 의 `serverChildrenSpawned`(`:239-246`)는 서버 자식만, 루프 샘플로 센다 — 데몬 자식·짧은 프로세스를 놓친다. "외부 프로세스 0" 은 잰 적이 없다.
 3. 문서 어긋남: CHANNEL_PROTOCOL:261(sysstat 은 늘 2초 — `serve/mod.rs:416-422`, `webserver/domain/sysstat/src/sampler.rs:8,82-104`), §10.5(gitwatch 는 대상 0 이어도 1초 — `webserver/hub/src/gitwatch/round.rs:30-51`).
 4. 헛도는 주기: 서버 전경 poll 2초(`serve/mod.rs:429-434`, `hub/src/foreground.rs:33-60`, Go 데몬용 D-8), 서버 L2 스위퍼 1초(`serve/mod.rs:414`, `hub/src/attn.rs:481-484`, 임계 0 빈 틱), 데몬 유휴 판정 1초(`toolhub/src/attention.rs:13-16`, `manager.rs:1028-1046`, `ATTN_DEFAULT_IDLE_MS=0`).
@@ -47,7 +47,7 @@ darwin 의 names·cwds·children·parents·parent_pid 를 libproc FFI(`libc` 의
 ## 6. 측정 (4.4·4.14)
 
 - 외부 프로세스: 격리 인스턴스 PATH 앞에 감싸개(`ps`·`lsof`·`pgrep`·`git`·`rg`, 호출 시 `시각 PPID 이름 인자` 기록 후 진짜 exec). 단계 구간 안 PPID 가 서버·데몬인 줄 수. 목표 `idle`·`idle-closed`(페이지 닫고 60초)·`idle-git`(Git 패널·편집기 보이고 60초) 모두 0.
-- 유휴 CPU `ps -o time=` 차분(0.1% 이하), 깨어남 `top -l 2 -s 30 -stats pid,cpu,idlew`(4.4 에서 열 의미 확인).
+- 유휴 CPU `ps -o time=` 차분(0.1% 이하), 깨어남 `top -l 2 -s 30 -stats pid,cpu,idlew,csw`. IDLEW·CSW 는 누적값이라 두 표본의 차분을 쓴다. IDLEW 는 코어를 유휴에서 깨운 횟수만 세어 기계가 바쁘면 0 에 가깝다 — 비교 주 지표는 CSW(문맥 전환 수)다(4.4 에서 확인, `csw` 열 추가).
 
 ## 7. 하위 이슈
 

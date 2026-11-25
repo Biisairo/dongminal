@@ -56,6 +56,8 @@ pub trait GitObserver: Send + Sync {
     fn observed(&self, repo: &str) -> Option<Observation>;
     /// 루트 해석의 기억을 지운다 (FR-OPT-4-3).
     fn forget_root(&self, path: &str);
+    /// 그 저장소의 gitdir 해석을 지운다. 다음 signature 가 다시 해석한다.
+    fn forget_dirs(&self, repo: &str);
 }
 
 impl GitObserver for Arc<Store> {
@@ -81,6 +83,9 @@ impl GitObserver for Arc<Store> {
     }
     fn forget_root(&self, path: &str) {
         Store::forget_root(self, path);
+    }
+    fn forget_dirs(&self, repo: &str) {
+        Store::forget_dirs(self, repo);
     }
 }
 

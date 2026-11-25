@@ -1,11 +1,12 @@
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 use futures_util::future::BoxFuture;
 use otter_webserver_domain_git_core::{self as core, Ctx};
 use otter_webserver_domain_git_query::{Error, FileEntry, Signature};
-use otter_webserver_domain_git_store::Observation;
+use otter_webserver_domain_git_store::{Observation, Store, StoreOptions};
 
 use tokio_util::sync::CancellationToken;
 
@@ -25,6 +26,7 @@ struct Sig {
     sig_calls: usize,
     invalidated: usize,
     forgot: Vec<String>,
+    forgot_dirs: Vec<String>,
 }
 
 #[derive(Default, Clone)]
@@ -114,6 +116,9 @@ impl GitObserver for FakeSigner {
     }
     fn forget_root(&self, path: &str) {
         self.s().forgot.push(path.into());
+    }
+    fn forget_dirs(&self, repo: &str) {
+        self.s().forgot_dirs.push(repo.into());
     }
 }
 
@@ -813,5 +818,151 @@ async fn expired_watch_stops_rounds_and_releases_tree() {
     let r = w.rounds();
     idle(Duration::from_secs(60)).await;
     assert_eq!(w.rounds(), r, "대상이 0 이 된 뒤에도 회차가 돌았다");
+    stop.cancel();
+}
+
+/// 실제 Store 에 git 을 가짜로 단다. rev-parse(gitdir 해석) 수를 센다. Store 의 시계는 tokio 의
+/// 멈춘 시계를 따른다 — 시간 만료가 있으면 시험 안에서 드러난다.
+fn real_store() -> (Arc<Store>, Arc<AtomicUsize>, tempfile::TempDir) {
+    let dir = tempfile::tempdir().unwrap_or_else(|e| panic!("{e}"));
+    std::fs::write(dir.path().join("HEAD"), "ref: refs/heads/main\n")
+        .unwrap_or_else(|e| panic!("{e}"));
+    let git_dir = dir.path().to_string_lossy().into_owned();
+    let n = Arc::new(AtomicUsize::new(0));
+    let n2 = n.clone();
+    let runner: core::Runner = Arc::new(move |_, _, args: Vec<String>| {
+        let stdout = if args.first().is_some_and(|a| a == "rev-parse") {
+            n2.fetch_add(1, Ordering::SeqCst);
+            format!("{git_dir}\n{git_dir}\n")
+        } else {
+            "# branch.oid 1111111111111111111111111111111111111111\0# branch.head main\0".to_owned()
+        };
+        Box::pin(async move {
+            Ok(core::Output {
+                stdout: stdout.into_bytes(),
+                ..core::Output::default()
+            })
+        })
+    });
+    let base = SystemTime::now();
+    let start = tokio::time::Instant::now();
+    let store = Store::new(
+        Arc::new(core::Service::builder().runner(runner).build()),
+        StoreOptions::default().clock(Arc::new(move || base + start.elapsed())),
+    );
+    (store, n, dir)
+}
+
+fn started_store(store: &Arc<Store>, tree: &FakeTree) -> (Arc<GitWatcher>, CancellationToken) {
+    let w = GitWatcher::new(Some(Arc::new(store.clone())));
+    w.set_tree_watcher(Some(Arc::new(tree.clone())));
+    let stop = CancellationToken::new();
+    start_git_watch(w.clone(), stop.clone());
+    (w, stop)
+}
+
+/// 4.14: Git 화면을 열어 둔 유휴에는 gitdir 해석(rev-parse)도 0 이다.
+#[tokio::test(start_paused = true)]
+async fn idle_watch_runs_no_rev_parse() {
+    let (store, revparse, _dir) = real_store();
+    let tree = FakeTree::default();
+    let (w, stop) = started_store(&store, &tree);
+    w.hold_topic("/r", &Observation::default());
+    idle(Duration::from_secs(5)).await;
+    let first = revparse.load(Ordering::SeqCst);
+    assert_eq!(first, 1, "첫 회차가 gitdir 을 한 번 해석하지 않았다");
+    idle(Duration::from_secs(300)).await;
+    assert_eq!(
+        revparse.load(Ordering::SeqCst),
+        first,
+        "유휴인데 gitdir 을 다시 물었다"
+    );
+    stop.cancel();
+}
+
+/// `.git` 자체(Linux 는 `<repo>/.git`, macOS 는 그 부모 `<repo>/` 로 알린다)가 바뀌면 다시
+/// 해석한다. `.git` 안의 파일·작업 트리 파일 사건은 해석을 지우지 않는다.
+#[tokio::test(start_paused = true)]
+async fn dot_git_event_reresolves_dirs() {
+    let (store, revparse, _dir) = real_store();
+    let tree = FakeTree::default();
+    let (w, stop) = started_store(&store, &tree);
+    w.hold_topic("/r", &Observation::default());
+    idle(Duration::from_secs(5)).await;
+    let base = revparse.load(Ordering::SeqCst);
+
+    tree.emit(
+        "/r",
+        TreeEvent::Paths(&paths(&["/r/.git/index", "/r/.git/", "/r/src/a.txt"])),
+    );
+    idle(GIT_KICK_DEBOUNCE + GIT_WATCH_INTERVAL * 3).await;
+    assert_eq!(
+        revparse.load(Ordering::SeqCst),
+        base,
+        "작업 트리·.git 안 사건이 gitdir 을 지웠다"
+    );
+
+    tree.emit("/r", TreeEvent::Paths(&paths(&["/r/.git"])));
+    idle(GIT_WATCH_INTERVAL * 2).await;
+    assert_eq!(
+        revparse.load(Ordering::SeqCst),
+        base + 1,
+        ".git 변화에 다시 해석하지 않았다"
+    );
+
+    tree.emit("/r", TreeEvent::Paths(&paths(&["/r/"])));
+    idle(GIT_WATCH_INTERVAL * 2).await;
+    assert_eq!(
+        revparse.load(Ordering::SeqCst),
+        base + 2,
+        "루트 디렉터리 사건에 다시 해석하지 않았다"
+    );
+
+    tree.emit("/r", TreeEvent::Lost);
+    idle(GIT_WATCH_INTERVAL * 2).await;
+    assert!(
+        revparse.load(Ordering::SeqCst) > base + 2,
+        "사건을 놓쳤는데 다시 해석하지 않았다"
+    );
+    stop.cancel();
+}
+
+/// 감시를 세우지 못한 저장소는 물러섬 회차마다 다시 해석한다 — 회차마다(1초)는 아니다.
+/// 회차를 손으로 돌린다 — 멈춘 시계를 앞당기면 Ctx 시한(std 시계)이 먼저 끝나 status 가 실패한다.
+#[tokio::test]
+async fn watch_failure_reresolves_dirs_on_fallback_rounds() {
+    let (store, revparse, _dir) = real_store();
+    let w = GitWatcher::new(Some(Arc::new(store.clone())));
+    w.set_tree_watcher(Some(Arc::new(FakeTree::failing())));
+    w.hold_topic("/r", &Observation::default());
+    let rounds = GIT_WATCH_FALLBACK_ROUNDS * 15;
+    for _ in 0..rounds {
+        tick(&w).await;
+    }
+    let want = (rounds / GIT_WATCH_FALLBACK_ROUNDS) as usize;
+    let got = revparse.load(Ordering::SeqCst);
+    assert!(
+        got + 1 >= want && got <= want + 2,
+        "물러섬 회차의 gitdir 해석 수가 어긋났다: {got} (기대 약 {want}, 회차 {rounds})"
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn watch_failure_and_overflow_forget_dirs() {
+    let sig = FakeSigner::with(&[("/r", "a")]);
+    let tree = FakeTree::default();
+    let (w, stop) = started(&sig, Some(&tree));
+    w.hold_topic("/r", &sig.obs("/r").unwrap_or_default());
+    idle(Duration::from_secs(30)).await;
+    assert!(
+        sig.s().forgot_dirs.is_empty(),
+        "감시가 조용한데 gitdir 을 잊었다"
+    );
+    tree.emit("/r", TreeEvent::Lost);
+    assert_eq!(
+        sig.s().forgot_dirs,
+        vec!["/r"],
+        "넘친 뒤 gitdir 을 잊지 않았다"
+    );
     stop.cancel();
 }
