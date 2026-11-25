@@ -16,3 +16,7 @@ js/core/editor-open.js EditorOpen.edTree
 js/core/git-surfaces.js GitSurfaces.gitObs
 js/core/git-surfaces.js GitSurfaces.gitPanelAt
 js/core/repo-win-controller.js RepoWinController.gitDiffPanelFor
+# mdlib 묶음 (PERF 3.4.12.2, D-43). markdown-it·DOMPurify 는 실린 뒤에만 쓴다 — 그 전엔 링크 없음·빈 정화다.
+js/ui/bare-link.js bareLinkifier
+js/ui/cm-link.js edLinkifier
+js/core/lsp-client.js LspClient.prototype._lspConn

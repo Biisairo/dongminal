@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 
 import { load } from '../web/js/test/harness.mjs';
 
-const ctx = load(['core/contrast.js', 'ui/themes.js', 'core/theme-vars.js'], {
+const ctx = load(['core/contrast.js', 'ui/themes.js', 'ui/themes-catalog.js', 'core/theme-vars.js'], {
   // `themes.js` 끝줄이 `TOPTS.theme` 에 대입한다. `theme-vars.js` 는 라벨에 `t` 를 부른다.
   globals: { TOPTS: {}, t: (k) => k },
   expose: ['CONTRAST_FLOORS', 'THEMES', 'ACCENT2_MIN_DISTANCE', 'pickAttnColor', 'SEED_HARMONY_MAX'],
@@ -109,7 +109,7 @@ function resolveDecl(decl, derived) {
 if (process.argv.includes('-h') || process.argv.includes('--help')) {
   console.log(`테마 전종의 글자 대비 검사
 
-  web/js/ui/themes.js 의 팔레트마다 web/js/core/contrast.js 의 파생을 돌리고,
+  web/js/ui/themes.js·themes-catalog.js 의 팔레트마다 web/js/core/contrast.js 의 파생을 돌리고,
   나온 글자 토큰이 --bg · --sidebar-bg · --bg-alt **셋 다**에 대해 바닥을 넘는지
   본다. 표면 하나를 빠뜨리면 그 위에서만 조용히 미달이 된다.
 

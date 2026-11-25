@@ -6,7 +6,7 @@ import { load } from './harness.mjs';
 /**
  * UX_AUDIT_FIX_SRS FR-UXF-124·126·127 (D-42): 실행 중 색 `--accent2`.
  */
-const ctx = load(['core/contrast.js', 'ui/themes.js', 'core/theme-vars.js'], {
+const ctx = load(['core/contrast.js', 'ui/themes.js', 'ui/themes-catalog.js', 'core/theme-vars.js'], {
   globals: { TOPTS: {}, t: (k) => k },
   expose: ['THEMES', 'themeVarsOf', 'pickAccent2', 'pickAttnColor', 'colorDistance'],
 });

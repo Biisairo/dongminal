@@ -21,7 +21,8 @@ function loadCodeMirror() {
   if (cmLoading) return cmLoading;
   const url = cmAttempt ? `${CM_ENTRY}?r=${cmAttempt}` : CM_ENTRY;
   cmAttempt++;
-  cmLoading = import(url).then((m) => { window.CM = m });
+  // PERF 3.4.12.2 (D-43): CM 뷰의 링크·hover 정화가 쓰는 mdlib 를 나란히 싣는다 — `CM` 이 서면 mdlib 도 실려 있다.
+  cmLoading = Promise.all([import(url), Screens.load('mdlib')]).then(([m]) => { window.CM = m });
   cmLoading.catch(() => { cmLoading = null });
   return cmLoading;
 }
