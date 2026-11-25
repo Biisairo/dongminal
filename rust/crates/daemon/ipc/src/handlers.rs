@@ -340,6 +340,29 @@ pub(crate) fn search(c: &Conn, req: &PanedRequest) -> Line {
     ok(req.id, &ipc::SearchResult { hits })
 }
 
+/// 줄 저장소의 기록 구간이다 (PERF FR-TRM-5). 없는 도구는 CODE_NOT_FOUND 다.
+pub(crate) fn history(c: &Conn, req: &PanedRequest) -> Line {
+    let p: ipc::HistoryParams = match decode(req) {
+        Ok(p) => p,
+        Err(l) => return l,
+    };
+    let Some(h) = c.pm.history_tool(&p.id, p.before, p.count) else {
+        return err_msg(
+            req.id,
+            ipc::CODE_NOT_FOUND,
+            &ManagerError::NotFound.to_string(),
+        );
+    };
+    ok(
+        req.id,
+        &ipc::HistoryResult {
+            from: h.from,
+            lines: h.lines,
+            top: h.top,
+        },
+    )
+}
+
 pub(crate) fn cwd(c: &Conn, req: &PanedRequest) -> Line {
     match decode::<ipc::IdParams>(req) {
         Ok(p) => ok(

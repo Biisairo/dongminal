@@ -44,7 +44,7 @@ export const CONSTANTS = ['core/constants.js', 'core/constants-term.js', 'core/c
  */
 export const TERM_PANE = ['core/base/component.js', 'core/base/controller.js', 'ui/term-channel.js', 'ui/term-pane.js',
   'ui/term-transfer.js', 'ui/term-held.js', 'ui/term-output.js', 'ui/term-fit.js', 'ui/term-input.js', 'ui/term-clip.js',
-  'ui/term-touch.js'];
+  'ui/term-touch.js', 'ui/term-history.js'];
 
 /**
  * 프론트 기반 클래스 — index.html 의 순서다 (REFACTOR3_FE_BASE_SRS FR-FEB-16). `extends` 는 로드 시점에
@@ -223,6 +223,7 @@ function elementStub() {
     // UX_AUDIT_FIX_SRS FR-UXF-100: 글자 앞에 아이콘을 세우는 자리가 쓴다. 글자 조각은 원소가 아니므로 세지 않는다.
     prepend(...cs) { el.children.unshift(...cs.filter((c) => typeof c === 'object')) },
     replaceChildren() { el.children.length = 0 },
+    remove() {},
     addEventListener() {}, removeEventListener() {},
     attrs: {},
     setAttribute(k, v) { el.attrs[k] = String(v) },

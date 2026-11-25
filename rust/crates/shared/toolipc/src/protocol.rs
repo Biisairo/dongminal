@@ -18,6 +18,8 @@ pub const METHOD_LIST: &str = "list";
 pub const METHOD_SNAPSHOT: &str = "snapshot";
 /// 화면 상태 스냅숏 (PERF FR-TRM-4). FEATURE_SCREEN_STATE 를 말한 데몬에만 보낸다.
 pub const METHOD_SCREEN: &str = "screen";
+/// 줄 저장소의 기록 구간 (PERF FR-TRM-5). 모르는 데몬은 알 수 없는 메서드로 답한다.
+pub const METHOD_HISTORY: &str = "history";
 /// 화면 상태 설정(기록 줄 수, D-25).
 pub const METHOD_SCREEN_CONFIG: &str = "screenconfig";
 /// 답장 좌석을 쥐고 놓는다(D-23). 연결마다 센다 — 연결이 끊기면 그 연결이 쥔 것을 놓는다.
@@ -255,6 +257,24 @@ pub struct ScreenResult {
     #[serde(rename = "firstLine")]
     pub first_line: u64,
     pub rows: u16,
+}
+
+/// 번호 `before` 앞의 `count` 줄을 묻는다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.HistoryParams")]
+pub struct HistoryParams {
+    pub before: u64,
+    pub count: usize,
+    pub id: String,
+}
+
+/// 번호 `from` 부터의 논리 줄 ANSI 다. `top` 은 저장소에 남은 가장 오래된 줄 번호다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.HistoryResult")]
+pub struct HistoryResult {
+    pub from: u64,
+    pub lines: Vec<String>,
+    pub top: u64,
 }
 
 /// 깬 브라우저가 도구의 답장 좌석을 쥐거나(`held`) 놓는다(D-23).

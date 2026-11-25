@@ -45,6 +45,8 @@ struct TermMirror {
 struct Inner {
     control: VecDeque<Arc<str>>,
     term: VecDeque<(u32, Vec<u8>)>,
+    /// 위로 받기의 답(`term.history`). 터미널 출력 뒤, 상태 토픽 앞이다 (M2 §2.7).
+    hist: VecDeque<Arc<str>>,
     terms: HashMap<u32, TermMirror>,
     order: VecDeque<String>,
     state: HashMap<String, Pending>,
@@ -64,6 +66,7 @@ impl Inner {
         self.closed = true;
         self.control.clear();
         self.term.clear();
+        self.hist.clear();
         self.terms.clear();
         self.order.clear();
         self.state.clear();
@@ -108,6 +111,19 @@ impl Outbox {
         }
         let n = frame.len();
         g.control.push_back(Arc::from(frame));
+        g.add(n);
+        drop(g);
+        self.ready.notify_one();
+    }
+
+    /// 위로 받기의 답. 터미널 출력보다 늦게, 상태 토픽보다 먼저 나간다.
+    pub(crate) fn push_history(&self, frame: String) {
+        let mut g = self.inner();
+        if g.closed {
+            return;
+        }
+        let n = frame.len();
+        g.hist.push_back(Arc::from(frame));
         g.add(n);
         drop(g);
         self.ready.notify_one();
@@ -204,7 +220,7 @@ impl Outbox {
         self.ready.notify_one();
     }
 
-    /// 우선순위대로 하나 꺼낸다: 제어 > 터미널 > 상태.
+    /// 우선순위대로 하나 꺼낸다: 제어 > 터미널 > 위로 받기 > 상태.
     pub(crate) fn pop(&self) -> Option<Out> {
         let mut g = self.inner();
         if g.closed {
@@ -233,6 +249,10 @@ impl Outbox {
                 _ => {}
             }
             return Some(Out::Binary(b));
+        }
+        if let Some(f) = g.hist.pop_front() {
+            g.bytes -= f.len().min(g.bytes);
+            return Some(Out::Text(f));
         }
         while let Some(topic) = g.order.pop_front() {
             match g.state.remove(&topic) {

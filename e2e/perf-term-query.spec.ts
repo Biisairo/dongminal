@@ -146,6 +146,15 @@ test.describe('PERF 2.8.2 질의 답·내려받기', () => {
     await page.fill('#search-input', 'needle-42');
     await page.click('#search-older');
     await expect(page.locator('#search-older-list .search-older-hit')).toHaveText(['needle-42']);
+    // PERF 2.7: 고른 결과는 기록 보기(D-20)로 열리고 그 줄이 보인다.
+    await page.click('#search-older-list .search-older-hit');
+    await expect.poll(() => onPane(page, id, `p => {
+      const v = p.history.view;
+      if (!v) return false;
+      const b = v.buffer.active;
+      for (let i = b.viewportY; i < b.viewportY + v.rows; i++) if ((b.getLine(i)?.translateToString(true) || '').includes('needle-42')) return true;
+      return false;
+    }`), { timeout: 15000 }).toBe(true);
   });
 
   test('R1 (FR-TRM-8): 잠든 동안 나온 글자도 깬 버퍼에서 복사·링크가 같은 결과를 낸다', async ({ page, request }) => {

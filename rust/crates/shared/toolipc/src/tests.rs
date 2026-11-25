@@ -150,6 +150,16 @@ fn wire_golden() {
             format!(r#"{{"alt":true,"cols":80,"cwd":"/w","data":"{B64}","end":9,"firstLine":3,"rows":24}}"#),
         ),
         (
+            "history-params",
+            enc(&HistoryParams { before: 900, count: 100, id: "a".into() }),
+            r#"{"before":900,"count":100,"id":"a"}"#.into(),
+        ),
+        (
+            "history-result",
+            enc(&HistoryResult { from: 800, lines: vec!["x".into()], top: 7 }),
+            r#"{"from":800,"lines":["x"],"top":7}"#.into(),
+        ),
+        (
             "screenconfig-params",
             enc(&ScreenConfigParams { history_lines: 2000 }),
             r#"{"historyLines":2000}"#.into(),

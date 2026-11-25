@@ -49,6 +49,7 @@ class TermMux {
     ch.on('hello',()=>{ for(const s of Array.from(this.socks.values())) s._chanReady() });
     ch.on('lost',()=>{ for(const s of Array.from(this.socks.values())) s._chanLost() });
     ch.on('term.lost',m=>{ const s=this.socks.get(m.sid); if(s) s._chanLost() });
+    ch.on('term.history',m=>{ const s=this.socks.get(m.sid); if(s&&s.live) s.host.history.onAnswer(m) });
     if(ch.ready()) for(const s of Array.from(this.socks.values())) s._chanReady();
   }
 

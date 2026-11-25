@@ -12,6 +12,8 @@ pub(crate) use outbox::{CHANNEL_PENDING_MAX, TOPIC_PENDING_MAX};
 pub(crate) use outbox::{Out, Outbox};
 pub(crate) use screens::ScreenFlights;
 #[cfg(test)]
+pub(crate) use term::TERM_HISTORY_MAX;
+#[cfg(test)]
 pub(crate) use topics::TOPIC_RING;
 pub(crate) use topics::{DeltaOp, Seed, SubError, TopicHub};
 
@@ -185,6 +187,10 @@ impl Server {
                         },
                         "term.open" => {
                             self.term_open(terms, out, &v);
+                            continue;
+                        }
+                        "term.history" => {
+                            self.term_history(terms, out, &v);
                             continue;
                         }
                         "term.close" => {

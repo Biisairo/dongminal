@@ -297,6 +297,7 @@ impl Conn {
             ipc::METHOD_SNAPSHOT => handlers::snapshot(self, &req),
             ipc::METHOD_SCREEN => handlers::screen(self, &req),
             ipc::METHOD_SCREEN_CONFIG => handlers::screen_config(self, &req),
+            ipc::METHOD_HISTORY => handlers::history(self, &req),
             ipc::METHOD_SEAT => handlers::seat(self, &req),
             ipc::METHOD_SEARCH => {
                 return self.go_slow(false, move |c| handlers::search(c, &req));

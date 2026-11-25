@@ -1652,6 +1652,7 @@ I18N.register('ko', {
   'term.reconnect': '다시 연결',
   'term.reconnecting': '재연결 중...',
   // UX_BATCH11_SRS FR-TCP-4·8 · FR-HIN-4·8
+  'term.history_banner': '이전 기록 보는 중 · Esc 또는 맨 아래로 내리면 돌아갑니다',
   'term.copied': '복사됨',
   'term.held_title': '연결이 끊긴 동안 입력한 %d바이트가 보내지 않은 채 남아 있습니다.',
   'term.held_over': '일부는 담지 못했습니다.',

@@ -31,7 +31,7 @@ const PROTO = [
   '_tsStart:function', '_tsTouch:function', '_tsUnfollow:function', '_userInput:function',
   '_wheelKick:function', '_wireContextMenu:function', '_wireIme:function', '_wireKeys:function',
   '_wireNativeSelect:function', '_wsLost:function', '_wsOpened:function', '_wsStopped:function',
-  'connect:function', 'destroy:function', 'focus:function', 'open:function',
+  'connect:function', 'destroy:function', 'focus:function', 'open:function', 'openHistoryAt:function',
   'reconnectNow:function', 'sleep:function', 'wake:function', 'write:function', 'ws:get',
 ];
 

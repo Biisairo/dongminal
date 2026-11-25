@@ -662,3 +662,122 @@ async fn subscription_end_sends_term_lost() {
         }
     }
 }
+
+fn hist_env_hub(n: usize, delay: Duration) -> FakeHub {
+    let mut h = seeded("t1", "\n$ ", 0, 0);
+    h.hist_delay = delay;
+    *h.hist_lines.lock().unwrap() = (0..n).map(|i| format!("L{i}")).collect();
+    h
+}
+
+/// `sid` 의 다음 `term.history` 답. 그 앞에 온 같은 sid 의 바이너리 프레임을 함께 준다.
+async fn until_history(c: &mut Client, sid: u32) -> (Vec<Vec<u8>>, Value) {
+    let mut before = Vec::new();
+    loop {
+        match next(c).await.expect("term.history 답이 오지 않았다") {
+            Frame::Text(v) if v["t"] == "term.history" && v["sid"] == sid => return (before, v),
+            Frame::Bin(s, f) if s == sid => before.push(f),
+            _ => continue,
+        }
+    }
+}
+
+/// PERF 2.7 (FR-TRM-5): `term.history{sid,before,count}` 에 저장소 구간을 순서대로 답한다.
+/// 맨 위를 넘으면 있는 만큼만 주고 `top` 으로 끝을 알린다. 큰 `count` 는 상한으로 자른다.
+#[tokio::test]
+async fn history_frame_answers_store_range() {
+    let e = env(hist_env_hub(5000, Duration::ZERO)).await;
+    let mut c = chan(e.port).await;
+    open(&mut c, json!({"sid":1,"tool":"t1"})).await;
+    until_op(&mut c, 1, OP_SEQ).await;
+
+    send_json(
+        &mut c,
+        json!({"t":"term.history","sid":1,"before":900,"count":3}),
+    )
+    .await;
+    let (_, v) = until_history(&mut c, 1).await;
+    assert_eq!(
+        (v["from"].as_u64(), v["top"].as_u64()),
+        (Some(897), Some(0))
+    );
+    assert_eq!(v["lines"], json!(["L897", "L898", "L899"]));
+
+    send_json(
+        &mut c,
+        json!({"t":"term.history","sid":1,"before":2,"count":10}),
+    )
+    .await;
+    let (_, v) = until_history(&mut c, 1).await;
+    assert_eq!((v["from"].as_u64(), v["top"].as_u64()), (Some(0), Some(0)));
+    assert_eq!(v["lines"], json!(["L0", "L1"]));
+
+    send_json(
+        &mut c,
+        json!({"t":"term.history","sid":1,"before":4900,"count":1_000_000}),
+    )
+    .await;
+    let (_, v) = until_history(&mut c, 1).await;
+    let max = crate::channel::TERM_HISTORY_MAX;
+    assert_eq!(v["lines"].as_array().unwrap().len(), max);
+    assert_eq!(
+        e.hub.hist_calls.lock().unwrap()[2],
+        ("t1".to_owned(), 4900, max)
+    );
+}
+
+/// 모르는 sid 에는 빈 답(`from = top = before`)을 준다. 채널은 그대로다.
+#[tokio::test]
+async fn history_for_unknown_sid_is_empty() {
+    let e = env(hist_env_hub(10, Duration::ZERO)).await;
+    let mut c = chan(e.port).await;
+    send_json(
+        &mut c,
+        json!({"t":"term.history","sid":7,"before":5,"count":3}),
+    )
+    .await;
+    let (_, v) = until_history(&mut c, 7).await;
+    assert_eq!(
+        (v["from"].as_u64(), v["top"].as_u64(), v["lines"].clone()),
+        (Some(5), Some(5), json!([]))
+    );
+    assert!(e.hub.hist_calls.lock().unwrap().is_empty());
+}
+
+/// 묻는 동안(데몬 답이 늦어도) 같은 sid 의 출력과 입력은 막히지 않는다.
+#[tokio::test]
+async fn history_does_not_block_output_or_input() {
+    let e = env(hist_env_hub(100, Duration::from_millis(600))).await;
+    let mut c = chan(e.port).await;
+    open(&mut c, json!({"sid":1,"tool":"t1"})).await;
+    let (_, seq) = until_op(&mut c, 1, OP_SEQ).await;
+    let mut end = seq_end(&seq);
+    let (tx, _) = e.hub.subs.lock().unwrap().get("t1").cloned().unwrap();
+
+    send_json(
+        &mut c,
+        json!({"t":"term.history","sid":1,"before":50,"count":10}),
+    )
+    .await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let t0 = std::time::Instant::now();
+    end += 3;
+    tx.send(chunk("abc", end)).await.unwrap();
+    send_bin(&mut c, OP_INPUT, 1, b"x").await;
+    let m = next_bin(&mut c, 1).await.unwrap();
+    assert_eq!((m[0], &m[1..]), (OP_OUTPUT, &b"abc"[..]));
+    assert!(
+        t0.elapsed() < Duration::from_millis(300),
+        "출력이 history 에 막혔다"
+    );
+    wait_until("입력이 막혔다", || {
+        !e.hub.inputs.lock().unwrap().is_empty()
+    })
+    .await;
+    assert!(
+        t0.elapsed() < Duration::from_millis(500),
+        "입력이 history 에 막혔다"
+    );
+    let (_, v) = until_history(&mut c, 1).await;
+    assert_eq!(v["from"].as_u64(), Some(40));
+}

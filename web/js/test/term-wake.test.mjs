@@ -120,7 +120,8 @@ test('잠들기 전에 받아 flush 를 기다리던 Download 는 잠든 뒤 일
   p.sleep();
   await clock.advance(1000);
   assert.deepEqual(downloads, []);
-  assert.deepEqual(written, [], '잠든 버퍼에 출력이 써졌다');
+  // 빈 쓰기는 2.7 기록 보기가 스냅숏을 다 그린 때를 아는 표시다(`TermHistory.base`) — 출력이 아니다.
+  assert.deepEqual(written.filter(Boolean), [], '잠든 버퍼에 출력이 써졌다');
   assert.equal(p._outputBuf, '', '걸친 OSC 가 남아 깬 화면 앞에 붙는다');
 });
 
