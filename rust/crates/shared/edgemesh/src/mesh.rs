@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -232,6 +232,10 @@ pub(crate) struct Inner {
     now: NowFn,
     rt: Handle,
     pokes: Notify,
+    /// [`Mesh::run`] 이 마감을 다시 잡게 깨운다 — 간선·연결·걸기 상태가 바뀌었다.
+    wake: Notify,
+    /// [`Mesh::run`] 이 깨어난 횟수다 (시험용 깨어남 카운터).
+    ticks: AtomicU64,
     done: CancellationToken,
     st: Mutex<State>,
 }
@@ -374,6 +378,8 @@ impl Mesh {
             now,
             rt: Handle::current(),
             pokes: Notify::new(),
+            wake: Notify::new(),
+            ticks: AtomicU64::new(0),
             done: CancellationToken::new(),
             st: Mutex::new(State {
                 upper: None,
@@ -504,26 +510,47 @@ impl Mesh {
     }
 
     /// 연결을 유지한다: 간선마다 연결을 걸고, ping 을 보내고, 조용한 연결과 지워진 간선의 연결을
-    /// 끊는다 (FR-EGM-3). cancel 이 끝나거나 close 하면 돌아온다.
+    /// 끊는다 (FR-EGM-3). 주기 틱이 없다 — 가장 이른 마감(다음 ping·다음 다시 걸기)까지 자고,
+    /// 간선·연결·걸기 상태가 바뀌면 깬다. 간선도 연결도 없으면 무기한 잔다 (PERF M4 D4). cancel 이
+    /// 끝나거나 close 하면 돌아온다.
     pub async fn run(&self, cancel: CancellationToken) {
-        let ping_every = self.inner.lock().ping_every;
-        let period = ping_every.min(REDIAL_MIN);
-        let mut t = tokio::time::interval_at(tokio::time::Instant::now() + period, period);
-        t.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        let mut last_ping = self.inner.now();
+        let inner = &self.inner;
+        let mut next_ping: Option<tokio::time::Instant> = None;
         loop {
+            let (linked, ping_every) = {
+                let st = inner.lock();
+                (!st.links.is_empty(), st.ping_every)
+            };
+            let at = tokio::time::Instant::now();
+            next_ping = match next_ping {
+                _ if !linked => None,
+                None => Some(at + ping_every),
+                p => p,
+            };
+            let redial = inner.next_dial_in(inner.now()).map(|d| at + d);
+            let deadline = match (next_ping, redial) {
+                (Some(p), Some(r)) => Some(p.min(r)),
+                (p, r) => p.or(r),
+            };
             tokio::select! {
                 _ = cancel.cancelled() => return,
-                _ = self.inner.done.cancelled() => return,
-                _ = t.tick() => {}
+                _ = inner.done.cancelled() => return,
+                _ = inner.wake.notified() => {}
+                _ = sleep_until(deadline) => {}
             }
-            let now = self.inner.now();
-            if now - last_ping >= ping_every {
-                last_ping = now;
-                self.inner.ping_all(now);
+            inner.ticks.fetch_add(1, Ordering::Relaxed);
+            let now = inner.now();
+            if next_ping.is_some_and(|p| tokio::time::Instant::now() >= p) {
+                next_ping = Some(tokio::time::Instant::now() + ping_every);
+                inner.ping_all(now);
             }
-            self.inner.dial_edges(&cancel, now);
+            inner.dial_edges(&cancel, now);
         }
+    }
+
+    /// 간선 목록이 바뀌었다는 알림이다. 연결 유지가 걸 간선을 다시 본다.
+    pub fn edges_changed(&self) {
+        self.inner.wake.notify_one();
     }
 
     /// 간선 fp 의 연결을 바로 닫는다. 간선을 지운 뒤 부른다. 연결이 없으면 아무것도 하지 않는다.
@@ -657,6 +684,14 @@ impl Mesh {
     }
 }
 
+/// `at` 까지 잔다. `None` 이면 깨우는 다른 갈래가 올 때까지 잔다.
+async fn sleep_until(at: Option<tokio::time::Instant>) {
+    match at {
+        Some(at) => tokio::time::sleep_until(at).await,
+        None => std::future::pending().await,
+    }
+}
+
 fn dial_state_locked(st: &mut State, fp: &str) -> SharedDial {
     st.dialing
         .entry(fp.to_string())
@@ -741,6 +776,7 @@ impl Inner {
         }
         self.topology_locked(&mut st);
         drop(st);
+        self.wake.notify_one();
         if let Some(old) = replaced {
             old.close();
         }
@@ -780,6 +816,8 @@ impl Inner {
             self.announce_locked(&mut st, None);
             self.topology_locked(&mut st);
         }
+        drop(st);
+        self.wake.notify_one();
     }
 
     async fn read_loop(self: Arc<Self>, l: Arc<Link>, rd: tokio::io::ReadHalf<BoxStream>) {
@@ -876,6 +914,41 @@ impl Inner {
         }
     }
 
+    /// [`Inner::dial_edges`] 가 다음에 할 일까지 남은 시간이다: 지워진 간선의 연결이 있거나 걸 때가
+    /// 된 간선이 있으면 0, 다시 걸기 간격을 기다리는 간선만 있으면 그 가장 이른 끝, 할 일이 없으면
+    /// `None` 이다. 걸고 있는 간선은 걸기가 끝날 때 깨우므로 세지 않는다.
+    fn next_dial_in(&self, now: OffsetDateTime) -> Option<Duration> {
+        if self.opts.edges.is_none() || self.opts.dial.is_none() {
+            return None;
+        }
+        let paired = self.edges();
+        let st = self.lock();
+        if st.links.keys().any(|fp| !paired.contains_key(fp)) {
+            return Some(Duration::ZERO);
+        }
+        let mut best: Option<Duration> = None;
+        for (fp, e) in &paired {
+            if st.links.contains_key(fp) || e.addr.is_empty() {
+                continue;
+            }
+            let wait = match st.dialing.get(fp) {
+                None => Duration::ZERO,
+                Some(d) => {
+                    let g = lock_dial(d);
+                    if g.running {
+                        continue;
+                    }
+                    g.next
+                        .filter(|n| now < *n)
+                        .and_then(|n| Duration::try_from(n - now).ok())
+                        .unwrap_or(Duration::ZERO)
+                }
+            };
+            best = Some(best.map_or(wait, |b| b.min(wait)));
+        }
+        best
+    }
+
     pub(crate) fn dial_edges(self: &Arc<Self>, cancel: &CancellationToken, now: OffsetDateTime) {
         if self.opts.edges.is_none() || self.opts.dial.is_none() {
             return;
@@ -934,6 +1007,7 @@ impl Inner {
         if let Some(done) = &g.done {
             done.cancel();
         }
+        self.wake.notify_one();
         r
     }
 
@@ -995,5 +1069,18 @@ impl Inner {
 impl Mesh {
     pub(crate) fn link_count(&self) -> usize {
         self.inner.lock().links.len()
+    }
+
+    pub(crate) fn ticks(&self) -> u64 {
+        self.inner.ticks.load(Ordering::Relaxed)
+    }
+
+    /// 연결 fp 에서 마지막으로 받은 시각(유닉스 나노초)이다.
+    pub(crate) fn last_seen(&self, fp: &str) -> Option<i64> {
+        self.inner
+            .lock()
+            .links
+            .get(fp)
+            .map(|l| l.last_seen.load(Ordering::Relaxed))
     }
 }

@@ -2,7 +2,7 @@
 
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use otter_gocompat::json;
 use otter_shared_otterenv as otterenv;
@@ -214,6 +214,8 @@ struct StoredEdge {
 pub struct Store {
     path: PathBuf,
     cfg: Mutex<Config>,
+    /// 저장에 성공할 때마다 부른다. 간선 계층이 걸 간선을 다시 보게 한다 (PERF M4 D4).
+    on_change: OnceLock<Arc<dyn Fn() + Send + Sync>>,
 }
 
 impl Store {
@@ -226,7 +228,13 @@ impl Store {
         Self {
             path,
             cfg: Mutex::new(cfg),
+            on_change: OnceLock::new(),
         }
+    }
+
+    /// 저장 뒤에 부를 알림을 한 번 건다. 잠금 안에서 부르므로 막히지 않는 일만 한다.
+    pub fn on_change(&self, f: Arc<dyn Fn() + Send + Sync>) {
+        let _ = self.on_change.set(f);
     }
 
     pub fn path(&self) -> &Path {
@@ -264,6 +272,9 @@ impl Store {
             return Err(Error::SaveFailed);
         }
         *cur = c;
+        if let Some(f) = self.on_change.get() {
+            f();
+        }
         Ok(())
     }
 

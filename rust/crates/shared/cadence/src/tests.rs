@@ -65,8 +65,6 @@ fn values_unchanged_from_previous_homes() {
     assert_eq!(GIT_WATCH_WORKTREE_ROUNDS, 4);
     assert_eq!(GIT_WATCH_BACKOFF_MAX, s(30));
     assert_eq!(SYSSTAT_SAMPLE_EVERY, s(2));
-    assert_eq!(RUN_REAP_EVERY, s(15));
-    assert_eq!(LSP_SWEEP_EVERY, s(120));
     assert_eq!(MESH_REDIAL_MIN, s(1));
     assert_eq!(MESH_REDIAL_MAX, s(60));
     assert_eq!(MESH_PING_EVERY, s(15));

@@ -181,6 +181,33 @@
 
 C4 에 남긴 것: Git Console 탭의 기록 주기(`git/console.js`, 탭이 보일 때만)는 그대로다 — 기록은 git 실행 층(`domain/git/core` Service)이 쌓고 변화 훅이 없어 토픽을 세우려면 그 층을 고쳐야 한다. 편집기 틱(`_edTick`)의 `/api/fs/stamps` 주기는 파일 감시(`fs`) 몫이다.
 
+#### 남기는 주기 (PERF M4 설계 §1 Q8, FR-SRV-2)
+
+유휴에도 남기는 서버·데몬·제어 CLI 의 주기다. 값은 등록부 crate `otter-shared-cadence`(`rust/crates/shared/cadence`)의 상수이고, 이 표와 등록부 모듈 문서의 §1 표가 같아야 한다.
+
+| 상수 | 주기 | 쓰는 곳 | 설계 | 남기는 이유 |
+|---|---|---|---|---|
+| `DIAG_SNAPSHOT_EVERY` | 60초 | `webserver/httpapi` 진단 스냅샷 로그 | S6 | 오래 도는 서버의 메모리·작업 수 추이를 사후에 보려면 사건이 없어도 시간 축 표본이 있어야 한다 |
+| `TOOL_HEARTBEAT_EVERY` | 15초 | `webserver/toolclient` 데몬 생존 확인 hello | S10 | 조용한 데몬 연결이 끊긴 것을 알아채려면 무엇이라도 오가야 한다 (FR-OPT-2-1) |
+| `ACCESS_REFRESH_EVERY` | 60초 | `webserver/httpapi` 허용 목록 호스트명 재해석 | S8 | DNS 가 바뀐 것을 알려 주는 사건이 없다 (FR-ACL-5) |
+| `LOG_CHECK_EVERY` | 60초 | `ctl/cli` 로그 크기 확인 | S11 | 로그를 쓰는 쪽이 여럿이라 쓰기 사건을 한곳에서 받을 수 없다 (FR-LOG-2) |
+| `HUMANCMD_HELPER_EVERY` | 30초 | `daemon/boot` 사람 명령 도우미 확인 | D5 | 도우미가 사라진 것을 알려 주는 사건이 없다 |
+| `UPDATE_CHECK_EVERY` | 24시간 | `shared/updatecheck` 판 확인 트리거 ③ | S14 | 오래 켜 둔 서버도 새 판을 알게 하는 보조 트리거다 (FR-UPD-2) |
+| `MESH_PING_EVERY` | 15초 | `shared/edgemesh` 간선 ping | D4 | 조용한 간선이 끊긴 것을 알아채려면 무엇이라도 오가야 한다. **간선 연결이 하나도 없으면 돌지 않는다** |
+
+등록부 밖에 남는 주기:
+
+- WS ping 30초(S15): 화면 쪽 값 `CHAN_PING_HIDDEN_MS`(`web/js/core/constants.js`)다. 숨은 탭의 채널 생존 확인이다(TC-CH1-10).
+- Claude 계정 엔진(S12): 간격이 설정과 응답(재설정 시각)에서 정해진다. 바닥·유휴 값은 `webserver/domain/claudeacct` 엔진 안에만 있다.
+- 텔레그램 long-poll(S13): 대기는 Bot API 서버가 붙잡는 시간이다. 꺼져 있으면 요청이 없다.
+- `stats:` 발행(S3): 간격은 구독 토픽 이름(`stats:<ms>`)이 정하고, 구독 중에만 돈다.
+
+사건 기반으로 바꾼 것 (4.11):
+
+- Run 수거(S7, 옛 15초): 기동 때 한 번, 그 뒤 도구 종료 push(재접속 뒤 메운 종료 포함)·Run 닫기·데몬 재접속(resync) 때만 돈다. 끊긴 사이 놓친 종료는 재접속 resync 가 메운다(Q7).
+- LSP 유휴 정리(S9, 옛 2분): 세션이 없으면 잠든다. 세션이 있으면 가장 이른 `last_use + IDLE_AFTER`(20분) 마감에 한 번 깨고, 새 세션이 열리면 마감을 다시 잡는다.
+- 간선 연결 유지(D4, 옛 1초 틱): 간선도 연결도 없으면 잠든다. 다음 ping(연결이 있을 때만)과 다음 다시 걸기(`MESH_REDIAL_MIN`~`MESH_REDIAL_MAX`) 중 가장 이른 마감까지 자고, 간선 목록 저장·연결 붙음/끊김·걸기 끝남에 깬다.
+
 ### 10.1 C1 — 채널 뼈대
 
 | ID | 쪽 | 동작 |

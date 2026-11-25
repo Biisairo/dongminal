@@ -11,8 +11,7 @@ mod watch;
 pub use codec::{ERR_HEADER_TOO_LARGE, read_frame, write_frame};
 pub use process::{Conn, Starter, start_process};
 pub use service::{
-    IDLE_AFTER, MAX_SESSIONS, MAX_TEXT_BYTES, NowFn, OpenError, PathsError, SWEEP_EVERY, Service,
-    Tunnel,
+    IDLE_AFTER, MAX_SESSIONS, MAX_TEXT_BYTES, NowFn, OpenError, PathsError, Service, Tunnel,
 };
 pub use watch::{
     DEFAULT_WATCH_MAX, ExistsFn, FileEvent, FileNotifier, NameStatus, RepoSnap, RepoView,

@@ -2,6 +2,7 @@
 //! 고정 장치는 `golden_554` 의 것과 같다.
 
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -559,6 +560,59 @@ async fn reap_removes_runs_whose_coordinator_is_dead() {
     let st = env.store.clone().unwrap();
     assert!(st.get(&gone).is_none());
     assert!(st.get(&alive).is_some());
+}
+
+/// 수거를 띄우고 기동 때의 한 번이 끝나기를 기다린다.
+async fn start_reaper(env: &RunEnv) -> tokio_util::sync::CancellationToken {
+    let stop = tokio_util::sync::CancellationToken::new();
+    env.srv.start_run_reaper(stop.clone());
+    wait_reaps(env, 1).await;
+    stop
+}
+
+async fn wait_reaps(env: &RunEnv, n: u64) {
+    for _ in 0..200 {
+        if env.srv.run_aux.reaps.load(Ordering::Relaxed) >= n {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+}
+
+/// 사건이 없으면 기동 때 한 번 뒤로 수거가 돌지 않는다 (PERF M4 S7).
+#[tokio::test(start_paused = true)]
+async fn no_periodic_reap() {
+    let env = run_env(true, |_| {});
+    let stop = start_reaper(&env).await;
+    tokio::time::sleep(Duration::from_secs(60 * 60)).await;
+    assert_eq!(
+        env.srv.run_aux.reaps.load(Ordering::Relaxed),
+        1,
+        "사건 없이 수거가 돌았다"
+    );
+    stop.cancel();
+}
+
+/// 조정자 도구가 끝났다는 push 에 곧바로 그 Run 을 거둔다 (PERF M4 S7).
+#[tokio::test(start_paused = true)]
+async fn tool_exit_reaps_run() {
+    let env = run_env(true, |_| {});
+    let id = start(&env, "tool-a").await;
+    let stop = start_reaper(&env).await;
+    let st = env.store.clone().unwrap();
+    assert!(st.get(&id).is_some(), "살아 있는 조정자의 Run 을 거뒀다");
+    env.io.set_has("tool-a", false);
+    env.srv.kick_run_reap();
+    wait_reaps(&env, 2).await;
+    for _ in 0..200 {
+        if st.get(&id).is_none() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    assert!(st.get(&id).is_none(), "도구 종료 뒤에도 Run 이 남았다");
+    assert_eq!(env.srv.run_aux.reaps.load(Ordering::Relaxed), 2);
+    stop.cancel();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
