@@ -326,6 +326,15 @@ impl ToolHub for FakeHub {
     fn screen_tool(&self, _: &str, _: usize) -> Result<ToolScreen, ToolError> {
         Err(ToolError::NotFound(String::new()))
     }
+    fn seat_tool(&self, _: &str, _: bool) -> Result<i64, ToolError> {
+        Err(ToolError::NotFound(String::new()))
+    }
+    fn search_tool(
+        &self,
+        _: &otter_shared_toolipc::SearchParams,
+    ) -> Result<Vec<otter_shared_toolipc::SearchHit>, ToolError> {
+        Err(ToolError::NotFound(String::new()))
+    }
     fn daemon_info(&self) -> DaemonInfo {
         DaemonInfo::default()
     }

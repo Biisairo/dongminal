@@ -316,6 +316,11 @@ body.mobile .sc-key{height:var(--touch-min)}
 .search-bar button.active{color:var(--accent-text)}
 .search-icon{color:var(--text-muted);font-size:var(--fs-lg)}
 #search-count{color:var(--text-hint);font-size:var(--fs-sm);min-width:40px;text-align:center}
+/* PERF D-21: 이전 기록에서 찾기 — 버튼과 일치 목록 */
+.search-bar{position:relative}
+.search-bar button#search-older{width:auto;padding:0 var(--sp-2,6px);font-size:var(--fs-sm)}
+.search-older-list{position:absolute;top:100%;right:0;z-index:20;max-height:240px;overflow:auto;min-width:320px;max-width:60vw;background:var(--bg-panel,var(--bg));border:1px solid var(--border);border-radius:var(--radius-sm)}
+.search-bar .search-older-list button.search-older-hit{display:block;width:100%;height:auto;text-align:left;justify-content:flex-start;padding:2px 8px;font-family:var(--font-mono,monospace);font-size:var(--fs-sm);white-space:pre;overflow:hidden;text-overflow:ellipsis}
 
 /* ── Drag & Drop ── */
 

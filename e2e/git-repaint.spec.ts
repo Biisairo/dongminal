@@ -199,7 +199,7 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     for (let i = 0; i < 2; i++) {
       await page.evaluate(() => {
         const app = (window as any).app;
-        app.statusbar._onStats({ kind: 'full', data: { ...app._stats } });
+        app.testing.onStats({ kind: 'full', data: { ...app.testing.stats } });
       });
     }
     await nextFrames(page);

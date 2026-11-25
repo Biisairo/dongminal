@@ -14,9 +14,10 @@ use otter_shared_toolipc::{
     FEATURE_SHELL_PROBE, HistoryParams, HistoryResult, IdParams, METHOD_BACKGROUND_LIST,
     METHOD_BUSY, METHOD_BUSY_MANY, METHOD_CREATE, METHOD_CWD, METHOD_HISTORY, METHOD_INPUT,
     METHOD_KILL, METHOD_LIST, METHOD_PASTE, METHOD_RESIZE, METHOD_RESIZE_NOTIFY, METHOD_RESTORE,
-    METHOD_SCREEN, METHOD_SCREEN_CONFIG, METHOD_SET_BACKGROUND, METHOD_SHELL_PROBE,
-    METHOD_SNAPSHOT, METHOD_TERMINATE, METHOD_WRITE, PasteParams, ResizeParams, RestoreParams,
-    ScreenConfigParams, ScreenParams, ScreenResult, SetBackgroundParams, SetBackgroundResult,
+    METHOD_SCREEN, METHOD_SCREEN_CONFIG, METHOD_SEARCH, METHOD_SEAT, METHOD_SET_BACKGROUND,
+    METHOD_SHELL_PROBE, METHOD_SNAPSHOT, METHOD_TERMINATE, METHOD_WRITE, PasteParams, ResizeParams,
+    RestoreParams, ScreenConfigParams, ScreenParams, ScreenResult, SearchHit, SearchParams,
+    SearchResult, SeatParams, SeatResult, SetBackgroundParams, SetBackgroundResult,
     ShellProbeParams, ShellProbeResult, SnapshotParams, SnapshotResult, TerminateParams,
     WriteParams,
 };
@@ -403,6 +404,29 @@ impl ToolClient {
             top: r.top,
             lines: r.lines,
         })
+    }
+
+    /// 답장 좌석을 쥐거나 놓는다 (D-23). 답은 데몬 화면 상태가 마지막으로 답한 출력의 끝 오프셋이다.
+    /// "없음" 은 [`Error::ToolNotFound`] 다.
+    pub fn seat_tool(&self, id: &str, held: bool) -> Result<i64, Error> {
+        let params = SeatParams {
+            held,
+            id: id.to_owned(),
+        };
+        let r: SeatResult = self.call(METHOD_SEAT, &params).map_err(|e| match e {
+            Error::Rpc(r) if r.code == CODE_NOT_FOUND => Error::ToolNotFound(id.to_owned()),
+            e => e,
+        })?;
+        Ok(r.replied_end)
+    }
+
+    /// 줄 저장소 검색 (D-21). "없음" 은 [`Error::ToolNotFound`] 다.
+    pub fn search_tool(&self, p: &SearchParams) -> Result<Vec<SearchHit>, Error> {
+        let r: SearchResult = self.call(METHOD_SEARCH, p).map_err(|e| match e {
+            Error::Rpc(r) if r.code == CODE_NOT_FOUND => Error::ToolNotFound(p.id.clone()),
+            e => e,
+        })?;
+        Ok(r.hits)
     }
 
     /// 기록 줄 수 설정을 보낸다 (D-25).

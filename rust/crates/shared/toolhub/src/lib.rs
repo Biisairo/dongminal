@@ -9,6 +9,7 @@ mod env;
 mod hub;
 mod manager;
 mod records;
+mod search;
 mod shellprobe;
 mod termmodes;
 mod tool;
@@ -35,6 +36,7 @@ pub use manager::{
 };
 pub use otter_shared_termstate::HISTORY_CAP;
 pub use records::{AgentState, ExitInfo};
+pub use search::{HIT_TEXT_MAX, Query, SearchHit};
 pub use shellprobe::{ShellState, judge_shell};
 pub use termmodes::{MODE_MAX_CARRY, ModeObserver, TermModes, scan_modes};
 pub use tool::{

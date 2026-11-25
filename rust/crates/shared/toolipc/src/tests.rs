@@ -122,6 +122,16 @@ fn wire_golden() {
             r#"{"cols":0,"data":"","end":0,"modes":{"bracketedPaste":false,"mouseProtocol":0,"mouseEncoding":0,"focusEvent":false,"altScreen":false},"resumed":false,"retained":0,"rows":0,"totalBytesDrop":0,"totalBytesIn":0}"#.into(),
         ),
         (
+            "seat-params",
+            enc(&SeatParams { held: true, id: "a".into() }),
+            r#"{"held":true,"id":"a"}"#.into(),
+        ),
+        (
+            "seat-result",
+            enc(&SeatResult { replied_end: 9 }),
+            r#"{"repliedEnd":9}"#.into(),
+        ),
+        (
             "screen-params",
             enc(&ScreenParams { history: 5000, id: "a".into() }),
             r#"{"history":5000,"id":"a"}"#.into(),
@@ -270,6 +280,7 @@ fn chat_wire_golden() {
     );
     assert!(has_feature(DAEMON_FEATURES, FEATURE_SCREEN_STATE));
     assert_eq!(METHOD_SCREEN_CONFIG, "screenconfig");
+    assert_eq!(METHOD_SEAT, "seat");
     assert!(!has_feature(SERVER_FEATURES, FEATURE_SCREEN_STATE));
 }
 

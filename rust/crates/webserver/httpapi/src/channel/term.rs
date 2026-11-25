@@ -327,6 +327,13 @@ impl Session {
                 return self.gone(&tool).await;
             }
         }
+        // D-23: 구독 전에 데몬의 답장 좌석을 쥔다 — 이 연결이 받는 실시간 출력에는 데몬이 답하지 않는다.
+        // 데몬이 답한 출력보다 앞에서 이어 붙이면 같은 질의를 또 답하므로 스냅숏으로 간다.
+        let held = self.hold_seat(&tool, true).await;
+        let since = match held {
+            Some(replied) if since >= 0 && since < replied => -1,
+            _ => since,
+        };
         let (tx, rx) = mpsc::channel::<OutChunk>(OUTPUT_QUEUE);
         let (exit, unsub) = self.hub.subscribe(&tool, tx);
         let end = match self.sync(&tool, since).await {
@@ -349,7 +356,19 @@ impl Session {
             }
         };
         unsub();
+        if held.is_some() {
+            self.hold_seat(&tool, false).await;
+        }
         end
+    }
+
+    /// 데몬의 답장 좌석을 쥐거나 놓는다(D-23). 데몬이 답하지 못하면 `None` 이다.
+    async fn hold_seat(&self, tool: &str, held: bool) -> Option<i64> {
+        let (h, id) = (self.hub.clone(), tool.to_owned());
+        tokio::task::spawn_blocking(move || h.seat_tool(&id, held))
+            .await
+            .ok()?
+            .ok()
     }
 
     /// 도구가 정해졌다 — 그 전에 온 입력을 차례대로 넘긴다.

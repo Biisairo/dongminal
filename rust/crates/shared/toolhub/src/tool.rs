@@ -65,6 +65,10 @@ struct ReadState {
 struct Cmu {
     exited: bool,
     screen: Option<Screen>,
+    /// 답장 좌석을 쥔 수다(서버가 깬 브라우저마다 쥔다). 0 이면 화면 상태가 질의에 답한다(D-23).
+    seat_holds: usize,
+    /// 화면 상태가 마지막으로 답한 조각의 끝 오프셋이다.
+    replied_end: i64,
 }
 
 #[derive(Default)]
@@ -180,8 +184,8 @@ impl Tool {
             stream,
             sandboxed: AtomicBool::new(false),
             cmu: Mutex::new(Cmu {
-                exited: false,
                 screen,
+                ..Cmu::default()
             }),
             done: CancellationToken::new(),
             killed: Once::new(),
@@ -393,12 +397,41 @@ impl Tool {
         self.observe_modes_classified(&mut rs, chunk, c.modes);
     }
 
+    /// 링과 화면 상태에 넣는다. 좌석이 비었으면 화면 상태가 낸 질의의 답을 PTY 에 쓴다(D-23).
+    /// 답할지는 넣은 잠금 안에서 정한다 — 좌석을 쥔 뒤의 조각에는 답하지 않는다.
     fn feed(&self, chunk: &[u8]) -> i64 {
         let mut g = lock(&self.cmu);
-        if let Some(s) = g.screen.as_mut() {
+        let replies = g.screen.as_mut().map(|s| {
             s.feed(chunk);
+            s.take_replies()
+        });
+        let end = self.stream.as_ref().map_or(0, |s| s.feed(chunk).1);
+        let answer = replies.filter(|r| !r.is_empty() && g.seat_holds == 0);
+        if answer.is_some() {
+            g.replied_end = end;
         }
-        self.stream.as_ref().map_or(0, |s| s.feed(chunk).1)
+        drop(g);
+        if let Some(r) = answer {
+            let _ = self.write(&r);
+        }
+        end
+    }
+
+    /// 답장 좌석을 쥐거나(`true`) 놓는다. 쥔 수가 0 일 때만 화면 상태가 답한다. 돌려주는 값은 화면 상태가
+    /// 마지막으로 답한 조각의 끝 오프셋이다 — 그보다 앞에서 이어 붙이면 이미 답한 질의를 다시 보낸다.
+    pub fn hold_seat(&self, held: bool) -> i64 {
+        let mut g = lock(&self.cmu);
+        g.seat_holds = if held {
+            g.seat_holds + 1
+        } else {
+            g.seat_holds.saturating_sub(1)
+        };
+        g.replied_end
+    }
+
+    /// 화면 상태가 마지막으로 답한 조각의 끝 오프셋이다([`hold_seat`](Self::hold_seat)).
+    pub fn replied_end(&self) -> i64 {
+        lock(&self.cmu).replied_end
     }
 
     /// 화면 상태 스냅숏과 그 뒤를 이을 출력 오프셋이다. 링과 같은 잠금 안에서 만들어 한 순간을 맞춘다.
@@ -456,6 +489,7 @@ impl Tool {
         let (cols, rows) = sc.size();
         let mut s = Screen::restore(cols, rows, cap, state, history);
         s.feed(&ring[ring.len().saturating_sub(back)..]);
+        s.take_replies();
         *sc = s;
     }
 

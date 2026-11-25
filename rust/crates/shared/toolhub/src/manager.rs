@@ -823,6 +823,16 @@ impl ToolManager {
     pub fn history_tool(&self, id: &str, before: u64, count: usize) -> Option<ToolHistory> {
         self.get(id)?.history(before, count)
     }
+    /// 줄 저장소 검색(D-21)이다. 없는 도구·터미널이 없는 도구는 `None` 이다.
+    pub fn search_tool(
+        &self,
+        id: &str,
+        q: &crate::Query,
+        before: u64,
+        limit: usize,
+    ) -> Option<Vec<crate::SearchHit>> {
+        self.get(id)?.search(q, before, limit)
+    }
 
     pub fn snapshot_tool_since(&self, id: &str, since: i64) -> ToolSnapshot {
         let Some(p) = self.get(id) else {

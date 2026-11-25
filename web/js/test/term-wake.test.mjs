@@ -103,6 +103,28 @@ test('잠들면 term.close 를 보내고 그 sid 의 프레임을 받지 않으�
   assert.equal(got.length, 0, '잠든 sid 의 프레임을 받았다');
 });
 
+// PERF 2.8.2 (D-24): 잠들기 직전에 받아 아직 흘려보내지 않은 출력도 버린다 — 잠든 뒤 내려받기를 일으키지 않고, 깬 화면 앞에
+// 끼지 않는다.
+test('잠들기 전에 받아 flush 를 기다리던 Download 는 잠든 뒤 일어나지 않는다', async () => {
+  const { ctx, p, ch, clock } = pane();
+  const downloads = [];
+  p.xfer._downloadFile = (v) => downloads.push(v);
+  const written = [];
+  p.term.write = (t) => written.push(t);
+  ch.hello();
+  p.wake();
+  const sid = opens(ch)[0].sid;
+  p._onOp(snapSeq(ctx, 0));
+  ch.frame(ctx.OP.OUTPUT, sid, [...new TextEncoder().encode('\x1b]777;Download;/tmp/a\x07tail\x1b]777;Cwd;/x')]);
+  assert.ok(p._flushScheduled && p._outputBuf.includes('Download'), '출력이 flush 를 기다리지 않는다');
+  p.sleep();
+  await clock.advance(1000);
+  assert.deepEqual(downloads, []);
+  // 빈 쓰기는 2.7 기록 보기가 스냅숏을 다 그린 때를 아는 표시다(`TermHistory.base`) — 출력이 아니다.
+  assert.deepEqual(written.filter(Boolean), [], '잠든 버퍼에 출력이 써졌다');
+  assert.equal(p._outputBuf, '', '걸친 OSC 가 남아 깬 화면 앞에 붙는다');
+});
+
 test('잠든 터미널은 채널이 다시 붙어도·재시도 시간이 지나도 다시 열지 않는다', async () => {
   const { p, clock, ch } = pane();
   ch.hello();
@@ -152,6 +174,16 @@ test('스냅숏 SEQ 꼬리의 cwd 를 받는다 — 같으면 다시 알리지 �
   p._onOp(snapSeq(ctx, 20, { cwd: '/tmp/깨움' }));
   p._onOp(snapSeq(ctx, 30));
   assert.deepEqual(seen, ['/tmp/깨움']);
+});
+
+// PERF 2.8.2 (D-21): 스냅숏의 첫 기록 줄 번호는 "이전 기록에서 찾기" 의 앵커다.
+test('스냅숏 SEQ 꼬리의 첫 기록 줄 번호를 든다', () => {
+  const { ctx, p, ch } = pane();
+  ch.hello();
+  p.wake();
+  assert.equal(p._firstLine, -1);
+  p._onOp(snapSeq(ctx, 10, { firstLine: 5_000_000_000 }));
+  assert.equal(p._firstLine, 5_000_000_000);
 });
 
 test('파괴하면 생명주기에서 뗀다', () => {

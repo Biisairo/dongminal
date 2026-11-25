@@ -305,6 +305,9 @@
       <button id="search-word" class="ui-btn ui-btn-sm" title="Match whole word" data-i18n="html.search_word">ab</button>
       <button id="search-regex" class="ui-btn ui-btn-sm" title="Use regular expression" data-i18n="html.search_regex">.*</button>
       <span id="search-count"></span>
+      <!-- PERF D-21: 브라우저 버퍼 위의 기록은 데몬 저장소에서 찾는다. -->
+      <button id="search-older" class="ui-btn ui-btn-sm" title="Search older history" data-i18n="html.search_older">Search older history</button>
+      <div id="search-older-list" class="search-older-list" hidden></div>
       <button id="search-close" class="ui-btn ui-btn-icon ui-btn-sm ui-btn-ghost" title="Close (Esc)" aria-label="Close"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>
     <div id="status-bar" class="status-bar">
@@ -948,9 +951,9 @@
 <!-- 앱 스크립트는 묶음으로 싣는다 (PERF D-29). 무엇을 어떤 순서로 잇는지는 web/bundles.txt 가
      정한다 — 순서 계약과 그 이유도 그 파일에 있다. b/pre.js 맨 앞이 error-log.js 다. -->
 <script src="b/pre.js?v=__ASSETV__"></script>
-<!-- M8_UNIFIED_SRS FR-B-2: 언어 카탈로그는 i18n.js(pre) 뒤, 모든 상수(boot) 앞이다. -->
-<script src="js/i18n/ko.js?v=__ASSETV__"></script>
-<script src="js/i18n/en.js?v=__ASSETV__"></script>
+<!-- M8_UNIFIED_SRS FR-B-2: 언어 카탈로그는 i18n.js(pre) 뒤, 모든 상수(boot) 앞이다.
+     PERF D-34: i18n.js 가 정한 활성 로케일의 파일 하나만 싣는다. 바꾸기는 새로고침이다. -->
+<script>var i18nSrc='js/i18n/'+I18N.locale+'.js?v=__ASSETV__';document.write('<script src="'+i18nSrc+'"><\/script>')</script>
 <script src="b/boot.js?v=__ASSETV__"></script>
 </body>
 </html>

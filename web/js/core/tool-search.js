@@ -19,6 +19,7 @@ class ToolSearch extends Controller {
     bar.hidden=true;
     document.getElementById('search-input').value='';
     document.getElementById('search-count').textContent='';
+    document.getElementById('search-older-list').hidden=true;
     this.clearAllSearchDecorations();
     this.focusedTerminal()?.focus();
     for(const pane of this.app.tools.values())if(pane.el.classList.contains('vis'))pane.sizer.doFit();
@@ -110,5 +111,35 @@ class ToolSearch extends Controller {
     // 구독이 있으면 그쪽이 같은 값을 곧 덮는다.
     if(!p._searchSub) count.textContent=found!==undefined?(found?'':SEARCH_NONE):'';
     else if(found===false) count.textContent=SEARCH_NONE;
+  }
+
+  /**
+   * PERF D-21: **이전 기록에서 찾기.** 브라우저 버퍼는 마지막 스냅숏의 첫 기록 줄부터다. 그 앞은 데몬 줄 저장소에서
+   * 찾기 줄의 선택지 그대로 찾고, 일치를 새 줄부터 목록으로 보인다. 고르면 터미널의 기록 보기에 줄 번호를 넘긴다.
+   */
+  async searchOlder(){
+    const p=this.focusedTerminal();
+    const q=document.getElementById('search-input').value;
+    const count=document.getElementById('search-count');
+    const list=document.getElementById('search-older-list');
+    list.hidden=true;
+    if(!p||!q) return;
+    if(!(p._firstLine>0)){count.textContent=SEARCH_NONE;return}
+    const qs=new URLSearchParams({id:p.id,q,before:String(p._firstLine)});
+    for(const [k,id] of [['case','search-case'],['word','search-word'],['regex','search-regex']]) if(this._searchOpt(id)) qs.set(k,'1');
+    const r=await apiGet('/api/tools/search?'+qs);
+    if(!r.ok){count.textContent=apiErrText(r,'search');return}
+    const hits=(r.data&&r.data.hits)||[];
+    if(!hits.length){count.textContent=SEARCH_NONE;return}
+    count.textContent=String(hits.length);
+    list.replaceChildren(...hits.map(h=>{
+      const li=document.createElement('button');
+      li.className='search-older-hit';
+      li.dataset.line=String(h.line);
+      li.textContent=h.text;
+      li.addEventListener('click',()=>{ if(typeof p.openHistoryAt==='function') p.openHistoryAt(h.line) });
+      return li;
+    }));
+    list.hidden=false;
   }
 }

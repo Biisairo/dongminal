@@ -325,7 +325,8 @@ Object.assign(TerminalTool.prototype, {
   // FR-MTS-3: 좌표는 마지막 손가락 자리다 — 마우스 리포트는 그 칸을 싣는다.
   // 손가락이 없으면(손짓 밖에서 불렸으면) 터미널 가운데다.
   _dispatchWheel(px){
-    const el=this.term&&this.term.element;
+    // PERF FR-TRM-5: 기록 보기가 떠 있으면 손짓은 기록 보기를 굴린다.
+    const el=(this.history.isOpen&&this.history.view.element)||(this.term&&this.term.element);
     if(!el) return;
     const r=el.getBoundingClientRect();
     const touching=this._tsX!==undefined&&this._tsY!==undefined;

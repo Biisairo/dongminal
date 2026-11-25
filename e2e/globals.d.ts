@@ -26,3 +26,5 @@ declare const UFE_LEVEL_DEFAULT: number;
 
 /** `e2e/editor.ts` 의 `installEdAdapter` 가 세운다 — 편집기 접근 어댑터 (FR-CMR-120). */
 declare const edT: any;
+/** `web/js/core/screens.js` — 화면 등록부와 묶음 로더 (PERF D-30). */
+declare const Screens: any;

@@ -21,6 +21,8 @@ use crate::toolhub::ToolError;
 pub(crate) const MAX_BUSY_IDS: usize = 256;
 /// SIGTERM 과 SIGKILL 사이의 유예다 (Go `serverLimits.toolKillGrace`, FR-BGK-7).
 pub(crate) const TOOL_KILL_GRACE: Duration = Duration::from_secs(3);
+/// "이전 기록에서 찾기" 한 번이 받는 일치 수다(D-21).
+pub(crate) const SEARCH_LIMIT: usize = 200;
 
 const NANOS_PER_MINUTE: i128 = 60 * 1_000_000_000;
 const NANOS_PER_HOUR: i128 = 60 * NANOS_PER_MINUTE;
@@ -327,6 +329,39 @@ impl Server {
             busy.extend(got);
         }
         write_json(&BusyMany { busy })
+    }
+
+    /// GET /api/tools/search?id=&q=&before=&regex=1&case=1&word=1 — 줄 저장소에서 번호 `before` 앞의 줄을
+    /// 새 줄부터 찾는다(D-21). 데몬이 찾지 못하면(깨진 정규식 등) 422 다.
+    pub(crate) async fn api_tool_search(&self, r: &mut Req) -> Response {
+        let Ok(before) = r.q("before").parse::<u64>() else {
+            return http_err(
+                "before 는 줄 번호여야 합니다",
+                StatusCode::BAD_REQUEST,
+                apierr::CODE_MISSING_ARG,
+            );
+        };
+        let on = |k: &str| r.q(k) == "1";
+        let p = otter_shared_toolipc::SearchParams {
+            before,
+            case: on("case"),
+            id: r.q("id"),
+            limit: SEARCH_LIMIT,
+            pattern: r.q("q"),
+            regex: on("regex"),
+            word: on("word"),
+        };
+        let Some(hub) = self.tools(Some(r)) else {
+            return tools_unready();
+        };
+        match off_thread(move || hub.search_tool(&p)).await {
+            Some(Ok(hits)) => write_json(&otter_shared_toolipc::SearchResult { hits }),
+            Some(Err(ToolError::NotFound(m))) => {
+                http_err(&m, StatusCode::NOT_FOUND, apierr::CODE_TOOL_NOT_FOUND)
+            }
+            Some(Err(e)) => fail(StatusCode::UNPROCESSABLE_ENTITY, &e.to_string(), None),
+            None => tools_unready(),
+        }
     }
 
     /// DELETE /api/tools/{id}.

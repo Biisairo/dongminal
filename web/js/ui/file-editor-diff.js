@@ -401,7 +401,8 @@ class EdDirtyDiff{
   _paint(changes){
     for(const v of this.views){
       const view=v&&v._view;
-      if(!view) continue;
+      // PERF 3.5.3: 잠든 칸은 깰 때 다시 계산해 칠한다.
+      if(!view||v.asleep) continue;
       view.dispatch({effects:edDdField().set.of(edDdLineMarks(view.state.doc,changes))});
     }
   }

@@ -187,3 +187,15 @@ test('번호를 크게 셌으면 받은 줄에서 맨 윗줄을 찾아 그 앞�
   assert.ok(views[0].writes[0].endsWith('L98\r\nL99'));
   assert.ok(!ch.sent.some((m) => m.t === 'term.close'));
 });
+
+test('openHistoryAt(줄 번호): 그 줄이 가운데쯤 오게, 실시간 맨 윗줄 앞까지만 묻는다', () => {
+  const { ctx, p, ch, views } = pane(rows('L100', '$ '));
+  p._onOp(snapSeq(ctx, 100));
+  p.openHistoryAt(40);
+  assert.deepEqual([asks(ch)[0].before, asks(ch)[0].count], [42, ctx.TERM_HISTORY_CHUNK]);
+  answer(ch, p, { from: 0, top: 0, lines: ['a', 'b'] });
+  assert.equal(views.length, 1);
+  p.history.close();
+  p.openHistoryAt(99);
+  assert.equal(asks(ch)[1].before, 100);
+});

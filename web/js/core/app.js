@@ -119,6 +119,8 @@ class App {
   // 분할 트리 → pane 배열 (L→R, T→B). 순회는 `panesOf` 한 벌이다 (FR-OPT-11-1 · FEC-21) —
   // 이 이름은 호출처와 e2e 계약(app.testing)을 위해 남는다.
   flattenPanes(node){ return panesOf(node) }
+  // 화면 묶음을 싣는다 (PERF D-30). `app.testing.loadScreen(name)` — 화면을 열기 전에 그 전역을 부르는 e2e 가 먼저 기다린다.
+  loadScreen(name){ return Screens.load(name) }
 
   /**
    * TOOL_LIST_UNKNOWN_SRS FR-TLU-9: 첫 화면은 **도구를 아는 스냅숏**으로 세운다.

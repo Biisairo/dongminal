@@ -51,6 +51,8 @@ pub(crate) struct Conn {
     pub edge: AtomicBool,
     pub chat: AtomicBool,
     pub srv: Weak<Inner>,
+    /// 이 연결이 쥔 답장 좌석 수다(도구별). 연결이 끝나면 모두 놓는다(D-23).
+    seats: Mutex<HashMap<String, usize>>,
 }
 
 pub(crate) fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -83,6 +85,7 @@ impl Conn {
             edge: AtomicBool::new(false),
             chat: AtomicBool::new(false),
             srv,
+            seats: Mutex::default(),
         });
         let w = Arc::clone(&c);
         if thread::Builder::new()
@@ -112,6 +115,34 @@ impl Conn {
         self.done.cancel();
         lock(&self.out).take();
         let _ = self.stream.shutdown(Shutdown::Both);
+        for (id, n) in std::mem::take(&mut *lock(&self.seats)) {
+            if let Some(t) = self.pm.get(&id) {
+                (0..n).for_each(|_| {
+                    t.hold_seat(false);
+                });
+            }
+        }
+    }
+
+    /// 도구의 답장 좌석을 쥐거나 놓고 화면 상태가 마지막으로 답한 끝 오프셋을 돌려준다. 이 연결이 쥐지
+    /// 않은 좌석을 놓는 것은 아무 일도 아니다. 없는 도구는 `None` 이다.
+    pub fn hold_seat(&self, id: &str, held: bool) -> Option<i64> {
+        let t = self.pm.get(id)?;
+        let mut g = lock(&self.seats);
+        let n = g.entry(id.to_owned()).or_default();
+        let end = if held {
+            *n += 1;
+            t.hold_seat(true)
+        } else if *n > 0 {
+            *n -= 1;
+            t.hold_seat(false)
+        } else {
+            t.replied_end()
+        };
+        if *n == 0 {
+            g.remove(id);
+        }
+        Some(end)
     }
 
     pub fn is_done(&self) -> bool {
@@ -267,6 +298,10 @@ impl Conn {
             ipc::METHOD_SCREEN => handlers::screen(self, &req),
             ipc::METHOD_SCREEN_CONFIG => handlers::screen_config(self, &req),
             ipc::METHOD_HISTORY => handlers::history(self, &req),
+            ipc::METHOD_SEAT => handlers::seat(self, &req),
+            ipc::METHOD_SEARCH => {
+                return self.go_slow(false, move |c| handlers::search(c, &req));
+            }
             ipc::METHOD_CWD => handlers::cwd(self, &req),
             ipc::METHOD_BUSY => handlers::busy(self, &req),
             ipc::METHOD_BUSY_MANY => handlers::busy_many(self, &req),

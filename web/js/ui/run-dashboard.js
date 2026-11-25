@@ -1,7 +1,7 @@
 /**
  * Run 대시보드 — 요약·그래프(노드·호)·카드·타임라인과 표기 (FR-RVZ-10~13).
  * `runs-panel.js` 의 증강 분할이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-4 · FEU-23) — 목록·확인·탭은
- * 그쪽에 남고, 계약은 `RunsPanel` 한 클래스에 남는다. 치수 상수(`RUN_*`)는 `runs-panel.js` 가, 원소를 만드는
+ * 그쪽에 남고, 계약은 `RunsPanel` 한 클래스에 남는다. 치수 상수(`RUN_*`)는 `run-graph-fit.js` 가, 원소를 만드는
  * `domEl`·`svgEl` 은 `core/helpers.js` 가 갖는다.
  */
 Object.assign(RunsPanel.prototype, {

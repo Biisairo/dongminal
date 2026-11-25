@@ -102,13 +102,19 @@ class TermHistory {
     this._ask(no,true);
   }
 
-  /** 줄 번호 `no` 를 맨 아래에 두고 연다 — "이전 기록에서 찾기"(2.8.2)가 부른다. */
+  /**
+   * 줄 번호 `no` 가 화면 가운데쯤 오게 연다 — "이전 기록에서 찾기"(2.8.2)가 `openHistoryAt` 으로 부른다.
+   * 아래로는 실시간 버퍼 맨 윗줄 앞까지만 받는다.
+   */
   openAt(no){
     if(this.asking) return;
     this.resynced=true;
     this.want=-1;
     this._close(false);
-    this._send(no+1,TERM_HISTORY_CHUNK,null);
+    const t=this.pane.term, top=this.topNo();
+    let before=no+1+Math.floor(((t&&t.rows)||0)/2);
+    if(top>no) before=Math.min(before,top);
+    this._send(before,TERM_HISTORY_CHUNK,null);
   }
 
   /**

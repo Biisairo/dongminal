@@ -63,6 +63,15 @@ impl ToolHub for Hub {
     fn history_tool(&self, id: &str, before: u64, count: usize) -> Result<ToolHistory, ToolError> {
         self.0.history_tool(id, before, count).map_err(tool_err)
     }
+    fn seat_tool(&self, id: &str, held: bool) -> Result<i64, ToolError> {
+        self.0.seat_tool(id, held).map_err(tool_err)
+    }
+    fn search_tool(
+        &self,
+        p: &otter_shared_toolipc::SearchParams,
+    ) -> Result<Vec<otter_shared_toolipc::SearchHit>, ToolError> {
+        self.0.search_tool(p).map_err(tool_err)
+    }
     fn daemon_info(&self) -> DaemonInfo {
         self.0.daemon_info()
     }
