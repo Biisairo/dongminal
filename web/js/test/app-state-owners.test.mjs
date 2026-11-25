@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, GIT, controllers, load } from './harness.mjs';
+import { BASE, GIT, SCREENS_LOADED, controllers, load } from './harness.mjs';
 
 /**
  * APP_STATE_EXTRACT_SRS 묶음 E (FR-OPT-16-1) — App 필드 가족을 소유 클래스로 옮긴다.
@@ -31,7 +31,8 @@ function loadLsp() {
   const store = { bool: (_k, d) => d, remove() {}, json: () => null, setJson() {}, setBool() {} };
   return load([...BASE, 'core/app.js', 'core/lsp-client.js', 'core/lsp-paths.js'], {
     expose: ['LspClient', 'App'],
-    globals: { PrefStore: { local: store }, LSP_DIAG_KEY: 'k', STORE_KEYS: {}, TIMERS: { disposeOwner() {} } },
+    // PERF 3.4.12.7: lspClient() 는 cm 묶음이 실린 뒤에만 본체를 만든다.
+    globals: { PrefStore: { local: store }, LSP_DIAG_KEY: 'k', STORE_KEYS: {}, TIMERS: { disposeOwner() {} }, Screens: SCREENS_LOADED },
   });
 }
 
@@ -169,7 +170,7 @@ test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·필드이거나 �
   const read = (rel) => readFileSync(join(root, rel), 'utf8');
   const contract = [...read('core/app-testing.js').match(/const APP_TESTING_NAMES = \[([\s\S]*?)\];/)[1].matchAll(/'([^']+)'/g)]
     .map((m) => m[1]);
-  assert.equal(contract.length, 143);
+  assert.equal(contract.length, 147);
   const appFiles = ['core/app.js', ...readdirSync(join(root, 'core')).map((n) => 'core/' + n),
     ...readdirSync(join(root, 'ui')).map((n) => 'ui/' + n)]
     .filter((f) => f.endsWith('.js') && (f === 'core/app.js' || /Object\.(assign|defineProperties)\(App\.prototype/.test(read(f))));
@@ -186,7 +187,7 @@ test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·필드이거나 �
     for (const m of src.matchAll(/\bthis\.app\.([A-Za-z_$][\w$]*)\s*=(?!=)/g)) names.add(m[1]);   // 컨트롤러가 App 에 쓰는 필드
   }
   // REFACTOR3_FE_DELEG_SRS FR-DLG-4: 위임자였던 이름은 앱에서 주인까지의 점 경로로 적힌다 — 마지막 이름이 그 주인 클래스의
-  // 메서드다. 주인은 생성자의 `this.<k>=new <C>(` 를 app.js 에서부터 따라 찾는다.
+  // 메서드다. 주인은 생성자의 `this.<k>=new <C>(` 를 app.js 에서부터 따라 찾는다(`=` 둘레의 공백은 파일마다 다르다 — `renderer.js`).
   const classFile = (c) => appFiles.concat(readdirSync(join(root, 'core')).map((n) => 'core/' + n), readdirSync(join(root, 'ui'))
     .map((n) => 'ui/' + n)).find((f) => f.endsWith('.js') && new RegExp('^class ' + c + '\\b', 'm').test(read(f)));
   const LAZY = { 'lspClient()': 'LspClient', 'runsPanel()': 'RunsPanel' };
@@ -197,7 +198,7 @@ test('TC-FEA-3: 계약의 이름은 모두 App 의 메서드·필드이거나 �
     for (const k of keys) {
       const sec = /^section\((\w+)\)$/.exec(k);
       if (sec) { file = 'core/settings-' + sec[1] + '.js'; continue }
-      const m = read(file).match(new RegExp('this\\.' + k + '=new ([A-Z][A-Za-z]+)\\('));
+      const m = read(file).match(new RegExp('this\\.' + k + '\\s*=\\s*new ([A-Z][A-Za-z]+)\\('));
       file = classFile(LAZY[k] || (m && m[1]));
       if (!file) return false;
     }

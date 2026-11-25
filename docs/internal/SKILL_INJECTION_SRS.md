@@ -115,7 +115,7 @@ bin/zdotdir/.zshrc:14
 | `workspace_command` | `/api/commands` 브로드캐스트 | 창/분할칸/탭/도구 용어 정의, 18개 action 설명, `keepFocus` 패턴, uuid-only 규약 — **약 40행** |
 | `send_input` | `SendPaste` | "다른 CC 에는 `send_agent_message` 를 쓸 것" |
 | `send_agent_message` | envelope + `SendPaste` | **신뢰 채널 규약 전문** — 약 8행 |
-| `read_screen` | `Snapshot` + ANSI 제거 | **엔벨로프 수신 규약** — 약 4행 |
+| `read_screen` | `Snapshot` + ANSI 제거 (지금은 데몬 화면 상태의 글자 — PERF 2.8.1, 2026-11-25) | **엔벨로프 수신 규약** — 약 4행 |
 | `read_output` | `Snapshot` raw | — |
 
 액션 계층은 §2.5 대로 대부분 `otterctl` 에 이미 있거나 얇게 추가하면 된다. **문제는 정책
@@ -262,7 +262,7 @@ uuid→좌표로 번역**한다. 신규 서브커맨드도 이 규약을 따른�
 ### 3.2 묶음 B — 서버 엔드포인트 (FR-API-\*)
 
 **FR-API-1** `GET /api/tools/output?id=<식별자>&bytes=<N>&strip=<0|1>` 을 추가한다.
-`{"text": "...", "dropped": <int>}` 를 반환한다. `strip=1` 이면 ANSI 를 제거한다.
+`{"text": "...", "dropped": <int>}` 를 반환한다. `strip=1` 이면 ANSI 를 제거한다. (**개정 2026-11-25, PERF 2.8.1, D-22**: `strip=1` 은 데몬 화면 상태의 글자(화면과 그 위 기록)다. 이전: 링 바이트에서 ANSI 를 걷어 낸 글자 / 이유: TUI 에서 지운 글자·덮어쓴 글자가 섞였다)
 `bytes` 가 0 이하이거나 없으면 잘라내지 않는다 (기본값 판단은 otterctl 책임).
 
 **FR-API-2** `POST /api/tools/input` `{"id":"…","text":"…","execute":<bool>}` 을

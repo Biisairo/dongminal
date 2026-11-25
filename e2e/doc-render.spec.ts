@@ -122,6 +122,26 @@ async function openFile(page: Page, name: string) {
 const RENDER_BTN = '.file-editor.vis .fe-render';
 const RENDER_BODY = '.doc-render.vis .dr-body';
 
+// PERF 3.4.8 (D-29·D-31): 문서 렌더는 `docrender` 묶음이다. 부팅은 그 묶음과 highlight 를 받지 않고,
+// 렌더 탭을 처음 열 때 받아 그린다.
+test('TC-DRB-1 부팅 때 docrender 묶음을 받지 않고 렌더 탭을 열면 실려 그려진다', async ({ page, request }) => {
+  const urls: string[] = [];
+  page.on('request', (r) => urls.push(new URL(r.url()).pathname));
+  await enter(page, request);
+  const lazy = (u: string) => u === '/vendor/highlight.js' || u.startsWith('/b/docrender.');
+  expect(urls.filter(lazy)).toEqual([]);
+  await openFile(page, 'doc.md');
+  // 진입 버튼은 편집기의 것이다 — 묶음 전에도 제 자리에 선다.
+  await expect(page.locator(RENDER_BTN)).toHaveCSS('position', 'absolute');
+  expect(urls.filter(lazy)).toEqual([]);
+  await page.locator(RENDER_BTN).click();
+  await expect(page.locator(RENDER_BODY + ' pre code .hljs-keyword').first()).toBeVisible({ timeout: 15000 });
+  expect(urls).toContain('/b/docrender.js');
+  expect(urls).toContain('/b/docrender.css');
+  expect(urls).not.toContain('/vendor/highlight.js');
+  await expect(page.locator(RENDER_BODY)).toHaveCSS('overflow-y', 'auto');
+});
+
 test.describe('문서 렌더 뷰', () => {
   test.beforeEach(async ({ page, request }) => { await enter(page, request) });
 
@@ -446,6 +466,7 @@ test.describe('문서 렌더 뷰', () => {
    * 화면 단정으로 잡기 어려우므로 함수를 직접 부른다.
    */
   test('경로 해석과 표 파싱의 규칙', async ({ page }) => {
+    await page.evaluate(() => (window as any).app.testing.loadScreen('docrender'));
     const out = await page.evaluate(() => {
       const w = window as any;
       return {

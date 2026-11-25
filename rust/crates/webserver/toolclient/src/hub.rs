@@ -5,17 +5,21 @@ use std::time::{Duration, Instant};
 
 use otter_gocompat::json;
 use otter_shared_toolhub::{
-    BackgroundEntry, ExitInfo, Placement, ShellState, ToolInfo, ToolSnapshot,
+    BackgroundEntry, ExitInfo, Placement, ShellState, ToolHistory, ToolInfo, ToolScreen,
+    ToolSnapshot,
 };
 use otter_shared_toolipc::{
     BackgroundListResult, BusyManyParams, BusyManyResult, BusyResult, CODE_NOT_FOUND,
     CODE_TOOL_CAP, CreateParams, CreateResult, CwdResult, FEATURE_BUSY_MANY, FEATURE_NOTIFY,
-    FEATURE_SHELL_PROBE, IdParams, METHOD_BACKGROUND_LIST, METHOD_BUSY, METHOD_BUSY_MANY,
-    METHOD_CREATE, METHOD_CWD, METHOD_INPUT, METHOD_KILL, METHOD_LIST, METHOD_PASTE, METHOD_RESIZE,
-    METHOD_RESIZE_NOTIFY, METHOD_RESTORE, METHOD_SET_BACKGROUND, METHOD_SHELL_PROBE,
-    METHOD_SNAPSHOT, METHOD_TERMINATE, METHOD_WRITE, PasteParams, ResizeParams, RestoreParams,
-    SetBackgroundParams, SetBackgroundResult, ShellProbeParams, ShellProbeResult, SnapshotParams,
-    SnapshotResult, TerminateParams, WriteParams,
+    FEATURE_SHELL_PROBE, HistoryParams, HistoryResult, IdParams, METHOD_BACKGROUND_LIST,
+    METHOD_BUSY, METHOD_BUSY_MANY, METHOD_CREATE, METHOD_CWD, METHOD_HISTORY, METHOD_INPUT,
+    METHOD_KILL, METHOD_LIST, METHOD_PASTE, METHOD_RESIZE, METHOD_RESIZE_NOTIFY, METHOD_RESTORE,
+    METHOD_SCREEN, METHOD_SCREEN_CONFIG, METHOD_SCREEN_TEXT, METHOD_SEARCH, METHOD_SEAT,
+    METHOD_SET_BACKGROUND, METHOD_SHELL_PROBE, METHOD_SNAPSHOT, METHOD_TERMINATE, METHOD_WRITE,
+    PasteParams, ResizeParams, RestoreParams, ScreenConfigParams, ScreenParams, ScreenResult,
+    ScreenTextParams, ScreenTextResult, SearchHit, SearchParams, SearchResult, SeatParams,
+    SeatResult, SetBackgroundParams, SetBackgroundResult, ShellProbeParams, ShellProbeResult,
+    SnapshotParams, SnapshotResult, TerminateParams, WriteParams,
 };
 
 use crate::client::{Inner, TOOL_CALL_TIMEOUT, TOOL_CREATE_TIMEOUT, ToolClient, lock, result_key};
@@ -360,6 +364,90 @@ impl ToolClient {
             .ok()
             .and_then(|r| r.background)
             .unwrap_or_default()
+    }
+
+    /// 화면 상태 스냅숏을 부른다 (PERF FR-TRM-4). 기능 확인 없이 부른다 — 인계 판 2 의 데몬만 쓴다(D-27).
+    /// "없음" 은 [`Error::ToolNotFound`] 다.
+    pub fn screen_tool(&self, id: &str, history: usize) -> Result<ToolScreen, Error> {
+        let params = ScreenParams {
+            history,
+            id: id.to_owned(),
+        };
+        let r: ScreenResult = self.call(METHOD_SCREEN, &params).map_err(|e| match e {
+            Error::Rpc(r) if r.code == CODE_NOT_FOUND => Error::ToolNotFound(id.to_owned()),
+            e => e,
+        })?;
+        Ok(ToolScreen {
+            data: r.data,
+            end: r.end,
+            cols: r.cols,
+            rows: r.rows,
+            alt: r.alt,
+            first_line: r.first_line,
+            cwd: r.cwd,
+        })
+    }
+
+    /// 화면 상태의 글자를 부른다 (PERF FR-TRM-8, D-22). "없음" 은 [`Error::ToolNotFound`] 다.
+    pub fn screen_text_tool(&self, id: &str, bytes: usize) -> Result<String, Error> {
+        let params = ScreenTextParams {
+            bytes,
+            id: id.to_owned(),
+        };
+        let r: ScreenTextResult = self
+            .call(METHOD_SCREEN_TEXT, &params)
+            .map_err(|e| match e {
+                Error::Rpc(r) if r.code == CODE_NOT_FOUND => Error::ToolNotFound(id.to_owned()),
+                e => e,
+            })?;
+        Ok(r.text)
+    }
+
+    /// 줄 저장소의 기록 구간을 부른다 (PERF FR-TRM-5). "없음" 은 [`Error::ToolNotFound`] 다.
+    pub fn history_tool(&self, id: &str, before: u64, count: usize) -> Result<ToolHistory, Error> {
+        let params = HistoryParams {
+            before,
+            count,
+            id: id.to_owned(),
+        };
+        let r: HistoryResult = self.call(METHOD_HISTORY, &params).map_err(|e| match e {
+            Error::Rpc(r) if r.code == CODE_NOT_FOUND => Error::ToolNotFound(id.to_owned()),
+            e => e,
+        })?;
+        Ok(ToolHistory {
+            from: r.from,
+            top: r.top,
+            lines: r.lines,
+        })
+    }
+
+    /// 답장 좌석을 쥐거나 놓는다 (D-23). 답은 데몬 화면 상태가 마지막으로 답한 출력의 끝 오프셋이다.
+    /// "없음" 은 [`Error::ToolNotFound`] 다.
+    pub fn seat_tool(&self, id: &str, held: bool) -> Result<i64, Error> {
+        let params = SeatParams {
+            held,
+            id: id.to_owned(),
+        };
+        let r: SeatResult = self.call(METHOD_SEAT, &params).map_err(|e| match e {
+            Error::Rpc(r) if r.code == CODE_NOT_FOUND => Error::ToolNotFound(id.to_owned()),
+            e => e,
+        })?;
+        Ok(r.replied_end)
+    }
+
+    /// 줄 저장소 검색 (D-21). "없음" 은 [`Error::ToolNotFound`] 다.
+    pub fn search_tool(&self, p: &SearchParams) -> Result<Vec<SearchHit>, Error> {
+        let r: SearchResult = self.call(METHOD_SEARCH, p).map_err(|e| match e {
+            Error::Rpc(r) if r.code == CODE_NOT_FOUND => Error::ToolNotFound(p.id.clone()),
+            e => e,
+        })?;
+        Ok(r.hits)
+    }
+
+    /// 기록 줄 수 설정을 보낸다 (D-25).
+    pub fn screen_config(&self, history_lines: usize) -> Result<(), Error> {
+        self.call_raw(METHOD_SCREEN_CONFIG, &ScreenConfigParams { history_lines })
+            .map(drop)
     }
 
     pub fn snapshot_tool(&self, id: &str) -> Result<ToolSnapshot, Error> {

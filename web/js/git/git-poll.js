@@ -9,7 +9,8 @@
  * `git-diff-pane.js` 로 갔다 (REFACTOR3_FE_GITPANEL_SRS 7c). 뒤쪽은 **관측을 받아 오는 일**이다 — `collect` 가
  * `/api/git/status` 를 한 벌만 내보내고(single-flight 는 GitObserver 가 쥔다),
  * `_applyStatus` 가 그 응답을 패널의 상태로 바꾸며, `_cadence` 가 실패 누적에 따라
- * 주기를 늦춘다 (FR-RMS-22).
+ * 주기를 늦춘다 (FR-RMS-22). 평상시에는 주기로 묻지 않는다 — 채널 `git:<root>` 토픽이 변화를 알리고,
+ * 주기 타이머는 실패·소실 동안의 회복용이다(PERF M1 C4, `_applyCadence`). 이름의 "폴링" 은 그 전 것이다.
  */
 /**
  * status 응답 하나의 판정 (REFACTOR3_FE_REST3_SRS FR-FR3-20). 세대 검사 **뒤**에 부른다. `repo` 는 보낸 요청의 저장소다.
@@ -160,9 +161,12 @@ class GitPoll extends GitPart {
     // (NFR-RTU-1 이 그것을 금한다).
     const w=this.p.root?this.app.editor.edWindowFor(this.p.root):this.app.git.gitWindow();
     if(!w||!this.app.slot.windowVisible(w.id)) return false;
-    // 창이 보이는 것과 **이 패널의 표면**이 보이는 것은 다르다 — 사이드가
-    // Explorer 이고 본문에 git 뷰 탭도 없으면 이 관측을 쓰는 화면이 없다.
-    if(this.p.root&&!this.app.git.surfaces.gitSurfaceOn(w)) return false;
+    // 창이 보이는 것과 **이 패널의 표면**이 보이는 것은 다르다. 표면은 둘이다 — 본문으로 깬 git 뷰 탭(생명주기,
+    // PERF M3 §3.5)과 Repo 창의 Changes 사이드.
+    //   이전: 창의 어느 pane 에든 git 탭이 **있으면** 보는 것으로 읽었다 — 다른 탭 뒤에 가려져도 구독·회복 주기를 쥐었다
+    //   새:   본문이 깨 있거나(가려지고 2초 뒤 잠든다) 사이드가 Changes 일 때만이다
+    //   이유: 잠든 화면은 구독·타이머를 갖지 않는다(FR-SPA-3)
+    if(!this.p._bodyAwake&&!(this.p.root&&this.app.git.surfaces.gitSideOn(w))) return false;
     return !!this.p.repo;
   }
 
@@ -252,14 +256,8 @@ class GitPoll extends GitPart {
     // 타이머는 살아 있는데 status 만 멎는 모양이다 (TC-SVS-64 · Windows 러너 실측:
     // 46초 동안 signature 요청만 돌았다). 넘기면 망 실패와 같은 길을 간다 — 이전
     // 화면을 지키고 백오프를 지난다.
-    // GIT_WATCH_LEASE_SRS FR-GWL-9: **누가 보는지를 함께 말한다.**
-    //
-    // 종전에는 이 요청 자체가 서버 감시의 수명이었다 — 90초 안에 다음 요청이 오지
-    // 않으면 감시가 걷히고 `git_changed` 방송이 멎었다. 그래서 안전망을 끄면 본줄이
-    // 끊겼다 (GP-1). `clientId` 를 실으면 그 신원의 SSE 구독이 임대를 쥐므로,
-    // 이 요청이 뜸해져도 아예 끊겨도 감시가 산다.
+    // 감시의 임대는 채널의 `git:<root>` 토픽 구독이 쥔다 — 이 요청은 신원을 싣지 않는다.
     const q={repo};
-    if(this.app&&this.app.clientId) q.clientId=this.app.clientId;
     /**
      * OPTIMIZE_REFACTOR_SRS FR-OPT-4-7 (IPC-30): **가진 관측의 mark 를 싣는다.**
      *
@@ -288,7 +286,9 @@ class GitPoll extends GitPart {
     // 결과를 덮어 다음 폴링까지 되돌아간 화면을 보였다(#41).
     if(this.p._writeGen!==wg){this.collect();return}
     this._applyStatus(tok,r,d);
-    if(again) this.collect();
+    // PERF 4.15.1 (F-6.2): 비저장소 판정은 폴링을 멈춘 확정 사실이다 — 미룬 한 번은 버리고
+    // 다음 `git:<root>` 신호·포커스·새로고침에 맡긴다. 이전: 판정 직후 status 를 한 번 더 보냈다.
+    if(again&&!this.p._notRepo) this.collect();
   }
 
   // REFACTOR3_FE_REST3_SRS FR-FR3-20 (FU-16): 세대 → 판정(순수) → 갈래. 성공은 받아들이기 → 칠하기 순서다.

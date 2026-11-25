@@ -2,12 +2,13 @@
 
 use std::collections::HashMap;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use otter_shared_sandbox::{self as sandbox, ProfileInfo};
 use otter_shared_toolhub::{
-    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolInfo, ToolSnapshot,
+    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolHistory, ToolInfo,
+    ToolScreen, ToolSnapshot,
 };
 use otter_shared_workspace::{Error as WorkspaceError, TabEntry, WindowInfo};
 use otter_webserver_domain_sysstat::Snapshot;
@@ -48,6 +49,29 @@ pub(crate) struct FakeHub {
     /// 같은 도구의 나중 구독에 밀려난 구독 — 살려 두어 앞 구독자의 출력이 끊기지 않게 한다.
     pub(crate) replaced_subs: Mutex<Vec<(Sender<OutChunk>, CancellationToken)>>,
     pub(crate) snaps: Mutex<HashMap<String, ToolSnapshot>>,
+    /// 도구마다 화면 상태 스냅숏 (`screen_tool` 의 답).
+    pub(crate) screens: Mutex<HashMap<String, ToolScreen>>,
+    /// `screen_tool` 을 부른 수.
+    pub(crate) screen_calls: AtomicUsize,
+    /// `screen_tool` 이 받은 기록 행 수.
+    pub(crate) screen_history: Mutex<Vec<usize>>,
+    /// `snapshot_tool_since` 를 부른 수.
+    pub(crate) since_calls: AtomicUsize,
+    /// `screen_tool` 이 답하기 전에 기다리는 시간 — 동시 깨움을 겹치게 한다.
+    pub(crate) screen_delay: Duration,
+    /// 줄 저장소의 줄(번호 0 부터) — `history_tool` 의 답을 만든다.
+    pub(crate) hist_lines: Mutex<Vec<String>>,
+    /// `history_tool` 의 인자 (도구, before, count).
+    pub(crate) hist_calls: Mutex<Vec<(String, u64, usize)>>,
+    /// `history_tool` 이 답하기 전에 기다리는 시간.
+    pub(crate) hist_delay: Duration,
+    /// `seat_tool` 을 부른 차례 (도구, 쥠, 그때 구독이 있었는가).
+    pub(crate) seats: Mutex<Vec<(String, bool, bool)>>,
+    /// `seat_tool` 의 답 — 데몬이 마지막으로 답한 끝 오프셋.
+    pub(crate) replied_end: i64,
+    /// `search_tool` 이 받은 인자와 그 답.
+    pub(crate) searches: Mutex<Vec<otter_shared_toolipc::SearchParams>>,
+    pub(crate) search_hits: Mutex<Vec<otter_shared_toolipc::SearchHit>>,
     pub(crate) inputs: Mutex<Vec<(String, Vec<u8>)>>,
     pub(crate) resizes: Mutex<Vec<(String, u16, u16)>>,
     /// 데몬이 hello 에서 말한 판 (Go `infoHub`).
@@ -85,6 +109,7 @@ impl ToolHub for FakeHub {
         if !self.has(id) {
             return Err(ToolError::NotFound(format!("tool {id} not found")));
         }
+        self.since_calls.fetch_add(1, Ordering::SeqCst);
         let mut snap = self
             .snaps
             .lock()
@@ -92,12 +117,67 @@ impl ToolHub for FakeHub {
             .get(id)
             .cloned()
             .unwrap_or_default();
-        if since >= 0 && since <= snap.end {
+        let start = snap.end - snap.data.len() as i64;
+        if since >= start && since <= snap.end {
             let keep = crate::ws::trim_overlap(&snap.data, snap.end, since).to_vec();
             snap.data = keep;
             snap.resumed = true;
         }
         Ok(snap)
+    }
+    fn screen_tool(&self, id: &str, history: usize) -> Result<ToolScreen, ToolError> {
+        if !self.has(id) {
+            return Err(ToolError::NotFound(format!("tool {id} not found")));
+        }
+        std::thread::sleep(self.screen_delay);
+        self.screen_history.lock().unwrap().push(history);
+        self.screen_calls.fetch_add(1, Ordering::SeqCst);
+        Ok(self
+            .screens
+            .lock()
+            .unwrap()
+            .get(id)
+            .cloned()
+            .unwrap_or_default())
+    }
+    fn history_tool(&self, id: &str, before: u64, count: usize) -> Result<ToolHistory, ToolError> {
+        if !self.has(id) {
+            return Err(ToolError::NotFound(format!("tool {id} not found")));
+        }
+        std::thread::sleep(self.hist_delay);
+        self.hist_calls
+            .lock()
+            .unwrap()
+            .push((id.to_owned(), before, count));
+        let lines = self.hist_lines.lock().unwrap();
+        let stop = before.min(lines.len() as u64);
+        let from = before.saturating_sub(count as u64).min(stop);
+        Ok(ToolHistory {
+            from,
+            top: 0,
+            lines: lines[from as usize..stop as usize].to_vec(),
+        })
+    }
+    fn seat_tool(&self, id: &str, held: bool) -> Result<i64, ToolError> {
+        if !self.has(id) {
+            return Err(ToolError::NotFound(format!("tool {id} not found")));
+        }
+        let subscribed = self.subs.lock().unwrap().contains_key(id);
+        self.seats
+            .lock()
+            .unwrap()
+            .push((id.to_owned(), held, subscribed));
+        Ok(self.replied_end)
+    }
+    fn search_tool(
+        &self,
+        p: &otter_shared_toolipc::SearchParams,
+    ) -> Result<Vec<otter_shared_toolipc::SearchHit>, ToolError> {
+        if !self.has(&p.id) {
+            return Err(ToolError::NotFound(format!("tool {} not found", p.id)));
+        }
+        self.searches.lock().unwrap().push(p.clone());
+        Ok(self.search_hits.lock().unwrap().clone())
     }
     fn daemon_info(&self) -> DaemonInfo {
         self.daemon.clone()
@@ -231,6 +311,9 @@ pub(crate) struct FakeWork {
     pub(crate) coord_map: HashMap<String, String>,
     pub(crate) coord_err: HashMap<String, String>,
     pub(crate) tab_entries: Vec<TabEntry>,
+    /// 시험 도중 색인에 들어오는 탭이다 ([`FakeWork::register_tab`]).
+    pub(crate) late_tabs: Mutex<Vec<String>>,
+    pub(crate) changed: otter_shared_pollwait::Signal,
 }
 
 impl FakeWork {
@@ -240,6 +323,12 @@ impl FakeWork {
             rev: Mutex::new(rev),
             ..FakeWork::default()
         }
+    }
+
+    /// 브라우저의 `PUT /api/workspace` 가 새 탭을 색인에 넣은 것처럼 한다.
+    pub(crate) fn register_tab(&self, id: &str) {
+        self.late_tabs.lock().unwrap().push(id.to_owned());
+        self.changed.notify();
     }
 }
 
@@ -290,7 +379,12 @@ impl WorkspaceStore for FakeWork {
             .unwrap_or_else(|| id.to_owned()))
     }
     fn is_known_tab_id(&self, id: &str) -> bool {
-        !id.is_empty() && self.coord_map.contains_key(id)
+        !id.is_empty()
+            && (self.coord_map.contains_key(id)
+                || self.late_tabs.lock().unwrap().iter().any(|t| t == id))
+    }
+    fn changes(&self) -> otter_shared_pollwait::Changed {
+        self.changed.c()
     }
     fn entries(&self) -> Vec<TabEntry> {
         self.tab_entries.clone()
@@ -373,17 +467,56 @@ impl SandboxReaper for FakeReaper {
     }
 }
 
-/// Go `fakeStats`.
+/// Go `fakeStats`. `warm_cpu` 가 있으면 CPU 는 예열(`SYSSTAT_WARMUP_GAP`)이 끝난 뒤에만 싣는다.
 #[derive(Default)]
 pub(crate) struct FakeStats {
     pub(crate) snap: Snapshot,
+    /// `measure` 호출 수다 (GET).
     pub(crate) calls: AtomicUsize,
+    /// `snapshot` 호출 수다 (채널).
+    pub(crate) cached: AtomicUsize,
+    pub(crate) active: AtomicBool,
+    pub(crate) warm_cpu: Option<f64>,
+    pub(crate) warm_done: Arc<AtomicBool>,
+}
+
+impl FakeStats {
+    fn view(&self) -> Snapshot {
+        let mut s = self.snap;
+        if let Some(cpu) = self.warm_cpu
+            && self.warm_done.load(Ordering::SeqCst)
+        {
+            s.cpu = cpu;
+            s.cpu_valid = true;
+        }
+        s
+    }
 }
 
 impl StatsSnapshotter for FakeStats {
     fn snapshot(&self) -> Snapshot {
+        self.cached.fetch_add(1, Ordering::SeqCst);
+        self.view()
+    }
+    fn measure(&self) -> Snapshot {
         self.calls.fetch_add(1, Ordering::SeqCst);
-        self.snap
+        self.view()
+    }
+    fn resume(&self) {
+        self.active.store(true, Ordering::SeqCst);
+    }
+    fn pause(&self) {
+        self.active.store(false, Ordering::SeqCst);
+        self.warm_done.store(false, Ordering::SeqCst);
+    }
+    fn warmed(&self) -> BoxFuture<'static, ()> {
+        let (active, done) = (self.active.load(Ordering::SeqCst), self.warm_done.clone());
+        Box::pin(async move {
+            if active {
+                tokio::time::sleep(otter_shared_cadence::SYSSTAT_WARMUP_GAP).await;
+                done.store(true, Ordering::SeqCst);
+            }
+        })
     }
 }
 
@@ -393,6 +526,7 @@ pub(crate) struct FakeBroker {
     pub(crate) published: Mutex<Vec<String>>,
     pub(crate) await_result: CmdResult,
     pub(crate) await_delivered: usize,
+    pub(crate) await_timed_out: bool,
     pub(crate) delivered: Mutex<Vec<(String, CmdResult)>>,
     pub(crate) tap: Mutex<Option<otter_webserver_hub::BroadcastTap>>,
 }
@@ -426,7 +560,13 @@ impl CommandBroker for FakeBroker {
         _: Duration,
     ) -> BoxFuture<'a, (CmdResult, usize, bool)> {
         self.broadcast(payload);
-        Box::pin(async move { (self.await_result.clone(), self.await_delivered, false) })
+        Box::pin(async move {
+            (
+                self.await_result.clone(),
+                self.await_delivered,
+                self.await_timed_out,
+            )
+        })
     }
     fn set_broadcast_tap(&self, f: Option<otter_webserver_hub::BroadcastTap>) {
         *self.tap.lock().unwrap() = f;

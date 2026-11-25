@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering::SeqCst};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, Once, RwLock};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, Once, OnceLock, RwLock};
 use std::time::Duration;
 use std::{io, thread};
 
@@ -12,16 +12,20 @@ use otter_shared_activity as activity;
 use otter_shared_otterlog::{errorf, infof};
 use otter_shared_outbuf::Stream;
 use otter_shared_platform::{ProcSpec, Terminal};
+use otter_shared_termstate::{HISTORY_CAP, Handover, Screen};
+use tokio::sync::Notify;
+use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 use crate::env::{Getenv, tool_bin_dir, tool_env, tool_start_dir};
 use crate::{
-    ATTN_MAX_CARRY, ActivityState, AgentState, AgentTurn, EscClass, ExitInfo, ModeObserver,
-    TermModes, activity_still_working, classify_esc, detect_attention_signal, detect_cwd_report,
+    ATTN_MAX_CARRY, ActivityState, AgentState, AgentTurn, DEFAULT_COLS, DEFAULT_ROWS, EscClass,
+    ExitInfo, ModeObserver, TermModes, ToolHistory, ToolScreen, activity_still_working,
+    classify_esc, detect_attention_signal, detect_cwd_report,
 };
 
 /// 출력 링버퍼의 크기다(1MB).
-pub const BUF_MAX: usize = 1 << 20;
+pub use otter_shared_termlimit::OUTPUT_RING_BYTES as BUF_MAX;
 /// kill 이 SIGTERM 뒤 SIGKILL 까지 기다리는 시간이다.
 pub const TERMINATE_GRACE: Duration = Duration::from_millis(50);
 const READ_BUF: usize = 8192;
@@ -58,6 +62,21 @@ struct ReadState {
     scratch: Vec<u8>,
 }
 
+/// `cmu` 가 지키는 것이다. 링과 화면 상태는 이 잠금 아래에서 함께 나아간다.
+#[derive(Default)]
+struct Cmu {
+    exited: bool,
+    screen: Option<Screen>,
+    /// 답장 좌석을 쥔 수다(서버가 깬 브라우저마다 쥔다). 0 이면 화면 상태가 질의에 답한다(D-23).
+    seat_holds: usize,
+    /// 화면 상태가 마지막으로 답한 조각의 끝 오프셋이다.
+    replied_end: i64,
+    /// 화면 상태가 마지막으로 바뀐 때다(출력·크기·인계).
+    fed_at: Option<Instant>,
+    /// 마지막 유휴 비우기 뒤로 화면 상태가 바뀌었다(D-53).
+    dirty: bool,
+}
+
 #[derive(Default)]
 struct FreezeState {
     frozen: bool,
@@ -66,7 +85,7 @@ struct FreezeState {
 }
 
 /// 검사가 갈아 끼우는 시계·바쁨 판정이다 (Go `setAttnNow`·`SetAttnBusyProbe`).
-type ClockFn = Arc<dyn Fn() -> i64 + Send + Sync>;
+pub(crate) type ClockFn = Arc<dyn Fn() -> i64 + Send + Sync>;
 pub type BusyProbeFn = Arc<dyn Fn(&Tool) -> bool + Send + Sync>;
 static ATTN_NOW: RwLock<Option<ClockFn>> = RwLock::new(None);
 static ATTN_BUSY: RwLock<Option<BusyProbeFn>> = RwLock::new(None);
@@ -127,8 +146,8 @@ pub struct Tool {
     term: Option<Arc<dyn Terminal>>,
     stream: Option<Stream>,
     sandboxed: AtomicBool,
-    /// exited 표시. 출력 공급(feed)도 이 잠금 아래에서 한다.
-    cmu: Mutex<bool>,
+    /// exited 표시와 화면 상태. 출력 공급(feed)도 이 잠금 아래에서 한다.
+    cmu: Mutex<Cmu>,
     done: CancellationToken,
     killed: Once,
     last_output_at: AtomicI64,
@@ -150,6 +169,14 @@ pub struct Tool {
     frz: Mutex<FreezeState>,
     frz_cv: Condvar,
     reported_cwd: Mutex<String>,
+    /// 등록부의 유휴 비우기 깨우개다. 등록할 때 한 번 건다.
+    compact_wake: OnceLock<Arc<Notify>>,
+    /// 등록부의 전경 이름 정착 깨우개다(D1). 등록할 때 한 번 건다.
+    fg_wake: OnceLock<Arc<Notify>>,
+    /// 마지막 전경 조회 뒤 처음 PTY 입출력이 있던 시각이다. 조회하면 비운다.
+    fg_io_at: Mutex<Option<Instant>>,
+    /// 등록부의 L2 유휴 판정 깨우개다. 무장이 처음 설 때 깨운다. 등록할 때 한 번 건다.
+    attn_wake: OnceLock<Arc<Notify>>,
 }
 
 impl Tool {
@@ -160,13 +187,20 @@ impl Tool {
         stream: Option<Stream>,
         hooks: ToolHooks,
     ) -> Self {
+        let screen = term.as_ref().map(|t| {
+            let (c, r) = t.size().unwrap_or((DEFAULT_COLS, DEFAULT_ROWS));
+            Screen::new(c, r, HISTORY_CAP)
+        });
         Self {
             id: id.to_string(),
             name: name.to_string(),
             term,
             stream,
             sandboxed: AtomicBool::new(false),
-            cmu: Mutex::new(false),
+            cmu: Mutex::new(Cmu {
+                screen,
+                ..Cmu::default()
+            }),
             done: CancellationToken::new(),
             killed: Once::new(),
             last_output_at: AtomicI64::new(0),
@@ -188,6 +222,10 @@ impl Tool {
             frz: Mutex::new(FreezeState::default()),
             frz_cv: Condvar::new(),
             reported_cwd: Mutex::new(String::new()),
+            compact_wake: OnceLock::new(),
+            fg_wake: OnceLock::new(),
+            fg_io_at: Mutex::new(None),
+            attn_wake: OnceLock::new(),
         }
     }
 
@@ -377,9 +415,198 @@ impl Tool {
         self.observe_modes_classified(&mut rs, chunk, c.modes);
     }
 
+    /// 링과 화면 상태에 넣는다. 좌석이 비었으면 화면 상태가 낸 질의의 답을 PTY 에 쓴다(D-23).
+    /// 답할지는 넣은 잠금 안에서 정한다 — 좌석을 쥔 뒤의 조각에는 답하지 않는다.
     fn feed(&self, chunk: &[u8]) -> i64 {
-        let _g = lock(&self.cmu);
-        self.stream.as_ref().map_or(0, |s| s.feed(chunk).1)
+        let mut g = lock(&self.cmu);
+        let replies = g.screen.as_mut().map(|s| {
+            s.feed(chunk);
+            s.take_replies()
+        });
+        self.touch(&mut g);
+        let end = self.stream.as_ref().map_or(0, |s| s.feed(chunk).1);
+        let answer = replies.filter(|r| !r.is_empty() && g.seat_holds == 0);
+        if answer.is_some() {
+            g.replied_end = end;
+        }
+        drop(g);
+        if let Some(r) = answer {
+            let _ = self.write(&r);
+        }
+        end
+    }
+
+    /// 답장 좌석을 쥐거나(`true`) 놓는다. 쥔 수가 0 일 때만 화면 상태가 답한다. 돌려주는 값은 화면 상태가
+    /// 마지막으로 답한 조각의 끝 오프셋이다 — 그보다 앞에서 이어 붙이면 이미 답한 질의를 다시 보낸다.
+    pub fn hold_seat(&self, held: bool) -> i64 {
+        let mut g = lock(&self.cmu);
+        g.seat_holds = if held {
+            g.seat_holds + 1
+        } else {
+            g.seat_holds.saturating_sub(1)
+        };
+        g.replied_end
+    }
+
+    /// 화면 상태가 마지막으로 답한 조각의 끝 오프셋이다([`hold_seat`](Self::hold_seat)).
+    pub fn replied_end(&self) -> i64 {
+        lock(&self.cmu).replied_end
+    }
+
+    /// 화면 상태 스냅숏과 그 뒤를 이을 출력 오프셋이다. 링과 같은 잠금 안에서 만들어 한 순간을 맞춘다.
+    /// 터미널이 없는 도구는 `None` 이다.
+    pub fn screen(&self, history: usize) -> Option<ToolScreen> {
+        let mut g = lock(&self.cmu);
+        let end = self.stream.as_ref().map_or(0, Stream::offset);
+        let sc = g.screen.as_mut()?;
+        let s = sc.snapshot(history);
+        let (cols, rows) = sc.size();
+        let alt = sc.modes().alt_screen;
+        drop(g);
+        Some(ToolScreen {
+            data: s.bytes,
+            end: end - i64::try_from(s.back).unwrap_or(0),
+            cols,
+            rows,
+            alt,
+            first_line: s.first_line,
+            cwd: self.reported_cwd(),
+        })
+    }
+
+    /// 화면 상태의 글자다(read-screen, FR-TRM-8). 터미널이 없는 도구는 `None` 이다.
+    pub fn screen_text(&self, bytes: usize) -> Option<String> {
+        lock(&self.cmu).screen.as_ref().map(|s| s.text(bytes))
+    }
+
+    /// 줄 저장소에서 번호 `before` 앞의 `count` 줄이다 (FR-TRM-5). 잠금 안에서는 줄만 꺼내고 ANSI 는 밖에서
+    /// 쓴다. 터미널이 없는 도구는 `None` 이다.
+    pub fn history(&self, before: u64, count: usize) -> Option<ToolHistory> {
+        let g = lock(&self.cmu);
+        let store = g.screen.as_ref()?.store();
+        let start = before.saturating_sub(count as u64);
+        let (from, lines) = store.lines(start, (before - start) as usize);
+        let top = store.first();
+        drop(g);
+        Some(ToolHistory {
+            from,
+            top,
+            lines: lines.iter().map(|l| l.to_ansi()).collect(),
+        })
+    }
+
+    /// 데몬 교체로 넘길 화면 상태다(D-27). 터미널이 없는 도구는 `None` 이다.
+    pub fn screen_handover(&self) -> Option<Handover> {
+        lock(&self.cmu).screen.as_mut().map(Screen::handover)
+    }
+
+    /// 넘겨받은 화면 상태를 되세운다(D-27, 인계 판 2). 스냅숏과 저장소 그림으로 되세우고 링의 마지막
+    /// `back` 바이트를 이어 넣는다. 스냅숏이 비면(터미널이 없던 도구) 새 화면 그대로 둔다.
+    pub fn adopt_screen(&self, ring: &[u8], state: &[u8], back: usize, history: &[u8], cap: usize) {
+        if state.is_empty() {
+            return;
+        }
+        let mut g = lock(&self.cmu);
+        let Some(sc) = g.screen.as_mut() else {
+            return;
+        };
+        let (cols, rows) = sc.size();
+        let mut s = Screen::restore(cols, rows, cap, state, history);
+        s.feed(&ring[ring.len().saturating_sub(back)..]);
+        s.take_replies();
+        *sc = s;
+        self.touch(&mut g);
+    }
+
+    /// 화면 상태가 바뀌었다고 적는다. 깨끗하던 화면이 처음 바뀔 때만 compactor 를 깨운다(D-53).
+    fn touch(&self, g: &mut Cmu) {
+        if g.screen.is_none() {
+            return;
+        }
+        g.fed_at = Some(Instant::now());
+        if !g.dirty {
+            g.dirty = true;
+            if let Some(w) = self.compact_wake.get() {
+                w.notify_one();
+            }
+        }
+    }
+
+    /// 등록부의 compactor 깨우개를 건다. 걸기 전에 이미 바뀐 화면이면 곧바로 깨운다.
+    pub(crate) fn set_compact_wake(&self, w: &Arc<Notify>) {
+        let _ = self.compact_wake.set(Arc::clone(w));
+        if lock(&self.cmu).dirty {
+            w.notify_one();
+        }
+    }
+
+    /// 전경 조회 뒤 처음 입출력이면 시각을 적고 정착 작업을 깨운다. 계속 입출력해도 창 하나에 한 번이다.
+    pub(crate) fn note_fg_io(&self) {
+        let mut g = lock(&self.fg_io_at);
+        if g.is_some() {
+            return;
+        }
+        *g = Some(Instant::now());
+        drop(g);
+        if let Some(w) = self.fg_wake.get() {
+            w.notify_one();
+        }
+    }
+
+    /// 등록부의 전경 정착 깨우개를 건다. 걸기 전에 이미 입출력이 있었으면 곧바로 깨운다.
+    pub(crate) fn set_fg_wake(&self, w: &Arc<Notify>) {
+        let _ = self.fg_wake.set(Arc::clone(w));
+        if lock(&self.fg_io_at).is_some() {
+            w.notify_one();
+        }
+    }
+
+    /// 전경을 조회할 시각이다. 조회 뒤로 입출력이 없었으면 `None` 이다.
+    pub(crate) fn fg_due(&self, settle: Duration) -> Option<Instant> {
+        lock(&self.fg_io_at).map(|t| t + settle)
+    }
+
+    /// 전경 조회를 시작하며 입출력 표시를 비운다. 조회 중 입출력은 다음 창으로 넘어간다.
+    pub(crate) fn take_fg_io(&self) {
+        *lock(&self.fg_io_at) = None;
+    }
+
+    /// 유휴 비우기 시각이다. 비운 뒤로 바뀌지 않았으면 `None` 이다.
+    pub(crate) fn compact_due(&self, idle: Duration) -> Option<Instant> {
+        let g = lock(&self.cmu);
+        g.fed_at.filter(|_| g.dirty).map(|t| t + idle)
+    }
+
+    /// `now` 에 유휴 시간이 찼으면 에뮬레이터 기록을 줄 저장소로 옮겨 비운다(D-50). 잠금 안에서 다시 본다.
+    pub(crate) fn compact_if_idle(&self, now: Instant, idle: Duration) -> bool {
+        let mut g = lock(&self.cmu);
+        let due = g
+            .fed_at
+            .filter(|_| g.dirty)
+            .is_some_and(|t| t + idle <= now);
+        if !due {
+            return false;
+        }
+        if let Some(s) = g.screen.as_mut() {
+            s.compact();
+        }
+        g.dirty = false;
+        true
+    }
+
+    /// 줄 저장소 상한을 바꾼다(D-25). 터미널이 없는 도구는 할 일이 없다.
+    pub fn set_history_lines(&self, lines: usize) {
+        if let Some(sc) = lock(&self.cmu).screen.as_mut() {
+            sc.set_store_cap(lines);
+        }
+    }
+
+    /// 화면 상태와 그 화면이 반영한 누적 오프셋(`end`)을 한 잠금 안에서 읽는다.
+    /// 터미널이 없는 도구는 `None` 이다.
+    pub fn with_screen<R>(&self, f: impl FnOnce(&Screen, i64) -> R) -> Option<R> {
+        let g = lock(&self.cmu);
+        let end = self.stream.as_ref().map_or(0, Stream::offset);
+        g.screen.as_ref().map(|s| f(s, end))
     }
 
     fn exit_after_read(self: &Arc<Self>) {
@@ -458,7 +685,7 @@ impl Tool {
     }
 
     pub fn exited_now(&self) -> bool {
-        *lock(&self.cmu)
+        lock(&self.cmu).exited
     }
 
     // ── 제어 ──
@@ -483,7 +710,7 @@ impl Tool {
     }
 
     fn kill_once(&self) {
-        *lock(&self.cmu) = true;
+        lock(&self.cmu).exited = true;
         infof!(
             None,
             "[tool {}] killing pid={}",
@@ -548,7 +775,9 @@ impl Tool {
         let Some(term) = &self.term else {
             return Err(io::Error::other(format!("tool {}: 터미널이 없다", self.id)));
         };
-        term.write(data).map(|_| ())
+        term.write(data)?;
+        self.note_fg_io();
+        Ok(())
     }
 
     /// 크기를 바꾸고, 실제로 바뀌었으면 on_size 로 알린다.
@@ -577,6 +806,7 @@ impl Tool {
             )));
         }
         let old = term.size().ok();
+        let mut g = lock(&self.cmu);
         if let Err(e) = term.resize(c, r) {
             errorf!(
                 None,
@@ -585,6 +815,10 @@ impl Tool {
             );
             return Err(e);
         }
+        if let Some(s) = g.screen.as_mut() {
+            s.resize(c, r);
+        }
+        self.touch(&mut g);
         Ok(old != Some((c, r)))
     }
 
@@ -673,8 +907,9 @@ impl Tool {
 
     fn observe_output_classified(&self, rs: &mut ReadState, chunk: &[u8], now: i64, c: EscClass) {
         self.last_output_at.store(now, SeqCst);
-        if !self.attn_rearm_locked.load(SeqCst) {
-            self.attn_armed.store(true, SeqCst);
+        self.note_fg_io();
+        if !self.attn_rearm_locked.load(SeqCst) && !self.attn_armed.swap(true, SeqCst) {
+            self.wake_attn();
         }
         if rs.attn_carry.is_empty() && !c.osc {
             return;
@@ -786,6 +1021,27 @@ impl Tool {
         self.last_output_at.store(v, SeqCst);
     }
 
+    /// 등록부의 L2 유휴 판정 깨우개를 건다. 걸기 전에 이미 무장했으면 곧바로 깨운다.
+    pub(crate) fn set_attn_wake(&self, w: &Arc<Notify>) {
+        let _ = self.attn_wake.set(Arc::clone(w));
+        if self.attn_armed.load(SeqCst) {
+            w.notify_one();
+        }
+    }
+
+    fn wake_attn(&self) {
+        if let Some(w) = self.attn_wake.get() {
+            w.notify_one();
+        }
+    }
+
+    /// L2 유휴 판정 마감(unix-nanos)이다: 무장했으면 `마지막 출력 + threshold`, 아니면 `None`.
+    pub(crate) fn idle_due(&self, threshold: i64) -> Option<i64> {
+        self.attn_armed
+            .load(SeqCst)
+            .then(|| self.last_output_at.load(SeqCst).saturating_add(threshold))
+    }
+
     /// L2 유휴 판정이다. threshold 는 나노초이고 0 이하면 끈다.
     pub fn maybe_idle(&self, now: i64, threshold: i64) {
         self.maybe_idle_with(now, threshold, |p| p.attn_busy())
@@ -866,6 +1122,9 @@ impl Tool {
         self.attention.store(st.attention, SeqCst);
         self.attn_rearm_locked.store(st.rearm_locked, SeqCst);
         self.turn.restore(st.turn);
+        if st.armed {
+            self.wake_attn();
+        }
     }
 
     // ── 기록 ──

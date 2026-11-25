@@ -5,32 +5,21 @@
  * 설정을 열 때·탭을 고를 때 섹션의 `onOpen`·`onTab` 을 부른다. App 은 이것 하나를 `settings` 로 든다(FR-FES-7).
  *
  * REFACTOR3_FE_APPCTL_SRS 9a: App 생성자가 만든다 — 값의 길(`SettingsApply`)은 설정창보다 먼저 돈다. 부품 셋을
- * 든다: `apply`(저장·적용·복원과 즉시 반영) · `live`(패널의 실시간 갱신) · `saveState`(저장 단추). 설정창은
- * `initModal`(→ `init`)이 세운다. 열기·검색·라벨도 여기다.
+ * 든다: `apply`(저장·적용·복원과 즉시 반영) · `live`(패널의 실시간 갱신) · `saveState`(저장 단추). 열기·검색·라벨도 여기다.
  *
- * 무엇을 어떤 순서로 세우는지는 표 `SETTINGS_INIT` 하나다. 열 때의 순서는 `onOpen` 의 본문이 말한다(INV-S3).
+ * PERF D-41: 이 컨트롤러는 부팅 껍데기다. 부팅의 `init` 은 표 `SETTINGS_BOOT` 와 섹션이 하던 부팅 효과만 돌린다. 설정 창
+ * (모달·섹션)은 `settings` 화면 묶음이고, 처음 열 때 `ready` 가 싣고 그 묶음의 표 `SETTINGS_INIT`(`settings-open.js`)대로
+ * 세운다. 그 전에는 섹션이 없다 — `section(tab)` 은 null 이고 `paint` 는 아무것도 하지 않는다. 열 때의 순서는 `onOpen` 의
+ * 본문이 말한다(INV-S3).
  * 모바일 두 화면과 검색은 섹션이 모른다 — 이 컨트롤러가 App 의 것을 부른다(§1.3).
  */
 
-/** `SETTINGS_INIT` 의 표지 — 설정 모달을 만들고 검색을 배선한다. */
-const SETTINGS_INIT_MODAL='@modal';
-
 /**
- * 부팅 배선의 순서 (TC-FES-4). 섹션은 클래스, 문자열은 그 사이에 도는 init 의 앱에서 주인까지의 점 경로다
- * (REFACTOR3_FE_DELEG_SRS FR-DLG-3).
- *
- * 옛 순서(df15f347)는 `initModal` 의 나열 다음에 `ui/input-binding.js` 의 init 여덟이었다. 섹션 셋은 다른 init
- * 안이나 뒤에서 섰다 — statusbar 는 `initStatusBar` 끝, notify 는 `initAttn` 안, polling 은 `initPollingSettings`.
- * 다른 주제의 init 과의 상대 순서를 그대로 둔다: `initSaveButtons` 는 패널들이 선 뒤여야 하고(FR-UXF-72),
- * `initMobile` 이 거는 모바일 설정의 탭 리스너는 `SettingsModal` 의 것보다 뒤여야 한다(FR-MUX-20).
+ * 부팅 몫 (PERF D-41). 설정 창과 무관한 주제의 init 이다 — 옛 `SETTINGS_INIT` 에서 섹션 사이에 돌던 자리의 상대 순서 그대로다.
+ * 설정 창(모달·섹션)을 세우는 열기 몫은 `settings` 화면 묶음의 `SETTINGS_INIT`(`settings-open.js`)이다. 이름은 앱에서
+ * 주인까지의 점 경로다 (REFACTOR3_FE_DELEG_SRS FR-DLG-3).
  */
-const SETTINGS_INIT=[
-  ThemeSection, SETTINGS_INIT_MODAL, ShortcutsSection, DisplaySection, TerminalSection, CodeSection,
-  'settings.paint', BackupSection, SandboxSection, AccessSection, EdgesSection, ProfileSection,
-  TelegramSection, ServerSection, ClaudeSection,
-  'settings.saveState.initSaveButtons', 'statusbar.initStatusBar', StatusbarSection, PresetsSection, 'mobile.initMobile', 'mobile.initMobileKeybar',
-  'attn.initAttn', NotifySection, PollingSection,
-];
+const SETTINGS_BOOT=['statusbar.initStatusBar','mobile.initMobile','mobile.initMobileKeybar','attn.initAttn'];
 
 /**
  * REFACTOR3_FE_FIX_SRS FR-FFX-9: 서버에서 값을 읽어 그리는 패널. 설정을 열 때 고른 탭이 이 가운데 하나면 다시 읽고,
@@ -49,15 +38,54 @@ class SettingsController extends Controller {
     this.saveState=new SettingsSaveState(app);
   }
 
-  /** 표의 순서대로 세운다. 한 번만 부른다. */
+  /**
+   * 부팅 때 한 번 (PERF D-41). 섹션이 부팅에 하던 일 — 탭 폭·글꼴 배율 적용(옛 `DisplaySection.init`)과 시스템 모드
+   * 추종(옛 `ThemeSection.init`) — 을 여기서 하고, 부팅 몫의 init 을 돌린 뒤 설정 단추를 건다. 설정 창은 처음 열 때 선다.
+   */
   init(){
-    for(const step of SETTINGS_INIT){
-      if(typeof step==='function') this.start(new step(this.app));
-      else if(step===SETTINGS_INIT_MODAL) this._initModal();
-      else{ const keys=step.split('.'), last=keys.pop(); keys.reduce((o,k)=>o[k],this.app)[last]() }
-    }
+    applyTabWidth();
+    applyUiFontScale();
+    this._initThemeFollow();
+    for(const step of SETTINGS_BOOT) this._step(step);
+    document.getElementById('settings-btn').addEventListener('click',()=>this._openSettings().catch(e=>ErrorLog.push('settings',(e&&e.message)||e)));
     return this;
   }
+
+  /** 점 경로의 init 하나를 부른다. */
+  _step(path){
+    const keys=path.split('.'), last=keys.pop();
+    keys.reduce((o,k)=>o[k],this.app)[last]();
+  }
+
+  /**
+   * 설정 창 본체를 세운다 — `settings` 묶음을 싣고, 처음이면 열기 몫(`settingsBuild`)을 돈다. 여러 번 불러도 한 번 선다.
+   * 실패하면 거절한다. 묶음 로더는 실패를 기억하지 않으므로 다음 부름이 다시 싣는다(D-30).
+   */
+  async ready(){
+    await Screens.load('settings');
+    if(!this.modal) settingsBuild(this);
+    return this;
+  }
+
+  /** SYSTEM_THEME_FOLLOW_SRS FR-STF-2: 시스템 모드가 바뀌면 그 자리에서 다시 고른다 — 새로고침이 없다. 설정 창이 서 있으면 목록도 다시 그린다. */
+  _initThemeFollow(){
+    if(typeof matchMedia!=='function') return;
+    const mq=matchMedia('(prefers-color-scheme: dark)');
+    const on=()=>{if(themeFollowSystem){this.apply._applyThemeChoice();this.section('theme')?._renderThemePanel()}};
+    if(mq.addEventListener) this.listen(mq,'change',on); else if(mq.addListener) mq.addListener(on);
+  }
+
+  /**
+   * HOT_REBIND_SRS FR-HRB-26: 채널 `cmd` 의 `server_moving` — 이 화면도 새 주소로 간다. 적용 응답(`ServerSection._srvApply`)과 겹쳐
+   * 와도 한 번만 간다. 설정 창을 연 적이 없어도 가야 하므로 부팅 껍데기에 있다 (PERF D-41).
+   */
+  _onServerMoving(a){
+    if(this._srvMoving||!a||!a.port) return;
+    this._srvMoving=true;
+    this._serverMoveTo(String(a.port));
+  }
+
+  _serverMoveTo(port){ return serverMoveNow(port) }
 
   /** 섹션을 들고 `init()` 을 부른다. */
   start(section){
@@ -81,16 +109,6 @@ class SettingsController extends Controller {
    */
   paint(){
     for(const s of this._sections.values()) s.paint();
-  }
-
-  /**
-   * REFACTOR3_FE_DIALOG_SRS FR-FED-10: 열기·닫기·탭 고르기는 `SettingsModal` 이 진다. 여기서 만들어야
-   * `_initSettingsMobile` 의 탭 리스너가 그 뒤에 붙어 뒤에 돈다.
-   */
-  _initModal(){
-    const modal=document.getElementById('modal');
-    this.modal=new SettingsModal({onOpen:()=>this.onOpen(modal),onTab:n=>this.onTab(n)}).init();
-    this._bindSettingsSearch(modal);
   }
 
   /**
@@ -167,8 +185,9 @@ class SettingsController extends Controller {
    * 여는 절차는 `SettingsModal.open()` 한 자리다(REFACTOR3_FE_ESC_SRS FR-FEE-9). 탭은 탭 요소를 **실제로
    * 누른다** — 탭별 재조회와 모바일 상세 화면이 그 리스너 안에 있다.
    */
-  _openSettings(tab){
-    if(this.modal) this.modal.open();
+  async _openSettings(tab){
+    await this.ready();
+    this.modal.open();
     if(!tab) return;
     const tabEl=document.querySelector('#modal .mtab[data-tab="'+tab+'"]');
     if(tabEl) tabEl.click();
@@ -248,3 +267,10 @@ class SettingsController extends Controller {
   }
 }
 
+
+// PERF D-41: 설정 창 본체는 `settings` 묶음이다. 탭이 아니라 모달이라 `tab` 이 없다 — `ready` 가 싣는다.
+// PERF 3.4.12.6: 테마 목록이 카탈로그 전부를 그리므로 `themes`(라이브러리 묶음)를 먼저 싣는다.
+// PERF 3.4.12.8: 설정 ▸ Terminal 의 키바 구성이 keybar.js(`keybar` 라이브러리 묶음)를 쓴다.
+// PERF 3.4.12.10: 설정 ▸ Edges 의 망 그림이 `chat` 묶음의 `edges-mesh.js` 를 쓴다(D-47).
+Screens.register('themes');
+Screens.register('settings',{needs:['themes','keybar','chat'],i18n:true});

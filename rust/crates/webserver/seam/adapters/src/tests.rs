@@ -23,6 +23,13 @@ impl ToolSource for FakeHub {
             Err("tool not found".into())
         }
     }
+    fn screen_text(&self, id: &str, bytes: usize) -> Result<String, Error> {
+        if self.has(id) {
+            Ok(format!("{id}:{bytes}\n"))
+        } else {
+            Err("tool not found".into())
+        }
+    }
     fn send_paste(&self, id: &str, _: &[u8], _: bool) -> Result<(), Error> {
         if self.has(id) {
             Ok(())
@@ -53,6 +60,8 @@ fn tool_adapter_empty_hub() {
     assert!(a.list().is_empty());
     assert!(!a.has("nope"));
     assert_eq!(a.snapshot("nope"), None);
+    assert_eq!(a.screen_text("nope", 0), None);
+    assert_eq!(Tool::default().screen_text("nope", 0), None);
     assert_eq!(a.size("nope"), "?");
     assert!(a.send_paste("nope", b"x", false).is_err());
     let e = Tool::default().send_paste("nope", b"x", false).unwrap_err();
@@ -70,6 +79,7 @@ fn tool_adapter_daemon_list_shell_pid() {
     assert_eq!(got.len(), 1);
     assert_eq!(got[0].shell_pid, 4242);
     assert_eq!(a.size("1"), "120x40");
+    assert_eq!(a.screen_text("1", 16).as_deref(), Some("1:16\n"));
 }
 
 #[test]
@@ -93,6 +103,75 @@ fn client_resolver_unknown_addr() {
     assert_eq!(
         e.to_string(),
         "클라이언트 PID를 찾을 수 없음 (remoteAddr=127.0.0.1:1)"
+    );
+}
+
+/// 연결 주인은 300, 표는 1 ← 100 ← 200 ← 300 이다. 부모 조회 횟수를 센다.
+#[derive(Default)]
+struct WalkInfo {
+    parent_pid_calls: std::sync::atomic::AtomicUsize,
+    parents_calls: std::sync::atomic::AtomicUsize,
+}
+
+impl ProcInfo for WalkInfo {
+    fn has_children(&self, _: i32) -> bool {
+        false
+    }
+    fn children_of(&self, _: &[i32]) -> HashMap<i32, bool> {
+        HashMap::new()
+    }
+    fn cwd(&self, _: i32) -> Option<String> {
+        None
+    }
+    fn cwds(&self, _: &[i32]) -> HashMap<i32, String> {
+        HashMap::new()
+    }
+    fn names(&self, _: &[i32]) -> HashMap<i32, String> {
+        HashMap::new()
+    }
+    fn listener_pids(&self, _: &str) -> Vec<i32> {
+        Vec::new()
+    }
+    fn parent_pid(&self, pid: i32) -> Option<i32> {
+        use std::sync::atomic::Ordering;
+        self.parent_pid_calls.fetch_add(1, Ordering::Relaxed);
+        self.parents().and_then(|m| m.get(&pid).copied())
+    }
+    fn parents(&self) -> Option<HashMap<i32, i32>> {
+        use std::sync::atomic::Ordering;
+        self.parents_calls.fetch_add(1, Ordering::Relaxed);
+        Some([(100, 1), (200, 100), (300, 200)].into())
+    }
+    fn connection_owner_pid(&self, _: &str) -> Option<i32> {
+        Some(300)
+    }
+}
+
+#[test]
+fn client_resolver_reads_parent_table_once() {
+    use std::sync::atomic::Ordering;
+    let c = Client {
+        hub: Some(Arc::new(FakeHub {
+            list: vec![info("7", 100)],
+        })),
+    };
+    let w = WalkInfo::default();
+    assert_eq!(
+        c.resolve_with(&w, "127.0.0.1:1").unwrap(),
+        ("7".to_owned(), 100)
+    );
+    assert_eq!(w.parent_pid_calls.load(Ordering::Relaxed), 0);
+    assert_eq!(w.parents_calls.load(Ordering::Relaxed), 1);
+    let none = Client {
+        hub: Some(Arc::new(FakeHub {
+            list: vec![info("7", 999)],
+        })),
+    };
+    assert_eq!(
+        none.resolve_with(&w, "127.0.0.1:1")
+            .unwrap_err()
+            .to_string(),
+        "clientPID=300 가 어느 도구에도 속하지 않음"
     );
 }
 

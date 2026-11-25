@@ -10,6 +10,7 @@ test.describe('VIEWER_URL_OPEN — 뷰어 쪽 동작', () => {
   // V7: URL 재작성. 서버의 localhost 는 뷰어의 localhost 가 아니다.
   test('V7 (FR-VUO-10): 로컬 host 는 접속한 host 로 바뀌고 나머지는 그대로다', async ({ page }) => {
     await waitForInit(page);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     const got = await page.evaluate(() => {
       // `const OpenUrl` 은 전역 렉시컬 스코프에 있어 window 의 프로퍼티가 아니다.
       const O = new Function('return OpenUrl')();
@@ -42,6 +43,7 @@ test.describe('VIEWER_URL_OPEN — 뷰어 쪽 동작', () => {
   // 부르면 브라우저가 차단한다 — 이 테스트가 그 조건을 못박는다.
   test('V8 (FR-VUO-7·8): 확인 팝업의 열기 클릭이 새 탭을 연다', async ({ page }) => {
     await waitForInit(page);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate(() => {
       (window as any).__opened = [];
       (window as any).open = (u: string, t: string) => {
@@ -67,6 +69,7 @@ test.describe('VIEWER_URL_OPEN — 뷰어 쪽 동작', () => {
   // FR-VUO-9: 취소는 아무 것도 열지 않는다.
   test('V8b (FR-VUO-9): 취소하면 열지 않는다', async ({ page }) => {
     await waitForInit(page);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate(() => {
       (window as any).__opened = [];
       (window as any).open = (u: string) => { (window as any).__opened.push(u); return null };
@@ -81,6 +84,7 @@ test.describe('VIEWER_URL_OPEN — 뷰어 쪽 동작', () => {
   // 중앙 모달의 표준 출구. 상자 밖 클릭과 Esc 는 취소와 같아야 한다.
   test('V8e (FR-VUO-9): Esc 와 바깥 클릭은 취소와 같다', async ({ page }) => {
     await waitForInit(page);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     const fire = () => page.evaluate(() => {
       (window as any).__opened = [];
       (window as any).open = (u: string) => { (window as any).__opened.push(u); return null };
@@ -102,6 +106,7 @@ test.describe('VIEWER_URL_OPEN — 뷰어 쪽 동작', () => {
   // FR-VUO-5: 기억하지 않는다 — 두 번 오면 두 번 묻는다.
   test('V8c (FR-VUO-5): 확인은 기억되지 않는다', async ({ page }) => {
     await waitForInit(page);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     const fire = () => page.evaluate(() => {
       (window as any).open = () => null;
       (window as any).app.testing.execRemote('openUrl', { url: 'https://example.com/c' });
@@ -117,6 +122,7 @@ test.describe('VIEWER_URL_OPEN — 뷰어 쪽 동작', () => {
   // 이 경로는 SSE 로 오므로 서버만 믿을 이유가 없다.
   test('V8d: http/https 가 아니면 팝업조차 뜨지 않는다', async ({ page }) => {
     await waitForInit(page);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate(() => {
       (window as any).__opened = [];
       (window as any).open = (u: string) => { (window as any).__opened.push(u); return null };

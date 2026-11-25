@@ -5,14 +5,17 @@
  * (REFACTOR3_FE_APPCTL_SRS 9c). 부품 둘 — 상단바의 길 `MobileNav`(`mobile-nav.js`) `.nav` · 시트 `MobileSheets`
  * (`mobile-sheets.js`) `.sheets`. 서랍(`DrawerSheet`)은 이 컨트롤러가 든다(`_drawer`). 칸 번호 `mPaneIdx`·키바 상태
  * `modKbd`·`_mKbH`·`drawerOpen` 은 App 에 남는다 — 계약·e2e·렌더러가 읽는다.
- * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
+ * `mobile` 묶음의 본체다(PERF 3.4.12.8). 부팅 쪽 껍데기 `MobileShell`(mobile-shell.js)을 잇고, 껍데기가 이 묶음을 실은 뒤
+ * `app.mobile` 을 이것으로 바꾼다.
  */
-class MobileController extends Controller {
+class MobileController extends MobileShell {
   constructor(app){
     super(app);
     this.nav=new MobileNav(app);
     this.sheets=new MobileSheets(app);
   }
+
+  get loaded(){ return true }
 
   applyMobileMode(){
     const mob=this.app.isMobile;
@@ -50,11 +53,6 @@ class MobileController extends Controller {
    */
   mobileSideSlots(){
     return (this.app.isMobile&&this.app.editor.isEditorWin(this.app.tool.life.aw()))?1:0;
-  }
-
-  // 지금 사이드 자리에 서 있는가. 그 자리에서는 본문의 pane 을 그리지 않는다.
-  mobileOnSide(){
-    return this.mobileSideSlots()>0&&this.app.mPaneIdx===0;
   }
 
   _mobileCurrentPane(){
@@ -97,13 +95,6 @@ class MobileController extends Controller {
     return true;
   }
 
-  // FR-RTU-82: 계수는 **사이드를 포함한다** — pane 이 둘이면 `1/3` 이다.
-  mobilePaneCount(){
-    const s=this.app.tool.life.aw(); if(!s) return 0;
-    const off=this.mobileSideSlots();
-    if(!s.layout) return off;
-    return this.app.flattenPanes(s.layout).length+off;
-  }
   navMobilePane(delta){
     const n=this.mobilePaneCount(); if(n<=1) return;
     this.app.mPaneIdx = (this.app.mPaneIdx + delta + n) % n;
@@ -121,21 +112,19 @@ class MobileController extends Controller {
   // ── Mobile bindings ──
 
   initMobile(){
+    super.initMobile();
+    this._mobileBind();
+  }
+
+  // 모바일 전용 단추를 건다. 부팅 뒤에 본체가 서면 껍데기가 이것만 부른다 — 돋보기는 껍데기의 initMobile 이 이미 걸었다.
+  _mobileBind(){
     // Topbar mobile buttons
     const prev=document.getElementById('m-pane-prev');
     const next=document.getElementById('m-pane-next');
-    const srch=document.getElementById('m-search-btn');
     const drwr=document.getElementById('m-drawer-toggle');
     const bd=document.getElementById('drawer-backdrop');
     if(prev) prev.addEventListener('click',()=>this.navMobilePane(-1));
     if(next) next.addEventListener('click',()=>this.navMobilePane(1));
-    // MOBILE_UX_OVERHAUL_SRS FR-MUX-46: 돋보기는 지금 칸의 찾기를 연다 — 터미널이면 터미널
-    // 검색, 편집기·diff 면 그 파일의 찾기 패널이다. 종전에는 늘 터미널 검색이라 편집기
-    // 칸에서는 아무것도 찾지 않았다.
-    if(srch) srch.addEventListener('click',()=>{
-      if(!this.app.tool.search.focusedTerminal()&&(this.app.editor.search._edActiveEditor()||this.app.editor.search._edActiveDiff())){this.app.editor.search._edFindInFile();return}
-      this.app.tool.search.toggleSearch();
-    });
     if(drwr) drwr.addEventListener('click',()=>this._toggleDrawer());
     if(bd) bd.addEventListener('click',()=>this._toggleDrawer(false));
     // Drawer close button injected into sidebar (visible only on mobile)
@@ -370,23 +359,6 @@ class MobileController extends Controller {
     }
     apply();
   }
-
-  // FR-MTI-12/20: 뷰포트 변화마다 fit 하면 PTY SIGWINCH 가 이벤트 수만큼 나가고
-  // TUI 는 매번 프레임 전체를 다시 그린다 — 입력이 씹히는 원인이다. 프레임당
-  // 1회로 묶는다.
-  //
-  // 두 계기가 이 함수를 공유한다. WebKit 은 키보드를 visualViewport 로만 알리고
-  // (FR-MKV-3), Android Chrome 은 interactive-widget=resizes-content 를 지원해
-  // layout viewport 가 함께 줄어 window resize 로 알린다. 후자에서는 kbH 가 0 에
-  // 수렴해 vv 경로가 스스로 비활성되므로, window resize 쪽도 반드시 묶여야 한다.
-  _scheduleFit(){
-    TIMERS.frame(()=>{
-      for(const p of this.app.tools.values()){if(p.el.classList.contains('vis'))p.sizer.doFit()}
-    },{owner:'app', coalesce:'fit'});
-  }
-
-  // 이전 이름. 모바일 전용이 아니게 되었으므로 _scheduleFit 을 쓴다.
-  _scheduleMobileFit(){ this._scheduleFit() }
 
   _mobileVvApply(){
     const vv=window.visualViewport;

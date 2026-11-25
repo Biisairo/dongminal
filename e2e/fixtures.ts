@@ -33,10 +33,11 @@ const RESET_WS_TRIES = 5;
 // 직접 지워도 서버측 도구(PTY)는 그대로 남는다 — 브라우저의 closeTab 경로만
 // 도구를 종료하기 때문이다.
 //
-// 그렇게 누적된 고아 도구는 다음 페이지 로드에서 전부 "재연결 대상"으로
-// 미리 생성된다 (app.js init: 서버 도구마다 숨겨진 터미널 + WebSocket).
-// 수십 개가 쌓이면 포커스된 터미널의 WS open 이 늦어져 waitForInit 이
-// 타임아웃하고, 스펙 대부분이 순서 의존으로 무너진다.
+// 그렇게 누적된 고아 도구는 서버 도구 목록(`/api/state` 의 `tools`)에 남아 도구 수를
+// 세는 스펙과 서버·데몬의 부하를 흔든다. 한때는 다음 페이지 로드에서 서버 도구마다
+// 숨겨진 터미널 + WebSocket 이 미리 생겨 waitForInit 이 타임아웃했다 — 지금은 id 만
+// 적고 터미널은 처음 그려질 때 만들고 채널에 붙는다 (app.js `_initAdoptWorkspace`,
+// PERF 2.5).
 //
 // 매 테스트 전에 **어떤 탭도 참조하지 않는** 도구만 회수한다. 참조된 도구와
 // workspace 는 건드리지 않으므로 파일 내 테스트 간 상태 의존은 보존된다.
@@ -1424,29 +1425,6 @@ export function makeCopyFx(root: string) {
     // 그대로 두고, 서버는 긴 이름으로 답한다 — 그 둘은 문자열로 같지 않아
     // `edWindowFor` 가 방금 더한 창을 찾지 못한다 (러너 실측).
     return realPath(dst);
-  };
-}
-
-/**
- * 사용자 설정 몇 개를 바꾸고, 원래 블롭으로 되돌리는 함수를 돌려준다.
- *
- * 기존 설정 값(`gitWorktreeInterval` 등)으로 주기를 줄이는 자리다
- * (E2E_PRUNE_REPORT §8.2 (b)). `cleanTools` 는 설정을 되돌리지 않으므로 시험이 끝날 때
- * 돌려받은 함수를 반드시 부른다 — 다음 스펙이 줄어든 주기를 물려받지 않게 한다.
- * `undefined` 는 그 키를 지운다(서버 기본값).
- */
-export async function scopedSettings(request: any, patch: Record<string, unknown>): Promise<() => Promise<void>> {
-  const saved = await (await request.get('/api/settings')).json();
-  const cur = { ...saved };
-  for (const [k, v] of Object.entries(patch)) {
-    if (v === undefined) delete cur[k];
-    else cur[k] = v;
-  }
-  const r = await request.put('/api/settings', { data: cur });
-  expect(r.ok(), `설정 저장 실패: ${await r.text()}`).toBeTruthy();
-  return async () => {
-    const back = await request.put('/api/settings', { data: saved });
-    expect(back.ok(), `설정 복원 실패: ${await back.text()}`).toBeTruthy();
   };
 }
 

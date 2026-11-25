@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, clickRowAct, nextFrames, scopedSettings } from './fixtures';
+import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, clickRowAct, nextFrames } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 /**
@@ -67,19 +67,23 @@ const viewRounds = async (page: Page) => {
   await nextFrames(page);
 };
 
+/**
+ * Console 회차 둘 — 새 기록 신호(`gitconsole:<root>`)가 부르는 것과 같은 `reload()` 다.
+ *
+ * PERF 4.9 뒤로는 유휴 저장소에 git 명령이 주기로 돌지 않아 기록이 늘지 않고, 그래서 신호도 오지 않는다 —
+ * 종전처럼 `/api/git/records` 요청을 세며 기다리면 회차가 오지 않는다. 회차를 직접 돌린다.
+ */
+const consoleRounds = async (page: Page) => {
+  for (let i = 0; i < 2; i++) await page.evaluate(() => (window as any).app.gitPanel.views._console().reload());
+  await nextFrames(page);
+};
+
 // 요청 수를 센다. 같은 주기 job 은 겹쳐 돌지 않으므로 n 번째 요청이 나갔으면 n-1 번째 회차는 끝났다.
 function counter(page: Page, needle: string) {
   const state = { n: 0 };
   page.on('request', (r) => { if (r.url().includes(needle)) state.n++ });
   return state;
 }
-
-// 새 파일은 서버의 워크트리 회차가 잡는다 — 기본 4초를 하한 1초로 줄인다 (§8.2 (b)).
-let restoreSettings: (() => Promise<void>) | null = null;
-test.afterEach(async () => {
-  if (restoreSettings) await restoreSettings();
-  restoreSettings = null;
-});
 
 test.describe('FR-RPT — Changes 목록 (V104~V107)', () => {
   test('P1 (V104 / FR-GIT-227): 관측이 같으면 행을 다시 만들지 않는다', async ({ page }) => {
@@ -114,7 +118,6 @@ test.describe('FR-RPT — Changes 목록 (V104~V107)', () => {
   });
 
   test('P3 (V105 / FR-RPT-3): 관측이 바뀌어도 바뀌지 않은 행은 유지된다', async ({ page, request }) => {
-    restoreSettings = await scopedSettings(request, { gitWorktreeInterval: 1000 });
     const repo = copyFx('basic', 'p3');
     await waitForInit(page);
     await openGit(page, repo);
@@ -130,7 +133,6 @@ test.describe('FR-RPT — Changes 목록 (V104~V107)', () => {
   });
 
   test('P4 (V113 / FR-RPT-2): 값이 바뀌면 화면이 따라온다 — 조용히 멈추지 않는다', async ({ page, request }) => {
-    restoreSettings = await scopedSettings(request, { gitWorktreeInterval: 1000 });
     const repo = copyFx('basic', 'p4');
     await waitForInit(page);
     await openGit(page, repo);
@@ -199,7 +201,7 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     for (let i = 0; i < 2; i++) {
       await page.evaluate(() => {
         const app = (window as any).app;
-        app.statusbar._onStats({ kind: 'full', data: { ...app._stats } });
+        app.testing.onStats({ kind: 'full', data: { ...app.testing.stats } });
       });
     }
     await nextFrames(page);
@@ -214,7 +216,6 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
   test('P8 (V110 / FR-RPT-7 #4): Console 기록 행과 펼친 상세가 폴링에 살아남는다', async ({ page }) => {
     const repo = copyFx('basic', 'p8');
     await waitForInit(page);
-    const rec = counter(page, '/api/git/records');
     await openGit(page, repo);
     // 쓰기 하나가 기록을 만든다 — Console 은 쓰기와 실패만 기본으로 보인다.
     // 행 동작은 hover 에서 드러난다 (사용자 지시 2026-09-08) — 겹이
@@ -236,12 +237,10 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
      * `git stash list` 기록이 하나 더 생긴다 (FR-GVR-6) — 표식을 그 전에 찍으면
      * 이 시험은 "다시 만들어졌다" 를 결함으로 읽는다 (실측).
      */
-    // 회차 둘(요청 셋째가 나감)이 지나도 행 수가 같으면 가라앉은 것이다.
+    // 회차 둘이 지나도 행 수가 같으면 가라앉은 것이다.
     for (let i = 0; i < 10; i++) {
       const before = await page.locator(sel).count();
-      const r0 = rec.n;
-      await expect.poll(() => rec.n - r0, { timeout: 10000 }).toBeGreaterThanOrEqual(3);
-      await nextFrames(page);
+      await consoleRounds(page);
       if (await page.locator(sel).count() === before) break;
     }
     // 상세를 펼친다 — 그 안의 stderr 는 복사해 쓰는 자리다 (FR-GIT-225).
@@ -251,10 +250,7 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     const d = await markAll(page, '#area .pn-body .git-view.git-console .git-con-detail');
     expect(n).toBeGreaterThan(0);
     expect(d).toBe(1);
-    // Console 회차 둘이 끝날 때까지 — 요청 셋째가 나가면 둘째 회차의 그리기는 끝났다.
-    const r1 = rec.n;
-    await expect.poll(() => rec.n - r1, { timeout: 10000 }).toBeGreaterThanOrEqual(3);
-    await nextFrames(page);
+    await consoleRounds(page);
     expect(await markCount(page, sel)).toEqual({ kept: n, total: n });
     expect(await markCount(page, '#area .pn-body .git-view.git-console .git-con-detail'))
       .toEqual({ kept: 1, total: 1 });

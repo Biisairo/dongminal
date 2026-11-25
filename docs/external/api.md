@@ -40,7 +40,8 @@
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| GET | `/api/tools/output?id=&bytes=&strip=` | 도구의 스크롤백. `strip=1` 이면 ANSI 제거. `bytes<=0`/생략이면 전체 (기본값 판단은 `otterctl` 몫). `{ toolId, text, dropped }` |
+| GET | `/api/tools/output?id=&bytes=&strip=` | 도구의 화면·최근 출력. `strip=1`(read-screen)이면 데몬이 그린 화면의 글자(화면과 그 위 기록)이고, 아니면(read-output) 최근 출력 바이트를 ANSI 째로 준다. `bytes<=0`/생략이면 전체 (기본값 판단은 `otterctl` 몫). `{ toolId, text, dropped }` |
+| GET | `/api/tools/search?id=&q=&before=&regex=&case=&word=` | 서버가 남긴 터미널 기록(설정 `termHistoryLines`)에서 줄 번호 `before` 앞의 줄을 새 줄부터 찾는다. `before` 는 필수 숫자(아니면 **400**), `regex`·`case`·`word` 는 `1` 이면 켠다. `{ hits }`. 없는 도구는 **404**, 데몬이 찾지 못하면(깨진 정규식 등) **422** |
 | POST | `/api/tools/input` | `{ id, text, execute }` — bracketed paste 로 주입, `execute` 면 자동 엔터 |
 | POST | `/api/tools/message` | `{ to, from, message }` — 신뢰 봉투로 감싸 주입 + 자동 엔터. `from` 이 비면 `unknown`. 봉투 헤더와 응답의 `from`/`to` 는 **uuid** 뿐. 본문 안의 `[OTTERMINAL-AGENT-MSG` · `[/OTTERMINAL-AGENT-MSG` 는 `[\OTTERMINAL-AGENT-MSG` · `[\/OTTERMINAL-AGENT-MSG` 로 **인용**된다 — 정확한 헤더는 서버가 만든 것 하나뿐이다 |
 
@@ -96,7 +97,7 @@
 | GET | `/api/fs/list?root=<abs>&path=<abs>&offset=<n>` | 탐색기 한 겹 조회. dot 항목 포함, 정렬은 서버가 한다. 응답 `{path, entries:[{name,dir,link,linkDir}], offset, total, truncated, stamp}`. 한 번에 최대 10,000개이며 `truncated` 는 "이 응답 뒤에 더 있다" 는 뜻이다. `offset`(기본 0, 음수·정수 아님은 0)으로 그 다음 쪽을 받아 **이어 붙인다** — 같은 `offset` 이 같은 자리를 가리키는 것은 순서가 서버의 것이기 때문이다. `offset >= total` 은 오류가 아니라 빈 배열이다. `stamp` 는 **이 응답과 같은 관측**의 변경 표식이다 (아래 `/api/fs/stamp` 와 같은 값) |
 | POST | `/api/fs/stamp` | 겹이 바뀌었는지만 값싸게 묻는다. 본문 `{root, dirs:[<abs>…]}` → `{stamps:{<abs>: "<문자열>"}}`. 값은 그 디렉터리의 mtime 이며 **해석하지 않고 같은지만 본다.** 읽을 수 없거나 루트 밖이거나 디렉터리가 아닌 겹은 오류가 아니라 응답에서 **빠진다.** `dirs` 는 512개까지 |
 | POST | `/api/fs/stamps` | 위 `/api/fs/stamp` 와 `/api/file/stamps` 를 **한 요청**으로 묻는다. 본문 `{trees:[{root, dirs:[<abs>…]}…], paths:[<abs>…]}` → `{trees:{<root>: {stamps:{…}} 또는 {code, status}}, paths:{<abs>: "<문자열>"}}`. 값은 두 종단과 같다. 루트마다 판정이 따로다 — 거부된 루트는 그 자리에 옛 종단이 답했을 `code`·`status` 를 싣고, 다른 루트와 파일의 답은 그대로 나간다. `trees` 는 16개, 루트당 `dirs` 는 512개, `paths` 는 512개까지 |
-| PUT | `/api/fs/watch` | 이 클라이언트가 감시할 디렉터리를 **통째로** 바꾼다. 본문 `{clientId, dirs:[<abs>…]}` → `{watching:[<abs>…]}`. **`root` 를 받지 않는다** — 판정은 파일 읽기(`/api/file/read`)와 같다(절대경로). 없는 경로·디렉터리가 아닌 것·감시를 걸 수 없는 것은 오류가 아니라 `watching` 에서 **빠진다.** `clientId` 는 열려 있는 채널의 `hello.client` 여야 하고(아니면 400), 그 채널이 끊기면 등록이 지워진다. 비재귀다 — 디렉터리의 직속 항목만 본다. 변화는 채널 `cmd` 의 `fs_changed` 로 온다. `dirs` 는 1024개까지 |
+| PUT | `/api/fs/watch` | 이 클라이언트가 감시할 디렉터리를 **통째로** 바꾼다. 본문 `{clientId, dirs:[<abs>…]}` → `{watching:[<abs>…]}`. **`root` 를 받지 않는다** — 판정은 파일 읽기(`/api/file/read`)와 같다(절대경로). 없는 경로·디렉터리가 아닌 것·감시를 걸 수 없는 것은 오류가 아니라 `watching` 에서 **빠진다.** `clientId` 는 열려 있는 채널의 `hello.client` 여야 하고(아니면 400), 그 채널이 끊기면 등록이 지워진다. 비재귀다 — 디렉터리의 직속 항목만 본다. 변화는 채널의 `fs` 사건 토픽으로 온다(아래 「채널의 상태 토픽」). `dirs` 는 1024개까지 |
 | POST | `/api/fs/create` | 바디 `{root, parent, name, dir}` — 이름은 `/api/fs/validate-name` 과 같은 판정으로 거절된다. 경로를 뜻하는 `{root, path, dir}` 도 받는다 |
 | POST | `/api/fs/validate-name` | 만들기·이름 바꾸기의 이름 하나. 바디 `{name}` → `{actions:{"fs.name": {ok, why?}}}`. 사유는 `empty_name`·`name_has_separator`(`/`, Windows 의 `\`)·`name_reserved`(`.`·`..`). 앞뒤 공백을 지운 뒤 본다 |
 | POST | `/api/fs/rename` | 바디 `{root, from, to}` 또는 제자리 이름 바꾸기 `{root, from, name}`(이름은 validate-name 과 같은 판정). 이동도 이 종단. 폴더를 자기 자신이나 하위로 옮기면 400 `into_self`(복사도 같다). Editor 루트·홈·파일시스템 루트는 옮길 수 없다(400 `editor_root_protected`·`home_protected`·`filesystem_root_protected`) |
@@ -210,7 +211,7 @@
 | POST | `/api/lsp/install` | 그 언어의 서버를 설치한다 |
 | GET | `/api/lsp/paths` | 서버가 보관하는 언어 서버 실행 파일 경로 표 `{paths:{"팩/서버":"절대경로"}}` |
 | PUT | `/api/lsp/paths` | 경로 표 전체 교체. 모르는 서버 400 `bad_request`, 상대경로 400 `path_must_be_absolute`, 저장 실패 500 `save_failed`. 바뀐 서버의 통로는 닫힌다(4003) — 브라우저가 다음 쓰임에 새 실행 파일로 다시 연다 |
-| GET | `/api/lsp/ws` | 언어 서버 통로(WebSocket) `?root=<루트>&server=<팩/서버>`. 메시지는 LSP JSON-RPC 본문(머리 없음)이다. 루트가 Editor 목록에 없거나 `server` 가 없으면 업그레이드 전에 4xx. 닫힘 code: 4001 `limit`(동시 실행 상한) · 4002(기동 실패, reason 은 사유) · 4003 `ended`(프로세스 종료·유휴 정리) · 1009(메시지 상한 초과) |
+| GET | `/api/lsp/ws` | 언어 서버 통로(WebSocket) `?root=<루트>&server=<팩/서버>`. 메시지는 LSP JSON-RPC 본문(머리 없음)이다. 루트가 Editor 목록에 없거나 `server` 가 없으면 업그레이드 전에 4xx. 닫힘 code: 4001 `limit`(동시 실행 상한) · 4002(기동 실패, reason 은 사유) · 4003 `ended`(프로세스 종료·유휴 정리). 메시지 상한을 넘으면 닫힘 code 없이 연결이 끊긴다(그 뒤로는 쓰기가 막혀 1009 를 보낼 수 없다). 업그레이드는 `permessage-deflate` 를 제안해야 한다 — 아니면 400 |
 
 정의·참조·호버·진단은 브라우저가 통로(`/api/lsp/ws`)로 언어 서버와 직접 주고받는다. 서버는 메시지를 해석하지 않는다 — 파일 저장과 git 변화의 `workspace/didChangeWatchedFiles` 를 끼워 넣을 뿐이다.
 
@@ -268,7 +269,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | GET | `/api/server/bind` | `{host, port, expose, url, local, source:{host, port}}`. 지금 리슨하는 바인드와, `server.json` 값의 출처(`file`·`default`)입니다. `local` 은 이 요청이 루프백에서 왔는지입니다 — 바꾸기는 루프백에서만 됩니다 |
-| POST | `/api/server/bind` | `{port?: number, expose?: bool}` → `{host, port, expose, url, warning?}`. 빠진 값은 지금 값입니다. **루프백 출발지만** 받습니다(아니면 403 `bind_local_only`). 포트가 바뀌면 새 포트로 리슨하고 SSE `server_moving` 을 보낸 뒤, 옛 포트는 30초 동안 남겨 그리로 온 `GET /` 를 새 포트로 307 보냅니다. expose 만 바뀌면 같은 포트를 닫고 새 호스트로 다시 엽니다 — 실패하면 옛 호스트로 돌아가 409 `bind_rebind_failed`. 범위(1024~65535) 밖은 400 `bind_port_invalid`, 쓰이는 포트는 409 `bind_port_in_use`, 진행 중이면 409 `bind_busy`, 파일을 쓰지 못하면 500 `save_failed` 입니다. expose 를 켜면 `warning` 이 실립니다. expose 를 끄면 같은 망에서 맺은 연결을 바로 끊고, 노출된 옛 리스너는 유예 없이 닫습니다 |
+| POST | `/api/server/bind` | `{port?: number, expose?: bool}` → `{host, port, expose, url, warning?}`. 빠진 값은 지금 값입니다. **루프백 출발지만** 받습니다(아니면 403 `bind_local_only`). 포트가 바뀌면 새 포트로 리슨하고 채널 `cmd` 로 `server_moving` 을 보낸 뒤, 옛 포트는 30초 동안 남겨 그리로 온 `GET /` 를 새 포트로 307 보냅니다. expose 만 바뀌면 같은 포트를 닫고 새 호스트로 다시 엽니다 — 실패하면 옛 호스트로 돌아가 409 `bind_rebind_failed`. 범위(1024~65535) 밖은 400 `bind_port_invalid`, 쓰이는 포트는 409 `bind_port_in_use`, 진행 중이면 409 `bind_busy`, 파일을 쓰지 못하면 500 `save_failed` 입니다. expose 를 켜면 `warning` 이 실립니다. expose 를 끄면 같은 망에서 맺은 연결을 바로 끊고, 노출된 옛 리스너는 유예 없이 닫습니다 |
 | POST | `/api/server/carry` | 이사하는 화면의 `localStorage` 를 맡깁니다. 본문은 JSON(1 MiB 까지) → `{token}`. 토큰은 한 번만, 60초 안에만 쓰입니다. 한 번에 16개까지이고 넘치면 503 `busy` |
 | GET | `/api/server/carry/<token>` | 맡긴 JSON 을 그대로 돌려주고 지웁니다. 없거나 지났으면 404 `not_found` |
 
@@ -287,7 +288,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 
 ### Claude 다중 계정 (`CLAUDE_ACCOUNTS_SRS`)
 
-계정 데이터는 `$OTTERMINAL_HOME/claude-accounts/`(권한 700)에 있습니다. 자격증명 백업은 macOS 에서는 키체인(`otterminal-claude-accounts`), 그 밖의 OS 에서는 권한 600 파일입니다. 응답에는 토큰이 없습니다. 오류 본문은 `{code, message}` 입니다. 데이터 폴더 없이 뜬 서버는 모든 종단이 503 `claude_accounts_unavailable` 입니다. 상태가 바뀌면 SSE `claude_accounts_changed`(본문 없음)가 나갑니다. 자동 전환·한도 임박·모두 소진·재로그인 필요·로그인 만료 임박·자동 전환 중지 같은 사건은 SSE `claude_account_alert` 로 나갑니다. 본문은 `{kind, name?, from?, to?, trigger?, window?, resetsAt?, expiresAt?, resetAvailable?}` 입니다. `kind` 는 `autoswitch`·`near_limit`·`all_exhausted`·`relogin`·`login_expiring`·`autoswitch_stopped` 중 하나입니다. 이름 필드에는 별칭, 별칭이 없으면 이메일 앞부분(`ab***@`)만 실립니다. 같은 사건은 한 번만 나갑니다. Telegram 브리지가 켜져 있으면 같은 내용을 글로도 보냅니다.
+계정 데이터는 `$OTTERMINAL_HOME/claude-accounts/`(권한 700)에 있습니다. 자격증명 백업은 macOS 에서는 키체인(`otterminal-claude-accounts`), 그 밖의 OS 에서는 권한 600 파일입니다. 응답에는 토큰이 없습니다. 오류 본문은 `{code, message}` 입니다. 데이터 폴더 없이 뜬 서버는 모든 종단이 503 `claude_accounts_unavailable` 입니다. 상태가 바뀌면 채널의 `claude.accounts` 토픽으로 `GET /api/claude-accounts` 본문 전체가 나갑니다. 자동 전환·한도 임박·모두 소진·재로그인 필요·로그인 만료 임박·자동 전환 중지 같은 사건은 채널의 `alert` 사건 토픽으로 나갑니다. 본문은 `{kind, name?, from?, to?, trigger?, window?, resetsAt?, expiresAt?, resetAvailable?}` 입니다. `kind` 는 `autoswitch`·`near_limit`·`all_exhausted`·`relogin`·`login_expiring`·`autoswitch_stopped` 중 하나입니다. 이름 필드에는 별칭, 별칭이 없으면 이메일 앞부분(`ab***@`)만 실립니다. 같은 사건은 한 번만 나갑니다. Telegram 브리지가 켜져 있으면 같은 내용을 글로도 보냅니다.
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
@@ -331,13 +332,13 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | POST | `/api/runs/succeed` | Run 을 성공으로 닫는다 |
 | POST | `/api/runs/close` | Run 을 닫는다. 응답의 `closedTabs[].closed` 는 **방송 결과**다 — 구독 중인 브라우저가 없으면 `false`(`delivered:0`)이고 그 탭의 Run 표식은 지워진다. 탭 닫기와 worktree 정리는 요청 연결과 무관하게 끝까지 한다. 호출자가 먼저 연결을 끊어도 정리는 계속되므로, 결과는 `GET /api/runs?id=` 로 본다. worktree 의 경로와 브랜치가 모두 없으면 정리된 것으로 본다 |
 
-Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭제·복구로 재개) SSE `run_changed` 를 방송한다. `args.runId` 가 그 Run 이고, 트리 Run 이면 `args.tree` 에 트리 표지가 실린다.
+Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭제·복구로 재개) 채널 `cmd` 로 `run_changed` 를 방송한다. `args.runId` 가 그 Run 이고, 트리 Run 이면 `args.tree` 에 트리 표지가 실린다.
 
 ### Git — 저장소·상태
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/git/repos` | 핀 목록과 각 배지(저장소면 git 이 푼 `root` 도). `?observe=1` 이면 응답 전에 핀 전부를 관측하고, `clientId` 를 함께 주면 그 신원이 핀 전부의 감시를 임대한다 — 배지가 바뀌면 `git_changed` 가 온다. `?observe=0&clientId=` 는 그 임대를 놓는다 |
+| GET | `/api/git/repos` | 핀 목록과 각 배지(저장소면 git 이 푼 `root` 도). `?observe=1` 이면 응답 전에 핀 전부를 관측한다. 배지의 변화는 채널의 `git:<root>` 토픽으로 온다 — 구독하는 동안 서버가 그 저장소를 감시한다 |
 | POST | `/api/git/init` | 그 자리를 저장소로 만든다 |
 | POST | `/api/git/repos/pin` · `/api/git/repos/unpin` | 핀을 더하고 뺀다. 핀 순서를 바꾸는 종단은 없다 |
 | GET | `/api/git/status` | 변경 목록. 응답의 `mark` 는 관측 식별자다. `?ifMark=<mark>` 를 주면 그 값이 지금 관측과 같을 때 목록 없이 `{repo, requested, isRepo, rootMatch, requestedResolved, mark, unchanged:true, actions}` 만 답한다. `actions` 는 저장소 단위 동작(`git.fetch`·`git.pull`·`git.push`·`git.write`·`git.commit` 등)마다 지금 할 수 있는지(`{ok, why, args}`)이며, 진행 중인 작업에 따라 바뀌므로 `unchanged` 에도 실린다. 목록을 싣는 응답은 `rowActions` 도 싣는다 — 서브모듈 행마다 `{"<path>": {"git.stage": {ok, why}}}` 이고, 행이 없으면 빈 객체다 |
@@ -399,8 +400,8 @@ Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭�
 | GET | `/api/git/remotes` | 원격 목록 |
 | POST | `/api/git/remote/add` · `/api/git/remote/remove` | 원격을 더하고 뺀다 |
 | POST | `/api/git/fetch` · `/api/git/pull` · `/api/git/push` | 받고 당기고 민다 |
-| GET | `/api/git/jobs` | 도는 작업 목록 — 저장소당 index·common 두 칸이라 최대 둘, 각 작업의 `slots` 가 어느 칸인지 말한다. 작업이 시작하고 끝날 때 `git_jobs_changed` 를 방송한다 |
-| POST | `/api/git/job/cancel` | 작업을 취소한다 |
+| GET | `/api/git/jobs` | 도는 작업 목록 — 저장소당 index·common 두 칸이라 최대 둘, 각 작업의 `slots` 가 어느 칸인지 말한다. 작업이 시작하고 끝날 때 같은 목록 `{jobs:[…]}` 을 채널의 `git.jobs` 토픽으로 민다 |
+| POST | `/api/git/job/cancel` | 작업을 취소한다. 작업의 출력 줄과 끝은 채널의 `gitjob:<id>` 토픽으로 온다 — `{kind:"line", line}` 들과 마지막 `{kind:"done", job}` |
 | POST | `/api/git/lock/remove` | 쓰기가 `index_locked` 로 막힌 뒤 남은 `index.lock` 을 지운다 — `confirm:true` 와 확인한 `mtimeUnixMs` 가 필요하다. 서버가 스스로 지우지는 않는다 |
 
 ### Git — stash·worktree·submodule
@@ -429,9 +430,10 @@ Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭�
 
 ## WebSocket: `/channel?v=1` — 터미널
 
-브라우저 탭 하나가 WebSocket 하나(채널)를 열고, 터미널은 그 위에 붙는다(설계: `docs/internal/perf/CHANNEL_PROTOCOL.md`). 첫 텍스트 프레임은 `{"t":"hello",...}` 다.
+브라우저 탭 하나가 WebSocket 하나(채널)를 열고, 터미널은 그 위에 붙는다(설계: `docs/internal/perf/CHANNEL_PROTOCOL.md`). 업그레이드는 `permessage-deflate` 를 제안해야 한다 — 아니면 400 이다. 모든 연결을 압축한다. 첫 텍스트 프레임은 `{"t":"hello",...}` 다. 첫 프레임이 `hello` 가 아니면 서버는 `{"t":"error","code":"hello_required"}` 를 보내고 닫는다.
 
-- 붙기: 텍스트 `{"t":"term.open","sid":<u32>,"tool":"<id>","cols":<n>,"rows":<n>,"since":<offset>}`. `sid` 는 브라우저가 고르는 번호, `tool` 이 비면 새 도구를 만든다, `since` 는 아래 재접속과 같다.
+- 붙기: 텍스트 `{"t":"term.open","sid":<u32>,"tool":"<id>","cols":<n>,"rows":<n>,"since":<offset>,"snap":<bool>}`. `sid` 는 브라우저가 고르는 번호, `tool` 이 비면 새 도구를 만든다, `since` 는 아래 재접속과 같다. `snap:true` 면 `since` 를 보지 않고 화면 상태 스냅숏을 보낸다(터미널이 다시 보여 깨어날 때).
+- 위로 받기: `{"t":"term.history","sid":<u32>,"before":<줄 번호>,"count":<n>}` 를 보내면 서버가 그 앞의 `count` 줄을 `{"t":"term.history","sid":<u32>,"from":<첫 줄 번호>,"top":<남은 가장 오래된 줄 번호>,"lines":[<ANSI 줄>…]}` 로 답한다. 줄 번호는 아래 `0x04` 스냅숏 꼬리의 첫 기록 줄 번호와 같은 좌표다.
 - 떼기: `{"t":"term.close","sid":<u32>}`. 서버가 그 터미널을 놓으면(도구 구독이 끊김 등) `{"t":"term.lost","sid":<u32>}` 를 보내고, 브라우저는 백오프 뒤 `since` 로 다시 붙는다.
 - 터미널 프레임은 바이너리 `[opcode u8][sid u32 BE][payload]` 이다. opcode 와 payload 는 아래 표와 같다.
 
@@ -443,11 +445,11 @@ Run 이 바뀌면(보고·배정·조율 승계·메시지 기록·닫기·삭�
 | `0x01` | S→C | 에러 메시지 (UTF-8) |
 | `0x02` | S→C | 프로세스 종료 알림 |
 | `0x03` | S→C | 도구 id 할당 (문자열). 연결 직후 서버가 보내고 브라우저가 `dataset.toolid` 에 반영 |
-| `0x04` | S→C | 좌표 통보: `offset uint64 BE + full uint8`. 재생이 끝난 자리를 알린다 |
+| `0x04` | S→C | 좌표 통보: `offset uint64 BE + 깃발 uint8`. 맞춤이 끝난 자리를 알린다. 깃발은 비트 0 `FULL`(화면을 통째로 바꿈)·비트 1 `ALT`(대체 화면 중)·비트 2 `SNAP`(앞의 `0x00` 이 화면 상태 스냅숏). `SNAP` 이면 깃발 뒤에 첫 기록 줄 번호(`uint64 BE`)와 cwd(UTF-8)가 붙는다 |
 | `0x05` | S→C | 크기 통보: `cols uint16 BE + rows uint16 BE`. 지금 PTY 의 크기다. 접속 직후 재생보다 앞에 한 번, 이후 크기가 바뀔 때마다 그 도구의 모든 클라이언트에게 |
 | `0x06` | S→C | 응답 좌석: `owns uint8`(1=주인). **질의의 답을 보낼 자격**이다. 접속 직후 재생보다 앞에 한 번, 연결이 붙거나 떨어질 때마다 다시 |
 
-서버는 WebSocket ping/pong 으로 keep-alive (pong 60s, ping 54s). 쓰기는 채널마다 쓰기 태스크 하나가 우선순위(제어 > 터미널 > 상태) 대로 한다. 한 터미널에 밀린 출력이 1 MB 를 넘으면 서버는 밀린 것을 버리고 브라우저가 가진 좌표부터 다시 재생한다.
+서버는 WebSocket ping/pong 으로 연결을 확인한다. 30초 동안 아무것도 받지 못하면 ping 을 보내고 pong 을 10초 기다리며, 120초 동안 아무것도 받지 못하면 연결을 닫는다. 브라우저는 앱 수준 `{"t":"ping","n":…}` 을 보내고 `{"t":"pong","n":…}` 을 받는다(`docs/internal/perf/CHANNEL_PROTOCOL.md` §7). 쓰기는 채널마다 쓰기 태스크 하나가 우선순위대로 한다. 쓰기 순서는 제어 > 터미널 > 위로 받기(`term.history`) > 상태다. 한 터미널에 밀린 출력이 1 MB 를 넘으면 서버는 밀린 출력을 버리고 화면 상태 스냅숏으로 다시 맞춘다.
 
 ### 재접속 (`since`)
 
@@ -457,16 +459,14 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 
 | 요청 | 서버가 보내는 것 |
 |---|---|
-| `since` 없음 | **전량 재생** — 터미널 모드 초기화 + 화면·스크롤백 클리어 + 보유 스크롤백. 보유 스크롤백의 앞머리가 대체 화면 안이면 클리어 뒤에 대체 화면을 다시 켠다(`ESC[?1049h`) |
+| `since` 없음 또는 `snap:true` | **화면 상태 스냅숏** — 데몬이 그린 화면과 그 위 기록(설정 `termScrollback` 줄)을 다시 그리는 바이트. 모드·대체 화면·커서까지 싣는다 |
 | `since` 가 보유 창 안 | **델타 재개** — 그 뒤의 바이트만. 화면을 지우지 않는다 |
-| `since` 가 보유 창 밖 | 전량 재생으로 조용히 강등 (오류가 아니다) |
+| `since` 가 보유 창 밖 | 스냅숏으로 조용히 강등 (오류가 아니다) |
 
-두 갈래 모두 마지막에 `0x04` 로 새 좌표를 통보한다. `full=1` 이면 전량 재생이었다는
-뜻이고, 그때 클라이언트는 TUI 가 스스로 전체를 다시 그리도록 `0x01` 리사이즈를 한 행
-줄였다 되돌린다.
+두 갈래 모두 마지막에 `0x04` 로 새 좌표를 통보한다. 스냅숏이면 깃발에 `FULL`·`SNAP` 이 선다.
+스냅숏은 모드까지 정확하므로 클라이언트가 TUI 를 흔들어 다시 그리게 할 필요가 없다.
 
-`since` 를 보내지 않는 클라이언트는 종전과 같이 전량 재생을 받는다. `0x04` 를 모르는
-클라이언트는 그 프레임을 무시하면 된다 — 기존 opcode 의 뜻과 형식은 바뀌지 않았다.
+`0x04` 를 모르는 클라이언트는 그 프레임을 무시하면 된다 — 기존 opcode 의 뜻과 형식은 바뀌지 않았다.
 
 ### 응답 좌석 (`0x06`)
 
@@ -486,6 +486,8 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 - **포커스 보고(`ESC[I`·`ESC[O`)는 좌석과 무관하다** — 질의의 답이 아니라 그 창 고유의
   사실이므로 창마다 보낸다
 - **사용자의 키는 좌석과 무관하다.** 어느 창에서 타이핑하든 같은 터미널이 움직인다
+- **붙은 연결이 하나도 없으면 데몬이 답한다.** 데몬의 화면 상태가 DA·DSR·커서 위치 질의에
+  답한다. 색 질의(OSC 10/11)에는 답하지 않는다
 
 `0x06` 을 모르는 클라이언트는 그 프레임을 무시하면 된다. 그때는 자기가 주인이라고 보고
 종전대로 답한다 — 모르는 것이 오류가 되지 않는다.
@@ -494,26 +496,47 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 
 브라우저 탭은 WebSocket `/channel?v=1` 하나를 연다(`docs/internal/perf/CHANNEL_PROTOCOL.md`). 첫 프레임 `{"t":"hello","client":<clientId>,"slots":[…]}` 로 신원을 밝히면, `/api/commands` 로 들어온 action 이 그 채널에 `{"t":"cmd", action, args, reqId?, execClientId?}` 로 온다. 브라우저가 여러 탭으로 열려 있으면 모두 같은 action 을 받는다. `client` 를 밝힌 연결이 끊기면 그 클라이언트의 창 포커스 소유권·감시 임대가 풀린다.
 
-생성 명령의 결과는 같은 채널에 `{"t":"cmd.result", reqId, newWindows?, newPanes?, newTabs?, newGroups?, position?, error?}` 로 돌려준다.
+생성 명령의 결과는 같은 채널에 `{"t":"cmd.result", reqId, newWindows?, newPanes?, newTabs?, newGroups?, position?, error?}` 로 돌려준다. 서버는 `newTabs` 의 uuid 가 모두 워크스페이스(`PUT /api/workspace`)에 등록된 뒤 `/api/commands` 에 답한다(상한 2초, 넘으면 그대로 답한다). 결과가 시한 안에 오지 않으면 응답은 `timedOut: true` 이고, 실행자를 지정했던 명령이면 `execClientId`(지정 실행자 신원)를 함께 싣는다.
 
 서버가 자체적으로 발행하는 이벤트도 같은 스트림을 쓴다:
 
 | 이벤트 | 의미 |
 |--------|------|
-| `workspace_changed` | 다른 클라이언트가 워크스페이스를 바꿨다 |
 | `tool_attention` | 도구가 주의를 요구한다 |
 | `tool_attention_clear` | 주의 상태 해제 |
 | `tool_activity` | 도구의 활동 상태 갱신 |
 | `tool_subagent_activity` | 서브에이전트의 활동 갱신 `{toolId, agentId, agentType, state, tool, detail}` |
 | `run_changed` | Run 기록이 바뀌었다. `args.runId`, 트리 Run 이면 `args.tree`. 대시보드는 이 신호로 다시 받는다 |
 | `sandbox_changed` | 샌드박스 정의가 저장됐다 — 본문은 없고 `GET /api/sandbox/config` 로 다시 받으라는 신호 |
-| `edges_changed` | 노드 설정·초대·간선이 바뀌었다. 간선을 맺었으면 `args.paired`, 지웠으면 `args.removed` 에 `{fp, name}` 이 실린다. 상대가 지웠으면 `args.byPeer:true` 도 실린다 |
 | `chat_message` | 이 노드의 사람에게 채팅 글이 왔다. `args.msg` 는 `{id, room, roomKind, roomName, roomPurpose, from, fromLabel, fromKind, node, text, at}` 다. 서버는 남기지 않는다 |
-| `chat_changed` | 채팅의 온라인 목록이나 방이 바뀌었다 — 본문은 없고 `GET /api/chat` 로 다시 받으라는 신호 |
-| `window_focus` | 창 포커스 소유권이 바뀌었다. `args.owners` 는 **전체 맵**이다 (증분이 아니다) |
-| `settings_changed` | 설정이 저장됐다 — 본문은 없고 `GET /api/settings` 로 다시 받으라는 신호. `args.origin`(선택)은 저장한 `PUT` 의 `clientId` 다 |
 | `server_moving` | 서버가 포트를 옮겼다. `args.port` 는 새 포트다. 화면은 `localStorage` 를 `POST /api/server/carry` 로 맡긴 뒤 같은 호스트 이름의 새 포트로 `?carry=<token>` 을 붙여 이동한다 |
-| `fs_changed` | `PUT /api/fs/watch` 로 등록한 디렉터리의 직속 항목이 바뀌었다. `args.changes` 는 `[{path, type}]` 이고 `type` 은 `added`·`updated`·`deleted` 다. `path` 는 등록한 철자 그대로다. 75ms 동안 모아 같은 경로끼리 합친 값이다. 서버가 이벤트를 놓쳤으면 `args.overflow: true` 가 한 번 온다 — 그때는 폴링으로 다시 맞춘다 |
+
+## 채널의 상태 토픽
+
+상태는 `cmd` 가 아니라 토픽으로 온다(`docs/internal/perf/CHANNEL_PROTOCOL.md` §5). 브라우저는 `{"t":"sub","topic":<토픽>,"seq"?:<마지막 순번>,"epoch"?:<서버 epoch>}` 로 구독하고 `{"t":"unsub","topic":<토픽>}` 로 해지한다. 서버는 구독한 토픽만 보낸다. 메시지마다 토픽별 순번 `seq` 가 붙고, 브라우저가 빈틈을 보면 그 토픽을 마지막 순번과 함께 다시 구독한다.
+
+| 프레임 | 뜻 |
+|---|---|
+| `{"t":"full", topic, seq, data}` | 토픽의 최신 전체 값. 본문은 그 GET 종단의 본문과 같다. 200 이 아니면 `{"$http": 상태, "body": 본문}` 이다 |
+| `{"t":"delta", topic, seq, ops}` | id 단위 변화량. `ops` 는 `{op:"put", id, v}`·`{op:"del", id}` 의 목록이다 |
+| `{"t":"event", topic, seq, data}` | 상태가 아닌 사건 |
+| `{"t":"reset", topic}` | 사건 토픽의 빈틈을 메울 수 없다. 구독자는 자기 상태를 다시 맞춘다 |
+
+아래는 이전에 `cmd` 이벤트로 오던 것이다. 이제는 토픽으로만 온다.
+
+| 토픽 | 종류 | 대신한 이벤트 | 내용 |
+|---|---|---|---|
+| `workspace` | full | `workspace_changed` | `GET /api/state` 본문 |
+| `settings` | full | `settings_changed` | `GET /api/settings` 본문 |
+| `edges` | full | `edges_changed` | `GET /api/edges` 본문 |
+| `edges.notice` | event | `edges_changed` 의 인자 | 간선을 맺었으면 `paired`, 지웠으면 `removed`, 초대를 받았으면 `invited` 에 `{fp, name, tag}` 가 실린다. 상대가 지웠으면 `byPeer:true` 도 실린다 |
+| `chat` | full | `chat_changed` | `GET /api/chat` 본문 |
+| `focus` | full | `window_focus` | `GET /api/focus` 본문 `{owners}` — 창 포커스 소유권의 **전체 맵**이다 (증분이 아니다) |
+| `claude.accounts` | full | `claude_accounts_changed` | `GET /api/claude-accounts` 본문 |
+| `alert` | event | `claude_account_alert` | 위 「Claude 다중 계정」의 알림 본문 |
+| `fs` | event | `fs_changed` | `PUT /api/fs/watch` 로 등록한 디렉터리의 직속 항목이 바뀌었다. `changes` 는 `[{path, type}]` 이고 `type` 은 `added`·`updated`·`deleted` 다. `path` 는 등록한 철자 그대로다. 75ms 동안 모아 같은 경로끼리 합친 값이다. 서버가 이벤트를 놓쳤으면 `{overflow: true}` 가 한 번 온다 — 그때 브라우저는 감시하던 디렉터리를 한 번 다시 읽어 맞춘다 |
+
+그 밖의 토픽(`attention`·`activity`·`foreground`·`background`·`runs`·`run:<id>`·`stats:<ms>`·`update`·`telegram`·`git:<repo>`·`git.jobs`·`gitjob:<id>`·`gitconsole:<root>`)과 각 본문은 `docs/internal/perf/CHANNEL_PROTOCOL.md` §5.2 에 있다. 이 토픽들이 있으므로 브라우저는 상태를 알려고 주기적으로 GET 하지 않는다.
 
 ## OSC 777 커스텀 이스케이프
 

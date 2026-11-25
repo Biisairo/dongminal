@@ -10,14 +10,20 @@ publish = false
 workspace = true
 
 [dependencies]
+bytes = { workspace = true }
 otter-shared-activity = { path = "../activity" }
+otter-shared-cadence = { path = "../cadence" }
 otter-shared-otterenv = { path = "../otterenv" }
 otter-shared-otterlog = { path = "../otterlog" }
 otter-shared-outbuf = { path = "../outbuf" }
 otter-shared-platform = { path = "../platform" }
 otter-shared-pollwait = { path = "../pollwait" }
+otter-shared-termstate = { path = "../termstate" }
+otter-shared-linestore = { path = "../linestore" }
+otter-shared-termlimit = { path = "../termlimit" }
 otter-shared-uuid = { path = "../uuid" }
 otter-gocompat = { path = "../../gocompat" }
+regex = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
@@ -27,3 +33,4 @@ nix = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }

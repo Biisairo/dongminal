@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, TOOL, controllers, load, fakeClock, plain } from './harness.mjs';
+import { BASE, SLOTS, TOOL, controllers, load, fakeClock, plain } from './harness.mjs';
 
 /**
  * 명령·사건 스트림을 채널로 (`perf/CHANNEL_PROTOCOL.md` §10.2 C2a, TC-CH2A-8~13).
@@ -112,6 +112,62 @@ test('TC-CH2A-10: cmd — 구독자가 없으면 지명 검사 뒤 대체 처리
     ['fallback', 'newTab', { name: 'x', reqId: 'r1' }],
     ['fallback', 'focusBack', {}],
   ]);
+});
+
+/**
+ * PERF 4.3: 칸 [1] 이상이 포커스를 주장하면 서버가 그 칸의 신원을 실행자로 지명한다(FR-SXE-4).
+ * 칸 신원은 서버 눈에 별개 클라이언트지만(FR-WSL-10 · D-3) 채널은 브라우저 창 하나에 하나라
+ * 명령은 한 번만 닿는다. 그 창의 모든 칸 신원(`SlotsController._slotIdentities`)을 자기 것으로 본다.
+ */
+function slotBusWorld(nSlots) {
+  const ctx = load([...BASE, 'core/layout-tree.js', ...SLOTS, 'core/event-bus.js'], {
+    expose: ['EventBus', 'SlotsController', 'App'],
+    globals: { App: class App {}, crypto: globalThis.crypto },
+  });
+  const app = new ctx.App();
+  app.clientId = 'me';
+  app._slots = nSlots ? { windows: Array.from({ length: nSlots }, (_, i) => 'w' + i), sizes: [], tabs: [], focused: 1 } : null;
+  app.slot = new ctx.SlotsController(app);
+  const bus = new ctx.EventBus(app, {});
+  const seen = [];
+  bus.setFallback((action, args) => seen.push(plain([action, args])));
+  return { app, bus, seen };
+}
+
+test('PF-4.3: 지명된 실행자가 이 창의 칸 [1] 신원이면 한 번 실행한다', () => {
+  const { app, bus, seen } = slotBusWorld(2);
+  const s1 = app.slot._slotIdentities()[1];
+  assert.ok(s1 && s1 !== 'me');
+  for (const action of ['newTab', 'newWindow', 'closeTab']) {
+    bus.route({ t: 'cmd', action, args: {}, reqId: 'r-' + action, execClientId: s1 });
+  }
+  assert.deepEqual(seen, [
+    ['newTab', { reqId: 'r-newTab' }],
+    ['newWindow', { reqId: 'r-newWindow' }],
+    ['closeTab', { reqId: 'r-closeTab' }],
+  ], '칸 [1] 에 지명된 명령을 버렸거나 두 번 실행했다');
+});
+
+test('PF-4.3: 칸 [0](app.clientId) 지명은 그대로 한 번 실행한다', () => {
+  const { bus, seen } = slotBusWorld(3);
+  bus.route({ t: 'cmd', action: 'newTab', args: {}, reqId: 'r1', execClientId: 'me' });
+  assert.deepEqual(seen, [['newTab', { reqId: 'r1' }]]);
+});
+
+test('PF-4.3: 다른 기기·닫힌 칸의 신원은 실행하지 않는다', () => {
+  const { app, bus, seen } = slotBusWorld(3);
+  const gone = app.slot._slotIdentities()[2];
+  app._slots.windows.pop();               // 칸 [2] 제거 — 그 신원은 더 이상 이 창의 것이 아니다
+  bus.route({ t: 'cmd', action: 'newTab', args: {}, execClientId: 'other-device' });
+  bus.route({ t: 'cmd', action: 'newTab', args: {}, execClientId: gone });
+  assert.deepEqual(seen, [], '이 창의 것이 아닌 신원에 지명된 명령을 실행했다');
+});
+
+test('PF-4.3: 단일 칸 모드는 app.clientId 만 자기 것이다', () => {
+  const { bus, seen } = slotBusWorld(0);
+  bus.route({ t: 'cmd', action: 'newTab', args: {}, execClientId: 'other' });
+  bus.route({ t: 'cmd', action: 'newTab', args: {}, execClientId: 'me' });
+  assert.deepEqual(seen, [['newTab', {}]]);
 });
 
 test('TC-CH2A-11: 생성 명령의 결과는 채널 cmd.result 로 보낸다', () => {

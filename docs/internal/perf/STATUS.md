@@ -1,14 +1,14 @@
 # 최적화 진행 상태 (2026-11-24)
 
-## 지금 상태 (2026-11-24 저녁)
+## 지금 상태 (2026-11-26 05:50, 조정 세션)
 
-- M1 코드·측정 끝: 1.1~1.11·1.13·1.14 done. 측정 결과 SRS §7.1 (유휴 요청 81.8→0/분, 유휴 메인 스레드 0.7→0.29%).
-- **1.16 ready — 다음에 할 첫 일.** 1.15 병합 뒤 프론트 단위 9건 실패(`GIT_STATUS_RETRY_MS` 를 정의한 `constants-git-detect.js` 가 i18n `t()` 를 부르는데 시험이 싣지 않음)와 e2e `editor-fs-watch` V-ELR-34(1.14 가 지운 대체 폴링). 1.15 는 review 로 되돌렸다 — 1.16 이 끝나면 함께 done.
-- 1.16 뒤: 통합 브랜치에서 프론트 단위 전체·관련 e2e 확인 → **main 병합(사용자 승인됨, 2026-11-24 "테스트 문제 없으면 main 병합까지")**. main 체크아웃(`/Users/dykim/personal/dongminal`)에서 `git merge --ff-only perf-m1` 이 되는지 먼저 본다. 운영 바이너리는 다시 빌드하지 않는다. push 는 따로 확인.
-- 1.12 문서 정합은 사용자 확인 대기(main 병합 때 함께 여쭙는다). 각 이슈 진행 기록의 "코드와 어긋난 문서" 목록을 모은다.
-- M2: 2.1 done(D-13 alacritty_terminal, D-14 줄 저장소). 다음은 2 를 하위 이슈로 나누는 설계(데몬 화면 상태·줄 저장소·스냅숏 op·구독/해지·위로 스크롤 받기) — 설계는 사용자 확인 뒤 시험·구현.
-- M3: 3.1 done(`perf/SPA_PROFILE_2026-11-24.md` §5 에 3.2~3.7 제안). 미확인: git 기록 화면(커밋 401개)을 열면 트레이스가 4분 넘게 끝나지 않음 — 메인 스레드 멈춤 가능성, 3.2 에서 먼저 재현. `openGitWindow` 에 심볼릭 링크 경로를 주면 창을 못 찾고 null(범위 밖 결함).
-- 정리할 것: 남은 worktree `dongminal-pf/*` 없음. 측정 바이너리 `/private/tmp/otter-perf/`.
+- **perf-m1** HEAD 이 커밋(작업 트리 깨끗, 이슈 worktree 없음). **main** `7a2c81d0` = origin/main. main 병합 충돌 없음(`git merge-tree` 확인).
+- **M1~M4 done.** M4 결과 `perf/M4_RESULT_2026-11-25.md`. 마일스톤 전체 시험 통과(Rust 4,147·단위 1,979·check-cross 다섯 대상·게이트), e2e 전량 마지막 회차 실패 5 중 4.15.1(git-not-repo again 경합)·4.15.2(term-reclaim 스냅숏 기준)를 고쳐 병합.
+- **사용자 결정(2026-11-26)**: 권장안대로 — 4.15.1·.2 고침, 4.15.3~.5 는 다음에 조사(todo), 그 뒤 main 일반 병합 → push.
+- **남은 일**: main 병합·push 가 자동 모드 분류기에 막혔다 — 사용자가 직접 실행한다: `git -C /Users/dykim/personal/dongminal merge --no-ff perf-m1 -m "Merge branch 'perf-m1'" && git -C /Users/dykim/personal/dongminal push origin main`. 운영 바이너리는 다시 빌드하지 않는다.
+- 다음 이슈: 4.15.3 git-job-indicator 새로고침 뒤 kind 빔, 4.15.4 git-hunk TC-UIP-14, 4.15.5 editor-lsp-nav 브랜치 전환 진단(모두 M4 이전부터 실패).
+- 교훈: 같은 `OTTER_E2E_RUN` 폴더를 다시 쓰면 워커 홈 설정이 남아 다음 실행을 오염시킨다 — 실패를 가를 때는 빈 폴더. e2e 전량은 마일스톤마다 돌린다(M2·M3 에서 안 돌려 낡은 시험 약 30건이 쌓였다). edges-settings 오프셋은 실제 3300(상한 65535). 하위 에이전트 `git add/commit` 은 자동 모드 분류기에 막힌다 — 조정자가 커밋. 병렬 worktree 다섯이 `rust/target` 을 키워 디스크가 가득 찼다 — cross-target clippy 는 조정자가 한 번.
+- 아직 묻지 않은 것: vendor 스크립트·CSS gzip 전송(3.4.2), 2.4 작은 차이 5건 수용 여부, "코드와 어긋난 문서"(4.14 진행 기록 23행 + 4.15.2 목록).
 
 ## 사용자 지시 (2026-11-24)
 

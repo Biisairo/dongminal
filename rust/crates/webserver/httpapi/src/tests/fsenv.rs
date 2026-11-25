@@ -8,7 +8,8 @@ use std::time::Duration;
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
 use otter_shared_toolhub::{
-    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolInfo, ToolSnapshot,
+    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolHistory, ToolInfo,
+    ToolScreen, ToolSnapshot,
 };
 use otter_webserver_domain_wsentry::{self as wsentry, WorkspaceStore, normalize_path};
 use tokio::sync::mpsc::Sender;
@@ -69,6 +70,9 @@ impl crate::WorkspaceStore for FakeWork {
     }
     fn is_known_tab_id(&self, _: &str) -> bool {
         false
+    }
+    fn changes(&self) -> otter_shared_pollwait::Changed {
+        otter_shared_pollwait::Signal::default().c()
     }
     fn entries(&self) -> Vec<otter_shared_workspace::TabEntry> {
         Vec::new()
@@ -317,6 +321,21 @@ impl ToolHub for FakeHub {
         (CancellationToken::new(), Box::new(|| {}))
     }
     fn snapshot_tool_since(&self, _: &str, _: i64) -> Result<ToolSnapshot, ToolError> {
+        Err(ToolError::NotFound(String::new()))
+    }
+    fn history_tool(&self, _: &str, _: u64, _: usize) -> Result<ToolHistory, ToolError> {
+        Err(ToolError::NotFound(String::new()))
+    }
+    fn screen_tool(&self, _: &str, _: usize) -> Result<ToolScreen, ToolError> {
+        Err(ToolError::NotFound(String::new()))
+    }
+    fn seat_tool(&self, _: &str, _: bool) -> Result<i64, ToolError> {
+        Err(ToolError::NotFound(String::new()))
+    }
+    fn search_tool(
+        &self,
+        _: &otter_shared_toolipc::SearchParams,
+    ) -> Result<Vec<otter_shared_toolipc::SearchHit>, ToolError> {
         Err(ToolError::NotFound(String::new()))
     }
     fn daemon_info(&self) -> DaemonInfo {

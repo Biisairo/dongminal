@@ -8,19 +8,6 @@ use otter_webserver_domain_git_store::Observation;
 
 use super::{Entry, GitWatcher, State, WatchPend, obs_mark, phase_hash};
 
-/// 임차인 키에서 신원과 갈래를 가른다. clientId 에 들 수 없는 글자다.
-const HOLDER_SCOPE_SEP: &str = "\x1f";
-/// 토픽 구독이 쥐는 임차인이다. clientId 에 들 수 없는 글자로 시작한다.
-const TOPIC_HOLDER: &str = "\x1echannel";
-
-fn holder_key(client_id: &str, scope: &str) -> String {
-    if scope.is_empty() {
-        client_id.to_owned()
-    } else {
-        format!("{client_id}{HOLDER_SCOPE_SEP}{scope}")
-    }
-}
-
 fn since(now: SystemTime, then: SystemTime) -> Duration {
     now.duration_since(then).unwrap_or(Duration::ZERO)
 }
@@ -31,124 +18,66 @@ fn truncate_secs(d: Duration) -> Duration {
 }
 
 impl GitWatcher {
-    /// 임차인을 밝히지 않은 관심 표명이다 (FR-GPO-10). 수명은 `ttl` 이다.
+    /// 관심 표명이다 (FR-GPO-10). 수명은 `ttl` 이다.
     pub fn note(&self, repo: &str, obs: &Observation) {
-        self.note_for(repo, obs, "");
-    }
-
-    /// 임차인을 밝힌 표명이다 (FR-GWL-1). 구독이 살아 있는 신원만 임차인이 된다 (FR-GWL-8).
-    pub fn note_for(&self, repo: &str, obs: &Observation, client_id: &str) {
-        self.note_scoped(repo, obs, client_id, "");
-    }
-
-    /// 갈래를 가진 임대다 (FR-OPT-4-3 · IPC-7).
-    pub fn note_scoped(&self, repo: &str, obs: &Observation, client_id: &str, scope: &str) {
-        if repo.is_empty() {
-            return;
-        }
-        let mut g = self.lock();
-        let now = (self.now)();
-        let mark = obs_mark(obs);
-        let ep = g.live.get(client_id).copied().unwrap_or(0);
-        let holder = if client_id.is_empty() || ep == 0 {
-            String::new()
-        } else {
-            holder_key(client_id, scope)
-        };
-        if let Some(e) = g.watch.get_mut(repo) {
-            e.seen_at = now;
-            if !holder.is_empty() {
-                e.holders.insert(holder, ep);
-            }
-            // 기준선을 여기서 갱신하지 않는다 — 그 차이는 이미 방송으로 나갔다.
-            return;
-        }
-        // 첫 표명은 기준선을 함께 받는다 — 브라우저가 방금 받은 관측이다.
-        let mut e = Entry {
-            last_mark: mark,
-            seen_at: now,
-            has_mark: true,
-            last_sig: obs.signature.value.clone(),
-            has_sig: !obs.signature.value.is_empty(),
-            phase: phase_hash(repo),
-            holders: HashMap::new(),
-            pend: WatchPend::default(),
-            fails: 0,
-            retry_at: None,
-        };
-        if !holder.is_empty() {
-            e.holders.insert(holder, ep);
-        }
-        g.watch.insert(repo.to_owned(), e);
-        self.evict_locked(&mut g, now);
-        let f = g.on_baseline.clone();
-        drop(g);
-        if let Some(f) = f {
-            f(repo);
-        }
+        self.note_held(repo, obs, false);
     }
 
     /// `git:<repo>` 토픽에 구독자가 있는 동안의 임대다 (CHANNEL_PROTOCOL C4). 구독자가 몇이든
-    /// 임차인은 하나다 — 토픽이 구독자 수를 센다.
+    /// 임대는 하나다 — 토픽이 구독자 수를 센다.
     pub fn hold_topic(&self, repo: &str, obs: &Observation) {
-        {
-            let mut g = self.lock();
-            if !g.live.contains_key(TOPIC_HOLDER) {
-                g.epoch += 1;
-                let ep = g.epoch;
-                g.live.insert(TOPIC_HOLDER.to_owned(), ep);
-            }
-        }
-        self.note_scoped(repo, obs, TOPIC_HOLDER, "");
+        self.note_held(repo, obs, true);
     }
 
     /// 토픽의 마지막 구독자가 떠났다. 그 뒤로는 관심 표명의 수명(`ttl`)을 따른다.
     pub fn release_topic(&self, repo: &str) {
         let now = (self.now)();
         if let Some(e) = self.lock().watch.get_mut(repo) {
-            e.holders.remove(TOPIC_HOLDER);
+            e.held = false;
             e.seen_at = now;
         }
     }
 
-    /// 그 신원의 그 갈래 임대를 모든 저장소에서 놓는다 (FR-OPT-4-3). 감시는 걷지 않는다.
-    pub fn release_scope(&self, client_id: &str, scope: &str) {
-        if client_id.is_empty() {
-            return;
-        }
-        let key = holder_key(client_id, scope);
-        for e in self.lock().watch.values_mut() {
-            e.holders.remove(&key);
-        }
-    }
-
-    /// SSE 구독 하나를 신원에 결선한다 (FR-GWL-3). `FocusRegistry::attach_from` 과 같은 규약이다.
-    pub fn attach(&self, client_id: &str) -> u64 {
-        if client_id.is_empty() {
-            return 0;
-        }
-        let mut g = self.lock();
-        g.epoch += 1;
-        let ep = g.epoch;
-        g.live.insert(client_id.to_owned(), ep);
-        ep
-    }
-
-    /// 그 신원을 모든 저장소의 임차인 목록에서 뺀다 (FR-GWL-3·4). grace period 는 없다.
-    /// `ep` 가 그 신원의 최신 구독이 아니면 아무 일도 하지 않는다.
-    pub fn detach(&self, client_id: &str, ep: u64) {
-        if client_id.is_empty() || ep == 0 {
+    fn note_held(&self, repo: &str, obs: &Observation, hold: bool) {
+        if repo.is_empty() {
             return;
         }
         let mut g = self.lock();
-        if g.live.get(client_id) != Some(&ep) {
+        let now = (self.now)();
+        let mark = obs_mark(obs);
+        if let Some(e) = g.watch.get_mut(repo) {
+            e.seen_at = now;
+            e.held |= hold;
+            // 기준선을 여기서 갱신하지 않는다 — 그 차이는 이미 방송으로 나갔다.
             return;
         }
-        g.live.remove(client_id);
-        let scoped = format!("{client_id}{HOLDER_SCOPE_SEP}");
-        for e in g.watch.values_mut() {
-            e.holders
-                .retain(|k, _| k != client_id && !k.starts_with(&scoped));
+        // 첫 표명은 기준선을 함께 받는다 — 브라우저가 방금 받은 관측이다.
+        g.watch_ids += 1;
+        let id = g.watch_ids;
+        let e = Entry {
+            last_mark: mark,
+            seen_at: now,
+            has_mark: true,
+            last_sig: obs.signature.value.clone(),
+            has_sig: !obs.signature.value.is_empty(),
+            phase: phase_hash(repo),
+            fallback: true,
+            tree: None,
+            watch_id: id,
+            held: hold,
+            pend: WatchPend::default(),
+            fails: 0,
+            retry_at: None,
+        };
+        g.watch.insert(repo.to_owned(), e);
+        self.evict_locked(&mut g, now);
+        let f = g.on_baseline.clone();
+        drop(g);
+        self.watch_tree(repo, id);
+        // 대상이 0 이었으면 회차 주체가 잠들어 있다 (D-61).
+        self.wake.notify_one();
+        if let Some(f) = f {
+            f(repo);
         }
     }
 
@@ -157,7 +86,7 @@ impl GitWatcher {
         let ttl = self.ttl;
         g.watch.retain(|repo, e| {
             // FR-GWL-2: 임차인이 있으면 유휴로 걷지 않는다.
-            if !e.holders.is_empty() || since(now, e.seen_at) <= ttl {
+            if e.held || since(now, e.seen_at) <= ttl {
                 return true;
             }
             // FR-GLW-7: 만료는 브라우저가 말을 멈춘 것이다.
@@ -177,10 +106,9 @@ impl GitWatcher {
                     None => return,
                 },
             };
-            let n = g.watch.get(&oldest).map_or(0, |e| e.holders.len());
             otter_shared_otterlog::infof!(
                 None,
-                "[gitwatch] 상한 초과로 감시를 퇴출한다 (repo={oldest} cap={} 임차인={n})",
+                "[gitwatch] 상한 초과로 감시를 퇴출한다 (repo={oldest} cap={} 임대={leased})",
                 self.cap
             );
             if leased {
@@ -193,11 +121,6 @@ impl GitWatcher {
         }
     }
 
-    /// 지금 임대를 쥔 신원 수다 (FR-GWL-3).
-    pub fn leases(&self) -> usize {
-        self.lock().live.len()
-    }
-
     /// 지금 감시 중인 저장소 수다.
     pub fn watching(&self) -> usize {
         self.lock().watch.len()
@@ -208,7 +131,7 @@ impl GitWatcher {
 fn oldest_watch(watch: &HashMap<String, Entry>, leased: bool) -> Option<String> {
     watch
         .iter()
-        .filter(|(_, e)| e.holders.is_empty() != leased)
+        .filter(|(_, e)| e.held == leased)
         .min_by_key(|(_, e)| e.seen_at)
         .map(|(r, _)| r.clone())
 }

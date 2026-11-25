@@ -64,6 +64,7 @@ async function twoPanes(page: Page) {
   await row(page, 'a.txt').dblclick();
   await row(page, 'b.txt').dblclick();
   await expect.poll(async () => (await panes(page)).list[0].tabs.length).toBe(2);
+  await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
   await page.evaluate(() => {
     const a = (window as any).app;
     const pn = a.testing.flattenPanes(a.testing.aw().layout)[0];

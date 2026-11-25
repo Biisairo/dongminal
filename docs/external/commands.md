@@ -47,7 +47,7 @@ Otterminal 서버는 기동 시 `$OTTERMINAL_HOME/bin/` 에 헬퍼를 설치하�
 
 | 명령 | 설명 |
 |------|------|
-| `otterctl read-screen [--at <uuid>] [--bytes N]` | 그 도구의 화면을 **ANSI 를 제거한 텍스트**로 읽습니다 (기본 16384바이트). 사람이 보는 것과 같은 내용입니다 |
+| `otterctl read-screen [--at <uuid>] [--bytes N]` | 그 도구의 화면을 **데몬이 그린 화면의 글자**로 읽습니다 — TUI 는 지금 보이는 화면, 셸은 화면과 그 위 기록 (기본 16384바이트). 사람이 보는 것과 같은 내용입니다 |
 | `otterctl read-output [--at <uuid>] [--bytes N]` | 같은 자리를 **raw 바이트**로 읽습니다 — ANSI 를 포함합니다 (기본 8192바이트). 색·커서 이동까지 봐야 할 때만 쓰세요 |
 | `otterctl send-input --at <uuid> [--execute] <텍스트>` | 그 도구의 **셸에 입력**을 넣습니다. `--execute` 면 Enter 까지 칩니다. 텍스트 자리에 `-` 를 주거나 생략하면 stdin 을 읽습니다 |
 | `otterctl msg --to <uuid> [--from <uuid>] <메시지>` | 그 도구의 **에이전트에게** 신뢰 엔벨로프로 메시지를 보냅니다. `send-input` 과 다릅니다 — 이쪽은 상대가 에이전트임을 전제하고 봉투를 씌웁니다. `--to <노드>/<uuid>` 는 짝맞춘 다른 노드의 에이전트이며 원격 엔벨로프로 들어갑니다 |
@@ -160,8 +160,10 @@ NEW=$(otterctl split-v --at "$UUID" -n | jq -r '.newTabs[0].uuid')  # 새로 생
 ```
 
 - `newTabs` 각 원소는 `{uuid, toolId}` — uuid→toolId 재조회 불필요.
+- 생성 명령은 새 탭이 워크스페이스에 등록된 뒤 답한다 — 받은 `newTabs[].uuid` 를 곧바로 `--at` 에 써도 된다(등록이 2초 안에 오지 않으면 그대로 답한다).
 - `newWindow` 은 `newWindows`/`newPanes`/`newTabs` 각 1개.
 - 구독 브라우저가 없거나(`delivered=0`) 응답이 늦으면 `timedOut: true` + 빈 배열 — 명령 자체는 broadcast 됨. 이 경우 `list-workspace` 로 확인.
+- `timedOut: true` 인 응답에는 `execClientId` 가 붙는다 — 서버가 이 명령의 실행자로 지정한 브라우저 신원이다(실행자가 없으면 빠진다). `otterctl` 은 그 값을 stderr 에 `지정 실행자 = <id>` 로 함께 적는다.
 - **`otterctl` 은 그 둘을 실패로 본다** — `delivered=0` 이면 "구독 중인 브라우저가 없습니다" 와 exit 1, 생성 명령이 `timedOut` 이면 "만들어지지 않았을 수 있습니다" 와 exit 1. 본문은 그대로 stdout 에 남는다. 비생성 명령도 `delivered=0` 은 exit 1 이다 (`detach` 와 같은 판정).
 - 비생성 명령(`focus`/`close*`/`rename*`/`tool-*` 등)은 이 필드들이 없다 (기존 응답 그대로).
 
@@ -224,7 +226,7 @@ detach -h, --help        # 도움말
 download <path>
 ```
 
-OSC 777 `Download;<abs-path>` 시퀀스를 출력해 브라우저가 `/api/download?path=<abs>` 로 실제 다운로드를 트리거합니다. 상대경로는 `realpath` 로 절대경로 변환. 파일이 없으면 서버 측에서 404.
+OSC 777 `Download;<abs-path>` 시퀀스를 출력해 브라우저가 `/api/download?path=<abs>` 로 실제 다운로드를 트리거합니다. 상대경로는 `realpath` 로 절대경로 변환. 파일이 없으면 서버 측에서 404. 보이는(깨어 있는) 터미널에서 친 경우에만 내려받습니다 — 숨어서 잠든 터미널에 온 요청은 버립니다.
 
 반대 방향(업로드)은 터미널에 파일을 드래그앤드롭 → 해당 도구의 `cwd` 에 저장 (중복 시 `(1)`, `(2)` 자동 넘버링). 업로드가 끝나도 **셸에 엔터를 보내지 않는다** — 그 순간 도는 것이 셸이 아니면 그 프로그램이 엔터를 받는다.
 

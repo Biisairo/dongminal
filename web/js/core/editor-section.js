@@ -75,6 +75,10 @@ class EditorSection extends Controller {
   }
 
   async _edAdd(){
+    // PERF D-30: 입력 대화상자는 git 묶음의 `GitDialog` 다. 경로 후보 `PathSuggest` 는 uiact 묶음이다(PERF 3.4.12.10) —
+    // 그 묶음이 실패해도 대화상자는 후보 없이 선다.
+    await Screens.load('git');
+    const suggest=await Screens.load('uiact').then(()=>true,()=>false);
     const here=await this._edTermCwd();
     const cwds=await this._edTermCwds(here);
     // 경로는 서버가 판정한다 (SERVER_DRIVEN_ACTIONS_SRS F-m) — 추가 요청도 같은 판정으로 거절된다.
@@ -101,7 +105,7 @@ class EditorSection extends Controller {
     });
     const input=document.querySelector('#editor-add-dlg input[data-key="path"]');
     // 이미 열린 다이얼로그를 앞으로 가져온 경우(`_front`)에는 목록이 이미 붙어 있다.
-    if(input&&!input.dataset.suggest){
+    if(suggest&&input&&!input.dataset.suggest){
       input.dataset.suggest='1';
       new PathSuggest(input,v=>this._edPathCandidates(v,cwds));
     }

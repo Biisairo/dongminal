@@ -5,11 +5,10 @@
  * 조각 style-git-commit.css 다 (REFACTOR3_FE_REST5_SRS FR-FR5-1).
  *
  * 탭별 화면(diff·History·Console·Branches·Stash·Worktrees)은 style-git-views.css·style-git-tabs.css 다.
- * 이 파일은 style.css 뒤, style-git-commit.css 바로 앞에 실려야 한다.
+ * 이 파일은 style-git-commit.css 바로 앞에 실려야 한다 — 순서는 web/bundles.txt 의 [git] 이 정하고,
+ * 묶음 CSS(/b/git.css)는 처음 열 때 모든 부팅 CSS 뒤에 실린다.
  */
 /* ── Git 창 (FR-GIT-25~31) ── */
-/* 고정 탭·고정 이름 — 닫기·이름변경·드래그가 없으므로 커서로도 알린다 */
-.pn-tab.git{cursor:default}
 /**
  * FR-LAY-20·21·26: **기본이 실사용이다.**
  *

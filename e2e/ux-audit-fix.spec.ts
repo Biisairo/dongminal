@@ -469,6 +469,8 @@ test.describe('3묶음 — 눈금', () => {
   test('TC-UXF-46: 설정 섹션 행과 접힌 레일의 탭은 30px 이다', async ({ page }) => {
     await waitForInit(page);
     await page.locator('#settings-btn').click();
+    // PERF 3.4.x: 설정 창은 settings 묶음이 실린 뒤에 그려진다 — 선 뒤에 잰다.
+    await expect(page.locator('#modal .mtab').first()).toBeVisible();
     expect((await rectOf(page, '#modal .mtab')).height).toBe(30);
     await page.keyboard.press('Escape');
     await page.locator('#sb-acts .sb-collapse').click();
@@ -657,6 +659,8 @@ test.describe('4묶음 — 작업 중 표식', () => {
     await reportAct(page, id, 'working');
     const tabDot = page.locator('#area .pn.focused .pn-tab.active .work-dot');
     await expect(tabDot).toHaveCount(1);
+    // PERF 3.4.9: Run 뷰의 CSS(`.run-tree-*`·`.run-card`)는 run 묶음에 있다 — 아래 탐침이 그것을 딛는다.
+    await page.evaluate(() => Screens.load('run'));
     for (const name of ['Tokyo Night', 'GitHub Light']) {
       await page.evaluate(`customTheme=null;applyThemeObj(THEMES[${JSON.stringify(name)}])`);
       const a2 = await rgbVar(page, '--accent2');

@@ -155,6 +155,7 @@ fn validate_messages() {
     let none = dir.join("none").to_str().unwrap().to_owned();
     let dirs = dir.to_str().unwrap().to_owned();
     let me = euid();
+    const V: i64 = handover::VERSION;
     let msg = |exe: &str, h: i64, e: Env| {
         validate(
             &ReloadRequest {
@@ -167,35 +168,35 @@ fn validate_messages() {
     };
     let e = || env(me, "darwin", &slf);
     assert_eq!(
-        msg(&good, 1, env(me, "windows", &slf)),
+        msg(&good, V, env(me, "windows", &slf)),
         "reload_unsupported: 이 OS 는 세션 유지 교체를 지원하지 않습니다"
     );
     assert_eq!(
-        msg(&good, 2, e()),
-        "reload_version: 인계 판이 다릅니다 (요청 2, 데몬 1)"
+        msg(&good, 1, e()),
+        "reload_version: 인계 판이 다릅니다 (요청 1, 데몬 2)"
     );
     assert_eq!(
-        msg("bin/d\"x", 1, e()),
+        msg("bin/d\"x", V, e()),
         r#"reload_exe: 절대경로가 아닙니다: "bin/d\"x""#
     );
     assert_eq!(
-        msg(&none, 1, e()),
+        msg(&none, V, e()),
         format!("reload_exe: stat {none}: no such file or directory")
     );
     assert_eq!(
-        msg(&dirs, 1, e()),
+        msg(&dirs, V, e()),
         format!("reload_exe: 일반 파일이 아닙니다: {dirs}")
     );
     assert_eq!(
-        msg(&noexec, 1, e()),
+        msg(&noexec, V, e()),
         format!("reload_exe: 실행할 수 없습니다: {noexec}")
     );
     assert_eq!(
-        msg(&good, 1, env(me + 1, "darwin", &slf)),
+        msg(&good, V, env(me + 1, "darwin", &slf)),
         format!("reload_exe: 파일 소유자가 데몬 사용자가 아닙니다: {good}")
     );
     assert_eq!(
-        msg(&good, 1, env(me, "darwin", "/x/self")),
+        msg(&good, V, env(me, "darwin", "/x/self")),
         format!(
             "reload_exe: 데몬 자신의 실행 파일이 아닙니다: {good} (데몬 /x/self) — otterminal start --refresh-daemon 을 쓰세요"
         )
@@ -223,7 +224,10 @@ fn preflight_versions() {
     preflight(&same, sec).unwrap();
     assert_eq!(
         preflight(&other, sec).unwrap_err(),
-        "reload_preflight: 새 바이너리의 인계 판이 다릅니다 (2, 데몬 1)"
+        format!(
+            "reload_preflight: 새 바이너리의 인계 판이 다릅니다 ({}, 데몬 {v})",
+            v + 1
+        )
     );
     assert_eq!(
         preflight(&fails, sec).unwrap_err(),
@@ -276,12 +280,12 @@ fn state_write_read_anonymous() {
     assert_eq!(read_state(f).unwrap(), st);
 }
 
-const GO_EMPTY: &str = r#"{"version":1,"tools":null,"panedFd":0,"reportFd":0}"#;
-const GO_FULL: &str = r#"{"version":1,"tools":[{"id":"t1","name":"sh","fd":12,"pid":345,"cols":80,"rows":24,"background":true,"screen":"aGkbWzBt","offset":9,"modes":3,"cwd":"/tmp/x","agent":{"agentSeen":false,"armed":false,"attention":false,"lastOutputAt":0,"rearmLocked":false,"turn":{"inProgress":false,"waitingSignaled":false,"turnRan":false}},"records":{"k":{"a":1}}}],"global":{"g":[1,2]},"panedFd":7,"reportFd":8}"#;
+const STATE_EMPTY: &str = r#"{"version":2,"tools":null,"panedFd":0,"reportFd":0}"#;
+const STATE_FULL: &str = r#"{"version":2,"tools":[{"id":"t1","name":"sh","fd":12,"pid":345,"cols":80,"rows":24,"background":true,"screen":"aGkbWzBt","offset":9,"screenState":"G1swbVM=","screenBack":1,"history":"SA==","modes":3,"cwd":"/tmp/x","agent":{"agentSeen":false,"armed":false,"attention":false,"lastOutputAt":0,"rearmLocked":false,"turn":{"inProgress":false,"waitingSignaled":false,"turnRan":false}},"records":{"k":{"a":1}}}],"global":{"g":[1,2]},"panedFd":7,"reportFd":8}"#;
 
 fn full_state() -> State {
     State {
-        version: 1,
+        version: handover::VERSION,
         tools: Some(vec![HandoverTool {
             id: "t1".into(),
             name: "sh".into(),
@@ -292,6 +296,9 @@ fn full_state() -> State {
             background: true,
             screen: b"hi\x1b[0m".to_vec(),
             offset: 9,
+            screen_state: b"\x1b[0mS".to_vec(),
+            screen_back: 1,
+            history: b"H".to_vec(),
             modes: 3,
             cwd: "/tmp/x".into(),
             records: BTreeMap::from([("k".into(), RawMessage(br#"{"a":1}"#.to_vec()))]),
@@ -303,27 +310,28 @@ fn full_state() -> State {
     }
 }
 
-/// FR-RSP-22: Rust 가 쓴 인계 상태는 Go 와 바이트가 같고, Go 가 쓴 인계 상태를 Rust 가 읽는다.
+/// 인계 상태의 바이트 꼴(판 2, PERF D-27). 판 1 까지는 Go 와 같은 바이트였다(FR-RSP-22). 판 2 는 도구마다
+/// 화면 상태 필드 셋을 늘 싣는다.
 #[test]
-fn state_json_matches_go() {
+fn state_json_shape() {
     assert_eq!(
         String::from_utf8(
             json::marshal(&State {
-                version: 1,
+                version: handover::VERSION,
                 ..State::default()
             })
             .unwrap()
         )
         .unwrap(),
-        GO_EMPTY
+        STATE_EMPTY
     );
     assert_eq!(
         String::from_utf8(json::marshal(&full_state()).unwrap()).unwrap(),
-        GO_FULL
+        STATE_FULL
     );
     let d = TempDir::new().unwrap();
-    let p = d.path().join("go-state");
-    std::fs::write(&p, GO_FULL).unwrap();
+    let p = d.path().join("state");
+    std::fs::write(&p, STATE_FULL).unwrap();
     assert_eq!(read_state(File::open(&p).unwrap()).unwrap(), full_state());
 }
 
@@ -537,12 +545,9 @@ async fn reload_busy_and_refusal_leave_tools_running() {
 
 /// FR-RSP-22: 한 데몬이 담은 인계 상태와 fd 로 다른 데몬(새 ToolManager·PanedServer)이 도구를
 /// 되살린다 — exec 를 뺀 handover 왕복이다. 되살린 도구는 같은 셸이고 입력이 닿는다.
-#[tokio::test(flavor = "multi_thread")]
-async fn handover_roundtrip_restores_tool() {
-    let r = rig();
-    r.tool.write(b"before\n").unwrap();
-    wait_output(&r.tool, "before");
-    let pid = r.tool.cmd_process_pid();
+/// 교체를 commit 까지 돌려 넘길 상태를 받는다. exec 는 하지 않고 되돌린 뒤 옛 관리자를 다시 멈춘다
+/// (같은 PTY 를 나눠 읽지 않게).
+async fn captured_state(r: &Rig) -> State {
     let got: Arc<Mutex<Option<State>>> = Arc::default();
     let g2 = Arc::clone(&got);
     let rl = r.reloader(Arc::new(move |_: &str, argv: &[String], _: &[String]| {
@@ -557,30 +562,91 @@ async fn handover_roundtrip_restores_tool() {
         *g2.lock().unwrap() = Some(st);
         std::io::Error::other("시험: exec 하지 않는다")
     }));
+    let commit = reload(&rl, req()).await.unwrap();
+    tokio::task::spawn_blocking(commit).await.unwrap();
+    assert!(r.pm.freeze_all().await);
+    got.lock().unwrap().take().unwrap()
+}
+
+/// 새 데몬 쪽 관리자를 세우고 상태를 되살린다.
+fn restored(st: &State) -> (TempDir, Arc<ToolManager>, PanedServer) {
+    let h2 = tempfile::Builder::new().prefix("dsk").tempdir().unwrap();
+    let pm2 = Arc::new(ToolManager::new(h2.path().to_str().unwrap(), None));
+    let ps2 = PanedServer::new(Arc::clone(&pm2), &h2.path().join("s"), None);
+    let (paned, report) = inherit_listeners(st).unwrap();
+    ps2.listen_inherited(paned, report, &h2.path().join("r"));
+    assert!(restore(&pm2, &ps2, st).is_empty());
+    (h2, pm2, ps2)
+}
+
+/// 화면 상태의 글자(기록 + 화면), 저장소 번호, 링 오프셋.
+fn screen_view(t: &Tool) -> (Vec<String>, u64, u64, i64) {
+    t.with_screen(|s, end| {
+        let hl = i32::try_from(s.history_len()).unwrap();
+        let rows = i32::from(s.size().1);
+        let texts = (-hl..rows)
+            .map(|l| {
+                let r = s.row(l).unwrap();
+                let t: String = r.cells.iter().map(|c| c.text.as_str()).collect();
+                t.trim_end().to_owned()
+            })
+            .collect();
+        (texts, s.store().first(), s.store().end(), end)
+    })
+    .unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn handover_roundtrip_restores_tool() {
+    let r = rig();
+    // 저장소까지 차도록 에뮬레이터 기록(1,000줄)을 넘게 쓴다.
+    // 터미널 입력 큐는 작다(macOS 약 1 KB) — 조금씩 쓰고 메아리를 기다린다.
+    for b in 0..75 {
+        let batch: String = (0..20).map(|i| format!("row {}\n", b * 20 + i)).collect();
+        r.tool.write(batch.as_bytes()).unwrap();
+        // 메아리 한 번 + cat 의 출력 한 번.
+        let last = format!("row {}\r\n", b * 20 + 19);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while String::from_utf8_lossy(&r.tool.stream().unwrap().snapshot().0)
+            .matches(&last)
+            .count()
+            < 2
+        {
+            assert!(Instant::now() < deadline, "{last:?} 가 두 번 나오지 않는다");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+    r.tool.write(b"before\n").unwrap();
+    wait_output(&r.tool, "before\r\nbefore");
+    let pid = r.tool.cmd_process_pid();
     // 옛 데몬의 데몬 전체 기록 하나.
     r.ps.import_global(&BTreeMap::from([(
         "k".to_owned(),
         RawMessage(b"\"v\"".to_vec()),
     )]));
-    let commit = reload(&rl, req()).await.unwrap();
-    tokio::task::spawn_blocking(commit).await.unwrap();
-    // exec 가 성공했다면 옛 이미지는 사라진다. 시험의 exec 는 실패해 되돌렸으므로 옛 관리자를
-    // 다시 멈춰 같은 PTY 를 나눠 읽지 않게 한다.
-    assert!(r.pm.freeze_all().await);
-    let st = got.lock().unwrap().take().unwrap();
+    let st = captured_state(&r).await;
+    let old = screen_view(&r.tool);
+    assert!(
+        old.2 > 0,
+        "저장소로 옮긴 줄이 없다 — 시험이 저장소를 지나지 않는다"
+    );
     assert_eq!(st.global.get("k").unwrap().0, b"\"v\"");
-    let screen = st.tools.as_ref().unwrap()[0].screen.clone();
-    assert!(String::from_utf8_lossy(&screen).contains("before"));
+    let ht = &st.tools.as_ref().unwrap()[0];
+    assert!(String::from_utf8_lossy(&ht.screen).contains("before"));
+    assert!(
+        !ht.screen_state.is_empty() && !ht.history.is_empty(),
+        "화면 상태를 담지 않았다"
+    );
 
-    let h2 = tempfile::Builder::new().prefix("dsk").tempdir().unwrap();
-    let pm2 = Arc::new(ToolManager::new(h2.path().to_str().unwrap(), None));
-    let ps2 = PanedServer::new(Arc::clone(&pm2), &h2.path().join("s"), None);
-    let (paned, report) = inherit_listeners(&st).unwrap();
-    ps2.listen_inherited(paned, report, &h2.path().join("r"));
-    assert!(restore(&pm2, &ps2, &st).is_empty());
+    let (_h2, pm2, ps2) = restored(&st);
     assert_eq!(ps2.export_global(), st.global);
     let t2 = pm2.get(&r.tool.id).expect("되살린 도구가 없다");
     assert_eq!(t2.cmd_process_pid(), pid);
+    assert_eq!(
+        screen_view(&t2),
+        old,
+        "화면·기록·저장소 번호·오프셋이 교체 전과 같아야 한다"
+    );
     t2.write(b"again\n").unwrap();
     wait_output(&t2, "again");
     // 두 관리자가 같은 셸의 마스터를 쥐고 있어 한쪽을 지워도 hangup 이 가지 않고, 대화형 셸은

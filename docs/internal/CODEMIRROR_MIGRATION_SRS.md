@@ -1,6 +1,7 @@
 # SRS: 편집기 엔진 교체 — Monaco 에서 CodeMirror 6 으로 — IEEE 29148
 
 > **문서 상태**: 승인·구현완료
+> **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1)**: 이 문서가 적은 것 가운데 M1 에서 지운 것 — 명령·사건 SSE(`/api/commands/sse`, `POST /api/command-result`). 지금 브라우저 탭은 채널(`/channel`) 하나로 명령(`cmd`)·상태 토픽·터미널을 주고받고, 상태를 알려고 주기적으로 GET 하지 않는다 — 대체 요구사항은 `PERF_OPTIMIZATION_SRS` FR-CON-1·7·8·10 과 D-9, 경로별 대응은 `perf/CHANNEL_PROTOCOL.md` §5.2·§8 이다. 본문의 옛 경로 서술은 당시 구조로 남긴다
 >
 > 단계 A(M1~M9)로 완료했다 — `main` 에 합침(`af77ddd1`, 2026-11-03). 단계 B(§3.15·§8)는 보류다: 필요해지면 별도 SRS 로 연다 (사용자 결정).
 
@@ -782,7 +783,7 @@ ruler·미니맵 표식이 "있는가" 를 e2e 가 재는 길: ruler 는 그린 
 
 | 모듈 | 책임 | 비고 |
 |---|---|---|
-| `web/js/git/diff-cm.js` | 순수: `gitDiffIgnoreWs(a, b)` — 줄마다 앞뒤 공백을 걷은 줄 diff(`edDiffLines`)를 원문 offset 의 `Change` 로 (FR-CMR-53) · `gitDiffRulerItems(chunks, side)` — 조각을 ruler 항목으로. CodeMirror: hunk 툴바 tooltip 필드 · 커서 관측 | 상한(`ED_DD_MAX_LINES`)을 넘으면 기본 `diff` 로 돌아간다 |
+| `web/js/git/diff-cm.js` | 순수: `gitDiffIgnoreWs(a, b)` — 줄마다 앞뒤 공백을 걷은 줄 diff(`edDiffLines`)를 원문 offset 의 `Change` 로 (FR-CMR-53) · `gitDiffRulerItems(chunks, side)` — 조각을 ruler 항목으로. CodeMirror: hunk 툴바 tooltip 필드 · 커서 관측 | 상한(`ED_DD_MAX_LINES`)을 넘으면 기본 `diff` 로 돌아간다. (**지금은 2026-11-25, PERF 3.2·3.4.11**: 상한은 편집 수 `GIT_DIFF_LINE_MAX_EDITS` 이고, 넘으면 `gitDiffBounded` 로 간다. Diff 뷰의 기본 diff 도 vendor 가 아니라 `gitDiffBounded`(줄 단위 먼저, 작은 덩어리만 글자 단위)다) |
 | `GitDiffView` (`diff-view.js`) | 폭이 `renderSideBySideInlineBreakpoint`(900px) 이상이면 `MergeView`, 미만이면 `unifiedMergeView` 편집기 하나(FR-CMR-50·51). 폭이 문턱을 넘으면 다시 세우고 위쪽 줄을 지킨다. 원본 쪽은 늘 읽기 전용(FR-CMR-54). 변경 없는 구간 접기는 `collapseUnchanged`(FR-CMR-52). 오른쪽 밖에 Diff 전체의 ruler(`.git-diff-ruler`, FR-CMR-57) | 핸들: `_cm = {kind:'split'\|'unified', a?, b, scroller}`. `_orig`·`_mod` 는 쪽의 표지다 (`lspPathOf`) |
 | `diff-view-doc.js` | 편집 가능한 축이면 수정본 편집기가 그 문서 버퍼의 칸이다 (`updateListener` → `EdBuffer.fromSink`, FR-CMR-54) — `GIT_DIFF_SHARES_DOC=true` 로 되돌린다 | 편집기 칸과 같은 실행 취소 규약(칸마다 따로) |
 | `diff-view-parity.js` | 설정 반영(줄바꿈·글자 크기 Compartment) · 찾기 패널은 포커스 쪽 편집기의 `edFindEngineCm` · `lspPathOf` | 미니맵 갈래를 걷는다 |

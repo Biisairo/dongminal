@@ -3,9 +3,9 @@
  *
  * ## 왜 있는가
  *
- * `web/index.html` 이 클래식 `<script>` 90여 개를 순서대로 싣고, 파일들은 전역
- * `class`/`function`/`const` 로 서로를 본다 (`type="module"` 0). 그 순서는
- * **암묵적이다** — 어디에도 적혀 있지 않고, 지키는 것도 없다.
+ * `web/index.html` 과 `web/bundles.txt`(서버 묶음, 아래) 가 클래식 스크립트 약 300개를 순서대로
+ * 싣고, 파일들은 전역 `class`/`function`/`const` 로 서로를 본다 (`type="module"` 0). 그 순서는
+ * 파일의 줄 순서일 뿐 **의존을 적지 않는다** — 이 검사기가 없으면 지키는 것도 없다.
  *
  * `02 FE-3` 이 그 대가를 적었다: **스크립트 한 줄을 옮기면 조용히
  * `ReferenceError` 가 난다.** 그것도 런타임에, 그 경로가 실행될 때만.
@@ -31,6 +31,12 @@
  * 데 있다 — `no-undef` 가 이름의 존재를 이미 보장하므로, 여기가 더하는 것은
  * **시각**뿐이다.
  *
+ * ## 순서는 어디서 오는가 (PERF D-33)
+ *
+ * 앱 스크립트는 묶음(`/b/<이름>.js`)으로 실리고, 묶음 안의 순서는 `web/bundles.txt` 가
+ * 정한다. 그래서 순서는 index.html 의 태그 순서에서 `b/<이름>.js` 를 그 묶음의 파일로 펼친
+ * 것이고, 페이지가 태그로 싣지 않는 묶음은 그 뒤에 정의 순서대로 잇는다.
+ *
  * 사용: node scripts/check-load-order.mjs
  */
 import { readFileSync } from 'node:fs';
@@ -39,15 +45,14 @@ import { fileURLToPath } from 'node:url';
 
 import * as espree from 'espree';
 
+import { loadOrder as pageLoadOrder, readBundles } from './bundles-def.mjs';
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const INDEX = join(ROOT, 'web', 'index.html');
 
-/** `index.html` 이 싣는 순서. 이 배열의 인덱스가 곧 "언제 선다" 이다. */
+/** 실리는 순서. 이 배열의 인덱스가 곧 "언제 선다" 이다. 정의가 어긋나면 던진다. */
 function loadOrder() {
-  const html = readFileSync(INDEX, 'utf8');
-  const out = [];
-  for (const m of html.matchAll(/<script\s+src="(js\/[^"?]+)/g)) out.push('web/' + m[1]);
-  return out;
+  return pageLoadOrder(readFileSync(INDEX, 'utf8'), readBundles(ROOT)).map((f) => 'web/' + f);
 }
 
 const PARSE = { ecmaVersion: 2022, sourceType: 'script', loc: true };
@@ -147,7 +152,11 @@ const parsed = [];
 for (let i = 0; i < files.length; i++) {
   const rel = files[i];
   let src = '';
-  try { src = readFileSync(join(ROOT, rel), 'utf8') } catch { continue }
+  try { src = readFileSync(join(ROOT, rel), 'utf8') } catch {
+    // 묶음은 파일 하나가 없으면 통째로 서지 않는다 (서버 bundles.rs).
+    console.error(`${rel}: 없는 파일을 싣는다 — web/bundles.txt 또는 index.html 을 고치세요`);
+    process.exit(1);
+  }
   let ast;
   try { ast = espree.parse(src, PARSE) } catch (e) {
     console.error(`${rel}: 파싱 실패 — ${e.message}`);
@@ -174,7 +183,7 @@ if (bad.length) {
     console.error(`  ${b.rel}:${b.line}  ${b.name}  ← ${b.decl} 가 나중에 선언합니다`);
   }
   console.error('');
-  console.error('  web/index.html 의 <script> 순서를 고치거나, 그 참조를 함수 안으로 옮기세요.');
+  console.error('  web/bundles.txt(또는 index.html 의 <script>) 순서를 고치거나, 그 참조를 함수 안으로 옮기세요.');
   console.error('  (함수 안은 호출 시점에 돌고, 그때는 모든 스크립트가 로드를 마쳤습니다.)');
   process.exit(1);
 }

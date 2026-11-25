@@ -7,7 +7,7 @@
  *
  * `MobileNav` 는 `MobileController` 의 부품이다(`mobile.nav`, REFACTOR3_FE_APPCTL_SRS 9c).
  *
- * 로드 순서 계약: mobile-sheets.js 뒤, main.js 앞.
+ * 로드 순서 계약: mobile 묶음에서 mobile-sheets.js 뒤 (PERF 3.4.12.8).
  */
 class MobileNav extends Controller {
   /**

@@ -10,6 +10,11 @@ publish = false
 workspace = true
 
 [dependencies]
+otter-shared-cadence = { path = "../../../shared/cadence" }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true }

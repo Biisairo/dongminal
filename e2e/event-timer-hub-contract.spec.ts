@@ -22,7 +22,7 @@ declare const EventBus: any;
 // T-3·T-4 는 `version-autoreload.spec.ts` (TC-RLC-25·27), T-8·T-9 는
 // `slot-view-state.spec.ts` (TC-SVS-22·53) 가 이미 재고 있다 — 다시 쓰지 않는다.
 //
-// 재는 방식은 `sse-resilience.spec.ts` 의 관용구를 따른다: 빈 페이지에 대상
+// 재는 방식은 지운 `sse-resilience.spec.ts`(PERF M1 C2a 에서 SSE 와 함께 없어졌다)의 관용구를 따른다: 빈 페이지에 대상
 // 파일만 얹고 계약만 시험한다. 앱을 통째로 띄우면 무엇이 계약이고 무엇이 우연인지
 // 구분되지 않는다.
 
@@ -33,6 +33,8 @@ const WEB = join(process.cwd(), 'web', 'js');
 const API_JS = join(WEB, 'core', 'api.js');
 // REFACTOR3_FE_APPCTL_SRS 9j: 원격 커맨드는 `ToolController` 의 부품 `ToolCmd`(옛 `app-cmd.js`)이고 App 원형에는 위임자가 선다.
 const TOOL_CMD_JS = join(WEB, 'core', 'tool-cmd.js');
+// PERF 3.4.12.5: 그 껍데기는 로드 시점에 `remote` 묶음을 등록한다 — 등록부가 앞이다.
+const SCREENS_JS = join(WEB, 'core', 'screens.js');
 // SSE 배선(`_subscribeCommands`)과 `_sse` 껍데기는 `ws-sync-controller.js` 에 있다 (REFACTOR PROD2 §8).
 // REFACTOR3_FE_APPCTL_SRS 9f: 그 본체는 `WsSyncController`(부품 `SoftReload`)이고 App 원형에는 위임자가 선다.
 // 기반(`Component` → `Controller`)을 앞에 싣고, 대역을 만든 뒤 `wsSync` 를 세운다.
@@ -44,14 +46,14 @@ const TIMER_HUB_JS = join(WEB, 'core', 'timer-hub.js');
 /**
  * git 상수는 **여러 파일**이다 (FE_MODULE_BOUNDARY_SRS FR-FMB-1) — 탭별로 갈렸다.
  *
- * 목록을 여기 손으로 적지 않고 `index.html` 의 순서에서 **파생시킨다.** 손으로
- * 적으면 상수 하나가 다른 절로 옮겨 갈 때 이 하네스가 조용히 죽는다 — 실제로
+ * 목록을 여기 손으로 적지 않고 묶음 정의 `web/bundles.txt` 의 순서에서 **파생시킨다.**
+ * 손으로 적으면 상수 하나가 다른 절로 옮겨 갈 때 이 하네스가 조용히 죽는다 — 실제로
  * 그렇게 죽었다(`GIT_FAIL_BACKOFF_MAX_MS` 가 `constants-git-detect.js` 로 갔다).
- * 합성 페이지는 index.html 의 로드 순서를 물려받지 않으므로 그 순서를 읽어 쓴다.
+ * index.html 은 이제 묶음(`b/<이름>.js`)만 싣는다 (PERF D-29) — 개별 태그에서 읽던 종전
+ * 파생은 빈 목록이 되어 `GIT_STATUS_RETRY_MS` 없이 git-poll.js 를 실었다.
  */
 const CONST_GIT_JS = [
-  ...readFileSync(join(process.cwd(), 'web', 'index.html'), 'utf8')
-    .matchAll(/<script src="js\/core\/(constants-git[\w.-]*)\.js\?/g),
+  ...readFileSync(join(process.cwd(), 'web', 'bundles.txt'), 'utf8').matchAll(/^js\/core\/(constants-git[\w.-]*)\.js$/gm),
 ].map((m) => join(WEB, 'core', `${m[1]}.js`));
 // OPTIMIZE_REFACTOR_SRS FR-OPT-12-5: git 경로 표는 constants-git*.js 가 로드 시점에 딛고,
 // git 조회는 `gitFetch`(git/api.js) 한 길이다. 합성 페이지도 그 둘을 싣는다.
@@ -113,6 +115,7 @@ async function loadRestoreProtocol(page: Page) {
   await page.addScriptTag({ path: API_JS });
   await page.addScriptTag({ path: COMPONENT_JS });
   await page.addScriptTag({ path: BASE_CONTROLLER_JS });
+  await page.addScriptTag({ path: SCREENS_JS });
   await page.addScriptTag({ path: TOOL_CMD_JS });
   await page.addScriptTag({ path: APP_WS_SYNC_JS });
   await page.addScriptTag({ path: SOFT_RELOAD_JS });
@@ -258,6 +261,8 @@ async function loadPanelPoll(page: Page) {
       _staleNote = false;
       _obsSig = null as any;
       _pollOn = false;
+      // PERF M3 §3.5: 탭 본문으로 깬 패널이다 — 폴링 판정이 이것을 본다.
+      _bodyAwake = true;
       // POLL_INTERVAL_SETTINGS_SRS FR-PIS-1: signature 폴링 계층이 사라졌다 —
       // `_sigPoll` 도 함께 걷는다.
       _stPoll = null as any;
@@ -265,7 +270,7 @@ async function loadPanelPoll(page: Page) {
       app = {
         // 소유 경로의 대역 (REFACTOR3_FE_DELEG_SRS FR-DLG-5).
         git: {
-          gitWindow: () => ({ id: 'w1' }), surfaces: { gitSurfaceOn: () => true },
+          gitWindow: () => ({ id: 'w1' }), surfaces: { gitSideOn: () => true },
           topics: new ((window as any).eval('GitTopics'))({ onChange() {}, onJobs() {} }),
         },
         editor: { edWindowFor: () => ({ id: 'w1' }) },

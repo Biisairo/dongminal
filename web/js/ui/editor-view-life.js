@@ -1,0 +1,26 @@
+/**
+ * Otterminal — 편집기·문서 렌더 뷰의 생명주기가 함께 쓰는 문서 단위 관측 (PERF M3 §3.5 · FR-SPA-3)
+ *
+ * 렌더러가 탭 본문의 주인으로 `wake`·`sleep` 을 부른다(`ScreenLife`). 처음 보일 때의 `wake` 는 할 일이 없다.
+ *
+ * 놓는 것은 관측·그리기뿐이다. 내용·커서·선택·실행 취소는 칸의 `EditorState` 에 있고, 칸은 버퍼에서 떼지 않는다 —
+ * 떼었다 다시 붙이면 버퍼가 내용을 통째로 갈아 끼워 실행 취소 기록을 잃는다. LSP 연결도 그대로 둔다.
+ *
+ *   이전: 가려진 편집기도 찾기를 끝까지 셌고, 진단·변경 표시를 그렸고, 문서는 바깥 변경을 감시·재읽기했다.
+ *         가려진 렌더 탭은 버퍼를 구독해 편집마다 타이머를 걸었다
+ *   새:   가려지고 2초 뒤 잠들면 놓는다. 깨면 남은 찾기를 이어 끝내고 밀린 것을 한 번 그린다. 문서의 뷰가 모두
+ *         잠들면 바깥 변경 관측에서 빠지고, 첫 뷰가 깰 때 감시를 맞추고 stamp 를 한 번 묻는다
+ *   이유: 잠든 화면은 구독·타이머·그리기를 하지 않고, 깨면 필요한 상태를 다시 받아 그린다 (FR-SPA-3·D-36)
+ *
+ * 뷰마다의 `sleep`·`wake` 는 묶음 쪽에 있다 — 편집기 칸은 `editor` 묶음의 `file-editor-life.js`(PERF 3.4.7),
+ * 문서 렌더 뷰는 `docrender` 묶음의 `doc-render-life.js`(PERF 3.4.8). 둘이 여기의 `edViewLifeDoc` 을 부른다.
+ */
+
+// 문서 단위의 관측을 맞춘다. 마지막 깬 뷰가 잠들면 감시 집합을 줄이고, 첫 뷰가 깨면 감시를 되살리고 바깥 변경을 묻는다.
+function edViewLifeDoc(view, wasAsleep) {
+  const open = app.editor.open;
+  const now = open.edDocAsleep(view._doc);
+  if (now === wasAsleep) return;
+  app.editor.watch.edWatchSync();
+  if (!now) open.edPollDocStamps();
+}

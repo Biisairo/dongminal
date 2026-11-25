@@ -23,9 +23,6 @@ use crate::req::Req;
 /// 동시에 도는 관측 수의 상한이다 (FR-GOB-3).
 const OBSERVE_MAX: usize = 4;
 
-/// Repo 탭이 핀 전부에 쥐는 임대의 갈래다 (FR-OPT-4-3).
-const PINS_SCOPE: &str = "pins";
-
 #[derive(Default, Deserialize)]
 #[serde(default, rename = "gitapi.gitPathReq")]
 struct PathReq {
@@ -33,24 +30,16 @@ struct PathReq {
 }
 
 impl GitServer {
-    /// GET /api/git/repos[?observe=1|0&clientId=] — 핀 목록과 각 배지 (FR-FLW-2, FR-GOB-1).
+    /// GET /api/git/repos[?observe=1] — 핀 목록과 각 배지 (FR-FLW-2, FR-GOB-1).
     pub(crate) async fn api_git_repos(&self, r: &mut Req) -> Response {
         let Some(git) = self.git.clone() else {
             return crate::reply::git_unavailable();
         };
         let pins = self.git_pins_read();
-        match r.q("observe").as_str() {
-            "1" => {
-                if let Ok(pins) = &pins {
-                    self.git_observe_pins(&git, r, pins, &r.q("clientId")).await;
-                }
-            }
-            "0" => {
-                if let Some(w) = &self.watch {
-                    w.release_scope(&r.q("clientId"), PINS_SCOPE);
-                }
-            }
-            _ => {}
+        if r.q("observe") == "1"
+            && let Ok(pins) = &pins
+        {
+            self.git_observe_pins(&git, r, pins).await;
         }
         let pinned = self.git_pinned_entries(&git, r, pins.as_deref().ok()).await;
         git_json(StatusCode::OK, &obj! {"pinned" => pinned})
@@ -58,7 +47,7 @@ impl GitServer {
 
     /// 핀된 저장소 전부를 관측해 배지의 근거를 새로 만든다 (FR-GOB-1~4). 실패는 삼킨다.
     /// 요청이 떠나면 남은 관측을 시작하지 않는다 (FR-GOB-6).
-    async fn git_observe_pins(&self, git: &Arc<Store>, r: &Req, pins: &[String], client_id: &str) {
+    async fn git_observe_pins(&self, git: &Arc<Store>, r: &Req, pins: &[String]) {
         let ctx = &r.ctx;
         each(ctx.token(), OBSERVE_MAX, pins.len(), |i| {
             let pin = &pins[i];
@@ -71,7 +60,7 @@ impl GitServer {
                     Err(_) => git.forget_root(pin),
                     Ok(obs) => {
                         if let Some(w) = &self.watch {
-                            w.note_scoped(&root, &obs, client_id, PINS_SCOPE);
+                            w.note(&root, &obs);
                         }
                     }
                 }
@@ -190,9 +179,9 @@ impl GitServer {
             (Ok(obs), cached) => (obs, cached),
             (Err(e), _) => return git_error(&e),
         };
-        // 이 요청이 곧 관심 표명이다 (FR-GPO-10 · FR-GWL-1·9).
+        // 이 요청이 곧 관심 표명이다 (FR-GPO-10).
         if let Some(w) = &self.watch {
-            w.note_for(&root, &obs, &r.q("clientId"));
+            w.note(&root, &obs);
         }
         let actions = match self.repo_actions(&git, &r.ctx, &root, &obs.status).await {
             Ok(a) => a,

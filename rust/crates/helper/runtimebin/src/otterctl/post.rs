@@ -73,6 +73,8 @@ pub(crate) fn otterctl_delivery(ctx: &mut Ctx<'_>, prefix: &str, resp: &[u8]) ->
         delivered: Option<i64>,
         #[serde(rename = "timedOut")]
         timed_out: Option<bool>,
+        #[serde(rename = "execClientId")]
+        exec_client_id: String,
     }
     let Ok(got) = json::unmarshal::<Got>(resp) else {
         return 0;
@@ -92,6 +94,9 @@ pub(crate) fn otterctl_delivery(ctx: &mut Ctx<'_>, prefix: &str, resp: &[u8]) ->
             ctx,
             "{prefix}: 브라우저가 결과를 답하지 않았습니다 — 만들어지지 않았을 수 있습니다. list-workspace 로 확인하세요\n"
         );
+        if !got.exec_client_id.is_empty() {
+            errf!(ctx, "{prefix}: 지정 실행자 = {}\n", got.exec_client_id);
+        }
         return 1;
     }
     0

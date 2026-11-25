@@ -4,25 +4,34 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::io;
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering::SeqCst};
+use std::sync::{
+    Arc, Condvar, Mutex, MutexGuard, OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak,
+};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use otter_gocompat::filepath;
 use otter_gocompat::json::{self, RawMessage};
 use otter_shared_activity as activity;
+use otter_shared_cadence::FOREGROUND_SETTLE;
 use otter_shared_otterenv as otterenv;
-use otter_shared_otterlog::{errorf, infof, warnf};
+use otter_shared_otterlog::{debugf, errorf, infof, warnf};
 use otter_shared_outbuf::Stream;
 use otter_shared_platform::{ProcInfo, ProcSpec, Terminal};
+use otter_shared_termlimit::SCREEN_IDLE_COMPACT;
 use serde::{Deserialize, Serialize};
+use tokio::sync::Notify;
+use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
-use crate::tool::{ActivityFn, AttentionFn, ClearFn, ExitFn, SizeFn, attn_busy_many, attn_now};
+use crate::tool::{
+    ActivityFn, AttentionFn, ClearFn, ClockFn, ExitFn, SizeFn, attn_busy_many, attn_now,
+};
 use crate::{
-    ActivitySnap, AgentState, BUF_MAX, BackgroundEntry, ShellState, Tool, ToolHooks, ToolInfo,
-    ToolSnapshot, attention_allow_bell, attention_idle_threshold, judge_shell,
+    ActivitySnap, AgentState, BUF_MAX, BackgroundEntry, HISTORY_CAP, ShellState, Tool, ToolHistory,
+    ToolHooks, ToolInfo, ToolScreen, ToolSnapshot, attention_allow_bell, attention_idle_threshold,
+    judge_shell,
 };
 
 /// 도구 수 상한이다 (M8 D-A-16).
@@ -36,8 +45,6 @@ const SEAL_WAIT: Duration = Duration::from_secs(5);
 const SEAL_POLL: Duration = Duration::from_millis(10);
 /// 붙여넣기와 제출(CR) 사이의 간격이다 (BRACKETED_PASTE_SRS).
 pub const PASTE_SUBMIT_DELAY: Duration = Duration::from_millis(120);
-/// 도구별 전경 이름 재조회 주기다 (FR-TAN-8).
-pub const FOREGROUND_REFRESH_INTERVAL: Duration = Duration::from_secs(2);
 const FG_NAME_MAX: usize = 16;
 const FG_SHELL_NAMES: [&str; 5] = ["sh", "bash", "zsh", "fish", "dash"];
 const PASTE_BEGIN: &[u8] = b"\x1b[200~";
@@ -117,6 +124,15 @@ pub struct HandoverTool {
     #[serde(with = "json::bytes", skip_serializing_if = "json::is_empty")]
     pub screen: Vec<u8>,
     pub offset: i64,
+    /// 화면 상태 스냅숏(PERF D-27, 인계 판 2).
+    #[serde(rename = "screenState", with = "json::bytes")]
+    pub screen_state: Vec<u8>,
+    /// 스냅숏이 싣지 않은 끝나지 않은 바이트 수다. 링의 마지막 그만큼을 이어 넣는다.
+    #[serde(rename = "screenBack")]
+    pub screen_back: u64,
+    /// 줄 저장소 그림(블록과 절대 줄 번호).
+    #[serde(with = "json::bytes")]
+    pub history: Vec<u8>,
     #[serde(skip_serializing_if = "json::is_empty")]
     pub modes: u64,
     #[serde(skip_serializing_if = "json::is_empty")]
@@ -157,6 +173,8 @@ struct State {
     placer: Option<PlacerFn>,
     idle_threshold: i64,
     allow_bell: bool,
+    /// 줄 저장소 상한(D-25 `termHistoryLines`). 도구를 등록할 때마다 얹는다.
+    history_lines: usize,
     attn_notify: Option<AttentionFn>,
     attn_clear: Option<ClearFn>,
     activity_notify: Option<ActivityFn>,
@@ -172,7 +190,9 @@ struct SaveState {
 
 #[derive(Default)]
 struct FgState {
-    cache: HashMap<String, (String, Instant)>,
+    cache: HashMap<String, String>,
+    /// 도구별 마지막 전경 pgid 와 그 프로세스 이름이다. pgid 가 같으면 이름을 다시 묻지 않는다(Q3).
+    procs: HashMap<String, (i32, String)>,
     notify: Option<ForegroundFn>,
     probe: Option<ForegroundProbeFn>,
 }
@@ -188,6 +208,19 @@ struct Inner {
     fg: Mutex<FgState>,
     fg_flight: Mutex<()>,
     sz_notify: Arc<Mutex<Option<SizeFn>>>,
+    /// 화면이 처음 바뀐 도구가 유휴 비우기 작업을 깨운다(D-53).
+    compact_wake: Arc<Notify>,
+    compact_idle: Duration,
+    compact_wakes: AtomicU64,
+    /// 입출력이 있은 도구가 전경 정착 작업을 깨운다(D1).
+    fg_wake: Arc<Notify>,
+    /// 무장이 처음 선 도구가 L2 유휴 판정 작업을 깨운다(D2).
+    attn_wake: Arc<Notify>,
+    /// 판정 임계가 바뀌면 L2 유휴 판정 작업을 깨운다.
+    attn_config_wake: Notify,
+    attn_wakes: AtomicU64,
+    /// L2 유휴 판정의 시계다. 비어 있으면 [`attn_now`] 다(검사가 가짜 시계를 건다).
+    attn_clock: OnceLock<ClockFn>,
 }
 
 /// 데몬 안의 도구 등록부다. 값을 복제해 나눠 쓴다.
@@ -196,12 +229,22 @@ pub struct ToolManager {
     inner: Arc<Inner>,
 }
 
+/// 유휴 비우기 시간이다: `OTTERMINAL_SCREEN_IDLE_COMPACT_MS`(검사용) 또는 [`SCREEN_IDLE_COMPACT`].
+fn screen_idle_compact() -> Duration {
+    otterenv::millis_env(otterenv::ENV_SCREEN_IDLE_COMPACT_MS, SCREEN_IDLE_COMPACT, 1)
+}
+
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 fn now_nanos() -> i64 {
     attn_now()
+}
+
+/// 도구의 정착 창이 now 에 찼는가다(D1).
+fn fg_settled(p: &Tool, now: Instant) -> bool {
+    p.fg_due(FOREGROUND_SETTLE).is_some_and(|t| t <= now)
 }
 
 impl ToolManager {
@@ -243,6 +286,7 @@ impl ToolManager {
                     idle_threshold: i64::try_from(attention_idle_threshold().as_nanos())
                         .unwrap_or(i64::MAX),
                     allow_bell: attention_allow_bell(),
+                    history_lines: HISTORY_CAP,
                     attn_notify: None,
                     attn_clear: None,
                     activity_notify: None,
@@ -257,6 +301,14 @@ impl ToolManager {
                 fg: Mutex::new(FgState::default()),
                 fg_flight: Mutex::new(()),
                 sz_notify: Arc::new(Mutex::new(None)),
+                compact_wake: Arc::new(Notify::new()),
+                compact_idle: screen_idle_compact(),
+                compact_wakes: AtomicU64::new(0),
+                fg_wake: Arc::new(Notify::new()),
+                attn_wake: Arc::new(Notify::new()),
+                attn_config_wake: Notify::new(),
+                attn_wakes: AtomicU64::new(0),
+                attn_clock: OnceLock::new(),
             }),
         }
     }
@@ -441,7 +493,9 @@ impl ToolManager {
         p.set_sandboxed(!place.profile.is_empty());
         st.tools.insert(id.clone(), Arc::clone(&p));
         infof!(None, "[tool {id}] registered total={}", st.tools.len());
+        let cap = st.history_lines;
         drop(st);
+        self.enroll(&p, cap);
         self.mark_mutated();
         self.save_async();
         // 등록보다 먼저 끝난 프로세스는 종료 경로를 한 번 더 지나게 한다.
@@ -534,7 +588,9 @@ impl ToolManager {
         let p = res?;
         st.tools.insert(id.to_string(), Arc::clone(&p));
         infof!(None, "[tool {id}] restored total={}", st.tools.len());
+        let cap = st.history_lines;
         drop(st);
+        self.enroll(&p, cap);
         self.reap_if_exited(&p);
         Ok(())
     }
@@ -544,7 +600,12 @@ impl ToolManager {
         if p.id.is_empty() {
             return;
         }
-        self.wr().tools.insert(p.id.clone(), p);
+        let cap = {
+            let mut st = self.wr();
+            st.tools.insert(p.id.clone(), Arc::clone(&p));
+            st.history_lines
+        };
+        self.enroll(&p, cap);
     }
 
     /// 프로세스 없는 도구를 만들어 등록한다.
@@ -792,6 +853,30 @@ impl ToolManager {
     }
 
     /// since 에서 이어 붙일 수 있으면 그 뒤만, 아니면 전량이다 (FR-TRS-2~4). 없는 도구는 빈 값이다.
+    /// 화면 상태 스냅숏이다 (PERF FR-TRM-4). 없는 도구·터미널 없는 도구는 `None`.
+    pub fn screen_tool(&self, id: &str, history: usize) -> Option<ToolScreen> {
+        self.get(id)?.screen(history)
+    }
+
+    /// 화면 상태의 글자다(read-screen, FR-TRM-8, D-22). 없는 도구·터미널 없는 도구는 `None`.
+    pub fn screen_text_tool(&self, id: &str, bytes: usize) -> Option<String> {
+        self.get(id)?.screen_text(bytes)
+    }
+    /// 줄 저장소의 기록 구간이다 (PERF FR-TRM-5). 없는 도구·터미널 없는 도구는 `None`.
+    pub fn history_tool(&self, id: &str, before: u64, count: usize) -> Option<ToolHistory> {
+        self.get(id)?.history(before, count)
+    }
+    /// 줄 저장소 검색(D-21)이다. 없는 도구·터미널이 없는 도구는 `None` 이다.
+    pub fn search_tool(
+        &self,
+        id: &str,
+        q: &crate::Query,
+        before: u64,
+        limit: usize,
+    ) -> Option<Vec<crate::SearchHit>> {
+        self.get(id)?.search(q, before, limit)
+    }
+
     pub fn snapshot_tool_since(&self, id: &str, since: i64) -> ToolSnapshot {
         let Some(p) = self.get(id) else {
             return ToolSnapshot::default();
@@ -964,37 +1049,155 @@ impl ToolManager {
         }
     }
 
-    /// period 마다 sweep_idle 을 돈다. cancel 로 멈춘다.
+    /// L2 유휴 판정 작업이다(설계 §1 D2). 임계가 0 이면 임계가 바뀌기만 기다리고, 아니면 무장한
+    /// 도구 가운데 가장 이른 `마지막 출력 + 임계` 까지 잔다. 무장한 도구가 없으면 무장을 기다린다.
+    /// 깨면 blocking 스레드에서 sweep_idle 을 한 번 돈다. cancel 로 멈춘다.
     pub fn spawn_attention_sweeper(
         &self,
         cancel: CancellationToken,
-        period: Duration,
     ) -> tokio::task::JoinHandle<()> {
         let m = self.clone();
         tokio::spawn(async move {
-            let mut tick = tokio::time::interval_at(tokio::time::Instant::now() + period, period);
             loop {
-                tokio::select! {
-                    _ = tick.tick() => {
-                        let m = m.clone();
-                        let _ = tokio::task::spawn_blocking(move || m.sweep_idle(attn_now())).await;
+                let th = m.rd().idle_threshold;
+                let next = m.snapshot().iter().filter_map(|p| p.idle_due(th)).min();
+                let woke = async {
+                    let config = m.inner.attn_config_wake.notified();
+                    let armed = m.inner.attn_wake.notified();
+                    match next {
+                        _ if th <= 0 => config.await,
+                        Some(at) => {
+                            let wait =
+                                u64::try_from(at.saturating_sub(m.attn_clock())).unwrap_or(0);
+                            tokio::select! {
+                                () = tokio::time::sleep(Duration::from_nanos(wait)) => {}
+                                () = armed => {}
+                                () = config => {}
+                            }
+                        }
+                        None => tokio::select! {
+                            () = armed => {}
+                            () = config => {}
+                        },
                     }
+                };
+                tokio::select! {
+                    () = woke => {}
                     () = cancel.cancelled() => return,
                 }
+                m.inner.attn_wakes.fetch_add(1, SeqCst);
+                let m = m.clone();
+                let _ = tokio::task::spawn_blocking(move || m.sweep_idle(m.attn_clock())).await;
             }
         })
     }
 
+    fn attn_clock(&self) -> i64 {
+        self.inner.attn_clock.get().map_or_else(attn_now, |f| f())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_attn_clock(&self, f: ClockFn) {
+        let _ = self.inner.attn_clock.set(f);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn attn_wakes(&self) -> u64 {
+        self.inner.attn_wakes.load(SeqCst)
+    }
+
+    /// 유휴 비우기 작업이다(D-50·D-53). 바뀐 화면이 없으면 깨우개만 기다리고, 있으면 가장 이른
+    /// `마지막 바뀜 + 유휴 시간` 까지 잔다. 깨면 시간이 찬 도구를 blocking 스레드에서 비운다.
+    /// 비운 뒤 다시 바뀌지 않으면 깨지 않는다. cancel 로 멈춘다.
+    pub fn spawn_screen_compactor(&self, cancel: CancellationToken) -> tokio::task::JoinHandle<()> {
+        let m = self.clone();
+        tokio::spawn(async move {
+            let idle = m.inner.compact_idle;
+            let wake = Arc::clone(&m.inner.compact_wake);
+            loop {
+                let next = m
+                    .snapshot()
+                    .iter()
+                    .filter_map(|p| p.compact_due(idle))
+                    .min();
+                let woke = async {
+                    match next {
+                        Some(at) => tokio::select! {
+                            () = tokio::time::sleep_until(at) => {}
+                            () = wake.notified() => {}
+                        },
+                        None => wake.notified().await,
+                    }
+                };
+                tokio::select! {
+                    () = woke => {}
+                    () = cancel.cancelled() => return,
+                }
+                m.inner.compact_wakes.fetch_add(1, SeqCst);
+                let now = Instant::now();
+                let due: Vec<Arc<Tool>> = m
+                    .snapshot()
+                    .into_iter()
+                    .filter(|p| p.compact_due(idle).is_some_and(|t| t <= now))
+                    .collect();
+                if due.is_empty() {
+                    continue;
+                }
+                let _ = tokio::task::spawn_blocking(move || {
+                    for p in due {
+                        if p.compact_if_idle(now, idle) {
+                            debugf!(None, "[tool {}] 유휴 기록 비움", p.id);
+                        }
+                    }
+                })
+                .await;
+            }
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn compact_wakes(&self) -> u64 {
+        self.inner.compact_wakes.load(SeqCst)
+    }
+
+    /// 등록한 도구에 기록 줄 수 설정과 유휴 비우기·L2 유휴 판정 깨우개를 건다.
+    fn enroll(&self, p: &Tool, cap: usize) {
+        p.set_history_lines(cap);
+        p.set_compact_wake(&self.inner.compact_wake);
+        p.set_fg_wake(&self.inner.fg_wake);
+        p.set_attn_wake(&self.inner.attn_wake);
+    }
+
     /// 판정 설정을 바꾼다. allow_bell 은 이미 있는 도구에도 반영된다.
     pub fn set_attention_config(&self, idle: Duration, allow_bell: bool) {
+        let th = i64::try_from(idle.as_nanos()).unwrap_or(i64::MAX);
+        let (tools, changed) = {
+            let mut st = self.wr();
+            let changed = std::mem::replace(&mut st.idle_threshold, th) != th;
+            st.allow_bell = allow_bell;
+            (st.tools.values().cloned().collect::<Vec<_>>(), changed)
+        };
+        if changed {
+            self.inner.attn_config_wake.notify_one();
+        }
+        for p in tools {
+            p.set_allow_bell(allow_bell);
+        }
+    }
+
+    pub fn history_lines(&self) -> usize {
+        self.rd().history_lines
+    }
+
+    /// 기록 줄 수 설정(D-25)을 모든 도구의 줄 저장소 상한으로 얹는다. 뒤에 등록되는 도구도 따른다.
+    pub fn set_history_lines(&self, lines: usize) {
         let tools: Vec<Arc<Tool>> = {
             let mut st = self.wr();
-            st.idle_threshold = i64::try_from(idle.as_nanos()).unwrap_or(i64::MAX);
-            st.allow_bell = allow_bell;
+            st.history_lines = lines;
             st.tools.values().cloned().collect()
         };
         for p in tools {
-            p.set_allow_bell(allow_bell);
+            p.set_history_lines(lines);
         }
     }
 
@@ -1021,32 +1224,55 @@ impl ToolManager {
         lock(&self.inner.fg).probe = probe;
     }
 
+    /// 전경 이름이다. 처음 보는 도구와 정착 창이 찬 도구만 새로 묻는다.
     pub fn foreground_names(&self) -> HashMap<String, String> {
-        self.refresh_foreground_at(Instant::now());
+        let now = Instant::now();
+        self.refresh_foreground_if(|p, cached| !cached || fg_settled(p, now));
         self.cached_foreground_names()
     }
 
+    /// 모든 도구의 전경 이름을 지금 묻는다.
     pub fn refresh_foreground(&self) {
-        self.refresh_foreground_at(Instant::now());
+        self.refresh_foreground_if(|_, _| true);
     }
 
-    /// period 마다 전경 이름을 갱신한다. cancel 로 멈춘다.
+    /// 전경 이름 정착 작업이다(D1). 입출력이 없으면 깨우개만 기다리고, 있으면 가장 이른
+    /// `처음 입출력 + 정착 창` 까지 잔다. 깨면 창이 찬 도구만 blocking 스레드에서 묻는다. cancel 로 멈춘다.
     pub fn spawn_foreground_refresh(
         &self,
         cancel: CancellationToken,
-        period: Duration,
     ) -> tokio::task::JoinHandle<()> {
         let m = self.clone();
         tokio::spawn(async move {
-            let mut tick = tokio::time::interval_at(tokio::time::Instant::now() + period, period);
+            let wake = Arc::clone(&m.inner.fg_wake);
             loop {
-                tokio::select! {
-                    _ = tick.tick() => {
-                        let m = m.clone();
-                        let _ = tokio::task::spawn_blocking(move || m.refresh_foreground()).await;
+                let next = m
+                    .snapshot()
+                    .iter()
+                    .filter_map(|p| p.fg_due(FOREGROUND_SETTLE))
+                    .min();
+                let woke = async {
+                    match next {
+                        Some(at) => tokio::select! {
+                            () = tokio::time::sleep_until(at) => {}
+                            () = wake.notified() => {}
+                        },
+                        None => wake.notified().await,
                     }
+                };
+                tokio::select! {
+                    () = woke => {}
                     () = cancel.cancelled() => return,
                 }
+                let now = Instant::now();
+                if !m.snapshot().iter().any(|p| fg_settled(p, now)) {
+                    continue;
+                }
+                let m = m.clone();
+                let _ = tokio::task::spawn_blocking(move || {
+                    m.refresh_foreground_if(|p, _| fg_settled(p, now));
+                })
+                .await;
             }
         })
     }
@@ -1055,31 +1281,32 @@ impl ToolManager {
         lock(&self.inner.fg)
             .cache
             .iter()
-            .filter(|(_, (n, _))| !n.is_empty())
-            .map(|(id, (n, _))| (id.clone(), n.clone()))
+            .filter(|(_, n)| !n.is_empty())
+            .map(|(id, n)| (id.clone(), n.clone()))
             .collect()
     }
 
-    fn refresh_foreground_at(&self, now: Instant) {
+    /// pick(도구, 캐시에 있음) 이 참인 도구의 전경 이름을 묻고, 바뀐 것을 알린다.
+    fn refresh_foreground_if(&self, pick: impl Fn(&Tool, bool) -> bool) {
         let _flight = lock(&self.inner.fg_flight);
         let live = self.snapshot();
         let (stale, notify, probe) = {
             let mut fg = lock(&self.inner.fg);
             let alive: HashSet<&str> = live.iter().map(|p| p.id.as_str()).collect();
             fg.cache.retain(|id, _| alive.contains(id.as_str()));
+            fg.procs.retain(|id, _| alive.contains(id.as_str()));
             let stale: Vec<Arc<Tool>> = live
                 .iter()
-                .filter(|p| {
-                    fg.cache.get(&p.id).is_none_or(|(_, at)| {
-                        now.saturating_duration_since(*at) >= FOREGROUND_REFRESH_INTERVAL
-                    })
-                })
+                .filter(|p| pick(p, fg.cache.contains_key(&p.id)))
                 .cloned()
                 .collect();
             (stale, fg.notify.clone(), fg.probe.clone())
         };
         if stale.is_empty() {
             return;
+        }
+        for p in &stale {
+            p.take_fg_io();
         }
         let mut names = match probe {
             Some(f) => f(&stale.iter().map(|p| p.id.clone()).collect::<Vec<_>>()),
@@ -1105,15 +1332,10 @@ impl ToolManager {
             let mut fg = lock(&self.inner.fg);
             for p in &stale {
                 let name = names.get(&p.id).cloned().unwrap_or_default();
-                let prev = fg
-                    .cache
-                    .get(&p.id)
-                    .map(|(n, _)| n.clone())
-                    .unwrap_or_default();
-                if prev != name {
-                    changed.push((p.id.clone(), name.clone()));
+                let prev = fg.cache.insert(p.id.clone(), name.clone());
+                if prev.unwrap_or_default() != name {
+                    changed.push((p.id.clone(), name));
                 }
-                fg.cache.insert(p.id.clone(), (name, now));
             }
         }
         if let Some(f) = notify {
@@ -1134,11 +1356,29 @@ impl ToolManager {
                 hits.push((p.id.clone(), pgid));
             }
         }
-        let pids: Vec<i32> = hits.iter().map(|(_, pid)| *pid).collect();
-        let names = self.inner.info.names(&pids);
+        let ask: Vec<i32> = {
+            let fg = lock(&self.inner.fg);
+            hits.iter()
+                .filter(|(id, pgid)| fg.procs.get(id).is_none_or(|(seen, _)| seen != pgid))
+                .map(|(_, pgid)| *pgid)
+                .collect()
+        };
+        let looked = if ask.is_empty() {
+            HashMap::new()
+        } else {
+            self.inner.info.names(&ask)
+        };
+        let mut fg = lock(&self.inner.fg);
         hits.into_iter()
-            .filter_map(|(id, pid)| {
-                let n = derived_name(names.get(&pid).map_or("", String::as_str));
+            .filter_map(|(id, pgid)| {
+                let n = match fg.procs.get(&id) {
+                    Some((seen, n)) if *seen == pgid => n.clone(),
+                    _ => {
+                        let n = derived_name(looked.get(&pgid).map_or("", String::as_str));
+                        fg.procs.insert(id.clone(), (pgid, n.clone()));
+                        n
+                    }
+                };
                 (!n.is_empty()).then_some((id, n))
             })
             .collect()
@@ -1241,6 +1481,7 @@ impl ToolManager {
             let (screen, offset) = p
                 .stream()
                 .map_or((Vec::new(), 0), |s| (s.snapshot().0, s.offset()));
+            let sh = p.screen_handover().unwrap_or_default();
             out.push(HandoverTool {
                 id: p.id.clone(),
                 name: p.name.clone(),
@@ -1252,6 +1493,9 @@ impl ToolManager {
                 sandboxed: p.sandboxed(),
                 screen,
                 offset,
+                screen_state: sh.snapshot,
+                screen_back: sh.back as u64,
+                history: sh.store,
                 modes: p.modes_packed(),
                 cwd: p.reported_cwd(),
                 agent: p.agent_state(),
@@ -1292,20 +1536,31 @@ impl ToolManager {
             Some(hooks),
             stream,
         );
+        p.adopt_screen(
+            &ht.screen,
+            &ht.screen_state,
+            usize::try_from(ht.screen_back).unwrap_or(0),
+            &ht.history,
+            self.history_lines(),
+        );
         p.set_modes_packed(ht.modes);
         p.note_cwd_report(&ht.cwd);
         p.restore_agent_state(&ht.agent);
         p.set_last_output_at(ht.agent.last_output_at);
+        // 새 데몬의 전경 캐시는 비었다. 입출력이 없어도 정착 창 뒤 한 번 묻는다(D1).
+        p.note_fg_io();
         for (kind, v) in &ht.records {
             p.set_record(kind, &v.0);
         }
-        {
+        let cap = {
             let mut st = self.wr();
             st.tools.insert(ht.id.clone(), Arc::clone(&p));
             if ht.background {
                 st.background.insert(ht.id.clone(), now_nanos());
             }
-        }
+            st.history_lines
+        };
+        self.enroll(&p, cap);
         self.mark_mutated();
         p.spawn_reader();
         infof!(
@@ -1417,5 +1672,11 @@ pub(crate) fn derived_name(raw: &str) -> String {
     truncate_chars(name, FG_NAME_MAX)
 }
 
+#[cfg(test)]
+mod attn_sweep_tests;
+#[cfg(test)]
+mod compact_tests;
+#[cfg(test)]
+mod fg_tests;
 #[cfg(test)]
 mod tests;

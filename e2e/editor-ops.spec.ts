@@ -615,6 +615,7 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
     await gotoWithEditors(page);
 
     // `edit` 이 브라우저에서 도달하는 자리는 `_execRemote('openEditorTab')` 하나다.
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate((p) => (window as any).app.testing.execRemote('openEditorTab', { filePath: p }),
       j(R, 'top.txt'));
     await expect.poll(async () => (await tabs(page)).map((t) => t.root)).toEqual([R]);
@@ -630,6 +631,7 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
     await gotoWithEditors(page);
     const home = await page.evaluate(() => (window as any).app.testing.edHome());
 
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate((p) => (window as any).app.testing.execRemote('openEditorTab', { filePath: p }), OUT);
     // FR-EDT-99: 그 창의 탐색기가 이 파일을 가리키지 못하는 것이 정상이다.
     await expect.poll(async () => (await tabs(page)).map((t) => t.root)).toEqual([home]);
@@ -675,6 +677,7 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
     // pane 둘을 만든다. 분할이 생기는 길은 드롭 하나뿐이므로(D-8) 그 경로를 쓴다.
     await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(R, 'top.txt'));
     await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(R, 'docs', 'd.txt'));
+    await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
     const two = await page.evaluate(() => {
       const a = (window as any).app;
       const t = a.testing.findEditorTab(a.testing.aw().layout.tabs[1].filePath);
@@ -708,6 +711,7 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
       a.layout.switchWindow(a.testing.plainWindows()[0].id);
     });
     // 두 번째는 `edit` 의 경로로 연다 — 중복 방지는 진입점마다 따로 있지 않다.
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate((p) => (window as any).app.testing.execRemote('openEditorTab', { filePath: p }), f);
     const t = await tabs(page);
     expect(t).toHaveLength(1);

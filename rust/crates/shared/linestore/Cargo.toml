@@ -1,0 +1,20 @@
+[package]
+name = "otter-shared-linestore"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+flate2.workspace = true
+otter-shared-termlimit = { path = "../termlimit" }
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[target.'cfg(unix)'.dev-dependencies]
+libc.workspace = true

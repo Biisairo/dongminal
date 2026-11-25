@@ -166,8 +166,8 @@ const STATE_REGISTRY=[
   {
     /**
      * EDITOR_LIVE_RELOAD_SRS 묶음 W·C — **서버가 밀어 준다.** 보이는 디렉터리의 변화가
-     * `fs_changed` 로 온다. 등록의 수명은 SSE 구독이므로(FR-ELR-52) 구독이 열리면
-     * 지금의 집합을 다시 등록한다. 안전망은 편집기 틱(`_edTick`)이다 (FR-ELR-61).
+     * 채널 `fs` 토픽으로 온다. 등록의 수명은 채널이므로(FR-ELR-52) 채널이 열리면
+     * 지금의 집합을 다시 등록한다. 주기 안전망은 없고 맞추기(`_edTick`)는 사건마다 한 번이다(이슈 1.14).
      */
     id:'fs.watch',
     restore:'editor.watch._edWatchRestore',
@@ -191,7 +191,7 @@ const STATE_REGISTRY=[
   {
     /**
      * PEER_NETWORK_SRS FR-PNW-81·82 — 짝·승인 대기. `every` 가 없다 — 바뀌면 서버가
-     * `edges_changed` 로 민다. 끊겨 있던 동안 생긴 대기는 재연결의 스냅샷이 준다.
+     * 채널 `edges` 토픽으로 민다. 끊겨 있던 동안 생긴 대기는 재구독의 full 이 준다.
      */
     id:'edges',
     restore:'edges._edgesRestore',
@@ -246,7 +246,7 @@ const STATE_REGISTRY=[
   {
     /** HOT_REBIND_SRS FR-HRB-26 — 서버가 포트를 옮겼다. 화면은 설정을 맡기고 새 주소로 간다. */
     id:'server.move',
-    events:{server_moving:'settings.section(server)._onServerMoving'},
+    events:{server_moving:'settings._onServerMoving'},
   },
 ];
 

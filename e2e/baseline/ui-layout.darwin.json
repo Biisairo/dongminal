@@ -744,10 +744,22 @@
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static",
+  "position": "relative",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "terminal|div.search-older-list.ui-scroll-sm[hidden]": {
+  "display": "none",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "absolute",
+  "inset": "100% 0px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "terminal|span.search-icon": {
   "display": "inline",
@@ -3480,10 +3492,22 @@
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static",
+  "position": "relative",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:changes|div.search-older-list.ui-scroll-sm[hidden]": {
+  "display": "none",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "absolute",
+  "inset": "100% 0px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:changes|span.search-icon": {
   "display": "inline",
@@ -6351,10 +6375,22 @@
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static",
+  "position": "relative",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:diff|div.search-older-list.ui-scroll-sm[hidden]": {
+  "display": "none",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "absolute",
+  "inset": "100% 0px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:diff|span.search-icon": {
   "display": "inline",
@@ -9378,10 +9414,22 @@
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static",
+  "position": "relative",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:history|div.search-older-list.ui-scroll-sm[hidden]": {
+  "display": "none",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "absolute",
+  "inset": "100% 0px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:history|span.search-icon": {
   "display": "inline",
@@ -12390,10 +12438,22 @@
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static",
+  "position": "relative",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:branches|div.search-older-list.ui-scroll-sm[hidden]": {
+  "display": "none",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "absolute",
+  "inset": "100% 0px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:branches|span.search-icon": {
   "display": "inline",
@@ -15159,10 +15219,22 @@
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static",
+  "position": "relative",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:stash|div.search-older-list.ui-scroll-sm[hidden]": {
+  "display": "none",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "absolute",
+  "inset": "100% 0px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:stash|span.search-icon": {
   "display": "inline",
@@ -17877,10 +17949,22 @@
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static",
+  "position": "relative",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:console|div.search-older-list.ui-scroll-sm[hidden]": {
+  "display": "none",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "absolute",
+  "inset": "100% 0px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:console|span.search-icon": {
   "display": "inline",
@@ -20670,10 +20754,22 @@
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static",
+  "position": "relative",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:worktrees|div.search-older-list.ui-scroll-sm[hidden]": {
+  "display": "none",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "absolute",
+  "inset": "100% 0px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:worktrees|span.search-icon": {
   "display": "inline",
@@ -23397,10 +23493,22 @@
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static",
+  "position": "relative",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:submodules|div.search-older-list.ui-scroll-sm[hidden]": {
+  "display": "none",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "absolute",
+  "inset": "100% 0px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "git:submodules|span.search-icon": {
   "display": "inline",
@@ -25260,10 +25368,22 @@
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static",
+  "position": "relative",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "editor|div.search-older-list.ui-scroll-sm[hidden]": {
+  "display": "none",
+  "overflowX": "auto",
+  "overflowY": "auto",
+  "position": "absolute",
+  "inset": "100% 0px auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
  },
  "editor|span.search-icon": {
   "display": "inline",

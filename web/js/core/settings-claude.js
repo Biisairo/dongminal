@@ -216,7 +216,8 @@ class ClaudeSection extends SettingsSection {
     const add=root.appendChild(domEl('div','set-row cacct-set-link'));
     const path=add.appendChild(domEl('input','sbx-input'));
     path.placeholder=t('cacct.set.folder_ph'); path.spellcheck=false;
-    if(typeof PathSuggest==='function') new PathSuggest(path,v=>this.app.editor.section._edPathCandidates(v,[]));
+    // 경로 후보는 uiact 묶음이다(PERF 3.4.12.10). 실패하면 후보 없이 둔다.
+    Screens.load('uiact').then(()=>new PathSuggest(path,v=>this.app.editor.section._edPathCandidates(v,[])),()=>{});
     const sel=add.appendChild(domEl('select','sbs-select'));
     for(const a of s.accounts){const o=sel.appendChild(domEl('option','',a.alias||a.email));o.value=a.id}
     add.appendChild(UIKit.button({label:t('cacct.set.link'),size:'sm',cls:'cacct-set-link-btn',onClick:()=>{

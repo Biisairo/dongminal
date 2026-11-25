@@ -13,6 +13,7 @@ class TerminalTool {
     // REFACTOR3_FE_REST5_SRS D-FR5-9: 전송·보류 배너·출력·크기 판정은 부품이 맡는다. 부품은 상태를 갖지 않고 이 칸의
     // 이름을 `this.pane.X` 로 부른다. 부품의 이름은 바깥도 부품 경로로 부른다(REFACTOR3_FE_DELEG_SRS).
     this.xfer=new TermTransfer(this); this.heldBar=new TermHeld(this); this.output=new TermOutput(this); this.sizer=new TermFit(this);
+    this.history=new TermHistory(this);   // PERF FR-TRM-5: 위로 스크롤 받기
     this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false;
     // FR-RCS-1: 도구가 사라졌다는 서버의 통보(OP.EXIT)를 받았는가. 서면 재연결을
     // 영구히 멈춘다.
@@ -21,6 +22,8 @@ class TerminalTool {
     // 그때는 종전대로 자기 `fit()` 이 화면을 정한다 — 옛 서버에 붙은 탭의 동작이
     // 그대로여야 한다 (FR-TRS-9 와 같은 규약).
     this._ptyCols=0; this._ptyRows=0;
+    // PERF D-36: 브라우저 탭이 숨으면 터미널은 다른 화면(2초)보다 늦게 잔다. `ScreenLife` 가 읽는다.
+    this.pageSleepMs=TERM_PAGE_SLEEP_MS;
     this._decoder=new TextDecoder('utf-8',{fatal:false}); this._outputBuf=''; this._flushScheduled=false; this._carryTimer=null;
     // TERMINAL_RESUME_SRS FR-TRS-7: `_seq` 는 **마지막으로 본 바이트 오프셋**이고
     // 다음 접속의 `since` 다. -1 은 "모른다" — 그때는 서버가 전량을 뿌린다.
@@ -28,6 +31,8 @@ class TerminalTool {
     // `_seqLive` 가 따로 있는 이유: 재생분(스냅샷·델타)은 좌표 통보 **앞에** 오므로
     // 세면 안 된다 (FR-TRS-8). 통보를 받은 뒤의 OpOutput 만이 라이브 PTY 바이트다.
     this._seq=-1; this._seqLive=false;
+    // PERF D-21: 마지막 스냅숏에 실린 가장 오래된 기록 줄의 절대 번호. 그 앞은 데몬 저장소에서 찾는다. -1 은 모른다.
+    this._firstLine=-1;
     // TERM_REPLY_SEAT_SRS FR-RPS-9: **통보를 받기 전에는 주인이다.** 좌석을 모르는
     // 서버에 붙은 탭은 종전 그대로 돌아야 하고, 그때의 최악은 **종전 동작**이다.
     this._replySeat=true;
@@ -84,7 +89,7 @@ class TerminalTool {
      *
      * 진실이 여전히 한 자리인 것은 같다. 그 자리가 CSS 토큰에서 설정 키로 옮겼다.
      */
-    this.term=new Terminal(Object.assign({},TOPTS,{fontSize:termFontSizeNow()}));
+    this.term=new Terminal(Object.assign({},TOPTS,{fontSize:termFontSizeNow(),scrollback:termScrollbackNow()}));
     this.fit=new FitAddon.FitAddon();
     this.term.loadAddon(this.fit);
     this._loadAddons();
@@ -93,6 +98,9 @@ class TerminalTool {
     this.term.parser.registerCsiHandler({final:'J'},ps=>this._onEraseDisplay(ps));
     this._wireKeys();
     this.term.onData(d=>this._onTermData(d));
+    this.term.onWriteParsed(()=>this.history.track());
+    // PERF FR-TRM-5: 맨 위에서 더 올리면 기록 보기를 연다. 잡기 단계라 xterm 이 굴리기 전의 자리를 본다.
+    this.box.addEventListener('wheel',e=>{ if(e.deltaY<0) this.history.onUp() },{capture:true,passive:true});
     this.term.onResize(({cols,rows})=>{
       // Only the OS-focused window that owns the pane's window may send resize.
       if(!window.app||!window.app.focus.owner.resizeCheck(this.id,this._slot)) return;
@@ -111,7 +119,8 @@ class TerminalTool {
     this._initTouchScroll();
     // UX_BATCH11_SRS FR-TCP-2·4: Cmd+C 는 xterm 이 스스로 복사한다 — 알림만 같게 단다.
     this.box.addEventListener('copy',()=>{ if(this.term&&this.term.hasSelection()) Toast.show(t('term.copied'),'ok',TOAST_MS) });
-    try{this.fit.fit()}catch{}
+    // TERMINAL_GPU_RENDER_SRS FR-TGR-7b: 붙일 예정인 칸은 첫 크기부터 WebGL 로 설 크기다 — PTY 리사이즈가 한 번이다.
+    try{ if(!(this._gpuFit&&this._gpuFit())) this.fit.fit() }catch{}
     for(const d of this._buf) try{this.term.write(d)}catch{}
     this._buf=[];
     if(this.term) this.term.scrollToBottom();
@@ -132,7 +141,8 @@ class TerminalTool {
       // UX_BATCH11_SRS FR-FPL-4: 출력의 파일 경로 → 편집기의 그 줄.
       ()=>{this._fileLinks=fileLinkProvider(this.term,()=>this._cwd||'');this.term.registerLinkProvider(this._fileLinks)},
       ()=>{this.term.loadAddon(new Unicode11Addon.Unicode11Addon());this.term.unicode.activeVersion='11'},
-      ()=>{this.search=new SearchAddon.SearchAddon();this.term.loadAddon(this.search)},
+      // PERF 3.4.12.4: 찾기 addon 은 `search` 묶음이다 — 실렸으면 지금 붙고, 아니면 찾기 줄을 처음 열 때 붙는다.
+      ()=>{if(window.app)app.tool.search.attachIfReady(this)},
       ()=>TermClipboard.attach(this.term,this.id,this),
     ];
     for(const step of steps){
@@ -142,9 +152,8 @@ class TerminalTool {
 
   _termOpenArgs(){
     const a={tool:this.id,cols:(this.term&&this.term.cols)||120,rows:(this.term&&this.term.rows)||40};
-    // FR-TRS-3: 좌표를 알면 **이어 붙여** 달라고 한다. 모르면 싣지 않는다 —
-    // 서버는 그것을 전량 재생으로 읽는다.
-    if(this._seq>=0) a.since=this._seq;
+    // FR-TRS-3: 좌표를 알면 **이어 붙여** 달라고 한다. 모르면(처음·잠든 뒤) 화면 상태 스냅숏을 달라고 한다 (PERF D-19).
+    if(this._seq>=0) a.since=this._seq; else a.snap=true;
     return a;
   }
   // FR-RCS-1: 최초 연결과 재연결이 **같은 판정**을 하도록 수신 처리를 한 곳에
@@ -229,51 +238,56 @@ class TerminalTool {
   }
 
   /**
-   * FR-TRS-6·7·18: 서버가 통보한 좌표를 세우고, 전량 재생이었으면 넛지를 건다.
+   * FR-TRS-6·7: 서버가 통보한 좌표를 세운다.
    *
    * 오프셋은 8 바이트 빅엔디언이다. `getBigUint64` 를 쓰지 않는 이유는 BigInt 를
    * 끌어들이지 않기 위해서다 — 32 비트 둘로 읽으면 2^53 까지 정확하고, PTY 가
    * 그만큼을 내려면 페타바이트가 필요하다.
+   *
+   * PERF D-19: 버퍼를 통째로 바꾸는 것은 화면 상태 스냅숏뿐이다. 스냅숏은 모드·대체 화면까지 정확하므로
+   * 넛지(SIGWINCH 두 번)를 걸지 않는다. 깃발 바이트 뒤에 첫 기록 줄 번호(8)와 cwd 가 붙는다 — 잠든 동안 놓친
+   * OSC 777 Cwd 를 여기서 메운다.
    */
   _onSeq(p){
     if(!p||p.length<9) return;
     const dv=new DataView(p.buffer,p.byteOffset,p.length);
     this._seq=dv.getUint32(0,false)*4294967296+dv.getUint32(4,false);
     this._seqLive=true;
-    /**
-     * FR-TRS-18·18a: 넛지는 **전량 재생이고, 앱이 alt screen 안일 때만** 건다.
-     *
-     * 플래그는 이제 비트다 — bit0 전량, bit1 alt screen. 종전에는 값 `1` 하나만
-     * 보고 전량이면 무조건 걸었고, 그것이 접수된 렌더 잔재의 원인이었다
-     * (`M11_SRS` §2.4f): 넛지는 `SIGWINCH` 를 두 번 일으켜 앱을 두 번 그리게
-     * 하는데, **화면을 지우지 않고 커서만 올려 덮어쓰는 앱**은 그때마다 어긋난
-     * 그림을 하나씩 더 쌓는다. claude 가 그 방식이다.
-     *
-     * 넛지가 막는 영구 desync 는 alt screen 앱에서만 일어나므로(§2.4), 약을
-     * 버리는 것이 아니라 필요한 곳에만 남기는 것이다.
-     */
     const flag=p[8];
-    this._srvAlt=!!(flag&SEQ_FLAG_ALT); if(flag&SEQ_FLAG_FULL){ this._widthDebt=false; if(this._srvAlt) this._redrawNudge() }   // FR-OTR-3·9
+    this._srvAlt=!!(flag&SEQ_FLAG_ALT); if(flag&SEQ_FLAG_FULL) this._widthDebt=false;   // FR-OTR-3·9
+    if(flag&SEQ_FLAG_SNAP&&p.length>=17){ this._firstLine=dv.getUint32(9,false)*4294967296+dv.getUint32(13,false); this.history.base(this._firstLine) }   // PERF FR-TRM-5
+    if(flag&SEQ_FLAG_SNAP&&p.length>17){
+      const cwd=dec.decode(p.subarray(17));
+      if(cwd!==this._cwd) this.output._onCwd(cwd);
+    }
   }
 
   /**
-   * FR-TRS-18~21: **전량 재생 뒤에만** TUI 에 전체 재그리기를 시킨다.
-   *
-   * 전량 재생은 바이트 tail 을 되뿌린 것이고, tail 밖에서 켜진 모드(대체 화면
-   * 따위)는 되살아나지 않는다 (SRS §2.4). claude 같은 TUI 는 델타만 보내므로
-   * 어긋난 화면이 스스로 낫지 않는다 — 한 행 줄였다 되돌려 `SIGWINCH` 를 일으키면
-   * 그쪽이 전체를 다시 그린다.
-   *
-   * 델타 재개에는 걸지 않는다. 화면이 이미 맞아 있고 리플로우만 만든다.
+   * PERF D-16: 처음 보일 때와 잠든 뒤 다시 보일 때 렌더러(`ScreenLife`)가 부른다. 붙으면 서버가 스냅숏을 보낸다.
+   * 서버가 도구의 부재를 알린 터미널(FR-RCS-1)은 되살리지 않는다. 스크롤백은 지금 설정으로 맞춘다 — 서버가 같은
+   * 설정으로 스냅숏의 기록 행 수를 정한다(PERF 2.5.1).
    */
-  _redrawNudge(){
-    if(!this.term) return;
-    const cols=this.term.cols, rows=this.term.rows;
-    if(!(rows>1)) return;
-    // FR-TRS-19: 크기의 주인이 아닌 창이 PTY 를 흔들면 주인 창의 화면이 깨진다.
-    if(!window.app||!window.app.focus.owner.resizeCheck(this.id,this._slot)) return;
-    this._sendResize(cols,rows-1);
-    TIMERS.defer(()=>{if(this.term)this._sendResize(cols,rows)},{owner:this,label:'trs-nudge'});
+  wake(){
+    if(this.term) this.term.options.scrollback=termScrollbackNow();
+    if(!this._exited) this.connect();
+  }
+
+  /** PERF D-21·FR-TRM-5: 검색 결과(절대 줄 번호 `line`)를 기록 보기로 연다. */
+  openHistoryAt(line){ this.history.openAt(line) }
+
+  /**
+   * PERF D-15·D-16: 가려지고 `SCREEN_SLEEP_MS` 동안 다시 보이지 않으면 렌더러가 부른다. 구독을 풀고 버퍼만
+   * 비운다 — 인스턴스·애드온·크기 상태는 둔다. 좌표도 버려 다음 붙음이 스냅숏을 받게 한다.
+   */
+  sleep(){
+    if(this._destroyed) return;
+    this._sock.pause();
+    if(this._carryTimer){TIMERS.cancel(this._carryTimer);this._carryTimer=null}
+    this._seq=-1; this._seqLive=false;
+    this.history.sleep();
+    this._resetDecoderIfNoResume();
+    this._buf=[];
+    if(this.term) try{this.term.reset()}catch{}
   }
   connect() {
     // 명시적인 connect 는 새 시도다 — 이전의 종료 판정을 지운다.
@@ -314,7 +328,8 @@ class TerminalTool {
    * 붙었는지가 아니라 **시도했는지**를 답한다 — 부르는 쪽은 센 수를 보일 뿐이다.
    */
   reconnectNow(opts){
-    if(this._destroyed||this._exited) return false;
+    // PERF D-15: 잠든(또는 아직 깨지 않은) 터미널은 붙지 않는다 — 다음 깨움이 스냅숏을 받는다.
+    if(this._destroyed||this._exited||!this._sock.want) return false;
     // FR-M10-2: `quiet` 는 **우리가 거는 갱신**이다 — 사용자가 고른 일이 아니므로
     // "다시 연결" 화면을 띄우지 않는다. 연결 자체의 절차는 완전히 같다.
     const quiet=!!(opts&&opts.quiet);
@@ -415,6 +430,7 @@ class TerminalTool {
     this._flingStop();
     if(this._carryTimer){TIMERS.cancel(this._carryTimer);this._carryTimer=null}
     this._sock.close();
+    window.app?.renderer?.life?.unmount(this);   // PERF M3 §3.5: 생명주기가 이 주인을 놓는다
     // FR-TGR-8·10a: GPU 컨텍스트를 반납한 뒤 `term.dispose()` 로 나머지를 정리한다.
     if(this.term){if(this._gpuDetach)this._gpuDetach();this.term.dispose();this.term=null;this._gpu=null}
     this.el.remove(); this._opened=false;

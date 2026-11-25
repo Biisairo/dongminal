@@ -88,6 +88,8 @@ class GitController extends Controller {
    */
   async openGitWindow(repo){
     if(!repo) return null;
+    // PERF D-30: git 창으로 가는 진입점이다 — 사이드·탭이 그 화면을 그리기 전에 묶음을 싣는다.
+    await Screens.load('git');
     if(!this.app.editor.edWindowFor(repo)) await this.app.editor.section.edMutate('/add',{path:repo});
     const win=this.app.editor.edWindowFor(repo);
     if(!win) return null;
@@ -103,7 +105,9 @@ class GitController extends Controller {
     // 두 목록이 한 종단(`/api/editors/add`)으로 함께 바뀌므로 진입점도 하나다.
     // 옛 `#git-add-repo` 는 사라졌다.
     this.sync.gitReposKick();
-    this.app.gitPanel.poll.init();
+    // PERF D-30: git 묶음이 아직이면 패널이 없다. 실린 뒤 처음 서는 패널은 `gitPanelAt` 이 첫 관측을 건다.
+    const p=this.app.gitPanel;
+    if(p) p.poll.init();
     /**
      * GIT_LIVE_TRIGGERS_SRS FR-GLW-1~3: 가시성·포커스 복귀의 계기.
      *
@@ -161,10 +165,9 @@ class GitController extends Controller {
     this.app.editor.pane._edAfterGitSignal(kind);
   }
 
-  // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 탐색기·dirty-diff 가 나눠 쓰는 status. 요청은
-  // 이 탭의 신원을 싣는다 — 탐색기도 서버 감시의 임대를 쥔다 (IPC-8).
+  // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 탐색기·dirty-diff 가 나눠 쓰는 status.
   gitStatusHub(){
-    if(!this._gitHub) this._gitHub=new GitStatusHub({clientId:()=>this.app.clientId||''});
+    if(!this._gitHub) this._gitHub=new GitStatusHub();
     return this._gitHub;
   }
 
@@ -333,3 +336,7 @@ Object.defineProperty(App.prototype,'gitPanel',{
   get(){ const app=this; return app.git.surfaces.gitPanelAt(app.git.surfaces._gitRootOfActive(),app.slot.slotFocused()) },
   configurable:true,
 });
+
+// PERF D-30: git 화면 묶음(web/bundles.txt [git]). 렌더러는 git 탭을 묶음이 실린 뒤에 그린다 — 그 전에는 자리표시다.
+// Diff 가 쓰는 CM 공용 층은 cm 묶음이다 — needs 로 먼저 싣는다 (PERF 3.4.12.7, D-44).
+Screens.register('git',{css:true,needs:['cm'],i18n:true,tab:(at)=>at.type===TAB_TYPE_GIT});

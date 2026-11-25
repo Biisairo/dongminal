@@ -71,7 +71,7 @@ class App {
     this.statusbar=new StatusBarController(this);
     this.chat=new ChatController(this);
     this.agents=new AgentsController(this);
-    this.mobile=new MobileController(this);
+    this.mobile=new MobileShell(this);   // 본체(MobileController)는 mobile 묶음 — 껍데기가 실은 뒤 바꾼다 (PERF 3.4.12.8)
     this.git=new GitController(this);
     this.wsSync=new WsSyncController(this);
     this.wsSave=new WsSaveController(this);
@@ -105,7 +105,8 @@ class App {
     if(!(n>=320&&n<=2000)) return;
     PrefStore.session.set(STORE_KEYS.mobileBreakpoint,n);
   }
-  get isMobile(){
+  /** 모바일이어야 하는가 — 표시 모드·폭·높이·포인터로 정한다. 실제 모드(`isMobile`)는 모바일 본체가 선 뒤에 이것을 따른다. */
+  get wantsMobile(){
     const m=this.displayMode;
     if(m==='mobile') return true;
     if(m==='desktop') return false;
@@ -115,10 +116,14 @@ class App {
     return window.innerHeight < MOBILE_LANDSCAPE_MAX_H
       && typeof matchMedia==='function' && matchMedia('(pointer:coarse)').matches;
   }
+  // PERF 3.4.12.8: 본체(mobile 묶음)가 서기 전에는 데스크톱이다 — 화면 전체가 한 판으로 바뀐다(mobile-shell.js).
+  get isMobile(){ return !!this.mobile?.loaded&&this.wantsMobile }
 
   // 분할 트리 → pane 배열 (L→R, T→B). 순회는 `panesOf` 한 벌이다 (FR-OPT-11-1 · FEC-21) —
   // 이 이름은 호출처와 e2e 계약(app.testing)을 위해 남는다.
   flattenPanes(node){ return panesOf(node) }
+  // 화면 묶음을 싣는다 (PERF D-30). `app.testing.loadScreen(name)` — 화면을 열기 전에 그 전역을 부르는 e2e 가 먼저 기다린다.
+  loadScreen(name){ return Screens.load(name) }
 
   /**
    * TOOL_LIST_UNKNOWN_SRS FR-TLU-9: 첫 화면은 **도구를 아는 스냅숏**으로 세운다.
@@ -155,6 +160,8 @@ class App {
     // 모르면 둘 다 돌지 않는 것이 옳다 — 추측한 홈으로 만든 창은 나중에 서버가
     // 알려준 홈과 어긋난 채로 남는다.
     const edReady=this.editor.sync._edLoad();
+    // PERF 3.4.12.8: 모바일이면 첫 렌더 앞에 본체를 세운다 — 워크스페이스를 받는 동안 함께 싣는다.
+    const mobileReady=this.mobile.loadIfWanted();
     try{
       await this._initAdoptWorkspace(edReady);
     }catch(e){
@@ -172,6 +179,7 @@ class App {
     this.agents._pruneAgentOrder();
     const a=this.tool.life.aw();
     if(a&&a.layout){const saved=a.focusedPane;const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);if(f)this.focus.setFocusState(f.id, a)}
+    await mobileReady;
     this.render();
     this._bind();
     this.wsSync._subscribeCommands();
@@ -286,7 +294,8 @@ class App {
 
   // FR-WSL-20: 슬롯을 명시하지 않으면 슬롯 0 이다 — 단일 슬롯 모드의 호출부가
   // 한 글자도 바뀌지 않아야 한다. 같은 도구를 두 슬롯에 그리면 인스턴스가 둘이고
-  // WebSocket 도 둘이다 (§7 R-1, 회수는 _slotReap).
+  // 붙음도 둘이다 (§7 R-1, 회수는 _slotReap). PERF D-16: 여기서 붙지 않는다 — 처음 보일 때
+  // 렌더러가 `wake()` 를 부른다.
   mkTool(id,name,slot){
     const key=this.slot.slotKey(id,slot||0);
     if(this.tools.has(key)) return this.tools.get(key);
@@ -295,7 +304,6 @@ class App {
     this.toolIds.add(id);
     if(this._toolsBoot.delete(id)){p._reconnecting=true;p.el.style.opacity='0'}
     document.getElementById('area').appendChild(p.el);
-    p.connect();
     this.tools.set(key,p);
     this.focus.owner.applyFocusOverlay();
     return p;
@@ -402,8 +410,8 @@ class App {
       toggleSearch:()=>this.tool.search.toggleSearch(),
       // FR-EKB-5: 키 배선과 **같은 함수**를 부른다. 둘 다 Editor 창이 아니면
       // 스스로 아무 일도 하지 않으므로 여기에 가드를 겹치지 않는다.
-      edGotoDef:()=>this.lspClient()._lspGotoDef(),
-      edFindRefs:()=>this.lspClient()._lspFindRefs(),
+      edGotoDef:()=>this.lspClient()?._lspGotoDef(),
+      edFindRefs:()=>this.lspClient()?._lspFindRefs(),
       edFindInFile:()=>this.editor.search._edFindInFile(),
       edGotoLine:()=>this.editor.search._edGotoLine(),
       edQuickOpen:()=>this.editor.search._edQuickOpen(),
@@ -458,9 +466,13 @@ class App {
   // ── 코드 탐색·Run 시각화 (위임) — 본체는 `lsp-client.js`·`lsp-paths.js` 의 `LspClient` 와 `ui/runs-panel.js` 의
   // `RunsPanel` 이다 (APP_STATE_EXTRACT_SRS FR-ASE-7·묶음 A, REFACTOR3_FE_APPCTL_SRS 9a 에서 옛 `app-lsp.js`·`app-runs.js`).
 
-  // 코드 탐색을 한 번도 쓰지 않은 브라우저는 만들지 않는다 (`runsPanel` 과 같은 규약).
+  // 코드 탐색을 한 번도 쓰지 않은 브라우저는 만들지 않는다 (`runsPanel` 과 같은 규약). 본체는 cm 묶음이라 실리기 전에는
+  // null 이다 (PERF 3.4.12.7). 편집기·Diff 는 cm 이 선 뒤에만 서므로 그 안의 호출은 늘 본체를 받는다.
   lspClient(){
-    if(!this._lsp) this._lsp=new LspClient(this);
+    if(!this._lsp){
+      if(!Screens.ready('cm')) return null;
+      this._lsp=new LspClient(this);
+    }
     return this._lsp;
   }
 

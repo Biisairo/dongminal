@@ -1,16 +1,15 @@
 //! `PUT /api/fs/watch` 와 `fs_changed` 방송 (Go `handlers_fs_watch.go`, EDITOR_LIVE_RELOAD_SRS
 //! FR-ELR-51·59·76).
 //!
-//! 감시 임대(attach/detach)는 SSE 구독(`commands::attach_sse_leases`)이 쥔다.
+//! 감시 임대(attach/detach)는 채널의 `hello.client` 신원(`commands::attach_channel_leases`)이 쥔다.
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use http::StatusCode;
 use otter_gocompat::filepath;
 use otter_shared_httpresp::{self as httpresp, Response};
 use otter_webserver_fswatch::{self as fswatch, Change, Manager, ManagerOptions};
-use otter_webserver_hub::{GIT_WATCH_INTERVAL, GIT_WATCH_WORKTREE_EVERY, GitWatcher};
+use otter_webserver_hub::GitWatcher;
 use serde::{Deserialize, Serialize};
 
 use crate::Server;
@@ -21,9 +20,6 @@ use crate::req::Req;
 
 /// 한 클라이언트가 등록할 수 있는 디렉터리 수다 (FR-ELR-51) — fsStampMax + fileStampsMax.
 pub(crate) const FS_WATCH_DIRS_MAX: usize = FS_STAMP_MAX + FILE_STAMPS_MAX;
-
-/// 설정 blob 에서 워크트리 회차 간격을 읽는 키다 (FR-ELR-76).
-const GIT_WORKTREE_KEY: &str = "gitWorktreeInterval";
 
 #[derive(Deserialize, Default)]
 #[serde(default, rename = "httpapi.fsWatchReq")]
@@ -104,34 +100,6 @@ pub(crate) fn new_fs_watch(
             }
         },
     )))
-}
-
-/// Go `gitWorktreeRounds`: 설정 blob 에서 워크트리 회차 간격을 회차 수로 낸다 (FR-ELR-76). 값은
-/// `GIT_WATCH_INTERVAL` 로 나눠 올림한다. 읽을 수 없거나 범위 밖이면 표의 기본값이다.
-pub(crate) fn git_worktree_rounds(blob: &[u8]) -> u64 {
-    let spec = otter_shared_settingsschema::load()
-        .ok()
-        .and_then(|specs| otter_shared_settingsschema::by_key(&specs).remove(GIT_WORKTREE_KEY));
-    let Some(spec) = spec else {
-        return GIT_WATCH_WORKTREE_EVERY;
-    };
-    let Some(def) = spec.def.as_f64() else {
-        return GIT_WATCH_WORKTREE_EVERY;
-    };
-    let mut ms = def;
-    if !blob.is_empty()
-        && let Ok(m) = otter_gocompat::json::unmarshal::<BTreeMap<String, serde_json::Value>>(blob)
-        && let Some(v) = m.get(GIT_WORKTREE_KEY).and_then(serde_json::Value::as_f64)
-    {
-        let i = v as i64;
-        if i as f64 == v
-            && spec.min.is_none_or(|min| i >= min)
-            && spec.max.is_none_or(|max| i <= max)
-        {
-            ms = v;
-        }
-    }
-    (ms / GIT_WATCH_INTERVAL.as_millis() as f64).ceil() as u64
 }
 
 impl Server {

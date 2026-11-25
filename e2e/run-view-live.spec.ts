@@ -46,7 +46,7 @@ test('TC-CH3-11: 열린 Run 탭은 /graph 를 주기로 받지 않고, 바뀐 �
 
   const objective = () => page.evaluate((id) => {
     const app = (window as any).app;
-    const v = [...app._runs._runViewMap().values()].find((x: any) => x.runId === id);
+    const v = [...app.testing.runsPanel()._runViewMap().values()].find((x: any) => x.runId === id);
     return v && v.data ? v.data.objective : null;
   }, runId);
   expect(await objective()).toBe('e2e live');
@@ -57,7 +57,7 @@ test('TC-CH3-11: 열린 Run 탭은 /graph 를 주기로 받지 않고, 바뀐 �
   }, runId);
   await expect.poll(() => page.evaluate((id) => {
     const app = (window as any).app;
-    const v = [...app._runs._runViewMap().values()].find((x: any) => x.runId === id);
+    const v = [...app.testing.runsPanel()._runViewMap().values()].find((x: any) => x.runId === id);
     return !!v && (v.err === 'gone' || (v.data && v.data.state !== 'open'));
   }, runId), { timeout: 5000 }).toBe(true);
 });

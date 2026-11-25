@@ -4,24 +4,28 @@
 mod kick;
 mod lease;
 pub(crate) mod round;
+mod tree;
 
 use std::collections::HashMap;
-use std::sync::atomic::AtomicU64;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::time::{Duration, SystemTime};
 
 use futures_util::future::BoxFuture;
 use otter_webserver_domain_git_core::Ctx;
 use otter_webserver_domain_git_query::{Error, Signature};
 use otter_webserver_domain_git_store::{Observation, Store};
+use tokio::sync::Notify;
 
 pub use kick::{GIT_KICK_COOLDOWN, GIT_KICK_DEBOUNCE};
 pub use round::start_git_watch;
+pub use tree::{TreeEvent, TreeHook, TreeWatcher, WatchGuard};
 
-/// 감시 회차의 주기다 (FR-GPO-2).
-pub const GIT_WATCH_INTERVAL: Duration = Duration::from_millis(1000);
-/// 워크트리 회차의 간격(회차 수)이다 (FR-GDT-3).
-pub const GIT_WATCH_WORKTREE_EVERY: u64 = 4;
+pub use otter_shared_cadence::GIT_WATCH_FALLBACK_EVERY;
+pub use otter_shared_cadence::GIT_WATCH_ROUND_EVERY as GIT_WATCH_INTERVAL;
+/// 물러선 저장소가 워크트리 `git status` 를 도는 회차 간격(회차 수)이다 (D-61 Q5).
+pub const GIT_WATCH_FALLBACK_ROUNDS: u64 = GIT_WATCH_FALLBACK_EVERY
+    .as_millis()
+    .div_ceil(GIT_WATCH_INTERVAL.as_millis()) as u64;
 /// 회차 하나의 시한이다 (FR-GDT-9, D-GDT-7).
 pub const GIT_WATCH_ROUND_TIMEOUT: Duration = Duration::from_secs(20);
 /// 한 회차에서 동시에 도는 관측 수의 상한이다 (FR-GDT-8).
@@ -30,8 +34,7 @@ pub const GIT_WATCH_PARALLEL: usize = 4;
 pub const GIT_WATCH_TTL: Duration = Duration::from_secs(90);
 /// 동시에 감시하는 저장소 수의 상한이다 (FR-GPO-12).
 pub const GIT_WATCH_CAP: usize = 16;
-/// 일시적 관측 실패 뒤 건너뛰는 시간의 상한이다 (min(2^(n-1), 30)s).
-pub const GIT_WATCH_BACKOFF_MAX: Duration = Duration::from_secs(30);
+pub use otter_shared_cadence::GIT_WATCH_BACKOFF_MAX;
 
 /// 감시자가 필요로 하는 것 전부다. `Arc<Store>` 가 이것을 만족한다.
 pub trait GitObserver: Send + Sync {
@@ -53,6 +56,8 @@ pub trait GitObserver: Send + Sync {
     fn observed(&self, repo: &str) -> Option<Observation>;
     /// 루트 해석의 기억을 지운다 (FR-OPT-4-3).
     fn forget_root(&self, path: &str);
+    /// 그 저장소의 gitdir 해석을 지운다. 다음 signature 가 다시 해석한다.
+    fn forget_dirs(&self, repo: &str);
 }
 
 impl GitObserver for Arc<Store> {
@@ -78,6 +83,9 @@ impl GitObserver for Arc<Store> {
     }
     fn forget_root(&self, path: &str) {
         Store::forget_root(self, path);
+    }
+    fn forget_dirs(&self, repo: &str) {
+        Store::forget_dirs(self, repo);
     }
 }
 
@@ -122,9 +130,14 @@ pub(crate) struct Entry {
     has_sig: bool,
     /// 워크트리 회차의 위상 (FR-GDT-4).
     phase: u64,
-    /// 이 저장소를 보는 신원들 (clientId[+갈래] → 구독의 epoch). 비어 있지 않으면 유휴로
-    /// 만료되지 않는다 (FR-GWL-2).
-    holders: HashMap<String, u64>,
+    /// 파일 감시가 없어 워크트리 회차로 물러섰다 (D-61 Q4).
+    fallback: bool,
+    /// 저장소 트리의 파일 감시. 항목과 함께 버려지면 감시가 멈춘다.
+    tree: Option<WatchGuard>,
+    /// 이 항목의 감시 세대. 늦게 온 감시 사건이 새 항목을 건드리지 않게 한다.
+    watch_id: u64,
+    /// `git:<repo>` 토픽에 구독자가 있다 (CHANNEL_PROTOCOL C4). 참이면 유휴로 만료되지 않는다 (FR-GWL-2).
+    held: bool,
     pend: WatchPend,
     fails: u32,
     retry_at: Option<SystemTime>,
@@ -140,15 +153,14 @@ struct KickState {
 
 pub(crate) struct State {
     pub(crate) watch: HashMap<String, Entry>,
-    /// 신원마다 가장 새로운 SSE 구독의 epoch (FR-GWL-3).
-    live: HashMap<String, u64>,
-    epoch: u64,
     round: u64,
     on_changed: Option<RepoHook>,
     on_baseline: Option<RepoHook>,
     on_mark: Option<MarkHook>,
     root: Option<Ctx>,
     kicks: HashMap<String, KickState>,
+    tree: Option<Arc<dyn TreeWatcher>>,
+    watch_ids: u64,
 }
 
 /// 관심 표명을 받아 두었다가 회차마다 그 저장소들을 확인한다.
@@ -157,10 +169,11 @@ pub struct GitWatcher {
     now: WallClock,
     ttl: Duration,
     cap: usize,
-    /// 워크트리 회차의 간격. 0 이면 기본값이다 (FR-ELR-76).
-    worktree_every: AtomicU64,
     /// 계기 관측의 시간을 주입하는 자리 (FR-ELR-75). 없으면 tokio 타이머다.
     after: Option<AfterFn>,
+    /// 대상이 0 에서 생기면 멈춘 회차 주체를 깨운다 (D-61).
+    wake: Notify,
+    me: Weak<GitWatcher>,
     pub(crate) mu: Mutex<State>,
 }
 
@@ -174,31 +187,40 @@ pub(crate) fn phase_hash(repo: &str) -> u64 {
 
 impl GitWatcher {
     pub fn new(git: Option<Arc<dyn GitObserver>>) -> Arc<GitWatcher> {
-        GitWatcher::build(git, Arc::new(SystemTime::now), None)
+        GitWatcher::build(
+            git,
+            Arc::new(SystemTime::now),
+            None,
+            GIT_WATCH_TTL,
+            GIT_WATCH_CAP,
+        )
     }
 
     fn build(
         git: Option<Arc<dyn GitObserver>>,
         now: WallClock,
         after: Option<AfterFn>,
+        ttl: Duration,
+        cap: usize,
     ) -> Arc<GitWatcher> {
-        Arc::new(GitWatcher {
+        Arc::new_cyclic(|me| GitWatcher {
             git,
             now,
-            ttl: GIT_WATCH_TTL,
-            cap: GIT_WATCH_CAP,
-            worktree_every: AtomicU64::new(0),
+            ttl,
+            cap,
             after,
+            wake: Notify::new(),
+            me: me.clone(),
             mu: Mutex::new(State {
                 watch: HashMap::new(),
-                live: HashMap::new(),
-                epoch: 0,
                 round: 0,
                 on_changed: None,
                 on_baseline: None,
                 on_mark: None,
                 root: None,
                 kicks: HashMap::new(),
+                tree: None,
+                watch_ids: 0,
             }),
         })
     }
@@ -247,18 +269,20 @@ impl GitWatcher {
         ttl: Duration,
         cap: usize,
     ) -> Arc<GitWatcher> {
-        let w = GitWatcher::build(Some(git), now, after);
-        let mut w = Arc::try_unwrap(w).ok().expect("새로 만든 Arc");
-        w.ttl = ttl;
-        w.cap = cap;
+        let w = GitWatcher::build(Some(git), now, after, ttl, cap);
         w.set_on_mark(Some(Arc::new(move |repo: &str, mark: &str| {
             hub.broadcast(&crate::payloads::git_changed_payload(repo, mark));
         })));
-        Arc::new(w)
+        w
     }
 
-    pub(crate) fn holders(&self, repo: &str) -> usize {
-        self.lock().watch.get(repo).map_or(0, |e| e.holders.len())
+    /// 지금까지 돈 회차 수다.
+    pub(crate) fn rounds(&self) -> u64 {
+        self.lock().round
+    }
+
+    pub(crate) fn held(&self, repo: &str) -> bool {
+        self.lock().watch.get(repo).is_some_and(|e| e.held)
     }
 
     pub(crate) fn kick_pending(&self) -> usize {

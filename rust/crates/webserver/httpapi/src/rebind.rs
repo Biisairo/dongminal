@@ -372,7 +372,7 @@ impl Rebinder {
         if let Some(ln) = old {
             ln.close().await;
         }
-        let payload = otter_webserver_sse::payload(
+        let payload = otter_webserver_envelope::payload(
             "server_moving",
             Some(&BTreeMap::from([("port", port.to_owned())])),
         );

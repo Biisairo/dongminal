@@ -240,25 +240,42 @@ test('TC-TGR-15: 컨텍스트 손실로 DOM 에 돌아가면 다시 잰다', () 
   assert.equal(p.fits, before + 1);
 });
 
-test('TC-TGR-12:_afterLayout 은 칸마다 syncGpu 를 doFit 보다 먼저 부른다', () => {
+test('TC-TGR-12(개정, PERF D-40): 부팅 렌더는 open → doFit(예측) 하고 붙이기는 칸마다 뒤 idle 프레임, 그 뒤 렌더는 그 프레임에 syncGpu → doFit', () => {
   const log = [];
+  const frames = [];
   const ctx = load(['ui/renderer-layout.js'], {
-    globals: { Renderer: class {}, TIMERS: { frame: (fn) => fn() } },
+    globals: { Renderer: class {}, TIMERS: { frame: (fn, opts) => frames.push({ fn, opts }) } },
   });
   const r = new ctx.Renderer();
   const mk = (id, vis) => ({
-    _opened: false,
+    _opened: false, _gpu: null,
     el: { classList: { contains: (c) => c === 'vis' && vis } },
     open() { this._opened = true; log.push(id + ':open') },
-    syncGpu(v) { log.push(id + ':gpu:' + v) },
+    _gpuWant(v) { return !!v },
+    syncGpu(v) { log.push(id + ':gpu:' + v); if (v) this._gpu = {} },
     sizer: { doFit() { log.push(id + ':fit') } },
   });
-  r.app = { tools: new Map([['a', mk('a', true)], ['h', mk('h', false)]]), windowFocused: false };
+  const a = mk('a', true);
+  r.app = { tools: new Map([['a', a], ['h', mk('h', false)]]), windowFocused: false };
   r._moved = [];
   r._restoreScrollOf = () => {};
   r._refocus = () => {};
   r._afterLayout();
-  assert.deepEqual([...log], ['a:open', 'a:gpu:true', 'a:fit', 'h:gpu:false']);
+  frames.shift().fn();
+  assert.deepEqual([...log], ['a:open', 'a:fit', 'h:gpu:false']);
+  assert.equal(frames.length, 1);
+  assert.equal(frames[0].opts.prio, 'idle');
+  assert.equal(frames[0].opts.coalesce, 'gpu');
+  assert.equal(frames[0].opts.owner, a);
+  frames.shift().fn();
+  assert.deepEqual([...log], ['a:open', 'a:fit', 'h:gpu:false', 'a:gpu:true', 'a:fit']);
+  // 부팅 뒤 렌더: 새로 보이는 칸은 그 프레임에 syncGpu 가 doFit 보다 먼저다(FR-TGR-7 원래 순서).
+  log.length = 0;
+  r.app.tools.set('b', mk('b', true));
+  r._afterLayout();
+  frames.shift().fn();
+  assert.deepEqual([...log], ['a:gpu:true', 'a:fit', 'h:gpu:false', 'b:open', 'b:gpu:true', 'b:fit']);
+  assert.equal(frames.length, 0);
 });
 
 /**

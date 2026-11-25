@@ -1,6 +1,7 @@
 # SRS: 시간과 전파를 두 클래스가 소유한다 — IEEE 29148
 
 > **문서 상태**: 승인·구현완료
+> **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1)**: 이 문서가 적은 것 가운데 M1 에서 지운 것 — 명령·사건 SSE(`/api/commands/sse`, `POST /api/command-result`) · 주기 설정 `agentsPollInterval`·`gitStatusInterval`(설정 `RETIRED_KEYS`, 저장된 값은 조용히 무시된다). 지금 브라우저 탭은 채널(`/channel`) 하나로 명령(`cmd`)·상태 토픽·터미널을 주고받고, 상태를 알려고 주기적으로 GET 하지 않는다 — 대체 요구사항은 `PERF_OPTIMIZATION_SRS` FR-CON-1·7·8·10 과 D-9, 경로별 대응은 `perf/CHANNEL_PROTOCOL.md` §5.2·§8 이다. 본문의 옛 경로 서술은 당시 구조로 남긴다
 
 > 상태: **초안**. 착수 전 검토 대상.
 
@@ -360,6 +361,10 @@ single-flight 잠금이 영구히 남는 것 — 가 **구조적으로 불가능
 프레임을 하나로 접는다 (`_wheelRaf`·`_mFitRaf`·`_docRenderRaf` 가 손으로 하던
 일). 나머지 11개는 id 를 붙들지 않는 fire-and-forget 이었고 — 화면이 파괴된 뒤
 죽은 DOM 을 만졌다 — `owner` 가 그것을 닫는다.
+(**개정 2026-11-25, PERF D-39 · 3.6.1·3.6.4**: 한 프레임의 작업은 rAF 하나에 묶여 `_flushFrame` 에서 돈다.
+옵션에 `key`(같은 키는 마지막 것만 돈다)·`prio`(`input` > `term` > `normal` > `idle`)·`label` 이 더해졌다. `idle` 은
+프레임 시작부터 8 ms(`FRAME_BUDGET_MS`)를 넘었거나 입력이 기다리면 다음 프레임으로 미루고, `FRAME_IDLE_MAX_DEFER`(6)
+프레임 뒤에는 돈다. `coalesce` 는 주인마다 따로 접는다(주인 객체별 번호) — `web/js/core/timer-hub.js` `frame`.)
 
 ### 3.2 묶음 B — `EventBus` (전파)
 
@@ -396,6 +401,9 @@ topic 이다. 서버가 새 action 을 더해도 `app-cmd.js` 는 바뀌지 않�
 **FR-BUS-8** 생명주기 신호를 버스가 **단독으로** 듣고 topic 으로 발행한다.
 `visibilitychange` 리스너는 앱 전체에 **하나**다 (§2.7). 순서가 결정된다 —
 `sse:open` 이 `tick` 보다 먼저다.
+(**지금은 2026-11-25, PERF 3.4.11**: `visibilitychange` 리스너는 셋이다 — `TimerHub` 생성자(`timer-hub.js`, 주기 작업
+멈춤과 `onVisibility` 신호 — 화면 생명주기 `ScreenLife` 가 받는다), `EventBus.startLifecycle`(`event-bus.js`, `life:*` 토픽),
+`VersionWatch`(`version-watch.js`, 다시 보일 때 판 확인). 하나로 모으는 일은 동작 순서가 걸려 따로 정한다.)
 
 **FR-BUS-9** `bus.stats()` — topic 별 발행 횟수·마지막 시각·구독자 수. `?diag=1`
 오버레이에 얹는다. "이벤트가 안 온다" 가 재현 대신 스냅샷으로 해결된다.

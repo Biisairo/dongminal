@@ -181,7 +181,8 @@ const MOVED = [
       // 8d — 모바일 키바 구역
       '_initKeybarSettings', '_keybarDraft', '_keybarSet', '_keybarPaint'],
     rows: [['claudeFullscreen', 'ds-claudefs', 'check'], ['termFontSize', 'ds-termfs', 'number'],
-      ['claudeScrollSpeed', 'ds-scrollspeed', 'number'], ['migrationHook', 'ds-mighook', 'check'],
+      ['claudeScrollSpeed', 'ds-scrollspeed', 'number'], ['termHistoryLines', 'ds-termhist', 'number'],
+      ['termScrollback', 'ds-termsb', 'number'], ['migrationHook', 'ds-mighook', 'check'],
       ['migrationHookCtxPct', 'ds-mighookpct', 'number'], ['issueTreeMigration', 'ds-treemig', 'check'],
       ['issueTreeCtxPct', 'ds-treemigpct', 'number']] },
   { cls: 'CodeSection', tab: 'code', gone: ['_initWordWrap', '_initMinimap', '_initLSP'],
@@ -448,14 +449,15 @@ test('8b: NotifySection 은 데스크톱·소리 토글과 판 확인을 배선�
 
 // ── 8d 테마·단축키·키바·프리셋·백업 (FR-FES-4) ────────────────────────────
 
-test('8d: ThemeSection 의 init 은 시스템 모드 구독을 걸고, 섹션이 그 주인이다', () => {
+test('8d·D-41: 시스템 모드 구독은 부팅 껍데기(SettingsController)가 걸고 그 주인이다 — 설정 창을 열지 않아도 따라간다', () => {
   const { ctx } = setup({}, {});
   const mq = elem('mq');
   ctx.matchMedia = (q) => { assert.equal(q, '(prefers-color-scheme: dark)'); return mq };
-  const s = new ctx.ThemeSection(fakeApp([]));
-  s.init();
+  assert.equal(ctx.ThemeSection.prototype.init, ctx.SettingsSection.prototype.init, 'ThemeSection 에 init 이 남았다');
+  const c = new ctx.SettingsController(fakeApp([]));
+  c._initThemeFollow();
   assert.equal(mq.listeners.change.length, 1);
-  s.dispose();
+  c.dispose();
   assert.equal(mq.listeners.change.length, 0);
 });
 
@@ -515,9 +517,17 @@ test('8d: BackupSection — 파일 이름·저장된 키만 담기·봉투 검�
  * notify 는 `initAttn` 의 배지·바깥 클릭 리스너 뒤, 권한 묻기·해제 입구 리스너 앞이었다. 그 넷은 `document`·배지에
  * 걸리고 notify 는 자기 스위치 셋에 건다 — 같은 대상이 없어 `initAttn` 뒤로 옮겨도 도는 순서가 바뀌지 않는다.
  */
-const BOOT_ORDER = ['theme', 'modal', 'search', 'shortcuts', 'display', 'terminal', 'code', 'paint', 'backup',
+const OLD_ORDER = ['theme', 'modal', 'search', 'shortcuts', 'display', 'terminal', 'code', 'paint', 'backup',
   'sandbox', 'access', 'edges', 'profile', 'telegram', 'server', 'claude', 'initSaveButtons', 'initStatusBar',
   'statusbar', 'presets', 'initMobile', 'initMobileKeybar', 'initAttn', 'notify', 'polling'];
+
+/**
+ * PERF D-41: 옛 순서를 부팅 몫과 처음 열 때 몫으로 나눈다. 부팅 몫은 설정 창과 무관한 넷이고, 열기 몫은 나머지다 —
+ * 모바일 설정의 두 화면(`_initSettingsMobile`, 옛 `initMobile` 안)은 열기 몫의 옛 `initMobile` 자리에 선다(FR-MUX-20).
+ */
+const BOOT_PART = ['initStatusBar', 'initMobile', 'initMobileKeybar', 'initAttn'];
+const OPEN_PART = OLD_ORDER.filter((x) => !BOOT_PART.includes(x) || x === 'initMobile')
+  .map((x) => (x === 'initMobile' ? '_initSettingsMobile' : x));
 
 const SECTION_CLASSES = ['ThemeSection', 'ShortcutsSection', 'DisplaySection', 'TerminalSection', 'CodeSection',
   'BackupSection', 'SandboxSection', 'AccessSection', 'EdgesSection', 'ProfileSection', 'TelegramSection',
@@ -525,35 +535,66 @@ const SECTION_CLASSES = ['ThemeSection', 'ShortcutsSection', 'DisplaySection', '
 
 function loadController() {
   return load([...BASE, ...SETTINGS], {
-    expose: ['SettingsController', 'SettingsSection', 'Controller', ...SECTION_CLASSES],
+    expose: ['SettingsController', 'SettingsSection', 'Controller', 'settingsBuild', 'Screens', ...SECTION_CLASSES],
     globals: { App: function App() {}, TIMERS: { disposeOwner() {} } },
   });
 }
 
-test('TC-FES-4: SettingsController 는 Controller 하위이고 옛 부팅 순서대로 섹션과 그 사이의 init 을 세운다', () => {
+function bootSetup() {
   const ctx = loadController();
   const log = [];
   for (const c of SECTION_CLASSES) ctx[c].prototype.init = function () { log.push(this.tab) };
   ctx.SettingsModal = class { constructor(h) { this.h = h } init() { log.push('modal'); return this } };
-  ctx.document = { getElementById: (id) => (id === 'modal' ? { id } : null) };
+  const btn = { listeners: {}, addEventListener(t, f) { this.listeners[t] = f } };
+  ctx.document = { getElementById: (id) => (id === 'modal' ? { id } : id === 'settings-btn' ? btn : null) };
+  ctx.applyTabWidth = () => log.push('applyTabWidth');
+  ctx.applyUiFontScale = () => log.push('applyUiFontScale');
   // REFACTOR3_FE_DELEG_SRS FR-DLG-3: 사이의 init 은 앱에서 주인까지의 점 경로로 부른다.
   const app = {};
   const c = new ctx.SettingsController(app);
   app.settings = c;
   c.paint = () => log.push('paint');
+  c._initThemeFollow = () => log.push('themeFollow');
   const at = (path) => { const ks = path.split('.'); const n = ks.pop(); return [ks.reduce((o, k) => (o[k] = o[k] || {}), app), n] };
   for (const p of ['settings.saveState.initSaveButtons', 'statusbar.initStatusBar', 'mobile.initMobile', 'mobile.initMobileKeybar',
-    'attn.initAttn']) { const [o, n] = at(p); o[n] = () => log.push(n) }
+    'mobile.sheets._initSettingsMobile', 'attn.initAttn']) { const [o, n] = at(p); o[n] = () => log.push(n) }
   // REFACTOR3_FE_APPCTL_SRS 9a: 검색 배선은 컨트롤러의 것이다.
   c._bindSettingsSearch = (m) => log.push(m.id === 'modal' ? 'search' : 'search?');
+  return { ctx, c, log, btn };
+}
+
+test('TC-FES-4·D-41: 부팅의 init 은 섹션 없이 부팅 몫만 옛 상대 순서로 돌리고 설정 단추를 건다', () => {
+  const { ctx, c, log, btn } = bootSetup();
   assert.ok(c instanceof ctx.Controller);
   assert.equal(c.init(), c);
-  assert.deepEqual(log, BOOT_ORDER);
-  assert.deepEqual(plain(c.all().map((s) => s.tab)), BOOT_ORDER.filter((x) => c.section(x)));
+  assert.deepEqual(log, ['applyTabWidth', 'applyUiFontScale', 'themeFollow', ...BOOT_PART]);
+  assert.equal(c.all().length, 0, '부팅에 섹션이 섰다');
+  assert.equal(c.section('theme'), null);
+  assert.equal(c.modal, null);
+  assert.equal(typeof btn.listeners.click, 'function');
+});
+
+test('TC-FES-4·D-41: 처음 열 때 settingsBuild 가 열기 몫을 옛 상대 순서대로 세운다 — 저장 단추는 패널 뒤, 모바일 탭 리스너는 모달 뒤', () => {
+  const { ctx, c, log } = bootSetup();
+  ctx.settingsBuild(c);
+  assert.deepEqual(log, OPEN_PART);
+  assert.ok(log.indexOf('initSaveButtons') > log.indexOf('claude'), 'FR-UXF-72');
+  assert.ok(log.indexOf('_initSettingsMobile') > log.indexOf('modal'), 'FR-MUX-20');
+  assert.deepEqual(plain(c.all().map((s) => s.tab)), OPEN_PART.filter((x) => c.section(x)));
   assert.ok(c.section('theme') instanceof ctx.ThemeSection);
   assert.ok(c.section('theme') instanceof ctx.SettingsSection);
   assert.equal(c.section('nope'), null);
   assert.equal(typeof c.modal.h.onOpen, 'function');
+});
+
+test('TC-FES-4·D-41: ready 는 settings 묶음을 싣고 한 번만 세운다', async () => {
+  const { ctx, c, log } = bootSetup();
+  const loads = [];
+  ctx.Screens.load = async (n) => { loads.push(n) };
+  await Promise.all([c.ready(), c.ready()]);
+  await c.ready();
+  assert.deepEqual(loads, ['settings', 'settings', 'settings']);
+  assert.equal(log.filter((x) => x === 'modal').length, 1);
 });
 
 test('TC-FES-4: initModal 은 컨트롤러의 init 하나이고 _init 호출이 없다 — 설정 init 은 input-binding 에 하나뿐이다', () => {
@@ -632,7 +673,8 @@ test('TC-FFX-4: 숫자 행 다섯과 탭 폭 행은 포커스 가드를 갖는�
   const guarded = rows.filter((r) => r.decl.kind === 'number').map((r) => [r.decl.key, !!r.decl.guard]);
   assert.deepEqual(plain(guarded.sort()), [
     ['claudeScrollSpeed', true], ['issueTreeCtxPct', true], ['migrationHookCtxPct', true],
-    ['tabWidthPx', true], ['termFontSize', true], ['uiFontSize', true]]);
+    ['tabWidthPx', true], ['termFontSize', true], ['termHistoryLines', true], ['termScrollback', true],
+    ['uiFontSize', true]]);
 });
 
 // ── REFACTOR3_FE_FIX_SRS FX-3 ─────────────────────────────────────────────

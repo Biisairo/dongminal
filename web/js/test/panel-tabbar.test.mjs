@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, MOBILE, PANELS, controllers, load } from './harness.mjs';
+import { BASE, MOBILE, PANELS, controllers, fakeClock, load } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_BASE_SRS 단계 2 — 패널과 탭 줄.
@@ -123,7 +123,10 @@ function setup() {
     { key: 'bg', icon: 'terminal-bg', title: () => 'Background', tip: () => 'bg tip' },
     { key: 'runs', icon: 'workflow', title: () => 'Runs', tip: () => 'runs tip' },
   ];
-  const ctx = load([...BASE, ...PANELS, ...MOBILE], {
+  // PERF 3.6.3: `TabBar.fit` 은 `TIMERS.frame` 으로 다음 프레임에 잰다 — 허브를 가짜 시계로 싣는다.
+  const clock = fakeClock();
+  const ctx = load(['core/timer-hub.js', ...BASE, ...PANELS, ...MOBILE], {
+    clock,
     expose: ['Panel', 'TabBar', 'SidebarTabBar', 'SidebarPanel', 'DrawerSheet', 'ActivityTabBar', 'ActivityPanel', 'EscapeStack'],
     globals: {
       document, UIKit, ResizeObserver: FakeRO, App: class {},
@@ -163,7 +166,7 @@ function setup() {
       tb.paintWith(sections.map((s) => ({ key: s.key, tip: s.tip(), n: app.counts[s.key] || 0, dot: !!app.dots[s.key] })));
     },
   });
-  return { ctx, ids, app, fits, local, session, document, built: () => built };
+  return { ctx, clock, ids, app, fits, local, session, document, built: () => built };
 }
 
 // ── TC-FEB-20 TabBar ──────────────────────────────────────────────────────
@@ -285,12 +288,13 @@ test('ActivityTabBar: 수 배지·알람 점·툴팁, 탭마다 몸통 스크롤
  * 같은 사건에서 두 줄이 같은 길(`TabBar.fit` → `UIKit.tabsFit(자기 줄)`)을 지나는가.
  * `fit` 을 감싸 어느 줄이 몇 번 재었는지 센다.
  */
-function fitSpy(ctx, fits, sb, act) {
+function fitSpy(ctx, fits, sb, act, clock) {
   const orig = ctx.TabBar.prototype.fit;
   const n = { sb: 0, act: 0 };
   ctx.TabBar.prototype.fit = function () { if (this === sb) n.sb++; if (this === act) n.act++; return orig.call(this) };
   return {
-    take() {
+    async take() {
+      await clock.advance(16);
       const r = { sb: n.sb, act: n.act, sbOwn: fits.filter((b) => b === sb.el).length, actOwn: fits.filter((b) => b === act.el).length };
       n.sb = 0; n.act = 0; fits.length = 0;
       return r;
@@ -298,13 +302,13 @@ function fitSpy(ctx, fits, sb, act) {
   };
 }
 
-test('TC-FEB-21: 배지·폭·탭 전환·다시 그리기·펼치기·모바일 진입에서 두 줄이 같은 판정 길을 지난다', () => {
-  const { ctx, app, fits, document } = setup();
+test('TC-FEB-21: 배지·폭·탭 전환·다시 그리기·펼치기·모바일 진입에서 두 줄이 같은 판정 길을 지난다', async () => {
+  const { ctx, clock, app, fits, document } = setup();
   const sb = app.layout.tabOps.sbPanel().tabs, act = app.agents.list.actPanel().tabs;
   sb.paint();
   app.agents.agentsRender();
-  const spy = fitSpy(ctx, fits, sb, act);
-  spy.take();
+  const spy = fitSpy(ctx, fits, sb, act, clock);
+  await spy.take();
   const both = (what, r) => {
     assert.ok(r.sb >= 1 && r.act >= 1, what + ': 두 줄 모두 재야 한다 ' + json(r));
     assert.ok(r.sbOwn >= 1 && r.actOwn >= 1, what + ': 자기 줄을 재야 한다 ' + json(r));
@@ -313,32 +317,72 @@ test('TC-FEB-21: 배지·폭·탭 전환·다시 그리기·펼치기·모바일
   // 배지 변화 — 사이드바는 `_sbUpdateBadges`(→ paintBadges), 작업 패널은 다시 그리기의 센 값.
   app.nA = 5; sb.paintBadges();
   app.counts = { bg: 7 }; app.agents.agentsRender();
-  both('배지', spy.take());
+  both('배지', await spy.take());
 
   // 폭 변화 — 관측은 두 패널 모두 자기 탭 줄에 걸린다.
   resize(sb.el); resize(act.el);
-  both('폭', spy.take());
+  both('폭', await spy.take());
 
   // 탭 전환.
   sb.select('b'); act.select('bg');
-  both('탭 전환', spy.take());
+  both('탭 전환', await spy.take());
 
   // 다시 그리기.
   sb.paint(); app.agents.agentsRender();
-  both('다시 그리기', spy.take());
+  both('다시 그리기', await spy.take());
 
   // 레일에서 펼치기 — 이전: 사이드바는 관측만 기다렸고 작업 패널은 다시 그리며 쟀다.
-  app.agents.setAgentsPanelOpen(true); spy.take();
+  app.agents.setAgentsPanelOpen(true); await spy.take();
   app.layout.tabOps.setSidebarCollapsed(true); app.agents.setAgentsPanelOpen(false);
-  both('접기', spy.take());
+  both('접기', await spy.take());
   app.layout.tabOps.setSidebarCollapsed(false); app.agents.setAgentsPanelOpen(true);
-  both('펼치기', spy.take());
+  both('펼치기', await spy.take());
 
   // 모바일 진입 — 이전: 작업 패널이 닫혀 있으면 다시 그리기가 일찍 돌아가 재지 않았다.
   app.isMobile = true;
   app.mobile.applyMobileMode();
   assert.ok(document.body.classList.contains('mobile'));
-  both('모바일 진입', spy.take());
+  both('모바일 진입', await spy.take());
+});
+
+/**
+ * PERF 3.6.3 (FR-SPA-4 · D-39): 라벨 판정은 레이아웃을 읽는다. 쓰기 사이에서 곧바로 재면 그때마다 강제 레이아웃이
+ * 난다(파일 열기 한 작업에서 ≈11 ms). 그래서 `fit` 은 다음 프레임에 **줄마다 한 번** 잰다(`frame` 의 `key`).
+ */
+test('PERF 3.6.3: fit 은 곧바로 재지 않고, 한 프레임에 줄마다 한 번만 잰다', async () => {
+  const { clock, app, fits } = setup();
+  const sb = app.layout.tabOps.sbPanel().tabs, act = app.agents.list.actPanel().tabs;
+  sb.paint(); app.agents.agentsRender();
+  await clock.advance(16);
+  fits.length = 0;
+  sb.paintBadges(); sb.select('b'); sb.paint(); app.agents.agentsRender(); act.fit();
+  assert.equal(fits.length, 0, '같은 작업 안에서 쟀다 — 쓰기 사이의 레이아웃 읽기다');
+  await clock.advance(16);
+  assert.equal(fits.filter((b) => b === sb.el).length, 1, '사이드바 줄: ' + fits.length);
+  assert.equal(fits.filter((b) => b === act.el).length, 1, '작업 패널 줄: ' + fits.length);
+});
+
+test('PERF 3.6.3: 한 프레임에 ResizeObserver 콜백이 다섯 번 와도 tabsFit 은 한 번이다', async () => {
+  const { clock, app, fits } = setup();
+  const sb = app.layout.tabOps.sbPanel().tabs;
+  sb.paint();
+  await clock.advance(16);
+  fits.length = 0;
+  for (let i = 0; i < 5; i++) resize(sb.el);
+  await clock.advance(16);
+  assert.equal(fits.filter((b) => b === sb.el).length, 1);
+});
+
+test('PERF 3.6.3: 줄을 버리면 기다리던 판정도 걷힌다', async () => {
+  const { clock, app, fits } = setup();
+  const sb = app.layout.tabOps.sbPanel().tabs;
+  sb.paint();
+  await clock.advance(16);
+  fits.length = 0;
+  sb.fit();
+  sb.dispose();
+  await clock.advance(16);
+  assert.equal(fits.length, 0);
 });
 
 // ── FR-FEB-23 Panel ───────────────────────────────────────────────────────

@@ -61,7 +61,7 @@ class EditorWatch extends Controller {
     const r=await apiPut(FS_WATCH_API,{clientId:this.app.clientId,dirs});
     this._edWatchBusy=false;
     if(r.ok) this._edWatchKey=key;
-    // 종단이 없는 옛 서버다. 폴링은 그대로 돈다 (FR-ELR-15 와 같은 관례).
+    // 종단이 없는 옛 서버다. 등록을 멈추고, 반영은 맞추기(`_edTick`)에만 기댄다 — 주기 폴링은 없다(이슈 1.14).
     else if(r.status===404) this._edWatchOff=true;
     if(this._edWatchAgain){ this._edWatchAgain=false; this._edWatchSend(false) }
   }
@@ -77,10 +77,11 @@ class EditorWatch extends Controller {
     }
   }
 
-  /** FR-ELR-67: 폴링과 같은 조건(dirty 아님·버퍼 있음)에서 다시 읽는다. */
+  /** FR-ELR-67: 맞추기(`_edTick`)와 같은 조건(dirty 아님·버퍼 있음)에서 다시 읽는다. */
   _edDocReload(p){
     const d=this.app._edDocs&&this.app._edDocs.get(p);
-    if(!d||d.dirty||!d.buf) return;
+    // PERF 3.5.3: 모든 뷰가 잠든 문서는 깰 때 stamp 로 맞춘다.
+    if(!d||d.dirty||!d.buf||this.app.editor.open.edDocAsleep(d)) return;
     const q=this._edDocReloads||(this._edDocReloads=new Map());
     const n=q.get(p)||0;
     if(n>=EDITOR_DOC_RELOAD_QUEUE) return;

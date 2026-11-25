@@ -5,8 +5,8 @@
  * 같은 망의 화면은 값을 볼 수만 있다. 포트가 바뀌면 이 화면은 새 주소로 이사하고(FR-HRB-26),
  * 새 주소의 화면이 새 값을 보인다 (FR-HRB-44).
  *
- * REFACTOR3_FE_SETTINGS_SRS 8c: 읽은 값(`_srv`)과 이사 중 표시(`_srvMoving`)는 이 섹션이 든다. SSE `server_moving`
- * (`state-registry.js`)은 `settings.section(server)._onServerMoving` 을 부른다.
+ * REFACTOR3_FE_SETTINGS_SRS 8c: 읽은 값(`_srv`)은 이 섹션이 든다. 이사(`_onServerMoving`, 채널 `cmd` 의 `server_moving` 포함)는 설정 창을
+ * 열지 않아도 가야 하므로 부팅의 `SettingsController` 가 진다 (PERF D-41).
  */
 
 /** server.json 값의 출처(`GET /api/server/bind` 의 source) → 문구 키. */
@@ -62,22 +62,13 @@ class ServerSection extends SettingsSection {
     await statusRun(st,{pending:t('srv.applying'),ok:t('core.saved'),fail:t('srv.apply_fail')},async()=>{
       const r=await apiPost('/api/server/bind',body);
       if(!r.ok||!r.data) return r;
-      if(String(r.data.port)!==String(v.port)){ this._onServerMoving({port:r.data.port}); return r }
+      if(String(r.data.port)!==String(v.port)){ this.app.settings._onServerMoving({port:r.data.port}); return r }
       this._srv={...v,...r.data};
       this._srvPaint();
       return r;
     });
     if(this._srv&&this._srv.warning) st.textContent=this._srv.warning;
   }
-
-  /** SSE `server_moving` — 이 화면도 새 주소로 간다. 적용 응답과 겹쳐 와도 한 번만 간다. */
-  _onServerMoving(a){
-    if(this._srvMoving||!a||!a.port) return;
-    this._srvMoving=true;
-    this._serverMoveTo(String(a.port));
-  }
-
-  _serverMoveTo(port){ return serverMoveNow(port) }
 
   init(){
     const btn=document.getElementById('srv-apply');

@@ -96,7 +96,7 @@
 | C-2 | 번들러가 없다. `index.html` 의 `<script>` 순서가 곧 의존성이며, 증강 파일은 **클래스 정의 뒤**여야 한다 | `architecture.md` · C-3 of `SPLIT_REFACTOR_SRS` |
 | C-3 | `Object.assign` 은 접근자를 **값으로 복사**한다. getter/setter 는 클래스 본문에 남는다 | 접근자 제약 |
 | C-4 | 자산 판은 `?v=__ASSETV__` 로 **내용에서 파생**된다. 손으로 올릴 것이 없다 | `ASSET_VERSION_SINGLE_SOURCE_SRS` |
-| C-5 | 격리 하네스는 전역을 손으로 싣는다 — `reconnect-storm` 은 터미널 칸(`term-socket.js`·`term-pane.js`·`term-input.js`, FR-OPT-12-1·12-4)과 `ui-kit.js` 만 싣는다. **상수를 옮기면 그 하네스가 죽는다** | `M6_NEXT_SESSION.md` "비싸게 배운 것" 4 |
+| C-5 | 격리 하네스는 전역을 손으로 싣는다 — `reconnect-storm` 은 터미널 칸(`term-socket.js`·`term-pane.js`·`term-input.js`, FR-OPT-12-1·12-4)과 `ui-kit.js` 만 싣는다(**개정 2026-11-24, PERF M1 C5**: `term-socket.js` 는 `term-channel.js` 로 바뀌었고, 하네스는 그것과 `term-held.js` 등 칸 부품을 싣는다 — `e2e/reconnect-storm.spec.ts`). **상수를 옮기면 그 하네스가 죽는다** | `M6_NEXT_SESSION.md` "비싸게 배운 것" 4 |
 | C-6 | e2e 단정 변경 **0** | 로드맵 §M6 DoD |
 | C-7 | 외부 관측 동작(UI 픽셀 · HTTP/WS 본문)은 불변이다 | C-7 of `SPLIT_REFACTOR_SRS` |
 
@@ -144,7 +144,7 @@ FR-GIT-32~42) ──` 에서 이름이 지우는 것은 앞쪽뿐이고, 뒤쪽�
   · M9(i18n)가 문구를 카탈로그로 외부화할 때 **탭이 그 단위**다. 지금 가르면
     그때 여는 자리가 파일 이름으로 답해진다
 
-**FR-FMB-4** 변수 선언(`var gitStatusInterval` 등 3개)은 그 섹션을 따라간다.
+**FR-FMB-4** 변수 선언(`var gitStatusInterval` 등 3개)은 그 섹션을 따라간다. (**개정 2026-11-24, PERF 1.9·1.15**: `gitStatusInterval`·`gitReposInterval`·`gitConsoleInterval` 은 지웠다 — 설정 `RETIRED_KEYS`. 남은 주기 변수는 `statsInterval`·`gitWorktreeInterval` 이고 `settings-defaults.js` 에 있다.)
 `POLL_SETTINGS` 가 `get/set` 으로만 닿으므로(당시 `app-polling.js`, 지금 `poll-settings.js`) 선언 파일이
 바뀌어도 호출부가 바뀌지 않는다.
 
@@ -426,8 +426,9 @@ E 를 마지막에 두는 이유는 리스크가 가장 크고, 앞의 넷이 �
 두 수로 잰다. 게이트를 세운 순간은 500줄 초과 5 · 최대 2,545(`style.css`)였고, `style.css` 를 원래 순서의 연속 구간 여덟으로
 나눈 뒤의 값이 기준선이었다. 남은 넷(`style-git-views.css` 824 · `style-git.css` 679 · `style-editor.css` 575 · `style-kit.css` 565)은
 `REFACTOR3_FE_REST5_SRS` FR-FR5-1(2026-11-22)이 같은 방법으로 둘씩 나눴다 — 4 → 0, 최대 824 → 433(`style-git-tabs.css`).
+2026-11-25(PERF 3.4.6·3.4.11): git 묶음 이동 때 `style-git-tabs.css` 가 345줄로 줄어 최대는 415(`style-modal.css`)다. 게이트가 권한 대로 기준선을 갱신했다.
 
-    CSS 500줄초과=0 · 최대=433
+    CSS 500줄초과=0 · 최대=415
 
 | 지표 | §2.1 기준선 (2026-09-12) | §7.1 달성 (2026-09-13) | 게이트를 세운 순간 (2026-09-21) | **게이트 기준선 (2026-09-21)** |
 |---|---:|---:|---:|---:|

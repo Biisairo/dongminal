@@ -735,3 +735,54 @@ fn fmt_duration_table() {
         assert_eq!(fmt_duration(d), want, "{d}");
     }
 }
+
+/// PERF 2.8.2 (D-21): "이전 기록에서 찾기" — 찾기 줄의 선택지를 데몬에 그대로 넘기고 일치를 새 줄부터 준다.
+#[tokio::test]
+async fn tool_search_passes_options_and_returns_hits() {
+    let h = Arc::new(FakeHub::default());
+    h.seed("t1", "Shell");
+    h.search_hits
+        .lock()
+        .unwrap()
+        .push(otter_shared_toolipc::SearchHit {
+            col: 2,
+            line: 41,
+            text: "a needle".into(),
+        });
+    let (_d, s) = srv(hub_deps(&h));
+    let r = get(
+        &s,
+        "/api/tools/search?id=t1&q=need%20le&before=500&regex=1&case=1&word=1",
+    )
+    .await;
+    assert_eq!(r.status, 200, "{}", r.body);
+    assert_eq!(
+        r.json(),
+        serde_json::json!({"hits":[{"col":2,"line":41,"text":"a needle"}]})
+    );
+    let p = h.searches.lock().unwrap()[0].clone();
+    assert_eq!(
+        (
+            p.id.as_str(),
+            p.pattern.as_str(),
+            p.before,
+            p.regex,
+            p.case,
+            p.word,
+            p.limit
+        ),
+        (
+            "t1",
+            "need le",
+            500,
+            true,
+            true,
+            true,
+            crate::tools_api::SEARCH_LIMIT
+        )
+    );
+    let r = get(&s, "/api/tools/search?id=t1&q=x").await;
+    assert_eq!(r.status, 400, "before 없음");
+    let r = get(&s, "/api/tools/search?id=zz&q=x&before=1").await;
+    assert_eq!(r.status, 404);
+}

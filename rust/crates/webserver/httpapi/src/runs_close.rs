@@ -2,6 +2,7 @@
 //! `handlers_runs_cleanup.go`, RUN_ORCHESTRATION_SRS·UX_REVISION_SRS FR-DEL-*).
 
 use std::collections::{BTreeMap, HashSet};
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use http::StatusCode;
@@ -24,8 +25,6 @@ use crate::runs::{MemberView, Rt, RunFail, write_run_error};
 use crate::runs_worktree::worktree_residue;
 use crate::tools_api::off_thread;
 
-/// 자동 수거의 주기다 (FR-ARD-5).
-const REAP_INTERVAL: Duration = Duration::from_secs(15);
 /// 닫기 정리가 에이전트의 종료를 기다리는 상한과 간격이다 (FR-RCL-*).
 const EXIT_SETTLE_TIMEOUT: Duration = runwait::EXIT_SETTLE;
 const EXIT_POLL_INTERVAL: Duration = Duration::from_millis(250);
@@ -147,6 +146,7 @@ impl Server {
         );
         let orphans = self.orphan_headless(&rec);
         self.retire_closed_run(st, &rec, residue, kept.len());
+        self.kick_run_reap();
         let mut out = Obj::new();
         out.insert("id", raw(&rec.id));
         out.insert("short", raw(&rec.short));
@@ -434,8 +434,8 @@ impl Server {
         n
     }
 
-    /// Go `StartRunReaper`: 합성 루트가 부른다. 시작할 때 한 번, 그 뒤 주기마다 수거한다.
-    /// 저장소가 없으면 아무것도 띄우지 않는다.
+    /// Go `StartRunReaper`: 합성 루트가 부른다. 시작할 때 한 번, 그 뒤 [`Server::kick_run_reap`]
+    /// 가 깨울 때마다 수거한다 — 주기는 없다 (PERF M4 S7). 저장소가 없으면 아무것도 띄우지 않는다.
     pub fn start_run_reaper(&self, stop: CancellationToken) {
         if self.runs().is_none() {
             return;
@@ -445,16 +445,23 @@ impl Server {
         };
         tokio::spawn(async move {
             let s = srv.clone();
+            srv.run_aux.reaps.fetch_add(1, Ordering::Relaxed);
             let _ = off_thread(move || s.reap_runs()).await;
             loop {
                 tokio::select! {
                     _ = stop.cancelled() => return,
-                    _ = tokio::time::sleep(REAP_INTERVAL) => {}
+                    _ = srv.run_aux.reap_kick.notified() => {}
                 }
+                srv.run_aux.reaps.fetch_add(1, Ordering::Relaxed);
                 let s = srv.clone();
                 let _ = off_thread(move || s.reap_tick()).await;
             }
         });
+    }
+
+    /// Run 수거를 깨운다. 도구 종료 push·데몬 재연결·Run 닫기가 부른다 (PERF M4 S7).
+    pub fn kick_run_reap(&self) {
+        self.run_aux.reap_kick.notify_one();
     }
 
     /// Go `reapTick`: 레코드 수거와 함께 죽은 도구의 메모리 상태를 치운다 (FR-ARD-2).

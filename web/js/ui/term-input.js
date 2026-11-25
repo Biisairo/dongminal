@@ -10,6 +10,8 @@ Object.assign(TerminalTool.prototype, {
       // UX_BATCH6_SRS FR-IME-1: 조합이 아직 끝나지 않았으면 이 키는 xterm 이
       // 보아서는 안 된다. 가장 앞에 둔다 — 뒤의 갈래들도 조합보다 앞서면 안 된다.
       if(!this._imeGate(e)) return false;
+      // PERF FR-TRM-5: 기록 보기의 Esc 는 닫기만 한다. 다른 키는 기록 보기를 닫고 그대로 터미널로 간다.
+      if(this.history.onKey(e)) return false;
       // UX_BATCH11_SRS FR-TCP-1·6: 선택이 있을 때의 Ctrl+C 는 복사다. 비-mac 의 Ctrl+V 는 xterm 이
       // 보지 않고 기본 동작도 막지 않는다 — 브라우저의 `paste` 가 xterm 의 붙여넣기 경로로 간다.
       const clip=this._clipKey(e);

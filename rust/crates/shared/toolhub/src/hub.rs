@@ -27,9 +27,10 @@ pub struct ToolInfo {
 
 /// 도구 출력 한 조각이다. `end` 는 조각 **끝**의 절대 오프셋이고 0 은 "모른다" 다
 /// (TERMINAL_RESUME_SRS FR-TRS-15·16). `size` 가 있으면 출력이 아니라 크기 통보다 (M9_SRS FR-M9-3 ②).
+/// `data` 는 구독자들이 참조 계수로 나눈다 — 출력 하나를 구독자마다 복사하지 않는다 (PERF M4 §4).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct OutChunk {
-    pub data: Vec<u8>,
+    pub data: bytes::Bytes,
     pub end: i64,
     pub size: Option<TermSize>,
 }
@@ -64,6 +65,27 @@ pub struct ToolSnapshot {
     pub rows: u16,
     /// 앱이 켜 둔 터미널 모드 (FR-TMR-24).
     pub modes: TermModes,
+}
+
+/// 화면 상태 스냅숏이다 (PERF FR-TRM-4). `data` 뒤로는 출력 오프셋 `end` 부터 잇는다.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ToolScreen {
+    pub data: Vec<u8>,
+    pub end: i64,
+    pub cols: u16,
+    pub rows: u16,
+    pub alt: bool,
+    pub first_line: u64,
+    pub cwd: String,
+}
+
+/// 줄 저장소의 기록 구간이다 (PERF FR-TRM-5). `lines` 는 번호 `from` 부터의 논리 줄 ANSI 이고, `top` 은
+/// 저장소에 남은 가장 오래된 줄 번호다 — `from <= top` 이면 그 위는 없다.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ToolHistory {
+    pub from: u64,
+    pub top: u64,
+    pub lines: Vec<String>,
 }
 
 /// 백그라운드 도구 한 건이다 (FR-BG-6).

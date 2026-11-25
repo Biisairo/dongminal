@@ -3,12 +3,18 @@
 
 mod cmd;
 mod outbox;
+mod screens;
 mod term;
 mod topics;
 
 #[cfg(test)]
 pub(crate) use outbox::{CHANNEL_PENDING_MAX, TOPIC_PENDING_MAX};
 pub(crate) use outbox::{Out, Outbox};
+pub(crate) use screens::ScreenFlights;
+#[cfg(test)]
+pub(crate) use term::TERM_HISTORY_MAX;
+#[cfg(test)]
+pub(crate) use term::{TERM_PENDING_MAX, Terms};
 #[cfg(test)]
 pub(crate) use topics::TOPIC_RING;
 pub(crate) use topics::{DeltaOp, Seed, SubError, TopicHub};
@@ -185,6 +191,10 @@ impl Server {
                             self.term_open(terms, out, &v);
                             continue;
                         }
+                        "term.history" => {
+                            self.term_history(terms, out, &v);
+                            continue;
+                        }
                         "term.close" => {
                             self.term_close(terms, out, &v);
                             continue;
@@ -246,7 +256,7 @@ impl Server {
         }
         for id in want {
             if let std::collections::hash_map::Entry::Vacant(e) = slots.entry(id) {
-                let release = self.attach_sse_leases(e.key(), remote, true);
+                let release = self.attach_channel_leases(e.key(), remote, true);
                 e.insert(Box::new(release));
             }
         }
@@ -275,12 +285,12 @@ async fn write_loop(
             o = out.next() => o,
         };
         let msg = match next {
-            Out::Text(t) => Message::Text(Bytes::copy_from_slice(t.as_bytes())),
-            Out::Binary(b) => Message::Binary(Bytes::from(b)),
+            Out::Text(t) => Message::Text(Bytes::from_owner(SharedText(t))),
+            Out::Binary(f) => Message::Binary(f.wire()),
             Out::NeedFull(topic) => match srv.topics.full_item(&topic) {
                 Some(it) => {
                     out.drop_upto(&topic, it.seq);
-                    Message::Text(Bytes::copy_from_slice(it.frame.as_bytes()))
+                    Message::Text(Bytes::from_owner(SharedText(it.frame.clone())))
                 }
                 None => continue,
             },
@@ -292,6 +302,15 @@ async fn write_loop(
     }
     done.cancel();
     let _ = writer.close(1000, "").await;
+}
+
+/// 직렬화해 둔 본문을 복사 없이 `Bytes` 로 넘긴다 — 채널마다 참조 계수만 나눈다 (M4 §4).
+struct SharedText(Arc<str>);
+
+impl AsRef<[u8]> for SharedText {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
 }
 
 /// 쓰기 한 번. 마감(`WRITE_WAIT`) 안에 끝나지 않으면 실패다 — 읽지 않는 상대가 쓰기 태스크를

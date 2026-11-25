@@ -18,12 +18,15 @@
  *   after  1회 지연     마감 힙을 지난다
  *   defer  매크로태스크 경계   힙 우회 — 순서가 계약이다 (FR-SCH-13)
  *   sleep  호출자의 흐름       힙 우회 — await 로 쓴다 (FR-SCH-14)
- *   frame  렌더 파이프라인 위치  힙 우회 — rAF 를 그대로 통과 (FR-SCH-15)
+ *   frame  렌더 파이프라인 위치  힙 우회 — rAF 하나에 묶는다 (FR-SCH-15 · D-39)
  *
  * 우회한다고 관리 밖은 아니다. 소유자 등록·`disposeOwner`·`pending()` 은 다섯이
  * 모두 같다 — INV-1 이 요구하는 것은 한 지점을 지나는 것이지 한 큐에 들어가는
  * 것이 아니다 (FR-SCH-3a).
  */
+/** `frame` 의 우선순위. 작을수록 먼저 돈다. 없거나 모르는 값은 `normal` 이다. */
+const FRAME_PRIO={input:0, term:1, normal:2, idle:3};
+
 class TimerHub {
   constructor(){
     this._jobs=new Map();     // id → job (every)
@@ -32,10 +35,14 @@ class TimerHub {
     this._nextT=null;         // 마감 힙을 대신하는 단일 타이머 (FR-SCH-3)
     this._nextAt=0;
     this._hidden=()=>document.hidden;
-    // FR-BUS-8: 생명주기 신호를 듣는 자리는 앱 전체에 하나다. 종전에는 네 곳이
-    // 각자 `visibilitychange` 를 듣고 각자 해석했고, 그래서 순서 보장이 없었다
-    // (SRS §2.7). 여기서 한 번 듣고 전부에 같은 규약으로 준다.
+    this._raf=null;           // 프레임 묶음의 rAF 하나 (D-39)
+    this._ownerIds=new WeakMap();   // coalesce 주인 객체 → 번호 (PERF 3.6.4)
+    this._now=typeof performance==='object'?()=>performance.now():()=>Date.now();
+    // FR-BUS-8: 주기 작업과 화면 생명주기(`onVisibility`)가 받는 숨김 신호는 여기서 한 번 듣는다. 종전에는 네
+    // 곳이 각자 듣고 해석해 순서 보장이 없었다(SRS §2.7). 앱의 리스너는 이것 말고 `EventBus.startLifecycle`
+    // (`life:*` 토픽)·`VersionWatch`(판 확인)에 하나씩 더 있다(PERF 3.4.11).
     this._onVis=()=>this._visibility();
+    this._visFns=new Set();
     document.addEventListener('visibilitychange',this._onVis);
   }
 
@@ -245,32 +252,74 @@ class TimerHub {
   }
 
   /**
-   * `frame` 은 rAF 를 그대로 통과시킨다 (FR-SCH-15). 지연을 넣지 않는다 —
-   * 재는 것이 시간이 아니라 **브라우저가 레이아웃을 확정한 직후**라는 렌더
-   * 파이프라인 위치이기 때문이다.
+   * `frame` 은 다음 프레임에 돈다 (FR-SCH-15). 지연을 넣지 않는다 — 재는 것이
+   * 시간이 아니라 **브라우저가 레이아웃을 확정한 직후**라는 렌더 파이프라인
+   * 위치이기 때문이다.
    *
    * 값어치는 지연이 아니라 소유권에 있다. 15개 중 11개가 id 를 붙들지 않는
    * fire-and-forget 이었고, 화면이 파괴된 뒤 죽은 DOM 을 만졌다.
    *
-   * `coalesce` 는 같은 키의 프레임을 하나로 접는다 — `_wheelRaf`·`_mFitRaf`·
-   * `_docRenderRaf` 가 손으로 하던 일이다.
+   * `coalesce` 는 **주인마다** 같은 이름의 프레임을 하나로 접는다(`_wheelRaf`·`_mFitRaf`·`_docRenderRaf` 가 손으로
+   * 하던 일). **먼저 잡힌 예약이 이긴다** — 나중이 이기면 재예약이 프레임보다 잦은 연속 입력에서 영영 돌지 않는다.
    *
-   * **먼저 잡힌 예약이 이긴다.** 세 곳 모두 `if(this._xRaf) return` 으로 그렇게
-   * 하고 있었고, 그것이 옳다 — 나중이 이기면 연속 입력(터치 스크롤·리사이즈)에서
-   * 재예약이 프레임보다 잦을 때 **영영 실행되지 않는다**. 접힌 동안의 변화는
-   * 누적 상태(`_wheelPend` 같은)가 들고 있다가 한 번에 반영된다.
+   * PERF_OPTIMIZATION_SRS FR-SPA-4 · D-39 — 한 프레임의 작업은 **rAF 하나**에 묶여 `_flushFrame` 에서 돈다.
+   *   key   같은 키가 또 오면 앞의 것을 버리고 마지막 것만 돈다(묶음 안에서 콜백만 바뀌므로 굶지 않는다)
+   *   prio  `input` > `term` > `normal`(기본) > `idle`. 같은 우선순위는 부른 순서다 — 옵션이 없으면 종전 순서다
+   *   idle  프레임 시작부터 `FRAME_BUDGET_MS` 를 넘었거나 입력이 기다리면 다음 프레임(`FRAME_IDLE_MAX_DEFER` 번까지)
    */
   frame(fn,opts){
     opts=opts||{};
-    const key=opts.coalesce?('frame:'+(opts.owner||'')+':'+opts.coalesce):null;
-    // 이미 잡혀 있으면 그것을 돌려준다. 새 콜백은 버린다 — 누적 상태를 읽는
-    // 콜백이므로 어느 쪽이 실행돼도 최신을 본다.
-    if(key&&this._ones.has(key)) return {id:key, stop:()=>this._cancelOne(key)};
-    const id=key||('frame#'+(++this._seq));
-    const rec={kind:'frame',owner:opts.owner||null,at:Date.now(),label:opts.label||''};
-    rec.native=requestAnimationFrame(()=>{ this._ones.delete(id); fn() });
-    this._ones.set(id,rec);
+    const owner=opts.owner||null;
+    let id;
+    if(opts.coalesce){
+      id='frame:'+this._ownerKey(owner)+':'+opts.coalesce;
+      // 이미 잡혀 있으면 그것을 돌려준다. 새 콜백은 버린다 — 누적 상태를 읽는
+      // 콜백이므로 어느 쪽이 실행돼도 최신을 본다.
+      if(this._ones.has(id)) return {id, stop:()=>this._cancelOne(id)};
+    }else if(opts.key!=null){
+      id='frame:key:'+opts.key;
+      this._ones.delete(id);   // 앞의 것을 버린다. 다시 넣어 부른 순서의 끝에 선다
+    }else id='frame#'+(++this._seq);
+    const prio=FRAME_PRIO[opts.prio]??FRAME_PRIO.normal;
+    this._ones.set(id,{kind:'frame',owner,at:Date.now(),label:opts.label||'',fn,prio});
+    if(this._raf==null) this._raf=requestAnimationFrame(ts=>this._flushFrame(ts));
     return {id, stop:()=>this._cancelOne(id)};
+  }
+
+  /** 이 프레임의 묶음을 돌린다. 도는 동안 새로 건 `frame` 은 다음 프레임이다(rAF 안의 rAF 와 같다). */
+  _flushFrame(ts){
+    this._raf=null;
+    const t0=typeof ts==='number'?ts:this._now();
+    const batch=[];
+    for(const [id,r] of this._ones) if(r.kind==='frame') batch.push([id,r]);
+    batch.sort((a,b)=>a[1].prio-b[1].prio);
+    for(const [id,r] of batch){
+      if(this._ones.get(id)!==r) continue;   // 앞 콜백이 걷었거나 같은 키로 바꿨다
+      // PERF 3.6.2: 밀린 idle 은 `FRAME_IDLE_MAX_DEFER` 프레임 뒤에는 돈다 — 입력이 이어져도 굶지 않는다.
+      if(r.prio===FRAME_PRIO.idle&&(this._now()-t0>=FRAME_BUDGET_MS||this._inputPending())&&(r.waits=(r.waits||0)+1)<=FRAME_IDLE_MAX_DEFER) continue;
+      this._ones.delete(id);
+      this._safe(r.label||id,r.fn);
+    }
+    if(this._raf==null&&this._hasFrame()) this._raf=requestAnimationFrame(ts2=>this._flushFrame(ts2));
+  }
+
+  /** PERF 3.6.4: `coalesce` 의 주인 이름. 객체를 이으면 모두 "[object Object]" 였다 — 객체마다 번호를 준다. */
+  _ownerKey(o){
+    if(o==null||(typeof o!=='object'&&typeof o!=='function')) return 's:'+(o??'');
+    if(!this._ownerIds.has(o)) this._ownerIds.set(o,++this._seq);
+    return 'o:'+this._ownerIds.get(o);
+  }
+
+  _hasFrame(){
+    for(const r of this._ones.values()) if(r.kind==='frame') return true;
+    return false;
+  }
+
+  /** `navigator.scheduling.isInputPending()` — 없는 브라우저는 거짓이다(예산만 본다). */
+  _inputPending(){
+    const nav=/** @type {{scheduling?:{isInputPending?:()=>boolean}}|undefined} */ (typeof navigator==='object'?navigator:undefined);
+    const s=nav&&nav.scheduling;
+    return !!(s&&typeof s.isInputPending==='function'&&s.isInputPending());
   }
 
   /**
@@ -284,10 +333,10 @@ class TimerHub {
   _cancelOne(id){
     const r=this._ones.get(id);
     if(!r) return;
-    if(r.kind==='frame') cancelAnimationFrame(r.native);
-    else if(r.native!=null) clearTimeout(r.native);
+    if(r.native!=null) clearTimeout(r.native);
     this._ones.delete(id);
     if(r.kind==='after') this._reschedule();
+    if(r.kind==='frame'&&this._raf!=null&&!this._hasFrame()){ cancelAnimationFrame(this._raf); this._raf=null }
   }
 
   // ── 소유권 (FR-SCH-10) ──────────────────────────────────────────────────
@@ -379,8 +428,19 @@ class TimerHub {
    * 낡음을 그 자리에서 갚는다 — 한 주기를 더 기다리면 돌아온 화면이 낡은 채다.
    */
   _visibility(){
-    if(this._hidden()){ this._reschedule(); return }
+    const hidden=this._hidden();
+    for(const fn of this._visFns) this._safe('visibility',()=>fn(hidden));
+    if(hidden){ this._reschedule(); return }
     this.revalidate();
+  }
+
+  /**
+   * 브라우저 탭 숨김 신호를 받는다 (PERF M3 §3.5). 리스너를 새로 달지 않고 위의 하나를 나눈다(FR-BUS-8).
+   * @param {(hidden:boolean)=>void} fn
+   */
+  onVisibility(fn){
+    this._visFns.add(fn);
+    return {stop:()=>{ this._visFns.delete(fn) }};
   }
 
   /**

@@ -268,6 +268,117 @@ pub(crate) fn snapshot(c: &Conn, req: &PanedRequest) -> Line {
     )
 }
 
+/// 화면 상태 스냅숏이다 (PERF FR-TRM-4, D-18). 없는 도구는 snapshot 과 같이 CODE_NOT_FOUND 다.
+pub(crate) fn screen(c: &Conn, req: &PanedRequest) -> Line {
+    let p: ipc::ScreenParams = match decode(req) {
+        Ok(p) => p,
+        Err(l) => return l,
+    };
+    let Some(s) = c.pm.screen_tool(&p.id, p.history) else {
+        return err_msg(
+            req.id,
+            ipc::CODE_NOT_FOUND,
+            &ManagerError::NotFound.to_string(),
+        );
+    };
+    ok(
+        req.id,
+        &ipc::ScreenResult {
+            alt: s.alt,
+            cols: s.cols,
+            cwd: s.cwd,
+            data: s.data,
+            end: s.end,
+            first_line: s.first_line,
+            rows: s.rows,
+        },
+    )
+}
+
+/// 화면 상태의 글자다 (PERF FR-TRM-8, D-22). 없는 도구는 screen 과 같이 CODE_NOT_FOUND 다.
+pub(crate) fn screen_text(c: &Conn, req: &PanedRequest) -> Line {
+    let p: ipc::ScreenTextParams = match decode(req) {
+        Ok(p) => p,
+        Err(l) => return l,
+    };
+    match c.pm.screen_text_tool(&p.id, p.bytes) {
+        Some(text) => ok(req.id, &ipc::ScreenTextResult { text }),
+        None => err_msg(
+            req.id,
+            ipc::CODE_NOT_FOUND,
+            &ManagerError::NotFound.to_string(),
+        ),
+    }
+}
+
+/// 답장 좌석을 쥐고 놓는다(D-23). 없는 도구는 screen 과 같이 CODE_NOT_FOUND 다.
+pub(crate) fn seat(c: &Conn, req: &PanedRequest) -> Line {
+    let p: ipc::SeatParams = match decode(req) {
+        Ok(p) => p,
+        Err(l) => return l,
+    };
+    let Some(replied_end) = c.hold_seat(&p.id, p.held) else {
+        return err_msg(
+            req.id,
+            ipc::CODE_NOT_FOUND,
+            &ManagerError::NotFound.to_string(),
+        );
+    };
+    ok(req.id, &ipc::SeatResult { replied_end })
+}
+
+/// 줄 저장소 검색이다(D-21). 깨진 정규식은 CODE_INVALID_PARAMS, 없는 도구는 CODE_NOT_FOUND 다.
+pub(crate) fn search(c: &Conn, req: &PanedRequest) -> Line {
+    let p: ipc::SearchParams = match decode(req) {
+        Ok(p) => p,
+        Err(l) => return l,
+    };
+    let q = match otter_shared_toolhub::Query::new(&p.pattern, p.regex, p.case, p.word) {
+        Ok(q) => q,
+        Err(e) => return err_msg(req.id, ipc::CODE_INVALID_PARAMS, &e.to_string()),
+    };
+    let limit = p.limit.clamp(1, ipc::SEARCH_LIMIT_MAX);
+    let Some(hits) = c.pm.search_tool(&p.id, &q, p.before, limit) else {
+        return err_msg(
+            req.id,
+            ipc::CODE_NOT_FOUND,
+            &ManagerError::NotFound.to_string(),
+        );
+    };
+    let hits = hits
+        .into_iter()
+        .map(|h| ipc::SearchHit {
+            col: h.col,
+            line: h.line,
+            text: h.text,
+        })
+        .collect();
+    ok(req.id, &ipc::SearchResult { hits })
+}
+
+/// 줄 저장소의 기록 구간이다 (PERF FR-TRM-5). 없는 도구는 CODE_NOT_FOUND 다.
+pub(crate) fn history(c: &Conn, req: &PanedRequest) -> Line {
+    let p: ipc::HistoryParams = match decode(req) {
+        Ok(p) => p,
+        Err(l) => return l,
+    };
+    let Some(h) = c.pm.history_tool(&p.id, p.before, p.count) else {
+        return err_msg(
+            req.id,
+            ipc::CODE_NOT_FOUND,
+            &ManagerError::NotFound.to_string(),
+        );
+    };
+    ok(
+        req.id,
+        &ipc::HistoryResult {
+            from: h.from,
+            lines: h.lines,
+            top: h.top,
+        },
+    )
+}
+
 pub(crate) fn cwd(c: &Conn, req: &PanedRequest) -> Line {
     match decode::<ipc::IdParams>(req) {
         Ok(p) => ok(
@@ -386,6 +497,28 @@ pub(crate) fn records_snapshot(c: &Conn, req: &PanedRequest) -> Line {
             tools: Some(tools),
         },
     )
+}
+
+/// 기록 줄 수 설정(D-25)이다. 범위 밖이면 얹지 않고 거절한다.
+pub(crate) fn screen_config(c: &Conn, req: &PanedRequest) -> Line {
+    let p: ipc::ScreenConfigParams = match decode(req) {
+        Ok(p) => p,
+        Err(l) => return l,
+    };
+    if !(ipc::HISTORY_LINES_MIN..=ipc::HISTORY_LINES_MAX).contains(&p.history_lines) {
+        return err_msg(
+            req.id,
+            ipc::CODE_INVALID_PARAMS,
+            &format!(
+                "historyLines {} 는 {}~{} 밖이다",
+                p.history_lines,
+                ipc::HISTORY_LINES_MIN,
+                ipc::HISTORY_LINES_MAX
+            ),
+        );
+    }
+    c.pm.set_history_lines(p.history_lines);
+    ok_empty(req.id)
 }
 
 pub(crate) fn attn_config(c: &Conn, req: &PanedRequest) -> Line {

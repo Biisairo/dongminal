@@ -87,6 +87,9 @@ Object.assign(Renderer.prototype, {
     el.addEventListener('dragstart',e=>{
       const c=ctx(); if(!c.pane||!c.tab) return;
       app.drag={type:'tab',srcPaneId:c.pane.id,tabId:c.tab.id};
+      // 옮기기 본체(uiact, PERF 3.4.12.10)를 미리 싣는다 — 놓을 때 이미 서 있으면 옮기기가 그 자리에서 돈다.
+      // 실패하면 놓을 때 자리표시가 다시 싣는다.
+      Screens.load('uiact').then(()=>{},()=>{});
       e.dataTransfer.effectAllowed='move';
       e.stopPropagation();
       TIMERS.defer(()=>el.classList.add('dragging'),{label:'drag-class'});

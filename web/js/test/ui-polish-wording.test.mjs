@@ -6,10 +6,11 @@ import { CONSTANTS, load } from './harness.mjs';
 /**
  * UI_POLISH_SRS TC-UIP-7 (FR-UIP-11·12·24) — 일반 동작 라벨은 ko 에서 한국어이고,
  * git 고유 용어는 영어로 남는다. 코드에 박혀 있던 라벨도 카탈로그를 거친다.
+ * git 상수의 키는 언어 조각 `web/js/i18n/git.ko.js` 에 있다 (PERF D-46).
  */
 
 function ctxFor() {
-  return load(['core/i18n.js', 'i18n/ko.js', ...CONSTANTS,
+  return load(['core/i18n.js', 'i18n/ko.js', 'i18n/git.ko.js', ...CONSTANTS,
     'core/constants-api.js', 'core/constants-git.js', 'core/constants-git-changes.js',
     'core/constants-git-commit.js', 'core/constants-git-detect.js', 'core/constants-git-diff.js',
     'core/constants-git-history.js', 'core/constants-git-refs.js', 'core/constants-git-remote.js',

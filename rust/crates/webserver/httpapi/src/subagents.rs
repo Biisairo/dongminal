@@ -344,7 +344,7 @@ impl Server {
                 tool: &a.tool,
                 tool_id,
             };
-            cmds.broadcast(&otter_webserver_sse::payload(
+            cmds.broadcast(&otter_webserver_envelope::payload(
                 "tool_subagent_activity",
                 Some(&ev),
             ));

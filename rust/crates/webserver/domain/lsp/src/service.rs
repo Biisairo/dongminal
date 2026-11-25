@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::io::{self, BufReader, Read, Write};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{SyncSender, TrySendError, sync_channel};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime};
@@ -24,8 +24,6 @@ pub const IDLE_AFTER: Duration = Duration::from_secs(20 * 60);
 pub const MAX_SESSIONS: usize = 6;
 /// 서버가 다루는 텍스트의 상한 — 편집기 파일 상한과 같다.
 pub const MAX_TEXT_BYTES: i64 = otter_shared_editorlimit::FILE_MAX_BYTES;
-/// 유휴 정리의 주기.
-pub const SWEEP_EVERY: Duration = Duration::from_secs(2 * 60);
 /// 끼워 넣기(파일 변경 알림) 줄의 길이.
 const TUNNEL_INJECT_QUEUE: usize = 16;
 
@@ -101,6 +99,10 @@ struct Inner {
 #[derive(Default)]
 pub(crate) struct State {
     inner: Mutex<Inner>,
+    /// 세션이 새로 생겼다는 신호다 — 잠든 스위퍼가 마감을 다시 잡는다.
+    wake: tokio::sync::Notify,
+    /// 스위퍼가 정리를 돈 횟수다 (시험용 깨어남 카운터).
+    sweeps: AtomicU64,
 }
 
 impl State {
@@ -229,37 +231,58 @@ impl Service {
             conn,
         );
         g.tunnels.insert(id, Arc::clone(&t));
+        self.state.wake.notify_one();
         Ok(t)
+    }
+
+    fn idle_after(&self) -> Duration {
+        if self.idle_after.is_zero() {
+            IDLE_AFTER
+        } else {
+            self.idle_after
+        }
     }
 
     /// 유휴 세션을 닫는다.
     pub fn sweep(&self) {
-        let after = if self.idle_after.is_zero() {
-            IDLE_AFTER
-        } else {
-            self.idle_after
-        };
-        let cut = (self.now_fn())() - after;
+        let cut = (self.now_fn())() - self.idle_after();
         for t in self.state.tunnels() {
-            if t.last_use() < cut {
+            if t.last_use() <= cut {
                 t.close();
             }
         }
     }
 
-    /// [`SWEEP_EVERY`] 마다 [`Service::sweep`] 한다. token 이 취소되면 끝난다.
+    /// 가장 먼저 유휴가 되는 세션의 마감(`min(last_use) + idle_after`)까지 남은 시간이다. 세션이
+    /// 없으면 `None` 이다.
+    fn next_sweep_in(&self) -> Option<Duration> {
+        let oldest = self.state.tunnels().iter().map(|t| t.last_use()).min()?;
+        let due = oldest + self.idle_after();
+        Some(
+            due.duration_since((self.now_fn())())
+                .unwrap_or(Duration::ZERO),
+        )
+    }
+
+    /// 유휴 마감마다 [`Service::sweep`] 한다. 세션이 없으면 새 세션이 열릴 때까지 잠든다
+    /// (PERF M4 S9). token 이 취소되면 끝난다.
     pub async fn run_sweeper(self: Arc<Self>, token: CancellationToken) {
-        let mut tick =
-            tokio::time::interval_at(tokio::time::Instant::now() + SWEEP_EVERY, SWEEP_EVERY);
         loop {
+            let wait = self.next_sweep_in();
             tokio::select! {
                 _ = token.cancelled() => return,
-                _ = tick.tick() => {
-                    let me = Arc::clone(&self);
-                    let _ = tokio::task::spawn_blocking(move || me.sweep()).await;
-                }
+                _ = self.state.wake.notified() => continue,
+                _ = sleep_for(wait) => {}
             }
+            self.state.sweeps.fetch_add(1, Ordering::Relaxed);
+            let me = Arc::clone(&self);
+            let _ = tokio::task::spawn_blocking(move || me.sweep()).await;
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn sweeps(&self) -> u64 {
+        self.state.sweeps.load(Ordering::Relaxed)
     }
 
     /// 모든 세션을 닫는다.
@@ -371,6 +394,14 @@ impl Service {
             t.close();
         }
         Ok(self.paths())
+    }
+}
+
+/// `d` 만큼 잔다. `None` 이면 깨우는 다른 갈래가 올 때까지 잔다.
+async fn sleep_for(d: Option<Duration>) {
+    match d {
+        Some(d) => tokio::time::sleep(d).await,
+        None => std::future::pending().await,
     }
 }
 

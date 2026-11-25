@@ -7,18 +7,17 @@
 
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 use otter_webserver_domain_git_core::Service;
 use otter_webserver_domain_git_store::{Store, StoreOptions};
-use otter_webserver_hub::{CommandBroker, GitWatcher};
+use otter_webserver_hub::CommandBroker;
 
 use super::fakes::{FakeBroker, FakeSettings};
 use super::support::{LOCAL, call, get, server};
 use crate::agent_render_env::CLAUDE_NO_FLICKER_ENV;
 use crate::deps::SettingsStore;
 use crate::settings::{FileSettings, parse_fg_tab_names};
-use crate::{Config, Deps, Server};
+use crate::{Deps, Server};
 
 async fn put(s: &Arc<Server>, target: &str, body: &str) -> super::support::Resp {
     call(
@@ -291,74 +290,107 @@ async fn start_git_watch_without_watcher_is_noop() {
     s.start_git_watch(tokio_util::sync::CancellationToken::new());
 }
 
-fn lease_server(dir: &std::path::Path) -> Arc<Server> {
-    Server::new_with(
-        Config {
-            data_dir: dir.to_path_buf(),
-            ..Config::default()
-        },
-        Deps::default(),
-        |s| {
-            s.git_watch = Some(GitWatcher::new(None));
-        },
-    )
+// ── 기록 줄 수 설정 (PERF D-25, `termHistoryLines`) ──
+
+#[derive(Default)]
+struct FakeScreenDaemon {
+    sent: Mutex<Vec<usize>>,
 }
 
-type Chan = super::wsc::Client;
-
-/// 채널을 열고 인사한다. `cid` 가 비면 `client` 를 싣지 않는다.
-async fn open_channel(s: &Arc<Server>, cid: &str) -> Chan {
-    use super::wsc::{Message, TextOf};
-    use futures_util::{SinkExt, StreamExt};
-    let port = super::ws::listen(s.clone()).await;
-    let mut c = super::wsc::dial(port, "/channel?v=1").await;
-    let mut h = serde_json::json!({"t":"hello","slots":[]});
-    if !cid.is_empty() {
-        h["client"] = serde_json::json!(cid);
+impl crate::ScreenDaemon for FakeScreenDaemon {
+    fn set_history_lines(&self, lines: usize) -> Result<(), crate::DaemonCallError> {
+        self.sent.lock().unwrap().push(lines);
+        Ok(())
     }
-    c.send(Message::text(h.to_string())).await.unwrap();
-    loop {
-        match tokio::time::timeout(Duration::from_secs(3), c.next()).await {
-            Ok(Some(Ok(Message::Text(t)))) if t.as_str().contains(r#""t":"hello""#) => break,
-            Ok(Some(Ok(_))) => continue,
-            other => panic!("채널 인사가 없다: {other:?}"),
-        }
+}
+
+#[test]
+fn history_lines_is_read_from_the_blob_and_falls_back_to_the_default() {
+    use crate::screen_config::parse_history_lines;
+    use otter_shared_termlimit::HISTORY_LINES_DEFAULT as DEF;
+    for (blob, want) in [
+        ("", DEF),
+        ("{}", DEF),
+        (r#"{"termHistoryLines":2000}"#, 2_000),
+        (r#"{"termHistoryLines":1000}"#, 1_000),
+        (r#"{"termHistoryLines":200000}"#, 200_000),
+        (r#"{"termHistoryLines":999}"#, DEF),
+        (r#"{"termHistoryLines":200001}"#, DEF),
+        (r#"{"termHistoryLines":1500.5}"#, DEF),
+        (r#"{"termHistoryLines":"3000"}"#, DEF),
+    ] {
+        assert_eq!(parse_history_lines(blob.as_bytes()), Some(want), "{blob:?}");
     }
-    c
 }
 
-async fn wait_leases(s: &Server, want: usize) {
-    let w = s.git_watch.as_ref().unwrap();
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(3);
-    while tokio::time::Instant::now() < deadline {
-        if w.leases() == want {
-            return;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
-    panic!("임대 수 {}, 기대 {want} (FR-GWL-3)", w.leases());
-}
-
-// TC-CH4-10 (TC-GWL-9 대체): git 감시 임대는 채널의 `git:<repo>` 토픽 구독이 쥔다 — `client` 를
-// 밝힌 채널도 그것만으로는 임대를 만들지 않는다.
-#[tokio::test]
-async fn git_watch_lease_not_held_by_channel_client() {
-    let d = tempfile::tempdir().unwrap();
-    let s = lease_server(d.path());
-    let _body = open_channel(&s, "c1").await;
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    wait_leases(&s, 0).await;
-}
-
-// TC-GWL-10: `client` 없는 채널은 임대를 만들지 않는다.
-#[tokio::test]
-async fn git_watch_lease_anonymous_subscription_holds_nothing() {
-    let d = tempfile::tempdir().unwrap();
-    let s = lease_server(d.path());
-    let _body = open_channel(&s, "").await;
+/// 설정 서술자의 범위·기본값이 데몬이 받는 범위·저장소 기본 상한과 같다.
+#[test]
+fn history_lines_schema_matches_daemon_range() {
+    let specs = otter_shared_settingsschema::load().unwrap();
+    let by = otter_shared_settingsschema::by_key(&specs);
+    let s = &by["termHistoryLines"];
+    assert_eq!(s.kind, "int");
     assert_eq!(
-        s.git_watch.as_ref().unwrap().leases(),
-        0,
-        "익명 구독이 임대를 얻었다 (FR-GWL-10)"
+        s.min,
+        Some(otter_shared_termlimit::HISTORY_LINES_MIN as i64)
     );
+    assert_eq!(
+        s.max,
+        Some(otter_shared_termlimit::HISTORY_LINES_MAX as i64)
+    );
+    assert_eq!(
+        s.def.as_u64(),
+        Some(otter_shared_termlimit::HISTORY_LINES_DEFAULT as u64)
+    );
+    assert_eq!(
+        otter_shared_toolipc::HISTORY_LINES_MIN,
+        otter_shared_termlimit::HISTORY_LINES_MIN
+    );
+    assert_eq!(
+        otter_shared_toolipc::HISTORY_LINES_MAX,
+        otter_shared_termlimit::HISTORY_LINES_MAX
+    );
+    assert_eq!(
+        otter_shared_toolhub::HISTORY_CAP,
+        otter_shared_termlimit::HISTORY_LINES_DEFAULT
+    );
+}
+
+/// 기본값을 낮춰도(D-51) 이미 저장된 사용자 값은 그대로 쓴다 — 옛 기본값 5만도 마찬가지다.
+#[test]
+fn saved_history_lines_survive_the_default_change() {
+    use crate::screen_config::parse_history_lines;
+    assert_eq!(
+        parse_history_lines(br#"{"termHistoryLines":50000}"#),
+        Some(50_000)
+    );
+}
+
+#[tokio::test]
+async fn settings_put_sends_history_lines_to_the_daemon() {
+    let d = tempfile::tempdir().unwrap();
+    let daemon = Arc::new(FakeScreenDaemon::default());
+    let s = server(
+        d.path(),
+        Deps {
+            settings: Some(file_settings(d.path())),
+            screen_daemon: Some(daemon.clone() as Arc<dyn crate::ScreenDaemon>),
+            ..Deps::default()
+        },
+    );
+    s.sync_screen_config();
+    assert_eq!(
+        put(&s, "/api/settings", r#"{"termHistoryLines":3000}"#)
+            .await
+            .status,
+        200
+    );
+    assert_eq!(
+        put(&s, "/api/settings", r#"{"termHistoryLines":5}"#)
+            .await
+            .status,
+        200
+    );
+    use otter_shared_termlimit::HISTORY_LINES_DEFAULT as DEF;
+    assert_eq!(*daemon.sent.lock().unwrap(), [DEF, 3_000, DEF]);
 }

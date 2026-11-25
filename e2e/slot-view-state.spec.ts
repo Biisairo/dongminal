@@ -405,6 +405,7 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     await focusSlot(page, 0);
 
     // 탭을 다른 pane 으로 옮긴다 (드롭 핸들러가 지나는 단일 통로).
+    await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
     await page.evaluate(([src, tid, d]) =>
       (window as any).app.testing.moveTabToPane(src, tid, d, null, false),
       [rid0, tabs[1].id, dst] as const);

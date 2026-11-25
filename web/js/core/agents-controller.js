@@ -55,7 +55,7 @@ class AgentsController extends Controller {
   // FR-AAP-15: 합류/재연결 시 현재 활동 스냅샷 복원
   //
   // FR-RSF-8: 응답 도착 시점의 `clear()` 후 재구성이 아니라 차분이다. 이 함수는
-  // `agentsPollMs`(기본 5초)마다 불리므로 비행 창이 상시 열려 있고, 통째로 비우면
+  // 채널 `activity` 토픽의 full 마다(옛 `agentsPollMs` 5초 주기의 자리) 불리므로 비행 창이 열려 있을 수 있고, 통째로 비우면
   // 그 사이 도착한 활동이 태어나자마자 사라진다 (RESTORE_FLIGHT_SRS §2.1).
   _activityRestore(src){
     const flight=this.app.wsSync._restoreBegin('activity');
@@ -118,7 +118,7 @@ class AgentsController extends Controller {
    * FR-AAP-19 (회복 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-6): 활동 스냅샷의 주기는 **패널이
    * 보이거나 알림이 있을 때만** 돈다. 주기는 `state-registry` 의 `tool.activity` 가
    * 갖고 이것은 그 `when` 이다. 알림이 있으면 주의 센터가 활동의 detail 을 읽는다
-   * (`_attnDetail`). 증분은 닫혀 있어도 SSE `tool_activity` 로 온다.
+   * (`_attnDetail`). 증분은 닫혀 있어도 채널 `activity` 토픽으로 온다. (PERF M1 뒤로 주기는 없다.)
    *
    * UX_BATCH12_SRS FR-ACF-9: 데스크톱의 레일도 목록을 보이므로 "보인다" 에 든다.
    */
@@ -185,7 +185,7 @@ class AgentsController extends Controller {
   /**
    * FR-RPT-3: 패널을 비우고 다시 만들지 않는다.
    *
-   * 활동 주기(`agentsPollMs`)가 부르고 SSE `tool_activity` 도 부른다 —
+   * 채널 `activity` 토픽의 full 과 `tool_activity` 사건이 부른다 —
    * 둘 다 바깥 계기다. 카드를 새로 만들면 **끌고 있던 카드가 DOM 에서 빠져 재배치가
    * 조용히 실패한다** (FR-AAP-21).
    *

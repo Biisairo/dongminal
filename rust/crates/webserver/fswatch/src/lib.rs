@@ -9,6 +9,7 @@ mod coalesce;
 mod manager;
 mod os;
 mod pipeline;
+mod tree;
 
 pub use backend::{Backend, BackendError, BackendMsg, NewBackend, new_notify_backend};
 pub use coalesce::{Change, Kind, coalesce};
@@ -19,3 +20,4 @@ pub use pipeline::{
     OP_CHMOD, OP_CREATE, OP_REMOVE, OP_RENAME, OP_WRITE, Op, OutFn, Pipeline, PipelineOptions,
     RawEvent, RealClock, TimerFn,
 };
+pub use tree::{TreeMsg, TreeSink, TreeWatch, watch_tree};

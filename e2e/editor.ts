@@ -272,6 +272,11 @@ export function installEdAdapter(sel: typeof ED_SEL) {
       const d = CMg().minimapDrawn(V(h));
       return d ? d.rows : [];
     },
+    /** 미니맵이 span 을 만든 줄 수 — 그린 줄만 만든다 (perf 3.7). 미니맵이 없으면 0 이다. */
+    minimapBuilt: (h: any) => {
+      const d = CMg().minimapDrawn(V(h));
+      return d ? d.built : 0;
+    },
     /** 그 줄의 스크롤 영역 안 세로 자리와 높이 (px) — 위 여백을 더한다. */
     lineBox: (h: any, n: number) => {
       const v = V(h);

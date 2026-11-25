@@ -6,14 +6,17 @@
  * 자리(탭 제목 · 열린 편집기·터미널에 값 얹기 · 테마 고르기 · 키바 얹기)를 진다. 행의 배선은 설정 섹션이다(`settings-display.js` 등, REFACTOR3_FE_SETTINGS_SRS 8a).
  *
  * **모달과 갈린 이유**: 이 메서드들은 설정창이 없어도 돈다 (부팅이 부른다). 그래서 App 생성자가 컨트롤러를
- * 만든다. 부팅의 `_settingsApply`(`main.js`, `/api/settings` 응답 뒤)와 설정창 세우기(`initModal`, 워크스페이스를
- * 받은 뒤)는 어느 쪽이 먼저일지 정해져 있지 않다 — **순서와 무관하게 같은 결과**가 이 파일의 규약이다
+ * 만든다. 부팅의 `_settingsApply`(`main.js`, `/api/settings` 응답 뒤)와 설정창 세우기(`settingsBuild`, 설정을
+ * 처음 열 때 — PERF D-41)는 어느 쪽이 먼저일지 정해져 있지 않다 — **순서와 무관하게 같은 결과**가 이 파일의 규약이다
  * (QUALITY_FIX_SRS FR-QFX-9·12): 적용은 값(상태)을 얹고, 설정창은 `_paintSettingControls` 한 자리에서만 칠한다
  * (선 섹션의 `paint()`). 아직 서지 않은 섹션은 `init` 에서 지금 상태로 칠한다. 적용 길은 섹션을 직접 부르지 않는다.
  * 표의 `get`·`set` 은 종전대로 App 을 `this` 로 받는다.
  *
  * 로드 순서 계약: `settings-table.js` 뒤, `settings-section.js` 앞.
  */
+/** 테마 이름을 담는 설정 키 — 하나라도 부팅 표에 없으면 `themes` 를 싣고 얹는다 (PERF 3.4.12.6). */
+const THEME_SETTING_KEYS=['themeName','themeNameDark','themeNameLight'];
+
 class SettingsApply extends Controller {
   // 설정 저장의 본체는 `settings-sync.js` 의 `SettingsSync` 다 (APP_STATE_EXTRACT_SRS FR-ASE-9).
   // 지연 생성은 `runsPanel` 과 같은 규약이다.
@@ -56,6 +59,20 @@ class SettingsApply extends Controller {
    */
   _settingsApply(saved,opts){
     if(!saved||typeof saved!=='object') return;
+    /**
+     * PERF 3.4.12.6: 부팅 표의 테마는 기본 두 개다. 적용할 이름이 표에 없으면 `themes` 를 실은 뒤에 얹는다 — 먼저 얹으면
+     * 이름이 버려져 기본 테마가 칠해지고(번쩍임), 다음 저장이 그 기본값을 서버에 쓴다. 싣는 동안 온 적용은 그 뒤에 차례로
+     * 얹는다. 실패해도 얹는다(모르는 이름은 종전대로 버린다). 부팅은 돌려준 프로미스를 기다린다(`main.js`).
+     */
+    if(!Screens.ready('themes')&&(this._themesWait||THEME_SETTING_KEYS.some(k=>typeof saved[k]==='string'&&!THEMES[saved[k]]))){
+      if(!this._themesWait) this._themesWait=Screens.load('themes').catch(e=>ErrorLog.push('themes',(e&&e.message)||e));
+      const w=this._themesWait;
+      return w.then(()=>{if(this._themesWait===w) this._themesWait=null; this._settingsApplyNow(saved)});
+    }
+    this._settingsApplyNow(saved);
+  }
+
+  _settingsApplyNow(saved){
     // FR-FSS-2c: 옛 `uiFontScale`(%) 을 `uiFontSize`(px) 로 옮긴다. 세 계기가
     // 모두 이 함수를 지나므로 자리가 여기 하나다.
     migrateUiFontScale(saved);

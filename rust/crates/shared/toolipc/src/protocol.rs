@@ -16,6 +16,18 @@ pub const METHOD_PASTE: &str = "paste";
 pub const METHOD_RESIZE: &str = "resize";
 pub const METHOD_LIST: &str = "list";
 pub const METHOD_SNAPSHOT: &str = "snapshot";
+/// 화면 상태 스냅숏 (PERF FR-TRM-4). 서버는 기능 확인 없이 보낸다 — 인계 판 2 의 데몬만 쓴다(D-27).
+pub const METHOD_SCREEN: &str = "screen";
+/// 화면 상태의 글자 (PERF FR-TRM-8, D-22). read-screen 이 부른다.
+pub const METHOD_SCREEN_TEXT: &str = "screentext";
+/// 줄 저장소의 기록 구간 (PERF FR-TRM-5). 모르는 데몬은 알 수 없는 메서드로 답한다.
+pub const METHOD_HISTORY: &str = "history";
+/// 화면 상태 설정(기록 줄 수, D-25).
+pub const METHOD_SCREEN_CONFIG: &str = "screenconfig";
+/// 답장 좌석을 쥐고 놓는다(D-23). 연결마다 센다 — 연결이 끊기면 그 연결이 쥔 것을 놓는다.
+pub const METHOD_SEAT: &str = "seat";
+/// 줄 저장소 검색이다(D-21). 번호 `before` 앞의 줄을 새 줄부터 찾는다.
+pub const METHOD_SEARCH: &str = "search";
 pub const METHOD_CWD: &str = "cwd";
 pub const METHOD_BUSY: &str = "busy";
 pub const METHOD_BUSY_MANY: &str = "busymany";
@@ -88,6 +100,9 @@ pub const FEATURE_CHAT: &str = "chat";
 /// shellprobe 를 안다 (FR-RRC-10).
 pub const FEATURE_SHELL_PROBE: &str = "shellprobe";
 
+/// 화면 상태 스냅숏(`screen`)과 그 설정(`screenconfig`)을 안다 (PERF FR-TRM-4, D-18·D-25).
+pub const FEATURE_SCREEN_STATE: &str = "screen";
+
 /// 이 데몬이 hello 에서 말하는 기능이다.
 pub const DAEMON_FEATURES: &[&str] = &[
     FEATURE_FOREGROUND_TICK,
@@ -99,6 +114,7 @@ pub const DAEMON_FEATURES: &[&str] = &[
     FEATURE_EDGE,
     FEATURE_CHAT,
     FEATURE_SHELL_PROBE,
+    FEATURE_SCREEN_STATE,
 ];
 /// 서버가 hello 에서 말하는 기능이다.
 pub const SERVER_FEATURES: &[&str] = &[
@@ -219,6 +235,121 @@ pub struct SnapshotResult {
     pub total_bytes_drop: i64,
     #[serde(rename = "totalBytesIn")]
     pub total_bytes_in: i64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.ScreenParams")]
+pub struct ScreenParams {
+    /// 스냅숏에 실을 기록 행 수다.
+    pub history: usize,
+    pub id: String,
+}
+
+/// 화면 상태 스냅숏이다. `data` 를 새 터미널에 넣고 출력 오프셋 `end` 뒤를 이어 넣는다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.ScreenResult")]
+pub struct ScreenResult {
+    pub alt: bool,
+    pub cols: u16,
+    pub cwd: String,
+    #[serde(with = "json::bytes")]
+    pub data: Vec<u8>,
+    pub end: i64,
+    /// 실린 가장 오래된 기록 줄의 절대 번호(줄 저장소 번호)다.
+    #[serde(rename = "firstLine")]
+    pub first_line: u64,
+    pub rows: u16,
+}
+
+/// 번호 `before` 앞의 `count` 줄을 묻는다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.HistoryParams")]
+pub struct HistoryParams {
+    pub before: u64,
+    pub count: usize,
+    pub id: String,
+}
+
+/// 번호 `from` 부터의 논리 줄 ANSI 다. `top` 은 저장소에 남은 가장 오래된 줄 번호다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.HistoryResult")]
+pub struct HistoryResult {
+    pub from: u64,
+    pub lines: Vec<String>,
+    pub top: u64,
+}
+
+/// 깬 브라우저가 도구의 답장 좌석을 쥐거나(`held`) 놓는다(D-23).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.SeatParams")]
+pub struct SeatParams {
+    pub held: bool,
+    pub id: String,
+}
+
+/// 화면 상태가 마지막으로 답한 조각의 끝 오프셋이다. 그 앞에서 이어 붙이면 답한 질의를 다시 보낸다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.SeatResult")]
+pub struct SeatResult {
+    #[serde(rename = "repliedEnd")]
+    pub replied_end: i64,
+}
+
+/// 찾기 줄의 "이전 기록에서 찾기"(D-21)다. 선택지는 찾기 줄과 같다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.SearchParams")]
+pub struct SearchParams {
+    pub before: u64,
+    pub case: bool,
+    pub id: String,
+    pub limit: usize,
+    pub pattern: String,
+    pub regex: bool,
+    pub word: bool,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.SearchHit")]
+pub struct SearchHit {
+    /// 줄 글자에서 일치가 시작하는 글자(코드 포인트) 자리다.
+    pub col: usize,
+    pub line: u64,
+    pub text: String,
+}
+
+/// 새 줄부터 찾은 일치다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.SearchResult")]
+pub struct SearchResult {
+    pub hits: Vec<SearchHit>,
+}
+
+/// 검색 한 번이 돌려주는 일치 수의 상한이다.
+pub const SEARCH_LIMIT_MAX: usize = 1_000;
+
+/// 설정 `termHistoryLines` 의 범위다(D-25). 웹 설정 서술자와 같은 수다.
+pub use otter_shared_termlimit::{HISTORY_LINES_MAX, HISTORY_LINES_MIN};
+
+/// 도구마다 줄 저장소에 남길 기록 줄 수다. 범위 밖이면 데몬이 거절한다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.ScreenConfigParams")]
+pub struct ScreenConfigParams {
+    #[serde(rename = "historyLines")]
+    pub history_lines: usize,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.ScreenTextParams")]
+pub struct ScreenTextParams {
+    /// 끝에서 이만큼의 바이트 안에서 낸다. 0 은 화면과 기록 전부다.
+    pub bytes: usize,
+    pub id: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "toolipc.ScreenTextResult")]
+pub struct ScreenTextResult {
+    pub text: String,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

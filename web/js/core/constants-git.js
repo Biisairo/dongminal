@@ -6,7 +6,7 @@
  * 속하지 않고 **탭이라는 것 자체를 세우는** 것들이 여기 산다.
  *
  * `constants.js` **뒤**, `constants-editor.js` **앞**에 로드된다 — 그쪽의
- * `ED_DD_AXIS` 가 `constants-git-diff.js` 의 `GIT_AXIS` 를 참조한다.
+ * `ED_DD_AXIS` 가 이 파일의 `GIT_AXIS` 를 참조한다.
  *
  * **탭별 상수는 갈라져 나갔다.** 고칠 자리를 파일 이름이 말한다:
  *
@@ -121,3 +121,72 @@ const GIT_REPOS_NONE=t('git.repos_none');
 // 곳에 흩뿌리면 한쪽만 바뀐다.
 const GIT_CWD_SOURCE_TOOL='tool';
 const GIT_PIN_FAIL_LABEL=t('git.pin_fail_label');
+
+// ── 부팅 코드가 읽는 git 상수 (PERF D-32, perf/M3_DESIGN.md D-M3-4) ──
+//
+// 다른 `constants-git-*.js` 는 `git` 묶음 맨 앞에 서고 git 화면을 처음 열 때 실린다. 사이드바 목록·
+// 탐색기·편집기의 변경 표시·탭 추가처럼 그 전에 도는 부팅 코드가 읽는 값만 여기로 옮겼다 — 이름과
+// 값은 그대로다. 옮길 것은 scripts/check-lazy-boundary.mjs 가 알려 준다.
+/**
+ * 화면의 그룹 하나가 서버 응답의 어느 배열들인가 (D-7·D-8).
+ *
+ * 서버는 네 배열을 그대로 보낸다 — 각 행이 자기 출신을 알아야 폐기가 옳은 명령으로
+ * 가고(FR-CMG-4), 응답 모양은 e2e·다른 뷰·다이얼로그가 함께 딛는 공개 계약이다.
+ * 여기 없는 키는 서버 배열 이름이 곧 그룹 이름이다.
+ */
+const GIT_GROUP_SRC={working:['changes','untracked']};
+// 그룹이 diff 축을 결정한다 (FR-GIT-52). 값은 /api/git/diff-content 의 axis 인자다.
+// commit-parent 는 다른 셋과 달리 리비전을 인자로 받는다 (FR-GIT-138·139) —
+// worktree·index·HEAD 는 암묵적 리비전이지만 커밋 축은 두 커밋을 명시해야 한다.
+const GIT_AXIS={STAGED:'index-head',UNSTAGED:'worktree-index',CONFLICT:'worktree-head',
+  COMMIT:'commit-parent'};
+const GIT_ERR_NOT_REPO=t('git.err_not_repo');
+const GIT_ERR_GIT_MISSING=t('git.err_git_missing');
+const GIT_RMS_PIN_REASON=t('git.rms_pin_reason');
+// FR-GIT-211: 트리의 들여쓰기 단위. 탐색기 트리가 행 padding 을 이 값으로 세운다.
+// Git 트리는 padding 과 깊이 세로선을 CSS 토큰(`--git-tree-pad0`·`--git-indent`)
+// 하나에서 계산한다 (FR-OPT-1-12) — 두 곳에 적으면 한쪽만 고쳐져 선이 글자와
+// 어긋난다. 들여쓰기 단위(12)는 두 트리가 같다.
+const GIT_TREE_INDENT=12;
+const GIT_TREE_PAD0=6;
+const GIT_ST_CLASS={M:'mod',A:'add',D:'del',R:'ren',C:'cpy','?':'new',U:'conf'};
+//
+// porcelain v2 `sub` 필드(`S<c><m><u>`)의 자리값. 파싱은 `gitSubParts` 한 곳이
+// 하고(FR-SDN-2), 그 함수가 읽는 글자를 여기서 정한다 — 값을 함수 안에 박으면
+// 형식이 어디서 왔는지 알 수 없게 된다.
+const GIT_SUB_IS_SUB='S';
+const GIT_SUB_COMMIT='C';
+const GIT_SUB_MODIFIED='M';
+const GIT_SUB_UNTRACKED='U';
+// GIT_ACTIONS_SRS · DRIFT_RECLAIM_SRS FR-DRC-13: 쓰기 실패 사유의 표. 사이드바 핀 행의 title 과
+// 편집기의 부분 스테이징도 이 표를 지난다.
+const GIT_WRITE_ERR={
+  bad_request:t('git.write_err.bad_request'),
+  confirmation_required:t('git.write_err.confirmation_required'),
+  not_a_git_repo:GIT_ERR_NOT_REPO,
+  // FR-RMS-17: 사이드바 핀 행의 title 도 이 표를 지난다 — 사유 코드를 날것으로
+  // 보이면 사용자는 그것이 무엇인지 모른다.
+  repo_missing:GIT_RMS_PIN_REASON,
+  git_missing:GIT_ERR_GIT_MISSING,
+  git_timeout:t('git.write_err.git_timeout'),
+  git_failed:t('git.write_err.git_failed'),
+  git_unavailable:t('git.write_err.git_unavailable'),
+  // 잡의 거부 (FR-GIT-101). 라벨을 한 자리에 둔다.
+  job_busy:t('git.write_err.job_busy'),
+  job_not_found:t('git.write_err.job_not_found'),
+  // REPO_FIX 01 §7.1: 쓰기 배타·lock·stash·충돌 해결·종료.
+  repo_busy:t('git.write_err.repo_busy'),
+  index_locked:t('git.write_err.index_locked'),
+  stash_moved:t('git.write_err.stash_moved'),
+  branch_exists:t('git.write_err.branch_exists'),
+  resolve_partial:t('git.write_err.resolve_partial'),
+  server_shutdown:t('git.write_err.server_shutdown'),
+  no_remote:t('git.write_err.no_remote'),
+};
+// 워킹 트리의 파일과 구분되지 않으면 사용자는 그 자리의 편집이 저장소에 반영된다고
+// 오해한다 — 탭 이름이 그것을 말한다.
+const GIT_HEAD_TAB_SUFFIX=' (HEAD)';
+// 부분 스테이징의 방향 (GIT_ACTIONS_SRS §3.7, FR-GIT-278·279).
+const GIT_PATCH_STAGE='stage';
+const GIT_PATCH_UNSTAGE='unstage';
+const GIT_PATCH_REVERT='revert';

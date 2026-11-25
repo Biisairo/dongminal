@@ -94,7 +94,8 @@ class FileTreeXfer {
    * 있다 (FR-GIT-172·177).
    */
   async _askUploadFailure(label,why){
-    if(typeof GitDialog==='undefined') return 'abort';
+    // PERF D-30: 대화상자는 git 묶음에 있다.
+    await Screens.load('git');
     const got=await GitDialog.open({
       id:'ed-upload-fail-dlg',ns:'euf',action:'upload_retry',
       title:EDITOR_UPLOAD_FAIL_TITLE,
@@ -160,7 +161,7 @@ class FileTreeXfer {
 
   // ── 진입점 둘 (FR-EDT-80) ──
 
-  _onCtx(e){
+  async _onCtx(e){
     const row=e.target.closest('.ed-row');
     // CONTEXT_MENU_UNIFY_SRS FR-CMU-9 (`FUI-12`): 행 밖의 여백 — 자리는 루트다.
     // 행 메뉴의 같은 항목과 **같은 함수**를 부른다.
@@ -206,6 +207,8 @@ class FileTreeXfer {
     const many=this.tree.selector._selOrdered(p).filter(x=>x&&x!==this.tree.root),multi=many.length>1;
     // CLAUDE_ACCOUNTS_SRS FR-CAC-97·95a: 폴더 행에만. 대상은 우클릭한 행 하나다.
     const ca=kind==='dir'&&this.tree.app.claude.maps.claudeFolderMenu?this.tree.app.claude.maps.claudeFolderMenu(this.tree.root,p,{x:e.clientX,y:e.clientY}):null;
+    // PERF D-30: 서버에 묻고 여는 메뉴는 git 묶음의 `GitMenu` 다. 기본 메뉴는 위에서 이미 막았다.
+    await Screens.load('git');
     GitMenu.openAsked([
       {id:'newFile',label:EDITOR_MENU_NEW_FILE,run:()=>this.tree.edits.startCreate(false,dir)},
       // FR-M9-23: 메모장에서도 보인다 — FR-EXR-32 의 가림은 폐기됐다.

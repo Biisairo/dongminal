@@ -192,7 +192,7 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     }, { timeout: 10000 }).toContain(marker);
   });
 
-  test('read-screen 은 ANSI 를 제거하고 read-output 은 유지한다', async ({ request }) => {
+  test('read-screen 은 화면 글자(ANSI 없음)를, read-output 은 ANSI 째 바이트를 준다', async ({ request }) => {
     const { uuid } = await firstTab(request);
     // 색을 내는 출력을 만든다.
     await request.post('/api/tools/input', {

@@ -1,0 +1,56 @@
+/**
+ * Otterminal — 문구 카탈로그 조각 `run`·`en` (PERF_OPTIMIZATION_SRS D-46). `[run]` 묶음에서만 쓰는 키다.
+ *
+ * `ko` 조각과 키 집합이 같다(`scripts/check-i18n.mjs`).
+ */
+I18N.register('en', {
+  // ── html ──
+  'runs.card_lost_title': 'The session of this member cannot be found. It becomes active again when it is found',
+
+  // ── runs ──
+  'runs.archived_msgs.one': '{n} archived message',
+  'runs.archived_msgs.other': '{n} archived messages',
+  'runs.attach_fail': 'Attach failed',
+  'runs.card_attach_title': 'Click to attach into a new tab in the current slot',
+  'runs.card_jump_title': 'Click to go to this member\'s tool',
+  'runs.compact_count.one': 'compact {n} time',
+  'runs.compact_count.other': 'compact {n} times',
+  'runs.coordinator': 'Coordinator',
+  'runs.detach': 'Detach',
+  'runs.detach_fail': 'Detach failed',
+  'runs.elapsed': 'Elapsed {ago}',
+  'runs.graph_fail': 'Could not fetch the dashboard',
+  'runs.headless': 'headless',
+  'runs.headless_paren': '(headless)',
+  'runs.member_count': 'Members {n}',
+  'runs.member_count_headless': 'Members {n} (headless {h})',
+  'runs.no_role': 'no role',
+  'runs.tree_title': 'Issue tree {ref}',
+  'runs.tree_empty': 'No open nodes',
+  'runs.tree_leaf': 'working',
+  'runs.tree_zoom': 'Zoom — also ⌘/Ctrl+wheel',
+  'runs.tree_fit': 'Fit',
+  'runs.tree_fit_title': 'Fit the whole tree in view',
+  'runs.tree_jump': 'Click to go to this agent\'s tab',
+  'runs.no_role_paren': '(no role)',
+  'runs.objective': 'Objective: {v}',
+  'runs.recover': 'Recover',
+  'runs.recover_all': 'Recover empty shells',
+  'runs.recover_done': 'Recover: resumed {ok} · skipped {skip} · failed {fail}',
+  'runs.recover_fail': 'Recover failed',
+  'runs.recover_force': 'Continue',
+  'runs.recover_q_force': 'Cannot tell whether an agent is running in this shell. Continue if you checked the screen.',
+  'runs.recover_r_bad_session': 'malformed session id',
+  'runs.recover_r_busy': 'another program is running in the shell',
+  'runs.recover_r_ended': 'already ended',
+  'runs.recover_r_no_agent': 'agent unknown',
+  'runs.recover_r_no_resume': 'agent has no resume method',
+  'runs.recover_r_no_session': 'no session id',
+  'runs.recover_r_no_tool': 'no tool',
+  'runs.recover_r_failed': 'could not type into the shell',
+  'runs.recover_r_other': 'other reason',
+  'runs.recover_r_recovering': 'just resumed',
+  'runs.recover_r_running_elsewhere': 'already running elsewhere',
+  'runs.recover_r_running_here': 'already running',
+  'runs.recover_r_unknown': 'cannot tell',
+});

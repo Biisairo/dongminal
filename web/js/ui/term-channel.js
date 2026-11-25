@@ -49,6 +49,7 @@ class TermMux {
     ch.on('hello',()=>{ for(const s of Array.from(this.socks.values())) s._chanReady() });
     ch.on('lost',()=>{ for(const s of Array.from(this.socks.values())) s._chanLost() });
     ch.on('term.lost',m=>{ const s=this.socks.get(m.sid); if(s) s._chanLost() });
+    ch.on('term.history',m=>{ const s=this.socks.get(m.sid); if(s&&s.live) s.host.history.onAnswer(m) });
     if(ch.ready()) for(const s of Array.from(this.socks.values())) s._chanReady();
   }
 
@@ -171,6 +172,12 @@ class TermChannel {
     this.retryArmed=false;
     this._detach();
     this.retryDelay=0;
+  }
+
+  /** PERF D-15: 잠듦 — 붙음을 떼고 다시 붙지 않는다. sid 는 남겨 늦게 온 프레임을 걸러 낸다. */
+  pause(){
+    this.reset();
+    this.want=false;
   }
 
   close(){

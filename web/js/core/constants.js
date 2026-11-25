@@ -5,7 +5,7 @@
  * 한 파일(1,586줄)에 있었고 그중 572개가 git 패널의 것이었다 — git 문구 하나를
  * 고치려고 터미널·모바일·테마가 함께 읽는 파일을 건드렸다.
  *
- * **전역 스코프는 그대로다.** 번들러가 없으므로 `index.html` 의 로드 순서가 곧
+ * **전역 스코프는 그대로다.** 번들러가 없으므로 `web/bundles.txt` 의 로드 순서가 곧
  * 의존성이며(architecture.md), 선언을 파일만 옮기고 내용은 고치지 않았다.
  *
  * 터미널·모바일 입력(`constants-term.js`) · 샌드박스(`constants-sandbox.js`) · 툴팁(`constants-tips.js`) ·
@@ -29,8 +29,9 @@
 // 따르고 자기 `fit()` 결과를 PTY 에 보내지 않는다 (D-M9-3).
 const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,TOOLID:3,SEQ:4,SIZE:5,REPLY_SEAT:6};
 // TERMINAL_RESUME_SRS FR-TRS-18b: `OpSeq` 플래그 바이트의 비트.
-// bit0 은 종전의 값 `1`(전량 재생)과 같고, bit1 이 "그 도구가 alt screen 안이다" 다.
-const SEQ_FLAG_FULL=1, SEQ_FLAG_ALT=2;
+// bit0 은 "버퍼를 통째로 바꿨다", bit1 이 "그 도구가 alt screen 안이다" 다.
+// PERF D-19: bit2 는 "앞의 OUTPUT 이 화면 상태 스냅숏이다" — 뒤에 첫 기록 줄 번호(u64 BE)와 cwd 가 붙는다.
+const SEQ_FLAG_FULL=1, SEQ_FLAG_ALT=2, SEQ_FLAG_SNAP=4;
 const enc=new TextEncoder(), dec=new TextDecoder();
 // PAGE_TITLE_SRS FR-PGT-7: 설정이 비었을 때 쓰는 페이지 제목.
 const DEFAULT_PAGE_TITLE='Otterminal';
@@ -57,6 +58,10 @@ const BOOT_FADE_MS=180;
 // FR-BTS-14: 준비 신호가 오지 않아도 이 시간이 지나면 걷는다. 서버가 답하지
 // 않는다고 화면이 영구히 잠기면, 사용자는 무엇이 잘못됐는지 볼 길조차 없다.
 const BOOT_MAX_MS=6000;
+// PERF_OPTIMIZATION_SRS FR-SPA-4 · D-39: 프레임 시작부터 `TIMERS.frame` 의 `idle` 작업을 돌려도 되는 시간.
+const FRAME_BUDGET_MS=8;
+// PERF 3.6.2 (D-39 세부): `idle` 이 연속으로 밀릴 수 있는 프레임 수. 넘으면 그 프레임에 돈다(60 Hz 에서 약 100 ms).
+const FRAME_IDLE_MAX_DEFER=6;
 
 // BOOT_SCREEN_REUSE_SRS D-BTR-8: 다시 세울 때의 단계 문구. 부르는 자리마다 적으면
 // 같은 장면이 자리마다 다른 말을 한다.
@@ -172,6 +177,10 @@ const CHAN_PING_HIDDEN_MS=30000;
 const CHAN_SILENCE_GRACE_MS=5000;
 const CHAN_RETRY_MIN_MS=500;
 const CHAN_RETRY_MAX_MS=10000;
+// PERF M3 D-36 (FR-SPA-3): 탭 본문이 보이지 않게 된 뒤 잠들기까지. 그 안에 다시 보이면 잠들지 않는다. D-16 의 터미널 지연과 같은 값이다.
+const SCREEN_SLEEP_MS=2000;
+// PERF D-36: 브라우저 탭이 숨은 뒤 터미널이 잠들기까지. 터미널 밖 화면은 `SCREEN_SLEEP_MS` 다. 설정으로 내지 않는다.
+const TERM_PAGE_SLEEP_MS=30000;
 /** 상태 토픽(PERF M1 C3) 변화를 복원에 넘기기 전에 모으는 시간. 한 틱의 변화는 한 번으로 합친다. */
 const STATE_TOPIC_COALESCE_MS=0;
 

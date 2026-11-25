@@ -1,0 +1,15 @@
+[package]
+name = "otter-webserver-envelope"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+otter-gocompat = { path = "../../gocompat" }
+otter-shared-otterlog = { path = "../../shared/otterlog" }
+serde = { workspace = true }

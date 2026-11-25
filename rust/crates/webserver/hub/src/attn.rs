@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering::SeqCst};
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use otter_shared_activity as activity;
 use otter_shared_toolhub::{
@@ -13,8 +13,6 @@ use otter_shared_toolhub::{
     attention_allow_bell, attention_idle_threshold, detect_attention_signal,
 };
 use otter_shared_toolipc::{ATTN_KIND_ACTIVITY, ATTN_KIND_ATTENTION, ATTN_KIND_CLEAR, AttnEvent};
-use tokio::sync::mpsc;
-use tokio_util::sync::CancellationToken;
 
 use crate::payloads::{
     tool_activity_payload, tool_attention_clear_payload, tool_attention_payload,
@@ -30,9 +28,6 @@ pub type LiveProbe = Arc<dyn Fn(&str) -> bool + Send + Sync>;
 pub type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 pub type OnChange = Arc<dyn Fn(&str, AgentState) + Send + Sync>;
 type MirrorFn = Arc<dyn Fn() -> bool + Send + Sync>;
-
-/// 스위퍼에 주는 틱의 주기다.
-pub const SWEEPER_INTERVAL: Duration = Duration::from_secs(1);
 
 /// L2 유휴 임계(ms)다. `OTTERMINAL_ATTENTION_IDLE_MS` 를 따른다 (FR-15).
 pub fn default_idle_ms() -> i64 {
@@ -475,29 +470,7 @@ impl AttnTracker {
             .collect()
     }
 
-    // ── L2 유휴 스위퍼 ──
-
-    /// L2 유휴 스위퍼를 띄운다. 멈추는 길은 `stop` 하나다 (FR-CAF-15). 틱은 주입한다 (TEST-8).
-    pub fn start_sweeper(self: &Arc<Self>, stop: CancellationToken, mut tick: mpsc::Receiver<()>) {
-        if self.idle_threshold <= 0 {
-            return;
-        }
-        let t = self.clone();
-        tokio::spawn(async move {
-            loop {
-                tokio::select! {
-                    v = tick.recv() => {
-                        if v.is_none() {
-                            return;
-                        }
-                        let t = t.clone();
-                        let _ = tokio::task::spawn_blocking(move || t.sweep_idle_at(t.now())).await;
-                    }
-                    _ = stop.cancelled() => return,
-                }
-            }
-        });
-    }
+    // ── L2 유휴 판정 ──
 
     /// 주어진 시각에 L2 유휴 판정을 한 번 한다 (NFR-5). 판정의 순서와 뜻은 데몬의
     /// `Tool.maybeIdle` 과 같다 (FR-ATF-12): ① 에이전트 도구 ② 턴 진행 중 ③ 일하는 중이 아님

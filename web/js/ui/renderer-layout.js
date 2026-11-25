@@ -31,10 +31,21 @@ Object.assign(Renderer.prototype, {
     // FR-PDR-1·9: 이번 그리기의 장부를 연다. `_moved` 는 여기서 비우지 않는다 —
     // 프레임이 오기 전에 다시 그려지면 그 이동이 장부에서 사라진다.
     this._domUsed=new Set();
-    this._mounted=new Set();
+    this._mounted=new Map();
     this._rSlots(area);
     this._gcWidgets();
+    this._lifeCommit();
     this._afterLayout();
+  },
+
+  /**
+   * 이번에 붙은 본문의 주인을 생명주기에 넘긴다 (PERF M3 §3.5, FR-SPA-3). 지난 그리기와 견주는 것은
+   * `ScreenLife.commit` 이다 — 새로 보인 것은 깨우고, 빠진 것은 `SCREEN_SLEEP_MS` 뒤 잠들게 예약한다.
+   */
+  _lifeCommit(){
+    const shown=new Map();
+    for(const [el,owner] of this._mounted) if(owner) shown.set(owner,el.parentNode);
+    this.life.commit(shown);
   },
 
   /**
@@ -114,7 +125,7 @@ Object.assign(Renderer.prototype, {
     // 칸 2·3 의 편집기는 살아 있는 탭인데도 매 render 마다 파괴됐다.
     for(const[k,v] of app.fileEditors){
       const tid=app.slot.slotBase(k);
-      if(!allTabIds.has(tid)){v.destroy();app.fileEditors.delete(k)}
+      if(!allTabIds.has(tid)){this.life.unmount(v);v.destroy();app.fileEditors.delete(k)}
     }
     // 옛 Git 창이 사라졌으면 그 창의 패널만 루트를 area 로 되돌린다. 인스턴스는
     // 유지 — 다시 열릴 수 있다. FR-SVS-42: 패널은 칸마다 있으므로 그 자리의
@@ -140,11 +151,15 @@ Object.assign(Renderer.prototype, {
   _afterLayout(){
     const app=this.app;
     TIMERS.frame(()=>{
+      // TERMINAL_GPU_RENDER_SRS FR-TGR-7(개정, PERF D-40): **부팅 때만** 첫 페인트를 DOM 렌더러로 하고 WebGL 은 뒤 프레임에
+      // 붙인다. 부팅 = 보이는 터미널이 처음 선 렌더 한 번. 그 뒤 렌더는 그 프레임에 렌더러를 정하고 잰다(사용자 결정 2026-11-25).
+      const boot=!this._gpuBooted;
       for(const p of app.tools.values()){
-        // TERMINAL_GPU_RENDER_SRS FR-TGR-7: 렌더러를 정한 **뒤에** 잰다.
         if(p.el.classList.contains('vis')){
+          this._gpuBooted=true;
+          if(boot&&!p._gpu&&p._gpuWant(true)) this._gpuLater(p);
           if(!p._opened)p.open();
-          p.syncGpu(true);
+          if(!p._gpuWait) p.syncGpu(true);
           p.sizer.doFit();
         }else p.syncGpu(false);
       }
@@ -159,6 +174,21 @@ Object.assign(Renderer.prototype, {
         app.focus.owner.resendWindowSizes(app.ws.activeWindow);
       }
     },{owner:this,label:'render-frame'});
+  },
+
+  /**
+   * FR-TGR-7: 부팅 때 보이는 칸의 WebGL 붙이기 — 칸마다 `idle` 프레임 작업 하나다. 기다리는 동안(`_gpuWait`) 그 칸의
+   * fit 은 예측값이다(FR-TGR-7b). 그새 숨거나 파괴된 칸은 건너뛴다. 붙인 뒤 다시 잰다 — 실패했으면(FR-TGR-9) 그것이
+   * 예측값을 DOM 크기로 되돌린다.
+   */
+  _gpuLater(p){
+    p._gpuWait=true;
+    TIMERS.frame(()=>{
+      p._gpuWait=false;
+      if(p._destroyed||!p.el.classList.contains('vis')) return;
+      p.syncGpu(true);
+      p.sizer.doFit();
+    },{owner:p,coalesce:'gpu',prio:'idle',label:'gpu-attach'});
   },
 
   /**

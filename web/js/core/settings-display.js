@@ -13,7 +13,6 @@ class DisplaySection extends SettingsSection {
   constructor(app){ super(app,'display') }
 
   init(){
-    applyTabWidth();
     this.bindRows([
       // TAB_WIDTH_SRS FR-TBW-1·2·10. 폭은 입력마다 얹되 저장은 미룬다 — 타이핑 한 글자마다 PUT 을 보내지 않는다.
       {key:'tabFixedWidth',id:'ds-tabfix',kind:'check'},
@@ -29,7 +28,6 @@ class DisplaySection extends SettingsSection {
       {key:'attnFavicon',id:'ds-attnfavicon',kind:'check'},
     ]);
     this.paint();
-    applyUiFontScale();
     this._initLocale();
     this._initPanelLayout();
     this._initDisplayMode();

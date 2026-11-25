@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { repoLoadOrder } from '../../../scripts/bundles-def.mjs';
 
 /**
  * REFACTOR PROD2 §8 (R-ACS-1~3): `tool-cmd.js`(옛 `app-cmd.js`, REFACTOR3_FE_APPCTL_SRS 9j) 는 원격 명령, `ws-sync-controller.js`(옛 `app-ws-sync.js`,
@@ -24,15 +25,19 @@ test('워크스페이스 동기화 메서드는 ws-sync-controller.js 에 있다
   assert.deepEqual(methods('core/ws-sync-controller.js').filter((n) => n !== 'constructor').sort(), [...SYNC, ...SYNC_STEPS, ...SYNC_TOPIC].sort());
 });
 
-test('tool-cmd.js 에는 원격 명령만 남고, 합치면 33개다', () => {
-  const cmd = methods('core/tool-cmd.js');
-  for (const m of SYNC) assert.ok(!cmd.includes(m), m + ' 가 tool-cmd.js 에 남았다');
+// PERF 3.4.12.5: 원격 명령은 부팅 껍데기 `tool-cmd.js` 와 `remote` 묶음의 본체 `tool-cmd-remote.js` 로 갈렸다.
+// 껍데기의 `_execRemote` 는 묶음을 싣는 입구이고, 옛 `_execRemote` 의 본문은 본체의 `_execRemoteNow` 다 — 33 은 그것을 하나로 센다.
+test('tool-cmd.js·tool-cmd-remote.js 에는 원격 명령만 남고, 합치면 33개다', () => {
+  const shell = methods('core/tool-cmd.js');
+  const cmd = [...shell, ...methods('core/tool-cmd-remote.js').filter((n) => n !== '_execRemoteNow')];
+  for (const m of SYNC) assert.ok(!cmd.includes(m), m + ' 가 tool-cmd 에 남았다');
+  assert.deepEqual(shell.sort(), ['_echoResult', '_execRemote', '_findTabById']);
   assert.ok(cmd.includes('_execRemote') && cmd.includes('_focusLocation'));
   assert.equal(new Set([...cmd, ...SYNC]).size, 33);
   assert.equal(cmd.length + SYNC.length, 33);
 });
 
-test('index.html 은 ws-sync-controller.js 를 tool-cmd.js 뒤에 싣는다', () => {
-  const html = readFileSync(join(JS, '..', 'index.html'), 'utf8');
-  assert.match(html, /js\/core\/tool-cmd\.js\?v=__ASSETV__"><\/script>\n(?:<!--[\s\S]*?-->\n)?<script src="js\/core\/ws-sync-controller\.js\?v=__ASSETV__"><\/script>/);
+test('ws-sync-controller.js 는 tool-cmd.js 바로 뒤에 실린다', () => {
+  const order = repoLoadOrder(join(JS, '..', '..'));
+  assert.equal(order.indexOf('js/core/ws-sync-controller.js'), order.indexOf('js/core/tool-cmd.js') + 1);
 });

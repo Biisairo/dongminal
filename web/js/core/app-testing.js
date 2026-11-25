@@ -96,6 +96,8 @@ const APP_TESTING_NAMES = [
   // PANEL_LAYOUT_SRS: 새 탭의 시작값으로 쓰는 저장 레이아웃.
   'layout.dock.saveLayout', 'layout.dock.resetLayout',
   'statusbar.updateStatusBar', '_stats',
+  // PERF M1 C3 TC-CH3-10: 채널 stats 회차를 얹는 자리와 채널 ping 이 준 지연.
+  'statusbar._onStats', '_latency',
 
   // ── 주의·활동·알림 (attention) ──
   //
@@ -129,6 +131,10 @@ const APP_TESTING_NAMES = [
   'editor.docRender._docRenderOpen',
   // SYSTEM_THEME_FOLLOW_SRS TC-STF-1·2: 슬롯을 읽고 세운다.
   'settings.section(theme).themeSlots', 'settings.section(theme).setThemeSlots',
+  // PERF M3 §3.5 (FR-SPA-3): 잠든 탭 본문 주인과 남은 타이머·토픽 구독 수.
+  'renderer.life.sleepers',
+  // PERF M3 §3.4 (D-30): 화면 묶음을 싣는다 — 화면을 열기 전에 그 전역을 부르는 스펙이 먼저 기다린다.
+  'loadScreen',
 ];
 
 /**

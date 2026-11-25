@@ -34,15 +34,11 @@
   <link rel="stylesheet" href="style-status.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-mobile.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-system.css?v=__ASSETV__">
-  <link rel="stylesheet" href="style-git.css?v=__ASSETV__">
-  <link rel="stylesheet" href="style-git-commit.css?v=__ASSETV__">
-  <link rel="stylesheet" href="style-git-views.css?v=__ASSETV__">
-  <link rel="stylesheet" href="style-git-tabs.css?v=__ASSETV__">
+  <!-- style-git*.css 는 git 묶음 b/git.css 다 (PERF D-30, web/bundles.txt [git]). -->
   <link rel="stylesheet" href="style-runs.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-sidebar.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-editor.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-editor-tools.css?v=__ASSETV__">
-  <link rel="stylesheet" href="style-docrender.css?v=__ASSETV__">
   <!-- PANEL_TEMPLATE_SRS: 패널 템플릿은 마지막에 읽힌다 — 패널마다의 규칙 위에 템플릿이 선다. -->
   <link rel="stylesheet" href="style-panel.css?v=__ASSETV__">
   <!-- SIDEBAR_COLLAPSE_SRS FR-SBC-5 / D-2: 폭과 접힘을 **같은 걸음**에서 읽는다.
@@ -187,7 +183,7 @@
            (sidebar-tabs.js). 여기 비워 두는 것이 "새 탭 = 서술자 1개" 를 지키는
            자리다 — 탭이 늘어도 이 파일을 다시 열지 않는다. -->
       <div id="sb-tabs" class="ui-panel-tabs"></div>
-      <!-- FR-PNT-3·12: 끝 단추. 모바일의 닫기(`#drawer-close`)를 mobile-controller.js 가 여기 넣는다. -->
+      <!-- FR-PNT-3·12: 끝 단추. 모바일의 닫기(`#drawer-close`)를 mobile-controller.js 가 여기 넣는다 — 모바일 본체(`mobile` 묶음)가 선 뒤에만이다(PERF 3.4.12.8). -->
       <div id="sb-acts" class="ui-panel-acts"></div>
     </div>
     <!-- UX_REVISION_SRS FR-BLP-5: 두 패널의 골격은 같다 — 액션 버튼 행이 먼저,
@@ -241,7 +237,7 @@
   <div id="sb-handle" class="ui-resize-handle" title="Drag to resize — drag all the way in to collapse"></div>
   <div id="content">
     <div id="topbar">
-      <!-- UX_AUDIT_FIX_SRS FR-UXF-91 (D-30): 모바일 연결 점. 칠하기는 mobile-controller.js `mTopPaint` 다. -->
+      <!-- UX_AUDIT_FIX_SRS FR-UXF-91 (D-30): 모바일 연결 점. 칠하기는 mobile-controller.js `mTopPaint` 다 — 모바일 본체(`mobile` 묶음)가 선 뒤에만이다(PERF 3.4.12.8). -->
       <span class="m-conn-dot mobile-only" role="img" title="Disconnected" aria-label="Disconnected"></span>
       <span id="window-name"></span>
       <!-- SLOT_MARKER_SRS FR-SMK-1·2: 칸이 여럿이면 **이 자리는 빈다**
@@ -305,6 +301,9 @@
       <button id="search-word" class="ui-btn ui-btn-sm" title="Match whole word" data-i18n="html.search_word">ab</button>
       <button id="search-regex" class="ui-btn ui-btn-sm" title="Use regular expression" data-i18n="html.search_regex">.*</button>
       <span id="search-count"></span>
+      <!-- PERF D-21: 브라우저 버퍼 위의 기록은 데몬 저장소에서 찾는다. -->
+      <button id="search-older" class="ui-btn ui-btn-sm" title="Search older history" data-i18n="html.search_older">Search older history</button>
+      <div id="search-older-list" class="search-older-list ui-scroll-sm" hidden></div>
       <button id="search-close" class="ui-btn ui-btn-icon ui-btn-sm ui-btn-ghost" title="Close (Esc)" aria-label="Close"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>
     <div id="status-bar" class="status-bar">
@@ -568,6 +567,17 @@
             <input type="number" class="ds-num" id="ds-scrollspeed" min="1" max="20" step="1">
           </div>
           <div class="ds-hint" data-i18n="html.claude_scroll_speed_hint"></div>
+          <!-- PERF D-25 -->
+          <div class="ds-row">
+            <span data-i18n="html.term_history_lines"></span>
+            <input type="number" class="ds-num" id="ds-termhist" min="1000" max="200000" step="1000">
+          </div>
+          <div class="ds-hint" data-i18n="html.term_history_lines_hint"></div>
+          <div class="ds-row">
+            <span data-i18n="html.term_scrollback"></span>
+            <input type="number" class="ds-num" id="ds-termsb" min="500" max="50000" step="500">
+          </div>
+          <div class="ds-hint" data-i18n="html.term_scrollback_hint"></div>
           <!-- ISSUE_TREE_OPS_SRS FR-ITM-1 -->
           <div class="ds-row">
             <span data-i18n="html.migration_hook"></span>
@@ -929,422 +939,19 @@
 <script src="vendor/addon-fit.js"></script>
 <script src="vendor/addon-web-links.js"></script>
 <script src="vendor/addon-unicode11.js"></script>
-<script src="vendor/addon-search.js"></script>
-<script src="vendor/addon-webgl.js"></script>
-<script src="vendor/markdown-it.js"></script>
-<script src="vendor/purify.js"></script>
-<script src="vendor/highlight.js"></script>
-<!-- 잡히지 않은 오류의 기록 (OBSERVABILITY_SRS FR-OBS-18). **가장 앞이어야 한다**
-     — 이 훅이 걸리기 전의 예외는 잡히지 않는다. 서버로 보내지 않는다(D-OBS-4). -->
-<script src="js/core/error-log.js?v=__ASSETV__"></script>
-<!-- 브라우저 저장소의 단일 경로 (OPTIMIZE_REFACTOR_SRS FR-OPT-11-3). 실패를 ErrorLog 에
-     남기므로 그 뒤이고, 로드 시점에 저장소를 읽는 파일보다 앞이다. -->
-<script src="js/core/pref-store.js?v=__ASSETV__"></script>
-<!-- PANEL_DOCK_SRS: 패널 좌우 도킹의 순수 계산. -->
-<script src="js/core/panel-dock.js?v=__ASSETV__"></script>
-<!-- M8_UNIFIED_SRS FR-B-2: 카탈로그는 **모든 상수보다 먼저** 선다 — `constants*.js` 가
-     `const X=t('…')` 로 로드 시점에 읽는다. 로케일은 여기서 한 번 정해진다 (D-B-1). -->
-<script src="js/core/i18n.js?v=__ASSETV__"></script>
-<script src="js/i18n/ko.js?v=__ASSETV__"></script>
-<script src="js/i18n/en.js?v=__ASSETV__"></script>
-<!-- 설정 블롭의 서술자 표 (CONFIG_MANAGEMENT_SRS FR-CFG-1). 기본값·범위 상수가
-     이 표에서 파생되므로(settings-defaults.js, FR-OPT-11-4) constants*.js **앞**이다.
-     Go 도 embed 된 같은 바이트를 읽으므로(FR-CFG-10) 파일 형태가 계약이다. -->
-<script src="js/core/settings-schema.js?v=__ASSETV__"></script>
-<script src="js/core/settings-defaults.js?v=__ASSETV__"></script>
-<script src="js/core/constants.js?v=__ASSETV__"></script>
-<!-- constants.js 에서 주제별로 옮긴 상수 (REFACTOR3_FE_REST5_SRS FR-FR5-20). constants.js 바로 뒤다 — keybar.js 가 MKB_KEYS 를 딛는다. -->
-<script src="js/core/constants-term.js?v=__ASSETV__"></script>
-<script src="js/core/constants-sandbox.js?v=__ASSETV__"></script>
-<script src="js/core/constants-tips.js?v=__ASSETV__"></script>
-<script src="js/core/constants-file.js?v=__ASSETV__"></script>
-<!-- 서버가 정하는 상한 (`GET /api/meta`, REFACTOR3_FE_REST2_SRS FR-FR2-5). constants.js 뒤다. -->
-<script src="js/core/server-meta.js?v=__ASSETV__"></script>
-<!-- 모바일 키바 구성의 순수 함수 (UX_AUDIT_FIX_SRS FR-UXF-93·94). constants.js 의 MKB_KEYS 를 딛는다. -->
-<script src="js/core/keybar.js?v=__ASSETV__"></script>
-<!-- API 경로 표 (FR-OPT-12-5). 의존이 없고 constants-git*.js 가 로드 시점에 딛는다. -->
-<script src="js/core/constants-api.js?v=__ASSETV__"></script>
-<script src="js/core/constants-git.js?v=__ASSETV__"></script>
-<!-- 탭별 git 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1). 순서는 원본 파일의 절
-     순서와 같다 — 그 순서가 곧 로드 시점 참조의 순서였다.
-     `constants-git-diff.js` 는 `constants-editor.js`·`constants-explorer.js` 앞이어야 한다:
-     `constants-explorer.js` 의 `ED_DD_AXIS` 가 여기의 `GIT_AXIS` 를 읽는다. -->
-<script src="js/core/constants-git-changes.js?v=__ASSETV__"></script>
-<script src="js/core/constants-git-commit.js?v=__ASSETV__"></script>
-<script src="js/core/constants-git-detect.js?v=__ASSETV__"></script>
-<script src="js/core/constants-git-diff.js?v=__ASSETV__"></script>
-<script src="js/core/constants-git-history.js?v=__ASSETV__"></script>
-<script src="js/core/constants-git-refs.js?v=__ASSETV__"></script>
-<script src="js/core/constants-git-remote.js?v=__ASSETV__"></script>
-<!-- GIT_ACTIONS_SRS 의 동작 상수 + GIT_WRITE_ERR (DRIFT_RECLAIM_SRS
-     FR-DRC-13). constants-git.js 뒤여야 한다. -->
-<script src="js/core/constants-git-actions.js?v=__ASSETV__"></script>
-<script src="js/core/constants-editor.js?v=__ASSETV__"></script>
-<script src="js/core/constants-explorer.js?v=__ASSETV__"></script>
-<!-- 서버 hunk 좌표의 클라이언트 측 사상 (DIFF_HUNK_BAR_SRS D-2). 편집기의 변경
-     표시와 Diff 탭의 hover 툴바가 함께 쓴다 — 순수 함수뿐이므로 상수 뒤 아무
-     자리나 되지만, 두 소비자보다 앞이어야 읽는 순서가 곧 의존 순서가 된다. -->
-<script src="js/core/hunk-coords.js?v=__ASSETV__"></script>
-<script src="js/core/constants-docrender.js?v=__ASSETV__"></script>
-<!-- 부팅 화면 손잡이 (BOOT_SCREEN_SRS). constants.js 뒤여야 한다 — 로드 시점에
-     `BOOT_MAX_MS` 로 상한을 건다. -->
-<!-- 시간과 전파의 소유자. constants 뒤(값을 딛는다) helpers 앞(visiblePoll 이
-     이 위에 선다)에 온다 — 번들러가 없으므로 로드 순서가 곧 의존 순서다. -->
-<!-- 서버를 부르는 자리 한 겹 (CLIENT_API_SRS). timer-hub 앞이어야 한다 — 폴링
-     잡이 `ctx.fetch` 를 이 겹에 주입한다. 상수 뒤인 것은 종단 경로가 거기 있기
-     때문이다. -->
-<script src="js/core/api.js?v=__ASSETV__"></script>
-<script src="js/core/action-answer.js?v=__ASSETV__"></script>
-<script src="js/core/timer-hub.js?v=__ASSETV__"></script>
-<script src="js/core/event-bus.js?v=__ASSETV__"></script>
-<script src="js/core/channel.js?v=__ASSETV__"></script>
-<script src="js/core/state-registry.js?v=__ASSETV__"></script>
-<script src="js/ui/boot-screen.js?v=__ASSETV__"></script>
-<!-- 색 대비와 파생 (DESIGN_TOKENS_SRS). **theme-vars.js 앞이어야 한다** — 옮겨 온
-     `hexRgb`·`mixHex` 를 `pickAttnColor`·`applyThemeObj` 가 쓴다 (FR-TOK-13·14). -->
-<script src="js/core/contrast.js?v=__ASSETV__"></script>
-<!-- 옛 helpers.js 의 주제별 조각 (OPTIMIZE_REFACTOR_SRS FR-OPT-11-6). 로드 시점 의존은 check-load-order 가 잰다. -->
-<script src="js/core/path.js?v=__ASSETV__"></script>
-<script src="js/core/helpers.js?v=__ASSETV__"></script>
-<script src="js/core/theme-vars.js?v=__ASSETV__"></script>
-<script src="js/core/shortcuts.js?v=__ASSETV__"></script>
-<script src="js/core/settings-state.js?v=__ASSETV__"></script>
-<script src="js/core/layout-tree.js?v=__ASSETV__"></script>
-<script src="js/core/git-status-helpers.js?v=__ASSETV__"></script>
-<script src="js/core/git-path.js?v=__ASSETV__"></script>
-<!-- 프론트 기반 클래스 (REFACTOR3_FE_BASE_SRS FR-FEB-16). timer-hub·event-bus·helpers 뒤, 쓰는 첫 파일 앞이다.
-     `extends` 는 로드 시점에 부모를 읽으므로 component → view → controller 순서가 계약이다. -->
-<script src="js/core/base/component.js?v=__ASSETV__"></script>
-<script src="js/core/base/view.js?v=__ASSETV__"></script>
-<script src="js/core/base/controller.js?v=__ASSETV__"></script>
-<script src="js/core/base/escape-stack.js?v=__ASSETV__"></script>
-<script src="js/core/base/scroll-memo.js?v=__ASSETV__"></script>
-<script src="js/core/base/badge.js?v=__ASSETV__"></script>
-<script src="js/ui/repaint.js?v=__ASSETV__"></script>
-<!-- 공통 UI 키트 (UI_KIT_SRS). repaint.js 뒤·sidebar-tabs.js 앞이어야 한다 —
-     뒤의 것들이 이 팩토리로 버튼·탭을 만든다 (FR-UIK-20). -->
-<script src="js/ui/ui-kit.js?v=__ASSETV__"></script>
-<!-- 핸들의 크기 HUD 와 끌기 (REFACTOR3_FE_REST3_SRS FR-FR3-16). ui-kit.js 바로 뒤 — `UIKit.drag` 가 이것에 맡긴다. -->
-<script src="js/ui/size-hud.js?v=__ASSETV__"></script>
-<script src="js/ui/size-drag.js?v=__ASSETV__"></script>
-<!-- 대화상자 스택·접근성 계약 (REFACTOR3_FE_REST5_SRS FR-FR5-21, 옛 `UIKit._dlg*`). UIKit.dialogOpen 이 부를 때 읽는다. -->
-<script src="js/ui/dialog-stack.js?v=__ASSETV__"></script>
-<!-- 대화상자 기반과 킷 모달 (REFACTOR3_FE_DIALOG_SRS FR-FED-11). `View` 뒤 — `extends` 는 로드 시점에 부모를 읽는다. -->
-<script src="js/ui/dialog.js?v=__ASSETV__"></script>
-<script src="js/ui/kit-modal.js?v=__ASSETV__"></script>
-<!-- 목록 기반 (REFACTOR3_FE_LIST_SRS FR-FEL-6). repaint.js(reconcileList) 뒤, SidebarList·GitListTab 앞. -->
-<script src="js/ui/list-view.js?v=__ASSETV__"></script>
-<!-- 메뉴 (REFACTOR3_FE_ESC_SRS FR-FEE-10). ui-kit.js·View 뒤 — `UIKit.menu` 가 이것에 맡긴다. -->
-<script src="js/ui/menu.js?v=__ASSETV__"></script>
-<!-- 패널과 탭 줄 (REFACTOR3_FE_BASE_SRS FR-FEB-20~25). ui-kit.js 뒤 — `extends` 는 로드 시점에 부모를 읽으므로
-     Panel·TabBar 가 하위보다 먼저다. 작업 패널 쪽 둘은 core/ 에 있지만 같은 계층이라 여기서 함께 싣는다. -->
-<script src="js/ui/panel.js?v=__ASSETV__"></script>
-<script src="js/ui/tab-bar.js?v=__ASSETV__"></script>
-<script src="js/ui/sidebar-tab-bar.js?v=__ASSETV__"></script>
-<script src="js/ui/sidebar-panel.js?v=__ASSETV__"></script>
-<script src="js/ui/drawer-sheet.js?v=__ASSETV__"></script>
-<script src="js/core/activity-tab-bar.js?v=__ASSETV__"></script>
-<script src="js/core/activity-panel.js?v=__ASSETV__"></script>
-<!-- 사이드바 탭 (GIT_SIDEBAR_TABS_SRS). renderer.js 앞이어야 한다 — 렌더러가
-     활성 탭 상태를 읽는다. -->
-<script src="js/ui/sidebar-tab-chat.js?v=__ASSETV__"></script>
-<script src="js/ui/sidebar-tabs.js?v=__ASSETV__"></script>
-<!-- 사이드바 리스트 블루프린트 (UX_REVISION_SRS 묶음 B). 서술자(sidebar-tabs.js)
-     뒤, 렌더러 앞이어야 한다 — 렌더러가 이것으로 두 목록을 그린다. -->
-<script src="js/ui/sidebar-list.js?v=__ASSETV__"></script>
-<script src="js/ui/themes.js?v=__ASSETV__"></script>
-<script src="js/ui/toast.js?v=__ASSETV__"></script>
-<script src="js/ui/open-url.js?v=__ASSETV__"></script>
-<!-- OS 클립보드에 쓰는 한 자리 (STRUCTURE_CLEANUP_SRS FR-STR-10). git 패널·
-     확인창·샌드박스·터미널이 함께 쓴다 — 부르는 넷보다 앞이기만 하면 된다. -->
-<script src="js/ui/clipboard.js?v=__ASSETV__"></script>
-<script src="js/ui/term-clipboard.js?v=__ASSETV__"></script>
-<!-- 드롭을 {file, relPath} 로 펴는 순수 함수 (TERMINAL_FOLDER_DROP_SRS FR-TFD-1).
-     탐색기와 터미널이 함께 쓴다 — 의존이 0 이라 순서는 둘보다 앞이기만 하면 된다. -->
-<script src="js/ui/drop-entries.js?v=__ASSETV__"></script>
-<!-- 맨 도메인 링크 (BARE_DOMAIN_LINK_SRS). 터미널과 문서 렌더가 함께 쓴다 — 둘보다 앞이어야 한다. -->
-<script src="js/ui/bare-link.js?v=__ASSETV__"></script>
-<!-- UI_POLISH_SRS FR-UIP-21: 경로 입력의 후보 목록. -->
-<script src="js/ui/path-suggest.js?v=__ASSETV__"></script>
-<!-- 파일 경로 링크 (UX_BATCH11_SRS FR-FPL). bare-link.js 의 줄 읽기·존재 확인 저장을 쓴다. -->
-<script src="js/ui/file-link.js?v=__ASSETV__"></script>
-<!-- 터미널 칸: 채널 배선(TermChannel) → TerminalTool → 입력 증강 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-1·12-4).
-     term-input.js 는 TerminalTool.prototype 에 얹으므로 term-pane.js 뒤여야 한다. -->
-<script src="js/ui/term-channel.js?v=__ASSETV__"></script>
-<script src="js/ui/term-pane.js?v=__ASSETV__"></script>
-<!-- TerminalTool 의 부품 (REFACTOR3_FE_REST5_SRS D-FR5-9). term-pane.js 뒤다 — 파일 끝의 위임자 표가 TerminalTool 원형에 얹는다. -->
-<script src="js/ui/term-transfer.js?v=__ASSETV__"></script>
-<script src="js/ui/term-held.js?v=__ASSETV__"></script>
-<script src="js/ui/term-output.js?v=__ASSETV__"></script>
-<script src="js/ui/term-fit.js?v=__ASSETV__"></script>
-<script src="js/ui/term-input.js?v=__ASSETV__"></script>
-<!-- 복사·붙여넣기 키·텍스트 시트 (UX_BATCH11_SRS FR-TCP). term-input.js 의 증강 분할이다. -->
-<script src="js/ui/term-clip.js?v=__ASSETV__"></script>
-<!-- 터치 스크롤·길게 누르기 (UX_BATCH11_SRS FR-MTS). term-input.js 의 증강 분할이다. -->
-<script src="js/ui/term-touch.js?v=__ASSETV__"></script>
-<!-- 보이는 칸의 GPU 렌더링 (TERMINAL_GPU_RENDER_SRS). term-pane.js 의 증강 분할이다. -->
-<script src="js/ui/term-gpu.js?v=__ASSETV__"></script>
-<!-- CodeMirror 편집기의 문서 버퍼·찾기 계산·구성 (CODEMIRROR_MIGRATION_SRS §11.1). file-editor.js
-     앞이다 — FileEditor 가 이것들을 부른다. `CM` 은 편집기를 처음 열 때 온다(loadCodeMirror). -->
-<script src="js/ui/cm-buffer.js?v=__ASSETV__"></script>
-<script src="js/ui/cm-find.js?v=__ASSETV__"></script>
-<script src="js/ui/cm-scrollbar.js?v=__ASSETV__"></script>
-<script src="js/ui/cm-sticky.js?v=__ASSETV__"></script>
-<!-- 선택·같은 낱말·진단·커서의 ruler·미니맵 표식 (EDITOR_LINK_LSP_SRS FR-ELS-30). -->
-<script src="js/ui/cm-marks.js?v=__ASSETV__"></script>
-<script src="js/ui/cm-setup.js?v=__ASSETV__"></script>
-<!-- 브라우저 LSP — 연결·소켓·문서 그룹 (CODEMIRROR_MIGRATION_SRS §11.6 L1). -->
-<script src="js/ui/cm-lsp.js?v=__ASSETV__"></script>
-<!-- 수정키+클릭 링크 이동 (EDITOR_LINK_LSP_SRS FR-ELS-10). cm-lsp.js 뒤다 — edLspPath·edLspOffset 을 쓴다. -->
-<script src="js/ui/cm-link.js?v=__ASSETV__"></script>
-<script src="js/ui/file-editor.js?v=__ASSETV__"></script>
-<!-- FileEditor 의 부품 (REFACTOR3_FE_REST5_SRS FR-FR5-21) — 알림·제안 띠 · 편집기 대신 서는 화면 · 문서 없는 저장 · 키 배선. -->
-<script src="js/ui/file-editor-notice.js?v=__ASSETV__"></script>
-<script src="js/ui/file-editor-media.js?v=__ASSETV__"></script>
-<script src="js/ui/file-editor-save.js?v=__ASSETV__"></script>
-<script src="js/ui/file-editor-keys.js?v=__ASSETV__"></script>
-<!-- 편집기의 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS). file-editor.js 뒤여야
-     한다 — FileEditor.prototype 에 얹는다 (DRIFT_RECLAIM_SRS FR-DRC-13). -->
-<script src="js/ui/file-editor-find.js?v=__ASSETV__"></script>
-<script src="js/ui/doc-render-util.js?v=__ASSETV__"></script>
-<script src="js/ui/doc-render.js?v=__ASSETV__"></script>
-<!-- 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS). 칸 하나의 클릭·팝업은 FileEditor 의 부품 `EdDiffPeek` 다
-     (REFACTOR3_FE_REST5_SRS FR-FR5-23 — 종전에는 `FileEditor.prototype` 을 확장했다). -->
-<script src="js/ui/file-editor-diff.js?v=__ASSETV__"></script>
-<script src="js/ui/file-editor-peek.js?v=__ASSETV__"></script>
-<script src="js/ui/input-binding.js?v=__ASSETV__"></script>
-<!-- REFACTOR_STABILIZATION_SRS FR-RST-21: 뷰들이 공유하는 조각. `api.js` 앞이다 —
-     gitFetch 는 호출 시점에만 필요하므로 순서가 뒤여도 되지만, 공유물이 먼저
-     서는 것이 읽는 사람에게 자연스럽다. -->
-<script src="js/git/view-util.js?v=__ASSETV__"></script>
-<script src="js/git/git-view.js?v=__ASSETV__"></script>
-<script src="js/git/api.js?v=__ASSETV__"></script>
-<script src="js/git/status-hub.js?v=__ASSETV__"></script>
-<script src="js/git/observer.js?v=__ASSETV__"></script>
-<script src="js/git/git-part.js?v=__ASSETV__"></script>
-<script src="js/git/panel.js?v=__ASSETV__"></script>
-<script src="js/git/git-changes.js?v=__ASSETV__"></script>
-<script src="js/git/git-change-rows.js?v=__ASSETV__"></script>
-<script src="js/git/git-views.js?v=__ASSETV__"></script>
-<script src="js/git/git-view-roots.js?v=__ASSETV__"></script>
-<script src="js/git/git-write.js?v=__ASSETV__"></script>
-<script src="js/git/git-files.js?v=__ASSETV__"></script>
-<script src="js/git/git-selection.js?v=__ASSETV__"></script>
-<script src="js/git/git-diff-pane.js?v=__ASSETV__"></script>
-<script src="js/git/git-blame.js?v=__ASSETV__"></script>
-<script src="js/git/git-hunks.js?v=__ASSETV__"></script>
-<script src="js/git/git-poll.js?v=__ASSETV__"></script>
-<script src="js/git/git-view-reload.js?v=__ASSETV__"></script>
-<script src="js/git/diff-cm.js?v=__ASSETV__"></script>
-<script src="js/git/diff-image.js?v=__ASSETV__"></script>
-<script src="js/git/diff-view.js?v=__ASSETV__"></script>
-<script src="js/git/diff-view-parity.js?v=__ASSETV__"></script>
-<script src="js/git/diff-view-doc.js?v=__ASSETV__"></script>
-<!-- 확인·다이얼로그의 공통 골격 (FR-OPT-12-2). 두 클래스가 extends 하므로 앞이어야 한다. -->
-<script src="js/git/git-modal-base.js?v=__ASSETV__"></script>
-<script src="js/git/git-confirm.js?v=__ASSETV__"></script>
-<script src="js/git/git-dialog.js?v=__ASSETV__"></script>
-<script src="js/git/commit.js?v=__ASSETV__"></script>
-<script src="js/git/commit-draft.js?v=__ASSETV__"></script>
-<script src="js/git/lanes.js?v=__ASSETV__"></script>
-<script src="js/git/menu-items.js?v=__ASSETV__"></script>
-<script src="js/git/menu.js?v=__ASSETV__"></script>
-<script src="js/git/history.js?v=__ASSETV__"></script>
-<!-- History 의 네 표면 (FE_MODULE_BOUNDARY_SRS FR-FMB-32). 증강이므로
-     history.js **뒤**여야 한다 — 클래스가 먼저 서야 얹을 수 있다. -->
-<script src="js/git/history-refs.js?v=__ASSETV__"></script>
-<script src="js/git/history-rows.js?v=__ASSETV__"></script>
-<script src="js/git/history-detail.js?v=__ASSETV__"></script>
-<script src="js/git/history-load.js?v=__ASSETV__"></script>
-<script src="js/git/branches.js?v=__ASSETV__"></script>
-<!-- Branches 의 트리와 쓰기 동작 (FE_MODULE_BOUNDARY_SRS FR-FMB-30·31).
-     `branches-ops.js` 는 클래스 **객체 자신**에 얹는다 (전부 static).
-     `branches-dialogs.js` 는 구간 이동이며 자기 클래스 셋을 갖는다. -->
-<script src="js/git/branches-tree.js?v=__ASSETV__"></script>
-<script src="js/git/branches-ops.js?v=__ASSETV__"></script>
-<script src="js/git/input-answer.js?v=__ASSETV__"></script>
-<script src="js/git/branches-dialogs.js?v=__ASSETV__"></script>
-<script src="js/git/stash.js?v=__ASSETV__"></script>
-<script src="js/git/stash-dialogs.js?v=__ASSETV__"></script>
-<script src="js/git/tag.js?v=__ASSETV__"></script>
-<script src="js/git/console.js?v=__ASSETV__"></script>
-<!-- Worktrees·Submodules 탭의 공통 골격 (DRIFT_RECLAIM_SRS FR-DRC-7).
-     두 탭보다 앞이어야 한다 — 둘 다 이 클래스를 상속한다. -->
-<script src="js/git/git-list-tab.js?v=__ASSETV__"></script>
-<script src="js/git/worktrees.js?v=__ASSETV__"></script>
-<script src="js/git/submodules.js?v=__ASSETV__"></script>
-<script src="js/git/remote.js?v=__ASSETV__"></script>
-<script src="js/git/remote-view.js?v=__ASSETV__"></script>
-<script src="js/git/remote-opts.js?v=__ASSETV__"></script>
-<script src="js/git/remote-list.js?v=__ASSETV__"></script>
-<script src="js/git/remote-add.js?v=__ASSETV__"></script>
-<script src="js/git/jobs.js?v=__ASSETV__"></script>
-<script src="js/git/commit-ops.js?v=__ASSETV__"></script>
-<!-- Editor 창의 파일 탐색기 (EDITOR_TAB_SRS 묶음 X). renderer.js 앞이어야 한다 —
-     렌더러의 마운트 자리가 이 클래스를 부른다. -->
-<script src="js/ui/file-tree-obs.js?v=__ASSETV__"></script>
-<script src="js/ui/file-tree-store.js?v=__ASSETV__"></script>
-<script src="js/ui/file-tree.js?v=__ASSETV__"></script>
-<!-- FileTree 의 부품 (REFACTOR3_FE_REST5_SRS R5d). file-tree.js 뒤다 — 파일 끝의 위임자 표가 FileTree 원형에 얹는다. -->
-<script src="js/ui/file-tree-load.js?v=__ASSETV__"></script>
-<script src="js/ui/file-tree-select.js?v=__ASSETV__"></script>
-<script src="js/ui/file-tree-paint.js?v=__ASSETV__"></script>
-<script src="js/ui/file-tree-keys.js?v=__ASSETV__"></script>
-<script src="js/ui/file-tree-marquee.js?v=__ASSETV__"></script>
-<script src="js/ui/file-tree-edit.js?v=__ASSETV__"></script>
-<script src="js/ui/file-tree-xfer.js?v=__ASSETV__"></script>
-<script src="js/ui/file-tree-download.js?v=__ASSETV__"></script>
-<script src="js/ui/runs-panel.js?v=__ASSETV__"></script>
-<script src="js/ui/run-dashboard.js?v=__ASSETV__"></script>
-<script src="js/ui/run-tree-cam.js?v=__ASSETV__"></script>
-<script src="js/ui/run-tree.js?v=__ASSETV__"></script>
-<script src="js/ui/run-recover.js?v=__ASSETV__"></script>
-<script src="js/ui/renderer.js?v=__ASSETV__"></script>
-<!-- Renderer.prototype 증강 넷 (STRUCTURE_CLEANUP_SRS FR-STR-44·45).
-     클래스 정의 **뒤**여야 한다 — check-load-order.mjs 가 그것을 지킨다 (C-2). -->
-<script src="js/ui/renderer-scroll.js?v=__ASSETV__"></script>
-<script src="js/ui/renderer-chrome.js?v=__ASSETV__"></script>
-<script src="js/ui/renderer-layout.js?v=__ASSETV__"></script>
-<script src="js/ui/renderer-pane.js?v=__ASSETV__"></script>
-<script src="js/ui/renderer-pane-wire.js?v=__ASSETV__"></script>
-<script src="js/core/app.js?v=__ASSETV__"></script>
-<!-- 원격 커맨드 — 도구 묶음의 부품 `ToolCmd` (REFACTOR3_FE_APPCTL_SRS 9j, 옛 `app-cmd.js`). 끝에서 App 원형에 위임자를 둔다. -->
-<script src="js/core/tool-cmd.js?v=__ASSETV__"></script>
-<!-- 워크스페이스 동기화·SSE 배선과 내부 새로고침 (REFACTOR3_FE_APPCTL_SRS 9f, 옛 `app-ws-sync.js`·`app-reload.js`).
-     끝에서 App 원형에 위임자와 `_sse` 접근자 넷을 둔다. -->
-<script src="js/core/ws-sync-controller.js?v=__ASSETV__"></script>
-<!-- 워크스페이스 저장 기계 (REFACTOR3_FE_REST5_SRS FR-FR5-22). app.js 뒤다 — 끝의 위임자 표가 App 원형에 얹는다. -->
-<script src="js/core/ws-save-controller.js?v=__ASSETV__"></script>
-<script src="js/core/soft-reload.js?v=__ASSETV__"></script>
-<!-- 도구와 그 부품 — 수명 (REFACTOR3_FE_APPCTL_SRS 9j, 옛 `app-tool.js`). 작업 중 표식·검색 부품은 아래 옛 자리에 있다. -->
-<script src="js/core/tool-controller.js?v=__ASSETV__"></script>
-<script src="js/core/tool-life.js?v=__ASSETV__"></script>
-<!-- 창과 그 부품 둘 — 탭 더하기·탭 닫기와 전환 (REFACTOR3_FE_APPCTL_SRS 9i-1, 옛 `app-layout.js`). 끝에서 App 원형에 위임자를 둔다. -->
-<script src="js/core/layout-controller.js?v=__ASSETV__"></script>
-<script src="js/core/layout-tab-add.js?v=__ASSETV__"></script>
-<script src="js/core/layout-tab-ops.js?v=__ASSETV__"></script>
-<!-- 레이아웃의 부품 다섯 (REFACTOR3_FE_APPCTL_SRS 9i-2) — 받은 워크스페이스의 정규화·활성 창·프리셋(옛 `app-window-state.js`·
-     `app-presets.js`) · 패널 좌우 도킹(PANEL_DOCK_SRS, 옛 `app-dock.js`) · 닫은 탭 다시 열기(UX_BATCH12_SRS FR-RTR, 옛 `app-tab-reopen.js`) ·
-     끌어 놓기(옛 `app-dnd.js`) · 창 그룹(옛 `app-groups.js`). 끝에서 App 원형에 위임자를 둔다. -->
-<script src="js/core/layout-window-state.js?v=__ASSETV__"></script>
-<script src="js/core/layout-dock.js?v=__ASSETV__"></script>
-<script src="js/core/layout-tab-reopen.js?v=__ASSETV__"></script>
-<script src="js/core/layout-dnd.js?v=__ASSETV__"></script>
-<script src="js/core/layout-groups.js?v=__ASSETV__"></script>
-<!-- Repo 창 — Diff 탭(UX_BATCH12_SRS FR-RTB-7, 탭마다 전용 GitPanel)과 부품 미리보기 탭(FR-RTB)
-     (REFACTOR3_FE_APPCTL_SRS 9k-3, 옛 `app-diff-tab.js`·`app-preview.js`). 끝에서 App 원형에 위임자를 둔다. -->
-<script src="js/core/repo-win-controller.js?v=__ASSETV__"></script>
-<script src="js/core/repo-preview.js?v=__ASSETV__"></script>
-<!-- 창 슬롯 — 상태와 부품 `SlotOps`(조작) (REFACTOR3_FE_APPCTL_SRS 9h, 옛 `app-slots.js`). 끝에서 App 원형에 위임자와 접근자
-     `slots`·`slotDir` 를 둔다. -->
-<script src="js/core/slots-controller.js?v=__ASSETV__"></script>
-<script src="js/core/slot-ops.js?v=__ASSETV__"></script>
-<!-- 포커스와 그 부품 둘 — 하이라이트·창 소유권 (REFACTOR3_FE_APPCTL_SRS 9g, 옛 `app-focus*.js`). 끝에서 App 원형에 위임자를 둔다. -->
-<script src="js/core/focus-controller.js?v=__ASSETV__"></script>
-<script src="js/core/focus-highlight.js?v=__ASSETV__"></script>
-<script src="js/core/focus-owner.js?v=__ASSETV__"></script>
-<script src="js/core/attn-favicon.js?v=__ASSETV__"></script>
-<script src="js/core/attn-controller.js?v=__ASSETV__"></script>
-<!-- 주의 센터 팝오버 (FR-ACT-8). `AttnController` 의 부품이다 (REFACTOR3_FE_APPCTL_SRS 9b). -->
-<script src="js/core/attn-center.js?v=__ASSETV__"></script>
-<!-- 한 컴퓨터에서 한 번 (ATTENTION_FIRING_SRS 묶음 D). `AttnController` 의 부품이다. -->
-<script src="js/core/attn-claim.js?v=__ASSETV__"></script>
-<script src="js/core/agents-controller.js?v=__ASSETV__"></script>
-<script src="js/core/agents-sub.js?v=__ASSETV__"></script>
-<script src="js/core/activity-list.js?v=__ASSETV__"></script>
-<!-- 작업 중 표식 (UX_AUDIT_FIX_SRS FR-UXF-60~64) — 도구 묶음의 부품 `ToolWork` (REFACTOR3_FE_APPCTL_SRS 9j, 옛 `app-work.js`). -->
-<script src="js/core/tool-work.js?v=__ASSETV__"></script>
-<!-- 채팅 (PEER_CHAT_SRS §3.11). `ChatController` 와 그 부품 (REFACTOR3_FE_APPCTL_SRS 9c). `activity-list.js` 뒤. -->
-<script src="js/core/chat-store.js?v=__ASSETV__"></script>
-<script src="js/core/chat-controller.js?v=__ASSETV__"></script>
-<script src="js/core/chat-views.js?v=__ASSETV__"></script>
-<script src="js/core/chat-human.js?v=__ASSETV__"></script>
-<!-- 채팅 창 (CHAT_WINDOW_SRS). `ChatController` 의 부품이다. -->
-<script src="js/core/chat-window.js?v=__ASSETV__"></script>
-<script src="js/core/claude-accounts-view.js?v=__ASSETV__"></script>
-<script src="js/core/claude-accounts-controller.js?v=__ASSETV__"></script>
-<script src="js/core/claude-maps.js?v=__ASSETV__"></script>
-<!-- Repo 목록 갱신 (APP_STATE_EXTRACT_SRS FR-ASE-8). `git-sync.js` 가 지연 생성한다. -->
-<script src="js/core/git-repos-list.js?v=__ASSETV__"></script>
-<!-- git 조정자와 부품 둘 (REFACTOR3_FE_APPCTL_SRS 9d, 옛 `app-git.js`). 끝에서 App 원형에 위임자와 `gitPanel` 접근자를 둔다. -->
-<script src="js/core/git-topics.js?v=__ASSETV__"></script>
-<script src="js/core/git-controller.js?v=__ASSETV__"></script>
-<script src="js/core/git-surfaces.js?v=__ASSETV__"></script>
-<script src="js/core/git-sync.js?v=__ASSETV__"></script>
-<!-- Editor 탭·창 (EDITOR_TAB_SRS). 편집기와 그 부품 — 서버 동기·열기·문서·칸과 사이드·감시·파일·섹션·문서 렌더 배선
-     (REFACTOR3_FE_APPCTL_SRS 9k-1·9k-2, 옛 `app-editor*.js`·`app-docrender.js`). 검색 부품은 LSP 뒤 옛 자리에 있다.
-     끝에서 App 원형에 위임자를 둔다. 저장 뒤 색 갱신(`_edAfterGitSignal`, FR-EDT-78)은 `GitController.gitSignal` 이 부른다 — 로드 시점에 원형을 감싸지 않으므로 순서 제약이 없다. -->
-<script src="js/core/editor-controller.js?v=__ASSETV__"></script>
-<script src="js/core/editor-sync.js?v=__ASSETV__"></script>
-<script src="js/core/doc-token.js?v=__ASSETV__"></script>
-<script src="js/core/editor-open.js?v=__ASSETV__"></script>
-<script src="js/core/editor-doc.js?v=__ASSETV__"></script>
-<script src="js/core/editor-pane.js?v=__ASSETV__"></script>
-<!-- 보이는 디렉터리의 서버 감시 (EDITOR_LIVE_RELOAD_SRS 묶음 C). -->
-<script src="js/core/editor-watch.js?v=__ASSETV__"></script>
-<script src="js/core/editor-file.js?v=__ASSETV__"></script>
-<script src="js/core/editor-section.js?v=__ASSETV__"></script>
-<script src="js/core/editor-doc-render.js?v=__ASSETV__"></script>
-<!-- 코드 탐색 (APP_STATE_EXTRACT_SRS FR-ASE-7). 본체 `LspClient` 와 그 증강. 바깥이 부르는 이름은 `app.js` 의
-     위임자다 (REFACTOR3_FE_APPCTL_SRS 9a). -->
-<script src="js/core/lsp-client.js?v=__ASSETV__"></script>
-<script src="js/core/lsp-paths.js?v=__ASSETV__"></script>
-<script src="js/core/editor-search.js?v=__ASSETV__"></script>
-<script src="js/core/tool-search.js?v=__ASSETV__"></script>
-<script src="js/core/mobile-controller.js?v=__ASSETV__"></script>
-<script src="js/core/mobile-sheets.js?v=__ASSETV__"></script>
-<script src="js/core/mobile-nav.js?v=__ASSETV__"></script>
-<!-- 폴링 주기 설정 (POLL_INTERVAL_SETTINGS_SRS). 표가 진실이므로 settings-table.js
-     **앞**이어야 한다 — `_settingsApply` 가 `POLL_SETTINGS` 를 지난다. -->
-<script src="js/core/poll-settings.js?v=__ASSETV__"></script>
-<!-- 설정 저장 파이프라인 (APP_STATE_EXTRACT_SRS FR-ASE-9). `SettingsApply` 가 부른다. -->
-<script src="js/core/settings-sync.js?v=__ASSETV__"></script>
-<script src="js/core/settings-modal.js?v=__ASSETV__"></script>
-<script src="js/core/settings-table.js?v=__ASSETV__"></script>
-<!-- 설정 값의 길 (FE_MODULE_BOUNDARY_SRS FR-FMB-10 · REFACTOR3_FE_APPCTL_SRS 9a). `SettingsController` 의 부품이다 —
-     컨트롤러가 만들 때 읽으므로 `settings-controller.js` 앞이기만 하면 된다. 표(`settings-table.js`) 뒤에 둔다. -->
-<script src="js/core/settings-apply.js?v=__ASSETV__"></script>
-<!-- 설정 섹션 (REFACTOR3_FE_SETTINGS_SRS FR-FES-8). 탭 하나가 `SettingsSection` 하위 하나다. `extends` 가 로드
-     시점에 부모를 읽으므로 섹션 기반과 행이 섹션보다 먼저다. -->
-<script src="js/core/settings-section.js?v=__ASSETV__"></script>
-<script src="js/core/settings-row.js?v=__ASSETV__"></script>
-<script src="js/core/settings-display.js?v=__ASSETV__"></script>
-<script src="js/core/settings-terminal.js?v=__ASSETV__"></script>
-<script src="js/core/settings-code.js?v=__ASSETV__"></script>
-<script src="js/core/settings-polling.js?v=__ASSETV__"></script>
-<script src="js/core/settings-statusbar.js?v=__ASSETV__"></script>
-<script src="js/core/settings-notify.js?v=__ASSETV__"></script>
-<script src="js/core/settings-theme.js?v=__ASSETV__"></script>
-<script src="js/core/settings-shortcuts.js?v=__ASSETV__"></script>
-<script src="js/core/settings-live.js?v=__ASSETV__"></script>
-<script src="js/core/settings-save-state.js?v=__ASSETV__"></script>
-<script src="js/core/settings-sandbox.js?v=__ASSETV__"></script>
-<script src="js/core/settings-access.js?v=__ASSETV__"></script>
-<script src="js/core/edges-controller.js?v=__ASSETV__"></script>
-<script src="js/core/settings-edges.js?v=__ASSETV__"></script>
-<script src="js/core/edges-mesh.js?v=__ASSETV__"></script>
-<script src="js/core/settings-profile.js?v=__ASSETV__"></script>
-<script src="js/core/settings-telegram.js?v=__ASSETV__"></script>
-<script src="js/core/settings-server.js?v=__ASSETV__"></script>
-<script src="js/core/settings-claude-rows.js?v=__ASSETV__"></script>
-<script src="js/core/settings-claude.js?v=__ASSETV__"></script>
-<!-- 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). 섹션이므로 settings-section.js 뒤다. -->
-<script src="js/core/settings-backup.js?v=__ASSETV__"></script>
-<script src="js/core/statusbar-controller.js?v=__ASSETV__"></script>
-<script src="js/core/statusbar-enc.js?v=__ASSETV__"></script>
-<script src="js/core/update-controller.js?v=__ASSETV__"></script>
-<script src="js/core/settings-presets.js?v=__ASSETV__"></script>
-<!-- 설정 탭들의 조정자 (REFACTOR3_FE_SETTINGS_SRS 8e). 섹션 클래스를 로드 시점에 표로 읽으므로 섹션 파일 전부의 뒤다. -->
-<script src="js/core/settings-controller.js?v=__ASSETV__"></script>
-<script src="js/core/window-order.js?v=__ASSETV__"></script>
-<!-- APP_TESTING_CONTRACT_SRS FR-ATC-1·7: e2e 가 보는 공개 계약.
-     **App 의 모든 조각이 실린 뒤**에 온다 — 계약은 게터로 감싸므로 로드
-     시점에 대상이 있을 필요는 없지만, 이 자리가 "그 위의 전부를 덮는다" 는
-     사실을 읽는 사람에게 말한다. 빌드 갈래를 두지 않는다 (D-ATC-2). -->
-<script src="js/core/app-testing.js?v=__ASSETV__"></script>
-<script src="js/core/main.js?v=__ASSETV__"></script>
-<script src="js/ui/version-watch.js?v=__ASSETV__"></script>
-<!-- 실기기 진단. ?diag=1 로 접속할 때만 동작한다 -->
-<script src="js/ui/diag.js?v=__ASSETV__"></script>
+<!-- 터치 기기(pointer: coarse)는 WebGL 을 쓰지 않으므로(term-gpu.js `_gpuWant`, D-TGR-6) addon-webgl 을 받지 않는다.
+     데스크톱은 종전 자리에서 동기로 받는다 — 첫 페인트 직후 붙인다(PERF D-40·D-47). -->
+<script>if(!(window.matchMedia&&matchMedia('(pointer: coarse)').matches)){var webglSrc='vendor/addon-webgl.js';document.write('<script src="'+webglSrc+'"><\/script>')}</script>
+<!-- 앱 스크립트는 묶음으로 싣는다 (PERF D-29). 무엇을 어떤 순서로 잇는지는 web/bundles.txt 가
+     정한다 — 순서 계약과 그 이유도 그 파일에 있다. b/pre.js 맨 앞이 error-log.js 다. -->
+<script src="b/pre.js?v=__ASSETV__"></script>
+<!-- M8_UNIFIED_SRS FR-B-2: 언어 카탈로그는 i18n.js(pre) 뒤, 모든 상수(boot) 앞이다.
+     PERF D-34: i18n.js 가 정한 활성 로케일의 파일 하나만 싣는다. 바꾸기는 새로고침이다.
+     이 파일은 부팅분이다. 지연 묶음에서만 쓰는 문장은 묶음별 조각(js/i18n/<묶음>.<로케일>.js)이고
+     Screens.load 가 그 묶음 JS 앞에 싣는다(PERF D-46). -->
+<script>var i18nSrc='js/i18n/'+I18N.locale+'.js?v=__ASSETV__';document.write('<script src="'+i18nSrc+'"><\/script>')</script>
+<script src="b/boot.js?v=__ASSETV__"></script>
+<!-- PERF 3.4.12.3: 진단 오버레이 묶음은 ?diag=1 일 때만 b/boot.js 바로 뒤에 싣는다. 조건은 DiagOverlay.start 와 같다. -->
+<script>if(/[?&]diag=1(&|$)/.test(location.search)){var diagSrc='b/diag.js?v=__ASSETV__';document.write('<script src="'+diagSrc+'"><\/script>')}</script>
 </body>
 </html>

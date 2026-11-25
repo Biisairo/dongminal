@@ -3,7 +3,7 @@
  *
  * 순수 함수만 둔다. 키바는 mobile-controller.js 가, 설정 구역은 settings-terminal.js(`TerminalSection`) 가 그린다.
  * 구성 값은 설정 키 `keybar` 다: `{order:[id…], off:[id…], macros:[{id,label,key,ctrl,alt,shift}…]}`.
- * constants.js(`MKB_KEYS`) 뒤에 로드된다.
+ * 라이브러리 묶음 `keybar` 다 (PERF 3.4.12.8) — `mobile`·`settings` 가 needs 로 싣는다. 부팅의 constants.js(`MKB_KEYS`)를 딛는다.
  */
 
 /** FR-UXF-94: 매크로가 고를 수 있는 키. */

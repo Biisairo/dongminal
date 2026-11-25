@@ -2,6 +2,8 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use tokio_util::sync::CancellationToken;
+
 use super::*;
 use crate::codec::{read_frame, write_frame};
 use crate::service::{OpenError, PathsError};
@@ -413,4 +415,46 @@ fn write_frame_to_tunnel_reader_roundtrip() {
         got,
         br#"{"jsonrpc":"2.0","id":7,"method":"textDocument/definition"}"#
     );
+}
+
+/// 세션이 없으면 스위퍼는 깨어나지 않는다 (PERF M4 S9).
+#[tokio::test(start_paused = true)]
+async fn lsp_no_sessions_no_wake() {
+    let (start, _ends, _) = pipe_starter();
+    let (_d, svc) = go_tunnel_svc(start);
+    let svc = Arc::new(svc);
+    let stop = CancellationToken::new();
+    let h = tokio::spawn(Arc::clone(&svc).run_sweeper(stop.clone()));
+    tokio::time::sleep(Duration::from_secs(60 * 60)).await;
+    assert_eq!(svc.sweeps(), 0, "세션이 없는데 스위퍼가 깨어났다");
+    stop.cancel();
+    h.await.unwrap();
+}
+
+/// 세션이 있으면 가장 이른 `last_use + idle_after` 에 한 번 깨어 닫고, 다 닫히면 다시 잠든다.
+#[tokio::test(start_paused = true)]
+async fn lsp_idle_deadline_sweeps_once() {
+    let (start, ends, _) = pipe_starter();
+    let (_d, mut svc) = go_tunnel_svc(start);
+    let now = fake_clock(&mut svc);
+    svc.idle_after = Duration::from_secs(60);
+    let svc = Arc::new(svc);
+    let stop = CancellationToken::new();
+    let h = tokio::spawn(Arc::clone(&svc).run_sweeper(stop.clone()));
+    let _tn = svc.open_tunnel("/root", "gopls/gopls").unwrap();
+    let e = next_end(&ends);
+    *now.lock().unwrap() += Duration::from_secs(61);
+    tokio::time::sleep(Duration::from_secs(61)).await;
+    for _ in 0..100 {
+        if svc.state.tunnels().is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    e.wait_stopped("마감이 지나도 유휴 통로를 닫지 않았다");
+    assert_eq!(svc.sweeps(), 1, "마감 한 번에 한 번만 깨어나야 한다");
+    tokio::time::sleep(Duration::from_secs(60 * 60)).await;
+    assert_eq!(svc.sweeps(), 1, "세션이 다 닫힌 뒤에도 깨어났다");
+    stop.cancel();
+    h.await.unwrap();
 }

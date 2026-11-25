@@ -48,7 +48,6 @@ const SETTINGS_ACCESS={
   // 주기 다섯은 `POLL_SETTINGS` 가 이미 쥔 길을 그대로 쓴다 (FR-PIS-7).
   // PERF M1 C3: 주기가 토픽 이름(`stats:<ms>`)이라 바뀌면 상태바가 토픽을 갈아탄다.
   statsInterval:{get:()=>statsInterval,set(v){POLL_BY_KEY.statsInterval.set(v);if(this.statusbar)this.statusbar._statsRearm()}},
-  gitWorktreeInterval:{get:()=>gitWorktreeInterval,set:v=>POLL_BY_KEY.gitWorktreeInterval.set(v)},
   layoutPresets:{get:()=>layoutPresets,set(v){layoutPresets=v;this.layout.winState._presetButtonPaint()}},
   defaultPreset:{get:()=>defaultPreset,set(v){defaultPreset=v;this.layout.winState._presetButtonPaint()}},
   // FR-TAN-19
@@ -97,6 +96,9 @@ const SETTINGS_ACCESS={
     termFontSize=clampSetting('termFontSize',v);
     if(this.settings.apply._termApplyFontSize) this.settings.apply._termApplyFontSize();
   }},
+  // PERF D-25: 데몬 기록은 서버가 쓴다. 스크롤백은 터미널이 다음에 깰 때 맞춘다(2.5.1) — 얹을 화면이 없다.
+  termHistoryLines:{get:()=>termHistoryLines,set(v){termHistoryLines=clampSetting('termHistoryLines',v)}},
+  termScrollback:{get:()=>termScrollback,set(v){termScrollback=clampSetting('termScrollback',v)}},
   // AGENT_RENDER_ENV_SRS FR-ARE-8: 얹을 화면이 없다 — 값은 서버가 쓴다.
   // ISSUE_TREE_OPS_SRS FR-ITM-1·2: 두 쌍은 서로 영향을 주지 않는다. 얹을 화면이 없다.
   migrationHook:{get:()=>migrationHook??SETTINGS_BY_KEY.migrationHook.def,set(v){migrationHook=v}},

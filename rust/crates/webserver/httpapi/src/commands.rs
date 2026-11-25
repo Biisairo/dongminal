@@ -3,10 +3,12 @@
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use http::{Method, StatusCode};
 use otter_shared_httpresp::{self as httpresp, Response};
-use otter_shared_otterlog::{debugf, infof};
+use otter_shared_otterlog::{debugf, infof, warnf};
+use otter_shared_pollwait::{self as pollwait, CancellationToken};
 use otter_webserver_apierr as apierr;
 use otter_webserver_hub::{self as hub, CmdPosition, CmdResult, TabRef};
 use serde::{Deserialize, Serialize};
@@ -20,6 +22,10 @@ use crate::req::Req;
 
 /// uuid 를 좌표로 바꾸지 않고 그대로 넘기는 명령이다(이름 바꾸기는 uuid 로 탭을 찾는다).
 const UUID_LOCATION_ACTIONS: &[&str] = &["renameTab", "renameWindow"];
+
+/// 생성 명령의 결과를 답하기 전에 새 탭 uuid 가 워크스페이스 색인에 들어오기를 기다리는 상한이다.
+/// 브라우저의 저장 충돌 뒤 미룸 상한(`WS_SAVE_BACKOFF_MAX_MS`)과 같다.
+pub(crate) const NEW_TAB_INDEX_WAIT: Duration = Duration::from_secs(2);
 
 /// POST /api/commands 의 본문 (Go `commandPostReq`).
 #[derive(Debug, Default, Deserialize, Serialize)]
@@ -88,6 +94,9 @@ struct CommandResp {
     delivered: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
+    /// 시간 초과로 끝난 단일 실행자 명령의 지정 실행자다 — 받지 못한 쪽을 알아챌 길 (4.3).
+    #[serde(rename = "execClientId", skip_serializing_if = "Option::is_none")]
+    exec_client_id: Option<String>,
     location: String,
     #[serde(rename = "newGroups", skip_serializing_if = "Option::is_none")]
     new_groups: Option<Vec<String>>,
@@ -173,11 +182,19 @@ impl Server {
             let (res, n, timed_out) = cmds
                 .broadcast_and_await(&payload, &req.req_id, hub::command_result_timeout())
                 .await;
+            if !timed_out && let Some(tabs) = &res.new_tabs {
+                self.await_tabs_indexed(&req.action, tabs).await;
+            }
             let tabs = res.new_tabs.as_ref().map_or(0, Vec::len);
             put_command_result(resp, res, n, timed_out);
+            let mut exec = String::new();
+            if timed_out && !req.exec_client_id.is_empty() {
+                exec = format!(" execClientId={}", req.exec_client_id);
+                resp.exec_client_id = Some(req.exec_client_id.clone());
+            }
             infof!(
                 None,
-                "[cmd] action={}{loc} delivered={n} newTabs={tabs} timedOut={timed_out}",
+                "[cmd] action={}{loc} delivered={n} newTabs={tabs} timedOut={timed_out}{exec}",
                 req.action
             );
             return;
@@ -199,8 +216,36 @@ impl Server {
         );
     }
 
-    /// Go `attachSSELeases`: 이 구독이 붙어 있는 동안의 임대(포커스 소유 등)다. 역순으로 푼다.
-    pub(crate) fn attach_sse_leases(
+    /// 생성 명령의 새 탭 uuid 가 모두 워크스페이스 색인에 들어올 때까지 기다린다 — 브라우저의
+    /// 저장(`PUT /api/workspace`)이 echo 보다 늦어도 답을 받은 호출자가 곧바로 그 uuid 를
+    /// `location` 으로 쓸 수 있게 한다. 상한을 넘으면 기다림을 접고 기록만 남긴다.
+    async fn await_tabs_indexed(&self, action: &str, tabs: &[TabRef]) {
+        let Some(ws) = self.work() else {
+            return;
+        };
+        let all_known = || {
+            tabs.iter()
+                .all(|t| t.uuid.is_empty() || ws.is_known_tab_id(&t.uuid))
+        };
+        let res = pollwait::on(
+            &CancellationToken::new(),
+            NEW_TAB_INDEX_WAIT,
+            || ws.changes(),
+            all_known,
+        )
+        .await;
+        if res.is_err() {
+            warnf!(
+                None,
+                "[cmd] action={action} 새 탭이 {} 안에 워크스페이스에 등록되지 않았다 — 그대로 답한다",
+                otter_gocompat::time::format_std_duration(NEW_TAB_INDEX_WAIT)
+            );
+        }
+    }
+
+    /// Go `attachSSELeases`: 채널이 `hello` 로 밝힌 신원이 붙어 있는 동안의 임대(포커스 소유 등)다.
+    /// 역순으로 푼다. 채널(`channel/mod.rs`)이 부른다.
+    pub(crate) fn attach_channel_leases(
         self: &Arc<Self>,
         cid: &str,
         remote: &str,

@@ -11,5 +11,5 @@ Otterminal 사용자 대상 가이드.
 - [shortcuts.md](./shortcuts.md) — 단축키와 입력 우선순위
 - [agent-orchestration.md](./agent-orchestration.md) — 에이전트 오케스트레이션 (otterctl 접합면 + 세션 스코프 스킬 주입, `issue-tree` 의 이슈 접근 규칙, 맥락 기준 migration)
 - [edges.md](./edges.md) — 노드 간 간선 맺기: 다른 PC 의 otterminal 과 간선 맺기, 안전
-- [api.md](./api.md) — HTTP / WebSocket / SSE / OSC 777
+- [api.md](./api.md) — HTTP / WebSocket(채널) / OSC 777
 - [errors.md](./errors.md) — 오류 코드 전체 목록 (`X-Error-Code` 헤더와 본문 방언)

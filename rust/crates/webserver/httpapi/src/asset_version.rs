@@ -5,6 +5,7 @@
 
 use sha2::{Digest, Sha256};
 
+use crate::bundles::BUNDLES_DEF;
 use crate::static_assets::StaticAssets;
 
 pub(crate) const INDEX_PAGE: &str = "index.html";
@@ -38,6 +39,7 @@ fn walk_files(fsys: &dyn StaticAssets, dir: &str, out: &mut Vec<String>) -> Opti
 
 /// Go `computeAssetVersion`: JS·CSS 전부를 경로와 함께 하나의 판으로 접는다 (FR-AVS-1).
 /// `vendor/` 는 빠지고(FR-AVS-1a) `index.html` 은 확장자로 저절로 빠진다(FR-AVS-1b).
+/// 묶음 정의도 넣는다 — 파일이 그대로여도 순서가 바뀌면 묶음 바이트가 바뀐다(D-29).
 pub(crate) fn compute_asset_version(fsys: &dyn StaticAssets) -> String {
     let mut all = Vec::new();
     if walk_files(fsys, ".", &mut all).is_none() {
@@ -46,7 +48,7 @@ pub(crate) fn compute_asset_version(fsys: &dyn StaticAssets) -> String {
     let mut names: Vec<String> = all
         .into_iter()
         .filter(|p| !p.starts_with(VENDOR_PREFIX))
-        .filter(|p| matches!(otter_gocompat::path::ext(p), ".js" | ".css"))
+        .filter(|p| p == BUNDLES_DEF || matches!(otter_gocompat::path::ext(p), ".js" | ".css"))
         .collect();
     names.sort();
     let mut h = Sha256::new();

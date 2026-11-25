@@ -55,7 +55,7 @@ impl Server {
         if let Some(old) = link.take() {
             self.channel_client_drop(old);
         }
-        let release = self.attach_sse_leases(id, remote, false);
+        let release = self.attach_channel_leases(id, remote, false);
         if let Some(u) = self.deps.updates.clone() {
             tokio::task::spawn_blocking(move || u.trigger());
         }
@@ -120,10 +120,14 @@ impl Server {
     }
 }
 
+/// 허브가 구독을 닫으면(큐 넘침) 채널을 닫는다 — 브라우저가 다시 연결해 새로 구독한다.
 async fn pump(s: Arc<CmdSub>, out: Arc<Outbox>) {
     loop {
         tokio::select! {
-            _ = s.closed() => return,
+            _ = s.closed() => {
+                out.close();
+                return;
+            }
             m = s.recv() => match m {
                 Some(msg) => out.push_control(cmd_frame(&msg)),
                 None => return,

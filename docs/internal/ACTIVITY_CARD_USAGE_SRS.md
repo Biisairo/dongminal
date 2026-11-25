@@ -3,6 +3,7 @@
 > **문서 상태**: 승인·구현완료
 > **확인**: Go·JS 단위 시험과 e2e(TC-ACU-1~10)가 통과했다(2026-11-09). 실제 Claude Code 세션의 카드 표시는 사용자 확인이 남았다
 > **개정 2026-11-13**: D-ACU-3 을 철회한다. 대체: `CLAUDE_ACCOUNTS_SRS` D-CAC-1(정보보호팀 사전 승인 아래 구독 OAuth 토큰으로 사용량을 직접 조회). 계정 한도 대시보드·여러 계정 등록·계정 전환은 그 SRS 가 맡는다. 비목표 줄도 같이 고쳤다
+> **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1 C3, D-9)**: `/api/tools/activity` 의 주기 조회(`agentsPollMs`, 설정 `agentsPollInterval`)는 없어졌다 — 설정은 `RETIRED_KEYS` 다. 같은 항목(사용량 `usage` 포함)이 채널의 `activity` delta 토픽으로 온다. 서버는 statusLine 보고(`POST /api/tools/usage`)가 오면 다시 계산해 민다. `tool_activity` 는 SSE 대신 채널 `cmd` 로 온다. FR-ACU-16·NFR-ACU-1·D-ACU-1 의 주기 부분을 고쳐 표시했다
 > **입력**: 2026-11-09 대화. 사용자 결정 셋 — ① 맥락 사용률은 반드시 넣는다 ② 레이아웃은 "맥락 막대 + 모델·effort" 한 줄(1+2안, 사용량이 앞) ③ 한도 사용률 대시보드는 넣지 않는다 (D-ACU-3)
 
 ## 1. 개요 (Introduction)
@@ -82,19 +83,19 @@ Activity 패널의 에이전트 카드는 상태(`working`·도구 이름)와 de
 - **FR-ACU-13** 막대와 백분율의 색은 `ctxLevel` 을 따른다. `warn`·`critical` 은 기존 테마의 경고·위험 색 토큰을 쓴다. 새 색 값을 하드코딩하지 않는다.
 - **FR-ACU-14** 사용량 줄의 툴팁(`title`)은 영어로 정확한 값을 보인다. 예: `Context 55% · Opus 5.5 · effort high` (FR-TIP-2 규약).
 - **FR-ACU-15** 카드의 재조정 근거(`sig`)에 `ctxPct`(반올림한 값)·`ctxLevel`·`model`·`effort` 를 넣는다. 사용량이 바뀌면 카드가 다시 그려지고, 바뀌지 않으면 다시 그려지지 않는다 (FR-RPT-2).
-- **FR-ACU-16** SSE `tool_activity` 는 사용량을 싣지 않는다. 그 이벤트로 항목을 덮어쓸 때 그 항목의 기존 `usage` 를 지우지 않는다. 사용량은 다음 `/api/tools/activity` 응답이 고친다.
+- **FR-ACU-16** SSE `tool_activity` 는 사용량을 싣지 않는다. 그 이벤트로 항목을 덮어쓸 때 그 항목의 기존 `usage` 를 지우지 않는다. 사용량은 다음 `/api/tools/activity` 응답이 고친다. (**개정 2026-11-24, PERF M1 C3**: 사용량은 다음 `activity` 토픽 변화량이 고친다.)
 - **FR-ACU-17** `_activityRestore` 는 응답 항목의 `usage` 를 맵 항목에 그대로 담는다. 응답에 `usage` 가 없으면 맵 항목에서도 `usage` 를 지운다.
 
 ### 3.3 비기능
 
-- **NFR-ACU-1** 사용량이 바뀐 뒤 카드에 보일 때까지의 지연은 `agentsPollMs` 한 주기 이하다. 새 조회 주기나 새 SSE 이벤트를 만들지 않는다.
+- **NFR-ACU-1** 사용량이 바뀐 뒤 카드에 보일 때까지의 지연은 `agentsPollMs` 한 주기 이하다. 새 조회 주기나 새 SSE 이벤트를 만들지 않는다. (**개정 2026-11-24, PERF M1 C3**: 주기가 없다. statusLine 보고가 서버에 닿은 뒤 다음 `activity` 토픽 변화량에 보인다.)
 - **NFR-ACU-2** 사용량 줄은 패널의 최소 폭에서 카드 폭을 넘지 않는다. 넘치면 오른쪽 글자(모델·effort)가 말줄임(`…`)으로 줄고, 막대와 백분율은 줄지 않는다.
 
 ## 4. 결정 (Decisions)
 
 | ID | 결정 | 이유 |
 |---|---|---|
-| D-ACU-1 | 전달 경로는 `/api/tools/activity` 응답에 필드를 더하는 것이다 | 이미 5초마다 받는 응답이다. 새 API·새 주기·새 SSE 이벤트가 필요 없다. 맥락 사용률은 초 단위로 다툴 값이 아니다 |
+| D-ACU-1 | 전달 경로는 `/api/tools/activity` 응답에 필드를 더하는 것이다 (**개정 2026-11-24, PERF M1 C3**: 같은 항목이 `activity` 토픽으로 온다 — 주기 조회는 없다) | 이미 5초마다 받는 응답이다. 새 API·새 주기·새 SSE 이벤트가 필요 없다. 맥락 사용률은 초 단위로 다툴 값이 아니다 |
 | D-ACU-2 | 등급은 서버가 정한다 | 경계값이 서버 설정(`orchestration.contextWarnRatio`·`contextCriticalRatio`)에 있다. 클라이언트에 같은 값을 두면 두 벌이 된다 |
 | D-ACU-3 | 계정 한도(5시간·7일) 대시보드는 넣지 않는다 — **`CLAUDE_ACCOUNTS_SRS` D-CAC-1 로 철회** (2026-11-13) | statusLine 값은 세션이 API 요청을 보낼 때만 갱신된다. 쉬는 동안의 실시간 값은 구독 자격증명으로 직접 조회해야 하고, 그 방식은 사내 규정상 정보보호팀 승인 대상이다 |
 | D-ACU-4 | 바꾼 줄 수(`cost.totalLinesAdded/Removed`)는 넣지 않는다 | 사용자가 1+2안을 골랐다 |

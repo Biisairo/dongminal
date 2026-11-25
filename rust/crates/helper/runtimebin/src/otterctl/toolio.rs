@@ -86,7 +86,7 @@ pub(crate) fn run_otterctl_read(ctx: &mut Ctx<'_>, cmd: &str, args: &[String]) -
             return 1;
         }
     };
-    // FR-DMA-3: MCP read_screen/read_output 과 같은 표시 규약.
+    // FR-DMA-3: read-screen·read-output 의 표시 규약.
     if rec.dropped > 0 {
         outf!(ctx, "dropped_bytes: {}\n", rec.dropped);
     }

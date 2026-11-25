@@ -32,6 +32,7 @@ tokio-util = { workspace = true }
 otter-shared-activity = { path = "../../shared/activity" }
 otter-shared-agentadapter = { path = "../../shared/agentadapter" }
 otter-shared-agentrec = { path = "../../shared/agentrec" }
+otter-shared-cadence = { path = "../../shared/cadence" }
 otter-shared-chatwire = { path = "../../shared/chatwire" }
 otter-shared-otterenv = { path = "../../shared/otterenv" }
 otter-shared-otterlog = { path = "../../shared/otterlog" }
@@ -75,10 +76,12 @@ otter-webserver-gitapi = { path = "../gitapi" }
 otter-webserver-httproute = { path = "../httproute" }
 otter-webserver-hub = { path = "../hub" }
 otter-webserver-seam-toolaccess = { path = "../seam/toolaccess" }
-otter-webserver-sse = { path = "../sse" }
+otter-webserver-envelope = { path = "../envelope" }
 
 [dev-dependencies]
 otter-shared-gittest = { path = "../../shared/gittest" }
+otter-shared-termlimit = { path = "../../shared/termlimit" }
 tempfile = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
 # 시험의 WebSocket 클라이언트가 `SinkExt::send` 를 쓴다.
 futures-util = { workspace = true, features = ["sink"] }

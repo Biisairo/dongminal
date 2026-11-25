@@ -3,6 +3,7 @@
 
 use std::convert::Infallible;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use super::wsc::{Message, TextOf};
@@ -10,12 +11,11 @@ use futures_util::{SinkExt, StreamExt};
 use hyper_util::rt::TokioIo;
 use otter_shared_toolhub::{
     OP_EXIT, OP_INPUT, OP_OUTPUT, OP_REPLY_SEAT, OP_RESIZE, OP_SEQ, OP_SIZE, OP_TOOL_ID, OutChunk,
-    ToolSnapshot, size_payload,
+    ToolScreen, ToolSnapshot, size_payload,
 };
 use serde_json::{Value, json};
 
 use super::fakes::*;
-use crate::ws::{TERM_HARD_CLEAR, TERM_RESET};
 use crate::{Config, Deps, Server};
 
 type Client = super::wsc::Client;
@@ -180,10 +180,6 @@ fn outputs(frames: &[Vec<u8>]) -> Vec<u8> {
         .collect()
 }
 
-fn find(h: &[u8], n: &[u8]) -> Option<usize> {
-    h.windows(n.len()).position(|w| w == n)
-}
-
 fn snap(data: &str, cols: u16, rows: u16) -> ToolSnapshot {
     ToolSnapshot {
         data: data.as_bytes().to_vec(),
@@ -194,15 +190,41 @@ fn snap(data: &str, cols: u16, rows: u16) -> ToolSnapshot {
     }
 }
 
+/// 링 바이트 `data` 의 화면 상태 스냅숏 — 끝 오프셋이 링과 같다.
+fn screen(data: &str, cols: u16, rows: u16) -> ToolScreen {
+    ToolScreen {
+        data: format!("\x1bcSCREEN[{data}]").into_bytes(),
+        end: data.len() as i64,
+        cols,
+        rows,
+        ..ToolScreen::default()
+    }
+}
+
 fn seeded(id: &str, data: &str, cols: u16, rows: u16) -> FakeHub {
-    let h = FakeHub::default();
+    seed_into(FakeHub::default(), id, data, cols, rows)
+}
+
+fn seed_into(h: FakeHub, id: &str, data: &str, cols: u16, rows: u16) -> FakeHub {
     h.seed(id, "Shell");
     h.snaps
         .lock()
         .unwrap()
         .insert(id.to_owned(), snap(data, cols, rows));
+    h.screens
+        .lock()
+        .unwrap()
+        .insert(id.to_owned(), screen(data, cols, rows));
     h
 }
+
+fn seq_end(seq: &[u8]) -> i64 {
+    i64::from_be_bytes(seq[1..9].try_into().unwrap())
+}
+
+const FLAG_FULL: u8 = 1;
+const FLAG_ALT: u8 = 2;
+const FLAG_SNAP: u8 = 4;
 
 async fn wait_until(what: &str, f: impl Fn() -> bool) {
     let deadline = tokio::time::Instant::now() + WAIT;
@@ -225,10 +247,19 @@ async fn new_tool_announces_id() {
     assert_eq!((cols, rows), (80, 24));
 }
 
-/// TC-CH5-2
+/// TC-CH5-2 · PERF 2.5: `since` 가 없으면(깨움) 순서는 `TOOLID` → `SIZE` → 좌석 → 스냅숏 `OUTPUT` →
+/// `SEQ(FULL|SNAP)` 이다. 스냅숏은 데몬이 만든 그대로 보내고, `SEQ` 뒤에 첫 기록 줄 번호와 cwd 를 붙인다.
 #[tokio::test]
-async fn existing_tool_frame_order_and_full_replay() {
-    let e = env(seeded("t1", "junk\nhello", 100, 30)).await;
+async fn wake_frame_order_and_screen_snapshot() {
+    let h = seeded("t1", "junk\nhello", 100, 30);
+    {
+        let mut g = h.screens.lock().unwrap();
+        let s = g.get_mut("t1").unwrap();
+        s.alt = true;
+        s.first_line = 42;
+        s.cwd = "/tmp/깨움".to_owned();
+    }
+    let e = env(h).await;
     let mut c = chan(e.port).await;
     open(&mut c, json!({"sid":7,"tool":"t1","cols":80,"rows":24})).await;
     let id = next_bin(&mut c, 7).await.unwrap();
@@ -243,14 +274,165 @@ async fn existing_tool_frame_order_and_full_replay() {
         "첫 연결이 좌석의 주인이 아니다"
     );
     let (before, seq) = until_op(&mut c, 7, OP_SEQ).await;
-    assert_eq!(seq.len(), 10);
-    assert_eq!(seq[9], 1, "since 가 없으면 전량 재생이다");
-    assert_eq!(i64::from_be_bytes(seq[1..9].try_into().unwrap()), 10);
-    let body = outputs(&before);
-    let clear = find(&body, TERM_HARD_CLEAR).expect("하드 클리어가 없다");
-    assert!(find(&body, TERM_RESET).is_some_and(|r| r < clear));
-    assert!(body.ends_with(b"hello"), "첫 줄 끝까지 버린다: {body:?}");
-    assert!(find(&body, b"junk").is_none());
+    assert_eq!(
+        before.len(),
+        1,
+        "스냅숏과 SEQ 사이에 다른 프레임이 끼었다: {before:?}"
+    );
+    assert_eq!(outputs(&before), b"\x1bcSCREEN[junk\nhello]");
+    assert_eq!(seq[9], FLAG_FULL | FLAG_ALT | FLAG_SNAP);
+    assert_eq!(seq_end(&seq), 10);
+    assert_eq!(u64::from_be_bytes(seq[10..18].try_into().unwrap()), 42);
+    assert_eq!(&seq[18..], "/tmp/깨움".as_bytes());
+    assert_eq!(e.hub.screen_calls.load(Ordering::SeqCst), 1);
+}
+
+/// PERF 2.5: `snap` 이 있으면 `since` 가 있어도 스냅숏이다.
+#[tokio::test]
+async fn snap_flag_overrides_since() {
+    let e = env(seeded("t1", "first\nsecond", 0, 0)).await;
+    let mut c = chan(e.port).await;
+    open(&mut c, json!({"sid":1,"tool":"t1","since":6,"snap":true})).await;
+    let (before, seq) = until_op(&mut c, 1, OP_SEQ).await;
+    assert_eq!(outputs(&before), b"\x1bcSCREEN[first\nsecond]");
+    assert_eq!(seq[9] & FLAG_SNAP, FLAG_SNAP);
+}
+
+/// PERF 2.5 (FR-CON-10): `since` 가 링 밖이면 링 전량 재생 대신 스냅숏이다.
+#[tokio::test]
+async fn since_outside_ring_gets_screen() {
+    let h = seeded("t1", "first\nsecond", 0, 0);
+    // 링에는 끝 6바이트만 남았다 — 6 앞의 좌표는 이어 붙일 수 없다.
+    h.snaps.lock().unwrap().insert(
+        "t1".to_owned(),
+        ToolSnapshot {
+            data: b"second".to_vec(),
+            end: 12,
+            ..ToolSnapshot::default()
+        },
+    );
+    let e = env(h).await;
+    let mut c = chan(e.port).await;
+    open(&mut c, json!({"sid":1,"tool":"t1","since":2})).await;
+    let (before, seq) = until_op(&mut c, 1, OP_SEQ).await;
+    assert_eq!(outputs(&before), b"\x1bcSCREEN[first\nsecond]");
+    assert_eq!(seq[9] & FLAG_SNAP, FLAG_SNAP);
+    assert_eq!(seq_end(&seq), 12);
+}
+
+/// PERF 2.5 (FR-TRM-4): 스냅숏 오프셋 뒤 출력은 빠짐·겹침 없이 잇는다.
+#[tokio::test]
+async fn output_after_screen_has_no_gap_or_overlap() {
+    let e = env(seeded("t1", "0123456789", 0, 0)).await;
+    let mut c = chan(e.port).await;
+    open(&mut c, json!({"sid":1,"tool":"t1"})).await;
+    let (_, seq) = until_op(&mut c, 1, OP_SEQ).await;
+    assert_eq!(seq_end(&seq), 10);
+    let (tx, _) = e.hub.subs.lock().unwrap().get("t1").cloned().unwrap();
+    // 스냅숏보다 앞에서 시작한 조각(겹침)과 바로 뒤 조각.
+    tx.send(chunk("89AB", 12)).await.unwrap();
+    tx.send(chunk("CD", 14)).await.unwrap();
+    let mut got = Vec::new();
+    while got.len() < 4 {
+        let m = next_bin(&mut c, 1).await.expect("출력이 끊겼다");
+        assert_eq!(m[0], OP_OUTPUT);
+        got.extend_from_slice(&m[1..]);
+    }
+    assert_eq!(got, b"ABCD");
+    assert_eq!(e.hub.screen_calls.load(Ordering::SeqCst), 1);
+}
+
+/// PERF 2.5.1 (D-25): 깨움 스냅숏의 기록 행 수는 설정 `termScrollback` 이다. 바꾸면 다음 깨움부터 따르고,
+/// 없거나 범위 밖이면 표의 기본값이다. 흐름 제어의 스냅숏도 같은 값을 쓴다.
+#[tokio::test]
+async fn wake_history_follows_term_scrollback_setting() {
+    let dir = tempfile::tempdir().unwrap();
+    let settings = Arc::new(crate::settings::FileSettings::new(
+        dir.path().join("settings.json"),
+    ));
+    let hub = Arc::new(seeded("t1", "\n$ ", 0, 0));
+    let srv = Server::new(
+        Config {
+            data_dir: dir.path().to_path_buf(),
+            ..Config::default()
+        },
+        Deps {
+            tools: Some(hub.clone()),
+            settings: Some(settings.clone()),
+            ..Deps::default()
+        },
+    );
+    let port = listen(srv.clone()).await;
+    let mut c = chan(port).await;
+    for (sid, blob, want) in [
+        (1u32, "{}", 5_000),
+        (2, r#"{"termScrollback":800}"#, 800),
+        (3, r#"{"termScrollback":50000}"#, 50_000),
+        (4, r#"{"termScrollback":499}"#, 5_000),
+    ] {
+        crate::SettingsStore::set(&*settings, blob.as_bytes().to_vec());
+        open(&mut c, json!({"sid":sid,"tool":"t1"})).await;
+        until_op(&mut c, sid, OP_SEQ).await;
+        assert_eq!(
+            hub.screen_history.lock().unwrap().last().copied(),
+            Some(want),
+            "{blob}"
+        );
+    }
+}
+
+/// PERF 2.5: 같은 도구를 여럿이 한꺼번에 깨우면 스냅숏은 한 번만 만든다.
+#[tokio::test]
+async fn concurrent_wakes_share_one_screen() {
+    let h = FakeHub {
+        screen_delay: Duration::from_millis(300),
+        ..FakeHub::default()
+    };
+    let e = env(seed_into(h, "t1", "\n$ ", 0, 0)).await;
+    let mut a = chan(e.port).await;
+    let mut b = chan(e.port).await;
+    open(&mut a, json!({"sid":1,"tool":"t1"})).await;
+    open(&mut b, json!({"sid":1,"tool":"t1"})).await;
+    let (fa, sa) = until_op(&mut a, 1, OP_SEQ).await;
+    let (fb, sb) = until_op(&mut b, 1, OP_SEQ).await;
+    assert_eq!(outputs(&fa), outputs(&fb));
+    assert_eq!(sa, sb);
+    assert_eq!(e.hub.screen_calls.load(Ordering::SeqCst), 1);
+}
+
+/// PERF 2.8.2 (D-23): 좌석은 구독 전에 데몬에서 쥐고(그 뒤 출력에는 데몬이 답하지 않는다), 닫으면 놓는다.
+#[tokio::test]
+async fn daemon_seat_held_before_subscribe_and_released_on_close() {
+    let e = env(seeded("t1", "\n$ ", 0, 0)).await;
+    let mut c = chan(e.port).await;
+    open(&mut c, json!({"sid":1,"tool":"t1"})).await;
+    until_op(&mut c, 1, OP_SEQ).await;
+    assert_eq!(
+        *e.hub.seats.lock().unwrap(),
+        vec![("t1".to_owned(), true, false)]
+    );
+    send_json(&mut c, json!({"t":"term.close","sid":1})).await;
+    wait_until("좌석을 놓는다", || {
+        e.hub.seats.lock().unwrap().len() == 2
+    })
+    .await;
+    let (id, held, _) = e.hub.seats.lock().unwrap()[1].clone();
+    assert_eq!((id.as_str(), held), ("t1", false));
+}
+
+/// PERF 2.8.2 (D-23): 데몬이 답한 출력보다 앞에서 이어 붙이면 그 질의를 브라우저가 또 답한다 — 스냅숏으로 간다.
+#[tokio::test]
+async fn since_before_daemon_reply_gets_screen() {
+    let h = FakeHub {
+        replied_end: 8,
+        ..FakeHub::default()
+    };
+    let e = env(seed_into(h, "t1", "first\nsecond", 0, 0)).await;
+    let mut c = chan(e.port).await;
+    open(&mut c, json!({"sid":1,"tool":"t1","since":6})).await;
+    let (before, seq) = until_op(&mut c, 1, OP_SEQ).await;
+    assert_eq!(outputs(&before), b"\x1bcSCREEN[first\nsecond]");
+    assert_eq!(seq[9] & FLAG_SNAP, FLAG_SNAP);
 }
 
 /// TC-CH5-3
@@ -337,7 +519,7 @@ async fn relay_env(
 
 fn chunk(s: &str, end: i64) -> OutChunk {
     OutChunk {
-        data: s.as_bytes().to_vec(),
+        data: bytes::Bytes::copy_from_slice(s.as_bytes()),
         end,
         size: None,
     }
@@ -395,28 +577,36 @@ async fn relay_flushes_output_before_size() {
     assert_eq!(outputs(&frames[size_at..]), b"no");
 }
 
-/// TC-CH5-7: 틈이 생기면 그 sid 만 보낸 끝부터 다시 재생한다. 채널은 남는다.
+/// TC-CH5-7 · PERF 2.6 (FR-TRM-6): 출력에 틈이 나면(데몬 큐가 조각을 버림) 그 sid 만 화면 상태 스냅숏으로
+/// 다시 맞춘다 — 링에 메울 바이트가 있어도 재생하지 않는다. 채널은 남고 이어지는 출력이 온다.
 #[tokio::test]
-async fn relay_resyncs_sid_on_gap() {
+async fn relay_gap_resyncs_sid_with_screen() {
     let (e, mut c, tx, _) = relay_env("\nabcdefghij").await;
     tx.send(chunk("klm", 14)).await.unwrap();
     let m = next_bin(&mut c, 1).await.unwrap();
     assert_eq!(m, [&[OP_OUTPUT][..], b"klm"].concat());
-    // 데몬은 그 사이 "nopqrs" 까지 냈다 — 구독에는 끝 조각만 왔다.
+    // 데몬은 그 사이 "nopqrs" 까지 냈다 — 구독에는 끝 조각만 왔다. 링은 아직 그 바이트를 가진다.
     e.hub
         .snaps
         .lock()
         .unwrap()
         .insert("t1".to_owned(), snap("\nabcdefghijklmnopqrs", 0, 0));
+    e.hub
+        .screens
+        .lock()
+        .unwrap()
+        .insert("t1".to_owned(), screen("\nabcdefghijklmnopqrs", 0, 0));
+    let since_before = e.hub.since_calls.load(Ordering::SeqCst);
     tx.send(chunk("rs", 20)).await.unwrap();
     let (before, seq) = until_op(&mut c, 1, OP_SEQ).await;
+    assert_eq!(outputs(&before), b"\x1bcSCREEN[\nabcdefghijklmnopqrs]");
+    assert_eq!(seq[9] & FLAG_SNAP, FLAG_SNAP);
+    assert_eq!(seq_end(&seq), 20);
     assert_eq!(
-        outputs(&before),
-        b"nopqrs",
-        "보낸 끝(14) 뒤를 다시 받아야 한다"
+        e.hub.since_calls.load(Ordering::SeqCst),
+        since_before,
+        "링 재생을 묻지 않는다"
     );
-    assert_eq!(seq[9] & 1, 0, "이어 붙이기다");
-    assert_eq!(i64::from_be_bytes(seq[1..9].try_into().unwrap()), 20);
     tx.send(chunk("t", 21)).await.unwrap();
     assert_eq!(
         next_bin(&mut c, 1).await.unwrap(),
@@ -424,15 +614,167 @@ async fn relay_resyncs_sid_on_gap() {
     );
 }
 
+/// 4.12 (M4 설계 §4, FR-SRV-1): 같은 도구를 보는 두 채널은 데몬 출력 바이트를 복사하지 않고 참조 계수로
+/// 나눈다 — 채널의 터미널 프레임 본문이 데몬이 준 버퍼 그 자체다. 머리(op·sid)는 쓸 때 붙인다.
+#[tokio::test(start_paused = true)]
+async fn term_output_shared_across_subscribers() {
+    use crate::channel::{Outbox, Terms};
+    let dir = tempfile::tempdir().unwrap();
+    let hub = Arc::new(seeded("t1", "\n$ ", 0, 0));
+    let srv = Server::new(
+        Config {
+            data_dir: dir.path().to_path_buf(),
+            ..Config::default()
+        },
+        Deps {
+            tools: Some(hub.clone()),
+            ..Deps::default()
+        },
+    );
+    let outs = [Outbox::new(), Outbox::new()];
+    let terms: Vec<Arc<Terms>> = outs.iter().map(|_| Arc::default()).collect();
+    for (out, terms) in outs.iter().zip(&terms) {
+        srv.term_open(terms, out, &json!({"sid":1,"tool":"t1"}));
+        let deadline = tokio::time::Instant::now() + WAIT;
+        while !pop_sid1(out).iter().any(|f| f[0] == OP_SEQ) {
+            assert!(tokio::time::Instant::now() < deadline, "첫 SEQ 가 없다");
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    }
+    let mut txs = vec![hub.subs.lock().unwrap().get("t1").cloned().unwrap().0];
+    txs.extend(
+        hub.replaced_subs
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(t, _)| t.clone()),
+    );
+    assert_eq!(txs.len(), 2, "두 채널이 구독하지 않았다");
+    let data = bytes::Bytes::from(b"shared output".to_vec());
+    for tx in &txs {
+        tx.send(OutChunk {
+            data: data.clone(),
+            end: 3 + data.len() as i64,
+            size: None,
+        })
+        .await
+        .unwrap();
+    }
+    for out in &outs {
+        let deadline = tokio::time::Instant::now() + WAIT;
+        let got = loop {
+            if let Some(crate::channel::Out::Binary(f)) = out.pop()
+                && f.op == OP_OUTPUT
+            {
+                break f;
+            }
+            assert!(tokio::time::Instant::now() < deadline, "출력이 오지 않았다");
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        };
+        assert_eq!((got.sid, &got.payload[..]), (1, &data[..]));
+        assert_eq!(
+            got.payload.as_ptr(),
+            data.as_ptr(),
+            "채널이 출력 바이트를 복사했다"
+        );
+    }
+}
+
+/// 꺼낸 sid 1 의 바이너리 프레임들(op 가 앞에 붙은 페이로드). 더 꺼낼 것이 없으면 멈춘다.
+fn pop_sid1(out: &crate::channel::Outbox) -> Vec<Vec<u8>> {
+    let mut got = Vec::new();
+    while let Some(o) = out.pop() {
+        if let crate::channel::Out::Binary(f) = o
+            && f.sid == 1
+        {
+            let mut b = vec![f.op];
+            b.extend_from_slice(&f.payload);
+            got.push(b);
+        }
+    }
+    got
+}
+
+/// PERF 2.6 (FR-TRM-6·FR-CON-6, 이슈 1.7 의 남은 위험): 브라우저가 읽지 않는 동안 출력을 계속 넣어도 sid 의
+/// 밀린 양은 상한(+ 마지막으로 보낸 스냅숏)을 넘지 않는다. 다시 읽으면 스냅숏 하나와 그 오프셋 뒤 출력이
+/// 빠짐·겹침 없이 온다 — 스냅숏이 그 오프셋의 화면이므로 최종 화면이 같다.
+#[tokio::test]
+async fn slow_reader_gets_one_screen_then_continuous_output() {
+    use crate::channel::{Outbox, TERM_PENDING_MAX, Terms};
+    let e = env(seeded("t1", "\n$ ", 0, 0)).await;
+    let out = Outbox::new();
+    let terms = Arc::new(Terms::default());
+    e.srv.term_open(&terms, &out, &json!({"sid":1,"tool":"t1"}));
+    // 브라우저는 첫 스냅숏의 SEQ 까지 읽고 멈춘다.
+    let mut first = Vec::new();
+    let deadline = tokio::time::Instant::now() + WAIT;
+    while !first.iter().any(|f: &Vec<u8>| f[0] == OP_SEQ) {
+        assert!(tokio::time::Instant::now() < deadline, "첫 SEQ 가 없다");
+        first.extend(pop_sid1(&out));
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    let (tx, _) = e.hub.subs.lock().unwrap().get("t1").cloned().unwrap();
+    let mut all = b"\n$ ".to_vec();
+    let body = "0123456789abcdef".repeat(1024);
+    let mut peak = 0;
+    for i in 0..320 {
+        let piece = format!("{i:05}{}", &body[5..]);
+        all.extend_from_slice(piece.as_bytes());
+        let end = all.len() as i64;
+        e.hub.screens.lock().unwrap().insert(
+            "t1".to_owned(),
+            ToolScreen {
+                data: format!("\x1bcAT{end}").into_bytes(),
+                end,
+                ..ToolScreen::default()
+            },
+        );
+        tx.send(chunk(&piece, end)).await.unwrap();
+        peak = peak.max(out.term_pending(1));
+    }
+    wait_until("중계가 구독을 다 읽지 않았다", || {
+        tx.capacity() == tx.max_capacity()
+    })
+    .await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    peak = peak.max(out.term_pending(1));
+    assert!(
+        peak <= TERM_PENDING_MAX + 64,
+        "밀린 양 {peak} 이 상한을 넘었다"
+    );
+    assert!(
+        e.hub.screen_calls.load(Ordering::SeqCst) >= 2,
+        "흐름 제어가 걸리지 않았다"
+    );
+    // 다시 읽는다.
+    let frames = pop_sid1(&out);
+    let seqs: Vec<usize> = (0..frames.len())
+        .filter(|&i| frames[i][0] == OP_SEQ)
+        .collect();
+    assert_eq!(seqs.len(), 1, "스냅숏은 하나만 남아야 한다");
+    let seq = &frames[seqs[0]];
+    assert_eq!(
+        seq[9] & FLAG_SNAP,
+        FLAG_SNAP,
+        "바이트 재생이 아니라 스냅숏이다"
+    );
+    let at = seq_end(seq);
+    assert_eq!(
+        outputs(&frames[..seqs[0]]),
+        format!("\x1bcAT{at}").into_bytes()
+    );
+    let rest = outputs(&frames[seqs[0] + 1..]);
+    assert_eq!(
+        rest,
+        all[at as usize..],
+        "스냅숏 뒤 출력에 빠짐·겹침이 있다"
+    );
+}
+
 /// TC-CH5-8
 #[tokio::test]
 async fn tool_exit_sends_exit_and_other_sid_continues() {
-    let h = seeded("t1", "\nabc", 0, 0);
-    h.seed("t2", "Shell");
-    h.snaps
-        .lock()
-        .unwrap()
-        .insert("t2".to_owned(), snap("\nxyz", 0, 0));
+    let h = seed_into(seeded("t1", "\nabc", 0, 0), "t2", "\nxyz", 0, 0);
     let e = env(h).await;
     let mut c = chan(e.port).await;
     open(&mut c, json!({"sid":1,"tool":"t1"})).await;
@@ -495,4 +837,123 @@ async fn subscription_end_sends_term_lost() {
             _ => continue,
         }
     }
+}
+
+fn hist_env_hub(n: usize, delay: Duration) -> FakeHub {
+    let mut h = seeded("t1", "\n$ ", 0, 0);
+    h.hist_delay = delay;
+    *h.hist_lines.lock().unwrap() = (0..n).map(|i| format!("L{i}")).collect();
+    h
+}
+
+/// `sid` 의 다음 `term.history` 답. 그 앞에 온 같은 sid 의 바이너리 프레임을 함께 준다.
+async fn until_history(c: &mut Client, sid: u32) -> (Vec<Vec<u8>>, Value) {
+    let mut before = Vec::new();
+    loop {
+        match next(c).await.expect("term.history 답이 오지 않았다") {
+            Frame::Text(v) if v["t"] == "term.history" && v["sid"] == sid => return (before, v),
+            Frame::Bin(s, f) if s == sid => before.push(f),
+            _ => continue,
+        }
+    }
+}
+
+/// PERF 2.7 (FR-TRM-5): `term.history{sid,before,count}` 에 저장소 구간을 순서대로 답한다.
+/// 맨 위를 넘으면 있는 만큼만 주고 `top` 으로 끝을 알린다. 큰 `count` 는 상한으로 자른다.
+#[tokio::test]
+async fn history_frame_answers_store_range() {
+    let e = env(hist_env_hub(5000, Duration::ZERO)).await;
+    let mut c = chan(e.port).await;
+    open(&mut c, json!({"sid":1,"tool":"t1"})).await;
+    until_op(&mut c, 1, OP_SEQ).await;
+
+    send_json(
+        &mut c,
+        json!({"t":"term.history","sid":1,"before":900,"count":3}),
+    )
+    .await;
+    let (_, v) = until_history(&mut c, 1).await;
+    assert_eq!(
+        (v["from"].as_u64(), v["top"].as_u64()),
+        (Some(897), Some(0))
+    );
+    assert_eq!(v["lines"], json!(["L897", "L898", "L899"]));
+
+    send_json(
+        &mut c,
+        json!({"t":"term.history","sid":1,"before":2,"count":10}),
+    )
+    .await;
+    let (_, v) = until_history(&mut c, 1).await;
+    assert_eq!((v["from"].as_u64(), v["top"].as_u64()), (Some(0), Some(0)));
+    assert_eq!(v["lines"], json!(["L0", "L1"]));
+
+    send_json(
+        &mut c,
+        json!({"t":"term.history","sid":1,"before":4900,"count":1_000_000}),
+    )
+    .await;
+    let (_, v) = until_history(&mut c, 1).await;
+    let max = crate::channel::TERM_HISTORY_MAX;
+    assert_eq!(v["lines"].as_array().unwrap().len(), max);
+    assert_eq!(
+        e.hub.hist_calls.lock().unwrap()[2],
+        ("t1".to_owned(), 4900, max)
+    );
+}
+
+/// 모르는 sid 에는 빈 답(`from = top = before`)을 준다. 채널은 그대로다.
+#[tokio::test]
+async fn history_for_unknown_sid_is_empty() {
+    let e = env(hist_env_hub(10, Duration::ZERO)).await;
+    let mut c = chan(e.port).await;
+    send_json(
+        &mut c,
+        json!({"t":"term.history","sid":7,"before":5,"count":3}),
+    )
+    .await;
+    let (_, v) = until_history(&mut c, 7).await;
+    assert_eq!(
+        (v["from"].as_u64(), v["top"].as_u64(), v["lines"].clone()),
+        (Some(5), Some(5), json!([]))
+    );
+    assert!(e.hub.hist_calls.lock().unwrap().is_empty());
+}
+
+/// 묻는 동안(데몬 답이 늦어도) 같은 sid 의 출력과 입력은 막히지 않는다.
+#[tokio::test]
+async fn history_does_not_block_output_or_input() {
+    let e = env(hist_env_hub(100, Duration::from_millis(600))).await;
+    let mut c = chan(e.port).await;
+    open(&mut c, json!({"sid":1,"tool":"t1"})).await;
+    let (_, seq) = until_op(&mut c, 1, OP_SEQ).await;
+    let mut end = seq_end(&seq);
+    let (tx, _) = e.hub.subs.lock().unwrap().get("t1").cloned().unwrap();
+
+    send_json(
+        &mut c,
+        json!({"t":"term.history","sid":1,"before":50,"count":10}),
+    )
+    .await;
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let t0 = std::time::Instant::now();
+    end += 3;
+    tx.send(chunk("abc", end)).await.unwrap();
+    send_bin(&mut c, OP_INPUT, 1, b"x").await;
+    let m = next_bin(&mut c, 1).await.unwrap();
+    assert_eq!((m[0], &m[1..]), (OP_OUTPUT, &b"abc"[..]));
+    assert!(
+        t0.elapsed() < Duration::from_millis(300),
+        "출력이 history 에 막혔다"
+    );
+    wait_until("입력이 막혔다", || {
+        !e.hub.inputs.lock().unwrap().is_empty()
+    })
+    .await;
+    assert!(
+        t0.elapsed() < Duration::from_millis(500),
+        "입력이 history 에 막혔다"
+    );
+    let (_, v) = until_history(&mut c, 1).await;
+    assert_eq!(v["from"].as_u64(), Some(40));
 }

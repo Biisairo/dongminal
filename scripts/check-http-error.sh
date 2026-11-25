@@ -106,7 +106,8 @@ ok_status='StatusCode::(OK|CREATED|ACCEPTED|NO_CONTENT|PARTIAL_CONTENT)\b'
 bypass=$(
   {
     src_files rust/crates/webserver/gitapi | xargs perl "$CALLS" 'git_json'
-    src_files rust/crates/webserver/httpapi | xargs perl "$CALLS" '(?:httpresp::)?json'
+    # 메서드 호출(`frame.json()`)과 정의(`fn json(&self)`)는 응답이 아니다 — `check-api-docs.sh` 의 `(?<!\.)` 와 같다.
+    src_files rust/crates/webserver/httpapi | xargs perl "$CALLS" '(?<!\.)(?<!fn )(?:httpresp::)?json'
   } | grep -vE "\\($ok_status" || true
 )
 

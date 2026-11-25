@@ -233,12 +233,14 @@ test.describe('모달 골격 — 다섯이 한 벌이다 (FR-TOK-40~42 / UX-16 �
     // UIUX_OVERHAUL_SRS FR-ACT-2: 백그라운드와 Runs 가 이 목록을 떠났다 —
     // 모달이 아니라 활동 패널의 구역이다 (`DESIGN_TOKENS_SRS` TC-TOK-21 개정).
     { name: 'git 확인창', overlay: '#git-confirm', box: '#git-confirm .gc-box',
-      open: async (p) => { await p.evaluate(() => {
+      open: async (p) => { await p.evaluate(async () => {
+        await (window as any).app.testing.loadScreen('git');
         (window as any).GitConfirm.open({ action: 'discard', title: '골격 검사', targets: ['a.txt'], run: async () => ({ ok: true }) });
       }) },
       close: async (p) => { await p.click('#git-confirm .gc-cancel') } },
     { name: 'git 다이얼로그', overlay: '.git-dialog', box: '.git-dialog .git-dialog-box',
-      open: async (p) => { await p.evaluate(() => {
+      open: async (p) => { await p.evaluate(async () => {
+        await (window as any).app.testing.loadScreen('git');
         (window as any).GitDialog.open({ action: 'probe', title: '골격 검사', body: '본문', runLabel: '실행', run: () => ({ ok: true }) });
       }) },
       close: async (p) => { await p.click('.git-dialog .git-dialog-cancel') } },
@@ -284,6 +286,7 @@ test.describe('접근성 — 버튼 줄의 화살표 이동 (FR-A11Y-30)', () =>
   async function openDialog(page: Page) {
     // classic script 의 최상위 `const` 는 `window` 에 붙지 않는다 — 이름으로
     // 직접 부른다 (`slot-title-boundary.spec.ts` 가 `THEMES` 를 쓰는 것과 같다).
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate(() => OpenUrl.handle('https://example.com/'));
     await expect(page.locator('.ui-modal-foot .ui-btn').first()).toBeVisible({ timeout: 10000 });
   }
@@ -325,7 +328,8 @@ test.describe('접근성 — 버튼 줄의 화살표 이동 (FR-A11Y-30)', () =>
   // 과 다른 골격이라 한쪽만 걸어도 다른 쪽은 조용히 남는다.
   test('TC-A11Y-15c: git 확인창의 실행·취소도 좌우로 옮겨진다', async ({ page }) => {
     await waitForInit(page);
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
+      await (window as any).app.testing.loadScreen('git');
       (window as any).GitConfirm.open({
         action: 'discard', title: '화살표 검사', targets: ['a.txt'], run: async () => ({ ok: true }),
       });

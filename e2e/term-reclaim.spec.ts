@@ -5,7 +5,7 @@ import { cursorEndMarkCmd, ptyRecordsRawOutput } from './osenv';
 //
 // `term-size.spec.ts` 가 재는 것은 비소유자가 PTY 를 **따라가는가**(FR-M9-3)이고,
 // 이 파일이 재는 것은 그 따라가기가 **끝나는 순간**이다 — 소유를 되찾은 창이
-// 자기 폭으로 돌아오는가, 그리고 스크롤백이 그 폭으로 다시 서는가.
+// 자기 폭으로 돌아오는가, 그리고 그 화면이 데몬 스냅숏으로 다시 서는가.
 //
 // 크로스 기기 프록시는 `browser.newContext()` 다. 소유권 주장은 `setFocus` 로
 // 한다 — 두 컨텍스트가 동시에 OS 포커스를 보고할 수 있어 클릭은 결정론적이지
@@ -59,20 +59,14 @@ const markerLine = async (page, tag: string) =>
 /**
  * 그 표식이 붙은 **모든** 논리 줄의 길이.
  *
- * `markerLine` 은 **첫 줄**을 집는다. POSIX 에서는 전량 재생이 `\x1b[3J` 로
- * 스크롤백까지 지우고 다시 뿌리므로 그 줄이 하나뿐이라 그것으로 충분했다.
- *
- * ConPTY 는 다르다 — 기록에 남는 것이 **원본 출력이 아니라 그 시점의 렌더링**이고,
- * 리사이즈 때 자기 버퍼를 새 폭으로 다시 내보낸다. 그래서 재생에는 옛 폭으로
- * 그려진 기록과 새 폭의 렌더링이 **둘 다** 들어오고, 첫 줄은 언제나 옛 것이다
- * (2026-09-16 CI 실측: 기대 28, 받은 168 — 15초 내내).
- *
- * 재려는 것은 *스크롤백이 새 폭으로 다시 섰는가* 이지 *옛 그림이 사라졌는가* 가
- * 아니다. 그러므로 **새 폭의 줄이 있는가**를 묻는다 — 다시 그리지 않으면 그런
- * 줄은 생기지 않으므로 M10-B2 의 회귀는 그대로 잡힌다.
+ * `markerLine` 은 **첫 줄**을 집는다. 스냅숏이 화면을 갈아 끼웠다면 그 줄은 한 벌뿐이어야
+ * 하므로, 모두 모아 몇 벌인지까지 본다 (PERF 4.15.2).
  */
 const markerLens = async (page, tag: string) =>
   (await logicalLines(page)).filter((s) => s.startsWith(tag)).map((s) => s.length);
+
+// 좁은 쪽 xterm 에만 써 넣는 줄의 머리 — PTY 를 거치지 않으므로 데몬 화면에는 없다.
+const LOCAL_ONLY = 'LOCALONLY';
 
 test.describe('V-M10-4·5 — 소유를 되찾은 창이 자기 폭으로 선다', () => {
   test('TC-M10-1: 되찾은 넓은 창의 cols 와 PTY 가 모두 자기 폭이 된다 (FR-M10-1)', async ({ browser }) => {
@@ -109,7 +103,17 @@ test.describe('V-M10-4·5 — 소유를 되찾은 창이 자기 폭으로 선다
     await wide.ctx.close();
   });
 
-  test('TC-M10-2: 옛 폭에서 그려진 스크롤백이 새 폭으로 다시 선다 (FR-M10-2)', async ({ browser }) => {
+  /**
+   * PERF 4.15.2: **재생은 데몬 스냅숏이다** (PERF 2.5, FR-TRM-3·4).
+   *
+   *   이전 전제: 전량 재생이 원본 바이트를 새 폭에서 다시 파싱해, `ESC[<W>G` 로 그린 줄이
+   *             좁은 폭으로 다시 선다
+   *   지금 동작: 데몬 에뮬레이터가 PTY 크기를 따라 리플로우한 화면을 스냅숏으로 보낸다.
+   *             절대 좌표는 그린 순간에 해소되므로 그 줄은 옛 폭 그대로 접혀 남는다
+   *
+   * 그래서 재는 것은 *되찾은 화면이 데몬 스냅숏으로 바뀌었는가* 와 *그 줄이 한 벌뿐인가* 다.
+   */
+  test('TC-M10-2: 폭이 바뀐 되찾기는 데몬 스냅숏으로 화면을 다시 받는다 (FR-M10-2)', async ({ browser }) => {
     const wide = await newClient(browser, { width: 1440, height: 900 });
     const narrow = await newClient(browser, { width: 390, height: 844 });
 
@@ -128,15 +132,22 @@ test.describe('V-M10-4·5 — 소유를 되찾은 창이 자기 폭으로 선다
     }, { timeout: 15000 }).toBe(true);
 
     const wideCols = (await sizeOf(wide.page))!.cols;
-    // `\033[<W>G` 는 그 폭의 오른쪽 끝이다. 줄바꿈이 아니라 **좌표**이므로
-    // xterm 의 리플로우로는 되돌아가지 않는다 — 다시 그리는 길은 전량 재생뿐이다.
     await typeInto(wide.page, cursorEndMarkCmd('WIDEMARK', 'R') + '\r');
 
     await expect.poll(() => markerLine(wide.page, 'WIDEMARK').then((s) => s.length),
       { timeout: 15000 }).toBe(wideCols);
+    await expect.poll(() => markerLine(narrow.page, 'WIDEMARK').then((s) => s.length),
+      { timeout: 15000 }).toBe(wideCols);
 
-    // 좁은 쪽이 소유권을 가져간다. PTY 가 좁아지고, 그 줄은 좁은 폭으로 다시
-    // 그려져야 한다 — 다시 그리지 않으면 넓은 폭 그대로 남는다 (M10-B2).
+    // 좁은 쪽 xterm 에만 있는 줄이다 — PTY·데몬은 모른다. 스냅숏이 화면을 갈아 끼우면 사라지고,
+    // 재생 없이 xterm 리플로우만 하면 남는다 (M10-B2 의 회귀).
+    await narrow.page.evaluate((t) => {
+      const p = [...(window as any).app.tools.values()][0] as any;
+      p.term.write('\r\n' + t + '\r\n');
+    }, LOCAL_ONLY);
+    await expect.poll(async () => (await logicalLines(narrow.page)).some((s) => s.includes(LOCAL_ONLY)),
+      { timeout: 5000 }).toBe(true);
+
     await claim(narrow.page);
 
     await expect.poll(async () => {
@@ -146,47 +157,33 @@ test.describe('V-M10-4·5 — 소유를 되찾은 창이 자기 폭으로 선다
 
     const narrowCols = (await sizeOf(narrow.page))!.cols;
 
-    /**
-     * **두 주장을 갈라 묻는다.**
-     *
-     * 종전에는 *줄이 새 폭으로 섰는가* 하나만 물었고, 그것이 지면 원인이 둘로
-     * 갈렸다 — ① 리사이즈가 PTY 까지 닿지 않았다(우리 결함) ② 닿았는데도 새 폭의
-     * 그림이 없다(전송 계층의 성질). 한 덩어리로 물으면 어느 쪽인지 말할 수 없고,
-     * 실제로 Windows 에서 그 구분이 필요했다 (2026-09-16: `[168]`).
-     *
-     * `_ptyCols` 는 **서버가 통보한 PTY 폭**이다 (FR-M9-3). 그것이 먼저다.
-     */
+    // `_ptyCols` 는 **서버가 통보한 PTY 폭**이다 (FR-M9-3). 되찾은 폭이 PTY 까지 닿았는가를 먼저 묻는다.
     await expect.poll(async () => (await sizeOf(narrow.page))?.ptyCols,
       { timeout: 15000, message: '되찾은 폭이 PTY 까지 닿지 않았다 (FR-M10-1 의 뒷면)' })
       .toBe(narrowCols);
 
+    await expect.poll(async () => (await logicalLines(narrow.page)).some((s) => s.includes(LOCAL_ONLY)),
+      { timeout: 15000, message: '되찾은 화면이 데몬 스냅숏으로 바뀌지 않았다 (M10-B2)' })
+      .toBe(false);
+
     /**
-     * **다시 그리기는 원본을 기록하는 전송에서만 성립한다** (2026-09-16 확정).
-     *
-     * 위 단언이 통과했다는 것은 되찾은 폭이 **PTY 까지 닿았다**는 뜻이다. 그런데도
-     * ConPTY 에서는 그 줄이 새 폭으로 서지 않는다 — 기록이 원본이 아니라 이미
-     * 그려진 화면이라 좌표가 남아 있지 않고, 다시 내보내 달라고 할 상대도 없다.
-     *
-     * 실측: 이 폴링은 15초 동안 100ms 간격으로 `WIDEMARK` 줄들의 길이를 다시
-     * 읽는다. ConPTY 가 그 사이 언제든 새 폭으로 냈다면 한 번은 잡혔을 텐데
-     * 끝까지 `[168]` 뿐이었다.
-     *
-     * **동작이 같지 않다는 사실을 숨기지 않는다** — 그쪽에서는 옛 폭의 그림이
-     * 접혀 남는다(네이티브 터미널이 하는 것과 같다). 빠진 보증은
-     * `WINDOWS_TEST_PARITY_SRS` §7 에 적혀 있다.
+     * ConPTY 는 기록이 원본이 아니라 그 시점의 렌더링이고, 리사이즈 때 자기 버퍼를 새 폭으로
+     * 다시 내보낸다 — 데몬 화면에 옛 그림과 새 그림이 함께 설 수 있다 (2026-09-16 실측 근거:
+     * WINDOWS_TEST_PARITY_SRS §7). 줄의 모양은 원본을 기록하는 PTY 에서만 묻는다.
      */
     if (!ptyRecordsRawOutput) {
       test.info().annotations.push({
         type: 'platform-gap',
-        description: 'FR-M10-2 의 다시 그리기는 원본을 기록하는 PTY 에서만 성립한다 ' +
+        description: 'FR-M10-2 의 줄 모양(옛 폭 그대로 한 벌)은 원본을 기록하는 PTY 에서만 묻는다 ' +
           '(ConPTY 는 렌더링을 준다) — WINDOWS_TEST_PARITY_SRS §7',
       });
       return;
     }
 
-    await expect.poll(() => markerLens(narrow.page, 'WIDEMARK'),
-      { timeout: 15000, message: '좁은 폭으로 다시 그려진 줄이 없다 (M10-B2)' })
-      .toContain(narrowCols);
+    // 절대 좌표는 데몬이 그린 순간에 해소됐다 — 그 줄은 옛 폭 그대로 접혀 **한 벌만** 남는다.
+    const lens = await markerLens(narrow.page, 'WIDEMARK');
+    expect(lens, '스냅숏의 WIDEMARK 줄이 한 벌이 아니거나 옛 폭이 아니다').toEqual([wideCols]);
+    expect((await markerLine(narrow.page, 'WIDEMARK')).endsWith('R')).toBe(true);
 
     await narrow.ctx.close();
     await wide.ctx.close();

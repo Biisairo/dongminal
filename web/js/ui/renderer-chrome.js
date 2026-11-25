@@ -339,7 +339,11 @@ Object.assign(Renderer.prototype, {
     // 바뀌는 순간에만 떼기 전 자리를 적고, 붙인 뒤 되돌린다(두 패널의 탭과 같은 규칙).
     const turned=body.dataset.side!==active;
     if(turned) UIKit.scrollSave(body);
-    if(active===REPO_SIDE_CHANGES){
+    // PERF D-30: Changes 뷰는 git 묶음에 있다. 실리기 전에는 사이드에 자리표시를 두고 진입점 줄도 두지 않는다.
+    const wait=active===REPO_SIDE_CHANGES&&!Screens.ready('git')?this._screenHold('git',key+'/wait'):null;
+    if(wait){
+      this._place(body,[wait]);
+    }else if(active===REPO_SIDE_CHANGES){
       // FR-RTU-32: Changes 는 **사이드에만** 있다. 본문 탭이 되지 않으므로 그
       // 뷰의 DOM 을 여기로 가져온다 — 뷰를 만드는 자리는 패널 하나다.
       const p=app.git.surfaces.gitPanelAt(app.editor.edRootOf(s),slot);
@@ -352,7 +356,8 @@ Object.assign(Renderer.prototype, {
       // 로 다시 붙이면 같은 부모라도 떼었다 붙이는 것이다.
       this._place(body,[view]);
     }else{
-      this._place(body,[app.editor.open.edTree(s,slot).mount()]);
+      // PERF 3.4.7: 탐색기는 `editor` 묶음이다. 아직이면 자리표시를 둔다 (D-30).
+      this._place(body,[Screens.ready('editor')?app.editor.open.edTree(s,slot).mount():this._screenHold('editor',key+'/wait')]);
     }
     kids.push(body);
     this._place(el,kids);

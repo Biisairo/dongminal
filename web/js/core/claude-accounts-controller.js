@@ -1,8 +1,8 @@
 /**
  * Otterminal — Claude 다중 계정의 Activity 하단 묶음 (CLAUDE_ACCOUNTS_SRS FR-CAC-90~92 · FR-CAC-122).
  *
- * 목록은 `GET /api/claude-accounts` 다. 서버가 상태가 바뀌면 `claude_accounts_changed` 를 밀고,
- * 패널이 열린 동안에는 등록부(`state-registry.js` 의 `claude.accounts`)가 주기로 다시 받는다.
+ * 목록은 `GET /api/claude-accounts` 의 본문이다. 서버가 상태가 바뀌면 채널 `claude.accounts` 토픽으로
+ * 민다(등록부 `state-registry.js` 의 `claude.accounts`). 주기로 다시 받지 않는다 (PERF M1).
  * 사용률의 등급과 남은 시간은 서버가 셈한 값만 쓴다 (D-ASV-10).
  *
  * `ClaudeAccountsController` 가 목록 읽기·하단 묶음·팝오버·전환을 진다. App 은 이것을 `claude` 로 든다

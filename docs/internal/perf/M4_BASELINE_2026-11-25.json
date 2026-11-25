@@ -1,0 +1,1038 @@
+{
+  "date": "2026-11-25",
+  "commit": "424a48effb11023913e14349fc0542ee909830cd",
+  "machine": "Apple M4, 10 cores",
+  "command": "node scripts/perf/scenario.mjs --bin otterminal-pf4.4 --windows 5 --tabs 3 --phase-s 60 --idle-s 60 --only idle,idle-git,idle-closed",
+  "runs": [
+    {
+      "port": 60210,
+      "idleFg": "",
+      "result": {
+        "config": {
+          "windows": 5,
+          "tabs": 3,
+          "visible": 2,
+          "hidden": 6,
+          "rate": 40,
+          "phaseS": 60,
+          "longMin": 10,
+          "idleS": 60,
+          "probes": 20,
+          "tui": false
+        },
+        "phases": {
+          "boot": {
+            "bootMs": 464,
+            "scripts": 18,
+            "requests": 42,
+            "requestsByType": {
+              "Document": 1,
+              "Stylesheet": 16,
+              "Script": 11,
+              "Image": 1,
+              "Fetch": 12,
+              "Other": 1
+            },
+            "jsFiles": 11,
+            "jsBytes": 1143109,
+            "jsEncodedBytes": 677814,
+            "longTasks16": 3,
+            "longTask16MsMax": 29.688,
+            "longTask16Ms": [
+              29.688,
+              19.766,
+              16.797
+            ],
+            "jsHeapMB": 5.479972839355469,
+            "nodes": 2702,
+            "listeners": 188,
+            "scriptS": 0.069092,
+            "taskS": 0.181345
+          },
+          "idle": {
+            "seconds": 60.013,
+            "mainThreadBusyPct": 0.2120923799843367,
+            "scriptPct": 0.05051405528802092,
+            "layoutPct": 0.009454618166064023,
+            "longTasks": 0,
+            "longTaskMsTotal": 0,
+            "longTaskMsMax": 0,
+            "jsHeapMB": 7.687751770019531,
+            "nodes": 2919,
+            "listeners": 454,
+            "requestsPerMin": 0,
+            "wsFramesPerS": 1.3163814506856848,
+            "wsKBps": 0.077440903429257,
+            "ssePerMin": 0,
+            "inputP50": 1.1000001430511475,
+            "inputP95": 13.299999952316284,
+            "inputMax": 13.299999952316284,
+            "inputTimeouts": 0,
+            "serverCpuPct": 0.0333261126755869,
+            "daemonCpuPct": 0.016663056337793473,
+            "serverRssMB": 34.15625,
+            "daemonRssMB": 21.5,
+            "serverWakeups": {
+              "idlew": 0,
+              "csw": 420,
+              "idlewPerS": 0,
+              "cswPerS": 14
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 356,
+              "idlewPerS": 0,
+              "cswPerS": 11.866666666666667
+            },
+            "spawns": {
+              "total": 0,
+              "server": 0,
+              "daemon": 0,
+              "byCmd": {}
+            },
+            "topRequestsPerMin": [],
+            "idleFg": ""
+          },
+          "idle-git": {
+            "seconds": 60.172,
+            "mainThreadBusyPct": 0.0337349597819585,
+            "scriptPct": 0.009740410822309389,
+            "layoutPct": 0,
+            "longTasks": 0,
+            "longTaskMsTotal": 0,
+            "longTaskMsMax": 0,
+            "jsHeapMB": 10.006263732910156,
+            "nodes": 3460,
+            "listeners": 540,
+            "requestsPerMin": 0,
+            "wsFramesPerS": 0.6647610184138802,
+            "wsKBps": 0.07102036661570166,
+            "ssePerMin": 0,
+            "inputP50": null,
+            "inputP95": null,
+            "inputMax": null,
+            "inputTimeouts": 0,
+            "serverCpuPct": 0.09971415276208204,
+            "daemonCpuPct": 0.03323805092069402,
+            "serverRssMB": 35.859375,
+            "daemonRssMB": 21.5,
+            "serverWakeups": {
+              "idlew": 2,
+              "csw": 505,
+              "idlewPerS": 0.06666666666666667,
+              "cswPerS": 16.833333333333332
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 295,
+              "idlewPerS": 0,
+              "cswPerS": 9.833333333333334
+            },
+            "spawns": {
+              "total": 17,
+              "server": 17,
+              "daemon": 0,
+              "byCmd": {
+                "server git": 17
+              }
+            },
+            "topRequestsPerMin": [],
+            "repo": "/private/var/folders/8s/s404j_ps7x94zc59bb2fp1c00000gn/T/otter-perf-git-ISb5f5",
+            "idleFg": ""
+          },
+          "idle-closed": {
+            "seconds": 60.19,
+            "serverCpuPct": 0.08307027745472668,
+            "daemonCpuPct": 0.016614055490945356,
+            "serverRssMB": 35.859375,
+            "daemonRssMB": 21.5,
+            "serverWakeups": {
+              "idlew": 0,
+              "csw": 457,
+              "idlewPerS": 0,
+              "cswPerS": 15.233333333333333
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 289,
+              "idlewPerS": 0,
+              "cswPerS": 9.633333333333333
+            },
+            "spawns": {
+              "total": 17,
+              "server": 17,
+              "daemon": 0,
+              "byCmd": {
+                "server git": 17
+              }
+            },
+            "idleFg": ""
+          }
+        },
+        "layout": {
+          "tabs": 15,
+          "visibleAgents": 2,
+          "hiddenAgents": 6
+        }
+      }
+    },
+    {
+      "port": 60211,
+      "idleFg": "",
+      "result": {
+        "config": {
+          "windows": 5,
+          "tabs": 3,
+          "visible": 2,
+          "hidden": 6,
+          "rate": 40,
+          "phaseS": 60,
+          "longMin": 10,
+          "idleS": 60,
+          "probes": 20,
+          "tui": false
+        },
+        "phases": {
+          "boot": {
+            "bootMs": 324,
+            "scripts": 18,
+            "requests": 42,
+            "requestsByType": {
+              "Document": 1,
+              "Stylesheet": 16,
+              "Script": 11,
+              "Image": 1,
+              "Fetch": 12,
+              "Other": 1
+            },
+            "jsFiles": 11,
+            "jsBytes": 1143109,
+            "jsEncodedBytes": 677814,
+            "longTasks16": 1,
+            "longTask16MsMax": 19.665,
+            "longTask16Ms": [
+              19.665
+            ],
+            "jsHeapMB": 5.4859619140625,
+            "nodes": 2702,
+            "listeners": 188,
+            "scriptS": 0.056788,
+            "taskS": 0.148227
+          },
+          "idle": {
+            "seconds": 60.106,
+            "mainThreadBusyPct": 0.21509000765314612,
+            "scriptPct": 0.0499650617242871,
+            "layoutPct": 0.009687884736964698,
+            "longTasks": 0,
+            "longTaskMsTotal": 0,
+            "longTaskMsMax": 0,
+            "jsHeapMB": 7.6912994384765625,
+            "nodes": 2919,
+            "listeners": 454,
+            "requestsPerMin": 0,
+            "wsFramesPerS": 1.3476192060692775,
+            "wsKBps": 0.0794007409825974,
+            "ssePerMin": 0,
+            "inputP50": 1,
+            "inputP95": 10.599999904632568,
+            "inputMax": 10.599999904632568,
+            "inputTimeouts": 0,
+            "serverCpuPct": 0.01663727414900335,
+            "daemonCpuPct": 0.016637274149003442,
+            "serverRssMB": 33.84375,
+            "daemonRssMB": 21.4375,
+            "serverWakeups": {
+              "idlew": 0,
+              "csw": 423,
+              "idlewPerS": 0,
+              "cswPerS": 14.1
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 368,
+              "idlewPerS": 0,
+              "cswPerS": 12.266666666666667
+            },
+            "spawns": {
+              "total": 0,
+              "server": 0,
+              "daemon": 0,
+              "byCmd": {}
+            },
+            "topRequestsPerMin": [],
+            "idleFg": ""
+          },
+          "idle-git": {
+            "seconds": 60.192,
+            "mainThreadBusyPct": 0.014658094098883523,
+            "scriptPct": 0.00926535087719298,
+            "layoutPct": 0,
+            "longTasks": 0,
+            "longTaskMsTotal": 0,
+            "longTaskMsMax": 0,
+            "jsHeapMB": 10.761821746826172,
+            "nodes": 3493,
+            "listeners": 554,
+            "requestsPerMin": 0,
+            "wsFramesPerS": 0.6645401382243488,
+            "wsKBps": 0.07112656166932482,
+            "ssePerMin": 0,
+            "inputP50": null,
+            "inputP95": null,
+            "inputMax": null,
+            "inputTimeouts": 0,
+            "serverCpuPct": 0.08306751727804358,
+            "daemonCpuPct": 0.016613503455608712,
+            "serverRssMB": 35.90625,
+            "daemonRssMB": 21.4375,
+            "serverWakeups": {
+              "idlew": 1,
+              "csw": 467,
+              "idlewPerS": 0.03333333333333333,
+              "cswPerS": 15.566666666666666
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 289,
+              "idlewPerS": 0,
+              "cswPerS": 9.633333333333333
+            },
+            "spawns": {
+              "total": 17,
+              "server": 17,
+              "daemon": 0,
+              "byCmd": {
+                "server git": 17
+              }
+            },
+            "topRequestsPerMin": [],
+            "repo": "/private/var/folders/8s/s404j_ps7x94zc59bb2fp1c00000gn/T/otter-perf-git-GVw6DJ",
+            "idleFg": ""
+          },
+          "idle-closed": {
+            "seconds": 60.018,
+            "serverCpuPct": 0.08330834083108399,
+            "daemonCpuPct": 0.016661668166216816,
+            "serverRssMB": 35.90625,
+            "daemonRssMB": 21.4375,
+            "serverWakeups": {
+              "idlew": 0,
+              "csw": 401,
+              "idlewPerS": 0,
+              "cswPerS": 13.366666666666667
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 276,
+              "idlewPerS": 0,
+              "cswPerS": 9.2
+            },
+            "spawns": {
+              "total": 17,
+              "server": 17,
+              "daemon": 0,
+              "byCmd": {
+                "server git": 17
+              }
+            },
+            "idleFg": ""
+          }
+        },
+        "layout": {
+          "tabs": 15,
+          "visibleAgents": 2,
+          "hiddenAgents": 6
+        }
+      }
+    },
+    {
+      "port": 60212,
+      "idleFg": "",
+      "result": {
+        "config": {
+          "windows": 5,
+          "tabs": 3,
+          "visible": 2,
+          "hidden": 6,
+          "rate": 40,
+          "phaseS": 60,
+          "longMin": 10,
+          "idleS": 60,
+          "probes": 20,
+          "tui": false
+        },
+        "phases": {
+          "boot": {
+            "bootMs": 431,
+            "scripts": 18,
+            "requests": 42,
+            "requestsByType": {
+              "Document": 1,
+              "Stylesheet": 16,
+              "Script": 11,
+              "Image": 1,
+              "Fetch": 12,
+              "Other": 1
+            },
+            "jsFiles": 11,
+            "jsBytes": 1143109,
+            "jsEncodedBytes": 677814,
+            "longTasks16": 1,
+            "longTask16MsMax": 34.829,
+            "longTask16Ms": [
+              34.829
+            ],
+            "jsHeapMB": 5.468540191650391,
+            "nodes": 2697,
+            "listeners": 188,
+            "scriptS": 0.063524,
+            "taskS": 0.179494
+          },
+          "idle": {
+            "seconds": 60.115,
+            "mainThreadBusyPct": 0.4014073026698827,
+            "scriptPct": 0.09165432920236212,
+            "layoutPct": 0.017506445978541126,
+            "longTasks": 0,
+            "longTaskMsTotal": 0,
+            "longTaskMsMax": 0,
+            "jsHeapMB": 7.67535400390625,
+            "nodes": 2919,
+            "listeners": 454,
+            "requestsPerMin": 0,
+            "wsFramesPerS": 1.314147883223821,
+            "wsKBps": 0.07737448536139066,
+            "ssePerMin": 0,
+            "inputP50": 2.200000047683716,
+            "inputP95": 14.5,
+            "inputMax": 14.5,
+            "inputTimeouts": 0,
+            "serverCpuPct": 0.04990434999584135,
+            "daemonCpuPct": 0.03326956666389421,
+            "serverRssMB": 33.65625,
+            "daemonRssMB": 21.59375,
+            "serverWakeups": {
+              "idlew": 23,
+              "csw": 380,
+              "idlewPerS": 0.7666666666666667,
+              "cswPerS": 12.666666666666666
+            },
+            "daemonWakeups": {
+              "idlew": 7,
+              "csw": 347,
+              "idlewPerS": 0.23333333333333334,
+              "cswPerS": 11.566666666666666
+            },
+            "spawns": {
+              "total": 0,
+              "server": 0,
+              "daemon": 0,
+              "byCmd": {}
+            },
+            "topRequestsPerMin": [],
+            "idleFg": ""
+          },
+          "idle-git": {
+            "seconds": 60.164,
+            "mainThreadBusyPct": 0.03670799813842168,
+            "scriptPct": 0.015168539325842688,
+            "layoutPct": 0,
+            "longTasks": 0,
+            "longTaskMsTotal": 0,
+            "longTaskMsMax": 0,
+            "jsHeapMB": 9.978919982910156,
+            "nodes": 3459,
+            "listeners": 540,
+            "requestsPerMin": 0,
+            "wsFramesPerS": 0.6648494116082707,
+            "wsKBps": 0.0712245902865501,
+            "ssePerMin": 0,
+            "inputP50": null,
+            "inputP95": null,
+            "inputMax": null,
+            "inputTimeouts": 0,
+            "serverCpuPct": 0.11634864703144739,
+            "daemonCpuPct": 0.01662123529020676,
+            "serverRssMB": 35.40625,
+            "daemonRssMB": 21.59375,
+            "serverWakeups": {
+              "idlew": 24,
+              "csw": 439,
+              "idlewPerS": 0.8,
+              "cswPerS": 14.633333333333333
+            },
+            "daemonWakeups": {
+              "idlew": 9,
+              "csw": 265,
+              "idlewPerS": 0.3,
+              "cswPerS": 8.833333333333334
+            },
+            "spawns": {
+              "total": 17,
+              "server": 17,
+              "daemon": 0,
+              "byCmd": {
+                "server git": 17
+              }
+            },
+            "topRequestsPerMin": [],
+            "repo": "/private/var/folders/8s/s404j_ps7x94zc59bb2fp1c00000gn/T/otter-perf-git-CzNgFA",
+            "idleFg": ""
+          },
+          "idle-closed": {
+            "seconds": 60.196,
+            "serverCpuPct": 0.08306199747491526,
+            "daemonCpuPct": 0.033224798989966144,
+            "serverRssMB": 35.40625,
+            "daemonRssMB": 21.59375,
+            "serverWakeups": {
+              "idlew": 0,
+              "csw": 409,
+              "idlewPerS": 0,
+              "cswPerS": 13.633333333333333
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 294,
+              "idlewPerS": 0,
+              "cswPerS": 9.8
+            },
+            "spawns": {
+              "total": 17,
+              "server": 17,
+              "daemon": 0,
+              "byCmd": {
+                "server git": 17
+              }
+            },
+            "idleFg": ""
+          }
+        },
+        "layout": {
+          "tabs": 15,
+          "visibleAgents": 2,
+          "hiddenAgents": 6
+        }
+      }
+    },
+    {
+      "port": 60213,
+      "idleFg": "sleep 86400",
+      "result": {
+        "config": {
+          "windows": 5,
+          "tabs": 3,
+          "visible": 2,
+          "hidden": 6,
+          "rate": 40,
+          "phaseS": 60,
+          "longMin": 10,
+          "idleS": 60,
+          "probes": 20,
+          "tui": false
+        },
+        "phases": {
+          "boot": {
+            "bootMs": 311,
+            "scripts": 18,
+            "requests": 42,
+            "requestsByType": {
+              "Document": 1,
+              "Stylesheet": 16,
+              "Script": 11,
+              "Image": 1,
+              "Fetch": 12,
+              "Other": 1
+            },
+            "jsFiles": 11,
+            "jsBytes": 1143109,
+            "jsEncodedBytes": 677814,
+            "longTasks16": 0,
+            "longTask16MsMax": 0,
+            "longTask16Ms": [],
+            "jsHeapMB": 5.469417572021484,
+            "nodes": 2702,
+            "listeners": 188,
+            "scriptS": 0.055505,
+            "taskS": 0.138392
+          },
+          "idle": {
+            "seconds": 60.134,
+            "mainThreadBusyPct": 0.1933182558951675,
+            "scriptPct": 0.04571623374463701,
+            "layoutPct": 0.008612432234675895,
+            "longTasks": 0,
+            "longTaskMsTotal": 0,
+            "longTaskMsMax": 0,
+            "jsHeapMB": 7.0853424072265625,
+            "nodes": 2919,
+            "listeners": 458,
+            "requestsPerMin": 0,
+            "wsFramesPerS": 1.3137326637176971,
+            "wsKBps": 0.07741499713140652,
+            "ssePerMin": 0,
+            "inputP50": 0.9000000953674316,
+            "inputP95": 28,
+            "inputMax": 28,
+            "inputTimeouts": 0,
+            "serverCpuPct": 0.01662952738883153,
+            "daemonCpuPct": 0.03325905477766323,
+            "serverRssMB": 34.09375,
+            "daemonRssMB": 21.578125,
+            "serverWakeups": {
+              "idlew": 0,
+              "csw": 402,
+              "idlewPerS": 0,
+              "cswPerS": 13.4
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 398,
+              "idlewPerS": 0,
+              "cswPerS": 13.266666666666667
+            },
+            "spawns": {
+              "total": 21,
+              "server": 0,
+              "daemon": 21,
+              "byCmd": {
+                "daemon ps": 21
+              }
+            },
+            "topRequestsPerMin": [],
+            "idleFg": "sleep 86400"
+          },
+          "idle-git": {
+            "seconds": 60.174,
+            "mainThreadBusyPct": 0.029097284541496415,
+            "scriptPct": 0.009798251736630459,
+            "layoutPct": 0,
+            "longTasks": 0,
+            "longTaskMsTotal": 0,
+            "longTaskMsMax": 0,
+            "jsHeapMB": 10.02496337890625,
+            "nodes": 3461,
+            "listeners": 540,
+            "requestsPerMin": 0,
+            "wsFramesPerS": 0.6647389237876824,
+            "wsKBps": 0.07127766975770267,
+            "ssePerMin": 0,
+            "inputP50": null,
+            "inputP95": null,
+            "inputMax": null,
+            "inputTimeouts": 0,
+            "serverCpuPct": 0.09971083856815235,
+            "daemonCpuPct": 0.03323694618938415,
+            "serverRssMB": 35.796875,
+            "daemonRssMB": 21.609375,
+            "serverWakeups": {
+              "idlew": 0,
+              "csw": 421,
+              "idlewPerS": 0,
+              "cswPerS": 14.033333333333333
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 292,
+              "idlewPerS": 0,
+              "cswPerS": 9.733333333333333
+            },
+            "spawns": {
+              "total": 34,
+              "server": 17,
+              "daemon": 17,
+              "byCmd": {
+                "daemon ps": 17,
+                "server git": 17
+              }
+            },
+            "topRequestsPerMin": [],
+            "repo": "/private/var/folders/8s/s404j_ps7x94zc59bb2fp1c00000gn/T/otter-perf-git-WYzOxl",
+            "idleFg": "sleep 86400"
+          },
+          "idle-closed": {
+            "seconds": 60.194,
+            "serverCpuPct": 0.08306475728477929,
+            "daemonCpuPct": 0.03322590291391167,
+            "serverRssMB": 35.796875,
+            "daemonRssMB": 21.609375,
+            "serverWakeups": {
+              "idlew": 0,
+              "csw": 435,
+              "idlewPerS": 0,
+              "cswPerS": 14.5
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 294,
+              "idlewPerS": 0,
+              "cswPerS": 9.8
+            },
+            "spawns": {
+              "total": 34,
+              "server": 17,
+              "daemon": 17,
+              "byCmd": {
+                "server git": 17,
+                "daemon ps": 17
+              }
+            },
+            "idleFg": "sleep 86400"
+          }
+        },
+        "layout": {
+          "tabs": 15,
+          "visibleAgents": 2,
+          "hiddenAgents": 6
+        }
+      }
+    },
+    {
+      "port": 60214,
+      "idleFg": "sleep 86400",
+      "result": {
+        "config": {
+          "windows": 5,
+          "tabs": 3,
+          "visible": 2,
+          "hidden": 6,
+          "rate": 40,
+          "phaseS": 60,
+          "longMin": 10,
+          "idleS": 60,
+          "probes": 20,
+          "tui": false
+        },
+        "phases": {
+          "boot": {
+            "bootMs": 324,
+            "scripts": 18,
+            "requests": 42,
+            "requestsByType": {
+              "Document": 1,
+              "Stylesheet": 16,
+              "Script": 11,
+              "Image": 1,
+              "Fetch": 12,
+              "Other": 1
+            },
+            "jsFiles": 11,
+            "jsBytes": 1143109,
+            "jsEncodedBytes": 677814,
+            "longTasks16": 0,
+            "longTask16MsMax": 0,
+            "longTask16Ms": [],
+            "jsHeapMB": 5.477825164794922,
+            "nodes": 2697,
+            "listeners": 188,
+            "scriptS": 0.058199,
+            "taskS": 0.139155
+          },
+          "idle": {
+            "seconds": 60.181,
+            "mainThreadBusyPct": 0.23216962164138177,
+            "scriptPct": 0.05418155231717652,
+            "layoutPct": 0.010016450374702978,
+            "longTasks": 0,
+            "longTaskMsTotal": 0,
+            "longTaskMsMax": 0,
+            "jsHeapMB": 7.0841522216796875,
+            "nodes": 2919,
+            "listeners": 458,
+            "requestsPerMin": 0,
+            "wsFramesPerS": 1.4290224489456806,
+            "wsKBps": 0.0881130984031505,
+            "ssePerMin": 0,
+            "inputP50": 1.2000000476837158,
+            "inputP95": 9.300000190734863,
+            "inputMax": 9.300000190734863,
+            "inputTimeouts": 0,
+            "serverCpuPct": 0.016616540104019466,
+            "daemonCpuPct": 0.049849620312058626,
+            "serverRssMB": 34.75,
+            "daemonRssMB": 21.546875,
+            "serverWakeups": {
+              "idlew": 0,
+              "csw": 397,
+              "idlewPerS": 0,
+              "cswPerS": 13.233333333333333
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 402,
+              "idlewPerS": 0,
+              "cswPerS": 13.4
+            },
+            "spawns": {
+              "total": 19,
+              "server": 0,
+              "daemon": 19,
+              "byCmd": {
+                "daemon ps": 19
+              }
+            },
+            "topRequestsPerMin": [],
+            "idleFg": "sleep 86400"
+          },
+          "idle-git": {
+            "seconds": 60.163,
+            "mainThreadBusyPct": 0.02925053604374773,
+            "scriptPct": 0.009630503798015382,
+            "layoutPct": 0,
+            "longTasks": 0,
+            "longTaskMsTotal": 0,
+            "longTaskMsMax": 0,
+            "jsHeapMB": 10.037944793701172,
+            "nodes": 3461,
+            "listeners": 540,
+            "requestsPerMin": 0,
+            "wsFramesPerS": 0.6648604624104516,
+            "wsKBps": 0.07116084636736865,
+            "ssePerMin": 0,
+            "inputP50": null,
+            "inputP95": null,
+            "inputMax": null,
+            "inputTimeouts": 0,
+            "serverCpuPct": 0.09972906936156775,
+            "daemonCpuPct": 0.0498645346807839,
+            "serverRssMB": 36.078125,
+            "daemonRssMB": 21.546875,
+            "serverWakeups": {
+              "idlew": 0,
+              "csw": 478,
+              "idlewPerS": 0,
+              "cswPerS": 15.933333333333334
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 301,
+              "idlewPerS": 0,
+              "cswPerS": 10.033333333333333
+            },
+            "spawns": {
+              "total": 36,
+              "server": 17,
+              "daemon": 19,
+              "byCmd": {
+                "daemon ps": 19,
+                "server git": 17
+              }
+            },
+            "topRequestsPerMin": [],
+            "repo": "/private/var/folders/8s/s404j_ps7x94zc59bb2fp1c00000gn/T/otter-perf-git-lERqYZ",
+            "idleFg": "sleep 86400"
+          },
+          "idle-closed": {
+            "seconds": 60.19,
+            "serverCpuPct": 0.08307027745472678,
+            "daemonCpuPct": 0.033228110981890664,
+            "serverRssMB": 36.078125,
+            "daemonRssMB": 21.546875,
+            "serverWakeups": {
+              "idlew": 0,
+              "csw": 390,
+              "idlewPerS": 0,
+              "cswPerS": 13
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 313,
+              "idlewPerS": 0,
+              "cswPerS": 10.433333333333334
+            },
+            "spawns": {
+              "total": 34,
+              "server": 17,
+              "daemon": 17,
+              "byCmd": {
+                "server git": 17,
+                "daemon ps": 17
+              }
+            },
+            "idleFg": "sleep 86400"
+          }
+        },
+        "layout": {
+          "tabs": 15,
+          "visibleAgents": 2,
+          "hiddenAgents": 6
+        }
+      }
+    },
+    {
+      "port": 60215,
+      "idleFg": "sleep 86400",
+      "result": {
+        "config": {
+          "windows": 5,
+          "tabs": 3,
+          "visible": 2,
+          "hidden": 6,
+          "rate": 40,
+          "phaseS": 60,
+          "longMin": 10,
+          "idleS": 60,
+          "probes": 20,
+          "tui": false
+        },
+        "phases": {
+          "boot": {
+            "bootMs": 325,
+            "scripts": 18,
+            "requests": 42,
+            "requestsByType": {
+              "Document": 1,
+              "Stylesheet": 16,
+              "Script": 11,
+              "Image": 1,
+              "Fetch": 12,
+              "Other": 1
+            },
+            "jsFiles": 11,
+            "jsBytes": 1143109,
+            "jsEncodedBytes": 677814,
+            "longTasks16": 1,
+            "longTask16MsMax": 21.116,
+            "longTask16Ms": [
+              21.116
+            ],
+            "jsHeapMB": 5.453987121582031,
+            "nodes": 2702,
+            "listeners": 188,
+            "scriptS": 0.057377,
+            "taskS": 0.145991
+          },
+          "idle": {
+            "seconds": 60.201,
+            "mainThreadBusyPct": 0.2203418547864653,
+            "scriptPct": 0.051535688775933945,
+            "layoutPct": 0.00979551834687131,
+            "longTasks": 0,
+            "longTaskMsTotal": 0,
+            "longTaskMsMax": 0,
+            "jsHeapMB": 7.061378479003906,
+            "nodes": 2919,
+            "listeners": 458,
+            "requestsPerMin": 0,
+            "wsFramesPerS": 1.378714639291706,
+            "wsKBps": 0.08445016486437103,
+            "ssePerMin": 0,
+            "inputP50": 1.1000001430511475,
+            "inputP95": 10.800000190734863,
+            "inputMax": 10.800000190734863,
+            "inputTimeouts": 0,
+            "serverCpuPct": 0.033222039501004996,
+            "daemonCpuPct": 0.04983305925150745,
+            "serverRssMB": 33.84375,
+            "daemonRssMB": 21.46875,
+            "serverWakeups": {
+              "idlew": 0,
+              "csw": 388,
+              "idlewPerS": 0,
+              "cswPerS": 12.933333333333334
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 387,
+              "idlewPerS": 0,
+              "cswPerS": 12.9
+            },
+            "spawns": {
+              "total": 19,
+              "server": 0,
+              "daemon": 19,
+              "byCmd": {
+                "daemon ps": 19
+              }
+            },
+            "topRequestsPerMin": [],
+            "idleFg": "sleep 86400"
+          },
+          "idle-git": {
+            "seconds": 60.165,
+            "mainThreadBusyPct": 0.03048782514751101,
+            "scriptPct": 0.01037978891382033,
+            "layoutPct": 0,
+            "longTasks": 0,
+            "longTaskMsTotal": 0,
+            "longTaskMsMax": 0,
+            "jsHeapMB": 10.011661529541016,
+            "nodes": 3460,
+            "listeners": 540,
+            "requestsPerMin": 0,
+            "wsFramesPerS": 0.6648383611734398,
+            "wsKBps": 0.07101239819662594,
+            "ssePerMin": 0,
+            "inputP50": null,
+            "inputP95": null,
+            "inputMax": null,
+            "inputTimeouts": 0,
+            "serverCpuPct": 0.11634671320535196,
+            "daemonCpuPct": 0.03324191805867199,
+            "serverRssMB": 35.890625,
+            "daemonRssMB": 21.484375,
+            "serverWakeups": {
+              "idlew": 0,
+              "csw": 444,
+              "idlewPerS": 0,
+              "cswPerS": 14.8
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 318,
+              "idlewPerS": 0,
+              "cswPerS": 10.6
+            },
+            "spawns": {
+              "total": 36,
+              "server": 17,
+              "daemon": 19,
+              "byCmd": {
+                "daemon ps": 19,
+                "server git": 17
+              }
+            },
+            "topRequestsPerMin": [],
+            "repo": "/private/var/folders/8s/s404j_ps7x94zc59bb2fp1c00000gn/T/otter-perf-git-zOb1Nr",
+            "idleFg": "sleep 86400"
+          },
+          "idle-closed": {
+            "seconds": 60.197,
+            "serverCpuPct": 0.0996727411665033,
+            "daemonCpuPct": 0.03322424705550109,
+            "serverRssMB": 35.890625,
+            "daemonRssMB": 21.484375,
+            "serverWakeups": {
+              "idlew": 0,
+              "csw": 380,
+              "idlewPerS": 0,
+              "cswPerS": 12.666666666666666
+            },
+            "daemonWakeups": {
+              "idlew": 0,
+              "csw": 311,
+              "idlewPerS": 0,
+              "cswPerS": 10.366666666666667
+            },
+            "spawns": {
+              "total": 37,
+              "server": 17,
+              "daemon": 20,
+              "byCmd": {
+                "daemon ps": 20,
+                "server git": 17
+              }
+            },
+            "idleFg": "sleep 86400"
+          }
+        },
+        "layout": {
+          "tabs": 15,
+          "visibleAgents": 2,
+          "hiddenAgents": 6
+        }
+      }
+    }
+  ]
+}

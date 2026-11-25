@@ -1,0 +1,24 @@
+# 지연 묶음의 동기 진입점 (PERF M3 §3.4, scripts/check-lazy-boundary.mjs).
+#
+# 부팅 코드는 화면 묶음의 전역을 `await Screens.load(…)` 뒤에서만 읽는다. 렌더러처럼 동기로
+# 남아야 하는 자리는 `Screens.ready` 로 가린 뒤 여기에 적는다. 적힌 함수는 Screens.load·
+# Screens.ready 를 불러야 하고, 그 안(클로저 포함)의 참조는 게이트가 넘긴다.
+#
+# 형식: <web/ 기준 파일> <함수 이름>   함수 이름은 `f`, `Class.method`, `A.prototype.m` 꼴이다
+# (`Object.assign(A.prototype, {m(){…}})` 의 메서드도 `A.prototype.m`).
+js/core/chat-controller.js ChatController.views
+js/core/chat-controller.js ChatController.human
+# PERF 3.4.7 — editor 묶음. 테마 전환·탭 본문·탐색기의 관측과 시선.
+js/core/theme-vars.js applyThemeObj
+js/ui/renderer-pane.js Renderer.prototype._mountTabBody
+js/core/editor-open.js EditorOpen.edStore
+js/core/editor-open.js EditorOpen.edTree
+# git 묶음 (PERF 3.4.6). 패널·관측기는 묶음이 실린 뒤에만 선다 — 그 전에는 null 이고 부르는 쪽이 넘긴다.
+js/core/git-surfaces.js GitSurfaces.gitObs
+js/core/git-surfaces.js GitSurfaces.gitPanelAt
+js/core/repo-win-controller.js RepoWinController.gitDiffPanelFor
+# mdlib 묶음 (PERF 3.4.12.2, D-43). markdown-it·DOMPurify 는 실린 뒤에만 쓴다 — 그 전엔 링크 없음·빈 정화다.
+js/ui/bare-link.js bareLinkifier
+# cm 묶음 (PERF 3.4.12.7, D-44). LspClient·EdDirtyDiff 는 cm 이 실린 뒤에만 만든다 — 그 전엔 null 이다.
+js/core/app.js App.lspClient
+js/core/editor-open.js EditorOpen.edDirtyDiff

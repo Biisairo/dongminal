@@ -1,6 +1,7 @@
 # SRS: 창 슬롯 — 두 창을 한 화면에 — IEEE 29148
 
 > **문서 상태**: 승인·구현완료
+> **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1)**: 이 문서가 적은 것 가운데 M1 에서 지운 것 — 명령·사건 SSE(`/api/commands/sse`, `POST /api/command-result`) · 칸 소유권용 `?presence=1` SSE. 지금 브라우저 탭은 채널(`/channel`) 하나로 명령(`cmd`)·상태 토픽·터미널을 주고받고, 상태를 알려고 주기적으로 GET 하지 않는다 — 대체 요구사항은 `PERF_OPTIMIZATION_SRS` FR-CON-1·7·8·10 과 D-9, 경로별 대응은 `perf/CHANNEL_PROTOCOL.md` §5.2·§8 이다. 본문의 옛 경로 서술은 당시 구조로 남긴다
 
 ## 1. 개요 (Introduction)
 
@@ -244,6 +245,8 @@ PUT 에서 `activeWindow`·`focusedPane` 을 벗기므로 (§2.7) 그 판정은 
 **FR-WSL-13** `resizeCheck` (`app-focus.js:153`) 과 `applyFocusOverlay` (`:163`) 은
 "내 신원" 을 **슬롯 신원의 집합**으로 판정한다. 어느 슬롯이든 소유하고 있으면 내
 것이다.
+
+> **PERF 4.3 으로 개정 (2026-11-25)**: 이전 — 이 집합은 `resizeCheck`·`applyFocusOverlay` 만 썼다 / 지금 — 원격 명령의 지명 판정(`EventBus.route`, WORKSPACE_IDENTITY_SRS FR-SXE-3)도 같은 집합(`_slotIdentities()`)을 쓴다. 지명이 집합에 있으면 이 창이 한 번, 포커스 칸의 문맥으로 수행한다(FR-WSL-54) / 이유 — 칸 [1] 이상에 포커스가 있으면 서버가 그 칸 신원을 실행자로 지명하고, 칸 [0] 신원과만 비교하던 라우터가 그 명령을 버렸다.
 
 **FR-WSL-14** 같은 창이 두 슬롯에 있으면 **포커스 슬롯이 소유**한다. 다른 슬롯의 pane
 은 `.pn-dimmed` 가 되고 PTY 크기를 보내지 않는다.

@@ -510,6 +510,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     })).toBe(2);
 
     // FR-EDT-51: 분할이 생기는 유일한 길이다. 새 pane 은 끌어온 탭을 담은 채로 태어난다.
+    await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
     const after = await page.evaluate(() => {
       const a = (window as any).app;
       const pane = a.testing.flattenPanes(a.testing.aw().layout)[0];
@@ -542,6 +543,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
 
     // V-EDT-36: 같은 창 안의 pane 간 이동은 **된다** — 게이트가 탭 타입 자리에
     // 들어가지 않았다는 증거다 (§2.2).
+    await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
     const moved = await page.evaluate(() => {
       const a = (window as any).app;
       let panes = a.testing.flattenPanes(a.testing.aw().layout);
@@ -555,6 +557,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     expect(moved).toEqual({ n: 1, tabs: 2 });
 
     // V-EDT-35: 다른 Editor 창으로도, 일반 창으로도 나가지 못한다.
+    await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
     const stayed = await page.evaluate(() => {
       const a = (window as any).app;
       const src = a.testing.aw();
@@ -728,6 +731,7 @@ test.describe('묶음 R·M — 일반 창 금지와 마이그레이션 (FR-EDT-9
     // 대신 **연결된** Editor 로 간다 (FR-EDT-95·96). `SOME_FILE` 을 루트 아래에
     // 포함하는 창이 둘(`HOME_DIR`·`PROJ_DIR`)이므로 깊은 쪽이 이긴다. root
     // 에디터는 그런 창이 하나도 없을 때의 폴백이다 — R3 이 그쪽을 잰다.
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate((fp) => (window as any).app.testing.execRemote('openEditorTab', { filePath: fp }), SOME_FILE);
     await expect.poll(() => page.evaluate((fp) => {
       const a = (window as any).app;

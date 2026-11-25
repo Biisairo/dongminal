@@ -107,14 +107,6 @@ const THEME_PREVIEW_HTML=`
 class ThemeSection extends SettingsSection {
   constructor(app){ super(app,'theme') }
 
-  /** SYSTEM_THEME_FOLLOW_SRS FR-STF-2: 시스템 모드가 바뀌면 그 자리에서 다시 고른다 — 새로고침이 없다. */
-  init(){
-    if(typeof matchMedia!=='function') return;
-    const mq=matchMedia('(prefers-color-scheme: dark)');
-    const on=()=>{if(themeFollowSystem){this.app.settings.apply._applyThemeChoice();this._renderThemePanel()}};
-    if(mq.addEventListener) this.listen(mq,'change',on); else if(mq.addListener) mq.addListener(on);
-  }
-
   /** 설정을 열 때 — 목록·메인색 행·미리보기를 지금 값으로 다시 그린다. */
   onOpen(){ this._renderThemePanel() }
 

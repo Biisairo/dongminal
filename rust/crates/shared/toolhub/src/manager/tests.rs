@@ -2,14 +2,25 @@ use std::sync::Mutex as StdMutex;
 use std::sync::atomic::AtomicI32;
 
 use super::*;
+use crate::search::Query;
 
 /// 프로세스 정보의 가짜다. pid 1000 대의 도구만 다룬다.
 #[derive(Default)]
-struct FakeInfo {
+pub(super) struct FakeInfo {
     cwds_calls: AtomicI32,
+    pub(super) names_calls: AtomicI32,
     children: HashMap<i32, bool>,
     parents: Option<HashMap<i32, i32>>,
     names: HashMap<i32, String>,
+}
+
+impl FakeInfo {
+    pub(super) fn named(names: &[(i32, &str)]) -> Self {
+        Self {
+            names: names.iter().map(|(p, n)| (*p, (*n).to_owned())).collect(),
+            ..Self::default()
+        }
+    }
 }
 
 impl ProcInfo for FakeInfo {
@@ -27,6 +38,7 @@ impl ProcInfo for FakeInfo {
         pids.iter().map(|p| (*p, "/many".to_string())).collect()
     }
     fn names(&self, pids: &[i32]) -> HashMap<i32, String> {
+        self.names_calls.fetch_add(1, SeqCst);
         pids.iter()
             .filter_map(|p| self.names.get(p).map(|n| (*p, n.clone())))
             .collect()
@@ -49,8 +61,8 @@ impl ProcInfo for FakeInfo {
 struct PidTerm {
     pid: i32,
     size: StdMutex<(u16, u16)>,
-    written: StdMutex<Vec<u8>>,
-    fg: Option<i32>,
+    written: Arc<StdMutex<Vec<u8>>>,
+    fg: Arc<StdMutex<Option<i32>>>,
 }
 
 impl PidTerm {
@@ -58,8 +70,8 @@ impl PidTerm {
         Box::new(Self {
             pid,
             size: StdMutex::new((80, 24)),
-            written: StdMutex::default(),
-            fg: None,
+            written: Arc::default(),
+            fg: Arc::default(),
         })
     }
 }
@@ -83,7 +95,7 @@ impl Terminal for PidTerm {
         Ok(*self.size.lock().unwrap())
     }
     fn foreground_pgid(&self) -> Option<i32> {
-        self.fg
+        *self.fg.lock().unwrap()
     }
     fn pid(&self) -> i32 {
         self.pid
@@ -102,7 +114,7 @@ impl Terminal for PidTerm {
     }
 }
 
-fn leak(info: FakeInfo) -> &'static FakeInfo {
+pub(super) fn leak(info: FakeInfo) -> &'static FakeInfo {
     Box::leak(Box::new(info))
 }
 
@@ -462,6 +474,161 @@ fn load_all_rules() {
     );
 }
 
+pub(super) fn written_tool(id: &str) -> (Arc<Tool>, Arc<StdMutex<Vec<u8>>>) {
+    let written = Arc::<StdMutex<Vec<u8>>>::default();
+    let term = PidTerm {
+        pid: 1001,
+        size: StdMutex::new((80, 24)),
+        written: Arc::clone(&written),
+        fg: Arc::default(),
+    };
+    let p = Tool::on_term(
+        id,
+        id,
+        Box::new(term),
+        false,
+        None,
+        None,
+        Stream::new(BUF_MAX),
+    );
+    (p, written)
+}
+
+/// 전경 pgid 를 밖에서 바꿀 수 있는 도구다.
+pub(super) fn fg_tool(id: &str, pid: i32, fg: &Arc<StdMutex<Option<i32>>>) -> Arc<Tool> {
+    let term = PidTerm {
+        pid,
+        size: StdMutex::new((80, 24)),
+        written: Arc::default(),
+        fg: Arc::clone(fg),
+    };
+    Tool::on_term(
+        id,
+        id,
+        Box::new(term),
+        false,
+        None,
+        None,
+        Stream::new(BUF_MAX),
+    )
+}
+
+fn screen_text(s: &otter_shared_termstate::Screen, line: i32) -> String {
+    let r = s.row(line).unwrap();
+    let t: String = r.cells.iter().map(|c| c.text.as_str()).collect();
+    t.trim_end().to_string()
+}
+
+#[test]
+fn screen_is_fed_once_per_chunk_for_any_number_of_subscribers() {
+    let (p, _) = written_tool("a");
+    let seen = Arc::new(StdMutex::new(Vec::<String>::new()));
+    let subs: Vec<Arc<StdMutex<Vec<String>>>> = vec![Arc::clone(&seen), Arc::clone(&seen)];
+    assert!(p.wire_relay_once(|exit| {
+        let relay: crate::OutputFn = Arc::new(move |_, d: &[u8], _| {
+            for s in &subs {
+                s.lock()
+                    .unwrap()
+                    .push(String::from_utf8_lossy(d).into_owned());
+            }
+        });
+        (Some(relay), exit)
+    }));
+    p.handle_chunk(b"ab");
+    assert_eq!(seen.lock().unwrap().len(), 2);
+    assert_eq!(p.with_screen(|s, _| screen_text(s, 0)).unwrap(), "ab");
+}
+
+#[test]
+fn screen_and_offset_are_read_together() {
+    let (p, _) = written_tool("a");
+    p.handle_chunk(b"hello");
+    p.handle_chunk(b"\r\nworld");
+    let (first, second, end) = p
+        .with_screen(|s, end| (screen_text(s, 0), screen_text(s, 1), end))
+        .unwrap();
+    assert_eq!(
+        (first.as_str(), second.as_str(), end),
+        ("hello", "world", 12)
+    );
+}
+
+/// D-23: 좌석을 쥔 동안은 어떤 답도 쓰지 않고, 비면 DA·DSR·커서 위치만 답한다(창 크기·색·클립보드는 아니다).
+#[test]
+fn screen_replies_only_status_queries_and_only_while_seat_is_vacant() {
+    const QUERIES: &[u8] =
+        b"\x1b[c\x1b[>c\x1b[5n\x1b[6n\x1b]11;?\x07\x1b[18t\x1b[14t\x1b]52;c;?\x07";
+    let (p, written) = written_tool("a");
+    p.hold_seat(true);
+    p.handle_chunk(QUERIES);
+    assert_eq!(p.with_screen(|s, _| s.cursor().col), Some(0));
+    assert!(written.lock().unwrap().is_empty());
+    p.hold_seat(false);
+    p.handle_chunk(QUERIES);
+    let w = String::from_utf8(take(&written)).unwrap();
+    assert!(
+        w.starts_with("\x1b[?") && w.ends_with("\x1b[0n\x1b[1;1R"),
+        "{w:?}"
+    );
+    assert!(!w.contains('t') && !w.contains(']'), "{w:?}");
+}
+
+#[test]
+fn screen_follows_pty_size() {
+    let (p, _) = written_tool("a");
+    assert_eq!(p.with_screen(|s, _| s.size()), Some((80, 24)));
+    p.resize(100, 30).unwrap();
+    assert_eq!(p.with_screen(|s, _| s.size()), Some((100, 30)));
+}
+
+#[test]
+fn detached_tool_has_no_screen() {
+    assert!(
+        Tool::new_detached("x", None)
+            .with_screen(|s, _| s.size())
+            .is_none()
+    );
+}
+
+/// 화면 상태 스냅숏과 그 뒤를 이을 오프셋이다(FR-TRM-4). 끝나지 않은 시퀀스만큼 오프셋을 물린다.
+#[test]
+fn screen_tool_gives_snapshot_and_resume_offset() {
+    let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));
+    assert!(m.screen_tool("a", 10).is_none());
+    let p = pid_tool("a", 1001);
+    p.handle_chunk(b"hello\r\nworld\x1b[3");
+    m.adopt(Arc::clone(&p));
+    let s = m.screen_tool("a", 10).unwrap();
+    assert_eq!(
+        (s.end, s.cols, s.rows, s.alt, s.first_line),
+        (12, 80, 24, false, 0)
+    );
+    let mut b = otter_shared_termstate::Screen::new(80, 24, 10);
+    b.feed(&s.data);
+    assert_eq!(
+        (screen_text(&b, 0), screen_text(&b, 1)),
+        ("hello".into(), "world".into())
+    );
+    p.handle_chunk(b"1mX\x1b[?1049h");
+    assert!(m.screen_tool("a", 10).unwrap().alt);
+}
+
+/// read-screen 의 글자는 화면 상태에서 나온다(FR-TRM-8, D-22). 링에 남은 지운 글자는 나오지 않는다.
+#[test]
+fn screen_text_tool_reads_screen_state() {
+    let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));
+    assert!(m.screen_text_tool("a", 0).is_none());
+    m.adopt(Tool::new_detached("d", None));
+    assert!(m.screen_text_tool("d", 0).is_none());
+    let p = pid_tool("a", 1001);
+    p.handle_chunk(b"secret\r\x1b[Kok\r\n\x1b[?1049h\x1b[HTUI");
+    m.adopt(Arc::clone(&p));
+    assert_eq!(m.screen_text_tool("a", 0).as_deref(), Some("TUI\n"));
+    p.handle_chunk(b"\x1b[?1049l");
+    assert_eq!(m.screen_text_tool("a", 0).as_deref(), Some("ok\n"));
+    assert_eq!(m.screen_text_tool("a", 2).as_deref(), Some("k\n"));
+}
+
 #[test]
 fn snapshot_since_resumes_or_replays() {
     let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));
@@ -529,7 +696,7 @@ fn hooks_follow_notifiers() {
 }
 
 #[test]
-fn foreground_cache_interval_and_notify() {
+fn foreground_cache_and_notify() {
     let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));
     m.adopt_detached("a");
     m.adopt_detached("b");
@@ -550,30 +717,27 @@ fn foreground_cache_interval_and_notify() {
     m.set_foreground_notifier(Some(Arc::new(move |id, n| {
         g.lock().unwrap().push((id.into(), n.into()))
     })));
-    let t0 = Instant::now();
-    for i in 0..5 {
-        m.refresh_foreground_at(t0 + Duration::from_millis(100 * i));
+    for _ in 0..5 {
+        m.foreground_names();
     }
-    assert_eq!(calls.load(SeqCst), 1);
-    m.refresh_foreground_at(t0 + FOREGROUND_REFRESH_INTERVAL);
-    assert_eq!(calls.load(SeqCst), 2);
+    assert_eq!(calls.load(SeqCst), 1, "입출력 없는 도구를 다시 조회했다");
     assert_eq!(
         m.cached_foreground_names().get("a").map(String::as_str),
         Some("vim")
     );
     assert!(!m.cached_foreground_names().contains_key("b"));
     *name.lock().unwrap() = "node".into();
-    m.refresh_foreground_at(t0 + FOREGROUND_REFRESH_INTERVAL * 2);
+    m.refresh_foreground();
     *name.lock().unwrap() = String::new();
-    m.refresh_foreground_at(t0 + FOREGROUND_REFRESH_INTERVAL * 3);
-    m.refresh_foreground_at(t0 + FOREGROUND_REFRESH_INTERVAL * 4);
+    m.refresh_foreground();
+    m.refresh_foreground();
     let want: Vec<(String, String)> = [("a", "vim"), ("a", "node"), ("a", "")]
         .iter()
         .map(|(a, b)| (a.to_string(), b.to_string()))
         .collect();
     assert_eq!(*got.lock().unwrap(), want);
     m.delete("a").unwrap();
-    m.refresh_foreground_at(t0 + FOREGROUND_REFRESH_INTERVAL * 5);
+    m.refresh_foreground();
     assert!(!lock(&m.inner.fg).cache.contains_key("a"));
 }
 
@@ -602,7 +766,7 @@ fn handover_tool_json_shape() {
     };
     assert_eq!(
         String::from_utf8(json::marshal(&ht).unwrap()).unwrap(),
-        r#"{"id":"a","name":"S","fd":7,"pid":9,"cols":80,"rows":24,"offset":0,"agent":{"agentSeen":false,"armed":false,"attention":false,"lastOutputAt":0,"rearmLocked":false,"turn":{"inProgress":false,"waitingSignaled":false,"turnRan":false}}}"#
+        r#"{"id":"a","name":"S","fd":7,"pid":9,"cols":80,"rows":24,"offset":0,"screenState":"","screenBack":0,"history":"","agent":{"agentSeen":false,"armed":false,"attention":false,"lastOutputAt":0,"rearmLocked":false,"turn":{"inProgress":false,"waitingSignaled":false,"turnRan":false}}}"#
     );
     let full = HandoverTool {
         screen: b"hi".to_vec(),
@@ -613,7 +777,7 @@ fn handover_tool_json_shape() {
     };
     let s = String::from_utf8(json::marshal(&full).unwrap()).unwrap();
     assert!(
-        s.contains(r#""background":true,"screen":"aGk=","offset":0,"modes":4294967296,"cwd":"/c""#),
+        s.contains(r#""background":true,"screen":"aGk=","offset":0,"screenState":"","screenBack":0,"history":"","modes":4294967296,"cwd":"/c""#),
         "{s}"
     );
     let back: HandoverTool = json::unmarshal(s.as_bytes()).unwrap();
@@ -762,8 +926,8 @@ async fn terminate_unknown_is_not_found_and_paste() {
     let term = PidTerm {
         pid: 1001,
         size: StdMutex::new((80, 24)),
-        written: StdMutex::default(),
-        fg: None,
+        written: Arc::default(),
+        fg: Arc::default(),
     };
     let p = Tool::on_term(
         "a",
@@ -900,4 +1064,172 @@ fn env_overlay_reaches_tool_shell() {
     m.stop_saving();
     assert!(out.contains(&want_home), "{out}");
     assert!(out.contains(&want_bin), "{out}");
+}
+
+/// 기록 줄 수 설정(D-25)은 있는 도구와 뒤에 오는 도구의 줄 저장소 상한이 된다.
+#[test]
+fn history_lines_setting_reaches_every_screen() {
+    let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));
+    let (a, _) = written_tool("a");
+    m.adopt(Arc::clone(&a));
+    let cap = |p: &Tool| p.with_screen(|s, _| s.store().cap()).unwrap();
+    assert_eq!(cap(&a), otter_shared_termstate::HISTORY_CAP);
+    m.set_history_lines(2_000);
+    assert_eq!(cap(&a), 2_000);
+    let (b, _) = written_tool("b");
+    m.adopt(Arc::clone(&b));
+    assert_eq!(cap(&b), 2_000, "뒤에 온 도구도 설정을 따른다");
+}
+
+/// 위로 받기(FR-TRM-5): 저장소 구간을 순서대로 준다. 맨 위를 넘으면 있는 만큼만, ED3 뒤의 옛 번호는 빈 답이다.
+#[test]
+fn history_tool_reads_store_range() {
+    let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));
+    assert!(m.history_tool("a", 10, 5).is_none());
+    let p = pid_tool("a", 1001);
+    let text: String = (0..3000).map(|i| format!("L{i:04}\r\n")).collect();
+    p.handle_chunk(text.as_bytes());
+    m.adopt(Arc::clone(&p));
+
+    let h = m.history_tool("a", 100, 50).unwrap();
+    assert_eq!((h.from, h.top), (50, 0));
+    let want: Vec<String> = (50..100).map(|i| format!("L{i:04}")).collect();
+    assert_eq!(h.lines, want);
+
+    let h = m.history_tool("a", 30, 50).unwrap();
+    assert_eq!((h.from, h.top, h.lines.len()), (0, 0, 30));
+    assert_eq!(h.lines[0], "L0000");
+
+    p.handle_chunk(b"\x1b[3J");
+    let h = m.history_tool("a", 100, 50).unwrap();
+    assert!(h.lines.is_empty());
+    assert!(h.top >= 100);
+}
+
+fn take(w: &StdMutex<Vec<u8>>) -> Vec<u8> {
+    std::mem::take(&mut *w.lock().unwrap())
+}
+
+#[test]
+fn vacant_seat_tool_answers_status_queries() {
+    let (t, w) = written_tool("r");
+    t.handle_chunk(b"ab\x1b[6n");
+    assert_eq!(take(&w), b"\x1b[1;3R");
+    t.handle_chunk(b"\x1b]11;?\x07");
+    assert!(take(&w).is_empty(), "색 질의는 답하지 않는다");
+}
+
+#[test]
+fn held_seat_silences_tool_until_every_hold_is_released() {
+    let (t, w) = written_tool("r");
+    t.hold_seat(true);
+    t.hold_seat(true);
+    t.handle_chunk(b"\x1b[5n");
+    assert!(take(&w).is_empty());
+    t.hold_seat(false);
+    t.handle_chunk(b"\x1b[5n");
+    assert!(take(&w).is_empty(), "하나라도 쥐고 있으면 답하지 않는다");
+    t.hold_seat(false);
+    t.hold_seat(false);
+    t.handle_chunk(b"\x1b[5n");
+    assert_eq!(take(&w), b"\x1b[0n", "넘치게 놓아도 다시 답한다");
+}
+
+#[test]
+fn hold_reports_end_of_last_answered_output() {
+    let (t, w) = written_tool("r");
+    assert_eq!(t.hold_seat(true), 0);
+    t.hold_seat(false);
+    t.handle_chunk(b"xx");
+    t.handle_chunk(b"\x1b[5n");
+    t.handle_chunk(b"yyy");
+    assert_eq!(take(&w), b"\x1b[0n");
+    assert_eq!(t.hold_seat(true), 6, "답한 조각의 끝 오프셋");
+    t.handle_chunk(b"\x1b[5n");
+    assert_eq!(t.hold_seat(true), 6, "쥔 동안의 질의는 세지 않는다");
+}
+
+// PERF 2.8.2 (D-21): 줄 저장소 검색.
+
+fn tool_with_lines(n: usize) -> Arc<Tool> {
+    let (t, _) = written_tool("s");
+    let mut out = String::new();
+    for i in 0..n {
+        out.push_str(&format!("row-{i} tail\r\n"));
+    }
+    t.handle_chunk(out.as_bytes());
+    t
+}
+
+fn sq(p: &str, regex: bool, case: bool, word: bool) -> Query {
+    Query::new(p, regex, case, word).unwrap()
+}
+
+#[test]
+fn finds_store_lines_before_anchor_newest_first() {
+    let t = tool_with_lines(3_000);
+    let (first, end) = t
+        .with_screen(|s, _| (s.store().first(), s.store().end()))
+        .unwrap();
+    assert!(end > 100, "저장소에 줄이 옮겨지지 않았다");
+    let hits = t
+        .search(&sq("row-1 ", false, true, false), end, 10)
+        .unwrap();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(
+        (hits[0].line, hits[0].col, hits[0].text.as_str()),
+        (first + 1, 0, "row-1 tail")
+    );
+    let hits = t.search(&sq("tail", false, true, false), end, 3).unwrap();
+    let lines: Vec<u64> = hits.iter().map(|h| h.line).collect();
+    assert_eq!(lines, vec![end - 1, end - 2, end - 3]);
+    assert!(
+        t.search(&sq("tail", false, true, false), first, 3)
+            .unwrap()
+            .is_empty(),
+        "앵커 앞만 찾는다"
+    );
+}
+
+#[test]
+fn options_follow_find_bar() {
+    let t = tool_with_lines(3_000);
+    let end = t.with_screen(|s, _| s.store().end()).unwrap();
+    assert!(
+        t.search(&sq("ROW-12 ", false, true, false), end, 5)
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        t.search(&sq("ROW-12 ", false, false, false), end, 5)
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        t.search(&sq(r"row-1\d tail", true, true, false), end, 50)
+            .unwrap()
+            .len(),
+        10
+    );
+    assert_eq!(
+        t.search(&sq("row-1", false, true, true), end, 50)
+            .unwrap()
+            .len(),
+        1,
+        "낱말 단위"
+    );
+    let h = &t.search(&sq("tail", false, true, false), end, 1).unwrap()[0];
+    assert_eq!(h.col, h.text.find("tail").unwrap());
+}
+
+#[test]
+fn bad_regex_is_an_error_and_tool_without_terminal_is_none() {
+    assert!(Query::new("(", true, true, false).is_err());
+    assert!(
+        Query::new("(", false, true, false).is_ok(),
+        "정규식이 아니면 글자 그대로"
+    );
+    let d = Tool::new_detached("d", None);
+    assert!(d.search(&sq("x", false, true, false), 10, 1).is_none());
 }

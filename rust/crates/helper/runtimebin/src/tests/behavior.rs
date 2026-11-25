@@ -316,6 +316,11 @@ fn delivery_fields_decide_exit_code() {
             1,
             "otterctl: 브라우저가 결과를 답하지 않았습니다 — 만들어지지 않았을 수 있습니다. list-workspace 로 확인하세요\n",
         ),
+        (
+            r#"{"delivered":1,"execClientId":"c1","timedOut":true}"#,
+            1,
+            "otterctl: 브라우저가 결과를 답하지 않았습니다 — 만들어지지 않았을 수 있습니다. list-workspace 로 확인하세요\notterctl: 지정 실행자 = c1\n",
+        ),
         (r#"{"delivered":1}"#, 0, ""),
         (r#"{"ok":true}"#, 0, ""),
     ] {

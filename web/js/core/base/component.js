@@ -47,10 +47,26 @@ class Component {
   /** `EventBus.subscribe` — 손잡이 `{topic, stop}` 을 돌려준다. */
   on(topic,fn){ return this._channel().subscribe(topic,fn,{owner:this}) }
 
+  /**
+   * 깬 동안만 사는 것을 건다 (PERF M3 D-37, FR-SPA-3). `fn(a)` 는 깰 때마다 불리고, 그 안에서 `a` 로 건 구독·타이머·관측은
+   * 잠들 때 모두 걷힌다. 도우미 `Awake` 를 돌려준다 — 주인의 `wake`·`sleep` 이 그것의 `wake`·`sleep` 을 부른다.
+   */
+  awake(fn){
+    if(!this._awake){
+      this._awake=new Awake({parent:this});
+      this.own(()=>this._awake.dispose());
+    }
+    return this._awake.add(fn);
+  }
+
   /** 쌓인 해제를 거꾸로 부르고 주인으로 건 타이머·구독을 걷는다. 두 번째부터는 아무것도 하지 않는다. */
   dispose(){
     if(this.disposed) return;
     this.disposed=true;
+    this._release();
+  }
+
+  _release(){
     const ds=this._disposers;
     this._disposers=[];
     for(let i=ds.length-1;i>=0;i--) ds[i]();
@@ -63,5 +79,68 @@ class Component {
 
   _channel(){
     return this._bus||(this.app&&this.app.bus)||(typeof window!=='undefined'&&window.app&&window.app.bus)||null;
+  }
+}
+
+/**
+ * Awake — 깬 동안만 사는 것의 주인 (PERF M3 D-37, FR-SPA-3).
+ *
+ * `add(fn)` 으로 받은 것을 `wake()` 때마다 부르고, 그 안에서 이 인스턴스로 건 리스너·관측·타이머·구독·토픽(`sub`)을
+ * `sleep()` 때 모두 걷는다. 두 번 불러도 한 번만 건다·걷는다. `dispose()` 뒤에는 다시 깨지 않는다.
+ * `Component` 는 `awake(fn)` 으로 이것을 하나 든다. `Component` 가 아닌 주인(`TerminalTool` 등)은 직접 만든다.
+ *
+ * opts.parent: 시간·전파를 찾을 주인. opts.channel: 토픽 채널 — 없으면 `parent.app`, 그다음 `window.app` 의 것이다.
+ */
+class Awake extends Component {
+  constructor(opts){
+    super(opts);
+    const o=opts||{};
+    this.parent=o.parent||null;
+    this._chan=o.channel||null;
+    this._fns=[];
+    this.isAwake=false;
+  }
+
+  /** 깰 때 부를 것을 더한다. 이미 깨 있으면 곧바로 부른다. */
+  add(fn){
+    this._fns.push(fn);
+    if(this.isAwake) fn(this);
+    return this;
+  }
+
+  wake(){
+    if(this.isAwake||this.disposed) return;
+    this.isAwake=true;
+    for(const fn of this._fns) fn(this);
+  }
+
+  sleep(){
+    if(!this.isAwake) return;
+    this.isAwake=false;
+    this._release();
+  }
+
+  /** 채널 토픽 구독(`Channel.sub`). 잠들 때 놓이고, 마지막 구독자가 빠지면 서버에 `unsub` 이 간다. */
+  sub(topic,fn){ return this._topics().sub(topic,fn,{owner:this}) }
+
+  dispose(){
+    this.sleep();
+    this._fns=[];
+    this.disposed=true;
+  }
+
+  _release(){
+    super._release();
+    const ch=this._topics();
+    if(ch) ch.disposeOwner(this);
+  }
+
+  _hub(){ const p=this.parent; return this._timers||(p&&p._hub?p._hub():null)||super._hub() }
+
+  _channel(){ const p=this.parent; return this._bus||(p&&p._channel?p._channel():null)||super._channel() }
+
+  _topics(){
+    const p=this.parent;
+    return this._chan||(p&&p.app&&p.app.channel)||(typeof window!=='undefined'&&window.app&&window.app.channel)||null;
   }
 }

@@ -217,7 +217,7 @@ ID 규칙: `축약어-번호`. 원본에 명시된 순번이 아니라 이 문�
 | FE-22 | `_fmtBytes` 두 벌 + `ETag` 헤더 이중조회 | `file-editor.js:294`; `app-statusbar.js:316` | 02-FE | 미표기 |
 | FE-26 | 폴링 최소간격 1초·상태바 3초마다 2요청 | `app-polling.js:30-70`; `app-statusbar.js:33-44` | 02-FE | 미표기 |
 | FE-27 | `render()` 디바운스 없음(A-6 거대모듈 항목 참조) | `git/panel-poll.js:225` | 02-FE | 미표기 |
-| FE-28 | xterm scrollback 50000 × 슬롯 인스턴스, 메모리 상한 없음 | `constants.js:246` | 02-FE | 미표기 |
+| FE-28 | xterm scrollback 50000 × 슬롯 인스턴스, 메모리 상한 없음 | `constants.js:246` | 02-FE | 해소 2026-11-25 — 설정 `termScrollback`(기본 5,000, 500~50,000)이고 숨은 터미널은 버퍼를 비운다 (PERF D-15·D-25) |
 | SEC-13 | 헤드리스 `command`가 설계상 셸 문자열 | `toolhub/manager.go:416-419` | 04-Sec | SEC-2(P0-2)에 포함, 별도조치 불요 |
 | SEC-22 | `apiUpload`의 `dir` 상대경로 기본 "."(서버 cwd) | `handlers_files.go:177-188` | 04-Sec | 미표기, 기능성 성격 |
 | TEST-22 | 표 기반 테스트 비율 낮음(`[]struct{` 24/314) | (Go 테스트 전반) | 05-Test | 정보성 |

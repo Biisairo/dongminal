@@ -630,6 +630,7 @@ test.describe('FUI-19 — 슬롯을 건너는 탭 이동', () => {
 
     // 드롭이 부르는 **바로 그 함수**다. 드래그 제스처는 결정적이지 않고, 여기서
     // 재려는 것은 제스처가 아니라 그 뒤의 규약이다.
+    await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
     await page.evaluate(([sp, tid, dp]) =>
       (window as any).app.testing.moveTabToPane(sp, tid, dp, null, false),
     [src.pane, moving, dst.pane] as const);
@@ -657,6 +658,7 @@ test.describe('FUI-19 — 슬롯을 건너는 탭 이동', () => {
     const src = (await paneOf(page, w1))!;
     const dst = (await paneOf(page, w2))!;
 
+    await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
     await page.evaluate(([sp, tid, dp]) =>
       (window as any).app.testing.moveTabToPane(sp, tid, dp, null, false),
     [src.pane, src.tabs[0], dst.pane] as const);
@@ -844,6 +846,7 @@ test.describe('묶음 M — 탭을 다른 창으로 (FR-MOV-*)', () => {
     });
     // 옮기기 전에 원본 창을 활성으로 되돌린다 — 이동은 활성 창에서 나간다.
     await page.evaluate(id => (window as any).app.layout.switchWindow(id), src.winId);
+    await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
     await page.evaluate(a => (window as any).app.testing.moveTabToWindow(a.paneId, a.tabId, a.dst),
       { paneId: src.paneId, tabId: src.tabId, dst: dstId });
 
@@ -882,6 +885,7 @@ test.describe('묶음 M — 탭을 다른 창으로 (FR-MOV-*)', () => {
       return r.win;
     });
     await page.evaluate(id => (window as any).app.layout.switchWindow(id), src.winId);
+    await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
     await page.evaluate(a => (window as any).app.testing.moveTabToWindow(a.paneId, a.tabId, a.dst),
       { paneId: src.paneId, tabId: src.tabId, dst: dstId });
     const stillHome = await page.evaluate(a => {

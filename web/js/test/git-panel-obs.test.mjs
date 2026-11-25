@@ -10,7 +10,7 @@ import { BASE, fakeClock, load } from './harness.mjs';
  *     옛 mark 로 `ifMark` 를 실어 틀린 `unchanged` 를 받지 않게 mark 를 버린다
  *   · collect 는 허브의 줄에 떠날 때 선다 — 늦게 온 ask 의 옛 답이 feed 된 관측을 덮지 않는다
  */
-function setup(answer) {
+function setup(answer, globals = {}) {
   const clock = fakeClock();
   const sent = [];
   const waits = [];
@@ -32,9 +32,10 @@ function setup(answer) {
       GIT_STATUS_RETRY_MS: 30000,
       GIT_STATUS_HUB_TTL_MS: 500,
       apiGet,
+      ...globals,
     },
   });
-  const hub = new ctx.GitStatusHub({ clientId: () => 'c-1' });
+  const hub = new ctx.GitStatusHub();
   const app = { clientId: 'c-1', git: { gitStatusHub: () => hub, sync: { gitReposRefresh() {} } }, statusbar: { updateStatusBar() {} } };
   const p = Object.create(ctx.GitPanel.prototype);
   const applied = [];
@@ -84,4 +85,21 @@ test('collect 는 떠날 때 번호를 받는다 — 먼저 떠난 패널의 늦
   await flushReverse();
   await Promise.all([a, c]);
   assert.equal(hub.peek('/r').data.mark, 'm2', '먼저 떠난 패널 관측이 새 답을 덮었다');
+});
+
+test('4.15.1 (F-6.2): not_repo 판정 뒤에는 "끝나면 한 번 더" 를 보내지 않는다', async () => {
+  const { p, sent, flush } = setup(() => ({ ok: true, status: 200, data: { repo: '/r', requested: '/r', isRepo: false } }),
+    { GIT_RMS_CODE: 'repo_missing', GIT_ERR_NOT_REPO: 'not repo' });
+  // 판정은 실제 `_applyStatus` 가 내린다 — 주기·멈춤·리포 놓기는 이 시험의 관심 밖이다.
+  delete p.poll._applyStatus;
+  Object.assign(p, { isStale: () => false, setRepo() {} });
+  p.poll._fail = () => {};
+  p.poll._stop = () => {};
+  const c = p.poll.collect();
+  // 첫 요청이 나가 있는 동안 신호가 하나 더 온다 — `_again` 이 선다.
+  await p.poll.collect();
+  assert.equal(p._again, true);
+  await flush(); await c; await flush();
+  assert.equal(p._notRepo, true, 'not_repo 판정이 서지 않았다');
+  assert.equal(sent.length, 1, 'not_repo 판정 뒤에 status 를 한 번 더 보냈다');
 });

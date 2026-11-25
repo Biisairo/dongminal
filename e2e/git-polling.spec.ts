@@ -1,9 +1,9 @@
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 
-import { APIRequestContext, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture, setSafetyNet, scopedSettings, nextFrames } from './fixtures';
+import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture, setSafetyNet, nextFrames } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 /**
@@ -60,17 +60,6 @@ function counter(page: Page, needle: string) {
 const quiet = (c: { n: number; done: number }) =>
   expect.poll(() => c.n >= 1 && c.done >= c.n, { timeout: 5000 }).toBe(true);
 
-// 새 파일은 서버의 워크트리 회차가 잡는다 — 기본 4초를 하한 1초로 줄인다 (§8.2 (b)).
-// 바꾼 시험은 `restoreSettings` 에 복원 함수를 남기고 afterEach 가 되돌린다.
-let restoreSettings: (() => Promise<void>) | null = null;
-const fastWorktree = async (request: APIRequestContext) => {
-  restoreSettings = await scopedSettings(request, { gitWorktreeInterval: 1000 });
-};
-test.afterEach(async () => {
-  if (restoreSettings) await restoreSettings();
-  restoreSettings = null;
-});
-
 const switchToWindow = (page: Page, id: string) =>
   page.evaluate((i) => (window as any).app.layout.switchWindow(i), id);
 
@@ -98,7 +87,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
   // 폴링 횟수로 셌다. 이제 관측은 서버가 밀어 주므로 **화면이 따라오는가**로 잰다 —
   // 폴링이 도는지가 아니라, 이 창이 살아 있는 관측을 갖는지가 계약이다.
   test('P1 (V6): Git 창이 활성이면 변화가 화면에 따라온다', async ({ page, request }) => {
-    await fastWorktree(request);
     const repo = copyFx('basic', 'p1');
     await waitForInit(page);
     const c = counter(page, '/api/git/status');
@@ -253,7 +241,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
    * 짧게 줄여 그 겹침을 촘촘히 만든 뒤, 잠금이 풀린 채로 남는지 본다.
    */
   test('P7 (회귀): 관측이 겹쳐도 단일 비행 잠금이 고착되지 않는다', async ({ page, request }) => {
-    await fastWorktree(request);
     const repo = copyFx('basic', 'p7');
     await waitForInit(page);
     await openGit(page, repo);
@@ -325,7 +312,6 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
    * 굳었고, 사유는 어디에도 보이지 않았다.
    */
   test('P9 (회귀): _paint 가 한 번 터져도 다음 관측이 다시 그린다', async ({ page, request }) => {
-    await fastWorktree(request);
     const repo = copyFx('basic', 'p9-paint');
     await waitForInit(page);
     await openGit(page, repo);
@@ -361,38 +347,5 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
     await expect(view.locator('.git-file[data-path="after-paint-throw.txt"]'),
       '_paint 가 한 번 터진 뒤 화면이 낡은 채로 굳었다')
       .toBeVisible({ timeout: 10000 });
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// GIT_WATCH_LEASE_SRS §4.3 — 감시 임대 (TC-GWL-11)
-//
-// 임대의 계약 자체는 Go 가 잰다 (Go 기준선 `hub/gitwatch_test.go` TC-GWL-1~8,
-// Go 기준선 `httpapi/gitwatch_lease_test.go` TC-GWL-9·10). 브라우저 쪽에 남는 몫은 하나다 —
-// **status 요청이 자기 신원을 싣는가.** 이것이 빠지면 서버는 임차인을 모르는 채
-// 종전 TTL 임대로 떨어지고, 화면은 멀쩡히 서며, 안전망을 끈 사용자에게서만 90초
-// 뒤에 갱신이 멎는다. GP-1 이 오래 살아남은 방식이 정확히 그 조용함이었다.
-// ─────────────────────────────────────────────────────────────────────────────
-
-test.describe('묶음 GWL — 감시 임대', () => {
-  test('GWL1: status 요청이 SSE 와 같은 clientId 를 싣는다', async ({ page }) => {
-    const seen: string[] = [];
-    page.on('request', (r) => {
-      const u = new URL(r.url());
-      if (u.pathname === '/api/git/status') seen.push(u.searchParams.get('clientId') || '');
-    });
-
-    const repo = fx('basic');
-    await waitForInit(page);
-    await openGit(page, repo);
-
-    await expect.poll(() => seen.length, { timeout: 10000 }).toBeGreaterThanOrEqual(1);
-
-    // SSE 를 여는 신원과 **같아야** 한다 — 다르면 서버가 붙들고 있는 구독과
-    // 표명이 이어지지 않아 임대가 서지 않는다 (FR-GWL-1·9).
-    const cid = await page.evaluate(() => (window as any).app.clientId);
-    expect(cid, 'App 이 clientId 를 갖고 있지 않다').toBeTruthy();
-    expect(seen.filter((v) => v !== cid),
-      'status 요청이 다른(또는 빈) clientId 를 실었다').toEqual([]);
   });
 });

@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { runInContext } from 'node:vm';
 
-import { BASE, EDITOR, FOCUS, GIT, LAYOUT, PANELS, REPO_WIN, SETTINGS, SLOTS, TOOL, WS_SYNC, controllers, load, plain } from './harness.mjs';
+import { repoLoadOrder } from '../../../scripts/bundles-def.mjs';
+import { BASE, EDITOR, FOCUS, GIT, LAYOUT, MOBILE, PANELS, REPO_WIN, SCREENS_LOADED, SETTINGS, SLOTS, TOOL, WS_SYNC, controllers, load, plain } from './harness.mjs';
 
 /**
  * REFACTOR3_FE_APPCTL_SRS — App mixin 을 주제별 `Controller` 로 (단계 9).
@@ -89,7 +90,7 @@ const ISSUES = {
     mixins: 47,
   },
   '9b': {
-    ctl: ['core/attn-controller.js', 'core/attn-center.js', 'core/attn-claim.js', 'core/claude-accounts-controller.js',
+    ctl: ['core/attn-controller.js', 'core/attn-center.js', 'core/attn-center-view.js', 'core/attn-claim.js', 'core/claude-accounts-controller.js',
       'core/claude-maps.js', 'core/statusbar-controller.js', 'core/statusbar-enc.js'],
     gone: ['core/app-attn.js', 'core/app-attn-center.js', 'core/app-attn-claim.js', 'core/app-claude-accounts.js',
       'core/app-claude-accounts-map.js', 'core/app-statusbar.js', 'core/app-statusbar-enc.js'],
@@ -200,7 +201,7 @@ const LSP_DELEGATES = ['_lspRefresh', '_lspGotoDef', '_lspFindRefs', '_lspRootOf
 const RUNS_DELEGATES = ['_runsModalToggle', '_findRunTab', 'runViewEl', '_runDisposeView', '_onRunChanged', '_runPaint'];
 
 function load9a(globals = {}) {
-  return load([...BASE, 'core/state-registry.js', 'core/edges-controller.js', 'core/edges-mesh.js', 'core/update-controller.js',
+  return load([...BASE, 'core/state-registry.js', 'core/edges-controller.js', 'core/edges-mesh.js', 'core/edges-mesh-view.js', 'core/update-controller.js',
     'core/poll-settings.js', 'core/settings-table.js', ...SETTINGS], {
     expose: [...CLASSES_9A, 'Controller', 'Component'],
     globals: {
@@ -293,7 +294,7 @@ test('TC-DLG-1(DL-5): LSP·Run 위임자는 App 원형에 없고 지연 생성�
     expose: ['App', 'LspClient'],
     globals: { PrefStore: { local: store }, LSP_DIAG_KEY: 'k', STORE_KEYS: {}, TIMERS: { disposeOwner() {} } },
   });
-  const runs = ['ui/runs-panel.js', 'ui/run-dashboard.js', 'ui/run-recover.js', 'ui/run-tree.js', 'ui/run-tree-cam.js'].map(read).join('\n');
+  const runs = ['ui/runs-panel.js', 'ui/run-view.js', 'ui/run-dashboard.js', 'ui/run-recover.js', 'ui/run-tree.js', 'ui/run-tree-cam.js'].map(read).join('\n');
   for (const n of LSP_DELEGATES) {
     assert.equal(ctx.App.prototype[n], undefined, '위임자가 남았다: ' + n);
     assert.equal(typeof ctx.LspClient.prototype[n], 'function', n);
@@ -359,7 +360,7 @@ test('TC-FEA-3(9a): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   for (const f of issue.plainNow) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
   assert.ok(mixins.length <= issue.mixins, 'mixin 파일 ' + mixins.length + ' > ' + issue.mixins);
@@ -402,7 +403,7 @@ function load9b(globals = {}) {
     'core/claude-accounts-controller.js', 'core/claude-maps.js', 'core/statusbar-controller.js', 'core/statusbar-enc.js'], {
     expose: [...CLASSES_9B, 'Controller', 'Component'],
     globals: {
-      App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
+      App: function App() {}, Screens: SCREENS_LOADED, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
       document: { getElementById: () => null, querySelector: () => null },
       ...globals,
     },
@@ -495,7 +496,7 @@ test('TC-FEA-3(9b): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   const issue = ISSUES['9b'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -534,15 +535,14 @@ const DELEGATES_9C = {
   'mobile.sheets': ['mobileChromeSync', '_settingsMobileOnOpen'],
 };
 
-const FILES_9C = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js',
-  'core/agents-controller.js', 'core/agents-sub.js', 'core/activity-list.js', 'core/mobile-controller.js', 'core/mobile-sheets.js',
-  'core/mobile-nav.js'];
+const FILES_9C = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js', 'core/chat-window-open.js',
+  'core/agents-controller.js', 'core/agents-sub.js', 'core/activity-list.js', ...MOBILE];
 
 function load9c(globals = {}) {
   return load([...BASE, ...PANELS, ...FILES_9C], {
     expose: [...CLASSES_9C, 'Controller', 'Component'],
     globals: {
-      App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
+      App: function App() {}, Screens: SCREENS_LOADED, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
       document: { getElementById: () => null, querySelector: () => null },
       ...globals,
     },
@@ -574,7 +574,8 @@ test('TC-FEA-1(9c): App 생성자가 컨트롤러를 만든다', () => {
   const src = read('core/app.js');
   const ctor = src.slice(src.indexOf('  constructor(){'), src.indexOf('\n  }\n', src.indexOf('  constructor(){')));
   for (const line of ['this.chat=new ChatController(this);', 'this.agents=new AgentsController(this);',
-    'this.mobile=new MobileController(this);']) assert.ok(ctor.includes(line), line);
+    // PERF 3.4.12.8: App 은 부팅 쪽 껍데기를 든다 — 본체(MobileController)는 mobile 묶음이 실린 뒤 껍데기가 바꾼다.
+    'this.mobile=new MobileShell(this);']) assert.ok(ctor.includes(line), line);
 });
 
 test('TC-DLG-1(DL-6): 9c 의 옛 위임자 이름은 App 원형에 없고 소유 클래스 원형의 메서드다', () => {
@@ -619,7 +620,7 @@ test('TC-FEA-3(9c): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   const issue = ISSUES['9c'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -645,7 +646,7 @@ const DELEGATES_9D = {
     '_initGitSection', 'gitSignal', 'gitStatusHub', 'gitOpenFile', 'gitOpenFileHead', 'gitOpenTerminal', 'gitBadgeFor', 'gitPinEntry',
     '_gitTermToolId'],
   'git.surfaces': ['gitObs', '_gitRescheduleAll', '_gitNotifyPinsAll', 'gitPanelAt', '_gitDropView',
-    '_gitViewDirty', '_gitDiffDocPaths', '_gitViewSave', 'gitSurfaceOn', '_gitPanelKey', '_gitPanelRoot', '_gitPanelReap',
+    '_gitViewDirty', '_gitDiffDocPaths', '_gitViewSave', 'gitSideOn', '_gitPanelKey', '_gitPanelRoot', '_gitPanelReap',
     '_gitRootOfActive'],
   'git.sync': ['gitReposKick', '_gitObserveOk', '_onGitChanged', 'gitReposRefresh', 'gitPin', 'gitUnpin',
     '_gitPinsApply', '_gitJobsAdopt'],
@@ -653,9 +654,9 @@ const DELEGATES_9D = {
 
 function load9d(globals = {}) {
   return load([...BASE, ...GIT], {
-    expose: [...CLASSES_9D, 'Controller', 'Component'],
+    expose: [...CLASSES_9D, 'Controller', 'Component', 'Screens'],
     globals: {
-      App: function App() {}, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
+      App: function App() {}, Screens: SCREENS_LOADED, TIMERS: { disposeOwner() {} }, t: (k) => k, tn: (k) => k,
       document: { getElementById: () => null, querySelector: () => null },
       ...globals,
     },
@@ -692,6 +693,47 @@ test('TC-FEA-1(9d): gitPanel 접근자는 App 에 남아 포커스 칸의 지금
   app.git = { surfaces: { _gitRootOfActive: () => '/r', gitPanelAt: (root, slot) => 'p:' + root + ':' + slot } };
   app.slot = { slotFocused: () => 2 };
   assert.equal(app.gitPanel, 'p:/r:2');
+});
+
+// PERF 3.4.6 (D-30): git 패널·관측기는 git 묶음이 실린 뒤에만 선다. 그 전의 `gitPanel` 은 null 이고 부팅의 GIT 섹션
+// 배선은 패널 없이 지난다.
+test('PERF 3.4.6: git 묶음이 아직이면 gitPanelAt·gitObs 는 null 이고 패널을 만들지 않는다', () => {
+  let made = 0;
+  const ctx = load9d({ Screens: null, GitPanel: class { constructor() { made++; this.poll = { _reschedule() {} } } } }); // 실물 등록부
+  const app = new ctx.App();
+  app.git = new ctx.GitController(app);
+  controllers(ctx, app);
+  assert.equal(ctx.Screens.ready('git'), false);
+  assert.equal(app.git.surfaces.gitPanelAt('/r', 0), null);
+  assert.equal(app.git.surfaces.gitObs('/r'), null);
+  assert.equal(made, 0);
+  assert.equal(app.gitPanels, undefined, '등록부도 만들지 않는다');
+  ctx.Screens._ready.add('git');
+  app.slot.slotKey = (k, slot) => k + '#' + slot;
+  const p = app.git.surfaces.gitPanelAt('/r', 0);
+  assert.equal(made, 1);
+  assert.equal(app.git.surfaces.gitPanelAt('/r', 0), p, '실린 뒤에는 (루트, 칸)마다 하나다');
+});
+
+test('PERF 3.4.6: git 묶음이 아직이어도 _initGitSection 은 목록을 부르고 던지지 않는다', () => {
+  const ctx = load9d({ LIFE_VISIBLE: 'life:visible', LIFE_FOCUS: 'life:focus', LIFE_HIDDEN: 'life:hidden' });
+  const app = new ctx.App();
+  app.git = new ctx.GitController(app);
+  controllers(ctx, app);
+  const log = [];
+  app.git.sync.gitReposKick = () => log.push('kick');
+  Object.defineProperty(app, 'gitPanel', { value: null });
+  app.bus = { subscribe: (topic) => log.push('sub:' + topic) };
+  app.git._initGitSection();
+  assert.equal(log[0], 'kick');
+  assert.equal(log.filter((x) => x.startsWith('sub:')).length, 3);
+});
+
+test('PERF 3.4.6: git 화면은 css 를 갖고 git 탭을 맡는다', () => {
+  const ctx = load9d({ Screens: null, TAB_TYPE_GIT: 'git' }); // 실물 등록부
+  assert.equal(ctx.Screens.forTab({ type: 'git', gitView: 'history' }), 'git');
+  assert.equal(ctx.Screens.forTab({ type: 'editor' }), null);
+  assert.equal(ctx.Screens._defs.get('git').css, true);
 });
 
 test('TC-FEA-2(9d): 컨트롤러는 덮어쓰기 대상·계약 이름을 this.app 으로 부른다', () => {
@@ -753,7 +795,7 @@ test('TC-FEA-3(9d): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   const issue = ISSUES['9d'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -893,7 +935,7 @@ test('TC-FEA-3(9f): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   const issue = ISSUES['9f'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1009,7 +1051,7 @@ test('TC-FEA-3(9g): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   const issue = ISSUES['9g'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1120,7 +1162,7 @@ test('TC-FEA-3(9h): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   const issue = ISSUES['9h'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1235,7 +1277,7 @@ test('TC-FEA-3(9i-1): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 
   const issue = ISSUES['9i-1'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1374,7 +1416,7 @@ test('TC-FEA-3(9i-2): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 
   const issue = ISSUES['9i-2'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1487,7 +1529,7 @@ test('TC-FEA-3(9j): 옮긴 mixin 파일이 없고 Object.assign(App.prototype �
   const issue = ISSUES['9j'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1669,7 +1711,7 @@ test('TC-FEA-3(9k-1): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 
   const issue = ISSUES['9k-1'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1787,7 +1829,7 @@ test('TC-FEA-3(9k-2): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 
   const issue = ISSUES['9k-2'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   for (const f of issue.ctl) assert.doesNotMatch(read(f), /Object\.assign\(App\.prototype/, f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
@@ -1859,7 +1901,8 @@ test('TC-DLG-1(DL-5): 9k-3 의 옛 위임자 이름은 App 원형에 없고 소�
 });
 
 test('TC-FEA-1(9k-3): Diff 탭 패널은 App 의 등록부(gitPanels)에 서고 App 을 든다 — 미리보기 고정은 편집기 뿌리로 포커스를 넘긴다', () => {
-  const ctx = load9k3({ GitPanel: class { constructor(app, root) { this.app = app; this.root = root } poll = { _reschedule() {} }; diffPane = { diffTabApply() {} } } });
+  // PERF 3.4.6: 패널은 git 묶음이 실린 뒤에만 선다 — 실린 상태로 둔다.
+  const ctx = load9k3({ Screens: { ready: () => true }, GitPanel: class { constructor(app, root) { this.app = app; this.root = root } poll = { _reschedule() {} }; diffPane = { diffTabApply() {} } } });
   const app = controllers(ctx, new ctx.App());
   const p = app.repoWin.gitDiffPanelFor('/r', 0, { id: 't' });
   assert.equal(p.app, app);
@@ -1909,7 +1952,7 @@ test('TC-FEA-3(9k-3): 옮긴 mixin 파일이 없고 Object.assign(App.prototype 
   const issue = ISSUES['9k-3'];
   for (const f of issue.gone) assert.ok(!existsSync(join(JS_ROOT, f)), '남았다: ' + f);
   const html = readFileSync(join(REPO, 'web/index.html'), 'utf8');
-  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?'), 'index.html 이 싣는다: ' + f);
+  for (const f of issue.gone) assert.ok(!html.includes('js/' + f + '"') && !html.includes('js/' + f + '?') && !repoLoadOrder(REPO).includes('js/' + f), '실린다: ' + f);
   const mixins = walk(JS_ROOT, (n) => n.endsWith('.js')).filter((f) => !f.includes('/test/'))
     .filter((f) => readFileSync(f, 'utf8').includes('Object.assign(App.prototype'));
   assert.deepEqual(mixins, []);

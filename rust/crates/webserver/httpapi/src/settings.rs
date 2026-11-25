@@ -14,12 +14,12 @@ use otter_webserver_apierr as apierr;
 use otter_webserver_domain_run::ContextPolicy;
 use serde::Deserialize;
 
+use crate::Server;
 use crate::agent_render_env::agent_render_env;
 use crate::deps::SettingsStore;
 use crate::httperr::{http_err, read_body_err};
 use crate::migration_advice::{MigrationConf, parse_migration_conf};
 use crate::req::Req;
-use crate::{Server, gitwire};
 
 /// 설정 파일의 권한이다 (Go `0644`).
 const SETTINGS_FILE_PERM: u32 = 0o644;
@@ -235,17 +235,12 @@ impl Server {
                 );
             }
         }
-        // FR-ELR-76: 워크트리 회차 간격은 재시작 없이 다음 회차부터다.
-        self.apply_git_worktree();
+        // PERF D-25: 기록 줄 수는 데몬이 곧바로 적용한다.
+        self.apply_screen_config().await;
         // 저장이 끝난 **뒤에** 알린다 (CHANNEL_PROTOCOL C2b).
         self.refresh_full_topic("settings");
         let mut res = Response::new(httpresp::empty());
         *res.status_mut() = StatusCode::OK;
         res
-    }
-
-    /// Go `applyGitWorktree`: 지금 설정의 워크트리 회차 간격을 감시자에 얹는다 (FR-ELR-76).
-    pub(crate) fn apply_git_worktree(&self) {
-        gitwire::apply_git_worktree(self.git_watch.as_ref(), self.deps.settings.as_deref());
     }
 }

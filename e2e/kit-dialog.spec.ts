@@ -30,14 +30,16 @@ const SKELETONS: {
   // 요구다. 그 둘의 검증은 `background-ui.spec.ts`·`runs.spec.ts` 로 갔다.
   {
     name: 'git 확인창', box: '#git-confirm .gc-box', opener: '#settings-btn',
-    open: async (p) => { await p.evaluate(() => {
+    open: async (p) => { await p.evaluate(async () => {
+      await (window as any).app.testing.loadScreen('git');
       (window as any).GitConfirm.open({ action: 'discard', title: '트랩 검사', targets: ['a.txt'], run: async () => ({ ok: true }) });
     }) },
     close: async (p) => { await p.click('#git-confirm .gc-cancel') },
   },
   {
     name: 'git 다이얼로그', box: '.git-dialog .git-dialog-box', opener: '#settings-btn',
-    open: async (p) => { await p.evaluate(() => {
+    open: async (p) => { await p.evaluate(async () => {
+      await (window as any).app.testing.loadScreen('git');
       (window as any).GitDialog.open({ action: 'probe', title: '트랩 검사', body: '본문', runLabel: '실행', run: () => ({ ok: true }) });
     }) },
     close: async (p) => { await p.click('.git-dialog .git-dialog-cancel') },
@@ -106,7 +108,8 @@ test.describe('모달 골격 다섯의 접근성 계약 (KIT_APPLICATION_SRS 묶
     // 설정 모달 위에 git 확인창을 얹는다 — 골격이 서로 다른 두 겹이다.
     await page.click('#settings-btn');
     await expect(page.locator('#modal-overlay.open')).toBeVisible({ timeout: 10000 });
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
+      await (window as any).app.testing.loadScreen('git');
       (window as any).GitConfirm.open({ action: 'discard', title: '중첩 검사', targets: ['a.txt'], run: async () => ({ ok: true }) });
     });
     await expect(page.locator('#git-confirm .gc-box')).toBeVisible({ timeout: 10000 });

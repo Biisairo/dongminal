@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { BASE, CHAT, controllers, load, plain } from './harness.mjs';
+import { BASE, CHAT, SCREENS_LOADED, controllers, load, plain } from './harness.mjs';
 
 /**
  * PEER_CHAT_SRS §3.12 — 사람 명령 화면 (TC-PCH-13 일부, FR-PCH-86·87).
@@ -17,6 +17,7 @@ function loadHuman(menus) {
     expose: ['chatPick', 'chatCtxTargets', 'chatCmdText'],
     globals: {
       App: class {},
+      Screens: SCREENS_LOADED,
       UIKit: { menu: (items) => menus.push(items.map((i) => i.id)) },
       t: (k, p) => (p ? k + JSON.stringify(p) : k),
     },

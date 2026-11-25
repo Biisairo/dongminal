@@ -14,32 +14,12 @@ use crate::RepoWatcher;
 
 #[derive(Default)]
 struct Spy {
-    notes: Mutex<Vec<(String, String)>>,
-    scoped: Mutex<Vec<String>>,
-    released: Mutex<Vec<String>>,
+    notes: Mutex<Vec<String>>,
 }
 
 impl RepoWatcher for Spy {
-    fn note(&self, repo: &str, obs: &Observation) {
-        self.note_for(repo, obs, "");
-    }
-    fn note_for(&self, repo: &str, _: &Observation, client_id: &str) {
-        self.notes
-            .lock()
-            .unwrap()
-            .push((repo.to_owned(), client_id.to_owned()));
-    }
-    fn note_scoped(&self, repo: &str, _: &Observation, client_id: &str, scope: &str) {
-        self.scoped
-            .lock()
-            .unwrap()
-            .push(format!("{repo}|{client_id}|{scope}"));
-    }
-    fn release_scope(&self, client_id: &str, scope: &str) {
-        self.released
-            .lock()
-            .unwrap()
-            .push(format!("{client_id}|{scope}"));
+    fn note(&self, repo: &str, _: &Observation) {
+        self.notes.lock().unwrap().push(repo.to_owned());
     }
 }
 
@@ -130,25 +110,17 @@ async fn observe_survives_bad_pin() {
 }
 
 #[tokio::test]
-async fn observe_leases_pins_and_zero_releases() {
+async fn observe_notes_pins_and_others_do_not() {
     let (e, spy) = with_spy();
     let pins = abc(2);
     pin_ws(&e, &pins);
-    repos(&e, "?observe=1&clientId=c1").await;
-    let mut noted = spy.scoped.lock().unwrap().clone();
+    repos(&e, "?observe=1").await;
+    let mut noted = spy.notes.lock().unwrap().clone();
     noted.sort();
-    assert_eq!(
-        noted,
-        [
-            format!("{}|c1|pins", pins[0]),
-            format!("{}|c1|pins", pins[1])
-        ]
-    );
-    repos(&e, "?clientId=c1").await;
-    assert!(spy.released.lock().unwrap().is_empty());
-    assert_eq!(spy.scoped.lock().unwrap().len(), 2);
-    repos(&e, "?observe=0&clientId=c1").await;
-    assert_eq!(*spy.released.lock().unwrap(), ["c1|pins"]);
+    assert_eq!(noted, pins);
+    repos(&e, "").await;
+    repos(&e, "?observe=0").await;
+    assert_eq!(spy.notes.lock().unwrap().len(), 2);
     assert_eq!(e.g.count("status"), 2);
 }
 
@@ -175,7 +147,7 @@ async fn observe_vanished_pin_is_not_repo() {
         }
     });
     e.g.status_not_repo.store(true, Ordering::SeqCst);
-    let o = repos(&e, "?observe=1&clientId=c1").await;
+    let o = repos(&e, "?observe=1").await;
     assert_eq!(o["pinned"][0]["isRepo"], false);
 }
 
@@ -195,18 +167,11 @@ async fn status(e: &Env, qs: &str) -> (u16, Value) {
 }
 
 #[tokio::test]
-async fn status_notes_interest_with_client_id() {
+async fn status_notes_interest() {
     let (e, spy) = with_spy();
     e.g.root_at(&work_repo());
     assert_eq!(status(&e, "").await.0, 200);
-    assert_eq!(status(&e, "&clientId=c-42").await.0, 200);
-    assert_eq!(
-        *spy.notes.lock().unwrap(),
-        [
-            (work_repo(), String::new()),
-            (work_repo(), "c-42".to_owned())
-        ]
-    );
+    assert_eq!(*spy.notes.lock().unwrap(), [work_repo()]);
     // Watch 가 없어도 답한다.
     let e = env();
     e.g.root_at(&work_repo());
@@ -226,7 +191,7 @@ async fn status_carries_mark_and_if_mark() {
         .unwrap();
     assert_eq!(full["mark"], mark(&obs));
     let m = full["mark"].as_str().unwrap().to_owned();
-    let (code, out) = status(&e, &format!("&clientId=c-1&ifMark={}", qe(&m))).await;
+    let (code, out) = status(&e, &format!("&ifMark={}", qe(&m))).await;
     assert_eq!((code, out["unchanged"].clone()), (200, json!(true)));
     assert!(out.get("status").is_none());
     for k in [
@@ -239,14 +204,7 @@ async fn status_carries_mark_and_if_mark() {
     ] {
         assert_eq!(out[k], full[k], "{k}");
     }
-    let clients: Vec<String> = spy
-        .notes
-        .lock()
-        .unwrap()
-        .iter()
-        .map(|n| n.1.clone())
-        .collect();
-    assert_eq!(clients, ["", "c-1"]);
+    assert_eq!(spy.notes.lock().unwrap().len(), 2);
     let (_, other) = status(&e, "&ifMark=stale").await;
     assert!(other.get("unchanged").is_none() && other["status"].is_object());
 }

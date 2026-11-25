@@ -10,9 +10,9 @@ import { TMP, cssPath } from './osenv';
 /**
  * OPTIMIZE_REFACTOR_SRS FR-OPT-4-3 (IPC-7 · FEC-13) — 저장소 목록의 배지는 **push** 로 선다.
  *
- * Repo 탭이 보이는 동안 핀 전부를 임대하고(`observe=1&clientId`), 배지의 변화는 서버
+ * Repo 탭이 보이는 동안 핀마다 `git:<root>` 토픽을 구독해 감시를 임대하고, 배지의 변화는 서버
  * 감시자가 토픽으로 알린다. 목록에는 주기가 없다(PERF 1.15) — push 만으로 배지가 서는지를
- * 잰다. 탭을 떠나면 임대를 놓는다(`observe=0`).
+ * 잰다. 탭을 떠나면 관측 없이(`observe` 없이) 목록을 받는다.
  *
  * **고정 대기의 예외 (`TEST-16`).** 변화가 없는 동안 목록 요청이 **나가지 않음**을 잰다 —
  * 일어나지 않는 일에는 기다릴 신호가 없으므로 종전 주기(3초)를 두 번 넘겨 본다.
@@ -68,7 +68,7 @@ test.describe('저장소 목록의 push (FR-OPT-4-3)', () => {
     await expect(badge).toHaveText('2', { timeout: 20000 });
   });
 
-  test('탭을 떠나면 임대를 놓고, 목록이 같으면 다시 칠하지 않는다', async ({ page, request }) => {
+  test('탭을 떠나면 관측 없이 목록을 받고, 목록이 같으면 다시 칠하지 않는다', async ({ page, request }) => {
     const root = await pin(request, makeRepo('otter-o4b-leave-'));
     await waitForInit(page);
     await waitSettled(page);
@@ -91,7 +91,8 @@ test.describe('저장소 목록의 push (FR-OPT-4-3)', () => {
 
     const log = reposLog(page);
     await page.locator('.sb-tab[data-panel="windows"]').click();
-    await expect.poll(() => log.slice(), { timeout: 10000 }).toContain('0');
+    await expect.poll(() => log.slice(), { timeout: 10000 }).toContain('');
+    expect(log, JSON.stringify(log)).not.toContain('0');
   });
 
   /**

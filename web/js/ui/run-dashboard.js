@@ -1,7 +1,7 @@
 /**
  * Run 대시보드 — 요약·그래프(노드·호)·카드·타임라인과 표기 (FR-RVZ-10~13).
  * `runs-panel.js` 의 증강 분할이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-4 · FEU-23) — 목록·확인·탭은
- * 그쪽에 남고, 계약은 `RunsPanel` 한 클래스에 남는다. 치수 상수(`RUN_*`)는 `runs-panel.js` 가, 원소를 만드는
+ * 그쪽에 남고, 계약은 `RunsPanel` 한 클래스에 남는다. 치수 상수(`RUN_*`)는 `run-graph-fit.js` 가, 원소를 만드는
  * `domEl`·`svgEl` 은 `core/helpers.js` 가 갖는다.
  */
 Object.assign(RunsPanel.prototype, {
@@ -479,17 +479,6 @@ Object.assign(RunsPanel.prototype, {
     if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
     if (v >= 1e3) return Math.round(v / 1e3) + 'k';
     return String(Math.round(v));
-  },
-
-
-  // 서버 시각은 Unix **초**다 (Go 기준선 run/store.go 의 now()).
-  _runAgo(ts) {
-    if (!ts) return '';
-    const s = Math.max(0, Math.floor(Date.now() / MS_PER_SEC - ts));
-    if (s < 60) return tn('core.dur_sec', s);
-    if (s < 3600) return tn('core.dur_min', Math.floor(s / 60));
-    if (s < 86400) return tn('core.dur_hour', Math.floor(s / 3600));
-    return tn('core.dur_day', Math.floor(s / 86400));
   },
 
   _runClock(ts) {

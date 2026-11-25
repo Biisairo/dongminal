@@ -121,6 +121,59 @@ fn wire_golden() {
             enc(&SnapshotResult::default()),
             r#"{"cols":0,"data":"","end":0,"modes":{"bracketedPaste":false,"mouseProtocol":0,"mouseEncoding":0,"focusEvent":false,"altScreen":false},"resumed":false,"retained":0,"rows":0,"totalBytesDrop":0,"totalBytesIn":0}"#.into(),
         ),
+        (
+            "seat-params",
+            enc(&SeatParams { held: true, id: "a".into() }),
+            r#"{"held":true,"id":"a"}"#.into(),
+        ),
+        (
+            "seat-result",
+            enc(&SeatResult { replied_end: 9 }),
+            r#"{"repliedEnd":9}"#.into(),
+        ),
+        (
+            "screen-params",
+            enc(&ScreenParams { history: 5000, id: "a".into() }),
+            r#"{"history":5000,"id":"a"}"#.into(),
+        ),
+        (
+            "screen-result",
+            enc(&ScreenResult {
+                alt: true,
+                cols: 80,
+                cwd: "/w".into(),
+                data: DATA.to_vec(),
+                end: 9,
+                first_line: 3,
+                rows: 24,
+            }),
+            format!(r#"{{"alt":true,"cols":80,"cwd":"/w","data":"{B64}","end":9,"firstLine":3,"rows":24}}"#),
+        ),
+        (
+            "screentext-params",
+            enc(&ScreenTextParams { bytes: 16384, id: "a".into() }),
+            r#"{"bytes":16384,"id":"a"}"#.into(),
+        ),
+        (
+            "screentext-result",
+            enc(&ScreenTextResult { text: "가\n".into() }),
+            r#"{"text":"가\n"}"#.into(),
+        ),
+        (
+            "history-params",
+            enc(&HistoryParams { before: 900, count: 100, id: "a".into() }),
+            r#"{"before":900,"count":100,"id":"a"}"#.into(),
+        ),
+        (
+            "history-result",
+            enc(&HistoryResult { from: 800, lines: vec!["x".into()], top: 7 }),
+            r#"{"from":800,"lines":["x"],"top":7}"#.into(),
+        ),
+        (
+            "screenconfig-params",
+            enc(&ScreenConfigParams { history_lines: 2000 }),
+            r#"{"historyLines":2000}"#.into(),
+        ),
         ("cwd-result", enc(&CwdResult { cwd: "/x".into() }), r#"{"cwd":"/x"}"#.into()),
         ("busy-result", enc(&BusyResult { busy: true }), r#"{"busy":true}"#.into()),
         (
@@ -235,6 +288,10 @@ fn chat_wire_golden() {
     assert!(
         has_feature(DAEMON_FEATURES, FEATURE_CHAT) && has_feature(SERVER_FEATURES, FEATURE_CHAT)
     );
+    assert!(has_feature(DAEMON_FEATURES, FEATURE_SCREEN_STATE));
+    assert_eq!(METHOD_SCREEN_CONFIG, "screenconfig");
+    assert_eq!(METHOD_SEAT, "seat");
+    assert!(!has_feature(SERVER_FEATURES, FEATURE_SCREEN_STATE));
 }
 
 #[test]

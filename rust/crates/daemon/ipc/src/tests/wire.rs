@@ -129,6 +129,54 @@ async fn create_write_snapshot_flow() {
         r["result"]["data"].is_string(),
         "snapshot 에 data 가 없다: {r}"
     );
+    c.send(&format!(
+        r#"{{"id":4,"method":"screen","params":{{"id":"{id}","history":100}}}}"#
+    ));
+    let r: Value = serde_json::from_str(&c.recv_id(4)).unwrap();
+    let s = &r["result"];
+    assert!(s["data"].is_string() && s["end"].is_i64(), "screen: {r}");
+    assert!(
+        s["cols"].as_u64().unwrap() > 0 && s["rows"].as_u64().unwrap() > 0,
+        "{r}"
+    );
+    assert_eq!(s["alt"], false, "{r}");
+    kill_shell(&mut c, &id);
+}
+
+/// read-screen 의 글자다(FR-TRM-8, D-22). 구독자가 없는 도구에도 데몬 화면 상태로 답하고, 대체 화면이면
+/// 그 화면 글자만 준다.
+#[tokio::test(flavor = "multi_thread")]
+async fn screen_text_answers_from_screen_state() {
+    let d = daemon("b");
+    let mut c = raw(&d.sock);
+    let (id, _) = create_shell(&mut c);
+    // printf '\033[?1049h\033[2J\033[HTUI-%s\n' ok
+    let b64 = "cHJpbnRmICdcMDMzWz8xMDQ5aFwwMzNbMkpcMDMzW0hUVUktJXNcbicgb2sK";
+    c.send(&format!(
+        r#"{{"id":2,"method":"write","params":{{"id":"{id}","data":"{b64}"}}}}"#
+    ));
+    c.recv_id(2);
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut n = 10;
+    let text = loop {
+        n += 1;
+        c.send(&format!(
+            r#"{{"id":{n},"method":"screentext","params":{{"id":"{id}","bytes":0}}}}"#
+        ));
+        let r: Value = serde_json::from_str(&c.recv_id(n)).unwrap();
+        let t = r["result"]["text"].as_str().unwrap_or_default().to_owned();
+        if t.starts_with("TUI-ok\n") || Instant::now() > deadline {
+            break t;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
+    assert!(text.starts_with("TUI-ok\n"), "{text:?}");
+    assert!(!text.contains("printf"), "{text:?}");
+    c.send(&format!(
+        r#"{{"id":3,"method":"screentext","params":{{"id":"{id}","bytes":4}}}}"#
+    ));
+    let r: Value = serde_json::from_str(&c.recv_id(3)).unwrap();
+    assert!(r["result"]["text"].as_str().unwrap().len() <= 4, "{r}");
     kill_shell(&mut c, &id);
 }
 

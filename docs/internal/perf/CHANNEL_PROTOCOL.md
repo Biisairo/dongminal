@@ -3,6 +3,7 @@
 > **문서 상태**: 승인·구현중
 > **남은 것**: C1~C6 구현 (2026-11-24 사용자 확인)
 > 상위: `docs/internal/PERF_OPTIMIZATION_SRS.md` §3.1 FR-CON-1~10 · 결정 D-5, D-9, D-10
+> **개정 2026-11-25 (M2, PERF 2.10)**: 터미널에 화면 상태 스냅숏이 들어왔다 — `term.open` 의 `snap`, `SEQ` 의 `SNAP` 깃발과 꼬리(§4.2), 위로 받기 `term.history`(§4.1, §6), 흐름 제어·틈의 스냅숏 맞춤(§6, TC-CH5-2·7·11), 명령 구독이 넘쳐 닫히면 채널을 닫음(§6, TC-CH2A-14). 설계는 `perf/M2_DESIGN.md`
 
 ---
 
@@ -46,7 +47,8 @@
 | `unsub` | `topic` | 구독을 해지한다 |
 | `ping` | `n` | 생존 확인과 지연 측정(§7) |
 | `cmd.result` | `reqId`, 결과 필드 | 서버→브라우저 명령의 결과(지금 `POST /api/command-result` 본문과 같다) |
-| `term.open` | `sid`, `tool`, `cols`, `rows`, `since?` | 터미널 하나를 이 채널에 붙인다. `sid` 는 브라우저가 고르는 32비트 번호다. `tool` 이 비면 새 도구를 만든다(지금 `/ws` 의 `tool=` 없음과 같다) |
+| `term.open` | `sid`, `tool`, `cols`, `rows`, `since?`, `snap?` | 터미널 하나를 이 채널에 붙인다. `sid` 는 브라우저가 고르는 32비트 번호다. `tool` 이 비면 새 도구를 만든다(옛 `/ws` 의 `tool=` 없음과 같다). `snap:true`(깨움)면 `since` 를 보지 않고 화면 상태 스냅숏을 보낸다(M2 D-16·D-19) |
+| `term.history` | `sid`, `before`, `count` | 위로 받기(FR-TRM-5). 절대 줄 번호 `before` 앞의 `count` 줄을 데몬 줄 저장소에 묻는다. 별도 태스크가 묻고 출력·입력을 막지 않는다 |
 | `term.close` | `sid` | 터미널을 뗀다 |
 
 **서버 → 브라우저**
@@ -60,6 +62,8 @@
 | `reset` | `topic` | 사건 토픽의 빈틈을 메울 수 없다. 구독자는 자기 상태를 다시 맞춘다(지금 `sse:open` 의 재검증과 같은 뜻) |
 | `cmd` | `reqId?`, `action`, `args`, `exec?` | 서버→브라우저 명령. 지금 SSE 로 오는 명령 봉투 그대로다 |
 | `pong` | `n` | `ping` 의 답 |
+| `term.history` | `sid`, `from`, `top`, `lines` | 위로 받기의 답. `from` 은 `lines[0]` 의 줄 번호, `top` 은 저장소에 남은 가장 오래된 줄 번호, `lines` 는 ANSI 줄 목록이다. 지워진 옛 번호면 빈 목록이다 |
+| `term.lost` | `sid` | 서버 쪽 사정으로 그 터미널의 붙음이 끝났다(§10.6) |
 | `error` | `code`, `msg` | 프레임 해석 실패, 모르는 토픽 등 |
 
 ### 4.2 바이너리 프레임 (터미널)
@@ -70,7 +74,7 @@
 
 - `op` 와 `payload` 는 **지금 `/ws` 의 것을 그대로 쓴다**(`web/js/core/constants.js` 의 `OP`, `toolhub` 의 `OP_*`). 서버→브라우저 `OUTPUT·ERROR·EXIT·TOOLID·SEQ·SIZE·REPLY_SEAT`, 브라우저→서버 `INPUT·RESIZE`.
 - 이유: `TerminalTool._onOp` 의 해석과 바이트 오프셋 재동기화(`_seq`, FR-TRS)를 바꾸지 않고, 소켓만 채널의 `sid` 하나로 바꾼다. 앞의 5바이트를 떼면 지금 프레임과 같다.
-- M2 가 화면 상태 스냅숏을 더할 때 op 를 새로 더한다(이 문서 범위 밖).
+- 화면 상태 스냅숏(M2, D-19)은 새 op 없이 `OUTPUT` + `SEQ` 로 보낸다. `SEQ` 페이로드는 `오프셋 u64 BE` + `깃발 u8` 이고 깃발은 비트 0 `FULL`(버퍼를 통째로 바꿈)·비트 1 `ALT`(대체 화면 중)·비트 2 `SNAP`(앞의 `OUTPUT` 이 스냅숏)이다. `SNAP` 이면 깃발 뒤에 첫 기록 줄 번호(`u64 BE`)와 cwd(UTF-8)가 붙는다(`httpapi/src/ws.rs` `snap_seq_payload`). 브라우저는 `SNAP` 에 넛지를 걸지 않는다(넛지는 없어졌다).
 
 ## 5. 토픽과 순번
 
@@ -113,9 +117,10 @@
 
 ## 6. 흐름 제어 (FR-CON-6)
 
-- 채널마다 쓰기 담당 태스크 하나가 큐 셋을 우선순위대로 비운다: **제어**(`pong`·`cmd`·`hello`·`error`·터미널 제어 op) > **터미널 출력** > **상태 토픽**.
+- 채널마다 쓰기 담당 태스크 하나가 큐 넷을 우선순위대로 비운다: **제어**(`pong`·`cmd`·`hello`·`error`·터미널 제어 op) > **터미널 출력** > **위로 받기**(`term.history` 답, M2) > **상태 토픽**.
 - 상태 토픽: 보내지 못한 것은 토픽마다 하나로 합친다. `full` 은 최신 것만 남기고, `delta` 가 `TOPIC_PENDING_MAX = 64` 개를 넘으면 버리고 `full` 하나로 바꾼다.
-- 터미널 출력: `sid` 마다 보내지 못한 바이트가 `TERM_PENDING_MAX = 1 MB`(데몬 링 `BUF_MAX` 와 같다)를 넘으면, 밀린 것을 버리고 서버가 데몬에서 `snapshot_tool_since(보낸 끝)` 으로 다시 받아 보낸다. 브라우저 왕복은 없다. M2 가 이 자리를 화면 상태 스냅숏으로 바꾼다(FR-TRM-6).
+- 터미널 출력: `sid` 마다 보내지 못한 바이트가 `TERM_PENDING_MAX = 1 MB`(데몬 링 `BUF_MAX` 와 같다)를 넘으면, 그 sid 의 밀린 출력만 버리고 서버가 데몬에서 화면 상태 스냅숏을 받아 맞춘다(FR-TRM-6, M2 2.6). 브라우저 왕복은 없다.
+- 명령 구독(`cmd`)을 허브가 닫으면(큐 넘침) 채널을 닫는다. 브라우저는 다시 연결해 새로 구독한다(PERF 1.17, `channel/cmd.rs` `pump`).
 - 채널 전체가 `CHANNEL_PENDING_MAX = 8 MB` 를 넘으면 채널을 닫는다. 브라우저는 다시 연결하고 §5.1 로 맞춘다.
 - 위 숫자는 상수로 두고 시험에서 상한을 검사한다.
 
@@ -172,9 +177,41 @@
 | TC-CH4-18 | 프론트 | `followJob` 은 줄을 넘기고 끝에서 해지하며, 그 토픽의 `unknown_topic` 오류에만 `fail` 이다 |
 | TC-CH4-19 | 프론트 | 탐색기는 관측이 없을 때만 매 틱 묻고, 관측한 뒤에는 주기로 묻지 않는다 |
 
-남는 서버 내부 주기 (FR-SRV-2): gitwatch 회차 `GIT_WATCH_INTERVAL`(1초). 감시 대상(임차인이 있거나 TTL 안의 저장소)이 있을 때만 돌며 git 을 실행하지 않는 signature 검사를 하고, 워크트리 검사는 `GIT_WATCH_WORKTREE_EVERY`(4) 회차마다 한다. 이유: 저장소의 변화는 다른 프로세스(터미널의 git, 편집기)가 만들고 서버가 받을 사건이 없다. M4 에서 파일 감시(`.git`·워크트리)로 바꿀 대상이다.
+gitwatch (FR-SRV-2·3, PERF 4.9, D-61): 회차 `GIT_WATCH_ROUND_EVERY`(1초)는 감시 대상(임차인이 있거나 TTL 안의 저장소)이 있을 때만 돈다 — 대상이 0 이면 잠들고 첫 관심 표명·토픽 임대가 깨운다. 회차는 git 을 실행하지 않는 signature(파일 stat) 검사만 해 `.git`·common_dir 아래 변화(커밋·체크아웃·스테이지)를 잡는다. signature 가 쓰는 gitdir·common_dir 해석(`git rev-parse`)은 첫 회차에 한 번 하고 시간으로 만료되지 않는다 — `.git` 자체가 바뀌었을 수 있는 감시 사건(Linux `<repo>/.git`, macOS 는 디렉터리 단위라 `<repo>/`)·감시 넘침·물러섬 워크트리 회차·signature 읽기 실패 때만 다시 해석한다(PERF 4.14. 이전: `domain/git/store` 의 30초 TTL 로 저장소마다 30초에 한 번). 작업 트리는 저장소 루트의 재귀 파일 감시(macOS FSEvents, Linux inotify)가 보고, 사건이 계기 관측(`kick`, debounce 1초·cooldown 5초)으로 `git status` 를 당긴다 — 사건이 없으면 status 는 돌지 않는다. `.git` 아래 사건은 계기가 아니다(status 자신이 `.git/index` 를 고쳐 되먹임이 생긴다). 감시를 세우지 못했거나(Windows, `/Volumes/`, Linux 감시 한도) 사건을 놓치면(넘침) 그 저장소만 `GIT_WATCH_FALLBACK_EVERY`(4초) 간격 워크트리 회차로 물러선다. 설정 `gitWorktreeInterval` 은 지웠다(`RETIRED_KEYS`).
 
 C4 에 남긴 것: Git Console 탭의 기록 주기(`git/console.js`, 탭이 보일 때만)는 그대로다 — 기록은 git 실행 층(`domain/git/core` Service)이 쌓고 변화 훅이 없어 토픽을 세우려면 그 층을 고쳐야 한다. 편집기 틱(`_edTick`)의 `/api/fs/stamps` 주기는 파일 감시(`fs`) 몫이다.
+
+#### 남기는 주기 (PERF M4 설계 §1 Q8, FR-SRV-2)
+
+유휴에도 남기는 서버·데몬·제어 CLI 의 주기다. 값은 등록부 crate `otter-shared-cadence`(`rust/crates/shared/cadence`)의 상수이고, 이 표와 등록부 모듈 문서의 §1 표가 같아야 한다.
+
+| 상수 | 주기 | 쓰는 곳 | 설계 | 남기는 이유 |
+|---|---|---|---|---|
+| `DIAG_SNAPSHOT_EVERY` | 60초 | `webserver/httpapi` 진단 스냅샷 로그 | S6 | 오래 도는 서버의 메모리·작업 수 추이를 사후에 보려면 사건이 없어도 시간 축 표본이 있어야 한다 |
+| `TOOL_HEARTBEAT_EVERY` | 15초 | `webserver/toolclient` 데몬 생존 확인 hello | S10 | 조용한 데몬 연결이 끊긴 것을 알아채려면 무엇이라도 오가야 한다 (FR-OPT-2-1) |
+| `ACCESS_REFRESH_EVERY` | 60초 | `webserver/httpapi` 허용 목록 호스트명 재해석 | S8 | DNS 가 바뀐 것을 알려 주는 사건이 없다 (FR-ACL-5) |
+| `LOG_CHECK_EVERY` | 60초 | `ctl/cli` 로그 크기 확인 | S11 | 로그를 쓰는 쪽이 여럿이라 쓰기 사건을 한곳에서 받을 수 없다 (FR-LOG-2) |
+| `HUMANCMD_HELPER_EVERY` | 30초 | `daemon/boot` 사람 명령 도우미 확인 | D5 | 도우미가 사라진 것을 알려 주는 사건이 없다 |
+| `UPDATE_CHECK_EVERY` | 24시간 | `shared/updatecheck` 판 확인 트리거 ③ | S14 | 오래 켜 둔 서버도 새 판을 알게 하는 보조 트리거다 (FR-UPD-2) |
+| `MESH_PING_EVERY` | 15초 | `shared/edgemesh` 간선 ping | D4 | 조용한 간선이 끊긴 것을 알아채려면 무엇이라도 오가야 한다. **간선 연결이 하나도 없으면 돌지 않는다** |
+
+등록부 밖에 남는 주기:
+
+- WS ping 30초(S15): 화면 쪽 값 `CHAN_PING_HIDDEN_MS`(`web/js/core/constants.js`)다. 숨은 탭의 채널 생존 확인이다(TC-CH1-10).
+- Claude 계정 엔진(S12): 간격이 설정과 응답(재설정 시각)에서 정해진다. 바닥·유휴 값은 `webserver/domain/claudeacct` 엔진 안에만 있다.
+- 텔레그램 long-poll(S13): 대기는 Bot API 서버가 붙잡는 시간이다. 꺼져 있으면 요청이 없다.
+- `stats:` 발행(S3): 간격은 구독 토픽 이름(`stats:<ms>`)이 정하고, 구독 중에만 돈다.
+
+사건 기반으로 바꾼 것 (4.6·4.8·4.9·4.10·4.11·4.14):
+
+- 데몬 전경 이름(D1, 옛 2초): PTY 입출력 뒤 정착 창 `FOREGROUND_SETTLE`(2초)이 지나면 그 도구만 한 번 묻고, pgid 가 같으면 이름 조회를 건너뛴다. 이름·cwd·부모는 libproc 로 읽어 외부 프로세스를 띄우지 않는다(4.7).
+- 데몬 유휴 판정(D2, 옛 1초): 무장한 도구 가운데 가장 이른 `last_output_at + 임계` 마감까지 잔다. 임계 0(기본)이면 깨지 않는다. 서버 L2 스위퍼 빈 틱(S4)과 옛 데몬 전경 poll(S5)은 지웠다.
+- sysstat 샘플러(S2, 옛 2초 상시): `stats:*` 구독 동안만 돈다(§10.4).
+- gitwatch 회차(S1, 옛 1초 상시·4초마다 `git status`·30초마다 `git rev-parse`): 대상이 0 이면 잠들고, 작업 트리 `git status` 는 파일 감시 사건으로만, gitdir 해석은 `.git` 사건으로만 돈다(위 gitwatch 문단).
+
+- Run 수거(S7, 옛 15초): 기동 때 한 번, 그 뒤 도구 종료 push(재접속 뒤 메운 종료 포함)·Run 닫기·데몬 재접속(resync) 때만 돈다. 끊긴 사이 놓친 종료는 재접속 resync 가 메운다(Q7).
+- LSP 유휴 정리(S9, 옛 2분): 세션이 없으면 잠든다. 세션이 있으면 가장 이른 `last_use + IDLE_AFTER`(20분) 마감에 한 번 깨고, 새 세션이 열리면 마감을 다시 잡는다.
+- 간선 연결 유지(D4, 옛 1초 틱): 간선도 연결도 없으면 잠든다. 다음 ping(연결이 있을 때만)과 다음 다시 걸기(`MESH_REDIAL_MIN`~`MESH_REDIAL_MAX`) 중 가장 이른 마감까지 자고, 간선 목록 저장·연결 붙음/끊김·걸기 끝남에 깬다.
 
 ### 10.1 C1 — 채널 뼈대
 
@@ -218,6 +255,7 @@ C4 에 남긴 것: Git Console 탭의 기록 주기(`git/console.js`, 탭이 보
 | TC-CH2A-11 | 프론트 | 생성 명령의 결과는 채널 `cmd.result` 로 보낸다 |
 | TC-CH2A-12 | 프론트 | 깨어남(`online`·`focus`·`visible`)은 `channel.kick()` 이다: 닫혀 있으면 백오프를 무시하고 곧바로 연결, 열려 있으면 침묵일 때만 다시 연결 |
 | TC-CH2A-13 | 프론트 | 자산 판 확인은 `chan:open` 의 `server.assetVersion` 으로 한다 |
+| TC-CH2A-14 | 서버 | 허브가 명령 구독을 닫으면(큐 넘침) 채널이 닫힌다 (PERF 1.17) |
 
 ### 10.3 C2b — full·사건 토픽
 
@@ -252,7 +290,7 @@ C4 에 남긴 것: Git Console 탭의 기록 주기(`git/console.js`, 탭이 보
 - 서버는 "바뀌었을 수 있다"는 계기(관련 방송 — `tool_attention`·`tool_attention_clear`·`tool_activity`·`tool_subagent_activity`·`tools_background_changed`·`run_changed`·`workspace_changed`·`tool_foreground`, 사용률·서브에이전트 보고)마다 해당 토픽의 맵을 다시 계산해 지난번과 비교하고 다른 id 만 낸다. 계기는 `STATE_TOPIC_DEBOUNCE`(100 ms) 로 합친다. 방송은 명령 허브의 `set_broadcast_tap` 으로 엿본다.
 - `activity` 의 `working` 항목은 PTY 가 바쁠 때만 든다(`activity_snapshot` 의 busy 판정, GET 과 같다). 바쁨의 변화는 `tool_foreground` 방송으로 드러나므로 그 방송도 `activity`·`runs` 를 다시 계산한다. 이전 동작: 놀고 있는 PTY 의 `working` 카드가 다음 활동 주기(5초)까지 남았다 / 새 동작: 다음 계기(100 ms)에 거둔다 / 이유: 폴링 없이 서버 판정을 그대로 따른다.
 - `foreground` 는 이 단계에서 토픽으로 옮기지 않는다. 주기 폴링이 없고 재조회는 워크스페이스 적용 경로(`/api/state`)에 있다 — C2b 의 `workspace` 토픽이 함께 가져간다.
-- `stats` 의 주기는 토픽 이름에 싣는다(`stats:<ms>`). 서버는 구독 중인 주기 가운데 가장 짧은 것(하한 1초)으로 한 번 재서, 구독 중인 `stats:*` 모두에 같은 값을 낸다. **남는 서버 내부 주기 (FR-SRV-2)**: `stats` 측정 — 이유: CPU·메모리·가동 시간은 사건 없이 바뀐다. 주기: 구독자의 `statsInterval`(기본 3초, 하한 1초). 구독자가 없으면 돌지 않는다.
+- `stats` 의 주기는 토픽 이름에 싣는다(`stats:<ms>`). 서버는 구독 중인 주기 가운데 가장 짧은 것(하한 1초)으로 한 번 재서, 구독 중인 `stats:*` 모두에 같은 값을 낸다. **남는 서버 내부 주기 (FR-SRV-2)**: `stats` 측정 — 이유: CPU·메모리·가동 시간은 사건 없이 바뀐다. 주기: 구독자의 `statsInterval`(기본 3초, 하한 1초). 커널을 읽는 sysstat 샘플러(`cadence::SYSSTAT_SAMPLE_EVERY`, 2초)도 `stats:*` 구독이 있는 동안만 돈다 — 첫 구독에 띄우고 마지막 해지에 멈춘다. 첫 구독의 seed 는 예열 표본 둘(`SYSSTAT_WARMUP_GAP`, 250 ms 간격)을 기다려 CPU 를 싣고, 마지막 해지는 토픽 상태를 비워 다음 구독이 새로 잰 seed 를 받게 한다. 구독자가 없으면 둘 다 돌지 않는다 (PERF D-61, 4.10. 이전: 샘플러는 서버 수명 동안 2초마다 돌았다). `GET /api/stats` 는 메모리·디스크·부팅 시각을 그 자리에서 재고 CPU 는 구독 중 값이 있을 때만 싣는다.
 - git 작업 목록의 안전망(`/api/stats?jobs=1`)은 상태바 폴링과 함께 없어진다. `git.jobs` 토픽(C4)이 대신한다.
 
 ### 10.6 C5 — 터미널
@@ -262,16 +300,16 @@ C4 에 남긴 것: Git Console 탭의 기록 주기(`git/console.js`, 탭이 보
 | ID | 쪽 | 동작 |
 |---|---|---|
 | TC-CH5-1 | 서버 | `term.open` 에 `tool` 이 없으면 `cols`·`rows` 로 도구를 만들고 `[TOOLID][sid]` 로 id 를 알린다 |
-| TC-CH5-2 | 서버 | 있는 도구: `TOOLID` → `SIZE` → `REPLY_SEAT(1)` → 재생 `OUTPUT`(전량이면 초기화·클리어, 첫 줄까지 버림) → `SEQ(full)` 순서다. 모든 프레임 앞에 그 `sid` 가 붙는다 |
+| TC-CH5-2 | 서버 | 있는 도구: `TOOLID` → `SIZE` → `REPLY_SEAT(1)` → 맞춤 `OUTPUT` → `SEQ` 순서다. `since` 가 없거나 보유 창 밖이거나 `snap` 이면 맞춤은 화면 상태 스냅숏이고 `SEQ` 에 `FULL`·`SNAP` 이 선다(M2 개정, 이전: 전량 재생 — 초기화·클리어·첫 줄까지 버림). 모든 프레임 앞에 그 `sid` 가 붙는다 |
 | TC-CH5-3 | 서버 | `since` 가 보유 창 안이면 그 뒤만 보내고 `SEQ` 의 full 비트가 0 이다. 크기를 모르면 `SIZE` 를 보내지 않는다 |
 | TC-CH5-4 | 서버 | `[INPUT][sid]`·`[RESIZE][sid]` 는 그 sid 의 도구로 간다(브라우저 입력 시각도 남는다). 모르는 sid 는 버린다 |
 | TC-CH5-5 | 서버 | 없는 도구는 그 sid 에 `EXIT` 이고 채널은 남는다 |
 | TC-CH5-6 | 서버 | 출력은 보낸 끝을 따라 겹침을 잘라 이어 보내고, 크기 통보 앞의 출력을 먼저 보낸다 |
-| TC-CH5-7 | 서버 | 출력에 틈이 생기면 채널을 닫지 않고 그 sid 만 `since=보낸 끝` 재생 + `SEQ` 로 다시 맞춘다 |
+| TC-CH5-7 | 서버 | 출력에 틈이 생기면 채널을 닫지 않고 그 sid 만 화면 상태 스냅숏 + `SEQ` 로 다시 맞춘다(M2 2.6 개정, 이전: `since=보낸 끝` 재생) |
 | TC-CH5-8 | 서버 | 도구가 끝나면 그 sid 에 `EXIT` 이고 같은 채널의 다른 sid 는 계속 받는다 |
 | TC-CH5-9 | 서버 | 같은 도구에 두 채널이 붙으면 먼저 붙은 쪽이 좌석 주인이고, 그쪽이 `term.close` 하면 남은 쪽이 `REPLY_SEAT(1)` 을 받는다 |
 | TC-CH5-10 | 서버 | `term.close` 뒤에는 그 sid 로 아무것도 오지 않는다 |
-| TC-CH5-11 | 서버 | Outbox 는 sid 마다 브라우저가 가진 좌표(`SEQ` 로 세우고 그 뒤 `OUTPUT` 길이를 더함)를 꺼낸 프레임으로 따라간다. sid 의 밀린 양이 `TERM_PENDING_MAX`(1 MB)를 넘으면 그 sid 의 밀린 프레임만 버리고 그 좌표부터 다시 재생한다 |
+| TC-CH5-11 | 서버 | Outbox 는 sid 마다 밀린 바이트만 센다. sid 의 밀린 양이 `TERM_PENDING_MAX`(1 MB)를 넘으면 그 sid 의 밀린 출력만 버리고 화면 상태 스냅숏으로 다시 맞춘다(M2 2.6 개정, 이전: 브라우저 좌표를 따라가 그 좌표부터 재생) |
 | TC-CH5-12 | 서버 | 도구 구독이 끊기면 `term.lost{sid}` 를 보낸다 |
 | TC-CH5-13 | 서버 | 옛 `/ws` 종단이 없다 |
 | TC-CH5-14 | 프론트 | `open` 은 채널이 준비됐을 때 `term.open{sid,tool,cols,rows,since?}` 를 보내고, 아니면 다음 서버 `hello` 때 보낸다. 자기 sid 의 바이너리 프레임만 앞 5바이트를 뗀 꼴로 `_onOp` 에 넘긴다 |
@@ -308,10 +346,14 @@ C4 에 남긴 것: Git Console 탭의 기록 주기(`git/console.js`, 탭이 보
 - `TopicHub` 하나를 `Server` 가 갖는다(`self.topics`). 토픽마다 **지금 상태**를 든다: full 토픽은 마지막 값, delta 토픽은 `id → 값` 맵, event 토픽은 상태가 없다. 그래서 `full` 은 언제나 허브가 가진 상태에서 만든다.
 - 발행: `publish_full(topic, Value)`, `publish_delta(topic, Vec<DeltaOp>)`(`DeltaOp::Put{id,v}` · `DeltaOp::Del{id}`, 상태 맵에 적용한다), `publish_event(topic, Value)`. 발행마다 순번이 1 오르고 링(`TOPIC_RING`=64)에 들어간다. 구독자가 없어도 상태와 순번은 갱신한다.
 - 처음 상태: `register_seed(prefix, f)` — 상태가 아직 없는 토픽을 처음 구독할 때 `f(topic: String) -> BoxFuture<'static, Option<Seed>>` 를 불러 채운다(`Seed::Full(Value)` · `Seed::Map(BTreeMap<String,Value>)` · `Seed::Event` — 사건 토픽을 이름으로 등록한다). 서버가 필요하면 등록하는 쪽이 `Weak<Server>` 를 잡는다. seed 전에 들어온 delta 는 상태에 적용하지 않고(순번·링은 오른다), seed 하는 사이에 발행이 끼면 seed 를 다시 부른다(최대 3회). full 을 보낼 때 그 full 에 이미 든 밀린 변화는 버린다. `prefix` 는 `"workspace"` 처럼 정확한 이름이거나 `"git:"` 처럼 `:` 로 끝난다. seed 가 없는 토픽을 구독하면 `error{code:"unknown_topic"}` 다.
-- 채널 쪽: 채널마다 `Outbox` 하나. 차선 셋 — 제어 > 터미널 > 상태(§6). 상태 차선은 토픽마다 합친다(full 은 최신만, delta 가 `TOPIC_PENDING_MAX`=64 를 넘으면 full 로 바꾼다). 채널 전체 `CHANNEL_PENDING_MAX`=8 MB 를 넘으면 닫는다. 쓰기 태스크 하나가 Outbox 를 비운다.
+- 채널 쪽: 채널마다 `Outbox` 하나. 차선 넷 — 제어 > 터미널 > 위로 받기 > 상태(§6). 상태 차선은 토픽마다 합친다(full 은 최신만, delta 가 `TOPIC_PENDING_MAX`=64 를 넘으면 full 로 바꾼다). 채널 전체 `CHANNEL_PENDING_MAX`=8 MB 를 넘으면 닫는다. 쓰기 태스크 하나가 Outbox 를 비운다.
 - 메시지 처리: `sub`·`unsub` 을 C1 의 읽기 루프에 더한다. 재구독 판정은 §5.1(epoch 다름·링 밖 → full/reset, 링 안 → 이어지는 것, 같으면 없음).
-- 터미널 차선(C5): `term_begin(sid) -> 세션 번호`(밀린 프레임·좌표를 잊고 번호를 올린다), `push_term_as(번호, op, sid, payload)`(지금 세션이 아니면 버린다 — 바뀐 세션의 늦은 프레임이 새 재생 사이에 끼지 않는다), `term_state(sid) -> (밀린 바이트, 브라우저 좌표)`, `drop_term(sid)`, `forget_term(sid)`. 세션 코드는 `channel/term.rs` 다.
+- 터미널 차선(C5): `term_begin(sid) -> 세션 번호`(밀린 프레임을 잊고 번호를 올린다), `push_term_as(번호, op, sid, payload)`(지금 세션이 아니면 버린다 — 바뀐 세션의 늦은 프레임이 새 재생 사이에 끼지 않는다), `term_current(sid, 번호)`(지금 세션인가), `term_pending(sid) -> 밀린 바이트`, `drop_term_output(sid)`(밀린 출력만 버림), `forget_term(sid)`, `push_history(프레임)`(위로 받기 차선, M2). 도구 출력은 `push_shared_as(번호, op, sid, Bytes)` 로 넣어 본문을 복사하지 않는다(아래 "한 번 인코딩"). 세션 코드는 `channel/term.rs` 다.
 - 구독자가 생기고 없어지는 순간을 알 수 있게 `on_demand(prefix, f(topic, active: bool))` 를 둔다(`stats` 측정·git 감시 임대가 쓴다).
+- **한 번 인코딩(FR-SRV-1, M4 설계 §4·Q9).** 출력 하나·발행 하나의 직렬화와 프레임 본문 조립은 서버에서 한 번만 한다. 연결마다 하는 일은 셋뿐이다: 5바이트 머리(`op`·`sid`) 붙이기, permessage-deflate(연결마다 문맥이 다르다, D-12), 참조 계수 나누기.
+  - 상태 토픽: 발행한 프레임(`Item.frame: Arc<str>`)을 모든 구독 채널이 나눈다. full 은 `(토픽, 순번)` 마다 `Arc<Item>` 하나를 캐시한다 — 발행한 full, 새 구독의 full, 밀려서 바꾼 `NeedFull` 이 같은 순번이면 같은 `Arc` 다(사건 토픽의 reset 도 같다). 순번이 오르면 다음에 필요할 때 새로 만들고, 구독자가 없어 상태를 비우면(`stale_if_idle`) 캐시도 놓는다. 쓰기 태스크는 `Bytes::from_owner` 로 `Arc<str>` 를 복사 없이 `Message::Text` 에 넘긴다.
+  - 터미널 출력: 데몬 push 하나의 바이트는 toolclient 가 한 번 `bytes::Bytes` 로 만들고(`OutChunk.data`), 구독자마다 참조 계수만 나눈다. 중계(`channel/term.rs` `relay`)는 겹침을 잘라도 같은 버퍼의 조각(`slice_ref`)을 쓰고, 조각 하나면 그대로 Outbox 에 넣는다. 조각 여럿을 합칠 때(`RELAY_COALESCE_MAX` 안)만 채널마다 새 버퍼를 만든다. Outbox 는 `TermFrame{op, sid, payload}` 를 들고, 쓰기 태스크가 보낼 때 머리를 붙인다(`TermFrame::wire`).
+  - 남는 연결마다의 복사: WebSocket 구현(`sockudo-ws`)이 메시지 하나를 연속 바이트로 받으므로 머리와 본문을 잇는 복사 한 번과, 압축·프레이밍이 쓰기 버퍼에 쓰는 것은 연결마다 남는다. 시험: `topic_full_same_seq_serialized_once`(`Arc::ptr_eq`), `term_output_shared_across_subscribers`(본문 포인터가 데몬 버퍼와 같다), toolclient `output_shared_across_subscribers`.
 
 ### 11.2 프론트 (`web/js/core/channel.js`)
 

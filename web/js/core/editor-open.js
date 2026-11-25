@@ -140,11 +140,11 @@ class EditorOpen extends Controller {
    * EDITOR_DIRTY_DIFF_SRS FR-EDD-5: 이 파일의 변경 표시. 문서마다 하나이므로
    * 같은 파일을 두 칸에서 열어도 기준 취득과 계산은 한 번이다 (NFR-EDD-2).
    *
-   * `file-editor-diff.js` 가 없으면 `null` 이다 — 편집기가 그 경우를 그대로
-   * 지난다 (NFR-EDD-3).
+   * cm 묶음(`file-editor-diff.js`)이 실리기 전이면 `null` 이다 — 편집기가 그 경우를 그대로
+   * 지난다 (NFR-EDD-3, PERF 3.4.12.7).
    */
   edDirtyDiff(filePath){
-    if(typeof EdDirtyDiff!=='function') return null;
+    if(!Screens.ready('cm')) return null;
     const d=this.edDoc(filePath);
     if(!d.dd) d.dd=new EdDirtyDiff(this.app,filePath);
     return d.dd;
@@ -169,6 +169,13 @@ class EditorOpen extends Controller {
    * 게이트는 **탐색기의 사정**이지 열린 파일의 사정이 아니다 — 사이드를 바꿨다고
    * 보고 있는 파일이 낡아도 되는 것은 아니다.
    */
+  /** PERF 3.5.3: 문서의 뷰가 있고 모두 잠들었는가. 생명주기가 없는 뷰(git Diff)는 깬 것으로 본다. */
+  edDocAsleep(d){
+    if(!d||!d.views||!d.views.size) return false;
+    for(const v of d.views) if(v.asleep!==true) return false;
+    return true;
+  }
+
   _edVisibleDocPaths(){
     const seen=new Set();
     for(const s of (this.app.ws&&this.app.ws.windows)||[]){
@@ -177,7 +184,9 @@ class EditorOpen extends Controller {
       // 첫 회차가 낡음을 갚는다 (`visiblePoll` 의 복귀 갱신).
       if(!this.app.slot.windowVisible(s.id)) continue;
       for(const n of panesOf(s.layout)) for(const tab of (n.tabs||[])){
-        if(tab&&tab.type===TAB_TYPE_EDITOR&&tab.filePath) seen.add(tab.filePath);
+        // PERF 3.5.3 (FR-SPA-3): 모든 뷰가 잠든 문서는 묻지 않는다 — 첫 뷰가 깨면 한 번 묻는다(`ui/editor-view-life.js`).
+        if(tab&&tab.type===TAB_TYPE_EDITOR&&tab.filePath&&!this.edDocAsleep(this.app._edDocs&&this.app._edDocs.get(tab.filePath)))
+          seen.add(tab.filePath);
         // REPO_FIX 05 §3A-3: git Diff 탭의 작업 트리 쪽도 편집기 문서다 — 바깥 변경은
         // 문서 refresh 가 나른다(03). 빼면 Diff 만 연 파일이 낡는다.
         if(tab&&tab.type===TAB_TYPE_GIT&&tab.gitView==='diff')
@@ -294,7 +303,8 @@ class EditorOpen extends Controller {
    *   이전 동작: 방송을 듣는 것은 Git 관측기뿐이었다. 탐색기의 색은 다음 3초 틱까지
    *             몰랐고, 그 틱은 변화가 없어도 status 전량을 받았다
    *   새  동작: 방송이 가리키는 저장소를 보는 탐색기가 곧바로 묻는다. 주기 status 는
-   *             안전망(`gitStatusInterval`)으로 내렸다
+   *             안전망(`gitStatusInterval`)으로 내렸다 — 이슈 1.14·1.15 뒤로는 그 안전망도 없다.
+   *             변화는 채널 `git:<root>` 토픽이 알린다
    *   이유:     서버는 이미 안다 (GIT_PUSH_OBSERVE_SRS)
    *
    * 판정은 Git 관측기와 같다 — 요청한 루트 또는 서버가 푼 저장소 루트가 방송의 것과
@@ -322,6 +332,8 @@ class EditorOpen extends Controller {
    * 때문이다 (D-5). 마지막 뷰가 떠날 때 store 가 스스로 이 맵에서 빠진다.
    */
   edStore(root){
+    // PERF 3.4.7: 관측·시선은 `editor` 묶음이다. 부르는 쪽(탐색기·`_rSide`)이 먼저 묻지만 여기서도 막는다.
+    if(!Screens.ready('editor')) return null;
     if(!this.app.edStores) this.app.edStores=new Map();
     let st=this.app.edStores.get(root);
     if(!st){st=new FileTreeStore(this.app,root);this.app.edStores.set(root,st)}
@@ -337,6 +349,7 @@ class EditorOpen extends Controller {
    * 것이 접수된 결함의 절반이었다.
    */
   edTree(s,slot){
+    if(!Screens.ready('editor')) return null;
     if(!this.app._edTrees) this.app._edTrees=new Map();
     // 회수의 주 자리는 `_edReapTrees`(재조정)다. 여기서 한 번 더 부르는 것은
     // 재조정을 지나지 않는 경로로 창이 사라졌을 때의 그물이다.

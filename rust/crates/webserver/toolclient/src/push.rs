@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard, Weak};
 
+use bytes::Bytes;
 use otter_shared_otterlog::warnf;
 use otter_shared_toolhub::{ExitInfo, OutChunk, TermSize};
 use otter_shared_toolipc::{
@@ -154,7 +155,7 @@ impl Inner {
     }
 
     /// 해석층(on_output)에 한 번, 구독한 브라우저마다 한 번. 느린 구독자 하나가 읽기 루프를
-    /// 세우지 않게 막지 않고 떨어뜨린다 (FR-18).
+    /// 세우지 않게 막지 않고 떨어뜨린다 (FR-18). 바이트는 한 번 복사해 구독자들이 나눈다 (PERF M4 §4).
     fn push_output(&self, m: &WireMsg) {
         let cb = lock(&self.st).cbs.on_output.clone();
         if let Some(cb) = cb {
@@ -162,9 +163,10 @@ impl Inner {
         }
         let mut dropped = 0;
         if let Some(subs) = self.read_subs().get(&m.tool) {
+            let data = Bytes::copy_from_slice(&m.data);
             for s in subs.values() {
                 let chunk = OutChunk {
-                    data: m.data.clone(),
+                    data: data.clone(),
                     end: m.end,
                     size: None,
                 };

@@ -9,13 +9,14 @@ import { load } from './harness.mjs';
  *   TC-RLV-5  주기 실행은 살아 있는 뷰만 받고 사라진 뷰는 정리한다 (FR-RLV-7·8)
  *   TC-RLV-6  상태 등록부의 `run.views` 주기 (FR-RLV-7)
  */
-const ctx = load(['ui/runs-panel.js'], {
+const ctx = load(['core/screens.js', 'ui/runs-panel.js', 'ui/run-view.js'], {
   globals: { t: (k) => k, panesOf: () => [], TIMERS: { cancel() {} } },
   expose: ['RunsPanel'],
 });
 
 function panel(views, live, list = []) {
-  const p = new ctx.RunsPanel({ ws: { windows: [] }, slot: { slotBase: (k) => k } });
+  // `renderer.life` — 사라진 뷰는 생명주기에서도 빠진다 (PERF M3 §3.5).
+  const p = new ctx.RunsPanel({ ws: { windows: [] }, slot: { slotBase: (k) => k }, renderer: { life: { unmount() {} } } });
   const fetched = [];
   let soon = 0;
   p._runsRefreshSoon = () => { soon++ };
@@ -80,7 +81,7 @@ function topicPanel() {
   const subs = new Map();
   const stopped = [];
   const p = new ctx.RunsPanel({
-    ws: { windows: [] }, slot: { slotBase: (k) => k },
+    ws: { windows: [] }, slot: { slotBase: (k) => k }, renderer: { life: { unmount() {} } },
     channel: { sub: (topic, fn) => { subs.set(topic, fn); return { stop: () => stopped.push(topic) } } },
   });
   const painted = [];

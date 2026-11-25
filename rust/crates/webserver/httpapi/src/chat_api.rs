@@ -176,7 +176,7 @@ impl Server {
             if let Some(m) = &ev.chat
                 && let Some(c) = self.commands()
             {
-                c.broadcast(&otter_webserver_sse::payload(
+                c.broadcast(&otter_webserver_envelope::payload(
                     "chat_message",
                     Some(&ChatMsgArgs { msg: m }),
                 ));

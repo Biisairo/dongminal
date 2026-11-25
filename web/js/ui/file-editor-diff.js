@@ -32,8 +32,10 @@
  *   line·count            현재 버퍼 쪽. `del` 은 남은 줄이 없으므로 count 가 0 이고
  *                         line 은 지워진 자리에 **오게 된** 줄이다
  *   baseStart·baseCount   기준 쪽. `add` 는 기준에 없던 자리이므로 count 가 0 이다
+ *
+ * `maxEdits` 는 Git Diff 뷰가 자기 상한(`GIT_DIFF_LINE_MAX_EDITS`)을 줄 때 쓴다. 없으면 편집기의 상한이다.
  */
-function edDiffLines(base,cur){
+function edDiffLines(base,cur,maxEdits){
   const a=base||[],b=cur||[];
   if(a.length>ED_DD_MAX_LINES||b.length>ED_DD_MAX_LINES) return {ok:false,changes:[]};
   // 공통 접두·접미를 걷어낸다. 편집 중의 흔한 경우(한 곳만 고친다)가 이 두 줄에서
@@ -44,7 +46,7 @@ function edDiffLines(base,cur){
   let hiA=n,hiB=m;
   while(hiA>lo&&hiB>lo&&a[hiA-1]===b[hiB-1]){hiA--;hiB--}
   if(hiA===lo&&hiB===lo) return {ok:true,changes:[]};
-  const matches=edDdMyers(a.slice(lo,hiA),b.slice(lo,hiB),ED_DD_MAX_EDITS);
+  const matches=edDdMyers(a.slice(lo,hiA),b.slice(lo,hiB),maxEdits||ED_DD_MAX_EDITS);
   if(!matches) return {ok:false,changes:[]};
 
   const changes=[];
@@ -399,7 +401,8 @@ class EdDirtyDiff{
   _paint(changes){
     for(const v of this.views){
       const view=v&&v._view;
-      if(!view) continue;
+      // PERF 3.5.3: 잠든 칸은 깰 때 다시 계산해 칠한다.
+      if(!view||v.asleep) continue;
       view.dispatch({effects:edDdField().set.of(edDdLineMarks(view.state.doc,changes))});
     }
   }

@@ -59,6 +59,8 @@ enum State {
 struct Topic {
     seq: u64,
     state: Option<State>,
+    /// 지금 순번의 full(사건 토픽은 reset). 순번이 같으면 다시 직렬화하지 않고 나눈다 (M4 §4).
+    full: Option<Arc<Item>>,
     ring: VecDeque<Arc<Item>>,
     subs: HashMap<u64, Weak<Outbox>>,
 }
@@ -121,19 +123,24 @@ fn state_value(st: &State) -> Option<Value> {
 }
 
 impl Topic {
-    fn full_item(&self, name: &str) -> Option<Arc<Item>> {
-        match self.state.as_ref()? {
-            State::Event => Some(reset_item(name, self.seq)),
+    fn full_item(&mut self, name: &str) -> Option<Arc<Item>> {
+        if let Some(it) = self.full.as_ref().filter(|it| it.seq == self.seq) {
+            return Some(it.clone());
+        }
+        let it = match self.state.as_ref()? {
+            State::Event => reset_item(name, self.seq),
             st => {
                 let data = state_value(st)?;
-                Some(item(
+                item(
                     name,
                     self.seq,
                     ItemKind::Full,
                     json!({"t":"full","topic":name,"seq":self.seq,"data":data}),
-                ))
+                )
             }
-        }
+        };
+        self.full = Some(it.clone());
+        Some(it)
     }
 
     /// 순번을 올리고 링과 구독자에게 보낸다.
@@ -151,37 +158,24 @@ impl Topic {
         });
     }
 
-    /// 재구독 판정 (§5.1). 보낼 것들을 순서대로 돌려준다.
-    fn catch_up(&self, name: &str, seq: Option<u64>, epoch: Option<&str>) -> Vec<Arc<Item>> {
-        let event = matches!(self.state, Some(State::Event));
-        let fresh = || -> Vec<Arc<Item>> {
-            if event {
-                Vec::new()
-            } else {
-                self.full_item(name).into_iter().collect()
-            }
-        };
+    /// 재구독 판정 (§5.1). 보낼 것들을 순서대로 돌려준다. 못 이으면 full(사건 토픽은 reset)이다.
+    fn catch_up(&mut self, name: &str, seq: Option<u64>, epoch: Option<&str>) -> Vec<Arc<Item>> {
         let Some(s) = seq else {
-            return fresh();
-        };
-        let stale = || -> Vec<Arc<Item>> {
-            if event {
-                vec![reset_item(name, self.seq)]
-            } else {
-                fresh()
+            if matches!(self.state, Some(State::Event)) {
+                return Vec::new();
             }
+            return self.full_item(name).into_iter().collect();
         };
-        if epoch != Some(EPOCH.as_str()) || s > self.seq {
-            return stale();
+        if epoch == Some(EPOCH.as_str()) && s <= self.seq {
+            if s == self.seq {
+                return Vec::new();
+            }
+            let oldest = self.ring.front().map_or(self.seq + 1, |it| it.seq);
+            if s + 1 >= oldest {
+                return self.ring.iter().filter(|it| it.seq > s).cloned().collect();
+            }
         }
-        if s == self.seq {
-            return Vec::new();
-        }
-        let oldest = self.ring.front().map_or(self.seq + 1, |it| it.seq);
-        if s + 1 < oldest {
-            return stale();
-        }
-        self.ring.iter().filter(|it| it.seq > s).cloned().collect()
+        self.full_item(name).into_iter().collect()
     }
 }
 
@@ -213,6 +207,7 @@ impl TopicHub {
             json!({"t":"full","topic":topic,"seq":t.seq,"data":data}),
         );
         t.state = Some(State::Full(data));
+        t.full = Some(it.clone());
         t.emit(it);
     }
 
@@ -268,7 +263,7 @@ impl TopicHub {
 
     /// 지금 상태로 만든 full(사건 토픽은 reset). 상태가 없으면 `None`.
     pub(crate) fn full_item(&self, topic: &str) -> Option<Arc<Item>> {
-        lock(&self.topics).get(topic)?.full_item(topic)
+        lock(&self.topics).get_mut(topic)?.full_item(topic)
     }
 
     fn seed_fn(&self, topic: &str) -> Option<SeedFn> {
@@ -376,6 +371,7 @@ impl TopicHub {
         if t.state.take().is_some() {
             t.seq += 1;
             t.ring.clear();
+            t.full = None;
         }
         true
     }

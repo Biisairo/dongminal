@@ -181,9 +181,11 @@ test.describe('RAIL_CHAT_USAGE 레일의 채팅·사용량', () => {
     await waitForInit(page, { mode: 'desktop' });
     const rows = page.locator('#sidebar .sbl-item.si');
     const n = await rows.count();
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate(() => (window as any).app.testing.execRemote('newWindow', {}));
     await expect(rows).toHaveCount(n + 1);
     // 첫 창을 `ccr#32` 로 — 활성은 새 창이다.
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate(() => (window as any).app.testing.execRemote('renameWindow', { location: 'W1.P1.T1', name: 'ccr#32' }));
     const target = rows.filter({ hasText: 'ccr#32' });
     await expect(target).toHaveCount(1);
@@ -216,9 +218,11 @@ test.describe('RAIL_CHAT_USAGE 레일의 채팅·사용량', () => {
     await waitForInit(page, { mode: 'desktop' });
     const rows = page.locator('#sidebar .sbl-item.si');
     const n = await rows.count();
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate(() => (window as any).app.testing.execRemote('newWindow', {}));
     await expect(rows).toHaveCount(n + 1);
     const name = '아주긴한글창이름입니다정말로깁니다';
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate((nm) => (window as any).app.testing.execRemote('renameWindow', { location: 'W1.P1.T1', name: nm }), name);
     await expect(rows.filter({ hasText: name })).toHaveCount(1);
     await page.locator('#sidebar .sb-collapse').click();

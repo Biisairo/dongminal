@@ -1,4 +1,4 @@
-//! 터미널 모드의 추적과 복원 (TERMINAL_MODE_RESTORE_SRS 묶음 M·R).
+//! 터미널 모드의 추적 (TERMINAL_MODE_RESTORE_SRS 묶음 M). 복원은 화면 상태 스냅숏이 한다 (PERF FR-TRM-4).
 
 use serde::{Deserialize, Serialize};
 
@@ -6,7 +6,7 @@ use crate::classify_esc;
 
 const MODE_BRACKETED_PASTE: i64 = 2004;
 const MODE_FOCUS_EVENT: i64 = 1004;
-/// 대체 화면 신호다 (FR-TRS-18b). 관측만 하고 복원하지 않는다.
+/// 대체 화면 신호다 (FR-TRS-18b).
 const ALT_SCREEN_MODES: [i64; 3] = [1049, 47, 1047];
 const MOUSE_PROTOCOLS: [i64; 4] = [9, 1000, 1002, 1003];
 const MOUSE_ENCODINGS: [i64; 3] = [1005, 1006, 1015];
@@ -30,31 +30,12 @@ pub struct TermModes {
     pub mouse_encoding: i64,
     #[serde(rename = "focusEvent")]
     pub focus_event: bool,
-    /// 대체 화면 안인지다. 복원하지 않는다.
+    /// 대체 화면 안인지다.
     #[serde(rename = "altScreen")]
     pub alt_screen: bool,
 }
 
 impl TermModes {
-    /// 켜진 모드를 다시 세우는 바이트다 (FR-TMR-20·22·23). 프로토콜 → 인코딩 → 나머지.
-    pub fn restore_bytes(&self) -> Vec<u8> {
-        let mut out = Vec::new();
-        let mut set = |n: i64| out.extend_from_slice(format!("\x1b[?{n}h").as_bytes());
-        if self.mouse_protocol != 0 {
-            set(self.mouse_protocol);
-        }
-        if self.mouse_encoding != 0 {
-            set(self.mouse_encoding);
-        }
-        if self.bracketed_paste {
-            set(MODE_BRACKETED_PASTE);
-        }
-        if self.focus_event {
-            set(MODE_FOCUS_EVENT);
-        }
-        out
-    }
-
     /// 원자값(`AtomicU64`)으로 나르기 위한 포장이다 (FR-TMR-7). 0 은 전부 꺼짐이다.
     pub fn pack(&self) -> u64 {
         let mut v =
@@ -137,27 +118,6 @@ pub fn scan_modes(scan: &[u8], mut cur: TermModes) -> (TermModes, Option<Vec<u8>
         }
     }
     (cur, None)
-}
-
-/// 출력 b 의 앞머리가 대체 화면 안이었는지다 (FR-TRS-10a). 전환이 없으면 alt_now.
-pub fn alt_screen_at_head(b: &[u8], alt_now: bool) -> bool {
-    let mut params = Vec::with_capacity(8);
-    let mut i = 0;
-    while i < b.len() {
-        let Some(j) = b[i..].iter().position(|&c| c == 0x1b) else {
-            break;
-        };
-        let start = i + j;
-        let Parse::Ok { on, end } = parse_private_mode(&b[start..], &mut params) else {
-            i = start + 1;
-            continue;
-        };
-        if params.iter().any(|n| ALT_SCREEN_MODES.contains(n)) {
-            return !on;
-        }
-        i = start + end;
-    }
-    alt_now
 }
 
 enum Parse {
@@ -302,23 +262,7 @@ mod tests {
     }
 
     #[test]
-    fn restore_bytes() {
-        let m = TermModes {
-            bracketed_paste: true,
-            mouse_protocol: 1002,
-            mouse_encoding: 1006,
-            focus_event: true,
-            alt_screen: false,
-        };
-        assert_eq!(
-            m.restore_bytes(),
-            b"\x1b[?1002h\x1b[?1006h\x1b[?2004h\x1b[?1004h"
-        );
-        assert!(TermModes::default().restore_bytes().is_empty());
-    }
-
-    #[test]
-    fn restore_round_trips() {
+    fn observe_and_pack_round_trip() {
         let want = TermModes {
             bracketed_paste: true,
             mouse_protocol: 1003,
@@ -326,29 +270,16 @@ mod tests {
             focus_event: true,
             alt_screen: false,
         };
-        let restored = String::from_utf8(want.restore_bytes()).unwrap();
-        assert_eq!(modes_after(&[&restored]), want);
+        let seq = "\x1b[?1003h\x1b[?1015h\x1b[?2004h\x1b[?1004h";
+        assert_eq!(modes_after(&[seq]), want);
         assert_eq!(TermModes::unpack(want.pack()), want);
     }
 
     #[test]
-    fn alt_screen_observed_not_restored() {
+    fn alt_screen_observed() {
         for n in ["\x1b[?1049h", "\x1b[?47h", "\x1b[?1047h"] {
             assert!(modes_after(&[n]).alt_screen, "{n:?}");
         }
         assert!(!modes_after(&["\x1b[?1049h", "\x1b[?1049l"]).alt_screen);
-        let m = TermModes {
-            alt_screen: true,
-            bracketed_paste: true,
-            ..Default::default()
-        };
-        assert_eq!(m.restore_bytes(), b"\x1b[?2004h");
-    }
-
-    #[test]
-    fn alt_screen_at_head_cases() {
-        assert!(alt_screen_at_head(b"x\x1b[?1049lprompt", false));
-        assert!(!alt_screen_at_head(b"x\x1b[?1049hvim", true));
-        assert!(alt_screen_at_head(b"plain", true));
     }
 }

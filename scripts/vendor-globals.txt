@@ -1,0 +1,11 @@
+# vendor UMD 가 다는 전역 (PERF 3.4.12.1, scripts/check-lazy-boundary.mjs).
+#
+# UMD 는 `e.markdownit = t()` 처럼 전역을 속성으로 단다. 최상위 선언이 아니라서 경계 게이트가
+# 파일을 읽어서는 이 이름을 보지 못한다. 여기 적은 전역은 그 파일이 든 묶음의 전역으로 본다.
+# 소속은 정의에서 찾는다 — index.html 이 직접 싣거나 부팅 묶음에 들면 부팅(위반 없음), 페이지가
+# 싣지 않는 묶음에 들면 그 묶음이다. 페이지에도 정의에도 없는 파일을 적으면 게이트가 실패한다.
+#
+# 형식: <web/ 기준 파일> <전역 이름>…
+vendor/markdown-it.js markdownit
+vendor/purify.js DOMPurify
+vendor/addon-search.js SearchAddon

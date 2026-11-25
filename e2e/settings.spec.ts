@@ -1,4 +1,15 @@
+import { Page } from '@playwright/test';
+
 import { test, expect, waitForInit } from './fixtures';
+
+/**
+ * 설정 창을 한 번 세우고 닫는다 (PERF D-41). 섹션은 설정을 처음 열 때 서므로, 섹션의 계약(`savePreset` 등)을 부르는
+ * 스펙은 먼저 이것을 기다린다.
+ */
+const settingsBuilt = (page: Page) => page.evaluate(async () => {
+  await (window as any).app.testing.openSettings();
+  (document.getElementById('modal-close') as HTMLElement).click();
+});
 
 test.describe('Settings & configuration', () => {
   test('settings modal opens and closes', async ({ page }) => {
@@ -115,6 +126,7 @@ test.describe('레이아웃 프리셋과 Editor 창', () => {
 
   test('Editor 창이 활성이어도 layout:null 이 저장되지 않는다', async ({ page }) => {
     await waitForInit(page);
+    await settingsBuilt(page);
     const got = await page.evaluate(() => {
       const a = (window as any).app;
       (window as any).layoutPresets.length = 0;
@@ -139,6 +151,7 @@ test.describe('레이아웃 프리셋과 Editor 창', () => {
 
   test('저장할 일반 창이 없으면 저장하지 않고 사유를 남긴다', async ({ page }) => {
     await waitForInit(page);
+    await settingsBuilt(page);
     const got = await page.evaluate(() => {
       const a = (window as any).app;
       (window as any).layoutPresets.length = 0;
@@ -352,6 +365,7 @@ test.describe('설정 모달의 가로 (FR-UIK-14)', () => {
 test.describe('프리셋 삭제 확인 (FUI-25)', () => {
   test('× 는 묻고, 아니오는 남기고, 예는 지운다', async ({ page }) => {
     await waitForInit(page);
+    await settingsBuilt(page);
     await page.evaluate(() => { (window as any).app.testing.savePreset() });
     await page.click('#settings-btn');
     await page.click('.mtab[data-tab="presets"]');

@@ -5,6 +5,7 @@
  * 있도록" 이다. 앞부분은 이미 참이었다 — 주기의 진실은 `STATE_REGISTRY` 의 선언과
  * `constants-git.js` 의 상수 몇으로 모여 있었다. 참이 아니던 것은 뒷부분이다:
  * 다섯 중 둘만 화면에서 바꿀 수 있었고, 그 둘조차 서로 다른 탭에 있었다.
+ * (PERF M4 뒤로 남은 주기는 `statsInterval` 하나다. 나머지는 채널 토픽과 서버의 파일 감시가 대신한다.)
  *
  * **표 하나가 전부를 진다** (FR-PIS-6·7·10). 값을 읽는 자리·쓰는 자리·선택지·
  * 설명이 한 행에 있으므로, 주기를 더할 때 고치는 곳이 이 배열 하나다. 흩어 두면
@@ -34,13 +35,6 @@ const POLL_SETTINGS=[
     hint:t('poll.stats.hint'),
     get:()=>statsInterval, set:v=>{statsInterval=v},
     opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[3000,tn('core.dur_sec',3)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
-  },
-  {
-    // EDITOR_LIVE_RELOAD_SRS FR-ELR-76: 서버의 워크트리 회차 간격. 저장하면 서버가 다음 회차부터 쓴다.
-    key:'gitWorktreeInterval', id:'pi-gitworktree', label:t('poll.git_worktree.label'),
-    hint:t('poll.git_worktree.hint'),
-    get:()=>gitWorktreeInterval, set:v=>{gitWorktreeInterval=v},
-    opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[4000,tn('core.dur_sec',4)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
   },
 ];
 

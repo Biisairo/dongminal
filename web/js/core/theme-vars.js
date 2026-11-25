@@ -2,7 +2,7 @@
  * Remote Terminal — 테마 변수 계산·적용
  *
  * OPTIMIZE_REFACTOR_SRS FR-OPT-11-6 (FEC-24): 옛 helpers.js 에서 주제별로 갈라 왔다. 본문은
- * 바꾸지 않았다. index.html 이 옛 helpers.js 자리에 같은 순서로 싣는다.
+ * 바꾸지 않았다. `web/bundles.txt` 가 옛 helpers.js 자리에 같은 순서로 싣는다.
  */
 
 // ── Theme helpers ──
@@ -287,10 +287,12 @@ function applyThemeObj(raw){
   TOPTS.theme=theme.terminal;
   document.getElementById('area').style.background=ui.bg;
   for(const p of app.tools.values()){if(p.term)p.term.options.theme=theme.terminal}
-  if(typeof FileEditor!=='undefined'&&FileEditor.applyTheme) FileEditor.applyTheme();
+  // PERF 3.4.7: 편집기는 `editor` 묶음이다. 실리기 전에는 다시 칠할 편집기가 없다.
+  if(Screens.ready('editor')) FileEditor.applyTheme();
   // FR-GIT-119: 레인 색은 테마 팔레트에서 파생한다 — 테마를 바꾸면 그래프도
   // 따라 바뀐다 (V47).
-  if(typeof GitHistory!=='undefined'&&GitHistory.applyTheme) GitHistory.applyTheme();
+  // PERF D-30: History 는 git 묶음에 있다. 아직 실리지 않았으면 칠할 목록도 없다.
+  if(Screens.ready('git')) GitHistory.applyTheme();
 }
 
 function getCurrentTheme(){return customTheme||THEMES[currentThemeName]}

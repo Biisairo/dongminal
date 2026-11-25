@@ -1,6 +1,7 @@
 mod access;
 mod attention;
 mod attnenv;
+mod bundles;
 mod channel;
 mod channel_cmd;
 mod claude_accounts;
@@ -25,6 +26,7 @@ mod golden_558a;
 mod golden_559;
 mod golden_files;
 mod info_api;
+mod js_strip;
 mod lsp;
 mod mimetable;
 mod mux;

@@ -23,7 +23,7 @@ R3 는 동작을 바꾸지 않고 큰 함수·클래스를 나눈다. R3a 는 �
 
 | 말 | 뜻 |
 |---|---|
-| 적용기 | `_applyRemoteWorkspace`. 원격 스냅샷(`sv`)을 앱 워크스페이스로 받아들이는 한 목. SSE 경로(`_onWorkspaceChanged`)와 409 채택(`_saveAdoptRemote`)이 함께 지난다 |
+| 적용기 | `_applyRemoteWorkspace`. 원격 스냅샷(`sv`)을 앱 워크스페이스로 받아들이는 한 목. SSE 경로(`_onWorkspaceChanged`, 2026-11-24 PERF M1 뒤로는 채널 `workspace` 토픽)와 409 채택(`_saveAdoptRemote`)이 함께 지난다 |
 | 비행 | `save` 의 `run` 한 번. `_saveInflight` 가 참인 동안 |
 | 로컬 시선 | 이 브라우저가 보는 자리 — 활성 창, 창마다 포커스 칸, 칸마다 보는 탭, Git 창의 리포 |
 | 되쓰기 | 적용기가 받은 스냅샷을 고쳤을 때 그 결과를 서버에 다시 쓰는 `save()` 한 번 |

@@ -74,6 +74,24 @@ fn shutdown_steps_cancels_git_root_first() {
     );
 }
 
+// PERF 4.8(설계 §1 S4·S5): 서버는 L2 스위퍼와 옛 데몬 전경 poll 에 주기 틱을 만들지 않는다.
+#[test]
+fn run_creates_no_server_ticks() {
+    let src = include_str!("mod.rs");
+    for banned in [
+        "ticker(",
+        "interval(",
+        "interval_at(",
+        "start_sweeper(",
+        "start_foreground_poll(",
+    ] {
+        assert!(
+            !src.contains(banned),
+            "serve/mod.rs 가 주기 틱을 만든다: {banned}"
+        );
+    }
+}
+
 // C7: UI 서버가 종료 신호 없이 실패해도(포트 사용 중) 노드 포트를 닫고 기다린다.
 #[tokio::test]
 async fn start_edge_scoped_closes_without_cancel() {
@@ -111,6 +129,13 @@ impl otter_webserver_seam_adapters::ToolSource for NoTools {
         &self,
         _: &str,
     ) -> Result<otter_shared_toolhub::ToolSnapshot, otter_webserver_seam_toolaccess::Error> {
+        Err("없다".into())
+    }
+    fn screen_text(
+        &self,
+        _: &str,
+        _: usize,
+    ) -> Result<String, otter_webserver_seam_toolaccess::Error> {
         Err("없다".into())
     }
     fn send_paste(

@@ -174,6 +174,11 @@ cd otterminal
 - 돌고 있는 데몬이 교체를 모르는 옛 판이면, `start` 는 서버만 다시 띄우고 그 사실을
   알립니다. 이때는 한 번만 `otterminal start --refresh-daemon` 으로 데몬을 새로 띄웁니다
   (터미널 세션을 잃습니다). 그 뒤로는 `start` 가 교체합니다.
+- 인계 판이 2 로 올랐습니다(서버 화면 상태를 넘기기 위해서). 그 전 판의 데몬은 새
+  바이너리의 판이 달라 교체를 거절하고, `start` 는 서버·데몬·세션을 그대로 두고 종료
+  코드 1로 끝납니다. 이때도 한 번만 `otterminal start --refresh-daemon` 으로 데몬을 새로
+  띄웁니다(터미널 세션을 잃습니다). 새 서버는 옛 판의 데몬과 함께 쓰지 않습니다 —
+  `--server-only` 로 옛 데몬에 붙이면 터미널이 열리지 않습니다.
 - 세션 유지 교체는 macOS·Linux 에서만 됩니다. Windows 의 `start` 는 교체를 거절받고
   아무것도 끄지 않은 채 끝납니다. Windows 에서는 `--server-only` 나 `--refresh-daemon`
   을 씁니다.
@@ -288,7 +293,7 @@ otterminal config get                # 지금 바인드와 server.json 의 값
 
 서버는 자기 이름을 운영체제 컴퓨터 이름으로만 압니다. 그것이 접속에 쓰는 이름과 다르면
 (예: macOS 컴퓨터 이름은 `MyMac`, Tailscale 노드 이름은 `macmini-office`) **정적 화면은
-뜨지만 `/api/*`·`/ws` 가 421 로 끊깁니다.** 그 이름을 이 칸에 넣으면 통합니다.
+뜨지만 `/api/*`·`/channel` 이 421 로 끊깁니다.** 그 이름을 이 칸에 넣으면 통합니다.
 
 | 넣는 값 | 예 |
 |---|---|
@@ -364,6 +369,7 @@ CI 가 잡습니다 (`scripts/check-env-docs.sh`) — 문서는 조용히 낡으
 | `OTTERMINAL_ATTENTION_IDLE_MS` | `10000` | 도구가 이만큼 조용하면 "대기" 로 봅니다(L2 판정). `0` 이면 그 판정을 끕니다 |
 | `OTTERMINAL_ATTENTION_BELL` | (꺼짐) | `1` 이면 맨 BEL(`\a`) 하나도 주의 신호로 셉니다. 기본이 꺼짐인 것은 BEL 이 시끄럽기 때문입니다 — 탭 자동완성 하나에도 울립니다 |
 | `OTTERMINAL_CMD_RESULT_TIMEOUT_MS` | `3000` | 명령 결과를 기다리는 long-poll 상한 |
+| `OTTERMINAL_SCREEN_IDLE_COMPACT_MS` | `300000` | 터미널 출력이 이만큼 멈추면 데몬이 그 터미널의 화면 위 기록을 압축한 줄 저장소로 옮겨 메모리를 줄입니다. 검사에서 시간을 당길 때 씁니다 |
 | `OTTERMINAL_URL_OPEN` | (자동 판정) | `local` 또는 `viewer`. 서버가 URL 을 **어디서** 열지의 판정을 강제합니다 |
 
 ### 빌드
@@ -546,4 +552,4 @@ Backup 의 내보내기에 들어가지 않습니다.
 - 단축키 커스터마이징: [shortcuts.md](./shortcuts.md)
 - 터미널 안에서 쓰는 `otterctl` / `edit` / `download` CLI: [commands.md](./commands.md)
 - 에이전트 오케스트레이션: [agent-orchestration.md](./agent-orchestration.md)
-- HTTP/WebSocket/SSE/OSC: [api.md](./api.md)
+- HTTP/WebSocket(채널)/OSC: [api.md](./api.md)

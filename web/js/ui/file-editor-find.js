@@ -268,6 +268,7 @@ const ED_FIND_MIXIN = {
   findClose() {
     const p = this._find;
     if (!p) return;
+    this._findStop();
     p.classList.remove('vis');
     p.classList.remove('bad-re');
     this._findHits = [];
@@ -289,6 +290,7 @@ const ED_FIND_MIXIN = {
     const p = this._find;
     const eng = this._findEngine();
     if (!p || !eng) return;
+    this._findStop();
     const query = p.querySelector('.fe-find-q').value;
     const o = this._findOpts;
     p.classList.remove('bad-re');
@@ -313,9 +315,44 @@ const ED_FIND_MIXIN = {
     }
     // FR-EFP-21 / D-2: 세 옵션이 엔진의 인자로 그대로 간다. FR-ERS-6: 캡처는
     // **정규식일 때만** 모은다 — 일치마다 `caps` 로 실린다.
-    this._findHits = eng.hits(query, o);
-    const n = this._findHits.length;
+    const scan = eng.scan(query, o);
+    scan.step(ED_FIND_CHUNK_LINES);
+    if (scan.done) { this._findShow(scan.hits, keep, 0); return }
+    // PERF_OPTIMIZATION_SRS FR-SPA-5 (이슈 3.3): 묶음 하나로 안 끝나는 큰 문서는 보이는 구간을 먼저 칠하고(현재 일치 없음),
+    // 입력이 멎으면 나머지를 예산 안의 조각으로 센다. 종전에는 글자마다 문서 전체를 한 작업에서 셌다(2만 줄 50~60 ms).
+    this._findScan = scan;
+    this._findKeep = !!keep;
+    this._findHits = [];
+    eng.paint(eng.visibleHits(query, o), -1);
+    this._findCount(ED_FIND_BUSY);
+    this._findPaintReplaceEnabled();
+    this._findT = TIMERS.after(ED_FIND_DEBOUNCE_MS, () => this._findSlice(), { owner: this, label: 'find' });
+  },
+
+  // 조각 하나 — 예산을 넘기면 나머지는 다음 작업으로 미룬다. `all`(바꾸기는 목록 전체가 필요하다)은 마저 센다.
+  _findSlice(all) {
+    const scan = this._findScan;
+    if (!scan) return;
+    if (!this._findEngine()) { this._findStop(); return }
+    const t0 = performance.now();
+    do scan.step(all ? Infinity : ED_FIND_CHUNK_LINES); while (!scan.done && performance.now() - t0 < ED_FIND_SLICE_MS);
+    if (!scan.done) { this._findT = TIMERS.defer(() => this._findSlice(), { owner: this, label: 'find' }); return }
+    const keep = this._findKeep, d = this._findMovePend;
+    this._findStop();
+    this._findShow(scan.hits, keep, d);
+  },
+
+  _findStop() { TIMERS.cancel(this._findT); this._findT = this._findScan = null; this._findMovePend = 0 },
+
+  // 다 센 일치를 싣는다. `d` 는 세는 동안 누른 다음/이전의 합이다.
+  _findShow(hits, keep, d) {
+    this._findHits = hits;
+    const n = hits.length;
     this._findCur = n ? (keep ? Math.min(this._findCur, n - 1) : this._findCur) : 0;
+    if (n && d) {
+      this._findCur = ((this._findCur + d) % n + n) % n;
+      this._findEngine().reveal(hits[this._findCur]);
+    }
     this._findPaint();
     this._findCount(n ? (this._findCur + 1) + '/' + n : ED_FIND_NONE);
     this._findPaintReplaceEnabled();
@@ -375,6 +412,7 @@ const ED_FIND_MIXIN = {
   _findReplaceOne() {
     const eng = this._findEngine();
     if (!eng || !this._find) return;
+    this._findSlice(true);
     const hits = this._findHits || [];
     if (!hits.length) return;
     const hit = hits[Math.min(this._findCur, hits.length - 1)];
@@ -394,6 +432,7 @@ const ED_FIND_MIXIN = {
   _findReplaceAll() {
     const eng = this._findEngine();
     if (!eng || !this._find) return;
+    this._findSlice(true);
     const hits = this._findHits || [];
     if (!hits.length) return;
     const raw = this._find.querySelector('.fe-find-r').value;
@@ -404,6 +443,7 @@ const ED_FIND_MIXIN = {
 
   // FR-EFP-19: 끝에서 돌아 감는다 — 마지막 다음은 처음이다.
   _findMove(d) {
+    if (this._findScan) { this._findMovePend += d; return }  // 세는 중이면 다 센 뒤에 옮긴다 (`_findShow`)
     const n = (this._findHits || []).length;
     if (!n) return;
     this._findCur = (this._findCur + d + n) % n;
@@ -450,11 +490,3 @@ function edFindOptsSave(o) {
 function edFindReOk(src) {
   try { new RegExp(src); return true } catch { return false }
 }
-
-Object.assign(FileEditor.prototype, ED_FIND_MIXIN);
-
-// 테마 전환 훅 (theme-vars.js applyThemeObj). 편집기와 diff 의 색은 CSS 변수라 스스로 따라온다 (FR-GIT-49) —
-// canvas 에 그리는 것(변경 표시의 ruler·미니맵)만 다시 칠한다 (EDITOR_DIRTY_DIFF_SRS FR-EDD-23b).
-FileEditor.applyTheme = function() {
-  if (window.app && window.app.editor?.open.edDirtyDiffRepaint) window.app.editor.open.edDirtyDiffRepaint();
-};

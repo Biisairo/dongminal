@@ -21,7 +21,7 @@
  *
  * **증강 분할이다** — `Object.assign(Renderer.prototype, …)` 이므로 계약은 한
  * 글자도 바뀌지 않는다 (`FE_MODULE_BOUNDARY_SRS` 묶음 B·C 와 같은 절차).
- * `index.html` 의 순서는 `check-load-order.mjs` 가 지킨다 (C-2).
+ * 로드 순서(`web/bundles.txt`)는 `check-load-order.mjs` 가 지킨다 (C-2).
  */
 // `#area` 에서 이 렌더러가 임자인 요소들. 나머지는 남의 것이므로 건드리지 않는다.
 const LAYOUT_CLASSES=['sp','pn','ed-win','slot','slot-handle','chat-window-empty']; // CHAT_WINDOW_SRS FR-CW-4: 빈 채팅 창의 안내도 골격이다
@@ -41,11 +41,16 @@ class Renderer {
     this._dom = new Map();
     // 이번 그리기에서 쓰인 키. 쓰이지 않은 것은 끝에서 거둔다.
     this._domUsed = new Set();
-    // 이번 그리기에서 pane 본문에 붙은 위젯 요소들 (FR-PDR-9).
-    this._mounted = new Set();
+    // 이번 그리기에서 pane 본문에 붙은 위젯 요소 → 그 주인 (FR-PDR-9). 주인은 생명주기 전이의 대상이다
+    // (PERF M3 §3.5) — 주인이 없는 본문은 `null` 이다.
+    this._mounted = new Map();
+    // 탭 본문 주인의 mount·wake·sleep·unmount (FR-SPA-3).
+    this.life = new ScreenLife(app);
     // 이번 그리기에서 **실제로 부모가 바뀐** 터미널 (FR-PDR-10). 사후 처리는
     // 이 목록에만 적용한다 — 재사용된 것은 건드리지 않는다.
     this._moved = [];
+    // 묶음을 기다리는 화면 이름 (PERF D-30). 실리면 `app.render()` 를 한 번만 부르려고 센다.
+    this._screenLoads = new Set();
   }
 
   /**

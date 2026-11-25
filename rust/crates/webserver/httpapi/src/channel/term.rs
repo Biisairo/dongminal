@@ -6,11 +6,12 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use bytes::{Bytes, BytesMut};
 use futures_util::future::BoxFuture;
 use otter_shared_otterlog::{errorf, infof, warnf};
 use otter_shared_toolhub::{
     self as th, OP_ERROR, OP_EXIT, OP_INPUT, OP_OUTPUT, OP_RESIZE, OP_SEQ, OP_SIZE, OP_TOOL_ID,
-    OutChunk, Placement, ToolSnapshot,
+    OutChunk, Placement, ToolHistory, ToolScreen, ToolSnapshot,
 };
 use otter_webserver_hub::{SeatClosed, SeatConn};
 use serde_json::{Value, json};
@@ -20,9 +21,13 @@ use tokio_util::sync::CancellationToken;
 use super::outbox::Outbox;
 use crate::Server;
 use crate::toolhub::{ToolError, ToolHub, with_req};
-use crate::ws::{MISS_DELAY, build_replay, relay_joinable, seq_payload, trim_overlap, unix_nanos};
+use crate::ws::{
+    MISS_DELAY, relay_joinable, replay_delta, seq_payload, snap_seq_payload, trim_overlap,
+    unix_nanos,
+};
 
-/// sid 하나에 밀린 바이트가 이보다 많으면 밀린 것을 버리고 다시 재생한다 (§6, 데몬 링 `BUF_MAX` 와 같다).
+/// sid 하나에 밀린 출력이 이보다 많아지면 밀린 출력을 버리고 화면 상태 스냅숏으로 다시 맞춘다 (§6, FR-TRM-6).
+/// 마지막으로 보낸 맞춤 프레임(스냅숏)은 이 상한 밖이다 — 스냅숏이 상한보다 커도 출력마다 다시 맞추지 않는다.
 pub(crate) const TERM_PENDING_MAX: usize = 1 << 20;
 /// 도구 구독 채널의 크기다.
 const OUTPUT_QUEUE: usize = 256;
@@ -30,6 +35,8 @@ const OUTPUT_QUEUE: usize = 256;
 const RELAY_COALESCE_MAX: usize = 64 << 10;
 /// 도구가 정해지기 전에 온 입력을 담아 두는 상한(프레임 수)이다.
 const EARLY_MAX: usize = 256;
+/// 위로 받기 한 번에 주는 줄 수의 상한이다 (FR-TRM-5).
+pub(crate) const TERM_HISTORY_MAX: usize = 2_000;
 /// 바이너리 프레임 머리: op 1바이트 + sid 4바이트.
 pub(crate) const HEAD: usize = 5;
 
@@ -81,6 +88,28 @@ impl SeatConn for SidSeat {
     }
 }
 
+/// 브라우저 화면을 데몬에 맞추는 것 — 링에서 이어 붙이기 또는 화면 상태 스냅숏 (PERF M2 §2.5).
+enum Sync {
+    Delta(ToolSnapshot),
+    Screen(Arc<ToolScreen>),
+}
+
+impl Sync {
+    fn end(&self) -> i64 {
+        match self {
+            Sync::Delta(s) => s.end,
+            Sync::Screen(s) => s.end,
+        }
+    }
+
+    fn size(&self) -> (u16, u16) {
+        match self {
+            Sync::Delta(s) => (s.cols, s.rows),
+            Sync::Screen(s) => (s.cols, s.rows),
+        }
+    }
+}
+
 /// 세션이 끝난 까닭.
 enum End {
     /// 도구가 없다 — `EXIT` 를 보냈다.
@@ -105,12 +134,17 @@ fn lost(out: &Outbox, sid: u32) {
     out.push_control(json!({"t":"term.lost","sid":sid}).to_string());
 }
 
+fn history_frame(sid: u32, h: &ToolHistory) -> String {
+    json!({"t":"term.history","sid":sid,"from":h.from,"top":h.top,"lines":h.lines}).to_string()
+}
+
 fn num(v: &Value) -> Option<String> {
     v.as_u64().map(|n| n.to_string())
 }
 
 impl Server {
-    /// `term.open{sid,tool,cols,rows,since}`. 같은 sid 가 이미 열려 있으면 그것을 멈추고 새로 연다.
+    /// `term.open{sid,tool,cols,rows,since,snap}`. 같은 sid 가 이미 열려 있으면 그것을 멈추고 새로 연다.
+    /// `snap` 이면(깨움) `since` 를 보지 않고 스냅숏을 보낸다.
     pub(crate) fn term_open(self: &Arc<Self>, terms: &Arc<Terms>, out: &Arc<Outbox>, v: &Value) {
         let Some(sid) = v["sid"].as_u64().and_then(|s| u32::try_from(s).ok()) else {
             out.push_control(json!({"t":"error","code":"bad_sid"}).to_string());
@@ -136,7 +170,10 @@ impl Server {
         let og = out.term_begin(sid);
         let (cols, rows) = th::parse_size(num(&v["cols"]).as_deref(), num(&v["rows"]).as_deref());
         let tool = v["tool"].as_str().unwrap_or_default().to_owned();
-        let since = v["since"].as_i64().filter(|s| *s >= 0).unwrap_or(-1);
+        let since = match v["snap"].as_bool() {
+            Some(true) => -1,
+            _ => v["since"].as_i64().filter(|s| *s >= 0).unwrap_or(-1),
+        };
         let s = Session {
             srv: Arc::clone(self),
             hub,
@@ -165,6 +202,39 @@ impl Server {
             e.done.cancel();
         }
         out.forget_term(sid);
+    }
+
+    /// `term.history{sid,before,count}` (FR-TRM-5). 데몬에 묻기는 따로 띄운 일이 해서 출력·입력을 막지
+    /// 않는다. 모르는 sid·데몬 오류는 빈 답(`from = top = before`)이다 — 브라우저는 더 묻지 않는다.
+    pub(crate) fn term_history(&self, terms: &Terms, out: &Arc<Outbox>, v: &Value) {
+        let Some(sid) = v["sid"].as_u64().and_then(|s| u32::try_from(s).ok()) else {
+            out.push_control(json!({"t":"error","code":"bad_sid"}).to_string());
+            return;
+        };
+        let before = v["before"].as_u64().unwrap_or(0);
+        let count = v["count"]
+            .as_u64()
+            .map_or(0, |n| usize::try_from(n).unwrap_or(usize::MAX))
+            .min(TERM_HISTORY_MAX);
+        let empty = ToolHistory {
+            from: before,
+            top: before,
+            lines: Vec::new(),
+        };
+        let tool = terms.lock().get(&sid).and_then(|e| e.tool.clone());
+        let (Some(tool), Some(hub)) = (tool, self.deps.tools.clone()) else {
+            out.push_history(history_frame(sid, &empty));
+            return;
+        };
+        let out = out.clone();
+        tokio::spawn(async move {
+            let h = tokio::task::spawn_blocking(move || hub.history_tool(&tool, before, count))
+                .await
+                .ok()
+                .and_then(Result::ok)
+                .unwrap_or(empty);
+            out.push_history(history_frame(sid, &h));
+        });
     }
 
     /// 브라우저의 `[op][sid][payload]` — 입력·크기 조정을 그 sid 의 도구로 넘긴다. 모르는 sid 는 버린다.
@@ -259,29 +329,48 @@ impl Session {
                 return self.gone(&tool).await;
             }
         }
+        // D-23: 구독 전에 데몬의 답장 좌석을 쥔다 — 이 연결이 받는 실시간 출력에는 데몬이 답하지 않는다.
+        // 데몬이 답한 출력보다 앞에서 이어 붙이면 같은 질의를 또 답하므로 스냅숏으로 간다.
+        let held = self.hold_seat(&tool, true).await;
+        let since = match held {
+            Some(replied) if since >= 0 && since < replied => -1,
+            _ => since,
+        };
         let (tx, rx) = mpsc::channel::<OutChunk>(OUTPUT_QUEUE);
         let (exit, unsub) = self.hub.subscribe(&tool, tx);
-        let end = match self.snapshot(&tool, since).await {
+        let end = match self.sync(&tool, since).await {
             Err(end) => end,
-            Ok(snap) => {
+            Ok(sync) => {
                 self.out
                     .push_term_as(self.og, OP_TOOL_ID, self.sid, tool.as_bytes());
-                self.size(&snap);
+                self.size(&sync);
                 let seat: Arc<dyn SeatConn> = Arc::new(SidSeat {
                     out: self.out.clone(),
                     sid: self.sid,
                     og: self.og,
                 });
                 self.srv.seats.join(&tool, seat.clone()).await;
-                self.replay(&snap);
+                let held = self.send(&sync);
                 self.ready(terms, ver, &tool);
-                let end = self.relay(&tool, rx, exit, snap.end).await;
+                let end = self.relay(&tool, rx, exit, sync.end(), held).await;
                 self.srv.seats.leave(&tool, &seat).await;
                 end
             }
         };
         unsub();
+        if held.is_some() {
+            self.hold_seat(&tool, false).await;
+        }
         end
+    }
+
+    /// 데몬의 답장 좌석을 쥐거나 놓는다(D-23). 데몬이 답하지 못하면 `None` 이다.
+    async fn hold_seat(&self, tool: &str, held: bool) -> Option<i64> {
+        let (h, id) = (self.hub.clone(), tool.to_owned());
+        tokio::task::spawn_blocking(move || h.seat_tool(&id, held))
+            .await
+            .ok()?
+            .ok()
     }
 
     /// 도구가 정해졌다 — 그 전에 온 입력을 차례대로 넘긴다.
@@ -315,11 +404,27 @@ impl Session {
         End::Gone
     }
 
-    async fn snapshot(&self, tool: &str, since: i64) -> Result<ToolSnapshot, End> {
-        let (h, id) = (self.hub.clone(), tool.to_owned());
-        let r = tokio::task::spawn_blocking(move || h.snapshot_tool_since(&id, since))
-            .await
-            .unwrap_or_else(|e| Err(ToolError::Other(e.to_string())));
+    /// `since` 가 링 안이면 그 뒤 바이트를, 아니면(없거나 링 밖이면) 화면 상태 스냅숏을 받는다.
+    async fn sync(&self, tool: &str, since: i64) -> Result<Sync, End> {
+        if since >= 0 {
+            let (h, id) = (self.hub.clone(), tool.to_owned());
+            let r = tokio::task::spawn_blocking(move || h.snapshot_tool_since(&id, since))
+                .await
+                .unwrap_or_else(|e| Err(ToolError::Other(e.to_string())));
+            let s = self.verdict(tool, r).await?;
+            if s.resumed {
+                return Ok(Sync::Delta(s));
+            }
+        }
+        let r = self
+            .srv
+            .screens
+            .get(&self.hub, tool, self.srv.wake_history())
+            .await;
+        self.verdict(tool, r).await.map(Sync::Screen)
+    }
+
+    async fn verdict<T>(&self, tool: &str, r: Result<T, ToolError>) -> Result<T, End> {
         match r {
             Ok(s) => Ok(s),
             Err(ToolError::NotFound(_)) => Err(self.gone(tool).await),
@@ -331,54 +436,57 @@ impl Session {
     }
 
     /// 크기를 알면 알린다.
-    fn size(&self, snap: &ToolSnapshot) {
-        if snap.cols != 0 && snap.rows != 0 {
-            self.out.push_term_as(
-                self.og,
-                OP_SIZE,
-                self.sid,
-                &th::size_payload(snap.cols, snap.rows),
-            );
+    fn size(&self, sync: &Sync) {
+        let (cols, rows) = sync.size();
+        if cols != 0 && rows != 0 {
+            self.out
+                .push_term_as(self.og, OP_SIZE, self.sid, &th::size_payload(cols, rows));
         }
     }
 
-    /// 재생 → 모드 복원 → 좌표 (옛 `ws_replay`).
-    fn replay(&self, snap: &ToolSnapshot) {
-        let full = !snap.resumed;
-        let payload = build_replay(&snap.data, full, snap.modes.alt_screen);
+    /// 화면을 맞추는 `OUTPUT` → 좌표 `SEQ`. 둘 사이에 다른 프레임을 끼우지 않는다. 넣은 바이트 수를 돌려준다.
+    fn send(&self, sync: &Sync) -> usize {
+        match sync {
+            Sync::Delta(s) => self.frames(
+                &replay_delta(&s.data),
+                &seq_payload(s.end, s.modes.alt_screen),
+            ),
+            Sync::Screen(s) => self.frames(&s.data, &snap_seq_payload(s)),
+        }
+    }
+
+    fn frames(&self, payload: &[u8], seq: &[u8]) -> usize {
+        let mut n = HEAD + seq.len();
         if !payload.is_empty() {
-            self.out
-                .push_term_as(self.og, OP_OUTPUT, self.sid, &payload);
+            self.out.push_term_as(self.og, OP_OUTPUT, self.sid, payload);
+            n += HEAD + payload.len();
         }
-        let restore = snap.modes.restore_bytes();
-        if !restore.is_empty() {
-            self.out
-                .push_term_as(self.og, OP_OUTPUT, self.sid, &restore);
-        }
-        self.out.push_term_as(
-            self.og,
-            OP_SEQ,
-            self.sid,
-            &seq_payload(snap.end, full, snap.modes.alt_screen),
-        );
+        self.out.push_term_as(self.og, OP_SEQ, self.sid, seq);
+        n
     }
 
-    /// 데몬에서 `since` 부터 다시 받아 재생한다. 새 보낸 끝을 돌려준다.
-    async fn resync(&self, tool: &str, since: i64) -> Result<i64, End> {
-        let snap = self.snapshot(tool, since).await?;
-        self.size(&snap);
-        self.replay(&snap);
-        Ok(snap.end)
+    /// 화면 상태 스냅숏으로 다시 맞춘다 (FR-TRM-6). 새 보낸 끝과 넣은 바이트 수를 돌려준다.
+    async fn resync(&self, tool: &str) -> Result<(i64, usize), End> {
+        let r = self
+            .srv
+            .screens
+            .get(&self.hub, tool, self.srv.wake_history())
+            .await;
+        let sync = Sync::Screen(self.verdict(tool, r).await?);
+        self.size(&sync);
+        let held = self.send(&sync);
+        Ok((sync.end(), held))
     }
 
-    /// 도구 출력을 이어 붙여 보낸다 (옛 `relay_output`). 틈이 생기거나 밀린 양이 상한을 넘으면
-    /// 이 sid 만 다시 재생한다.
+    /// 도구 출력을 이어 붙여 보낸다 (옛 `relay_output`). 틈이 생기거나 밀린 출력이 상한을 넘으면
+    /// 이 sid 만 스냅숏으로 다시 맞춘다. `held` 는 마지막 맞춤 프레임의 바이트 수다.
     async fn relay(
         &self,
         tool: &str,
         mut rx: mpsc::Receiver<OutChunk>,
         exit: CancellationToken,
         mut sent: i64,
+        mut held: usize,
     ) -> End {
         let mut pending: Option<OutChunk> = None;
         let mut pending_closed = false;
@@ -417,13 +525,15 @@ impl Session {
                     chunk.end - chunk.data.len() as i64,
                     self.sid
                 );
-                match self.resync(tool, sent).await {
-                    Ok(end) => sent = end,
+                match self.resync(tool).await {
+                    Ok((end, n)) => (sent, held) = (end, n),
                     Err(end) => return end,
                 }
                 continue;
             }
-            let mut frame = trim_overlap(&chunk.data, chunk.end, sent).to_vec();
+            let mut frame = chunk
+                .data
+                .slice_ref(trim_overlap(&chunk.data, chunk.end, sent));
             sent = chunk.end.max(sent);
             loop {
                 match rx.try_recv() {
@@ -432,12 +542,14 @@ impl Session {
                             pending = Some(next);
                             break;
                         }
-                        let d = trim_overlap(&next.data, next.end, sent);
+                        let d = next
+                            .data
+                            .slice_ref(trim_overlap(&next.data, next.end, sent));
                         if frame.len() + d.len() > RELAY_COALESCE_MAX {
                             pending = Some(next);
                             break;
                         }
-                        frame.extend_from_slice(d);
+                        frame = join(frame, d);
                         sent = next.end.max(sent);
                     }
                     Err(mpsc::error::TryRecvError::Disconnected) => {
@@ -447,23 +559,37 @@ impl Session {
                     Err(mpsc::error::TryRecvError::Empty) => break,
                 }
             }
-            if !frame.is_empty() {
-                self.out.push_term_as(self.og, OP_OUTPUT, self.sid, &frame);
+            if frame.is_empty() {
+                continue;
             }
-            if self.out.term_state(self.sid).0 > TERM_PENDING_MAX {
-                self.out.drop_term(self.sid);
-                let since = self.out.term_state(self.sid).1.unwrap_or(-1);
+            if self.out.term_pending(self.sid) + HEAD + frame.len() > TERM_PENDING_MAX + held {
+                let dropped = self.out.drop_term_output(self.sid);
                 warnf!(
                     None,
-                    "[tool {tool}] channel slow sid={} — dropped backlog, replay since={since}",
+                    "[tool {tool}] channel slow sid={} — dropped {dropped} bytes, resync with screen",
                     self.sid
                 );
                 pending = None;
-                match self.resync(tool, since).await {
-                    Ok(end) => sent = end,
+                match self.resync(tool).await {
+                    Ok((end, n)) => (sent, held) = (end, n),
                     Err(end) => return end,
                 }
+                continue;
             }
+            self.out.push_shared_as(self.og, OP_OUTPUT, self.sid, frame);
         }
     }
+}
+
+/// 이어 붙인다. 한쪽이 비면 복사하지 않는다 — 조각 하나뿐인 흔한 경우는 도구 출력을 그대로 나눈다 (M4 §4).
+fn join(a: Bytes, b: Bytes) -> Bytes {
+    if a.is_empty() {
+        return b;
+    }
+    if b.is_empty() {
+        return a;
+    }
+    let mut m = BytesMut::from(a);
+    m.extend_from_slice(&b);
+    m.freeze()
 }

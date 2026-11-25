@@ -1,4 +1,4 @@
-//! /api/git/{fetch,pull,push} + /api/git/job{s,/cancel,/events} + 원격 목록 — 원격 작업 표면
+//! /api/git/{fetch,pull,push} + /api/git/job{s,/cancel} + 원격 목록 — 원격 작업 표면. 진행은 채널 `gitjob:<id>` 토픽이다
 //! (GIT_SRS §3B.1 FR-GIT-98~112 · FR-GIT-269). Go `handlers_git_remote.go`.
 //!
 //! 자격증명을 받는 자리가 없다 (FR-GIT-104). 요청 본문에 인증 재료를 담을 필드를 만들지 않는다.
@@ -123,8 +123,8 @@ impl GitServer {
         t.finish()
     }
 
-    /// 진행 중 작업 전부다 — `/api/git/jobs` 와 같은 목록이다. 상태바의 `/api/stats?jobs=1` 이
-    /// 싣는다 (FR-OPT-4-4). git 이 없으면 `None` 이다.
+    /// 진행 중 작업 전부다 — `/api/git/jobs` 와 같은 목록이다. 상태바는 채널 `git.jobs` 토픽으로
+    /// 받는다 (FR-OPT-4-4). git 이 없으면 `None` 이다.
     pub fn active_jobs(&self) -> Option<Vec<Job>> {
         let git = self.git.as_ref()?;
         Some(self.jobs_hub(git).active())

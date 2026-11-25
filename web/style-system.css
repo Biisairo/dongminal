@@ -345,3 +345,62 @@ html.attn-edge-on #focus-edge{opacity:0}
   box-shadow:var(--shadow-1);
   font-size:var(--fs-md);max-width:min(560px,92vw);
 }
+
+/* ── git 화면 밖에서 쓰는 git 규칙 (PERF D-32, perf/M3_DESIGN.md §3.4) ──
+   style-git*.css 는 git 묶음(`b/git.css`)이 되어 git 화면을 처음 열 때 실린다. 부팅 화면이 쓰는 규칙 가운데
+   git 탭의 커서와 전역 폼 컨트롤은 여기로, 사이드바 Repo 목록의 것은 style-sidebar.css 로 옮겼다. 자리는 그
+   파일들이 index.html 에서 서던 자리 바로 앞이라 다른 부팅 CSS 와의 캐스케이드 순서는 그대로다. */
+/* 고정 탭·고정 이름 — 닫기·이름변경·드래그가 없으므로 커서로도 알린다 */
+.pn-tab.git{cursor:default}
+/* ── 폼 컨트롤의 테마 (GIT_UI_REVISION_SRS FR-GIT-203~206) ──
+   브라우저 기본 위젯은 앱 테마(44종)와 무관한 색으로 그려진다 — 어두운 테마에서
+   흰 사각형이 튀고 라이트 테마에서도 accent 와 어긋난다. 전역으로 한 벌만 그린다:
+   컨트롤을 두 벌로 그리면 같은 체크박스가 자리마다 달라 보인다.
+
+   상태는 **형태로** 구분한다 (FR-GIT-204) — 색만으로 나누면 테마에 따라 사라진다.
+
+   `.ui-switch` 는 **비켜 간다** (KIT_COMPONENTS_SRS FR-CMP-20). 킷은 `<link>`
+   순서상 먼저 오므로(FR-UIK-1) 명시도가 같거나 낮으면 언제나 진다 — 여기서
+   `input[type="checkbox"]`(0-1-1)가 `.ui-switch`(0-1-0)를 이겼고, 스위치가
+   14px 네모로 그려졌다. 명시도를 올려 다투는 대신 **대상을 좁힌다.** */
+input[type="checkbox"]:not(.ui-switch),input[type="radio"]{
+  appearance:none;-webkit-appearance:none;
+  /* 상자는 정사각이어야 한다. flex 부모의 stretch 나 다른 규칙의 min-height 가
+     한 변만 늘리면 타원·직사각이 된다 — 네 값을 함께 못박는다 (실측 결함). */
+  flex-shrink:0;align-self:center;
+  width:14px;height:14px;min-width:14px;min-height:14px;margin:0;
+  background:transparent;border:1px solid var(--text-dim);border-radius:var(--radius-sm);
+  cursor:pointer;transition:background var(--dur-fast),border-color var(--dur-fast);
+}
+input[type="radio"]{border-radius:50%}
+input[type="checkbox"]:not(.ui-switch):hover:not(:disabled),
+input[type="radio"]:hover:not(:disabled){border-color:var(--accent)}
+/* FR-GIT-204: 켜짐은 **꽉 찬 상자**다. 체크 표식은 그리지 않는다 — 14px 안의 획은
+   어떻게 그려도 끝이 뭉툭하거나 비율이 어긋난다(4종 실측). 비었나 찼나는 색이
+   아니라 면적의 차이라 흑백으로 떨어뜨려도 남는다. */
+input[type="checkbox"]:not(.ui-switch):checked,input[type="radio"]:checked{
+  background:var(--accent);border-color:var(--accent);
+}
+/* FR-GIT-70 의 indeterminate 는 "켜짐도 꺼짐도 아님" 이다 — 다른 색으로 채운다 */
+input[type="checkbox"]:not(.ui-switch):indeterminate{background:var(--attn);border-color:var(--attn)}
+input[type="checkbox"]:not(.ui-switch):disabled,input[type="radio"]:disabled{
+  opacity:.45;cursor:not-allowed;
+}
+input[type="checkbox"]:not(.ui-switch):focus-visible,input[type="radio"]:focus-visible{
+  outline:2px solid var(--focus-ring);outline-offset:1px;
+}
+/* FR-GIT-205: select 도 같은 토큰으로. 화살표는 기본 위젯을 지우고 직접 그린다 */
+select{
+  appearance:none;-webkit-appearance:none;
+  font:inherit;color:var(--text);background:var(--bg);
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:0 var(--sp-8) 0 var(--sp-4);cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),
+                   linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 12px) center,calc(100% - 7px) center;
+  background-size:5px 5px,5px 5px;
+  background-repeat:no-repeat;
+}
+select:hover{border-color:var(--accent)}
+select:focus{border-color:var(--accent);outline:none}
+select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}

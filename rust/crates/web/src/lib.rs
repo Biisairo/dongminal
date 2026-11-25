@@ -1,7 +1,8 @@
 //! Go 기준선 `web` 의 Rust 포팅: 브라우저로 서빙할 정적 자산을 바이너리에 싣는다 (RUST_PORT_SRS FR-RSP-12).
 //!
 //! 싣는 파일 집합은 Go `web/embed.go` 의 `//go:embed` 패턴과 같다:
-//! `*.html *.css *.webmanifest vendor/* js/*/*.js js/core/base/*.js assets/*`.
+//! `*.html *.css *.webmanifest vendor/* js/*/*.js js/core/base/*.js assets/*`. 여기에 묶음 정의
+//! `bundles.txt`(PERF D-29)를 더한다.
 //! 디렉터리를 가리키는 패턴(`vendor/*`·`assets/*` 의 하위 디렉터리)은 그 아래를 통째로 싣되,
 //! Go 처럼 `.`·`_` 로 시작하는 이름은 뺀다.
 
@@ -13,6 +14,7 @@ use std::collections::BTreeSet;
 #[include = "*.html"]
 #[include = "*.css"]
 #[include = "*.webmanifest"]
+#[include = "bundles.txt"]
 #[include = "vendor/**"]
 #[include = "js/*/*.js"]
 #[include = "js/core/base/*.js"]

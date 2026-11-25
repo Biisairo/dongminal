@@ -1,6 +1,7 @@
 # SRS: 요청 게이트 — 브라우저 매개 공격을 mux 바깥에서 닫는다 — IEEE 29148
 
 > **문서 상태**: 승인·구현완료
+> **개정 2026-11-24 (`PERF_OPTIMIZATION_SRS` M1)**: 이 문서가 적은 것 가운데 M1 에서 지운 것 — 명령·사건 SSE(`/api/commands/sse`, `POST /api/command-result`) · 칸별 터미널 WebSocket `/ws`(`TermSocket`). 지금 브라우저 탭은 채널(`/channel`) 하나로 명령(`cmd`)·상태 토픽·터미널을 주고받고, 상태를 알려고 주기적으로 GET 하지 않는다 — 대체 요구사항은 `PERF_OPTIMIZATION_SRS` FR-CON-1·7·8·10 과 D-9, 경로별 대응은 `perf/CHANNEL_PROTOCOL.md` §5.2·§8 이다. 본문의 옛 경로 서술은 당시 구조로 남긴다
 
 - 근거 감사: `04-secops.md` §1.2·§2(P0-1·P0-2)·§3(P1-2·P1-3·P1-7)·§4.1 · `01-go-arch.md` P0 ·
   `07-production-gap.md` §1 "도입 시 영향 범위".
@@ -201,12 +202,13 @@ FR-ACL-37). 목록 내용을 싣지 않는 규약은 그대로다.
 ### 3.2 묶음 W — WebSocket
 
 **FR-RQG-11** `toolhub.Upgrader.CheckOrigin` 이 항상 true 를 돌려주는 것을 없앤다.
-**판정은 업그레이드 이전에 미들웨어에서 끝나 있다** — `/ws` 는 `requestGate` 를 이미
+(**개정 2026-11-25, PERF 1.19**: 옛 `/ws` 자리는 채널 `/channel` 이다. `/channel` 도 `access_gate`·`request_gate` 를 지나고 `gate_exempt` 에 들지 않는다.)
+**판정은 업그레이드 이전에 미들웨어에서 끝나 있다** — `/channel`(옛 `/ws`) 은 `requestGate` 를 이미
 지나므로(mux 바깥), `CheckOrigin` 은 그 사실을 신뢰하는 자리다.
 
 두 곳에서 판정하지 않는다. 두 벌이면 한쪽만 고쳐진다.
 
-**FR-RQG-12** `/ws` 에 `Origin: https://evil.example` 로 오면 업그레이드 **전에** 403 이다.
+**FR-RQG-12** `/channel`(옛 `/ws`) 에 `Origin: https://evil.example` 로 오면 업그레이드 **전에** 403 이다.
 `Origin` 없는 업그레이드(`otterctl`)는 통과한다.
 
 **FR-RQG-13** WebSocket 업그레이드는 `GET` 이므로 FR-RQG-5(Content-Type)의 대상이 아니다.

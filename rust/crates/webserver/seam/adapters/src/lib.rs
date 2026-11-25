@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use otter_shared_platform::ProcInfo;
 use otter_shared_toolhub::{ToolInfo as HubToolInfo, ToolSnapshot};
 use otter_shared_workspace::Manager;
 use otter_webserver_seam_toolaccess::{
@@ -18,6 +19,7 @@ pub trait ToolSource: Send + Sync {
     /// Go `Get(id) != nil`.
     fn has(&self, id: &str) -> bool;
     fn snapshot_tool(&self, id: &str) -> Result<ToolSnapshot, Error>;
+    fn screen_text(&self, id: &str, bytes: usize) -> Result<String, Error>;
     fn send_paste(&self, id: &str, text: &[u8], submit: bool) -> Result<(), Error>;
 }
 
@@ -53,6 +55,10 @@ impl ToolReader for Tool {
         Some((snap.data, snap.total_bytes_drop))
     }
 
+    fn screen_text(&self, tool_id: &str, bytes: usize) -> Option<String> {
+        self.hub.as_ref()?.screen_text(tool_id, bytes).ok()
+    }
+
     /// 감싸기·제출 판단은 도구가 사는 곳(데몬)에 맡긴다 (FR-BPW-1).
     fn send_paste(&self, tool_id: &str, text: &[u8], submit: bool) -> Result<(), Error> {
         match &self.hub {
@@ -86,8 +92,13 @@ const ANCESTOR_WALK_MAX: usize = 32;
 
 impl ClientToolResolver for Client {
     fn resolve_client_pane(&self, remote_addr: &str) -> Result<(String, i64), Error> {
-        // 클라이언트 pid 역추적과 부모 거슬러 오르기는 platform.ProcInfo 뒤에 있다 (FR-XPI-7).
-        let info = otter_shared_platform::current().info;
+        self.resolve_with(otter_shared_platform::current().info, remote_addr)
+    }
+}
+
+impl Client {
+    /// 클라이언트 pid 역추적과 부모 거슬러 오르기는 platform.ProcInfo 뒤에 있다 (FR-XPI-7).
+    fn resolve_with(&self, info: &dyn ProcInfo, remote_addr: &str) -> Result<(String, i64), Error> {
         let Some(client_pid) = info.connection_owner_pid(remote_addr) else {
             return Err(format!("클라이언트 PID를 찾을 수 없음 (remoteAddr={remote_addr})").into());
         };
@@ -100,13 +111,15 @@ impl ClientToolResolver for Client {
             .filter(|p| p.shell_pid > 0)
             .map(|p| (p.shell_pid, p.id))
             .collect();
+        // 부모 표는 한 번만 읽는다 — 조상마다 묻지 않는다 (M4 설계 §2).
+        let parents = info.parents().unwrap_or_default();
         let mut current = client_pid;
         for _ in 0..ANCESTOR_WALK_MAX {
             if let Some(id) = shell_pids.get(&i64::from(current)) {
                 return Ok((id.clone(), i64::from(current)));
             }
-            match info.parent_pid(current) {
-                Some(parent) if parent > 1 => current = parent,
+            match parents.get(&current) {
+                Some(&parent) if parent > 1 => current = parent,
                 _ => break,
             }
         }
