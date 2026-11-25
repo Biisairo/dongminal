@@ -5,3 +5,9 @@
 # Screens.ready 를 불러야 하고, 그 안(클로저 포함)의 참조는 게이트가 넘긴다.
 #
 # 형식: <web/ 기준 파일> <함수 이름>   함수 이름은 `f`, `Class.method`, `A.prototype.m` 꼴이다.
+# git 묶음 (PERF 3.4.6). 패널·관측기는 묶음이 실린 뒤에만 선다 — 그 전에는 null 이고 부르는 쪽이 넘긴다.
+js/core/git-surfaces.js GitSurfaces.gitObs
+js/core/git-surfaces.js GitSurfaces.gitPanelAt
+js/core/repo-win-controller.js RepoWinController.gitDiffPanelFor
+# 테마를 바꿀 때 History 의 레인 색을 다시 칠한다 — 묶음이 아직이면 칠할 목록이 없다.
+js/core/theme-vars.js applyThemeObj

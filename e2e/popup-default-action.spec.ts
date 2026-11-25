@@ -23,11 +23,10 @@ async function waitForInit(page: Page, mode: 'desktop' | 'mobile' = 'desktop') {
   await fxWaitForInit(page, {
     mode,
     viewport: mode === 'mobile' ? MOBILE : DESKTOP,
-    readyFor: {
-      fn: () => !!document.querySelector('#area')
-        && !!(window as any).GitConfirm && !!(window as any).GitDialog,
-    },
+    readyFor: { fn: () => !!document.querySelector('#area') && !!(window as any).app?.testing },
   });
+  // PERF 3.4.6: `GitConfirm`·`GitDialog` 는 git 묶음에 있다 — 처음 쓰기 전에 싣는다.
+  await page.evaluate(() => (window as any).app.testing.loadScreen('git'));
 }
 
 // `UIKit` 는 최상위 `const` 라 전역 **어휘** 환경에 산다 — `window.UIKit` 이

@@ -18,7 +18,7 @@ const read = (f) => readFileSync(join(JS, f), 'utf8');
 function setup(rowActions) {
   // `constants-git-remote.js` 는 `GIT_API` 를 딛으므로 싣지 않는다 — 동작 ID 는 소스 검사가 본다.
   const ctx = load(['core/base/component.js', 'ui/repaint.js', 'core/action-answer.js',
-    'core/constants-git-changes.js', 'git/git-part.js', 'git/git-views.js', 'git/git-change-rows.js'], {
+    'core/constants-git.js', 'core/constants-git-changes.js', 'git/git-part.js', 'git/git-views.js', 'git/git-change-rows.js'], {
     expose: ['GitChangeRows', 'GitViews', 'GIT_STAGE_WHY_TITLE'],
     globals: { t: (k, a) => (a ? k + JSON.stringify(a) : k), GIT_ACTION: { stage: 'git.stage' } },
   });

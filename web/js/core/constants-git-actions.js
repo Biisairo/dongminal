@@ -5,36 +5,11 @@
  * SRS 하나다 — 여기 있는 것은 전부 `GIT_ACTIONS_SRS` 가 정의한 동작들의 라벨·
  * 툴팁·확인 문구이고, 그쪽 파일에 남은 것은 탭과 목록의 것이다.
  *
- * **`GIT_WRITE_ERR` 가 함께 왔다.** 그 표를 채우는 세 문장이 전부 이 파일에
- * 있기 때문이다 — 선언과 채움이 갈라지면 어느 코드가 어떤 사유를 아는지 읽을 수
- * 없다. 종전에는 선언만 1,200줄 앞에 있었다.
+ * `GIT_WRITE_ERR` 는 이 파일에 함께 왔다가 `constants-git.js` 로 옮겨 갔다 — 부팅 코드(사이드바·편집기)가
+ * 읽는데 이 파일은 `git` 묶음에 든다 (PERF D-32).
  *
  * `constants-git.js` **뒤**에 로드된다 — 이 파일의 값 몇이 그쪽 상수를 참조한다.
  */
-
-const GIT_WRITE_ERR={
-  bad_request:t('git.write_err.bad_request'),
-  confirmation_required:t('git.write_err.confirmation_required'),
-  not_a_git_repo:GIT_ERR_NOT_REPO,
-  // FR-RMS-17: 사이드바 핀 행의 title 도 이 표를 지난다 — 사유 코드를 날것으로
-  // 보이면 사용자는 그것이 무엇인지 모른다.
-  repo_missing:GIT_RMS_PIN_REASON,
-  git_missing:GIT_ERR_GIT_MISSING,
-  git_timeout:t('git.write_err.git_timeout'),
-  git_failed:t('git.write_err.git_failed'),
-  git_unavailable:t('git.write_err.git_unavailable'),
-  // 잡의 거부 (FR-GIT-101). 라벨을 한 자리에 둔다.
-  job_busy:t('git.write_err.job_busy'),
-  job_not_found:t('git.write_err.job_not_found'),
-  // REPO_FIX 01 §7.1: 쓰기 배타·lock·stash·충돌 해결·종료.
-  repo_busy:t('git.write_err.repo_busy'),
-  index_locked:t('git.write_err.index_locked'),
-  stash_moved:t('git.write_err.stash_moved'),
-  branch_exists:t('git.write_err.branch_exists'),
-  resolve_partial:t('git.write_err.resolve_partial'),
-  server_shutdown:t('git.write_err.server_shutdown'),
-  no_remote:t('git.write_err.no_remote'),
-};
 
 // ── 진행 중 작업 (GIT_ACTIONS_SRS §3.1 / FR-GIT-251·252) ──
 //
@@ -200,9 +175,6 @@ const GIT_BLAME_SHOW_ALL=t('git.blame_show_all');
 const GIT_IGNORE_FAIL=t('git.ignore_fail');
 const GIT_IGNORE_DUP=t('git.ignore_dup');
 const GIT_HEAD_OPEN_FAIL=t('git.head_open_fail');
-// 워킹 트리의 파일과 구분되지 않으면 사용자는 그 자리의 편집이 저장소에 반영된다고
-// 오해한다 — 탭 이름이 그것을 말한다.
-const GIT_HEAD_TAB_SUFFIX=' (HEAD)';
 
 // 미커밋 행 (FR-GIT-277). Clean 만 파괴적이다.
 const GIT_UNC_STASH=t('git.act.unc_stash');
@@ -220,9 +192,7 @@ const GIT_UNC_CLEAN_CMD='git stash push -u';
 // 패치는 **서버가 만든다** (GIT_ACTIONS_SRS D6). 클라이언트는 좌표만 보낸다 —
 // (경로, 축, hunk 번호, 줄 범위, 관측 식별자). 패치 문자열을 만드는 코드가 이쪽에
 // 없어야 하고, 그래서 여기에는 라벨과 축 표만 있다.
-const GIT_PATCH_STAGE='stage';
-const GIT_PATCH_UNSTAGE='unstage';
-const GIT_PATCH_REVERT='revert';
+// 방향 `GIT_PATCH_STAGE`·`GIT_PATCH_UNSTAGE`·`GIT_PATCH_REVERT` 는 constants-git.js 에 있다 — 편집기의 변경 표시가 부팅에서 읽는다.
 // 부분 스테이징이 있는 축은 둘뿐이다 — 서버가 그 둘만 받는다. 충돌·커밋 축에는
 // 방향이 정해지지 않아 조각을 넣을 수 없다.
 const GIT_HUNK_AXES=new Set([GIT_AXIS.UNSTAGED,GIT_AXIS.STAGED]);

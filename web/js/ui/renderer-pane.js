@@ -146,13 +146,17 @@ Object.assign(Renderer.prototype, {
    * 자리표시는 `_keep` 으로 탭·칸마다 하나다. 쓰이지 않으면 그리기 끝에서 거둔다.
    */
   _screenWait(at,slot){
-    const name=Screens.forTab(at);
+    return this._screenHold(Screens.forTab(at),'wait:'+slot+':'+at.id);
+  },
+
+  /** 화면 `name` 이 아직이면 `key` 자리의 자리표시를 돌려주고 싣기 시작한다(`_screenWait` 와 같은 규약). 탭 밖의 자리(Repo 창 사이드)도 쓴다. */
+  _screenHold(name,key){
     if(!name||Screens.ready(name)) return null;
     if(!this._screenLoads.has(name)){
       this._screenLoads.add(name);
       Screens.load(name).then(()=>{ this._screenLoads.delete(name); this.app.render() },()=>{ this._screenLoads.delete(name) });
     }
-    return this._keep('wait:'+slot+':'+at.id,()=>{
+    return this._keep(key,()=>{
       const el=document.createElement('div');
       el.className='ui-empty ui-empty-center';
       el.textContent=t('core.screen_loading');

@@ -110,7 +110,8 @@ export const SETTINGS = ['core/settings-apply.js', 'core/settings-section.js', '
 export const AGENTS = ['core/agents-controller.js', 'core/agents-sub.js', 'core/activity-list.js'];
 export const CHAT = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js'];
 export const MOBILE = ['core/mobile-controller.js', 'core/mobile-sheets.js', 'core/mobile-nav.js'];
-export const GIT = ['core/git-repos-list.js', 'core/git-topics.js', 'core/git-controller.js', 'core/git-surfaces.js', 'core/git-sync.js'];
+// `core/screens.js` 가 앞이다 — git-controller.js 가 로드 시점에 git 화면을 등록한다 (PERF 3.4.6).
+export const GIT = ['core/screens.js', 'core/git-repos-list.js', 'core/git-topics.js', 'core/git-controller.js', 'core/git-surfaces.js', 'core/git-sync.js'];
 export const WS_SYNC = ['core/ws-sync-controller.js', 'core/ws-save-controller.js', 'core/soft-reload.js'];
 export const FOCUS = ['core/focus-controller.js', 'core/focus-highlight.js', 'core/focus-owner.js'];
 export const SLOTS = ['core/slots-controller.js', 'core/slot-ops.js'];

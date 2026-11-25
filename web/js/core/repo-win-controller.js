@@ -132,6 +132,7 @@ class RepoWinController extends Controller {
    * 탭처럼 슬롯마다 인스턴스가 선다 (FR-WSL-20).
    */
   gitDiffPanelFor(root, slot, tab) {
+    if (!Screens.ready('git')) return null;
     if (!this.app.gitPanels) this.app.gitPanels = new Map();
     const key = this.app.slot.slotKey('git:' + (root || '') + GIT_DIFF_TAB_SEP + tab.id, slot || 0);
     let p = this.app.gitPanels.get(key);

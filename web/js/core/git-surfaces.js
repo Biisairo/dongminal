@@ -22,6 +22,7 @@ class GitSurfaces extends Controller {
    * 하나가 폴링의 대상이었다.
    */
   gitObs(root){
+    if(!Screens.ready('git')) return null;
     if(!this.app._gitObservers) this.app._gitObservers=new Map();
     const key=root||'';
     let o=this.app._gitObservers.get(key);
@@ -87,6 +88,8 @@ class GitSurfaces extends Controller {
    * 전까지 두 표면이 공존하므로 그 자리를 남겨 둔다.
    */
   gitPanelAt(root,slot){
+    // PERF D-30: 패널은 git 묶음에 있다. 실리기 전에는 패널이 없다 — `app.gitPanel` 도 null 이다.
+    if(!Screens.ready('git')) return null;
     if(!this.app.gitPanels) this.app.gitPanels=new Map();
     const key=this._gitPanelKey(root,slot);
     let p=this.app.gitPanels.get(key);

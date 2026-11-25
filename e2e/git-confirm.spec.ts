@@ -19,9 +19,11 @@ async function waitForInit(page: Page, mode: 'desktop' | 'mobile') {
   await fxWaitForInit(page, {
     mode,
     viewport: mode === 'mobile' ? MOBILE : DESKTOP,
-    // 이 스펙이 재는 것은 확인창이므로 터미널이 아니라 `GitConfirm` 이 준비 신호다.
-    readyFor: { fn: () => !!document.querySelector('#area') && !!(window as any).GitConfirm },
+    // 이 스펙이 재는 것은 확인창이므로 터미널이 아니라 `#area` 가 준비 신호다.
+    readyFor: { fn: () => !!document.querySelector('#area') && !!(window as any).app?.testing },
   });
+  // PERF 3.4.6: `GitConfirm` 은 git 묶음에 있다 — 처음 쓰기 전에 싣는다.
+  await page.evaluate(() => (window as any).app.testing.loadScreen('git'));
 }
 
 type OpenArgs = {
