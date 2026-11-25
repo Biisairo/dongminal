@@ -1,33 +1,4 @@
-/* Git 사이드바·파괴적 동작 확인·Branches·Stash·Worktrees·Submodules·컨트롤 치수 하한·폼 컨트롤 테마·부분 스테이징 — style-git-views.css — 원래 순서의 연속 구간으로 나눈 조각 (REFACTOR3_FE_REST5_SRS FR-FR5-1). 순서는 index.html 의 <link> 가 지킨다. */
-/* ── Git 사이드바 (FR-GIT-13~17) ── */
-/* FR-SBT-3 (D-5): 두 목록은 더 이상 같은 컬럼에서 높이를 다투지 않는다. 컨테이너
-   규칙은 `.sbl-list` 한 자리에 있다 (FR-BLP-7) — 옛 `max-height:40%` 는 세로
-   공존의 산물이었고, 공존이 사라지면 근거도 사라진다. */
-/* FR-FLW-11: 비었을 때도 자리가 보인다 — 빈 자리는 고장처럼 읽힌다 */
-/* `.git-repos-none` 이 여기 있었다 — 옛 `Git` 목록의 빈 안내다. 목록이 하나가
-   되면서(FR-RTU-1 / D-RTU-2) 그 자리는 `.ed-entries-none` 이 대신한다. */
-/* 옛 FR-GIT-214 의 여백 보정은 사라졌다 — `+ Add` 가 목록 **위**로 올라가면서
-   (UX_REVISION_SRS FR-BLP-8) WINDOWS 와 같은 배치가 되었고, 그 배치에는 애초에
-   이 문제가 없다고 그 조항이 이미 적어 두었다. */
-
-
-/* FR-GIT-219: 행 높이는 WINDOWS 목록의 `.si` 와 같다 (30px). 같은 자리·같은
-   생김새의 두 목록이 다른 높이면 사용자가 GIT 쪽을 좁다고 읽는다. */
-/* 행·이름·×·배지의 생김새는 `.sbl-*` 이 정한다 (FR-BLP-7). 여기 남는 것은
-   **Git 목록에만 있는 것**뿐이다. */
-/* 저장소가 아닌 항목은 흐리게 — 클릭 리스너 자체가 없다 (FR-GIT-10·11) */
-/* FR-RMS-11: 사라진 저장소의 행. REPO_TAB_UNIFY_SRS FR-RTU-1 로 행의 클래스가
-   `.ed-entry` 가 됐으므로 둘 다 딛는다 — 옛 선택자를 지우면 남아 있는 화면이
-   색을 잃고, 새 것만 두면 그 사실이 보이지 않는다. */
-.git-repo.norepo,.ed-entry.norepo{color:var(--text-hint);cursor:default}
-.git-repo.norepo:hover,.ed-entry.norepo:hover{background:transparent}
-/* O4: 활성 리포가 아닌 배지는 마지막 관측값일 뿐이다 */
-.git-badge.stale{background:transparent;color:var(--text-hint)}
-/* FR-GIT-239: follow 행의 자리 칸(`.git-repo-xslot`)은 `×` 와 같은 폭을 받는다 —
-   `×` 자신의 폭은 `.sbl-x` 가 준다. 자리만 잡으므로 동작·색은 없다. */
-.git-repo-xslot{width:16px;height:16px;flex-shrink:0}
-
-body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
+/* 파괴적 동작 확인·Branches·Stash·Worktrees·Submodules·컨트롤 치수 하한·부분 스테이징 — style-git-views.css — 원래 순서의 연속 구간으로 나눈 조각 (REFACTOR3_FE_REST5_SRS FR-FR5-1). 순서는 web/bundles.txt 의 [git] 이 지킨다. Git 사이드바와 폼 컨트롤 테마는 style-system.css 로 옮겼다 (PERF D-32). */
 
 /* ── 파괴적 동작 확인 (FR-GIT-90~97·174~178) ── */
 /* 골격은 `.ui-modal`/`.ui-modal-box` (FR-TOK-40·43). 테두리 색이 파괴적이라는
@@ -306,69 +277,10 @@ body.mobile .git-stash-row,body.mobile .git-br-row{min-height:var(--touch-min)}
    (REPO_TAB_UNIFY_SRS FR-RTU-1). 죽은 선택자를 남기면 다음 사람이 그것이 아직
    무엇을 잡는다고 읽는다. */
 
-/* ── GIT 섹션 표식 (FR-GIT-192~194) ──
-   WINDOWS 목록의 `.si-dot` 과 같은 어휘다. 활성 리포 여부만 나타내고
-   (O18), follow·핀 구분은 배치가 한다 (FR-GIT-193). */
-/* 점 자체는 `.sbl-dot` 이다 — 여기 남는 것은 Git 에만 있는 상태다. */
-/* 가리키는 리포가 없으면 상태도 없다 (FR-GIT-194) */
-.git-repo-dot.none{background:transparent}
-/* follow 는 늘 최상단 1줄이다 — 그 아래 선이 핀 목록과 나눈다 (FR-GIT-216) */
 
 /* ── Git 창의 감춘 진입점 (FR-GIT-180) ── */
 /* FR-LAY-3: `.git-hidden` 을 `[hidden]` 으로 옮겼다 — 이미 !important 를 쓰고 있었다. */
 
-/* ── 폼 컨트롤의 테마 (GIT_UI_REVISION_SRS FR-GIT-203~206) ──
-   브라우저 기본 위젯은 앱 테마(44종)와 무관한 색으로 그려진다 — 어두운 테마에서
-   흰 사각형이 튀고 라이트 테마에서도 accent 와 어긋난다. 전역으로 한 벌만 그린다:
-   컨트롤을 두 벌로 그리면 같은 체크박스가 자리마다 달라 보인다.
-
-   상태는 **형태로** 구분한다 (FR-GIT-204) — 색만으로 나누면 테마에 따라 사라진다.
-
-   `.ui-switch` 는 **비켜 간다** (KIT_COMPONENTS_SRS FR-CMP-20). 킷은 `<link>`
-   순서상 먼저 오므로(FR-UIK-1) 명시도가 같거나 낮으면 언제나 진다 — 여기서
-   `input[type="checkbox"]`(0-1-1)가 `.ui-switch`(0-1-0)를 이겼고, 스위치가
-   14px 네모로 그려졌다. 명시도를 올려 다투는 대신 **대상을 좁힌다.** */
-input[type="checkbox"]:not(.ui-switch),input[type="radio"]{
-  appearance:none;-webkit-appearance:none;
-  /* 상자는 정사각이어야 한다. flex 부모의 stretch 나 다른 규칙의 min-height 가
-     한 변만 늘리면 타원·직사각이 된다 — 네 값을 함께 못박는다 (실측 결함). */
-  flex-shrink:0;align-self:center;
-  width:14px;height:14px;min-width:14px;min-height:14px;margin:0;
-  background:transparent;border:1px solid var(--text-dim);border-radius:var(--radius-sm);
-  cursor:pointer;transition:background var(--dur-fast),border-color var(--dur-fast);
-}
-input[type="radio"]{border-radius:50%}
-input[type="checkbox"]:not(.ui-switch):hover:not(:disabled),
-input[type="radio"]:hover:not(:disabled){border-color:var(--accent)}
-/* FR-GIT-204: 켜짐은 **꽉 찬 상자**다. 체크 표식은 그리지 않는다 — 14px 안의 획은
-   어떻게 그려도 끝이 뭉툭하거나 비율이 어긋난다(4종 실측). 비었나 찼나는 색이
-   아니라 면적의 차이라 흑백으로 떨어뜨려도 남는다. */
-input[type="checkbox"]:not(.ui-switch):checked,input[type="radio"]:checked{
-  background:var(--accent);border-color:var(--accent);
-}
-/* FR-GIT-70 의 indeterminate 는 "켜짐도 꺼짐도 아님" 이다 — 다른 색으로 채운다 */
-input[type="checkbox"]:not(.ui-switch):indeterminate{background:var(--attn);border-color:var(--attn)}
-input[type="checkbox"]:not(.ui-switch):disabled,input[type="radio"]:disabled{
-  opacity:.45;cursor:not-allowed;
-}
-input[type="checkbox"]:not(.ui-switch):focus-visible,input[type="radio"]:focus-visible{
-  outline:2px solid var(--focus-ring);outline-offset:1px;
-}
-/* FR-GIT-205: select 도 같은 토큰으로. 화살표는 기본 위젯을 지우고 직접 그린다 */
-select{
-  appearance:none;-webkit-appearance:none;
-  font:inherit;color:var(--text);background:var(--bg);
-  border:1px solid var(--border);border-radius:var(--radius-sm);
-  padding:0 var(--sp-8) 0 var(--sp-4);cursor:pointer;
-  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),
-                   linear-gradient(135deg,currentColor 50%,transparent 50%);
-  background-position:calc(100% - 12px) center,calc(100% - 7px) center;
-  background-size:5px 5px,5px 5px;
-  background-repeat:no-repeat;
-}
-select:hover{border-color:var(--accent)}
-select:focus{border-color:var(--accent);outline:none}
-select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 /* FR-GIT-206·226: 컨트롤을 담은 행은 손이 닿는 높이여야 한다 */
 .git-dialog-row,.git-commit-amend,.git-commit-opt,.git-diff-ws,.git-diff-fold{
   min-height:var(--git-row-min);display:flex;align-items:center;gap:var(--sp-3);cursor:pointer;

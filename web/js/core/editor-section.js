@@ -75,6 +75,8 @@ class EditorSection extends Controller {
   }
 
   async _edAdd(){
+    // PERF D-30: 입력 대화상자는 git 묶음의 `GitDialog` 다.
+    await Screens.load('git');
     const here=await this._edTermCwd();
     const cwds=await this._edTermCwds(here);
     // 경로는 서버가 판정한다 (SERVER_DRIVEN_ACTIONS_SRS F-m) — 추가 요청도 같은 판정으로 거절된다.
