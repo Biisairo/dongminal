@@ -1,7 +1,8 @@
 use super::procparse::*;
 use super::*;
+use otter_shared_cadence::SYSSTAT_WARMUP_GAP;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, UNIX_EPOCH};
+use std::time::{Duration, UNIX_EPOCH};
 
 fn ticks(user: u64, system: u64, idle: u64, nice: u64) -> CpuTicks {
     CpuTicks {
@@ -272,26 +273,104 @@ fn sampler_snapshot_does_not_read_kernel() {
     assert_eq!(f.st().calls, before);
 }
 
-// FR-STAT-13
-#[test]
-fn sampler_stops_on_stop() {
-    let f = Fake::with(|s| s.ticks = vec![ticks(0, 0, 1, 0)]);
-    let s = Arc::new(Sampler::new(
-        Box::new(f.clone()),
-        Duration::from_millis(5),
-        "/",
-    ));
-    let stop = s.start();
-    let deadline = Instant::now() + Duration::from_millis(200);
-    while Instant::now() < deadline && f.st().calls < 3 {
-        std::thread::sleep(Duration::from_millis(5));
-    }
-    assert!(f.st().calls >= 3, "주기 샘플링이 돌지 않았다");
-    stop.stop();
-    std::thread::sleep(Duration::from_millis(30));
+fn sampler_every(f: &Fake) -> Arc<Sampler> {
+    Arc::new(Sampler::new(Box::new(f.clone()), DEFAULT_INTERVAL, "/"))
+}
+
+fn counting(f: &Fake) {
+    let mut st = f.st();
+    st.ticks = (0..64).map(|i| ticks(i, 0, 2 * i, 0)).collect();
+    st.mem = MemInfo {
+        total: 100,
+        used: 20,
+    };
+    st.boot = Some(at(1000));
+    st.disk = 42.0;
+}
+
+// PERF 4.10 (S2): 구독이 없으면 샘플러는 커널을 읽지 않는다.
+#[tokio::test(start_paused = true)]
+async fn idle_sampler_reads_nothing() {
+    let f = Fake::default();
+    counting(&f);
+    let _s = sampler_every(&f);
+    tokio::time::sleep(Duration::from_secs(60)).await;
+    assert_eq!(f.st().calls, 0, "구독이 없는데 커널을 읽었다");
+}
+
+// PERF 4.10 (S2), FR-STAT-13: resume 으로 돌고 pause 로 멈춘다. 두 번 resume 해도 한 벌이다.
+#[tokio::test(start_paused = true)]
+async fn subscribe_starts_unsubscribe_stops() {
+    let f = Fake::default();
+    counting(&f);
+    let s = sampler_every(&f);
+    s.resume();
+    s.resume();
+    s.warmed().await;
+    assert_eq!(f.st().calls, 2, "예열 표본은 둘이다");
+    tokio::time::sleep(DEFAULT_INTERVAL * 3 + Duration::from_millis(1)).await;
+    assert_eq!(f.st().calls, 5, "구독 중에는 주기마다 한 번 읽는다");
+
+    s.pause();
+    assert!(!s.snapshot().cpu_valid, "멈춘 샘플러의 CPU 가 남았다");
     let after = f.st().calls;
-    std::thread::sleep(Duration::from_millis(60));
+    tokio::time::sleep(Duration::from_secs(60)).await;
     assert_eq!(f.st().calls, after, "멈춘 뒤에도 샘플링이 계속됐다");
+
+    s.resume();
+    s.warmed().await;
+    assert_eq!(f.st().calls, after + 2, "다시 띄우면 다시 예열한다");
+    assert!(s.snapshot().cpu_valid);
+}
+
+// PERF 4.10 (S2): 예열 간격 하나만 기다리면 CPU 가 있다.
+#[tokio::test(start_paused = true)]
+async fn first_frame_has_cpu() {
+    let f = Fake::default();
+    counting(&f);
+    let s = sampler_every(&f);
+    let t0 = tokio::time::Instant::now();
+    s.resume();
+    s.warmed().await;
+    assert_eq!(t0.elapsed(), SYSSTAT_WARMUP_GAP);
+    let snap = s.snapshot();
+    assert!(snap.cpu_valid, "{snap:?}");
+    assert_eq!(snap.cpu, 33.3);
+}
+
+// PERF 4.10 (S2): 쉬는 샘플러의 warmed 는 곧바로 풀린다.
+#[tokio::test(start_paused = true)]
+async fn warmed_is_immediate_when_idle() {
+    let f = Fake::default();
+    let s = sampler_every(&f);
+    let t0 = tokio::time::Instant::now();
+    s.warmed().await;
+    assert_eq!(t0.elapsed(), Duration::ZERO);
+    s.resume();
+    s.pause();
+    s.warmed().await;
+    assert_eq!(t0.elapsed(), Duration::ZERO, "멈춘 예열을 기다렸다");
+}
+
+// PERF 4.10 (Q6, FR-STAT-9 개정): GET 은 mem·disk·boot 를 그 자리에서 재고 CPU 는 구독 중 값만 싣는다.
+#[tokio::test(start_paused = true)]
+async fn measure_reads_now_and_cpu_only_while_running() {
+    let f = Fake::default();
+    counting(&f);
+    let s = sampler_every(&f);
+    let m = s.measure();
+    assert!(m.mem_valid && m.disk_valid && m.boot_valid(), "{m:?}");
+    assert!(!m.cpu_valid);
+    assert_eq!(f.st().calls, 0, "measure 가 CPU tick 을 읽었다");
+    f.st().mem.used = 30;
+    assert_eq!(s.measure().mem_used, 30, "그 자리에서 재지 않았다");
+
+    s.resume();
+    s.warmed().await;
+    let m = s.measure();
+    assert!(m.cpu_valid && m.mem_valid, "{m:?}");
+    s.pause();
+    assert!(!s.measure().cpu_valid);
 }
 
 #[test]

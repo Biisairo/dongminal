@@ -10,6 +10,7 @@ use otter_shared_httpresp::{self as httpresp, Response};
 use otter_shared_toolhub::{Placement, ToolInfo, parse_size};
 use otter_shared_workspace::Error as WorkspaceError;
 use otter_webserver_apierr as apierr;
+use otter_webserver_domain_sysstat::Snapshot;
 use serde::{Deserialize, Serialize};
 
 use crate::Server;
@@ -162,17 +163,21 @@ impl Server {
         }
     }
 
-    /// Go `getStats`: 상태바 지표를 조립한다. 커널을 부르지 않는다 (FR-STAT-9·10·11).
+    /// Go `getStats`: 샘플러가 잰 상태바 지표를 조립한다. 커널을 부르지 않는다 (FR-STAT-10·11).
+    /// `stats:*` 가 싣는다.
     pub(crate) fn get_stats(&self) -> Stats {
+        self.stats_of(self.deps.stats.as_ref().map(|st| st.snapshot()))
+    }
+
+    fn stats_of(&self, snap: Option<Snapshot>) -> Stats {
         let mut out = Stats {
             hostname: otter_shared_platform::hostname().unwrap_or_default(),
             srv_uptime: fmt_duration(self.started.elapsed().as_nanos() as i128),
             ..Stats::default()
         };
-        let Some(st) = self.deps.stats.as_ref() else {
+        let Some(snap) = snap else {
             return out;
         };
-        let snap = st.snapshot();
         if snap.cpu_valid {
             out.cpu = Some(snap.cpu);
         }
@@ -193,8 +198,9 @@ impl Server {
     }
 
     /// GET /api/stats. 진행 중 git 작업은 `git.jobs` 토픽이 싣는다 (CHANNEL_PROTOCOL C4).
+    /// mem·disk·boot 는 그 자리에서 재고 CPU 는 `stats:*` 구독 중 값만 싣는다 (Q6, FR-STAT-9 개정).
     pub(crate) async fn api_stats(&self, _r: &mut Req) -> Response {
-        write_json(&self.get_stats())
+        write_json(&self.stats_of(self.deps.stats.as_ref().map(|st| st.measure())))
     }
 
     /// GET /api/state.

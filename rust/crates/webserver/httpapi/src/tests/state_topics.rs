@@ -1,16 +1,18 @@
 //! delta 토픽과 stats (`perf/CHANNEL_PROTOCOL.md` §10.4 C3).
 
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use otter_shared_toolhub::BackgroundEntry;
 use serde_json::Value;
 
 use super::attnenv::tracked;
+use super::fakes::FakeStats;
 use super::golden_554::{RunEnv, run_env};
 use super::support::*;
-use crate::Server;
 use crate::channel::{Out, Outbox};
+use crate::{Deps, Server};
 
 /// 계기를 합치는 창(100 ms)보다 넉넉히 기다린다.
 const SETTLE: Duration = Duration::from_millis(400);
@@ -277,4 +279,98 @@ async fn stats_topic_measures_only_while_subscribed() {
     let before = seq(&env.srv);
     tokio::time::sleep(Duration::from_millis(1500)).await;
     assert_eq!(seq(&env.srv), before, "구독자가 없는데 계속 잰다");
+}
+
+fn stats_env(warm_cpu: Option<f64>) -> (tempfile::TempDir, Arc<Server>, Arc<FakeStats>) {
+    let fs = Arc::new(FakeStats {
+        warm_cpu,
+        ..FakeStats::default()
+    });
+    let d = tempfile::tempdir().unwrap();
+    let s = server(
+        d.path(),
+        Deps {
+            stats: Some(fs.clone()),
+            ..Deps::default()
+        },
+    );
+    (d, s, fs)
+}
+
+/// PERF 4.10 (S2): 구독이 없으면 샘플러를 띄우지도 읽지도 않는다.
+#[tokio::test(start_paused = true)]
+async fn stats_no_subscription_no_sampling() {
+    let (_d, s, fs) = stats_env(Some(12.5));
+    tokio::time::sleep(Duration::from_secs(60)).await;
+    assert!(
+        !fs.active.load(Ordering::SeqCst),
+        "구독이 없는데 샘플러가 돈다"
+    );
+    assert_eq!(fs.cached.load(Ordering::SeqCst), 0);
+    drop(s);
+}
+
+/// PERF 4.10 (S2): 첫 `stats:*` 구독이 샘플러를 띄우고 마지막 해지가 멈춘다.
+#[tokio::test(start_paused = true)]
+async fn stats_subscribe_starts_unsubscribe_stops() {
+    let (_d, s, fs) = stats_env(None);
+    let a = Outbox::new();
+    s.topics
+        .subscribe(1, &a, "stats:1000", None, None)
+        .await
+        .unwrap();
+    assert!(
+        fs.active.load(Ordering::SeqCst),
+        "구독했는데 샘플러가 서 있다"
+    );
+    let b = Outbox::new();
+    s.topics
+        .subscribe(2, &b, "stats:3000", None, None)
+        .await
+        .unwrap();
+    s.topics.unsubscribe(1, "stats:1000");
+    assert!(
+        fs.active.load(Ordering::SeqCst),
+        "남은 구독이 있는데 멈췄다"
+    );
+    s.topics.unsubscribe(2, "stats:3000");
+    assert!(
+        !fs.active.load(Ordering::SeqCst),
+        "구독이 다 없어졌는데 돈다"
+    );
+    let n = fs.cached.load(Ordering::SeqCst);
+    tokio::time::sleep(Duration::from_secs(10)).await;
+    assert_eq!(
+        fs.cached.load(Ordering::SeqCst),
+        n,
+        "구독이 없는데 발행한다"
+    );
+}
+
+/// PERF 4.10 (S2): 첫 프레임이 예열을 기다려 CPU 를 싣는다. 다시 구독해도 낡은 값이 아니라 새로 잰다.
+#[tokio::test(start_paused = true)]
+async fn stats_first_frame_has_cpu() {
+    let (_d, s, _fs) = stats_env(Some(12.5));
+    for _ in 0..2 {
+        let out = sub(&s, "stats:1000").await;
+        let f = drain(&s, &out);
+        assert_eq!(f[0]["t"], "full", "{f:?}");
+        assert_eq!(f[0]["data"]["cpu"], 12.5, "{f:?}");
+        s.topics.unsubscribe(1, "stats:1000");
+    }
+}
+
+/// PERF 4.10 (Q6, FR-STAT-9 개정): GET 은 그 자리에서 재고 샘플러를 띄우지 않는다.
+#[tokio::test(start_paused = true)]
+async fn api_stats_measures_without_sampler() {
+    let (_d, s, fs) = stats_env(Some(12.5));
+    let v = get(&s, "/api/stats").await.json();
+    assert!(v.get("cpu").is_none(), "{v}");
+    assert_eq!(
+        fs.calls.load(Ordering::SeqCst),
+        1,
+        "GET 이 measure 를 부르지 않았다"
+    );
+    assert_eq!(fs.cached.load(Ordering::SeqCst), 0);
+    assert!(!fs.active.load(Ordering::SeqCst));
 }

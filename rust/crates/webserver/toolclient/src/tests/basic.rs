@@ -335,7 +335,7 @@ fn subscribers_get_output_size_and_exit() {
     assert_eq!(
         rx.try_recv().unwrap(),
         OutChunk {
-            data: b"hi".to_vec(),
+            data: bytes::Bytes::from_static(b"hi"),
             end: 9,
             size: None
         }
@@ -349,6 +349,24 @@ fn subscribers_get_output_size_and_exit() {
     push(&pc, json!({"event": "exit", "tool": "t1", "code": 3}));
     assert!(exit.is_cancelled());
     assert!(rx.blocking_recv().is_none(), "exit 뒤 채널이 닫히지 않았다");
+}
+
+/// 4.12 (M4 설계 §4): 데몬 출력 하나는 구독자마다 복사하지 않는다 — 모든 구독자가 같은 버퍼를 나눈다.
+#[test]
+fn output_shared_across_subscribers() {
+    let (sock, _l) = fake(|req| Some(resp(req.id, version())));
+    let pc = dial(&sock);
+    let (tx1, mut rx1) = tokio::sync::mpsc::channel(4);
+    let (tx2, mut rx2) = tokio::sync::mpsc::channel(4);
+    let (_e1, _u1) = pc.subscribe("t1", tx1);
+    let (_e2, _u2) = pc.subscribe("t1", tx2);
+    push(
+        &pc,
+        json!({"event": "output", "tool": "t1", "data": "aGk=", "end": 9}),
+    );
+    let (a, b) = (rx1.try_recv().unwrap(), rx2.try_recv().unwrap());
+    assert_eq!(&a.data[..], b"hi");
+    assert_eq!(a.data.as_ptr(), b.data.as_ptr(), "구독자마다 복사했다");
 }
 
 #[test]

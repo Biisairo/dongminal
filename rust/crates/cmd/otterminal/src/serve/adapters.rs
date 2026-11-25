@@ -28,7 +28,6 @@ use otter_webserver_httpapi::{
     Server, StatsSnapshotter, ToolError, ToolHub, ToolIdentity, Unsubscribe, UpdateService,
     WorkspaceStore,
 };
-use otter_webserver_hub::ForegroundSource;
 use otter_webserver_recordsync::Writer;
 use otter_webserver_seam_adapters::ToolSource;
 use otter_webserver_toolclient::{Error as ClientError, ToolClient};
@@ -188,15 +187,6 @@ impl ToolSource for Hub {
     }
 }
 
-impl ForegroundSource for Hub {
-    fn has_feature(&self, name: &str) -> bool {
-        self.0.has_feature(name)
-    }
-    fn list(&self) -> Vec<ToolInfo> {
-        self.0.list()
-    }
-}
-
 impl otter_shared_workspace::Liveness for Hub {
     fn is_live(&self, tool_id: &str) -> bool {
         self.0.is_live(tool_id)
@@ -291,6 +281,18 @@ pub(crate) struct Stats(pub(crate) Arc<Sampler>);
 impl StatsSnapshotter for Stats {
     fn snapshot(&self) -> StatsSnapshot {
         self.0.snapshot()
+    }
+    fn measure(&self) -> StatsSnapshot {
+        self.0.measure()
+    }
+    fn resume(&self) {
+        self.0.resume();
+    }
+    fn pause(&self) {
+        self.0.pause();
+    }
+    fn warmed(&self) -> BoxFuture<'static, ()> {
+        Box::pin(self.0.warmed())
     }
 }
 
