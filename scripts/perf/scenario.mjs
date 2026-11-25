@@ -61,6 +61,17 @@ const ctl = (...a) =>
     encoding: 'utf8',
   });
 const ctlJson = (...a) => JSON.parse(ctl(...a));
+// new-window·new-tab 의 답(newTabs)은 브라우저의 echo 다. 서버가 그 uuid 를 아는 것은 브라우저의 워크스페이스 PUT 뒤라서
+// (`layout-controller.js` `_mkWindow` 는 저장을 기다리지 않는다) 곧바로 `--at <uuid>` 로 쓰면 400 이 날 수 있다.
+const WS_KNOWN_POLL_MS = 100;
+const WS_KNOWN_TRIES = 50;
+async function waitKnownTab(uuid) {
+  for (let i = 0; i < WS_KNOWN_TRIES; i++) {
+    if (ctlJson('list-workspace', '--json').some((t) => t.uuid === uuid)) return;
+    await sleep(WS_KNOWN_POLL_MS);
+  }
+  throw new Error(`list-workspace 에 탭 ${uuid} 가 ${WS_KNOWN_TRIES * WS_KNOWN_POLL_MS} ms 안에 나타나지 않았다`);
+}
 
 // ── 서버·데몬 ─────────────────────────────────────────────────────────────
 function serverPids() {
@@ -206,9 +217,11 @@ const hiddenTabs = [];
 for (let w = 1; w < CFG.windows; w++) {
   const nw = ctlJson('new-window', '-n', '--name', 'perf-w' + w);
   const first = nw.newTabs[0].uuid;
+  await waitKnownTab(first);
   hiddenTabs.push(first);
   for (let t = 1; t < CFG.tabs; t++) {
     const nt = ctlJson('new-tab', '-n', '--at', first);
+    await waitKnownTab(nt.newTabs[0].uuid);
     hiddenTabs.push(nt.newTabs[0].uuid);
   }
 }
