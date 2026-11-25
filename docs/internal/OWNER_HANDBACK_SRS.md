@@ -135,7 +135,7 @@ windowFocused) return false` 다 — **주인이 누구냐를 묻기 전에** �
 | FR-OHB-10 | `_followsPty()` 는 종전대로 `!resizeCheck` 다. 판정을 둘로 가르지 않는다 — 가르는 것은 `resizeCheck` **안의 조건 순서**이며, 자리가 둘이 되면 한쪽만 고쳐진다. | 필수 |
 | FR-OHB-11 | 주인이 없고 OS 포커스도 없는 화면은 **종전대로 PTY 를 따른다**. 이때 자기 폭으로 되재면 화면은 108 인데 PTY 는 201 이라, 새 출력이 201 로 접혀 들어온다. | 필수 |
 | FR-OHB-12 | 크기를 보낼 자격의 판정은 **앱 전체에 한 자리**다. `resizeCheck`(pane 별) 과 `resendWindowSizes`(창 전체) 가 같은 함수를 딛는다. | 필수 |
-| FR-OHB-13 | 렌더 뒤의 크기 재전송(`renderer-layout.js` `_afterLayout`)은 `windowFocused` 가 아니라 FR-OHB-12 의 판정을 딛는다. 그러지 않으면 돌려받은 화면이 전량 재생(`FR-M10-2`)의 문을 지나지 못한다. | 필수 |
+| FR-OHB-13 | 렌더 뒤의 크기 재전송(`renderer-layout.js` `_afterLayout`)은 `windowFocused` 가 아니라 FR-OHB-12 의 판정을 딛는다. 그러지 않으면 돌려받은 화면이 데몬 스냅숏 다시 그리기(`FR-M10-2`)의 문을 지나지 못한다 (**개정 2026-11-26, PERF 2.5·4.16** — 이전: "전량 재생"). | 필수 |
 
 ### 3.3 비기능 요구사항 (Non-functional)
 
