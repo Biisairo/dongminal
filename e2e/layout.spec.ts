@@ -234,6 +234,7 @@ test.describe('Layout & navigation', () => {
       const app = (window as any).app;
       return { active: app.ws.activeWindow, focused: app.focused, count: app.ws.windows.length };
     });
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate(() => (window as any).app.testing.execRemote('newWindow', { name: 'wf-test', keepFocus: true }));
     await page.waitForFunction((n) => (window as any).app.ws.windows.length === n + 1, before.count, { timeout: 10000 });
     const after = await page.evaluate(() => {
@@ -253,6 +254,7 @@ test.describe('Layout & navigation', () => {
   test('remote newWindow with name only switches and names', async ({ page }) => {
     await waitForInit(page);
     const beforeCount = await page.evaluate(() => (window as any).app.ws.windows.length);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate(() => (window as any).app.testing.execRemote('newWindow', { name: 'named-active' }));
     await page.waitForFunction((n) => (window as any).app.ws.windows.length === n + 1, beforeCount, { timeout: 10000 });
     const after = await page.evaluate(() => {
@@ -304,6 +306,7 @@ test.describe('Layout & navigation', () => {
       };
     });
 
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate((s) => (window as any).app.testing.execRemote('newTab',
       { location: s.targetCoord, keepFocus: true, name: 'worker' }), state);
     await page.waitForFunction((s) => {
@@ -350,6 +353,7 @@ test.describe('Layout & navigation', () => {
       return { active: app.ws.activeWindow, focused: app.focused };
     });
     // 활성 세션의 포커스 탭을 좌표 W{n}.P1.T1 로 rename (활성 세션 index 계산).
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     const result = await page.evaluate(() => {
       const app = (window as any).app;
       const si = app.ws.windows.findIndex((x: any) => x.id === app.ws.activeWindow) + 1;
@@ -388,6 +392,7 @@ test.describe('Layout & navigation', () => {
       const si = app.ws.windows.findIndex((x: any) => x.id === app.ws.activeWindow) + 1;
       return `W${si}.P1.T1`;
     });
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate((c) => (window as any).app.testing.execRemote('splitV',
       { reqId: 'test-req-9', location: c, count: 2, keepFocus: true }), coord);
 
@@ -435,6 +440,7 @@ test.describe('Layout & navigation', () => {
       const si = app.ws.windows.findIndex((x: any) => x.id === app.ws.activeWindow) + 1;
       return `W${si}.P1.T1`;
     });
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate((c) => (window as any).app.testing.execRemote('splitV',
       { location: c, count: 2, keepFocus: true }), coord); // reqId 없음
     await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
@@ -447,6 +453,7 @@ test.describe('Layout & navigation', () => {
     await waitForInit(page);
     const long = 'x'.repeat(80);
     const beforeCount = await page.evaluate(() => (window as any).app.ws.windows.length);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate((n) => (window as any).app.testing.execRemote('newWindow', { name: n, keepFocus: true }), long);
     await page.waitForFunction((n) => (window as any).app.ws.windows.length === n + 1, beforeCount, { timeout: 10000 });
     const lastName = await page.evaluate(() => {

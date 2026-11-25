@@ -101,6 +101,7 @@ test.describe('FR-M9-7·8: 모바일 탭과 키바', () => {
 test.describe('FR-M9-4: 원격 닫기의 답', () => {
   test('TC-M9-4a: keepTool 은 탭만 지우고 도구를 배경으로 보낸다', async ({ page }) => {
     await waitForInit(page);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     const got = await page.evaluate(async () => {
       const a = (window as any).app;
       await a.layout.tabAdd.addTab();
@@ -130,6 +131,7 @@ test.describe('FR-M9-4: 원격 닫기의 답', () => {
     await waitForInit(page);
     await routeAllBusy(page);
 
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     const got = await page.evaluate(async () => {
       const a = (window as any).app;
       await a.layout.addWindow();

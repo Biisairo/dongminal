@@ -728,6 +728,7 @@ test.describe('묶음 R·M — 일반 창 금지와 마이그레이션 (FR-EDT-9
     // 대신 **연결된** Editor 로 간다 (FR-EDT-95·96). `SOME_FILE` 을 루트 아래에
     // 포함하는 창이 둘(`HOME_DIR`·`PROJ_DIR`)이므로 깊은 쪽이 이긴다. root
     // 에디터는 그런 창이 하나도 없을 때의 폴백이다 — R3 이 그쪽을 잰다.
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     await page.evaluate((fp) => (window as any).app.testing.execRemote('openEditorTab', { filePath: fp }), SOME_FILE);
     await expect.poll(() => page.evaluate((fp) => {
       const a = (window as any).app;

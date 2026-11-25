@@ -10,6 +10,7 @@ import { test, expect, waitForInit } from './fixtures';
 test.describe('원격 닫기는 사용자의 시선을 옮기지 않는다', () => {
   test('close-tab --at: 같은 window 의 다른 칸에 있는 탭을 닫아도 포커스 칸이 그대로다', async ({ page }) => {
     await waitForInit(page);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     const got = await page.evaluate(async () => {
       const a = (window as any).app;
       const mine = a.focused;
@@ -33,6 +34,7 @@ test.describe('원격 닫기는 사용자의 시선을 옮기지 않는다', () 
   for (const away of [false, true]) {
     test(`close-tab --at: 같은 칸에서 보이지 않는 탭을 닫아도 보이는 탭이 그대로다${away ? ' (다른 window 에 가 있을 때)' : ''}`, async ({ page }) => {
       await waitForInit(page);
+      await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
       const got = await page.evaluate(async (goAway) => {
         const a = (window as any).app;
         const win = a.testing.aw();
@@ -58,6 +60,7 @@ test.describe('원격 닫기는 사용자의 시선을 옮기지 않는다', () 
 
   test('close-window --at: 보고 있지 않은 window 를 닫아도 활성 window 가 그대로다', async ({ page }) => {
     await waitForInit(page);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     const got = await page.evaluate(async () => {
       const a = (window as any).app;
       const mine = a.ws.activeWindow;
@@ -78,6 +81,7 @@ test.describe('원격 닫기는 사용자의 시선을 옮기지 않는다', () 
 
   test('close-window --at: 자리를 찾지 못하면 아무 window 도 닫지 않는다', async ({ page }) => {
     await waitForInit(page);
+    await page.evaluate(() => (window as any).app.testing.loadScreen('remote'));
     const got = await page.evaluate(async () => {
       const a = (window as any).app;
       await a.layout.addWindow({ keepFocus: true });

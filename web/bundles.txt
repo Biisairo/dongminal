@@ -115,7 +115,6 @@ js/ui/sidebar-tabs.js
 js/ui/sidebar-list.js
 js/ui/themes.js
 js/ui/toast.js
-js/ui/open-url.js
 # OS 클립보드에 쓰는 한 자리 (STRUCTURE_CLEANUP_SRS FR-STR-10). git 패널·
 # 확인창·샌드박스·터미널이 함께 쓴다 — 부르는 넷보다 앞이기만 하면 된다.
 js/ui/clipboard.js
@@ -175,7 +174,8 @@ js/ui/renderer-layout.js
 js/ui/renderer-pane.js
 js/ui/renderer-pane-wire.js
 js/core/app.js
-# 원격 커맨드 — 도구 묶음의 부품 `ToolCmd` (REFACTOR3_FE_APPCTL_SRS 9j, 옛 `app-cmd.js`). 끝에서 App 원형에 위임자를 둔다.
+# 원격 커맨드 — 도구 묶음의 부품 `ToolCmd` 의 껍데기 (REFACTOR3_FE_APPCTL_SRS 9j, 옛 `app-cmd.js`). 본체는 [remote] 다(PERF 3.4.12.5).
+# 로드 시점에 `remote` 를 등록하므로 screens.js 뒤다.
 js/core/tool-cmd.js
 # 워크스페이스 동기화·SSE 배선과 내부 새로고침 (REFACTOR3_FE_APPCTL_SRS 9f, 옛 `app-ws-sync.js`·`app-reload.js`).
 # 끝에서 App 원형에 위임자와 `_sse` 접근자 넷을 둔다.
@@ -505,3 +505,9 @@ vendor/purify.js
 # `focusedTerminal` 은 상태 바·git·tool-life 가 부팅 때 부르므로 부팅의 껍데기(tool-search.js)에 남는다.
 vendor/addon-search.js
 js/core/tool-search-bar.js
+
+[remote]
+# 원격 명령의 본체 (PERF 3.4.12.5). 부팅의 `ToolCmd._execRemote` 가 첫 명령 때 싣고, 실리는 동안 받은 명령은
+# 받은 순서대로 줄을 세웠다가 실린 뒤 돌린다. open-url 이 앞이다 — `openUrl` 처리기가 `OpenUrl` 을 부른다.
+js/ui/open-url.js
+js/core/tool-cmd-remote.js
