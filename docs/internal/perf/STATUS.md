@@ -1,17 +1,20 @@
 # 최적화 진행 상태 (2026-11-24)
 
-## 지금 상태 (2026-11-25 저녁, 조정 세션 → 다음 조정 세션)
+## 지금 상태 (2026-11-25 19:05, 조정 세션)
 
-- **perf-m1** HEAD `6ad9dfeb` 근처(작업 트리 깨끗, 이슈 worktree 없음). **main** `7a2c81d0` 그대로(push 안 함). 운영 바이너리는 다시 빌드하지 않는다.
-- **M1·M2**: 닫힘. **M3**: 3.4.11·3.4.12(.1~.11) 모두 done — 부팅 JS 1,543,787 → 1,142,951 B, 요청 45 → 42, NFR-PRF-12 = 1,150,000 B(D-48), 회귀 게이트 `scripts/check-boot-bytes.mjs`(로컬만 — 사용자 결정, CI 에 넣지 않음).
-- **M4**:
-  - done: 4.1(데몬 메모리, NFR-PRF-10 충족 — footprint 기준, D-49~D-57, `perf/M4_MEMORY_DESIGN.md`), 4.2(생성 명령은 새 탭 색인 등록 뒤 답함), 4.3(슬롯 [1]+ 포커스 원격 명령 유실 — 라우터가 칸 신원 집합으로 판정, 시간 초과 응답에 `execClientId`).
-  - **설계 승인, 구현 전**: 이슈 4 → 하위 4.4~4.14(`perf/M4_DESIGN.md`, D-58~D-63, Q1~Q12 권장안 전부). 착수 순서: 독립인 **4.4(측정 도구·기준선)·4.5(cadence 등록부)·4.7(libproc)·4.12(한 번 인코딩)·4.13(sse 이름)** 을 병렬로 → 4.5 병합 뒤 4.6·4.8·4.9·4.10·4.11 → 4.14 재측정·정합.
-  - 공통 지시 파일 `/private/tmp/pfm4-brief.md`(M4 용, `<ID>` 를 이슈 번호로). /private/tmp 는 재부팅에 지워질 수 있으니 없으면 `/private/tmp/pf41-brief.md` 형식을 본떠 다시 쓴다.
-- **사용자 결정(이번 세션)**: malloc 반납 지연은 그냥 둠. 전체 시험(Rust workspace + e2e 전량)은 **M4 까지 전체 끝난 뒤** 한 번. 알려진 기존 e2e 실패: `event-timer-hub-contract` T-5·6·7·7b(스펙이 index.html 개별 constants-git 태그 전제), V-LAY-1·1b(2.8.2 `.search-bar{position:relative}` 기준선 어긋남).
-- 사용량 규칙: 5시간 70% 에서 멈춤(감시 루프를 건다). 시작할 때 사용자에게 다시 확인.
-- 아직 묻지 않은 것: vendor 스크립트·CSS gzip 전송(3.4.2), 2.4 작은 차이 5건 수용 여부.
-- 교훈: 병렬 단계는 `web/bundles.txt`·`settings-controller.js`·`harness.mjs`·`commands.rs` 에서 자주 충돌 — 하나 병합할 때마다 다음 에이전트에게 "네 worktree 에서 git merge perf-m1" 을 순서대로. 병합 뒤 `check-code-refs` 가 시험 문자열 안의 파일 이름(`boot.js` 등)을 잡은 일이 두 번 — 확인 세트에서 꼭 돌린다. `scenario.mjs` 는 이제 새 탭 등록을 기다린다(`waitKnownTab`).
+- **perf-m1** HEAD `c6275919` 근처(작업 트리 깨끗, 이슈 worktree 없음). **main** `7a2c81d0` 그대로(push 안 함). 운영 바이너리는 다시 빌드하지 않는다.
+- **M1·M2·M3**: 닫힘.
+- **M4**: 4.1~4.13 done(이 세션에 4.4~4.13 병합). **남은 것: 4.14**(재측정은 4.4 도구 `scripts/perf/scenario.mjs --bin`·`proc-metrics.mjs`, 기준선 `perf/M4_BASELINE_2026-11-25.md` 와 비교 · 문서 정합: SRS §7.5, D-17 닫음(Q11), CHANNEL_PROTOCOL §10.5) → **마일스톤 전체 시험**(Rust workspace + e2e 전량 + `check-cross.sh` — 이 세션은 디스크 때문에 check-cross 를 에이전트에서 뺐다, 한 번도 안 돌았다).
+- 4.14 에 넘길 것:
+  - 4.9: Git 화면 유휴에도 저장소마다 `git rev-parse` 가 30초에 한 번(`domain/git/store` `DEFAULT_GIT_DIRS_TTL`) — "idle-git 외부 프로세스 0" 목표에 걸린다. 사용자 결정 필요.
+  - 4.9 는 새 crate 대신 CoreServices FSEvents 를 `extern "C"` 로 직접 불렀다(unsafe 약 120줄, fswatch 가 notify `macos_kqueue` 를 켜서). Linux inotify 경로는 미검증 → check-cross.
+  - 4.8: 데몬이 판정하지 않는 동안(옛 데몬·끊김) 서버 혼자 하던 L2 유휴 판정은 이제 없다(동작 변경 기록됨).
+  - 4.7: 이름은 `proc_name` 대신 argv[0](`KERN_PROCARGS2`) — claude 탭 이름 유지. non-macOS BSD 는 컴파일 안 됨.
+  - 4.4: 설계 §0.1 "유휴에도 2초마다 ps" 는 전경이 셸이 아닐 때만 맞다. top 은 `csw` 열을 더해 잰다.
+  - 각 이슈 진행 기록의 "코드와 어긋난 문서" 목록(고치지 않음).
+- 알려진 기존 e2e 실패: `event-timer-hub-contract` T-5·6·7·7b(4.12 에서도 재현, `git-poll.js:47` `GIT_STATUS_RETRY_MS` 미정의), V-LAY-1·1b.
+- 교훈(이번 세션): worktree 다섯이 동시에 `rust/target` 을 키워 디스크가 가득 찼다(ENOSPC) — 병렬 수를 줄이거나 cross-target clippy(`check-cross.sh`)를 에이전트에서 빼고 조정자가 한 번 돌린다. 하위 에이전트의 `git add/commit` 은 자동 모드 분류기에 막힌다 — 메시지 파일을 받아 조정자가 커밋한다(병합 충돌도 `--no-commit` 으로 풀게 하고 조정자가 커밋).
+- 사용량 규칙: 5시간 70% 에서 멈춤. 아직 묻지 않은 것: vendor 스크립트·CSS gzip 전송(3.4.2), 2.4 작은 차이 5건 수용 여부.
 
 ## 사용자 지시 (2026-11-24)
 
