@@ -324,6 +324,125 @@ async fn plain_assets_unchanged() {
     assert!(!r.header("ETag").is_empty());
 }
 
+// ── JS·CSS gzip 전송 (perf 3.4.13): 사전압축이 없는 JS·CSS 도 gzip 을 밝힌 클라이언트엔 gzip 이다 ──
+
+const DIRECT: [(&str, &str, &str); 4] = [
+    ("vendor/xterm.js", "var xterm = 1;\n", "text/javascript"),
+    ("vendor/xterm.css", ".xterm{color:red}\n", "text/css"),
+    ("style.css", "body{margin:0}\n", "text/css"),
+    (
+        "js/core/server-move.js",
+        "(function(){})();\n",
+        "text/javascript",
+    ),
+];
+
+fn direct_fs() -> Arc<MapFs> {
+    let mut all: Vec<(&str, &[u8])> = DIRECT.iter().map(|(n, b, _)| (*n, b.as_bytes())).collect();
+    all.push(("icon.svg", b"<svg></svg>"));
+    Arc::new(MapFs::new(&all))
+}
+
+fn gunzip(b: &[u8]) -> String {
+    let mut got = String::new();
+    flate2::read::GzDecoder::new(b)
+        .read_to_string(&mut got)
+        .unwrap();
+    got
+}
+
+#[tokio::test]
+async fn direct_js_css_gzip_for_clients_that_accept_it() {
+    let (_d, s) = static_server(direct_fs());
+    for (name, plain, ct) in DIRECT {
+        let (r, body) = get_raw(
+            &s,
+            &format!("/{name}"),
+            &[("Accept-Encoding", "gzip, deflate, br")],
+        )
+        .await;
+        assert_eq!(r.status, 200, "{name}");
+        assert_eq!(r.header("Content-Encoding"), "gzip", "{name}");
+        assert!(r.header("Vary").contains("Accept-Encoding"), "{name}");
+        assert!(r.header("Content-Type").starts_with(ct), "{name}");
+        assert_eq!(gunzip(&body), plain, "{name}");
+    }
+}
+
+#[tokio::test]
+async fn direct_js_css_plain_without_gzip() {
+    let (_d, s) = static_server(direct_fs());
+    for (name, plain, _) in DIRECT {
+        for ae in ["", "identity", "gzip;q=0", "br"] {
+            let r = get_h(&s, &format!("/{name}"), &[("Accept-Encoding", ae)]).await;
+            assert_eq!(r.status, 200, "{name} {ae}");
+            assert_eq!(r.header("Content-Encoding"), "", "{name} {ae}");
+            assert!(r.header("Vary").contains("Accept-Encoding"), "{name} {ae}");
+            assert_eq!(r.body, plain, "{name} {ae}");
+        }
+    }
+}
+
+#[tokio::test]
+async fn direct_gzip_etag_per_representation() {
+    let (_d, s) = static_server(direct_fs());
+    let gz = [("Accept-Encoding", "gzip")];
+    let zipped = get_h(&s, "/vendor/xterm.js", &gz).await.header("ETag");
+    let plain = get(&s, "/vendor/xterm.js").await.header("ETag");
+    assert!(!zipped.is_empty() && !plain.is_empty());
+    assert_ne!(zipped, plain, "gzip 표현과 원본이 같은 강한 검증자를 쓴다");
+    let r = get_h(
+        &s,
+        "/vendor/xterm.js",
+        &[("Accept-Encoding", "gzip"), ("If-None-Match", &zipped)],
+    )
+    .await;
+    assert_eq!(r.status, 304);
+    let r = get_h(&s, "/vendor/xterm.js", &[("If-None-Match", &plain)]).await;
+    assert_eq!(r.status, 304);
+    let r = get_h(&s, "/vendor/xterm.js", &[("If-None-Match", &zipped)]).await;
+    assert_eq!(r.status, 200, "gzip 표현의 검증자로 원본이 304 가 됐다");
+}
+
+#[tokio::test]
+async fn direct_gzip_reads_file_once() {
+    let fs = direct_fs();
+    let (_d, s) = static_server(fs.clone());
+    for i in 0..5 {
+        let r = get_h(&s, "/vendor/xterm.js", &[("Accept-Encoding", "gzip")]).await;
+        assert_eq!(r.header("Content-Encoding"), "gzip", "{i}회차");
+    }
+    let n = fs.count("vendor/xterm.js");
+    assert!(n <= 2, "{n}번 열었다 — 요청마다 읽고 있다");
+}
+
+#[tokio::test]
+async fn other_types_not_gzipped() {
+    let (_d, s) = static_server(direct_fs());
+    let r = get_h(&s, "/icon.svg", &[("Accept-Encoding", "gzip")]).await;
+    assert_eq!(r.status, 200);
+    assert_eq!(r.header("Content-Encoding"), "");
+    assert_eq!(r.body, "<svg></svg>");
+}
+
+#[tokio::test]
+async fn real_vendor_assets_gzip_round_trip() {
+    let (_d, s) = static_server(Arc::new(WebAssets));
+    for name in ["vendor/xterm.js", "vendor/xterm.css"] {
+        let Some(want) = WebAssets.read(name) else {
+            panic!("{name} 가 실리지 않았다");
+        };
+        let (r, body) = get_raw(&s, &format!("/{name}"), &[("Accept-Encoding", "gzip")]).await;
+        assert_eq!(r.header("Content-Encoding"), "gzip", "{name}");
+        assert!(body.len() < want.len(), "{name}");
+        let mut got = Vec::new();
+        flate2::read::GzDecoder::new(&body[..])
+            .read_to_end(&mut got)
+            .unwrap();
+        assert_eq!(got, want.as_ref(), "{name}");
+    }
+}
+
 #[tokio::test]
 async fn precompressed_content_type_by_ext() {
     let (_d, s) = static_server(Arc::new(precompressed_fs("x\n")));

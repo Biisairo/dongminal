@@ -1,6 +1,9 @@
 //! 정적 자산 `/` 의 Go 대조. go1.27.2 의 실제 핸들러(`New(...).Handler()` + `fstest.MapFS`)가 같은
 //! 요청에 낸 상태·머리·본문을 `go_golden_558a.txt` 로 고정했다. 사전압축 자산의 바이트는 Go `gzip` 이
 //! 만든 것을 파일 머리(`#gz`·`#both`)에서 읽는다. 여러 구간 요청(경계가 무작위)은 따로 시험한다.
+//!
+//! Go 와 갈라진 곳(perf 3.4.13): `.js`·`.css` 파일 응답에는 `Vary: Accept-Encoding`·`Content-Type` 이
+//! 붙고, gzip 을 밝힌 요청(`/both.js`)에는 서버가 압축한 원본 파일이 나간다.
 
 use std::sync::Arc;
 

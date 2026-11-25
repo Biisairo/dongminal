@@ -10,17 +10,14 @@
 //! 그 밖의 줄, 묶음 밖의 파일 줄, 같은 이름의 묶음이 있으면 정의 전체를 버린다.
 
 use std::collections::HashMap;
-use std::io::Write;
-use std::sync::OnceLock;
 
 use bytes::Bytes;
-use http::{HeaderMap, header};
+use http::HeaderMap;
 use otter_shared_httpresp::Response;
 
 use crate::js_strip::strip_comments;
 use crate::req::Req;
-use crate::serve_content::{serve_content, set};
-use crate::static_assets::{StaticAssets, accepts_gzip, content_type_for, hash_bytes};
+use crate::static_assets::{Asset, StaticAssets, content_type_for};
 
 pub(crate) const BUNDLES_DEF: &str = "bundles.txt";
 
@@ -69,23 +66,6 @@ pub(crate) fn parse_bundles(text: &str) -> Option<Vec<BundleDef>> {
     Some(out)
 }
 
-/// 내보내는 바이트 하나. gz 바이트는 처음 요청될 때 한 번 만든다.
-struct Asset {
-    body: Bytes,
-    etag: String,
-    gz: OnceLock<Bytes>,
-}
-
-impl Asset {
-    fn new(body: Vec<u8>) -> Asset {
-        Asset {
-            etag: hash_bytes(&body),
-            body: Bytes::from(body),
-            gz: OnceLock::new(),
-        }
-    }
-}
-
 struct Bundle {
     js: Asset,
     map: Asset,
@@ -109,19 +89,11 @@ impl Bundles {
     }
 
     /// 묶음 이름의 요청이면 답한다. 아니면 머리를 돌려준다.
-    pub(crate) fn serve(&self, r: &Req, mut h: HeaderMap) -> Result<Response, HeaderMap> {
+    pub(crate) fn serve(&self, r: &Req, h: HeaderMap) -> Result<Response, HeaderMap> {
         let Some((a, ext)) = self.find(&r.path) else {
             return Err(h);
         };
-        set(&mut h, header::ETAG, &a.etag);
-        set(&mut h, header::CONTENT_TYPE, &content_type_for(ext));
-        set(&mut h, header::VARY, "Accept-Encoding");
-        if !accepts_gzip(r) {
-            return Ok(serve_content(r, h, "", a.body.clone()));
-        }
-        set(&mut h, header::CONTENT_ENCODING, "gzip");
-        let gz = a.gz.get_or_init(|| gzip(&a.body)).clone();
-        Ok(serve_content(r, h, "", gz))
+        Ok(a.serve(r, h, &content_type_for(ext)))
     }
 
     fn find(&self, url_path: &str) -> Option<(&Asset, &'static str)> {
@@ -150,7 +122,7 @@ fn concat(fsys: &dyn StaticAssets, def: &BundleDef) -> Option<Bundle> {
                 out.push(b'\n');
             }
         }
-        Some(Asset::new(out))
+        Some(Asset::new(Bytes::from(out)))
     };
     let mut js = Vec::new();
     let mut lines: Vec<Option<(usize, usize)>> = Vec::new();
@@ -169,8 +141,8 @@ fn concat(fsys: &dyn StaticAssets, def: &BundleDef) -> Option<Bundle> {
     lines.push(None);
     let map = source_map(def, &lines);
     Some(Bundle {
-        js: Asset::new(js),
-        map: Asset::new(map.into_bytes()),
+        js: Asset::new(Bytes::from(js)),
+        map: Asset::new(Bytes::from(map.into_bytes())),
         css,
     })
 }
@@ -215,12 +187,4 @@ fn vlq(v: i64, out: &mut String) {
             return;
         }
     }
-}
-
-fn gzip(b: &[u8]) -> Bytes {
-    let mut w = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
-    if w.write_all(b).is_err() {
-        return Bytes::new();
-    }
-    w.finish().map(Bytes::from).unwrap_or_default()
 }
