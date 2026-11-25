@@ -68,3 +68,9 @@ function chatShortId(id){
   const i=s.lastIndexOf('-');
   return (i>=0?s.slice(i+1):s).slice(0,6);
 }
+
+/** 글의 시각 `HH:MM`. */
+function chatClock(ms){
+  const d=new Date(ms||0);
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}

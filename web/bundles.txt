@@ -256,15 +256,11 @@ js/git/remote-list.js
 js/git/remote-add.js
 js/git/jobs.js
 js/git/commit-ops.js
-js/ui/runs-panel.js
-js/ui/run-view-life.js
-js/ui/run-graph-fit.js
-js/ui/run-dashboard.js
-js/ui/run-tree-cam.js
-js/ui/run-tree.js
-js/ui/run-recover.js
 # 화면 등록부와 묶음 로더 (PERF M3 §3.4, D-30). 렌더러가 `forTab`·`ready` 를 묻으므로 그 앞이다.
 js/core/screens.js
+# Run 목록·뷰 레지스트리 — `run` 화면의 껍데기 (PERF 3.4.9). 로드 시점에 화면을 등록하므로 screens.js 뒤다.
+# 탭의 뷰(그리기·구독)는 아래 [run] 묶음이 진다.
+js/ui/runs-panel.js
 # 탭 본문 주인의 생명주기 (PERF M3 §3.5). `Component` 를 잇고, 렌더러가 세운다.
 js/ui/screen-life.js
 js/ui/renderer.js
@@ -325,7 +321,6 @@ js/core/tool-work.js
 # 채팅 (PEER_CHAT_SRS §3.11). `ChatController` 와 그 부품 (REFACTOR3_FE_APPCTL_SRS 9c). `activity-list.js` 뒤.
 js/core/chat-store.js
 js/core/chat-controller.js
-js/core/chat-views.js
 js/core/chat-human.js
 # 채팅 창 (CHAT_WINDOW_SRS). `ChatController` 의 부품이다.
 js/core/chat-window.js
@@ -367,42 +362,18 @@ js/core/mobile-nav.js
 js/core/poll-settings.js
 # 설정 저장 파이프라인 (APP_STATE_EXTRACT_SRS FR-ASE-9). `SettingsApply` 가 부른다.
 js/core/settings-sync.js
-js/core/settings-modal.js
 js/core/settings-table.js
 # 설정 값의 길 (FE_MODULE_BOUNDARY_SRS FR-FMB-10 · REFACTOR3_FE_APPCTL_SRS 9a). `SettingsController` 의 부품이다 —
 # 컨트롤러가 만들 때 읽으므로 `settings-controller.js` 앞이기만 하면 된다. 표(`settings-table.js`) 뒤에 둔다.
 js/core/settings-apply.js
-# 설정 섹션 (REFACTOR3_FE_SETTINGS_SRS FR-FES-8). 탭 하나가 `SettingsSection` 하위 하나다. `extends` 가 로드
-# 시점에 부모를 읽으므로 섹션 기반과 행이 섹션보다 먼저다.
-js/core/settings-section.js
-js/core/settings-row.js
-js/core/settings-display.js
-js/core/settings-terminal.js
-js/core/settings-code.js
-js/core/settings-polling.js
-js/core/settings-statusbar.js
-js/core/settings-notify.js
-js/core/settings-theme.js
-js/core/settings-shortcuts.js
 js/core/settings-live.js
 js/core/settings-save-state.js
-js/core/settings-sandbox.js
-js/core/settings-access.js
 js/core/edges-controller.js
-js/core/settings-edges.js
 js/core/edges-mesh.js
-js/core/settings-profile.js
-js/core/settings-telegram.js
-js/core/settings-server.js
-js/core/settings-claude-rows.js
-js/core/settings-claude.js
-# 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). 섹션이므로 settings-section.js 뒤다.
-js/core/settings-backup.js
 js/core/statusbar-controller.js
 js/core/statusbar-enc.js
 js/core/update-controller.js
-js/core/settings-presets.js
-# 설정 탭들의 조정자 (REFACTOR3_FE_SETTINGS_SRS 8e). 섹션 클래스를 로드 시점에 표로 읽으므로 섹션 파일 전부의 뒤다.
+# 설정 탭들의 조정자 — 부팅 껍데기 (REFACTOR3_FE_SETTINGS_SRS 8e, PERF D-41). 설정 창 본체는 아래 [settings] 묶음이다.
 js/core/settings-controller.js
 js/core/window-order.js
 # APP_TESTING_CONTRACT_SRS FR-ATC-1·7: e2e 가 보는 공개 계약.
@@ -414,6 +385,54 @@ js/core/main.js
 js/ui/version-watch.js
 # 실기기 진단. ?diag=1 로 접속할 때만 동작한다
 js/ui/diag.js
+
+[run]
+# Run 탭의 뷰 (PERF 3.4.9, D-30). `RunsPanel.prototype` 증강이므로 부팅의 runs-panel.js 뒤에서만 실린다 —
+# 렌더러가 Run 탭을 처음 그릴 때(`Screens.forTab`) 또는 `Screens.load('run')` 이 싣는다.
+js/ui/run-view.js
+js/ui/run-view-life.js
+js/ui/run-graph-fit.js
+js/ui/run-dashboard.js
+js/ui/run-tree-cam.js
+js/ui/run-tree.js
+js/ui/run-recover.js
+style-run-view.css
+
+[chat]
+# 채팅 탭의 뷰 (PERF 3.4.9, D-30). `ChatController.views` 가 묶음이 실린 뒤에 세운다. CSS 는 부팅의
+# style-activity.css 에 남는다 — 목록 행과 선택자를 나누고, 크기가 작다.
+js/core/chat-views.js
+
+[settings]
+# 설정 창 본체 (PERF D-41, 3.4.9.2). 설정을 처음 열 때 `SettingsController.ready` 가 싣는다.
+# 섹션 (REFACTOR3_FE_SETTINGS_SRS FR-FES-8). 탭 하나가 `SettingsSection` 하위 하나다. `extends` 가 로드
+# 시점에 부모를 읽으므로 섹션 기반과 행이 섹션보다 먼저다.
+js/core/settings-modal.js
+js/core/settings-section.js
+js/core/settings-row.js
+js/core/settings-display.js
+js/core/settings-terminal.js
+js/core/settings-code.js
+js/core/settings-polling.js
+js/core/settings-statusbar.js
+js/core/settings-notify.js
+js/core/settings-theme.js
+js/core/settings-shortcuts.js
+js/core/settings-sandbox.js
+js/core/settings-access.js
+js/core/settings-edges.js
+# 간선 망 그림 (EDGE_MESH_SRS FR-EGM-50~56). `EdgesController.prototype` 증강이다 — 설정 ▸ Edges 만 부른다.
+js/core/edges-mesh-view.js
+js/core/settings-profile.js
+js/core/settings-telegram.js
+js/core/settings-server.js
+js/core/settings-claude-rows.js
+js/core/settings-claude.js
+# 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). 섹션이므로 settings-section.js 뒤다.
+js/core/settings-backup.js
+js/core/settings-presets.js
+# 처음 열 때의 세우기 순서. 섹션 클래스를 로드 시점에 표로 읽으므로 섹션 파일 전부의 뒤다.
+js/core/settings-open.js
 
 [editor]
 # 편집기 칸과 탐색기 (PERF 3.4.7, D-30·D-32). Editor 창을 그리거나 파일을 열 때 Screens.load('editor') 가 싣는다.

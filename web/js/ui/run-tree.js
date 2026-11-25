@@ -246,18 +246,6 @@ Object.assign(RunsPanel.prototype, {
   },
 });
 
-/** 흔적으로만 남는 노드의 상태 (FR-ITC-3·7). */
-const RUN_TREE_ENDED = new Set(['done', 'failed', 'released', 'succeeded']);
-
-/**
- * RUN_INACTIVE_NODE_SRS: 노드·카드의 종류. `ended`(끝남)·`lost`(잃음)는 비활성이다. 상태는
- * 서버의 것이므로, 잃은 멤버의 도구가 다시 잡히면 다음 응답에서 `active` 로 돌아온다 (FR-RIN-20).
- */
-function runNodeKind(state) {
-  if (RUN_TREE_ENDED.has(state)) return 'ended';
-  return state === 'lost' ? 'lost' : 'active';
-}
-
 /** FR-RIN-10: 카드 목록에는 끝난 멤버를 싣지 않는다. 잃은 멤버는 남는다(FR-RIN-11). */
 function runCardsShown(members) {
   return members.filter(m => runNodeKind(m.state) !== 'ended');

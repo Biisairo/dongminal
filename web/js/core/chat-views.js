@@ -10,6 +10,8 @@
  * `ChatViews` 는 `ChatController` 의 부품이다(`chat.views`, REFACTOR3_FE_APPCTL_SRS 9c). 옛 `ui/chat-view.js` 는 App 의
  * 내부(`this.app._chat*`)를 부르므로 계층 게이트(`check-layer.sh`)에 맞춰 `core/` 로 옮겼다.
  *
+ * `chat` 화면 묶음이다 (PERF 3.4.9). 부팅 코드는 `app.chat.views` 로만 닿고, 그 값은 묶음이 실리기 전에는 null 이다.
+ *
  * 로드 순서 계약: `chat-controller.js` 뒤.
  */
 
@@ -189,10 +191,4 @@ class ChatViews extends Controller {
     d.append(who,domEl('div','chat-msg-text',m.text||''));
     return d;
   }
-}
-
-/** 글의 시각 `HH:MM`. */
-function chatClock(ms){
-  const d=new Date(ms||0);
-  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 }
