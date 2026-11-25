@@ -2487,10 +2487,19 @@ dependencies = [
  "otter-shared-listorder",
  "otter-shared-workspace",
  "otter-webserver-domain-git-core",
- "otter-webserver-sse",
+ "otter-webserver-envelope",
  "serde_json",
  "tempfile",
  "tokio",
+]
+
+[[package]]
+name = "otter-webserver-envelope"
+version = "1.3.7"
+dependencies = [
+ "otter-gocompat",
+ "otter-shared-otterlog",
+ "serde",
 ]
 
 [[package]]
@@ -2603,12 +2612,12 @@ dependencies = [
  "otter-webserver-domain-telegram",
  "otter-webserver-domain-worktree",
  "otter-webserver-domain-wsentry",
+ "otter-webserver-envelope",
  "otter-webserver-fswatch",
  "otter-webserver-gitapi",
  "otter-webserver-httproute",
  "otter-webserver-hub",
  "otter-webserver-seam-toolaccess",
- "otter-webserver-sse",
  "rand",
  "regex",
  "serde",
@@ -2641,7 +2650,7 @@ dependencies = [
  "otter-webserver-domain-git-core",
  "otter-webserver-domain-git-query",
  "otter-webserver-domain-git-store",
- "otter-webserver-sse",
+ "otter-webserver-envelope",
  "serde",
  "tokio",
  "tokio-util",
@@ -2676,15 +2685,6 @@ name = "otter-webserver-seam-toolaccess"
 version = "1.3.7"
 dependencies = [
  "otter-shared-pollwait",
-]
-
-[[package]]
-name = "otter-webserver-sse"
-version = "1.3.7"
-dependencies = [
- "otter-gocompat",
- "otter-shared-otterlog",
- "serde",
 ]
 
 [[package]]

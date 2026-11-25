@@ -55,7 +55,7 @@ impl Server {
         if let Some(old) = link.take() {
             self.channel_client_drop(old);
         }
-        let release = self.attach_sse_leases(id, remote, false);
+        let release = self.attach_channel_leases(id, remote, false);
         if let Some(u) = self.deps.updates.clone() {
             tokio::task::spawn_blocking(move || u.trigger());
         }
