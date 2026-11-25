@@ -15,12 +15,6 @@ class EditorDocRender extends Controller {
     return (m && DOC_RENDER_EXTS[m[1]]) || '';
   }
 
-  // 렌더 탭의 뷰를 세운다. 렌더러는 묶음이 실린 뒤에만 부른다(자리표시가 먼저 선다, PERF D-30).
-  docRenderView(at) {
-    if (!Screens.ready('docrender')) throw new Error('docrender bundle is not loaded');
-    return new DocRender(at.id, at.name, at.filePath);
-  }
-
   /**
    * `FileEditor` 가 편집기를 세운 직후에 불린다. 하는 일은 둘이다.
    *

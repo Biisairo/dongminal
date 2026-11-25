@@ -490,11 +490,3 @@ function edFindOptsSave(o) {
 function edFindReOk(src) {
   try { new RegExp(src); return true } catch { return false }
 }
-
-Object.assign(FileEditor.prototype, ED_FIND_MIXIN);
-
-// 테마 전환 훅 (theme-vars.js applyThemeObj). 편집기와 diff 의 색은 CSS 변수라 스스로 따라온다 (FR-GIT-49) —
-// canvas 에 그리는 것(변경 표시의 ruler·미니맵)만 다시 칠한다 (EDITOR_DIRTY_DIFF_SRS FR-EDD-23b).
-FileEditor.applyTheme = function() {
-  if (window.app && window.app.editor?.open.edDirtyDiffRepaint) window.app.editor.open.edDirtyDiffRepaint();
-};

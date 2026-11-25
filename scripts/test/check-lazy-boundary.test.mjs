@@ -93,6 +93,21 @@ test('허용 목록의 진입점(Screens 를 묻는 함수)은 통과한다', ()
   assert.equal(r.code, 0, r.out);
 });
 
+test('Object.assign(X.prototype, {…}) 로 얹은 메서드는 X.prototype.m 으로 적는다', () => {
+  const boot = [
+    'function Renderer(){}',
+    'Object.assign(Renderer.prototype, {',
+    '  _mount(at){',
+    "    if (!Screens.ready('git')) return null;",
+    '    return new GitPanel();',
+    '  },',
+    '});',
+  ].join('\n');
+  assert.equal(run(boot).code, 1);
+  const r = run(boot, 'js/boot-a.js Renderer.prototype._mount\n');
+  assert.equal(r.code, 0, r.out);
+});
+
 test('허용 목록이 없는 함수나 Screens 를 묻지 않는 함수를 가리키면 실패한다', () => {
   const stale = run('function f(){}\n', 'js/boot-a.js Renderer._gone\n');
   assert.equal(stale.code, 1);

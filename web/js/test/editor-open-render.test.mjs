@@ -21,6 +21,8 @@ function world() {
     clock,
     globals: {
       App: class {},
+      // PERF 3.4.7: `edOpenFile` 은 editor 묶음을 먼저 기다린다. 이 시험은 그리기 수만 잰다.
+      Screens: { load: () => Promise.resolve() },
       findPane,
       newEntityId: () => 'tab' + (++seq),
       pathBase: (p) => p.split('/').pop(),

@@ -47,6 +47,9 @@ impl ToolReader for RunIo {
     fn snapshot(&self, _: &str) -> Option<(Vec<u8>, i64)> {
         None
     }
+    fn screen_text(&self, _: &str, _: usize) -> Option<String> {
+        None
+    }
     fn send_paste(&self, id: &str, text: &[u8], submit: bool) -> Result<(), Error> {
         self.pastes.lock().unwrap().push((
             id.to_owned(),
