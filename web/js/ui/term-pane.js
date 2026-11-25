@@ -13,6 +13,7 @@ class TerminalTool {
     // REFACTOR3_FE_REST5_SRS D-FR5-9: 전송·보류 배너·출력·크기 판정은 부품이 맡는다. 부품은 상태를 갖지 않고 이 칸의
     // 이름을 `this.pane.X` 로 부른다. 부품의 이름은 바깥도 부품 경로로 부른다(REFACTOR3_FE_DELEG_SRS).
     this.xfer=new TermTransfer(this); this.heldBar=new TermHeld(this); this.output=new TermOutput(this); this.sizer=new TermFit(this);
+    this.history=new TermHistory(this);   // PERF FR-TRM-5: 위로 스크롤 받기
     this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false;
     // FR-RCS-1: 도구가 사라졌다는 서버의 통보(OP.EXIT)를 받았는가. 서면 재연결을
     // 영구히 멈춘다.
@@ -93,6 +94,9 @@ class TerminalTool {
     this.term.parser.registerCsiHandler({final:'J'},ps=>this._onEraseDisplay(ps));
     this._wireKeys();
     this.term.onData(d=>this._onTermData(d));
+    this.term.onWriteParsed(()=>this.history.track());
+    // PERF FR-TRM-5: 맨 위에서 더 올리면 기록 보기를 연다. 잡기 단계라 xterm 이 굴리기 전의 자리를 본다.
+    this.box.addEventListener('wheel',e=>{ if(e.deltaY<0) this.history.onUp() },{capture:true,passive:true});
     this.term.onResize(({cols,rows})=>{
       // Only the OS-focused window that owns the pane's window may send resize.
       if(!window.app||!window.app.focus.owner.resizeCheck(this.id,this._slot)) return;
@@ -245,6 +249,7 @@ class TerminalTool {
     this._seqLive=true;
     const flag=p[8];
     this._srvAlt=!!(flag&SEQ_FLAG_ALT); if(flag&SEQ_FLAG_FULL) this._widthDebt=false;   // FR-OTR-3·9
+    if(flag&SEQ_FLAG_SNAP&&p.length>=17) this.history.base(dv.getUint32(9,false)*4294967296+dv.getUint32(13,false));   // PERF FR-TRM-5
     if(flag&SEQ_FLAG_SNAP&&p.length>17){
       const cwd=dec.decode(p.subarray(17));
       if(cwd!==this._cwd) this.output._onCwd(cwd);
@@ -266,6 +271,7 @@ class TerminalTool {
     this._sock.pause();
     if(this._carryTimer){TIMERS.cancel(this._carryTimer);this._carryTimer=null}
     this._seq=-1; this._seqLive=false;
+    this.history.sleep();
     this._resetDecoderIfNoResume();
     this._buf=[];
     if(this.term) try{this.term.reset()}catch{}

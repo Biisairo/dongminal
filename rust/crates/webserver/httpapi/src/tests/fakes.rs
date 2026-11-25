@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use otter_shared_sandbox::{self as sandbox, ProfileInfo};
 use otter_shared_toolhub::{
-    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolInfo, ToolScreen,
-    ToolSnapshot,
+    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolHistory, ToolInfo,
+    ToolScreen, ToolSnapshot,
 };
 use otter_shared_workspace::{Error as WorkspaceError, TabEntry, WindowInfo};
 use otter_webserver_domain_sysstat::Snapshot;
@@ -55,6 +55,12 @@ pub(crate) struct FakeHub {
     pub(crate) screen_calls: AtomicUsize,
     /// `screen_tool` 이 답하기 전에 기다리는 시간 — 동시 깨움을 겹치게 한다.
     pub(crate) screen_delay: Duration,
+    /// 줄 저장소의 줄(번호 0 부터) — `history_tool` 의 답을 만든다.
+    pub(crate) hist_lines: Mutex<Vec<String>>,
+    /// `history_tool` 의 인자 (도구, before, count).
+    pub(crate) hist_calls: Mutex<Vec<(String, u64, usize)>>,
+    /// `history_tool` 이 답하기 전에 기다리는 시간.
+    pub(crate) hist_delay: Duration,
     pub(crate) inputs: Mutex<Vec<(String, Vec<u8>)>>,
     pub(crate) resizes: Mutex<Vec<(String, u16, u16)>>,
     /// 데몬이 hello 에서 말한 판 (Go `infoHub`).
@@ -120,6 +126,24 @@ impl ToolHub for FakeHub {
             .get(id)
             .cloned()
             .unwrap_or_default())
+    }
+    fn history_tool(&self, id: &str, before: u64, count: usize) -> Result<ToolHistory, ToolError> {
+        if !self.has(id) {
+            return Err(ToolError::NotFound(format!("tool {id} not found")));
+        }
+        std::thread::sleep(self.hist_delay);
+        self.hist_calls
+            .lock()
+            .unwrap()
+            .push((id.to_owned(), before, count));
+        let lines = self.hist_lines.lock().unwrap();
+        let stop = before.min(lines.len() as u64);
+        let from = before.saturating_sub(count as u64).min(stop);
+        Ok(ToolHistory {
+            from,
+            top: 0,
+            lines: lines[from as usize..stop as usize].to_vec(),
+        })
     }
     fn daemon_info(&self) -> DaemonInfo {
         self.daemon.clone()

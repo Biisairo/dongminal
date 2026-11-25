@@ -10,7 +10,7 @@ use futures_util::future::BoxFuture;
 use otter_shared_otterlog::{errorf, infof, warnf};
 use otter_shared_toolhub::{
     self as th, OP_ERROR, OP_EXIT, OP_INPUT, OP_OUTPUT, OP_RESIZE, OP_SEQ, OP_SIZE, OP_TOOL_ID,
-    OutChunk, Placement, ToolScreen, ToolSnapshot,
+    OutChunk, Placement, ToolHistory, ToolScreen, ToolSnapshot,
 };
 use otter_webserver_hub::{SeatClosed, SeatConn};
 use serde_json::{Value, json};
@@ -33,6 +33,8 @@ const OUTPUT_QUEUE: usize = 256;
 const RELAY_COALESCE_MAX: usize = 64 << 10;
 /// 도구가 정해지기 전에 온 입력을 담아 두는 상한(프레임 수)이다.
 const EARLY_MAX: usize = 256;
+/// 위로 받기 한 번에 주는 줄 수의 상한이다 (FR-TRM-5).
+pub(crate) const TERM_HISTORY_MAX: usize = 2_000;
 /// 바이너리 프레임 머리: op 1바이트 + sid 4바이트.
 pub(crate) const HEAD: usize = 5;
 
@@ -130,6 +132,10 @@ fn lost(out: &Outbox, sid: u32) {
     out.push_control(json!({"t":"term.lost","sid":sid}).to_string());
 }
 
+fn history_frame(sid: u32, h: &ToolHistory) -> String {
+    json!({"t":"term.history","sid":sid,"from":h.from,"top":h.top,"lines":h.lines}).to_string()
+}
+
 fn num(v: &Value) -> Option<String> {
     v.as_u64().map(|n| n.to_string())
 }
@@ -194,6 +200,39 @@ impl Server {
             e.done.cancel();
         }
         out.forget_term(sid);
+    }
+
+    /// `term.history{sid,before,count}` (FR-TRM-5). 데몬에 묻기는 따로 띄운 일이 해서 출력·입력을 막지
+    /// 않는다. 모르는 sid·데몬 오류는 빈 답(`from = top = before`)이다 — 브라우저는 더 묻지 않는다.
+    pub(crate) fn term_history(&self, terms: &Terms, out: &Arc<Outbox>, v: &Value) {
+        let Some(sid) = v["sid"].as_u64().and_then(|s| u32::try_from(s).ok()) else {
+            out.push_control(json!({"t":"error","code":"bad_sid"}).to_string());
+            return;
+        };
+        let before = v["before"].as_u64().unwrap_or(0);
+        let count = v["count"]
+            .as_u64()
+            .map_or(0, |n| usize::try_from(n).unwrap_or(usize::MAX))
+            .min(TERM_HISTORY_MAX);
+        let empty = ToolHistory {
+            from: before,
+            top: before,
+            lines: Vec::new(),
+        };
+        let tool = terms.lock().get(&sid).and_then(|e| e.tool.clone());
+        let (Some(tool), Some(hub)) = (tool, self.deps.tools.clone()) else {
+            out.push_history(history_frame(sid, &empty));
+            return;
+        };
+        let out = out.clone();
+        tokio::spawn(async move {
+            let h = tokio::task::spawn_blocking(move || hub.history_tool(&tool, before, count))
+                .await
+                .ok()
+                .and_then(Result::ok)
+                .unwrap_or(empty);
+            out.push_history(history_frame(sid, &h));
+        });
     }
 
     /// 브라우저의 `[op][sid][payload]` — 입력·크기 조정을 그 sid 의 도구로 넘긴다. 모르는 sid 는 버린다.

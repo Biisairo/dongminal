@@ -14,8 +14,8 @@ use std::time::Duration;
 use otter_gocompat::time::format_std_duration;
 use otter_shared_otterlog::{ReqCtx, Value};
 use otter_shared_toolhub::{
-    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolInfo, ToolScreen,
-    ToolSnapshot,
+    BackgroundEntry, DaemonInfo, OutChunk, Placement, ShellState, ToolHistory, ToolInfo,
+    ToolScreen, ToolSnapshot,
 };
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
@@ -58,6 +58,8 @@ pub trait ToolHub: Send + Sync {
     fn snapshot_tool_since(&self, id: &str, since: i64) -> Result<ToolSnapshot, ToolError>;
     /// 화면 상태 스냅숏 — 화면 + 최근 기록 `history` 행 (PERF FR-TRM-4).
     fn screen_tool(&self, id: &str, history: usize) -> Result<ToolScreen, ToolError>;
+    /// 줄 저장소에서 번호 `before` 앞의 `count` 줄 (PERF FR-TRM-5).
+    fn history_tool(&self, id: &str, before: u64, count: usize) -> Result<ToolHistory, ToolError>;
     fn daemon_info(&self) -> DaemonInfo;
     fn reconnects(&self) -> i64;
     fn has_feature(&self, name: &str) -> bool;
@@ -125,6 +127,9 @@ impl ToolHub for ReqHub {
     }
     fn screen_tool(&self, id: &str, history: usize) -> Result<ToolScreen, ToolError> {
         self.hub.screen_tool(id, history)
+    }
+    fn history_tool(&self, id: &str, before: u64, count: usize) -> Result<ToolHistory, ToolError> {
+        self.hub.history_tool(id, before, count)
     }
     fn daemon_info(&self) -> DaemonInfo {
         self.hub.daemon_info()

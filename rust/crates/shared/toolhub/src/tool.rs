@@ -18,8 +18,8 @@ use tokio_util::sync::CancellationToken;
 use crate::env::{Getenv, tool_bin_dir, tool_env, tool_start_dir};
 use crate::{
     ATTN_MAX_CARRY, ActivityState, AgentState, AgentTurn, DEFAULT_COLS, DEFAULT_ROWS, EscClass,
-    ExitInfo, ModeObserver, TermModes, ToolScreen, activity_still_working, classify_esc,
-    detect_attention_signal, detect_cwd_report,
+    ExitInfo, ModeObserver, TermModes, ToolHistory, ToolScreen, activity_still_working,
+    classify_esc, detect_attention_signal, detect_cwd_report,
 };
 
 /// 출력 링버퍼의 크기다(1MB).
@@ -419,6 +419,22 @@ impl Tool {
             alt,
             first_line: s.first_line,
             cwd: self.reported_cwd(),
+        })
+    }
+
+    /// 줄 저장소에서 번호 `before` 앞의 `count` 줄이다 (FR-TRM-5). 잠금 안에서는 줄만 꺼내고 ANSI 는 밖에서
+    /// 쓴다. 터미널이 없는 도구는 `None` 이다.
+    pub fn history(&self, before: u64, count: usize) -> Option<ToolHistory> {
+        let g = lock(&self.cmu);
+        let store = g.screen.as_ref()?.store();
+        let start = before.saturating_sub(count as u64);
+        let (from, lines) = store.lines(start, (before - start) as usize);
+        let top = store.first();
+        drop(g);
+        Some(ToolHistory {
+            from,
+            top,
+            lines: lines.iter().map(|l| l.to_ansi()).collect(),
         })
     }
 

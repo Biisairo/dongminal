@@ -165,6 +165,12 @@ const TERM_EXITED_NEW=t('core.term_exited_new');
 // FUI-15: 터미널 검색의 결과 표기. `n/N` 은 숫자라 문구가 없다.
 const SEARCH_NONE=t('core.search_none');
 const SEARCH_BAD_REGEX=t('core.search_bad_regex');
+// PERF FR-TRM-5 (위로 스크롤 받기, `web/js/ui/term-history.js`): 한 번에 받는 줄 수, 기록 보기 xterm 의 행 상한,
+// 표지를 아래로 옮기는 문턱(행), 기록 보기를 닫지 않는 수식 키.
+const TERM_HISTORY_CHUNK=1000;
+const TERM_HISTORY_VIEW_ROWS=200000;
+const TERM_HISTORY_REANCHOR_ROWS=1000;
+const TERM_HISTORY_KEEP_KEYS=new Set(['Shift','Control','Alt','Meta','CapsLock','PageUp','PageDown']);
 // TOPTS theme is set after THEMES loads (see themes.js)
 var TOPTS={
   // PERF D-25: **`scrollback` 도 여기 없다.** 설정 `termScrollback` 이며 `term-pane.js` 가 생성 시점에 읽는다.

@@ -1024,3 +1024,28 @@ fn history_lines_setting_reaches_every_screen() {
     m.adopt(Arc::clone(&b));
     assert_eq!(cap(&b), 2_000, "뒤에 온 도구도 설정을 따른다");
 }
+
+/// 위로 받기(FR-TRM-5): 저장소 구간을 순서대로 준다. 맨 위를 넘으면 있는 만큼만, ED3 뒤의 옛 번호는 빈 답이다.
+#[test]
+fn history_tool_reads_store_range() {
+    let m = ToolManager::with_proc_info("", None, leak(FakeInfo::default()));
+    assert!(m.history_tool("a", 10, 5).is_none());
+    let p = pid_tool("a", 1001);
+    let text: String = (0..3000).map(|i| format!("L{i:04}\r\n")).collect();
+    p.handle_chunk(text.as_bytes());
+    m.adopt(Arc::clone(&p));
+
+    let h = m.history_tool("a", 100, 50).unwrap();
+    assert_eq!((h.from, h.top), (50, 0));
+    let want: Vec<String> = (50..100).map(|i| format!("L{i:04}")).collect();
+    assert_eq!(h.lines, want);
+
+    let h = m.history_tool("a", 30, 50).unwrap();
+    assert_eq!((h.from, h.top, h.lines.len()), (0, 0, 30));
+    assert_eq!(h.lines[0], "L0000");
+
+    p.handle_chunk(b"\x1b[3J");
+    let h = m.history_tool("a", 100, 50).unwrap();
+    assert!(h.lines.is_empty());
+    assert!(h.top >= 100);
+}

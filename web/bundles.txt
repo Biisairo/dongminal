@@ -162,6 +162,8 @@ js/ui/term-clip.js
 js/ui/term-touch.js
 # 보이는 칸의 GPU 렌더링 (TERMINAL_GPU_RENDER_SRS). term-pane.js 의 증강 분할이다.
 js/ui/term-gpu.js
+# 위로 스크롤 받기의 기록 보기 (PERF FR-TRM-5). term-pane.js 가 생성자에서 만든다.
+js/ui/term-history.js
 # CodeMirror 편집기의 문서 버퍼·찾기 계산·구성 (CODEMIRROR_MIGRATION_SRS §11.1). file-editor.js
 # 앞이다 — FileEditor 가 이것들을 부른다. `CM` 은 편집기를 처음 열 때 온다(loadCodeMirror).
 js/ui/cm-buffer.js

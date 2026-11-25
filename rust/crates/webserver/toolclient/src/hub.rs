@@ -5,18 +5,20 @@ use std::time::{Duration, Instant};
 
 use otter_gocompat::json;
 use otter_shared_toolhub::{
-    BackgroundEntry, ExitInfo, Placement, ShellState, ToolInfo, ToolScreen, ToolSnapshot,
+    BackgroundEntry, ExitInfo, Placement, ShellState, ToolHistory, ToolInfo, ToolScreen,
+    ToolSnapshot,
 };
 use otter_shared_toolipc::{
     BackgroundListResult, BusyManyParams, BusyManyResult, BusyResult, CODE_NOT_FOUND,
     CODE_TOOL_CAP, CreateParams, CreateResult, CwdResult, FEATURE_BUSY_MANY, FEATURE_NOTIFY,
-    FEATURE_SHELL_PROBE, IdParams, METHOD_BACKGROUND_LIST, METHOD_BUSY, METHOD_BUSY_MANY,
-    METHOD_CREATE, METHOD_CWD, METHOD_INPUT, METHOD_KILL, METHOD_LIST, METHOD_PASTE, METHOD_RESIZE,
-    METHOD_RESIZE_NOTIFY, METHOD_RESTORE, METHOD_SCREEN, METHOD_SCREEN_CONFIG,
-    METHOD_SET_BACKGROUND, METHOD_SHELL_PROBE, METHOD_SNAPSHOT, METHOD_TERMINATE, METHOD_WRITE,
-    PasteParams, ResizeParams, RestoreParams, ScreenConfigParams, ScreenParams, ScreenResult,
-    SetBackgroundParams, SetBackgroundResult, ShellProbeParams, ShellProbeResult, SnapshotParams,
-    SnapshotResult, TerminateParams, WriteParams,
+    FEATURE_SHELL_PROBE, HistoryParams, HistoryResult, IdParams, METHOD_BACKGROUND_LIST,
+    METHOD_BUSY, METHOD_BUSY_MANY, METHOD_CREATE, METHOD_CWD, METHOD_HISTORY, METHOD_INPUT,
+    METHOD_KILL, METHOD_LIST, METHOD_PASTE, METHOD_RESIZE, METHOD_RESIZE_NOTIFY, METHOD_RESTORE,
+    METHOD_SCREEN, METHOD_SCREEN_CONFIG, METHOD_SET_BACKGROUND, METHOD_SHELL_PROBE,
+    METHOD_SNAPSHOT, METHOD_TERMINATE, METHOD_WRITE, PasteParams, ResizeParams, RestoreParams,
+    ScreenConfigParams, ScreenParams, ScreenResult, SetBackgroundParams, SetBackgroundResult,
+    ShellProbeParams, ShellProbeResult, SnapshotParams, SnapshotResult, TerminateParams,
+    WriteParams,
 };
 
 use crate::client::{Inner, TOOL_CALL_TIMEOUT, TOOL_CREATE_TIMEOUT, ToolClient, lock, result_key};
@@ -382,6 +384,24 @@ impl ToolClient {
             alt: r.alt,
             first_line: r.first_line,
             cwd: r.cwd,
+        })
+    }
+
+    /// 줄 저장소의 기록 구간을 부른다 (PERF FR-TRM-5). "없음" 은 [`Error::ToolNotFound`] 다.
+    pub fn history_tool(&self, id: &str, before: u64, count: usize) -> Result<ToolHistory, Error> {
+        let params = HistoryParams {
+            before,
+            count,
+            id: id.to_owned(),
+        };
+        let r: HistoryResult = self.call(METHOD_HISTORY, &params).map_err(|e| match e {
+            Error::Rpc(r) if r.code == CODE_NOT_FOUND => Error::ToolNotFound(id.to_owned()),
+            e => e,
+        })?;
+        Ok(ToolHistory {
+            from: r.from,
+            top: r.top,
+            lines: r.lines,
         })
     }
 

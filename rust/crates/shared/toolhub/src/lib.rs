@@ -24,7 +24,8 @@ pub use conn::{
     WRITE_WAIT, size_payload,
 };
 pub use hub::{
-    BackgroundEntry, DaemonInfo, OutChunk, TermSize, ToolInfo, ToolScreen, ToolSnapshot,
+    BackgroundEntry, DaemonInfo, OutChunk, TermSize, ToolHistory, ToolInfo, ToolScreen,
+    ToolSnapshot,
 };
 pub use manager::{
     DEFAULT_COLS, DEFAULT_ROWS, FOREGROUND_REFRESH_INTERVAL, ForegroundFn, ForegroundProbeFn,

@@ -21,8 +21,8 @@ use tokio_util::sync::CancellationToken;
 
 use crate::tool::{ActivityFn, AttentionFn, ClearFn, ExitFn, SizeFn, attn_busy_many, attn_now};
 use crate::{
-    ActivitySnap, AgentState, BUF_MAX, BackgroundEntry, HISTORY_CAP, ShellState, Tool, ToolHooks,
-    ToolInfo, ToolScreen, ToolSnapshot, attention_allow_bell, attention_idle_threshold,
+    ActivitySnap, AgentState, BUF_MAX, BackgroundEntry, HISTORY_CAP, ShellState, Tool, ToolHistory,
+    ToolHooks, ToolInfo, ToolScreen, ToolSnapshot, attention_allow_bell, attention_idle_threshold,
     judge_shell,
 };
 
@@ -817,6 +817,11 @@ impl ToolManager {
     /// 화면 상태 스냅숏이다 (PERF FR-TRM-4). 없는 도구·터미널 없는 도구는 `None`.
     pub fn screen_tool(&self, id: &str, history: usize) -> Option<ToolScreen> {
         self.get(id)?.screen(history)
+    }
+
+    /// 줄 저장소의 기록 구간이다 (PERF FR-TRM-5). 없는 도구·터미널 없는 도구는 `None`.
+    pub fn history_tool(&self, id: &str, before: u64, count: usize) -> Option<ToolHistory> {
+        self.get(id)?.history(before, count)
     }
 
     pub fn snapshot_tool_since(&self, id: &str, since: i64) -> ToolSnapshot {
