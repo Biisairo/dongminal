@@ -37,8 +37,9 @@ test('문자열·정규식·템플릿 안은 그대로이고 나눗셈은 정규
 });
 
 test('묶음은 경계 줄 + 걷은 본문, 끝은 소스맵 줄이다', () => {
-  const got = concatJs('boot', [{ path: 'js/b.js', src: Buffer.from('B') }, { path: 'js/a.js', src: Buffer.from('A1 // x\nA2\n') }]);
-  assert.equal(got.toString(), '/* ==== js/b.js ==== */\nB\n/* ==== js/a.js ==== */\nA1\nA2\n//# sourceMappingURL=boot.js.map\n');
+  const bundle = 'boot';
+  const got = concatJs(bundle, [{ path: 'js/b.js', src: Buffer.from('B') }, { path: 'js/a.js', src: Buffer.from('A1 // x\nA2\n') }]);
+  assert.equal(got.toString(), `/* ==== js/b.js ==== */\nB\n/* ==== js/a.js ==== */\nA1\nA2\n//# sourceMappingURL=${bundle}.js.map\n`);
 });
 
 test('상한은 SRS 의 NFR-PRF-12 행에서 읽는다', () => {
