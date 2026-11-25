@@ -2450,6 +2450,7 @@ dependencies = [
  "libc",
  "nix",
  "otter-shared-cadence",
+ "tokio",
  "windows-sys 0.61.2",
 ]
 

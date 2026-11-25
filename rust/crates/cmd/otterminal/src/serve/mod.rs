@@ -413,14 +413,6 @@ impl App {
         if let Some(tr) = &self.bd.attn_tracker {
             tr.start_sweeper(ctx.clone(), ticker(hub::SWEEPER_INTERVAL, ctx.clone()));
         }
-        if let Some(sampler) = &self.bd.sampler {
-            let stopper = sampler.start();
-            let ctx = ctx.clone();
-            tokio::spawn(async move {
-                ctx.cancelled().await;
-                stopper.stop();
-            });
-        }
         // FR-TAN-8: 전경 조회는 데몬이 스스로 돌리므로 틱을 흘려보낸다 — 전경 티커가 없는 옛 데몬에만
         // list RPC 로 조회를 시킨다 (FR-OPT-2-1).
         let fg: Option<Arc<dyn hub::ForegroundSource>> = self

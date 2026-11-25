@@ -164,6 +164,11 @@ impl Server {
             Box::pin(async move {
                 stats_every(&topic)?;
                 let s = w.upgrade()?;
+                // PERF 4.10: 샘플러를 띄우고 예열을 기다린다 — 첫 프레임에 CPU 가 있다.
+                if let Some(st) = s.deps.stats.clone() {
+                    st.resume();
+                    st.warmed().await;
+                }
                 Some(Seed::Full(to_value(&s.get_stats())))
             }) as BoxFuture<'static, Option<Seed>>
         });
@@ -320,11 +325,23 @@ impl Server {
         let Some(every) = stats_every(topic) else {
             return;
         };
+        // 다음 구독은 낡은 값이 아니라 예열한 새 값을 seed 로 받는다.
+        if !active {
+            self.topics.stale_if_idle(topic);
+        }
         let mut st = lock(&self.state_topics.stats);
         if active {
             st.topics.insert(topic.to_owned(), every);
         } else {
             st.topics.remove(topic);
+        }
+        // PERF D-61: 샘플러는 `stats:*` 구독이 있는 동안만 돈다.
+        if let Some(sampler) = self.deps.stats.as_ref() {
+            if st.topics.is_empty() {
+                sampler.pause();
+            } else {
+                sampler.resume();
+            }
         }
         let want = st.topics.values().min().copied();
         if want == st.every {
