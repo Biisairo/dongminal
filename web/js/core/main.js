@@ -19,7 +19,8 @@ const themeReady=(async()=>{try{
   // 다른 창에서 바뀐 값을 받아 얹을 자리가 아예 없었다.
   // 설정창 세우기(`settingsBuild`, 설정을 처음 열 때 — PERF D-41)와 어느 쪽이 먼저여도 된다 — 적용은 값을 얹고 선 섹션만 칠하며,
   // 뒤에 서는 섹션은 그 값으로 칠한다 (QUALITY_FIX_SRS FR-QFX-9·12).
-  if(r.ok) app.settings.apply._settingsApply(r.data,{boot:true});
+  // PERF 3.4.12.6: 테마 묶음을 실어야 하면 프로미스다 — 실려 칠해질 때까지 부팅 화면이 남는다(번쩍임 없음).
+  if(r.ok) await app.settings.apply._settingsApply(r.data,{boot:true});
 }catch(e){ ErrorLog.push('settings',(e&&e.message)||e) }
   // FR-BTS-11: 설정이 왔든 오지 않았든, 남은 것은 워크스페이스다.
   BootScreen.step(t('boot.step_workspace'));

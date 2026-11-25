@@ -308,8 +308,6 @@ js/core/window-order.js
 js/core/app-testing.js
 js/core/main.js
 js/ui/version-watch.js
-# 실기기 진단. ?diag=1 로 접속할 때만 동작한다
-js/ui/diag.js
 
 [git]
 # git 화면 (PERF M3 §3.4 · D-30·D-32). Repo 창의 Changes 사이드·git 뷰 탭·확인창·메뉴를 처음 쓸 때
@@ -441,6 +439,11 @@ js/core/settings-presets.js
 # 처음 열 때의 세우기 순서. 섹션 클래스를 로드 시점에 표로 읽으므로 섹션 파일 전부의 뒤다.
 js/core/settings-open.js
 
+[themes]
+# 기본 두 테마 밖의 테마 카탈로그 (PERF 3.4.12.6). 적용할 이름이 부팅 표에 없을 때 `_settingsApply` 가,
+# 설정 창은 needs 로 싣는다. 부팅의 `THEMES` 를 늘리므로 themes.js 뒤에만 실린다.
+js/ui/themes-catalog.js
+
 [editor]
 # 편집기 칸과 탐색기 (PERF 3.4.7, D-30·D-32). Editor 창을 그리거나 파일을 열 때 Screens.load('editor') 가 싣는다.
 # 부팅 코드가 읽는 편집기 상수·CodeMirror 공용 층(cm-*·file-editor-find·file-editor-diff)은 boot 에 남는다 —
@@ -479,6 +482,11 @@ js/ui/doc-render.js
 # 문서 렌더 뷰의 생명주기 (PERF 3.5.3). doc-render.js 뒤다 — DocRender.prototype 에 얹는다.
 js/ui/doc-render-life.js
 style-docrender.css
+
+[diag]
+# 실기기 진단 (PERF 3.4.12.3). index.html 의 인라인 스크립트가 ?diag=1 일 때만 b/boot.js 바로 뒤에 싣는다 —
+# 실리는 자리가 종전(부팅 묶음의 끝)과 같다. 조건은 DiagOverlay.start 의 것과 같은 정규식이다.
+js/ui/diag.js
 
 [mdlib]
 # markdown-it·DOMPurify 라이브러리 묶음 (PERF 3.4.12.2, D-43). 처음 쓸 때 싣는다 — 터미널 맨 도메인 링크의 첫

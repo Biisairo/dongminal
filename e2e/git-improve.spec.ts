@@ -273,6 +273,8 @@ test.describe('묶음 J — I2 경로 표시 분리 (FR-GIT-237)', () => {
   // **테스트가 테마를 스스로 정한다**(applyThemeName) — 어느 테마가 남아 있었든
   // 무관하다.
   async function applyThemeName(page: Page, name: string) {
+    // PERF 3.4.12.6: 기본 두 테마 밖은 `themes` 묶음이다.
+    await page.evaluate(() => Screens.load('themes'));
     await page.evaluate(`applyThemeObj(THEMES[${JSON.stringify(name)}])`);
   }
 

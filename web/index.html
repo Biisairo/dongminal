@@ -948,5 +948,7 @@
      PERF D-34: i18n.js 가 정한 활성 로케일의 파일 하나만 싣는다. 바꾸기는 새로고침이다. -->
 <script>var i18nSrc='js/i18n/'+I18N.locale+'.js?v=__ASSETV__';document.write('<script src="'+i18nSrc+'"><\/script>')</script>
 <script src="b/boot.js?v=__ASSETV__"></script>
+<!-- PERF 3.4.12.3: 진단 오버레이 묶음은 ?diag=1 일 때만 b/boot.js 바로 뒤에 싣는다. 조건은 DiagOverlay.start 와 같다. -->
+<script>if(/[?&]diag=1(&|$)/.test(location.search)){var diagSrc='b/diag.js?v=__ASSETV__';document.write('<script src="'+diagSrc+'"><\/script>')}</script>
 </body>
 </html>
