@@ -118,6 +118,7 @@ test.describe('TC-RTB-3 — Diff 미리보기는 칸에 하나다 (FR-RTB-1·7)'
     await changeRow(page, 'b.txt').click();
     await expect.poll(async () => (await panes(page)).list[0].tabs.length).toBe(2);
     // b.txt 미리보기를 오른쪽 칸으로 떼어 낸다.
+    await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
     await page.evaluate(() => {
       const a = (window as any).app;
       const pn = a.testing.flattenPanes(a.testing.aw().layout)[0];

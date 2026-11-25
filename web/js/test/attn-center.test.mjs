@@ -52,7 +52,7 @@ function makeDoc() {
 
 function setup() {
   const d = makeDoc();
-  const ctx = load([...BASE, 'ui/repaint.js', 'core/attn-center.js'], {
+  const ctx = load([...BASE, 'ui/repaint.js', 'core/attn-center.js', 'core/attn-center-view.js'], {
     expose: ['AttnCenter'],
     globals: {
       App: function App() {}, TIMERS: { disposeOwner() {} }, document: d.doc, escHtml: (s) => s, t: (k, p) => k + (p ? JSON.stringify(p) : ''),

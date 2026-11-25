@@ -7,6 +7,7 @@
 # 형식: <web/ 기준 파일> <함수 이름>   함수 이름은 `f`, `Class.method`, `A.prototype.m` 꼴이다
 # (`Object.assign(A.prototype, {m(){…}})` 의 메서드도 `A.prototype.m`).
 js/core/chat-controller.js ChatController.views
+js/core/chat-controller.js ChatController.human
 # PERF 3.4.7 — editor 묶음. 테마 전환·탭 본문·탐색기의 관측과 시선.
 js/core/theme-vars.js applyThemeObj
 js/ui/renderer-pane.js Renderer.prototype._mountTabBody

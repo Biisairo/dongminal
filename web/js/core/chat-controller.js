@@ -10,7 +10,9 @@
  * `ChatController` 가 목록 읽기·Chats 탭 항목·사람 참가자의 동작을 진다. App 은 이것을 `chat` 으로 든다
  * (REFACTOR3_FE_APPCTL_SRS 9c). 부품 셋 — 채팅 창 `ChatWindow`(`chat-window.js`) `.window` · 사람 명령 `ChatHuman`
  * (`chat-human.js`) `.human` · 채팅 탭의 뷰 `ChatViews`(`chat-views.js`, 옛 `ui/chat-view.js`) `.views`. 읽은 상태 `_chat` 은
- * App 에 남는다 — 시험이 갈아 끼운다. 뷰는 `chat` 화면 묶음이고 처음 채팅 탭을 그릴 때 실린다 (PERF 3.4.9).
+ * App 에 남는다 — 시험이 갈아 끼운다. 뷰는 `chat` 화면 묶음이고 처음 채팅 탭을 그릴 때 실린다 (PERF 3.4.9). 사람 명령과 채팅 창
+ * 열기의 본체(`chat-window-open.js`), 망 그림 계산(`edges-mesh.js`)도 그 묶음이다 — 채팅 목록을 처음 그리거나 채팅 창을 처음 열
+ * 때 실린다 (PERF 3.4.12.10).
  *
  * 로드 순서 계약: `chat-store.js` 뒤, `activity-list.js` 뒤, `core/screens.js` 뒤(끝에서 화면을 등록한다).
  */
@@ -27,8 +29,17 @@ class ChatController extends Controller {
   constructor(app){
     super(app);
     this.window=new ChatWindow(app);
-    this.human=new ChatHuman(app);
+    this._human=null;
     this._views=null;
+  }
+
+  /**
+   * 사람 명령 `ChatHuman` — `chat` 묶음에 있다 (PERF 3.4.12.10, D-47). 묶음이 실리기 전에는 null 이다. 부르는 자리(방 행·
+   * 참가자 행)는 채팅 목록·채팅 탭에만 있고, 둘 다 묶음이 실린 뒤에 그려진다(`ChatWindow.chatPanelRender`·렌더러).
+   */
+  get human(){
+    if(!this._human&&Screens.ready('chat')) this._human=new ChatHuman(this.app);
+    return this._human;
   }
 
   /**

@@ -49,7 +49,7 @@ const MEANINGS = [
   { id: 'findnav', symbols: ['arrow-up', 'arrow-down'], uses: [html('search-prev', 'arrow-up'), html('search-next', 'arrow-down'),
     ['js/ui/file-editor-find.js', /iconHTML\('arrow-up'\)/], ['js/ui/file-editor-find.js', /iconHTML\('arrow-down'\)/]] },
   { id: 'bell', symbols: ['bell'], face: true, uses: [html('attn-badge', 'bell')] },
-  { id: 'dismiss', symbols: ['check-check'], uses: [['js/core/attn-center.js', /icon:'check-check'/]] },
+  { id: 'dismiss', symbols: ['check-check'], uses: [['js/core/attn-center-view.js', /icon:'check-check'/]] },
   { id: 'settings', symbols: ['settings'], face: true, uses: [html('settings-btn', 'settings')] },
   { id: 'reload', symbols: ['refresh-cw'], uses: [html('soft-reload-btn', 'refresh-cw'), ['js/core/constants-explorer.js', /EDITOR_TREE_REFRESH='refresh-cw'/]] },
   { id: 'branches', symbols: ['git-branch'], uses: [['js/core/constants-git.js', /key:'branches',\s*icon:'git-branch'/]] },

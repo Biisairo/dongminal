@@ -276,6 +276,7 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
 
       // 창 안의 분할은 허용이다 — 드래그드롭이 분할이 생기는 유일한 길이다
       // (FR-EDT-51).
+      await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
       const split = await page.evaluate(() => {
         const a = (window as any).app;
         const w = a.testing.aw();
@@ -289,6 +290,7 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
 
       // 창 **밖**으로는 못 나간다 (FR-RTU-17 / FR-EDT-53). 일반 창의 탭 수가
       // 그대로인 것이 그 증거다.
+      await page.evaluate(() => Screens.load('uiact')); // PERF 3.4.12.10: 옮기기 본체는 uiact 묶음이다
       const moved = await page.evaluate(() => {
         const a = (window as any).app;
         const plain = a.testing.plainWindows()[0];

@@ -90,7 +90,7 @@ const ISSUES = {
     mixins: 47,
   },
   '9b': {
-    ctl: ['core/attn-controller.js', 'core/attn-center.js', 'core/attn-claim.js', 'core/claude-accounts-controller.js',
+    ctl: ['core/attn-controller.js', 'core/attn-center.js', 'core/attn-center-view.js', 'core/attn-claim.js', 'core/claude-accounts-controller.js',
       'core/claude-maps.js', 'core/statusbar-controller.js', 'core/statusbar-enc.js'],
     gone: ['core/app-attn.js', 'core/app-attn-center.js', 'core/app-attn-claim.js', 'core/app-claude-accounts.js',
       'core/app-claude-accounts-map.js', 'core/app-statusbar.js', 'core/app-statusbar-enc.js'],
@@ -535,7 +535,7 @@ const DELEGATES_9C = {
   'mobile.sheets': ['mobileChromeSync', '_settingsMobileOnOpen'],
 };
 
-const FILES_9C = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js',
+const FILES_9C = ['core/chat-store.js', 'core/chat-controller.js', 'core/chat-views.js', 'core/chat-human.js', 'core/chat-window.js', 'core/chat-window-open.js',
   'core/agents-controller.js', 'core/agents-sub.js', 'core/activity-list.js', 'core/mobile-controller.js', 'core/mobile-sheets.js',
   'core/mobile-nav.js'];
 

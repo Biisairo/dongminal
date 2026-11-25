@@ -269,4 +269,5 @@ class SettingsController extends Controller {
 
 
 // PERF D-41: 설정 창 본체는 `settings` 묶음이다. 탭이 아니라 모달이라 `tab` 이 없다 — `ready` 가 싣는다.
-Screens.register('settings');
+// 설정 ▸ Edges 의 망 그림이 `chat` 묶음의 `edges-mesh.js` 를 쓰므로 그것을 먼저 싣는다 (PERF 3.4.12.10, D-47).
+Screens.register('settings',{needs:['chat']});
