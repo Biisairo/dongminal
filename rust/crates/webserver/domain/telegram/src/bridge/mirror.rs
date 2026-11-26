@@ -10,7 +10,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::{Bridge, CALL_TIMEOUT, Item, Sent};
-use crate::client::with_deadline;
+use crate::client::{Error, with_deadline};
 use crate::config::Config;
 use crate::render::esc;
 use crate::topics::Topic;
@@ -100,6 +100,21 @@ pub(crate) fn pin_text(r: &ChatRoom) -> String {
     s
 }
 
+/// Telegram 이 토픽이 없다고 할 때의 설명 조각 (FR-TGT-11).
+const TOPIC_MISSING: &[&str] = &[
+    "message thread not found",
+    "TOPIC_ID_INVALID",
+    "TOPIC_DELETED",
+];
+const HTTP_BAD_REQUEST: i64 = 400;
+
+/// 토픽이 없어졌다는 오류인가 (FR-TGT-11). 사용자가 토픽을 지웠거나 Telegram 이 치웠다.
+pub(crate) fn topic_missing(e: &Error) -> bool {
+    e.api().is_some_and(|a| {
+        a.code == HTTP_BAD_REQUEST && TOPIC_MISSING.iter().any(|s| a.description.contains(s))
+    })
+}
+
 /// 고정 글의 단추. 들어가 있으면 `[나가기]`, 아니면 `[들어가기]` 하나다 (FR-TGT-5·6).
 pub(crate) fn pin_keyboard(thread: i64, joined: bool) -> Value {
     let (text, prefix) = if joined {
@@ -164,9 +179,13 @@ impl Bridge {
         let mut dirty = false;
         if t.name != name {
             let p = json!({"chat_id": c.user_id, "message_thread_id": t.thread_id, "name": name});
-            if self.log_fail("editForumTopic", self.call(c, "editForumTopic", &p).await) {
-                t.name = name;
-                dirty = true;
+            match self.call(c, "editForumTopic", &p).await {
+                Ok(()) => {
+                    t.name = name;
+                    dirty = true;
+                }
+                Err(e) if topic_missing(&e) => return self.reopen_topic(c, r, &e).await,
+                Err(e) => infof!(None, "telegram: editForumTopic 실패: {e}"),
             }
         }
         if t.pin_id == 0 {
@@ -178,13 +197,26 @@ impl Bridge {
         } else if t.pin_text != text {
             let p = json!({"chat_id": c.user_id, "message_id": t.pin_id, "text": text,
                 "parse_mode": "HTML", "reply_markup": pin_keyboard(t.thread_id, r.joined)});
-            if self.log_fail("editMessageText", self.call(c, "editMessageText", &p).await) {
-                t.pin_text = text;
-                dirty = true;
+            match self.call(c, "editMessageText", &p).await {
+                Ok(()) => {
+                    t.pin_text = text;
+                    dirty = true;
+                }
+                Err(e) if topic_missing(&e) => return self.reopen_topic(c, r, &e).await,
+                Err(e) => infof!(None, "telegram: editMessageText 실패: {e}"),
             }
         }
         if dirty {
             let _ = self.topics.set(&r.id, t);
+        }
+    }
+
+    /// 토픽이 없어졌다 — 짝을 지우고 다시 만든다 (FR-TGT-11). 방에는 아무 영향이 없다.
+    async fn reopen_topic(&self, c: &Config, r: &ChatRoom, e: &Error) {
+        infof!(None, "telegram: 토픽이 없어져 다시 만든다: {e}");
+        if self.topics.remove(&r.id).is_ok() {
+            self.open_topic(c, r, topic_name(&r.name), pin_text(r))
+                .await;
         }
     }
 

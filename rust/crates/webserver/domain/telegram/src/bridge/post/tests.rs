@@ -259,3 +259,49 @@ fn hh_mm_pads() {
     let t = time::OffsetDateTime::from_unix_timestamp(3600 * 9 + 60 * 5).unwrap();
     assert_eq!(hh_mm(t), "09:05");
 }
+
+const THREAD_GONE: &str =
+    r#"{"ok":false,"error_code":400,"description":"Bad Request: message thread not found"}"#;
+
+/// FR-TGT-11: 토픽이 없다는 오류가 나면 토픽을 다시 만들고 짝을 고친 뒤 다시 보낸다.
+#[tokio::test]
+async fn missing_topic_is_recreated() {
+    let r = ready("called").await;
+    r.fail("sendMessage", 400, THREAD_GONE);
+    r.post(post("hi")).await;
+    assert_eq!(
+        r.methods(),
+        [
+            "sendMessage",
+            "createForumTopic",
+            "sendMessage",
+            "pinChatMessage",
+            "sendMessage"
+        ]
+    );
+    let ps = r.posts();
+    assert_eq!(ps[0]["message_thread_id"], THREAD_BASE + 1);
+    assert_eq!(ps[2]["message_thread_id"], THREAD_BASE + 2);
+    assert!(head_re().is_match(ps[2]["text"].as_str().unwrap()));
+    assert_eq!(r.map().get("r1").unwrap().thread_id, THREAD_BASE + 2);
+}
+
+/// 다시 만든 토픽에도 보내지 못하면 그 글은 버린다 — 되풀이하지 않는다.
+#[tokio::test]
+async fn missing_topic_retries_once() {
+    let r = ready("called").await;
+    r.fail("sendMessage", 400, THREAD_GONE);
+    r.fail(
+        "sendMessage",
+        200,
+        r#"{"ok":true,"result":{"message_id":7}}"#,
+    );
+    r.fail("sendMessage", 400, THREAD_GONE);
+    r.post(post("hi")).await;
+    let n = r
+        .methods()
+        .iter()
+        .filter(|m| *m == "createForumTopic")
+        .count();
+    assert_eq!(n, 1, "{:?}", r.methods());
+}

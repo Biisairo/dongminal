@@ -7,7 +7,7 @@ use otter_shared_otterlog::infof;
 use serde_json::{Map, Value, json};
 use time::OffsetDateTime;
 
-use super::mirror::ChatView;
+use super::mirror::{ChatView, topic_missing};
 use super::{Bridge, Item};
 use crate::config::Config;
 use crate::render::{MESSAGE_MAX, chat_md_html, esc};
@@ -71,6 +71,8 @@ impl Bridge {
             .unwrap_or_default();
         let head = post_head(&view, &p);
         let sound = wakes(&view, &p);
+        let mut thread = t.thread_id;
+        let mut reopened = false;
         for (i, chunk) in split_chunks(&p.text, CHUNK_MAX).iter().enumerate() {
             let body = chat_md_html(chunk);
             let text = if i == 0 {
@@ -80,16 +82,33 @@ impl Bridge {
             };
             let mut m = Map::new();
             m.insert("chat_id".into(), json!(c.user_id));
-            m.insert("message_thread_id".into(), json!(t.thread_id));
             m.insert("text".into(), Value::String(text));
             m.insert("parse_mode".into(), json!("HTML"));
             m.insert("disable_notification".into(), json!(!(sound && i == 0)));
-            match self.send_alarm(c, m).await {
-                Ok(s) if !p.mine => self.lock().senders.remember(s.message_id, &p.from),
-                Ok(_) => {}
-                Err(e) => {
-                    infof!(None, "telegram: 토픽에 글을 올리지 못했다: {e}");
-                    return;
+            loop {
+                m.insert("message_thread_id".into(), json!(thread));
+                match self.send_alarm(c, m.clone()).await {
+                    Ok(s) => {
+                        if !p.mine {
+                            self.lock().senders.remember(s.message_id, &p.from);
+                        }
+                        break;
+                    }
+                    // 토픽이 없어졌다 — 짝을 지우고 다시 맞춘 뒤 한 번만 다시 보낸다 (FR-TGT-11).
+                    Err(e) if topic_missing(&e) && !reopened => {
+                        reopened = true;
+                        infof!(None, "telegram: 토픽이 없어져 다시 만든다: {e}");
+                        let _ = self.topics.remove(&p.room);
+                        self.sync_topics(c).await;
+                        match self.topics.get(&p.room) {
+                            Some(t) => thread = t.thread_id,
+                            None => return,
+                        }
+                    }
+                    Err(e) => {
+                        infof!(None, "telegram: 토픽에 글을 올리지 못했다: {e}");
+                        return;
+                    }
                 }
             }
         }

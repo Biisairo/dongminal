@@ -582,6 +582,8 @@ impl Bridge {
     async fn send_alarm(&self, c: &Config, mut p: Map<String, Value>) -> Result<Sent, Error> {
         let err = match self.send_once(c, &p).await {
             Ok(s) => return Ok(s),
+            // 토픽이 없어졌다 — 같은 것을 다시 보내도 같다. 부른 쪽이 토픽을 다시 만든다 (FR-TGT-11).
+            Err(e) if mirror::topic_missing(&e) => return Err(e),
             Err(e) => e,
         };
         let sleep = Arc::clone(&self.sleep.lock().unwrap_or_else(|x| x.into_inner()));

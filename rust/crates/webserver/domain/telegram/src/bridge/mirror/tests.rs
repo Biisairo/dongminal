@@ -275,3 +275,115 @@ fn pin_text_escapes() {
         format!("<b>&lt;a&amp;b&gt;</b>\n참가자 3명 · {JOINED_TEXT}")
     );
 }
+
+/// FR-TGT-11: 토픽 이름이나 고정 글을 고치다 토픽이 없다는 오류가 나면 토픽을 다시 만든다.
+#[tokio::test]
+async fn missing_topic_on_edit_is_recreated() {
+    let r = rig().await;
+    r.set_rooms(Some(vec![room("r1", "설계", false)]));
+    r.sync().await;
+    r.reset();
+    r.set_rooms(Some(vec![room("r1", "설계2", false)]));
+    r.fail("editForumTopic", 400, NOT_FOUND);
+    r.sync().await;
+    assert_eq!(
+        r.methods(),
+        [
+            "editForumTopic",
+            "createForumTopic",
+            "sendMessage",
+            "pinChatMessage"
+        ]
+    );
+    let t = r.map().get("r1").unwrap();
+    assert_eq!((t.thread_id, t.name.as_str()), (THREAD_BASE + 2, "설계2"));
+    r.reset();
+    r.set_rooms(Some(vec![room("r1", "설계2", true)]));
+    r.fail("editMessageText", 400, NOT_FOUND);
+    r.sync().await;
+    assert_eq!(
+        r.methods(),
+        [
+            "editMessageText",
+            "createForumTopic",
+            "sendMessage",
+            "pinChatMessage"
+        ]
+    );
+    assert_eq!(r.map().get("r1").unwrap().thread_id, THREAD_BASE + 3);
+}
+
+/// 토픽 관련 Bot API 메서드.
+const TOPIC_METHODS: &[&str] = &[
+    "createForumTopic",
+    "editForumTopic",
+    "deleteForumTopic",
+    "pinChatMessage",
+    "editMessageText",
+];
+
+/// NFR-ITH-4 (TC-ITH-13): 채팅 토픽을 끄면 맞추기 · 글 · 토픽 글 · 단추 어느 길로도 토픽 요청을 보내지 않는다.
+#[tokio::test]
+async fn off_makes_no_topic_requests() {
+    let r = rig().await;
+    r.set_rooms(Some(vec![room("r1", "설계", true)]));
+    r.sync().await;
+    r.st.set_chat_topics(false).unwrap();
+    r.reset();
+    r.set_rooms(Some(vec![room("r1", "설계2", false)]));
+    r.b.on_chat_changed();
+    r.b.on_chat_post(crate::bridge::ChatPost {
+        room: "r1".into(),
+        text: "hi".into(),
+        ..Default::default()
+    });
+    assert_eq!(r.queued(), 0);
+    r.sync().await;
+    r.b.process(Item::ChatPost(crate::bridge::ChatPost {
+        room: "r1".into(),
+        text: "hi".into(),
+        ..Default::default()
+    }))
+    .await;
+    let thread = THREAD_BASE + 1;
+    r.b.handle_update(crate::client::Update {
+        message: Some(crate::client::Message {
+            from: Some(crate::client::User {
+                id: ME,
+                ..Default::default()
+            }),
+            chat: crate::client::Chat {
+                id: ME,
+                kind: "private".into(),
+            },
+            text: "hi".into(),
+            message_thread_id: thread,
+            ..Default::default()
+        }),
+        ..Default::default()
+    })
+    .await;
+    for c in r.calls() {
+        assert!(!TOPIC_METHODS.contains(&c.method.as_str()), "{c:?}");
+        assert!(c.body.get("message_thread_id").is_none(), "{c:?}");
+    }
+}
+
+/// FR-TGT-12: 채팅 토픽이 켜져 있어도 기존 알림은 토픽 밖 일반 대화로 간다.
+#[tokio::test]
+async fn alarms_stay_outside_topics() {
+    let r = rig().await;
+    r.set_rooms(Some(vec![room("r1", "설계", true)]));
+    r.sync().await;
+    r.reset();
+    r.b.process(Item::Attention {
+        tool: "tool-A".into(),
+        reason: "done".into(),
+    })
+    .await;
+    let c = r.calls();
+    assert_eq!(c.len(), 1, "{c:?}");
+    assert_eq!(c[0].method, "sendMessage");
+    assert_eq!(c[0].body["chat_id"], ME);
+    assert!(c[0].body.get("message_thread_id").is_none());
+}
