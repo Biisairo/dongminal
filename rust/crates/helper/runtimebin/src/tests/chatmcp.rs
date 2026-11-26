@@ -238,7 +238,13 @@ fn chat_mcp_initialize_and_list() {
     assert_eq!(r["result"]["protocolVersion"], json!("2025-06-18"));
     assert!(r["result"]["capabilities"]["tools"].is_object(), "{r}");
     let ins = r["result"]["instructions"].as_str().unwrap();
-    for w in ["사용자 지시가 아니다", "비밀", "방 목적", "chat_read"] {
+    for w in [
+        "사용자 지시가 아니다",
+        "비밀",
+        "방 목적",
+        "chat_read",
+        "턴을 끝낸다",
+    ] {
         assert!(ins.contains(w), "안내문에 {w:?} 가 없다");
     }
     // 알림에는 답하지 않는다 — 다음 답이 ping 의 것이어야 한다.
@@ -256,7 +262,7 @@ fn chat_mcp_initialize_and_list() {
         .collect();
     assert_eq!(
         names.join(" "),
-        "chat_online chat_rooms chat_create chat_direct chat_join chat_leave chat_send chat_read"
+        "chat_online chat_rooms chat_create chat_direct chat_join chat_leave chat_send chat_read chat_notify"
     );
     let r = h.rpc("bogus/method", Value::Null);
     assert_eq!(r["error"]["code"], json!(-32601), "{r}");
@@ -402,7 +408,7 @@ fn chat_mcp_read_bytes() {
     d.settle();
     assert_eq!(
         h.tool("chat_read", Value::Null).0,
-        r#"{"dropped":0,"rooms":[{"room":"r1","kind":"group","name":"auth","purpose":"p-auth","messages":[{"from":"x","label":"mac/x","kind":"","node":"","at":1,"text":"a\u003cb"}]}]}"#
+        r#"{"dropped":0,"rooms":[{"room":"r1","kind":"group","name":"auth","purpose":"p-auth","messages":[{"from":"x","label":"mac/x","kind":"","node":"","at":1,"text":"a\u003cb","called":false}]}]}"#
     );
 }
 
@@ -438,11 +444,13 @@ fn chat_mcp_rooms_fill_unread() {
     assert_eq!(call.op, chatwire::OP_ROOMS);
     d.send(&reply(
         call.n,
-        r#"{"rooms":[{"id":"r1","kind":"group","creator":"c","creatorName":"n","members":1,"joined":true,"unread":0},{"id":"r2","kind":"group","creator":"c","creatorName":"n","members":1,"joined":false,"unread":0}]}"#,
+        r#"{"rooms":[{"id":"r1","kind":"group","creator":"c","creatorName":"n","members":1,"joined":true,"unread":0,"notify":"all"},{"id":"r2","kind":"group","creator":"c","creatorName":"n","members":1,"joined":false,"unread":0}]}"#,
     ));
     let rooms: chatwire::Rooms = json::unmarshal(h.tool_recv().0.as_bytes()).unwrap();
     let rooms = rooms.rooms.unwrap();
     assert_eq!((rooms[0].unread, rooms[1].unread), (1, 0));
+    // FR-CAL-6: 데몬이 실은 내 단계를 그대로 전한다.
+    assert_eq!(rooms[0].notify, chatwire::NOTIFY_ALL);
 }
 
 /// FR-PCH-43: 데몬과 끊기면 글함을 비우고, 다음 호출에서 새 참가자로 다시 연결한다.
@@ -476,4 +484,224 @@ fn chat_mcp_without_session() {
         chatwire::CODE_BAD_REQUEST
     );
     d.quiet();
+}
+
+fn called_frame(id: &str, room: &str, text: &str) -> chatwire::Frame {
+    let mut f = msg_frame(id, room, "auth", text);
+    if let Some(m) = f.msg.as_mut() {
+        m.called = true;
+    }
+    f
+}
+
+fn wake_ask(d: &FakeDaemon, n: u64) {
+    d.send(&chatwire::Frame {
+        t: chatwire::TYPE_WAKE_ASK.to_owned(),
+        n,
+        ..Default::default()
+    });
+}
+
+/// 도구 하나를 부르고 가짜 데몬이 result 로 답한다. 데몬이 받은 call 프레임을 돌려준다.
+fn tool_ok(
+    h: &mut Harness,
+    d: &FakeDaemon,
+    name: &str,
+    args: Value,
+    result: &str,
+) -> chatwire::Frame {
+    h.tool_send(name, args);
+    let call = d.next(chatwire::TYPE_CALL);
+    d.send(&reply(call.n, result));
+    let (_, err) = h.tool_recv();
+    assert!(!err, "{name}");
+    call
+}
+
+/// ISSUE_TREE_CHAT_SRS FR-CAL-1: chat_send 의 call 은 배열이고 그대로 데몬에 간다.
+#[test]
+fn chat_mcp_send_call_and_schema() {
+    let mut h = Harness::new("s1");
+    let d = h.daemon();
+    h.start();
+    d.next(chatwire::TYPE_HELLO);
+    let list = h.rpc("tools/list", Value::Null);
+    let tools = list["result"]["tools"].as_array().unwrap();
+    let send = tools.iter().find(|t| t["name"] == "chat_send").unwrap();
+    let call = &send["inputSchema"]["properties"]["call"];
+    assert_eq!(call["type"], json!("array"), "{send}");
+    assert_eq!(call["items"]["type"], json!("string"), "{send}");
+    let notify = tools.iter().find(|t| t["name"] == "chat_notify").unwrap();
+    assert_eq!(
+        notify["inputSchema"]["properties"]["level"]["enum"],
+        json!(["all", "called", "off"]),
+        "{notify}"
+    );
+    assert_eq!(notify["inputSchema"]["required"], json!(["room", "level"]));
+
+    let c = tool_ok(
+        &mut h,
+        &d,
+        "chat_send",
+        json!({"room": "r1", "text": "봐", "call": ["tool-2", "user"]}),
+        r#"{"ok":true}"#,
+    );
+    let args: chatwire::SendArgs = json::unmarshal(&c.args.0).unwrap();
+    assert_eq!(
+        args.call,
+        Some(vec!["tool-2".to_owned(), "user".to_owned()])
+    );
+    let c = tool_ok(
+        &mut h,
+        &d,
+        "chat_notify",
+        json!({"room": "r1", "level": "all"}),
+        r#"{"ok":true}"#,
+    );
+    assert_eq!(c.op, chatwire::OP_NOTIFY);
+    let a: chatwire::NotifyArgs = json::unmarshal(&c.args.0).unwrap();
+    assert_eq!((&*a.room, &*a.level), ("r1", "all"));
+}
+
+/// FR-CAL-14: chat_read 의 글마다 called 가 실린다.
+#[test]
+fn chat_mcp_read_has_called() {
+    let mut h = Harness::new("s1");
+    let d = h.daemon();
+    h.start();
+    d.next(chatwire::TYPE_HELLO);
+    d.send(&msg_frame("1", "r1", "auth", "a"));
+    d.send(&called_frame("2", "r1", "b"));
+    d.settle();
+    let read: Value = serde_json::from_str(&h.tool("chat_read", json!({})).0).unwrap();
+    let msgs = read["rooms"][0]["messages"].as_array().unwrap();
+    assert_eq!(msgs[0]["called"], json!(false));
+    assert_eq!(msgs[1]["called"], json!(true));
+}
+
+/// FR-CAL-9~11: 기본 단계(called)에서는 부른 글만 깨운다. 답은 개수만 싣고, 답한 글에는 표식을
+/// 붙여 같은 글로 두 번 깨우지 않는다. 깨울 글이 없으면 생길 때까지 답하지 않는다.
+#[test]
+fn chat_mcp_wake_called_once() {
+    let mut h = Harness::new("s1");
+    let d = h.daemon();
+    h.start();
+    d.next(chatwire::TYPE_HELLO);
+    d.send(&msg_frame("1", "r1", "auth", "a"));
+    d.send(&called_frame("2", "r1", "b"));
+    wake_ask(&d, 5);
+    let w = d.next(chatwire::TYPE_WAKE);
+    assert_eq!((w.n, w.total, w.called), (5, 2, 1));
+
+    wake_ask(&d, 6);
+    d.quiet();
+    d.send(&msg_frame("3", "r1", "auth", "c"));
+    d.quiet();
+    d.send(&called_frame("4", "r1", "d"));
+    let w = d.next(chatwire::TYPE_WAKE);
+    assert_eq!((w.n, w.total, w.called), (6, 4, 2));
+
+    wake_ask(&d, 7);
+    d.quiet();
+}
+
+/// 읽은 글은 글함에서 빠져 깨우지 않는다 (FR-CAL-11).
+#[test]
+fn chat_mcp_read_message_does_not_wake() {
+    let mut h = Harness::new("s1");
+    let d = h.daemon();
+    h.start();
+    d.next(chatwire::TYPE_HELLO);
+    d.send(&called_frame("1", "r1", "a"));
+    d.settle();
+    h.tool("chat_read", json!({}));
+    wake_ask(&d, 1);
+    d.quiet();
+}
+
+/// 데몬이 물음을 거두면(wake-drop) 그 물음에는 답하지 않고 표식도 붙이지 않는다.
+#[test]
+fn chat_mcp_wake_drop() {
+    let mut h = Harness::new("s1");
+    let d = h.daemon();
+    h.start();
+    d.next(chatwire::TYPE_HELLO);
+    wake_ask(&d, 3);
+    d.send(&chatwire::Frame {
+        t: chatwire::TYPE_WAKE_DROP.to_owned(),
+        n: 3,
+        ..Default::default()
+    });
+    d.send(&called_frame("1", "r1", "a"));
+    d.quiet();
+    wake_ask(&d, 4);
+    let w = d.next(chatwire::TYPE_WAKE);
+    assert_eq!((w.n, w.total, w.called), (4, 1, 1));
+}
+
+/// FR-CAL-5·6: chat_notify 가 성공하면 그 방의 단계를 따른다. all 은 모든 글, off 는 아무 글도
+/// 깨우지 않는다. 실패하면 단계는 그대로다. 나간 방과 끊긴 연결의 단계는 지운다.
+#[test]
+fn chat_mcp_notify_levels() {
+    let mut h = Harness::new("s1");
+    let d = h.daemon();
+    h.start();
+    d.next(chatwire::TYPE_HELLO);
+    let ok = r#"{"ok":true}"#;
+    tool_ok(
+        &mut h,
+        &d,
+        "chat_notify",
+        json!({"room": "r1", "level": "all"}),
+        ok,
+    );
+    tool_ok(
+        &mut h,
+        &d,
+        "chat_notify",
+        json!({"room": "r2", "level": "off"}),
+        ok,
+    );
+    h.tool_send("chat_notify", json!({"room": "r3", "level": "all"}));
+    let call = d.next(chatwire::TYPE_CALL);
+    d.send(&chatwire::Frame {
+        t: chatwire::TYPE_REPLY.to_owned(),
+        n: call.n,
+        error: Some(chatwire::Error {
+            code: "not_in_room".to_owned(),
+            message: "r3".to_owned(),
+        }),
+        ..Default::default()
+    });
+    assert_eq!(err_code(&h.tool_recv()), "not_in_room");
+
+    wake_ask(&d, 1);
+    d.send(&called_frame("1", "r2", "off 방의 부른 글"));
+    d.send(&msg_frame("2", "r3", "x", "실패한 단계의 방"));
+    d.quiet();
+    d.send(&msg_frame("3", "r1", "auth", "all 방"));
+    let w = d.next(chatwire::TYPE_WAKE);
+    assert_eq!((w.total, w.called), (3, 1));
+
+    tool_ok(&mut h, &d, "chat_leave", json!({"room": "r1"}), ok);
+    wake_ask(&d, 2);
+    d.send(&msg_frame("4", "r1", "auth", "나간 뒤 기본값"));
+    d.quiet();
+
+    tool_ok(
+        &mut h,
+        &d,
+        "chat_notify",
+        json!({"room": "r4", "level": "all"}),
+        ok,
+    );
+    d.c.shutdown(Shutdown::Both).unwrap();
+    thread::sleep(Duration::from_millis(50));
+    let d2 = h.daemon();
+    h.tool_send("chat_read", json!({}));
+    d2.next(chatwire::TYPE_HELLO);
+    h.tool_recv();
+    wake_ask(&d2, 1);
+    d2.send(&msg_frame("5", "r4", "x", "새 참가자는 기본값"));
+    d2.quiet();
 }
