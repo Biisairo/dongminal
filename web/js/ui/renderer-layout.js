@@ -107,6 +107,7 @@ Object.assign(Renderer.prototype, {
       this._placeLayout(area,kids);
       for(const [i,win,body] of bodies){ this._rSlot=i; this._rWindowInto(win,body) }
       app.slot.ops.slotApplySizes();
+      app.slot.ops.slotHoverPaint();   // UX_BATCH14_SRS FR-SFX-3: 칸 구성이 바뀌어도 hover 흐림이 맞는 칸에 남는다
       this._rSlot=0;
     }
   },

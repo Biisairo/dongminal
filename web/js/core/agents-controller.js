@@ -249,6 +249,9 @@ class AgentsController extends Controller {
     if(tabsIt) this.list._actTabsPaint(headHost.querySelector('.ag-tabs'),tabsIt.cur,tabsIt.tabs);
     reconcileList(body,zone.body,opts);
     reconcileList(footHost,zone.foot,opts);
+    // UX_BATCH14_SRS FR-SFX-3: 올려 둔 카드가 다시 그려지며 빠졌으면 mouseleave 가 오지 않는다 — 여기서 푼다.
+    const ops=this.app.slot.ops;
+    if(ops._hoverTool&&!body.querySelector('.ag-card[data-toolid="'+CSS.escape(ops._hoverTool)+'"]:hover')) ops.slotHoverTool(null);
   }
 
   /**
@@ -443,8 +446,12 @@ class AgentsController extends Controller {
     // FR-ATA-6: 해제는 jumpToTool 이 한다. PANEL_TEMPLATE_SRS FR-PNT-15: 이동했으면 모바일 시트를 닫는다.
     card.addEventListener('click',()=>{this.app.attn.jumpToTool(toolId);if(this.app.mobile.nav.actSheetLeave)this.app.mobile.nav.actSheetLeave()});
     // FR-AAP-21: 창 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
+    // UX_BATCH14_SRS FR-SFX-1·3: 올리면 그 탭의 칸만 또렷하다. 떠나거나 끌기 시작하면 푼다.
+    card.addEventListener('mouseenter',()=>this.app.slot.ops.slotHoverTool(toolId));
+    card.addEventListener('mouseleave',()=>this.app.slot.ops.slotHoverTool(null));
     card.draggable=true;
     card.addEventListener('dragstart',e=>{
+      this.app.slot.ops.slotHoverTool(null);
       this.app.drag={type:'agent',pid:toolId,targetPid:null,before:false,done:false};
       e.dataTransfer.effectAllowed='move';
       TIMERS.defer(()=>card.classList.add('dragging'),{label:'drag-class'});

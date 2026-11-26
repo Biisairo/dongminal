@@ -116,6 +116,12 @@ body.mobile #attn-center{left:8px;right:8px !important;width:auto;min-width:0;ma
 /* FR-STB-26: 포커스의 언어는 종전대로 accent 다. */
 .slot-focused>.slot-head{color:var(--accent-text);
   border-bottom-color:var(--accent);font-weight:600}
+/* UX_BATCH14_SRS FR-SFX-5~7: 칸이 둘 이상이면(`#area[data-slotdir]`) 포커스 없는 칸에 옅은 막이 덮인다. 클릭은 지난다.
+   `.pn-dimmed`(소유권 없음)와 다른 겹이다 — 그쪽은 글과 흐림으로 "누르면 가져온다" 를 말한다.
+   hover 흐림(`.slot-blurred`)은 에이전트 카드에 올린 동안 그 탭이 없는 칸에 붙는다 (`SlotOps.slotHoverTool`). */
+#area[data-slotdir]>.slot:not(.slot-focused)>.slot-body::after{content:'';position:absolute;inset:0;z-index:var(--z-overlay);
+  background:var(--slot-veil);pointer-events:none}
+.slot.slot-blurred{filter:blur(var(--slot-blur))}
 .slot-empty>.slot-body{display:flex;align-items:center;justify-content:center}
 /* FR-B-6 (UX-11): 안내는 DOM 텍스트(`.slot-empty-hint`)다 — 접근성 트리에 잡히고 번역된다. */
 .slot-body>.slot-empty-hint{display:none}
