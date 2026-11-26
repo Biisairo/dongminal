@@ -31,6 +31,8 @@ struct Slot {
     hooked: bool,
     /// 활동 보고로 본 턴이 열려 있다(`working`·`waiting`). 열려 있으면 건네지 않는다 (FR-AMW-12).
     turn_open: bool,
+    /// 메시지를 건넸고, 깨어난 턴이 아직 `working` 을 보고하지 않았다 (FR-AMW-18).
+    woken: bool,
     queue: VecDeque<String>,
     waiter: Option<(u64, oneshot::Sender<Batch>)>,
 }
@@ -45,8 +47,9 @@ impl Slot {
             return;
         };
         let batch: Batch = self.queue.drain(..).collect();
-        if let Err(back) = tx.send(batch) {
-            self.queue.extend(back);
+        match tx.send(batch) {
+            Ok(()) => self.woken = true,
+            Err(back) => self.queue.extend(back),
         }
     }
 
@@ -99,6 +102,7 @@ impl Inbox {
         s.hooked = true;
         s.waiter = None;
         if !s.turn_open && !s.queue.is_empty() {
+            s.woken = true;
             return Attach::Ready(s.queue.drain(..).collect());
         }
         if now {
@@ -119,35 +123,40 @@ impl Inbox {
         }
     }
 
-    /// 활동 보고 하나를 본다. 보고할 상태를 돌려준다 — 턴이 끝났는데 건넬 메시지가 남았으면
-    /// `done`·`idle` 대신 `working` 이다 (FR-AMW-17 · D-AMW-5).
-    pub(crate) fn on_activity<'a>(&self, tool: &str, state: &'a str) -> &'a str {
+    /// 활동 보고 하나를 본다 (FR-AMW-12·17). 턴이 끝나면 대기열을 건넨다.
+    pub(crate) fn on_activity(&self, tool: &str, state: &str) {
         let mut g = self.lock();
         if matches!(state, activity::WORKING | activity::WAITING) {
-            // 훅 대기가 열리기 전의 턴도 기억한다 — 열린 턴에는 건네지 않는다.
-            g.1.entry(tool.to_owned()).or_default().turn_open = true;
-            return state;
+            // 훅 대기가 열리기 전의 턴도 기억한다 — 열린 턴에는 건네지 않는다. 깨어난 턴이 시작됐다.
+            let s = g.1.entry(tool.to_owned()).or_default();
+            s.turn_open = true;
+            s.woken = false;
+            return;
         }
-        let Some(s) = g.1.get_mut(tool) else {
-            return state;
-        };
         match state {
             activity::DONE | activity::IDLE => {
-                s.turn_open = false;
-                if s.queue.is_empty() {
-                    return state;
+                if let Some(s) = g.1.get_mut(tool) {
+                    s.turn_open = false;
+                    s.flush();
                 }
-                s.flush();
-                activity::WORKING
             }
             activity::ENDED => {
                 if let Some(mut s) = g.1.remove(tool) {
                     s.drop_queue(tool, "세션 끝");
                 }
-                state
             }
-            _ => state,
+            _ => {}
         }
+    }
+
+    /// 이 탭에 건넬 메시지가 남았거나, 건넨 메시지의 깨어난 턴이 아직 시작하지 않았다. 그동안 그 탭은
+    /// `done`·`idle` 이 아니라 `working` 으로 보인다 (FR-AMW-17·18 · D-AMW-5). 상태는 데몬이 판정할 수
+    /// 있으므로 보고를 바꾸지 않고 보이는 곳에서 덧씌운다.
+    pub(crate) fn holds(&self, tool: &str) -> bool {
+        self.lock()
+            .1
+            .get(tool)
+            .is_some_and(|s| s.woken || !s.queue.is_empty())
     }
 }
 
@@ -189,7 +198,8 @@ mod tests {
     #[test]
     fn unknown_tool_activity_passes() {
         let ib = Inbox::default();
-        assert_eq!(ib.on_activity("t", activity::DONE), activity::DONE);
+        ib.on_activity("t", activity::DONE);
+        assert!(!ib.holds("t"));
         assert!(!ib.enqueue("t", "m"));
     }
 }

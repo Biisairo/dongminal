@@ -130,6 +130,36 @@ async fn working_holds_until_turn_ends() {
     assert_eq!(state(&env).await, "done");
 }
 
+// FR-AMW-17·18: 상태를 데몬이 판정해 추적기가 done 을 들고 있어도, 건넨 메시지의 깨어난 턴이 working 을
+// 보고하기 전까지 status·wait 는 working 이다 (2026-11-27 실측: 추적기는 데몬의 done 을 거울로 받았다).
+#[tokio::test]
+async fn status_holds_working_even_if_tracker_says_done() {
+    let env = env();
+    activity(&env, "working").await;
+    let w = spawn_wait(&env, "s1");
+    assert!(pending(&w).await);
+    assert_eq!(send(&env, "하나").await["delivery"], "queued");
+    activity(&env, "done").await;
+    assert_eq!(w.await.unwrap().len(), 1);
+    // 데몬의 판정이 거울에 그대로 들어온 꼴이다.
+    env.tr.set_activity("p1", "done", "", "");
+    assert_eq!(
+        state(&env).await,
+        "working",
+        "깨어난 턴 전에 done 으로 보였다"
+    );
+    let r = get(
+        &env.srv,
+        "/api/tools/activity/wait?id=p1&for=done&timeoutMs=300",
+    )
+    .await;
+    assert_eq!(r.json()["status"], "timeout", "{}", r.body);
+    // 깨어난 턴이 시작하고 끝나면 그때 done 이다.
+    activity(&env, "working").await;
+    activity(&env, "done").await;
+    assert_eq!(state(&env).await, "done");
+}
+
 // FR-AMW-1·17·18: 깨운 뒤 다음 훅이 아직 없을 때(깨어난 턴) 온 메시지도 붙여넣지 않는다. 턴이
 // 끝나면 상태는 working 으로 남고, 다음 훅 대기가 곧바로 받는다.
 #[tokio::test]

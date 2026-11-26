@@ -261,6 +261,11 @@ impl Server {
             st.detail = a.detail;
             st.updated_at = a.updated_at;
         }
+        // AGENT_MSG_REWAKE_SRS FR-AMW-17·18: 건넬 메시지가 남은 탭은 턴이 끝나도 쉬지 않은 것이다.
+        if matches!(st.state.as_str(), activity::DONE | activity::IDLE) && self.inbox.holds(tool_id)
+        {
+            activity::WORKING.clone_into(&mut st.state);
+        }
         let last = attn.last_output_at(tool_id);
         if last > 0 {
             st.last_output_at = last;
