@@ -41,7 +41,7 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | 단계 | 상태 |
 |---|---|
 | U-1 서버 바탕: `POST /api/chat/notify`, `state` 의 방 참가자 `notify`·`tool` | 끝남 (`cc416342`) |
-| U-2 지연 묶음에 마크다운: `markdown-it`(원시 HTML 끔) · `purify.js` · `highlight.js` 를 `web/bundles.txt` 의 `chat` 묶음에(FR-CUX-8·15). 부팅 JS 는 늘지 않는다 | 남음 |
+| U-2 지연 묶음에 마크다운: `markdown-it`(원시 HTML 끔) · `purify.js` · `highlight.js` 를 `web/bundles.txt` 의 `chat` 묶음에(FR-CUX-8·15). 부팅 JS 는 늘지 않는다 | 끝남 (결정 I-11·I-12) |
 | U-3 대화 그리기(`chat-views.js`): 보낸 이 묶음·이어진 글(5분, 상수)·날짜 구분선·내 글 바탕·부른 글 띠 `@나`·`@<이름>`·폭 상한(FR-CUX-1~8) | 남음 |
 | U-4 이름 규칙(FR-CUX-9·14)과 색(FR-CUX-10: 에이전트는 참가자 id 로 테마 색 목록, 사람은 배경 대비 최대 색이며 그 색은 에이전트 목록에서 뺀다. 테마 바뀌면 다시 계산) | 남음 |
 | U-5 방 머리 세 줄과 내 단계 고르기(FR-CUX-11 → `/api/chat/notify`), 참가자 목록(FR-CUX-12: 사람 먼저·노드별·`<종류> · <상태> · 알림: <단계>`. 상태는 `people[].tool` 로 `app._activity` 를 읽는다. 다른 노드 참가자의 단계는 비어 있으면 적지 않는다) | 남음 |
@@ -68,6 +68,8 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | I-6 | `call` 의 도구 id 는 그 노드의 MCP 연결 가운데 도구 id 가 같은 것의 참가자 id 로 바꾼다. 그 밖의 항목은 그대로다 | 결정 I-2 의 구현 |
 | I-7 | 같은 세션의 새 깨움 대기는 앞선 대기를 0건으로 끝낸다(`waits` 세션당 하나) | 쉴 때마다 Stop 훅이 하나씩 떠 쌓이지 않게 한다 |
 | I-8 | 깨움 훅의 timeout 은 7일이다(agentadapter `CHAT_WAIT_TIMEOUT_SECS`) | claude 명령 훅은 시한이 지나면 끊기고, 그 뒤 온 글로는 다음 Stop 까지 깨우지 못한다. JS 타이머 상한(약 24.8일) 안 |
+| I-11 | highlight.js 를 `[docrender]` 에서 새 라이브러리 묶음 `[hljs]` 로 옮기고, `chat`·`docrender` 가 needs `['mdlib','hljs']` 로 싣는다. 채팅 마크다운은 `js/core/chat-md.js`(`chatMdHtml`·`chatMdFragment`, `[chat]` 묶음)다. 문서 렌더의 인스턴스와 나눈다(그쪽은 원시 HTML 을 살린다). 부팅 JS 는 등록 한 줄과 needs 로 61 B 늘었다(라이브러리 자체는 지연) | 한 파일은 한 묶음에만 둔다(bundles.txt). mdlib 에 넣으면 터미널 첫 hover 가 129 KB 를 더 받는다. `settings` 가 `chat` 을 needs 로 싣으므로 설정을 처음 열 때도 mdlib·hljs 가 실린다 |
+| I-12 | 채팅 마크다운은 `breaks: true`(한 줄 바꿈도 줄 바꿈)이고, 코드 블록은 `<pre class="chat-code" data-lang=…>` 로 언어를 싣는다. 언어 표시의 그리기는 U-3 의 CSS 다 | 채팅 글은 한 줄 바꿈을 뜻대로 쓴다 |
 | I-9 | 웹 알람의 단계는 `state` 의 방 `notify` 로 판정하고, 알람은 `ChatStore` 에 방마다 둔다. 방 탭이 보이면 안 읽은 수와 함께 꺼진다 | FR-CAL-15·16 |
 
 ## 4. 이 세션이 값을 치르고 배운 것
