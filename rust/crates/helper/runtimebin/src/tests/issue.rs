@@ -250,3 +250,19 @@ fn issue_log_takes_text_argument() {
     let (rc, _, err) = issue(&t, &["log", "1", "  "], b"");
     assert_eq!(rc, 2, "빈 글은 사용법 오류다: {err}");
 }
+
+/// 격리 실측 발견 7: README 의 owner 설명이 배정 지시(`--owner <내 toolId>`)와 같다.
+#[test]
+fn issue_readme_owner_is_tool_id() {
+    let t = setup();
+    let (rc, _, err) = run_with(
+        &Env::with_vars([("HOME", "/nonexistent")]),
+        crate::otterctl::run_otterctl,
+        &["issue", "init", &t.dir],
+        b"",
+    );
+    assert_eq!(rc, 0, "{err}");
+    let readme = std::fs::read_to_string(std::path::Path::new(&t.dir).join("README.md")).unwrap();
+    assert!(readme.contains("toolId"), "{readme}");
+    assert!(!readme.contains("탭 uuid"), "{readme}");
+}

@@ -30,7 +30,7 @@ id: \"2.1\"
 title: 제목
 status: todo | ready | in-progress | review | done | blocked | split
 deps: [\"1\"]          # 먼저 done 이어야 하는 이슈
-owner: \"\"            # 맡은 탭 uuid
+owner: \"\"            # 맡은 에이전트의 toolId
 branch: \"\"
 ```
 
