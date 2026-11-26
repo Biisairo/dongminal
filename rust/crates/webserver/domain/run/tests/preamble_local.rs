@@ -64,7 +64,7 @@ fn local_tree_node_uses_issue_files() {
             "「로컬 이슈」",
             "otterctl issue show 2.1",
             "otterctl issue set 2.1 --status in-progress",
-            "otterctl issue log 2.1",
+            "otterctl issue log 2.1 \"<글>\"",
             "otterctl issue new 2.1.",
             "--status review",
             "--status done",
@@ -73,7 +73,16 @@ fn local_tree_node_uses_issue_files() {
             "완료 perf:2.1",
         ],
     );
-    has_none(&p, &["viewerPermission", "gh api", "프로젝트 보드", "일꾼"]);
+    has_none(
+        &p,
+        &[
+            "viewerPermission",
+            "gh api",
+            "프로젝트 보드",
+            "일꾼",
+            "(stdin)",
+        ],
+    );
 }
 
 /// FR-LIS-10~14: local + coord 의 일꾼은 일꾼 규칙을 받는다.
@@ -96,6 +105,7 @@ fn local_coord_worker_gets_worker_rules() {
             "원본 폴더: /repo/perf/issues",
             "otterctl issue set 2.3 --status in-progress",
             "otterctl issue new 2.3.",
+            "otterctl issue log 2.3 \"<글>\"",
             "--status split",
             "--status blocked --reason",
             "--status review",
@@ -114,6 +124,7 @@ fn local_coord_worker_gets_worker_rules() {
             "--status done",
             "하위를 띄운다",
             "완료 perf:2.3",
+            "(stdin)",
         ],
     );
 }

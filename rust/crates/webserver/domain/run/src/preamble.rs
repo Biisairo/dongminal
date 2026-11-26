@@ -230,7 +230,7 @@ fn local_ops(b: &mut Lines, rec: &Record, issue: &str) {
     ));
     b.w(format!("#  1) 착수: otterctl issue set {id} --status in-progress --owner <내 toolId> (todo 면 ready 를 먼저 거친다)."));
     b.w(format!(
-        "#  2) 진행 메모와 받은 결정(첫 줄 `결정:`)은 otterctl issue log {id} 로 남긴다(stdin)."
+        "#  2) 진행 메모와 받은 결정(첫 줄 `결정:`)은 otterctl issue log {id} \"<글>\" 로 남긴다."
     ));
     b.w(format!("#  3) 나누면 otterctl issue new {id}.<n> \"<제목>\" [--deps …] 로 하위를 만들고 하위를 띄운다."));
     b.w(format!(
@@ -262,7 +262,7 @@ fn worker_ops(b: &mut Lines, rec: &Record, issue: &str) {
             "#  - 착수: otterctl issue set {id} --status in-progress --owner <내 toolId>"
         ));
         b.w(format!(
-            "#  - 진행 메모와 받은 결정(첫 줄 `결정:`): otterctl issue log {id} (stdin)"
+            "#  - 진행 메모와 받은 결정(첫 줄 `결정:`): otterctl issue log {id} \"<글>\""
         ));
         b.w(format!("#  - 나눌 필요가 있으면 otterctl issue new {id}.<n> \"<제목>\" [--deps …] 로 하위를 만들고"));
         b.w(format!("#    otterctl issue set {id} --status split 뒤 조정자에게 알린다. 하위는 조정자가 맡긴다."));

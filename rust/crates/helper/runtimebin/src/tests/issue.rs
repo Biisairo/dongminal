@@ -232,3 +232,21 @@ fn issue_dir_from_run() {
     assert_eq!(rc, 2);
     assert!(err.contains("로컬 이슈 트리가 아니다"), "{err}");
 }
+
+/// 격리 실측 발견 2: 에이전트의 셸은 stdin 을 닫지 않는다. 글을 인자로 주면 stdin 을 읽지 않는다.
+#[test]
+fn issue_log_takes_text_argument() {
+    let t = setup();
+    issue(&t, &["new", "1", "뿌리"], b"");
+    let (rc, _, err) = issue(&t, &["log", "1", "결정: 인자로 준 글"], b"");
+    assert_eq!(rc, 0, "{err}");
+    let (rc, _, err) = issue(&t, &["log", "1", "낱말", "여럿"], b"");
+    assert_eq!(rc, 0, "{err}");
+    let show = issue(&t, &["show", "1"], b"").1;
+    assert!(
+        show.contains("결정: 인자로 준 글") && show.contains("낱말 여럿"),
+        "{show}"
+    );
+    let (rc, _, err) = issue(&t, &["log", "1", "  "], b"");
+    assert_eq!(rc, 2, "빈 글은 사용법 오류다: {err}");
+}

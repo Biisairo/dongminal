@@ -187,7 +187,7 @@ gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$
 | 서브이슈 순서 · 본문의 `의존:` | ID 차례가 진행 순서다. 의존은 머리말 `deps` 다. 앞 형제를 기다리는 기본 규칙은 없다 — 열 수 있는 것은 `ready` 다 |
 | 하위 이슈 만들기 | `otterctl issue new <ID>.<n> "<제목>" [--deps a,b]`. 순서를 바꿀 일은 없다 — ID 를 고를 때 정한다 |
 | 보드의 진행 중으로 옮기기(착수) | `otterctl issue set <ID> --status ready`(`todo` 일 때) 뒤 `otterctl issue set <ID> --status in-progress --owner <내 toolId>` |
-| 코멘트 · 결정(`결정:`) | `otterctl issue log <ID> <<'L'` … `L`(진행 기록에 덧붙는다) |
+| 코멘트 · 결정(`결정:`) | `otterctl issue log <ID> "<글>"`(진행 기록에 덧붙는다. 글은 인자로 준다 — 에이전트 셸의 stdin 은 닫히지 않는다) |
 | 닫기 · 보드의 완료 | `otterctl issue set <ID> --status review` 뒤 `--status done` |
 | 막힘 | `otterctl issue set <ID> --status blocked --reason "<이유>"` |
 | 브랜치 기록 | `otterctl issue set <ID> --branch <브랜치>` |

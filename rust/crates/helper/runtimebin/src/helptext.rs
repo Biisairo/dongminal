@@ -553,7 +553,7 @@ pub(crate) const OTTERCTL_ISSUE_HELP: &str = r#"otterctl issue — 로컬 이슈
   otterctl issue new <ID> <제목> [--deps a,b] --dir <폴더> # 하위 이슈 파일을 만든다(부모가 있어야 한다)
   otterctl issue set <ID> [--status s] [--owner o] [--branch b] [--reason r] --dir <폴더>
                                                           # blocked 는 --reason 이 있어야 한다
-  otterctl issue log <ID> --dir <폴더> < 글               # stdin 의 글을 진행 기록에 덧붙인다
+  otterctl issue log <ID> ["<글>"] --dir <폴더>           # 글(없으면 stdin)을 진행 기록에 덧붙인다
 
 --dir 을 빼면 부르는 탭의 Run 이 기록한 원본 폴더를 쓴다. 로컬 트리는
   otterctl run start --objective <목적> --tree <별칭>:<ID> --issue-dir <폴더> [--branch] [--mode tree|coord]

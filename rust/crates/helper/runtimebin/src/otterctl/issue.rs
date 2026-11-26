@@ -202,13 +202,17 @@ pub(crate) fn run_otterctl_issue(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
             )
         }
         "log" => {
-            let [id] = f.pos.as_slice() else {
+            let [id, words @ ..] = f.pos.as_slice() else {
                 errf!(ctx, "issue log: <ID> 하나를 준다\n");
                 return 2;
             };
-            let mut text = String::new();
-            if ctx.inp.read_to_string(&mut text).is_err() || text.trim().is_empty() {
-                errf!(ctx, "issue log: 덧붙일 글을 stdin 으로 준다\n");
+            // 글이 인자로 오면 stdin 을 읽지 않는다 — 에이전트의 셸은 stdin 을 닫지 않는다.
+            let mut text = words.join(" ");
+            if words.is_empty() && ctx.inp.read_to_string(&mut text).is_err() {
+                text.clear();
+            }
+            if text.trim().is_empty() {
+                errf!(ctx, "issue log: 덧붙일 글을 인자나 stdin 으로 준다\n");
                 return 2;
             }
             done(ctx, d.log(id, &today(), &text).map(|()| String::new()))
