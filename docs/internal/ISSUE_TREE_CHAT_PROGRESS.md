@@ -1,17 +1,14 @@
 # 채팅 고도화·이슈트리 채팅 진행 문서 — 착수 블록 포함
 
-- 작성: 2026-11-26, 기능 추가 첫 세션(인터뷰·SRS·묶음 A 1단계)이 다음 세션에게 넘긴다. 마지막 갱신: 이슈트리L-3 세션(L-3).
+- 작성: 2026-11-26, 기능 추가 첫 세션(인터뷰·SRS·묶음 A 1단계)이 다음 세션에게 넘긴다. 마지막 갱신: 격리실측 세션.
 - 요구·결정의 원본은 `docs/internal/ISSUE_TREE_CHAT_SRS.md` 다. 이 문서는 진행 상태와 이 세션이 배운 것만 담는다. 문서와 코드가 다르면 코드가 기준이다.
 
 ## 착수 블록 — 다음 세션의 지시 전부
 
 1. 이 문서를 끝까지 읽는다.
 2. 먼저 읽는다: `docs/internal/FEATURE_DEV_RULES.md`(규칙 전부, 특히 §3 설계 규칙·§4 시험·§5 운영 보호), `docs/internal/ISSUE_TREE_CHAT_SRS.md`(§3.4·§3.5, §4 결정, §10 가정 — 모두 사용자 승인됨).
-3. 저장소 상태 확인: 브랜치 `feature`, `git log -1` 이 이 문서의 마지막 갱신 커밋이다. `git status` 가 깨끗해야 한다. origin/feature 는 `98618cb1` 까지 push 됐고 그 뒤 커밋은 push 하지 않았다(사용자 지시가 있어야 한다).
-4. **다섯 묶음(A·U·T·L·C)의 코드는 모두 끝났다.** 검증 결과는 §2 「검증(2026-11-26)」 이다. **사용자가 격리 실측을 지시했다(2026-11-26).** §2 「격리 실측」 을 먼저 읽고, 그 절의 "발견 1"(채팅 소켓이 연결을 받지 않음)을 시험 먼저로 고친 뒤 남은 실측을 이어 간다. 아래는 옛 설명이다 — 실측 셋:
-   - T-7 실측 TC-ITH-14(사용자 봇). 사용자가 다음에 운영 바이너리를 바꿀 때 한꺼번에 한다(사용자 결정 2026-11-26).
-   - C-4/L-4 시범 TC-ITH-17(진짜 claude 로 local+coord · local+tree 를 끝까지). 격리 인스턴스 안에서 진짜 claude 를 띄우면 PATH 의 shim 이 운영 바이너리를 가리키는 문제(§4.1)와 claude 인증 HOME 문제가 있어, 운영 보호(§5)를 지키는 방법을 사용자와 정한 뒤 한다.
-   - TC-ITH-19 유휴 측정(`scripts/perf/scenario.mjs`). 시범과 같은 격리 빌드로 한다.
+3. 저장소 상태 확인: 브랜치 `feature`, `git log -1` 이 이 문서의 마지막 갱신 커밋이다. `git status` 가 깨끗해야 한다. `main` 에 `--no-ff` 로 병합하고 origin/main 에 push 했다(사용자 지시 2026-11-26). origin/feature 는 `98618cb1` 그대로다.
+4. **다섯 묶음(A·U·T·L·C)의 코드와 격리 실측이 모두 끝났다(2026-11-26).** 결과는 §2 「격리 실측」 이다. 남은 것은 T-7 실측 TC-ITH-14(사용자 봇, 사용자가 다음에 운영 바이너리를 바꿀 때 한꺼번에 한다 — 사용자 결정)와 §2 의 후속 후보다.
 5. 커밋은 단계마다 스스로 한다(사용자 지시 2026-11-26, AI 서명 금지). main 병합·push 는 사용자의 분명한 지시가 있을 때만.
 6. 운영 바이너리 재빌드는 하지 않았다(운영 보호 §5). 사용자가 정할 때까지 빌드하지 않는다.
 
@@ -80,7 +77,7 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | L-1 이슈 파일 한 벌과 `otterctl issue`(init·tree·show·new·set·log, `--dir`)(FR-LIS-3~6·8, TC-ITH-15) | 끝남 (결정 I-25) — 새 crate `rust/crates/shared/issuefile`(`Dir`·`Issue`·`Status`·`transition_ok`·`is_ready`·`alias`), `runtimebin/src/otterctl/issue.rs`, 도움말 `OTTERCTL_ISSUE_HELP`, commands.md 한 줄. 시험: issuefile 12 · otterctl 4 |
 | L-2 원본 폴더를 Run 에 기록하고 명령이 Run 멤버 배정으로 찾는다(FR-LIS-7). `/api/runs/tree`·대시보드가 로컬 트리를 같은 모양으로, 보관 방식을 싣는다(FR-LIS-16·17, TC-ITH-16) | 끝남 (결정 I-26) — Run `issueDir`, `otterctl run start --tree <별칭>:<ID> --issue-dir <폴더>`, `GET /api/runs/issues`, `otterctl issue resolve`, `--dir` 없는 `otterctl issue`. 시험: run 도메인 1 · httpapi 3 · otterctl 3 · issuefile 1 |
 | L-3 `/otterminal:issue-tree` 의 보관 방식·실행 방식 인자(FR-LIS-1·2)와 local+tree·coord 절차, 일꾼 규칙 주입(FR-LIS-9~15·18) | 끝남 (결정 I-27) — 명령 문서 `issue-tree.md` 에 「보관 방식과 실행 방식」(네 조합·`otterctl issue resolve`)·「로컬 이슈」(대응표·이름·Run)·「조정자 절차」·「일꾼 규칙」 절. Run `mode`(`otterctl run start --mode tree\|coord`). 프리앰블: local+tree 는 `otterctl issue` 운영, coord 는 일꾼 머리·일꾼 규칙·`review` 보고. 로컬 트리의 그룹은 이름으로 찾는다. 시험: domain/run preamble_local 3 · store 1 · httpapi 1 · otterctl 1 · runtime 문서 1. GitHub 트리 프리앰블은 Go 비교 시험 그대로 |
-| L-4 시범: local+coord · local+tree 를 한 번씩 끝까지(TC-ITH-17, 묶음 C 와 함께) | 남음 |
+| L-4 시범: local+coord · local+tree 를 한 번씩 끝까지(TC-ITH-17, 묶음 C 와 함께) | 끝남 — §2 「격리 실측」 |
 
 #### L-3 설계 메모 (이 세션이 조사한 것, 코드가 기준)
 
@@ -96,7 +93,7 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | C-1 데몬의 트리 방 규칙: 사람 참가자 연산 `tree {room, tools, close}`. 세우면 사람 참가자와 붙어 있는 트리 멤버가 들어가고, 나중에 hello 한 트리 멤버도 들어간다. 연결이 끊기면 unregister 로 나간다. close 면 규칙을 지우고 사람이 나간다(FR-ITR-2·3·10, TC-ITH-18) | 끝남 (결정 I-28) — chatwire `OP_TREE`·`TreeArgs`, chatsock `State.trees`·`tree`·`join_tree_rooms`. 시험: chatsock tests_tree 2 |
 | C-2 Run 의 `chatRoom`(`otterctl run start --chat-room`, 가지 Run 은 루트의 것을 잇는다)과 서버의 규칙 맞추기(Run 이 바뀔 때마다 열린 트리 Run 의 조정자·멤버 도구로 `tree`, 열린 Run 이 없으면 close)(FR-ITR-1·3·10) | 끝남 (결정 I-28) — `httpapi/src/runs_tree_room.rs`(`sync_tree_room`·`apply_tree_room`), `broadcast_run_changed` 끝에서 부른다. 시험: store 1 · httpapi 2 · otterctl 1 |
 | C-3 프리앰블과 명령 문서의 통신을 트리 방 + `call` 로(FR-ITR-4~9), 첫 지시는 실행 인자(FR-ITR-6) | 끝남 (결정 I-29) — 프리앰블 `tree_room_block`(트리 방 id·call 규약·사용자 확인·화면 옮기기·무관한 글은 턴 끝·부모 보고 예), `/api/runs/preamble` 의 `promptFile`, `otterctl run launch` 가 `<홈>/prompts/<member>.md`(600)를 쓰고 한 줄 프롬프트. 명령 문서 「트리 방」 절, 발사대·로컬·조정자의 방 만들기와 `--chat-room`, 끝의 `chat_leave`. 시험: preamble_local 2 · httpapi 1 · otterctl 1 · runtime 문서 1 |
-| C-4 시범(L-4 와 함께, TC-ITH-17): local+coord · local+tree 를 한 번씩 끝까지 | 남음 |
+| C-4 시범(L-4 와 함께, TC-ITH-17): local+coord · local+tree 를 한 번씩 끝까지 | 끝남 — §2 「격리 실측」 |
 
 ### 검증 (2026-11-26, 다섯 묶음의 코드가 끝난 뒤)
 
@@ -111,15 +108,32 @@ e2e 실패 2건은 둘 다 낡은 시험이었다(제품 동작은 의도대로)
 - `telegram-settings.spec.ts`: T-1(결정 I-19)이 채팅 토픽 절을 넷째 절로 더했다. 절 수 3 → 4, `#tg-topics` 꺼짐을 함께 본다.
 - `bundle-strip.spec.ts` TC-BST-1: 결정 I-11 의 `[hljs]` 묶음은 축약된 vendor 한 파일이라 걷을 주석이 없다. "모든 묶음이 줄어든다" → "걷을 것이 있으면 줄고, 없으면 원본 그대로다" 로 고쳤다.
 
-### 격리 실측 (2026-11-26, 이슈트리L-3 세션 — 진행 중)
+### 격리 실측 (2026-11-26, 끝남 — 격리실측 세션)
 
-**local+coord 시범(TC-ITH-17 의 절반): 끝까지 통과.** 시험 저장소 `/private/tmp/ithtrial/coord`(이슈 폴더 `trial/issues`, 루트 1 · 하위 1.1 hello.sh · 1.2 bye.sh)에서 `/otterminal:issue-tree trial/issues#1 --mode coord`. 조정자가 통합 worktree `/private/tmp/ithtrial/coord-trial`(`integ/trial`)을 만들고, 일꾼 둘을 함께 띄웠다(브랜치 `trial/1.1`·`trial/1.2`). 일꾼이 시험 먼저·커밋·review 를 했고, 조정자가 `--no-ff` 로 병합한 뒤 1.1·1.2·1 을 done 으로 닫았다. 통합 브랜치에서 두 시험 모두 PASS. 끝에 사용자 확인("브랜치만 남기기")을 받은 뒤 Run 과 그룹을 정리했다. 약 5분이 걸렸다.
+시범과 측정을 모두 끝냈다. 실측에서 찾은 결함은 시험 먼저로 고쳤다. 화면 캡처는 `.playwright-mcp/ith-*.png`(gitignore 됨)다.
 
-**발견 1 — 채팅 소켓이 연결을 받지 않는다(코드 결함 의심, 미해결).** 조정자의 MCP `chat_create` 가 `daemon_unavailable` 이었다. 조정자는 문서대로 트리 방 없이 `otterctl msg` 로 진행했다 → **트리 방(묶음 C)은 아직 실측하지 못했다.** 확인한 사실:
-- 같은 환경에서 `otterctl chat-mcp` 를 직접 띄워 `chat_rooms` 를 부르면 "데몬의 채팅 소켓에 연결할 수 없다" 가 난다. python 으로 `<격리 홈>/chat.sock` 에 붙으면 `ECONNREFUSED` 다.
-- 데몬(PID 58241)은 그 소켓 fd 를 쥐고 있고(lsof), 소켓 파일의 inode·시각은 데몬이 기동한 때(16:03:48) 그대로다. 데몬 로그에는 `채팅 소켓:` 오류가 없다.
-- 16:10 에 조정자 claude 가 뜰 때 shim 의 dial 검사는 통과했다(그래서 MCP 가 주입됐다). dial 은 대기열만 있어도 성공한다.
-- 가설: `chatsock::Server::serve` 는 `ln.accept()` 가 한 번이라도 Err 이면 루프를 끝낸다(`daemon/chatsock/src/lib.rs` serve). 받는 쪽이 멈추면 대기열이 차고 그 뒤로 `ECONNREFUSED` 다. `sample` 로 떠 보니 막혀 있는 `__accept` 스레드는 하나뿐이었다(심볼이 없어 어느 소켓인지 모른다). **다음 세션이 원인을 확정하고 고친다**(시험 먼저: accept 가 오류를 내도 serve 가 계속 받는지).
+| 실측 | 결과 |
+|---|---|
+| local+coord 시범(트리 방 포함, TC-ITH-17) | 통과. 조정자가 트리 방을 만들었다. 일꾼 둘이 자동으로 들어왔다(참가자 4). 일꾼은 `review` 를 방에 call 로 보냈다. 조정자는 `--no-ff` 로 병합하고 1·1.1·1.2 를 done 으로 닫았다. 사용자 확인은 방의 `@나` 로 왔다. **채팅으로 답하자** 조정자가 깨어나 Run·그룹을 정리하고 방에서 나갔다. 캡처: `ith-04-tree-room`·`ith-06-run-dashboard`·`ith-11-chat-after-cleanup` |
+| local+tree 시범(TC-ITH-17) | 통과(약 3분). 노드들이 방에 `완료 <ID>` 를 call 로 보고했다. 조율 에이전트가 `@나` 로 결과 브랜치 처리를 물었고, 채팅 답으로 Run·그룹을 정리했다. 캡처: `ith-21-tree-chat-2`·`ith-22-tree-answer` |
+| TC-ITH-19 유휴 측정 | 통과. `scenario.mjs --windows 5 --tabs 3 --phase-s 60 --idle-s 60 --only idle,idle-git,idle-closed`, 기본과 `--idle-fg 'sleep 86400'` 을 한 번씩 돌렸다. 서버·데몬의 외부 프로세스는 모든 구간에서 0 이다. 문맥 전환/초(서버/데몬): idle 9.0/5.7 · 8.1/6.0, idle-git 6.5/0.5 · 6.1/0.6, idle-closed 4.0/0.5 · 3.4/0.5. M4 기준선은 8.9/5.8 · 6.1/0.5 · 2.9/0.5 다. idle-closed 의 서버 값은 기준선 범위(2.8~3.0)보다 0.2~1.1 높다(1회 측정, CPU 0%). 부팅 JS 1,145,259 B. 원자료는 `/private/tmp/ith19-run0.json`·`ith19-fg0.json` 이다 |
+| 마무리 검증 | `cargo test --workspace` 4,280 통과·실패 0, `check-cross.sh` 다섯 대상 통과, 게이트 전부 통과, `make e2e` 8샤드 통과(flaky 0, 건너뜀 4 — 이전과 같음) |
+
+**찾은 결함과 고침**
+
+| # | 결함 | 고침(커밋) |
+|---|---|---|
+| 1 | 채팅 소켓이 연결을 받지 않았다(MCP `chat_*` 가 `daemon_unavailable`). darwin 에서 받기 전에 상대가 닫은 연결(shim 의 dial 검사)에 `SO_NOSIGPIPE` 가 EINVAL 을 냈다. 그 오류가 `accept` 오류로 올라가 `chatsock::Server::serve` 가 루프를 끝냈다 | 연결 준비 실패를 무시하고 그 연결을 돌려준다(`cbe8cb20`, `b200a098`). 첫 판(`cbe8cb20`)은 그 연결을 버리고 다시 기다렸다. 그러자 닫기가 막힌 accept 를 깨우려 거는 연결도 버려져, 데몬이 종료 신호에 끝나지 않았다(`boot_listens_and_saves_on_signal`). `b200a098` 이 바로잡았다 |
+| 2 | `otterctl issue log` 가 글을 stdin 으로만 받았다. 프리앰블이 "(stdin)" 이라고만 적어 일꾼이 `< /dev/stdin` 을 붙였고, 10분 동안 멈췄다(claude Bash 시한에 걸려 풀림) | `otterctl issue log <ID> "<글>"`. 프리앰블·도움말·명령 문서도 인자 꼴로 고쳤다(`cf414283`) |
+| 5 | Run 종료 뒤 셸이 먼저 정리된 빈 탭은 `otterctl close-tab --force` 로 닫히지 않았다(`도구가 존재하지 않음`) | `closeTab` 은 좌표로 바꾸지 못하는 알려진 탭 uuid 를 그대로 넘긴다(`d589d1aa`). 단위 시험만 했고, 실측에서는 다시 생기지 않아 현장 확인은 못 했다 |
+| 6 | 로컬 트리의 가지 Run(`run start --tree <별칭>:<ID> --branch`)을 CLI 가 GitHub 꼴이 아니라며 거절했다. 병렬 자식이 사슬로 돌았다 | 로컬 표지에 `--branch` 면 원본 폴더 없이 보낸다(서버가 루트의 것을 잇는다, I-26). 루트는 `--issue-dir` 를 요구한다(`5b0b55f7`) |
+| 7 | `otterctl issue init` 의 README 가 owner 를 "탭 uuid" 라고 적었다. 지시는 toolId 다 | README 를 toolId 로 고쳤다(`8de3814b`) |
+
+**후속 후보(손대지 않음)**
+
+- 발견 3: 트리 방의 참가자 이름은 MCP 가 처음 붙을 때의 탭 이름으로 굳는다. 조정자 탭은 그때 아직 자동 이름 `Shell` 이어서 방에 `Shell` 로 보였다(뒤에 탭 이름은 `claude` 가 됐다). 탭 이름이 바뀌면 데몬의 참가자 이름을 바꾸는 경로가 필요하다(채팅 핵심·망 전파에 닿는다 — 스펙부터).
+- 발견 4: local+coord 정리 중 브라우저 페이지가 16:33:56~16:34:09 사이에 네 번 다시 열렸다. 사람 쪽 대화는 메모리에만 있어 그 전 글이 화면에서 사라졌다. 첫 번은 `closeTab` 명령 0.2초 뒤였다. 시험용 창의 탭 닫기와 그 뒤의 정리(그룹 삭제·Run 종료)로는 재현되지 않았다. 원인은 미확정이다.
+- 발견 2 의 뿌리: 에이전트 셸에서 stdin 을 읽는 다른 otterctl 명령(`msg -` 등)도 같은 함정이 있을 수 있다. 점검 후보다.
 
 **격리 실측 방법(운영 보호를 지키는 법) — 그대로 다시 쓸 수 있다:**
 1. 빌드: `BINARY=otterminal-ith rust/scripts/hermetic.sh scripts/build.sh`.
@@ -127,9 +141,7 @@ e2e 실패 2건은 둘 다 낡은 시험이었다(제품 동작은 의도대로)
 3. 격리 탭의 HOME 은 `<격리 홈>/tool-home`(빈 홈)이다. claude 로그인·설정을 쓰려면 그 아래에 `.claude → ~/.claude`, `.claude.json → ~/.claude.json`, `Library → ~/Library`(macOS 키체인), `.gitconfig`(user.name/email)를 둔다. 사용자 전역 설정의 `defaultMode: auto` 로 노드가 멈추지 않고 돈다.
 4. 격리 인스턴스용 otterctl 은 `env -i HOME=/Users/dykim PATH=<위 PATH> OTTERMINAL_HOME=<격리 홈> OTTERMINAL_PORT=<포트> <격리 홈>/bin/otterctl …` 로 부른다.
 5. 레이아웃 명령에는 화면을 연 브라우저가 필요하다 — Playwright MCP 로 `http://127.0.0.1:<포트>/` 를 연다. 폴더 신뢰 창(기본 선택이 No)은 Playwright 로 `.xterm` 을 누르고 `ArrowDown`·`Enter` 를 친다. **상위 폴더(`/private/tmp/ithtrial`)를 한 번 신뢰하면 하위 worktree 에는 신뢰 창이 뜨지 않는다.**
-6. 지금 떠 있는 격리 인스턴스: 포트 49417, 홈 `/var/folders/8s/s404j_ps7x94zc59bb2fp1c00000gn/T/otterminal-iso-3582717237`, 서버 PID 58194, 데몬 PID 58241, 조정자 탭 uuid `9ac0f397-e7d6-4e44-836d-ff53b2bd1b9c`(claude 가 떠 있다). 정지: `./otterminal-ith stop --all --port 49417 --home <격리 홈>`(위 깨끗한 환경으로).
-
-**남은 실측:** ① 발견 1 을 고친 뒤 다시 빌드해 트리 방(C: 자동 입장, call 로 주고받기, 첫 지시 파일, 끝의 나가기)을 local+coord 로 다시 본다 ② local+tree 시범 ③ TC-ITH-19 유휴 측정.
+6. 정지: `./otterminal-<이름> stop --all --port <포트> --home <격리 홈>`(위 깨끗한 환경으로). PATH 에 공백이 든 항목이 있으므로 `PATH=` 값은 따옴표로 감싼다. 이 세션이 띄운 인스턴스는 모두 내렸다.
 
 ### 그 뒤
 
