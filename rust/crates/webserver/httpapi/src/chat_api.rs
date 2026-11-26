@@ -190,17 +190,22 @@ impl Server {
     pub fn chat_pushed(&self, ev: &ChatEvent) {
         if ev.chat_kind == CHAT_KIND_MSG {
             if let Some(m) = &ev.chat {
-                if let Some(c) = self.commands() {
-                    c.broadcast(&otter_webserver_envelope::payload(
-                        "chat_message",
-                        Some(&ChatMsgArgs { msg: m }),
-                    ));
-                }
+                self.chat_broadcast(m);
                 self.telegram_chat_post(pushed_post(m));
             }
         } else if ev.chat_kind == CHAT_KIND_CHANGED {
             self.refresh_full_topic("chat");
             self.telegram_chat_changed();
+        }
+    }
+
+    /// 글 하나를 웹 채팅 창에 `chat_message` 로 방송한다.
+    pub(crate) fn chat_broadcast(&self, m: &chatwire::Message) {
+        if let Some(c) = self.commands() {
+            c.broadcast(&otter_webserver_envelope::payload(
+                "chat_message",
+                Some(&ChatMsgArgs { msg: m }),
+            ));
         }
     }
 

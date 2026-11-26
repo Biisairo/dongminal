@@ -83,7 +83,10 @@ class ChatController extends Controller {
   _onChatMessage(a){
     const m=a&&a.msg;
     if(!m||!m.room) return;
-    const shown=!!this.views?._chatRoomShown(m.room);
+    // ISSUE_TREE_CHAT_SRS FR-TGT-9: 텔레그램 토픽에서 쓴 내 글도 온다 — 읽은 글로 넣고 알람을 울리지 않는다.
+    const me=this._chatMe();
+    const mine=!!(me&&me.id&&m.from===me.id);
+    const shown=mine||!!this.views?._chatRoomShown(m.room);
     if(!this._chatS().add(m.room,m,shown)) return;
     if(!shown&&this._chatWakes(m)){
       this._chatS().alarm(m.room);

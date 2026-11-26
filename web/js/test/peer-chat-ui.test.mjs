@@ -163,6 +163,19 @@ test('사람에게 온 글: 그 방의 탭이 보이면 안 읽은 수가 늘지
   assert.equal(app.renders, 2);
 });
 
+test('ISSUE_TREE_CHAT FR-TGT-9: 텔레그램에서 쓴 내 글은 읽은 글로 들어가고 알람을 울리지 않는다', () => {
+  const ctx = loadUI();
+  const app = rig(ctx);
+  app._chat = { me: { id: 'u1' }, rooms: [{ id: 'r1', notify: 'all' }] };
+  app.chat._onChatMessage({ msg: { id: 'tg-1', room: 'r1', from: 'u1', fromKind: 'user', text: 'hi' } });
+  assert.equal(app.chat._chatS().list('r1').length, 1);
+  assert.equal(app.chat._chatS().unread('r1'), 0);
+  assert.equal(app.chat._chatS().alarmed('r1'), false);
+  app.chat._onChatMessage({ msg: { id: 'm2', room: 'r1', from: 'a7', text: 'hi' } });
+  assert.equal(app.chat._chatS().unread('r1'), 1);
+  assert.equal(app.chat._chatS().alarmed('r1'), true);
+});
+
 test('FR-PCH-83: 같은 방의 채팅 탭은 하나다 — 이미 있으면 그리로 간다', () => {
   const ctx = load([...BASE, ...LAYOUT, ...CHAT], {
     globals: {

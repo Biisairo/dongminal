@@ -18,7 +18,7 @@ use otter_shared_chatwire as chatwire;
 use otter_shared_toolipc::{CHAT_KIND_CHANGED, CHAT_KIND_MSG, ChatEvent, ChatResult};
 
 use super::attnenv::LiveIo;
-use super::fakes::FakeHub;
+use super::fakes::{FakeBroker, FakeHub};
 use super::peer::FakeChat;
 use super::support::{self, call};
 use crate::telegram_api::{TelegramHost, TelegramSink, TelegramWire};
@@ -554,6 +554,15 @@ async fn telegram_api_chat_topics() {
 
 /// 채팅 데몬과 브리지 기록기를 가진 서버다.
 fn tg_chat_server(chat: Arc<FakeChat>) -> (Arc<Server>, Arc<TgRec>, tempfile::TempDir) {
+    let (srv, rec, dir, _cmds) = tg_chat_server_with(chat);
+    (srv, rec, dir)
+}
+
+/// 방송을 기록하는 허브까지 돌려준다.
+fn tg_chat_server_with(
+    chat: Arc<FakeChat>,
+) -> (Arc<Server>, Arc<TgRec>, tempfile::TempDir, Arc<FakeBroker>) {
+    let cmds = Arc::new(FakeBroker::default());
     let dir = tempfile::tempdir().unwrap();
     let st = Arc::new(telegram::Store::open(dir.path().join("tg.json")));
     let rec = Arc::new(TgRec::default());
@@ -561,7 +570,7 @@ fn tg_chat_server(chat: Arc<FakeChat>) -> (Arc<Server>, Arc<TgRec>, tempfile::Te
     let srv = Server::new_with(
         Config::default(),
         Deps {
-            commands: Some(CommandHub::new()),
+            commands: Some(cmds.clone()),
             chat_daemon: Some(chat as Arc<dyn ChatDaemon>),
             ..Deps::default()
         },
@@ -573,7 +582,7 @@ fn tg_chat_server(chat: Arc<FakeChat>) -> (Arc<Server>, Arc<TgRec>, tempfile::Te
             });
         },
     );
-    (srv, rec, dir)
+    (srv, rec, dir, cmds)
 }
 
 /// FR-TGT-3: 방을 바꾸는 채팅 연산이 성공하거나, 데몬이 바뀜을 밀거나, 데몬에 다시 붙으면 거울을 맞추게 한다.
@@ -833,6 +842,7 @@ async fn telegram_host_chat_ops() {
         .lock()
         .unwrap()
         .iter()
+        .filter(|p| p.op != chatwire::OP_STATE)
         .map(|p| (p.op.clone(), String::from_utf8(p.args.0.clone()).unwrap()))
         .collect();
     assert_eq!(
@@ -898,4 +908,43 @@ async fn telegram_host_chat_ops_fail() {
             .is_err()
     );
     assert_eq!(rec.chat.load(Ordering::SeqCst), 0);
+}
+
+/// FR-TGT-9: 토픽에서 쓴 글이 방에 닿으면 웹 채팅 창에도 내 글로 보인다(`chat_message`, 보낸 이 = 나).
+/// 단추(join·leave)와 실패한 글은 방송하지 않는다.
+#[tokio::test]
+async fn telegram_sent_message_shows_on_web_as_mine() {
+    let d = Arc::new(FakeChat {
+        ready: true,
+        res: ChatResult {
+            result: RawMessage(
+                br#"{"ok":true,"me":{"id":"fpA-u1","label":"mac/me","kind":"user"}}"#.to_vec(),
+            ),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    let (srv, _rec, _d, cmds) = tg_chat_server_with(d);
+    let host = TelegramHost(Arc::downgrade(&srv));
+    host.chat_join("r1", true).unwrap();
+    assert!(cmds.published().iter().all(|p| !p.contains("chat_message")));
+    host.chat_send("r1", "안녕 <b>", &["fpB-a7".to_string()])
+        .unwrap();
+    let msgs: Vec<serde_json::Value> = cmds
+        .published()
+        .iter()
+        .map(|p| serde_json::from_str::<serde_json::Value>(p).unwrap())
+        .filter(|v| v["action"] == "chat_message")
+        .collect();
+    assert_eq!(msgs.len(), 1);
+    let m = &msgs[0]["args"]["msg"];
+    assert_eq!(m["room"], "r1");
+    assert_eq!(m["from"], "fpA-u1");
+    assert_eq!(m["fromLabel"], "mac/me");
+    assert_eq!(m["fromKind"], "user");
+    assert_eq!(m["text"], "안녕 <b>");
+    assert_eq!(m["call"], serde_json::json!(["fpB-a7"]));
+    assert!(m["id"].as_str().unwrap().starts_with("tg-"));
+    assert!(m["at"].as_i64().unwrap() > 0);
+    assert!(m.get("called").is_none());
 }

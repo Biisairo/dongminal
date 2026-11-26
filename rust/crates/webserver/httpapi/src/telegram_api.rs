@@ -29,6 +29,9 @@ static TG_TOKEN_RE: LazyLock<Regex> =
 
 /// 개인채팅 방의 종류 (PEER_CHAT_SRS FR-PCH-14).
 const CHAT_KIND_DIRECT: &str = "direct";
+/// 토픽에서 쓴 글을 웹에 보일 때 쓰는 글 id 의 접두. 웹은 같은 id 를 한 번만 넣는다.
+const WEB_ECHO_PREFIX: &str = "tg-";
+const NANOS_PER_MS: i128 = 1_000_000;
 /// 채팅 데몬에 닿지 못한 것.
 const CHAT_UNAVAILABLE: &str = chatwire::CODE_DAEMON_UNAVAILABLE;
 /// 상대를 모르는 개인채팅의 토픽 이름. 웹 카탈로그 `chat.direct` 와 같다.
@@ -515,7 +518,8 @@ impl telegram::Host for TelegramHost {
         )
     }
 
-    /// 토픽에 쓴 글 — 사람 참가자의 send 다 (FR-TGT-9). 토픽에서 온 글이라 토픽에 되올리지 않는다.
+    /// 토픽에 쓴 글 — 사람 참가자의 send 다 (FR-TGT-9). 토픽에서 온 글이라 토픽에 되올리지 않고, 웹 채팅 창에는 내
+    /// 글로 보인다 — 데몬은 보낸 이에게 글을 되밀지 않는다.
     fn chat_send(&self, room: &str, text: &str, call: &[String]) -> Result<(), String> {
         self.chat_op(
             chatwire::OP_SEND,
@@ -524,7 +528,9 @@ impl telegram::Host for TelegramHost {
                 text: text.to_owned(),
                 call: (!call.is_empty()).then(|| call.to_vec()),
             },
-        )
+        )?;
+        self.show_mine(room, text, call);
+        Ok(())
     }
 
     /// 사람 참가자의 채팅 상태를 옮긴다 (ISSUE_TREE_CHAT_SRS FR-TGT-3·7). 데몬 RPC 라 막힐 수 있다.
@@ -553,6 +559,40 @@ impl telegram::Host for TelegramHost {
 }
 
 impl TelegramHost {
+    /// 토픽에서 쓴 내 글을 웹 채팅 창에 내 글로 방송한다. 나를 읽지 못하면 하지 않는다.
+    fn show_mine(&self, room: &str, text: &str, call: &[String]) {
+        let Some(s) = self.0.upgrade() else {
+            return;
+        };
+        let Some(d) = s.deps.chat_daemon.clone() else {
+            return;
+        };
+        let Ok(res) = d.chat(ChatParams {
+            op: chatwire::OP_STATE.to_owned(),
+            ..ChatParams::default()
+        }) else {
+            return;
+        };
+        let Ok(st) = otter_gocompat::json::unmarshal::<chatwire::State>(&res.result.0) else {
+            return;
+        };
+        if st.me.id.is_empty() {
+            return;
+        }
+        let nanos = OffsetDateTime::now_utc().unix_timestamp_nanos();
+        s.chat_broadcast(&chatwire::Message {
+            id: format!("{WEB_ECHO_PREFIX}{nanos}"),
+            room: room.to_owned(),
+            from: st.me.id,
+            from_label: st.me.label,
+            from_kind: st.me.kind,
+            text: text.to_owned(),
+            at: i64::try_from(nanos / NANOS_PER_MS).unwrap_or_default(),
+            call: call.to_vec(),
+            ..chatwire::Message::default()
+        });
+    }
+
     /// 데몬의 사람 참가자 연산 하나. 오류는 데몬의 채팅 코드나 RPC 오류 문구다. 성공하면 웹 화면(`chat` 토픽)과 거울을
     /// 다시 맞추게 한다 — 웹의 `chat_do` 와 같다.
     fn chat_op(&self, op: &str, args: &impl serde::Serialize) -> Result<(), String> {
