@@ -20,6 +20,7 @@ const FILE_OK = {
 const KEY_OK = {
   'edge.invited_notice': '문장 속 경로(`설정 ▸ 간선`)',
   'core.term_upload_ok': '알림 문장의 머리 글자 — 글자 흐름의 일부다 (FR-UXF-101)',
+  'chat.name_remote': '다른 노드 참가자 이름의 노드와 탭 사이 — 이름 글자의 일부다 (ISSUE_TREE_CHAT_SRS FR-CUX-9)',
 };
 
 function walk(dir, out = []) {

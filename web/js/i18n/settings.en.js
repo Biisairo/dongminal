@@ -69,6 +69,10 @@ I18N.register('en', {
   'srv.cancel_tip': 'Close without changing',
   'srv.applying': 'Changing…',
   'srv.apply_fail': 'Could not change the bind',
+  'tg.sec_topics': 'Chat topics',
+  'tg.topics': 'A topic for each chat room',
+  'tg.topics_hint': 'Keeps one topic per chat room in your 1:1 chat with the bot. First turn on the topic mode in the BotFather bot settings and stop users from creating or deleting topics. The bot creates and deletes topics to match the rooms.',
+  'tg.topics_out': 'When on, room names, purposes, participant display names and message text go to the Telegram servers. Get approval from your security team before you turn it on for chats with company data.',
   'tg.read_fail': 'Could not read Telegram settings',
   'tg.pair_fail': 'Could not create a code',
 

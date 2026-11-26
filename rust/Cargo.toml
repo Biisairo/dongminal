@@ -39,6 +39,7 @@ members = [
     "crates/shared/httpreq",
     "crates/shared/httpresp",
     "crates/shared/humancmd",
+    "crates/shared/issuefile",
     "crates/shared/linestore",
     "crates/shared/listorder",
     "crates/shared/mimeprobe",

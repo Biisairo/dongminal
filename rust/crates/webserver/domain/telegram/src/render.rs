@@ -363,16 +363,43 @@ static RE_TABLE_SP: LazyLock<Regex> = LazyLock::new(|| {
 static RE_BOLD: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\*\*([^*\n]+)\*\*").expect("상수 정규식"));
 
-/// Markdown 을 Telegram HTML 로 옮긴다 (FR-TGB-52a).
+/// Markdown 을 Telegram HTML 로 옮긴다 (FR-TGB-52a). 코드 블록은 줄마다 `<code>` 다 — 접힌 문단 안에 든다.
 pub(crate) fn md_to_html(md: &str) -> String {
+    md_html(md, false)
+}
+
+/// 채팅 글의 Markdown 을 Telegram HTML 로 옮긴다 (ISSUE_TREE_CHAT_SRS FR-TGT-7). 코드 블록은 `<pre>` 다.
+pub(crate) fn chat_md_html(md: &str) -> String {
+    md_html(md, true)
+}
+
+static RE_FENCE_LANG: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[A-Za-z0-9_+-]+$").expect("상수 정규식"));
+
+/// 코드 블록 하나. pre 면 `<pre>`(언어가 있으면 `<code class="language-…">`)이고, 아니면 줄마다 `<code>` 다.
+fn fence_html(lines: &[&str], lang: &str, pre: bool) -> String {
+    if !pre {
+        return code_lines(lines);
+    }
+    let body = esc(&lines.join("\n"));
+    if RE_FENCE_LANG.is_match(lang) {
+        return format!("<pre><code class=\"language-{lang}\">{body}</code></pre>");
+    }
+    format!("<pre>{body}</pre>")
+}
+
+fn md_html(md: &str, pre: bool) -> String {
     let mut out: Vec<String> = Vec::new();
     let mut fence: Vec<&str> = Vec::new();
+    let mut lang = "";
     let (mut in_fence, mut in_table) = (false, false);
     for line in md.split('\n') {
-        if line.trim().starts_with("```") {
+        if let Some(rest) = line.trim().strip_prefix("```") {
             if in_fence {
-                out.push(code_lines(&fence));
+                out.push(fence_html(&fence, lang, pre));
                 fence.clear();
+            } else {
+                lang = rest.trim();
             }
             in_fence = !in_fence;
             continue;
@@ -398,7 +425,7 @@ pub(crate) fn md_to_html(md: &str) -> String {
         in_table = is_row;
     }
     if in_fence {
-        out.push(code_lines(&fence));
+        out.push(fence_html(&fence, lang, pre));
     }
     squeeze_blank(&out)
 }

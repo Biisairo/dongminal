@@ -9,12 +9,15 @@ mod client;
 mod config;
 mod pair;
 mod render;
+mod topics;
 mod transcript;
 
 #[cfg(test)]
 mod testsrv;
 
-pub use bridge::{Bridge, Event, Host, Location};
+pub use bridge::{
+    Bridge, ChatPerson, ChatPost, ChatRoom, ChatView, Event, Host, Location, display_name,
+};
 pub use client::{
     ApiError, CallbackQuery, Chat, Client, DEFAULT_BASE_URL, Error, Message, Update, User,
 };

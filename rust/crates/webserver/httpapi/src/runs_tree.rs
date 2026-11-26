@@ -21,6 +21,17 @@ use crate::toolio::{ENVELOPE_SERVER_SENDER, agent_envelope};
 
 /// 사슬 이름(role)의 마디 구분자다.
 const TREE_CHAIN_SEP: &str = "›";
+/// 트리의 보관 방식 (ISSUE_TREE_CHAT_SRS FR-LIS-1·17). 원본 이슈 폴더가 있으면 로컬이다.
+const STORAGE_LOCAL: &str = "local";
+const STORAGE_GITHUB: &str = "github";
+
+fn storage_of(issue_dir: &str) -> &'static str {
+    if issue_dir.is_empty() {
+        STORAGE_GITHUB
+    } else {
+        STORAGE_LOCAL
+    }
+}
 
 /// Go `treeNode`: 트리 노드 하나. 승계 사슬은 끝 멤버 하나로 보인다.
 #[derive(Clone)]
@@ -313,9 +324,13 @@ impl Server {
             let mut runs = Vec::new();
             let mut nodes = Vec::new();
             let mut successor = HashMap::new();
+            let mut issue_dir = String::new();
             for rec in st.list() {
                 if rec.state != run::OPEN || rec.tree != reference {
                     continue;
+                }
+                if issue_dir.is_empty() {
+                    issue_dir = rec.issue_dir.clone();
                 }
                 runs.push(TreeRun {
                     id: rec.id.clone(),
@@ -330,6 +345,11 @@ impl Server {
             out.insert("tree", raw(&reference));
             out.insert("runs", raw(&runs));
             out.insert("nodes", raw(&nodes));
+            // GitHub 트리는 Go 기준선 모양 그대로다 — 보관 방식이 없으면 github 다.
+            if !issue_dir.is_empty() {
+                out.insert("storage", raw(STORAGE_LOCAL));
+                out.insert("issueDir", raw(&issue_dir));
+            }
             write_json(&out)
         })
         .await
@@ -439,6 +459,38 @@ impl Server {
                 errorf!(None, "[run] 조율 승계 알림 실패 to={}: {e}", m.tool_id);
             }
         }
+    }
+
+    /// GET /api/runs/issues[?toolId=] (ISSUE_TREE_CHAT_SRS FR-LIS-7): 부르는 도구가 멤버이거나 조율하는 열린 Run 의
+    /// 트리와 보관 방식, 로컬이면 원본 이슈 폴더. `otterctl issue` 가 폴더를 찾는다.
+    pub(crate) async fn api_run_issues(&self, r: &mut Req) -> Response {
+        let st = match self.runs_ready() {
+            Ok(st) => st,
+            Err(res) => return res,
+        };
+        let caller = self.caller_tool_id(r, &r.q("toolId"));
+        self.run_sync(r, move |_, _| {
+            let found = st.list().into_iter().find(|rec| {
+                rec.state == run::OPEN
+                    && !caller.is_empty()
+                    && (rec.coordinator_tool_id == caller
+                        || rec.members.iter().any(|m| m.tool_id == caller))
+            });
+            let Some(rec) = found else {
+                return write_run_error(
+                    &RunFail::of(run::Error::SenderNotMember),
+                    extra1("toolId", &caller),
+                );
+            };
+            let mut out = extra1("runId", &rec.id);
+            out.insert("tree", raw(&rec.tree));
+            out.insert("storage", raw(storage_of(&rec.issue_dir)));
+            if !rec.issue_dir.is_empty() {
+                out.insert("issueDir", raw(&rec.issue_dir));
+            }
+            write_json(&out)
+        })
+        .await
     }
 
     /// GET /api/runs/team[?toolId=] (묶음 P, WS-4): 부르는 멤버의 동료.

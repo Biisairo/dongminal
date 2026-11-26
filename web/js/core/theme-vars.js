@@ -247,6 +247,7 @@ function themeVarsOf(theme){
   // FR-DRV-13d: 구문 강조색을 **실제로** 터미널 팔레트에서 세운다. 그 주석이
   // 약속한 지 오래인데 파생이 없어 여섯 다 폴백으로 떨어지고 있었다.
   if(aa.syntax) for(const k in aa.syntax) vars['--term-'+k]=aa.syntax[k];
+  Object.assign(vars,deriveChatColors(aa.syntax,ui.bg));
   return vars;
 }
 

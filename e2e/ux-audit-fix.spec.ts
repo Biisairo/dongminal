@@ -461,7 +461,8 @@ const probe = (page: Page, cls: string, tag = 'span') => page.evaluate(([c, t]) 
 test.describe('3묶음 — 눈금', () => {
   test('TC-UXF-44: 읽는 글은 11px 이다 (9px 는 기호 자리만)', async ({ page }) => {
     await waitForInit(page);
-    expect((await probe(page, 'chat-msg-meta')).fontSize).toBe('11px');
+    // 채팅 탭의 CSS 는 지연 묶음이다(ISSUE_TREE_CHAT_SRS §3.2) — 부팅 CSS 의 채팅 목록 행으로 잰다.
+    expect((await probe(page, 'chat-row-sub')).fontSize).toBe('11px');
     expect((await probe(page, 'act-usage-sl-h', 'div')).fontSize).toBe('11px');
     expect((await probe(page, 'sb-tab-badge')).fontSize).toBe('9px');
   });

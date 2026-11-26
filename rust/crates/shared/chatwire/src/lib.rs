@@ -23,10 +23,18 @@ pub const TYPE_ERROR: &str = "error";
 pub const TYPE_CALL: &str = "call";
 pub const TYPE_REPLY: &str = "reply";
 pub const TYPE_MSG: &str = "msg";
-pub const TYPE_RISE: &str = "rise";
 pub const TYPE_COUNT_ASK: &str = "count?";
 pub const TYPE_COUNT: &str = "count";
 pub const TYPE_UNREAD: &str = "unread";
+/// 깨움 훅(chat-wait)의 첫 프레임이자 데몬의 답이다 (ISSUE_TREE_CHAT_SRS FR-CAL-9). 답의 total 이
+/// 0 이면 깨우지 않는다.
+pub const TYPE_WAIT: &str = "wait";
+/// 데몬이 MCP 에 깨울 글을 묻는다. MCP 는 표식 없는 깨울 글이 생기면 wake 로 답한다.
+pub const TYPE_WAKE_ASK: &str = "wake?";
+/// MCP 의 답이다. 답한 글에는 표식을 붙인다 (FR-CAL-11).
+pub const TYPE_WAKE: &str = "wake";
+/// 기다리던 훅이 사라져 데몬이 그 물음을 거둔다.
+pub const TYPE_WAKE_DROP: &str = "wake-drop";
 
 pub const OP_ONLINE: &str = "online";
 pub const OP_ROOMS: &str = "rooms";
@@ -35,11 +43,20 @@ pub const OP_DIRECT: &str = "direct";
 pub const OP_JOIN: &str = "join";
 pub const OP_LEAVE: &str = "leave";
 pub const OP_SEND: &str = "send";
+/// 내 알림 단계를 방마다 정한다 (FR-CAL-5·6).
+pub const OP_NOTIFY: &str = "notify";
 /// 사람 화면의 한 번 읽기다: 나·온라인 목록·방 목록 (§3.11).
 pub const OP_STATE: &str = "state";
+/// 트리 방 규칙이다 (ISSUE_TREE_CHAT_SRS FR-ITR-2·3·10). 사람 참가자 연산이며 서버만 부른다.
+pub const OP_TREE: &str = "tree";
 /// 사람 명령이다 (§3.12). 서명한 명령 본문의 종류로 그대로 건네지므로 humancmd 의 이름을 가리킨다.
 pub const OP_KILL: &str = otter_shared_humancmd::OP_KILL;
 pub const OP_KICK: &str = otter_shared_humancmd::OP_KICK;
+
+/// 알림 단계다 (FR-CAL-5). 정하지 않으면 [`NOTIFY_CALLED`] 다.
+pub const NOTIFY_ALL: &str = "all";
+pub const NOTIFY_CALLED: &str = "called";
+pub const NOTIFY_OFF: &str = "off";
 
 pub const CODE_BAD_REQUEST: &str = "bad_request";
 pub const CODE_DAEMON_UNAVAILABLE: &str = "daemon_unavailable";
@@ -81,9 +98,12 @@ pub struct Frame {
     pub error: Option<Error>,
     #[serde(skip_serializing_if = "json::is_empty")]
     pub msg: Option<Message>,
-    /// rise·count·unread: 안 읽은 글 수. 방 이름은 싣지 않는다 (§3.10).
+    /// count·unread·wake·wait: 안 읽은 글 수. 방 이름은 싣지 않는다 (§3.10).
     #[serde(skip_serializing_if = "json::is_empty")]
     pub total: i64,
+    /// wake·wait: 그 가운데 나를 부른 글 수다 (FR-CAL-10).
+    #[serde(skip_serializing_if = "json::is_empty")]
+    pub called: i64,
 }
 
 /// 실패 하나다.
@@ -114,6 +134,12 @@ pub struct Message {
     pub node: String,
     pub text: String,
     pub at: i64,
+    /// 부른 상대(참가자 id 또는 user)다 (ISSUE_TREE_CHAT_SRS FR-CUX-7). 비면 싣지 않는다 — 옛 형식과 같다.
+    #[serde(skip_serializing_if = "json::is_empty")]
+    pub call: Vec<String>,
+    /// 받는 참가자를 부른 글인가다 (FR-CAL-4). 거짓이면 싣지 않는다 — 옛 형식과 같다.
+    #[serde(skip_serializing_if = "json::is_empty")]
+    pub called: bool,
 }
 
 /// 온라인 목록의 노드 하나다. FP 는 지문 앞자리다.
@@ -136,6 +162,12 @@ pub struct Member {
     pub kind: String,
     pub node: String,
     pub online: bool,
+    /// 사람 화면의 state: 이 노드의 참가자면 그 방의 알림 단계다 (FR-CUX-12).
+    #[serde(skip_serializing_if = "json::is_empty")]
+    pub notify: String,
+    /// 사람 화면의 state: 이 노드의 에이전트면 그 도구 id 다. 화면이 활동 상태를 읽는다 (FR-CUX-12).
+    #[serde(skip_serializing_if = "json::is_empty")]
+    pub tool: String,
 }
 
 /// online 의 결과다.
@@ -162,6 +194,8 @@ pub struct Room {
     pub members: i64,
     pub joined: bool,
     pub unread: i64,
+    /// 이 방에서 내 알림 단계다 (FR-CAL-6·7).
+    pub notify: String,
     /// 방의 참가자 목록이다. 사람 화면의 state 만 채운다 (§3.11).
     #[serde(skip_serializing_if = "json::is_empty")]
     pub people: Option<Vec<Member>>,
@@ -219,11 +253,33 @@ pub struct RoomArgs {
     pub room: String,
 }
 
+/// tree 의 인자다. tools 는 트리 멤버의 도구 id 이고, 그 세션이 붙으면 방에 넣는다. close 면 규칙을 지우고
+/// 사람 참가자가 나간다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "chatwire.TreeArgs")]
+pub struct TreeArgs {
+    pub room: String,
+    #[serde(skip_serializing_if = "json::is_empty")]
+    pub tools: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "json::is_empty")]
+    pub close: bool,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename = "chatwire.SendArgs")]
 pub struct SendArgs {
     pub room: String,
     pub text: String,
+    /// 부를 상대다: 참가자 id · 도구 id · `user` (FR-CAL-1).
+    #[serde(skip_serializing_if = "json::is_empty")]
+    pub call: Option<Vec<String>>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "chatwire.NotifyArgs")]
+pub struct NotifyArgs {
+    pub room: String,
+    pub level: String,
 }
 
 /// 강퇴 대상 하나다 (§3.12).

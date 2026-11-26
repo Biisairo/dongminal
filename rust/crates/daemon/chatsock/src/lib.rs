@@ -1,11 +1,12 @@
 //! Go 기준선 `otterminal/internal/daemon/chatsock` 의 Rust 포팅. RUST_PORT_SRS 참고.
 //!
 //! 데몬의 채팅 소켓이다 (PEER_CHAT_SRS §3.10). MCP 연결 하나가 참가자 하나이고(FR-PCH-43), 훅
-//! 질의와 0건→1건 붙여넣기 알림(FR-PCH-60~63)을 중계한다. 개수와 글은 저장하지 않는다(NFR-PCH-1).
+//! 질의(FR-PCH-60)와 깨움 대기(ISSUE_TREE_CHAT_SRS FR-CAL-9)를 그 세션의 MCP 에 중계한다. 개수와
+//! 글은 저장하지 않는다(NFR-PCH-1).
 
 mod human;
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::{self, Write};
 use std::net::Shutdown;
 use std::path::{Path, PathBuf};
@@ -42,14 +43,6 @@ const WAKE_DIAL_WAIT: Duration = Duration::from_millis(500);
 const DIR_PERM: u32 = 0o700;
 const TOOL_PREFIX_RUNES: usize = 8;
 
-pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
-
-/// 데몬의 도구 계층이다. resting 은 그 도구의 에이전트가 쉬는 중(idle·done)인가다.
-pub trait Tools: Send + Sync {
-    fn resting(&self, tool_id: &str) -> bool;
-    fn paste(&self, tool_id: &str, text: &str) -> Result<(), BoxError>;
-}
-
 pub type NameFn = Arc<dyn Fn() -> String + Send + Sync>;
 pub type OnUserFn = Arc<dyn Fn(chatwire::Message) + Send + Sync>;
 
@@ -57,7 +50,6 @@ pub type OnUserFn = Arc<dyn Fn(chatwire::Message) + Send + Sync>;
 #[derive(Clone)]
 pub struct Options {
     pub chat: Arc<Service>,
-    pub tools: Option<Arc<dyn Tools>>,
     /// 이 노드의 표시 이름이다. 표시 이름 `<노드>/<탭>` 의 앞쪽이다.
     pub name: Option<NameFn>,
     /// 훅 질의에 MCP 의 답을 기다리는 시한이다. 0 이면 500ms 다.
@@ -74,7 +66,6 @@ impl Options {
     pub fn new(chat: Arc<Service>) -> Self {
         Self {
             chat,
-            tools: None,
             name: None,
             count_wait: Duration::ZERO,
             max_agents: 0,
@@ -165,15 +156,18 @@ impl Conn {
         }
     }
 
+    /// 답을 받을 자리를 만들고 그 번호를 돌려준다.
+    fn enlist(&self, tx: SyncSender<Frame>) -> u64 {
+        let mut a = relock(&self.asks);
+        a.0 += 1;
+        let n = a.0;
+        a.1.insert(n, tx);
+        n
+    }
+
     fn ask(&self, wait: Duration) -> Option<Frame> {
         let (tx, rx) = sync_channel(1);
-        let n = {
-            let mut a = relock(&self.asks);
-            a.0 += 1;
-            let n = a.0;
-            a.1.insert(n, tx);
-            n
-        };
+        let n = self.enlist(tx);
         self.push(&Frame {
             t: chatwire::TYPE_COUNT_ASK.into(),
             n,
@@ -200,6 +194,11 @@ struct State {
     pending: HashMap<u64, Arc<IpcStream>>,
     next_pending: u64,
     sessions: HashMap<String, Vec<Arc<Conn>>>,
+    /// 세션마다 살아 있는 깨움 대기다: (물은 연결, 물음 번호).
+    waits: HashMap<String, (Arc<Conn>, u64)>,
+    /// 트리 방 규칙: 방 id → 트리 멤버의 도구 id (ISSUE_TREE_CHAT_SRS FR-ITR-3). 메모리에만 있다 —
+    /// 데몬이 다시 뜨면 서버가 다시 준다.
+    trees: HashMap<String, HashSet<String>>,
     closed: bool,
     user: Participant,
 }
@@ -264,6 +263,7 @@ fn room_of(r: &chat::RoomInfo) -> chatwire::Room {
         creator_name: r.creator_name.clone(),
         members: r.members.len() as i64,
         joined: r.joined,
+        notify: r.notify.clone(),
         ..chatwire::Room::default()
     }
 }
@@ -276,6 +276,8 @@ fn members_of(ms: &[chat::Member]) -> Vec<chatwire::Member> {
             kind: m.kind.clone(),
             node: termtext::cut(&m.node, FP_SHOWN).to_string(),
             online: m.online,
+            notify: m.notify.clone(),
+            ..chatwire::Member::default()
         })
         .collect()
 }
@@ -378,6 +380,8 @@ impl Server {
                 pending: HashMap::new(),
                 next_pending: 0,
                 sessions: HashMap::new(),
+                waits: HashMap::new(),
+                trees: HashMap::new(),
                 closed: false,
                 user: Participant::default(),
             }),
@@ -462,6 +466,8 @@ impl Server {
             from_kind: m.from_kind,
             node: m.node,
             text: m.text,
+            call: m.call,
+            called: m.called,
             at: i64::try_from(m.at.unix_timestamp_nanos().div_euclid(1_000_000))
                 .unwrap_or(i64::MAX),
         };
@@ -518,14 +524,29 @@ impl Server {
         if op == chatwire::OP_KILL || op == chatwire::OP_KICK {
             return self.human(op, args);
         }
+        if op == chatwire::OP_TREE {
+            return self.tree(&me.id, args).map_err(CallError::wire);
+        }
         if op == chatwire::OP_STATE {
             let svc = &self.o.chat;
+            let tools: HashMap<String, String> = self
+                .lock()
+                .by_pid
+                .iter()
+                .map(|(pid, c)| (pid.clone(), c.tool.clone()))
+                .collect();
             let rooms = svc
                 .rooms(&me.id)
                 .iter()
-                .map(|r| chatwire::Room {
-                    people: Some(members_of(&r.members)),
-                    ..room_of(r)
+                .map(|r| {
+                    let mut people = members_of(&r.members);
+                    for p in &mut people {
+                        p.tool = tools.get(&p.id).cloned().unwrap_or_default();
+                    }
+                    chatwire::Room {
+                        people: Some(people),
+                        ..room_of(r)
+                    }
                 })
                 .collect();
             let st = chatwire::State {
@@ -535,6 +556,7 @@ impl Server {
                     kind: me.kind.clone(),
                     node: String::new(),
                     online: true,
+                    ..chatwire::Member::default()
                 },
                 online: online_of(&svc.online()),
                 rooms: Some(rooms),
@@ -581,6 +603,10 @@ impl Server {
             self.answer_unread(nc, &first.session);
             return;
         }
+        if first.t == chatwire::TYPE_WAIT {
+            self.answer_wait(nc, &first.session);
+            return;
+        }
         if first.t != chatwire::TYPE_HELLO || first.session.is_empty() || first.tool.is_empty() {
             refuse(
                 nc,
@@ -596,6 +622,7 @@ impl Server {
                 return;
             }
         };
+        self.join_tree_rooms(&c);
         let _ = nc.set_read_timeout(None);
         let w = c.clone();
         std::thread::spawn(move || w.write_loop());
@@ -605,12 +632,57 @@ impl Server {
             };
             match f.t.as_str() {
                 chatwire::TYPE_CALL => c.push(&self.call(&c.pid, &f)),
-                chatwire::TYPE_RISE => self.rise(&c.tool, &f),
-                chatwire::TYPE_COUNT => c.answer(f),
+                chatwire::TYPE_COUNT | chatwire::TYPE_WAKE => c.answer(f),
                 _ => break,
             }
         }
         self.drop_conn(&c);
+    }
+
+    /// 트리 방 규칙을 세우거나 지운다 (FR-ITR-2·3·10). 세우면 사람 참가자와 지금 붙어 있는 트리 멤버가
+    /// 들어가고, 지우면 사람 참가자가 나간다. 같은 규칙을 다시 주어도 된다.
+    fn tree(&self, user: &str, args: &RawMessage) -> Result<RawMessage, CallError> {
+        let a: chatwire::TreeArgs = decode(args)?;
+        if a.room.is_empty() {
+            return Err(CallError::Plain("room 이 필요하다".into()));
+        }
+        let svc = &self.o.chat;
+        if a.close {
+            self.lock().trees.remove(&a.room);
+            if svc.rooms(user).iter().any(|r| r.id == a.room && r.joined) {
+                svc.leave(user, &a.room)?;
+            }
+            return marshal_raw(&chatwire::Ok { ok: true });
+        }
+        svc.join(user, &a.room)?;
+        let tools: HashSet<String> = a.tools.unwrap_or_default().into_iter().collect();
+        let joiners: Vec<String> = {
+            let mut st = self.lock();
+            st.trees.insert(a.room.clone(), tools.clone());
+            st.by_pid
+                .values()
+                .filter(|c| tools.contains(&c.tool))
+                .map(|c| c.pid.clone())
+                .collect()
+        };
+        for pid in joiners {
+            let _ = svc.join(&pid, &a.room);
+        }
+        marshal_raw(&chatwire::Ok { ok: true })
+    }
+
+    /// 붙은 세션이 트리 멤버면 그 트리 방에 넣는다 (FR-ITR-3). 나가는 것은 연결이 끊길 때의 unregister 다.
+    fn join_tree_rooms(&self, c: &Conn) {
+        let rooms: Vec<String> = self
+            .lock()
+            .trees
+            .iter()
+            .filter(|(_, tools)| tools.contains(&c.tool))
+            .map(|(room, _)| room.clone())
+            .collect();
+        for room in rooms {
+            let _ = self.o.chat.join(&c.pid, &room);
+        }
     }
 
     /// hello 전 연결을 pending 에 넣는다. 이미 닫힌 서버면 `None` 이다.
@@ -734,7 +806,12 @@ impl Server {
             }
             chatwire::OP_SEND => {
                 let a: chatwire::SendArgs = decode(args)?;
-                ok_result(svc.send(pid, &a.room, &a.text))
+                let call = self.resolve_call(a.call.as_deref().unwrap_or_default());
+                ok_result(svc.send_call(pid, &a.room, &a.text, &call))
+            }
+            chatwire::OP_NOTIFY => {
+                let a: chatwire::NotifyArgs = decode(args)?;
+                ok_result(svc.set_notify(pid, &a.room, &a.level))
             }
             _ => Err(CallError::Plain(format!(
                 "모르는 op: {}",
@@ -743,26 +820,18 @@ impl Server {
         }
     }
 
-    /// 0건→1건 알림이다. 그 도구가 쉬는 중일 때만 붙여 넣는다 (FR-PCH-61~63). 붙여 넣는 글에는
-    /// 개수만 싣는다 — 방 이름은 망의 다른 노드가 정한 값이라, 사용자 입력처럼 제출되는 자리에 넣지
-    /// 않는다. 방 이름은 MCP 도구 결과로만 보인다 (FR-PCH-52).
-    fn rise(&self, tool: &str, f: &Frame) {
-        let Some(tools) = self.o.tools.clone() else {
-            return;
-        };
-        if f.total <= 0 || !tools.resting(tool) {
-            return;
-        }
-        let text = format!(
-            "[otterminal chat] 새 글 {}건. chat_read 로 확인한다.",
-            f.total
-        );
-        let tool = tool.to_string();
-        std::thread::spawn(move || {
-            if let Err(e) = tools.paste(&tool, &text) {
-                otter_shared_otterlog::warnf!(None, "chat: 알림을 붙여 넣지 못했다: {e}");
-            }
-        });
+    /// call 의 도구 id 를 이 노드 연결의 참가자 id 로 바꾼다. 도구 id 는 노드 로컬이라 보내는
+    /// 노드에서 바꾼다 (ISSUE_TREE_CHAT_SRS 결정 I-2). 그 밖의 항목(참가자 id·user)은 그대로다.
+    fn resolve_call(&self, call: &[String]) -> Vec<String> {
+        let st = self.lock();
+        call.iter()
+            .map(|c| {
+                st.by_pid
+                    .values()
+                    .find(|x| x.tool == *c)
+                    .map_or_else(|| c.clone(), |x| x.pid.clone())
+            })
+            .collect()
     }
 
     /// 훅 질의다. 그 세션의 가장 나중 연결에 묻고 답을 그대로 전한다 (FR-PCH-60).
@@ -782,9 +851,85 @@ impl Server {
         write_once(nc, &reply);
         let _ = nc.shutdown(Shutdown::Both);
     }
+
+    /// 깨울 글을 MCP 연결 c 에 묻고 답(wake)을 시한 없이 기다린다 (FR-CAL-9). MCP 가 끊기거나 훅
+    /// 연결 w 가 닫히거나 같은 세션의 새 대기가 오면 None 이다. 그때는 MCP 에 물음을 거둔다고
+    /// 알린다 — MCP 가 아무도 받지 않을 답에 표식을 붙이지 않게 한다. 세션마다 대기는 하나만 살아
+    /// 있다 — 쉴 때마다 거는 훅이 쌓이지 않는다.
+    fn wait_wake(&self, c: &Arc<Conn>, w: &Arc<IpcStream>, session: &str) -> Option<Frame> {
+        let (tx, rx) = sync_channel(1);
+        let n = c.enlist(tx);
+        if relock(&c.out.q).1 {
+            relock(&c.asks).1.remove(&n);
+            return None;
+        }
+        let prev = self
+            .lock()
+            .waits
+            .insert(session.to_string(), (Arc::clone(c), n));
+        if let Some((pc, pn)) = prev {
+            relock(&pc.asks).1.remove(&pn);
+        }
+        c.push(&Frame {
+            t: chatwire::TYPE_WAKE_ASK.into(),
+            n,
+            ..Frame::default()
+        });
+        {
+            let (me, w) = (Arc::clone(c), Arc::clone(w));
+            std::thread::spawn(move || {
+                let mut sc = Scanner::new(&*w);
+                while sc.next_line().is_some() {}
+                relock(&me.asks).1.remove(&n);
+            });
+        }
+        let got = rx.recv().ok();
+        relock(&c.asks).1.remove(&n);
+        {
+            let mut st = self.lock();
+            if st
+                .waits
+                .get(session)
+                .is_some_and(|(x, k)| Arc::ptr_eq(x, c) && *k == n)
+            {
+                st.waits.remove(session);
+            }
+        }
+        if got.is_none() {
+            c.push(&Frame {
+                t: chatwire::TYPE_WAKE_DROP.into(),
+                n,
+                ..Frame::default()
+            });
+        }
+        got
+    }
+
+    /// 깨움 대기다 (FR-CAL-9·10). 그 세션의 가장 나중 연결에 깨울 글을 묻고, 답의 개수만 전한다.
+    /// 연결이 없거나 끊기면 0건으로 끝낸다.
+    fn answer_wait(&self, nc: &Arc<IpcStream>, session: &str) {
+        let _ = nc.set_read_timeout(None);
+        let c = self
+            .lock()
+            .sessions
+            .get(session)
+            .and_then(|l| l.last().cloned());
+        let mut reply = Frame {
+            t: chatwire::TYPE_WAIT.into(),
+            ..Frame::default()
+        };
+        if let Some(got) = c.and_then(|c| self.wait_wake(&c, nc, session)) {
+            reply.total = got.total;
+            reply.called = got.called;
+        }
+        write_once(nc, &reply);
+        let _ = nc.shutdown(Shutdown::Both);
+    }
 }
 
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_human;
+#[cfg(test)]
+mod tests_tree;

@@ -452,6 +452,38 @@ async fn attention_claim_rejects_missing_seq() {
     }
 }
 
+// ISSUE_TREE_CHAT_SRS FR-CAL-15 (결정 I-3): 채팅 글 알람은 글 id 로 청구한다. 알람 번호와 섞이지 않는다.
+#[test]
+fn attn_claims_chat_key_is_separate() {
+    let c = AttnClaims::default();
+    assert_eq!(c.claim(1, "self", &kinds(&["sound"])), ["sound"]);
+    assert_eq!(c.claim_chat("1", "self", &kinds(&["sound"])), ["sound"]);
+    assert!(c.claim_chat("1", "self", &kinds(&["sound"])).is_empty());
+    assert_eq!(
+        c.claim_chat("1", "100.64.0.9", &kinds(&["sound"])),
+        ["sound"]
+    );
+}
+
+#[tokio::test]
+async fn attention_claim_by_chat_message() {
+    let env = tracked(&[]);
+    let body = r#"{"chat":"m1","kinds":["banner","sound"]}"#;
+    let first = post_claim(&env.srv, "127.0.0.1:4000", body).await;
+    let second = post_claim(&env.srv, "[::1]:4001", body).await;
+    assert_eq!(first.body, "{\"granted\":[\"banner\",\"sound\"]}\n");
+    assert_eq!(second.body, "{\"granted\":[]}\n");
+    let both = post_claim(
+        &env.srv,
+        "127.0.0.1:1",
+        r#"{"seq":3,"chat":"m1","kinds":["banner"]}"#,
+    )
+    .await;
+    assert_eq!(both.status, 400, "둘 다 주면 거절한다");
+    let empty = post_claim(&env.srv, "127.0.0.1:1", r#"{"chat":"","kinds":["banner"]}"#).await;
+    assert_eq!(empty.status, 400);
+}
+
 // ── 데몬 판정 (AGENT_RECORD_DAEMON_SRS §3.3a) ──
 
 #[derive(Default)]

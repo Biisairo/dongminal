@@ -627,6 +627,8 @@ I18N.register('ko', {
   'err.telegram_token_invalid': '봇 token 이 틀렸거나 Telegram 이 받지 않았습니다.',
   'err.telegram_unreachable': 'Telegram 에 닿지 못했습니다. 저장하지 않았습니다.',
   'err.telegram_config_invalid': '무음 시간은 0~1440분입니다.',
+  'err.telegram_topics_mode_off': '봇의 토픽 모드를 켠 뒤 다시 켜세요(BotFather 의 봇 설정).',
+  'err.telegram_topics_need_bridge': 'Telegram 을 켜고 token 과 계정을 먼저 등록하세요.',
   'err.telegram_no_token': '먼저 봇 token 을 저장하세요.',
 
   // ── poll ──
@@ -767,6 +769,7 @@ I18N.register('ko', {
   'edge.invited_notice': '{name} 노드가 간선을 맺자고 합니다. 설정 ▸ 간선에서 맺거나 거절합니다.',
   'edge.removed_notice': '{name} 간선이 끊겼습니다',
   'chat.title': '채팅',
+  'chat.attn_head': '채팅 — 새 알림 글',
   'chat.window_empty': '채팅 목록에서 방을 고르세요',
   'chat.empty': '아직 채팅 상태를 받지 못했습니다.',
   'chat.direct': '개인채팅',
@@ -775,6 +778,7 @@ I18N.register('ko', {
   'chat.online': '온라인',
   'chat.no_rooms': '열린 방이 없습니다.',
   'chat.me': '나',
+  'chat.name_remote': '{node} › {tab}',
   'chat.human': '사람',
   'chat.members': '참가자 {n}',
   'chat.direct_open': '개인채팅 열기',

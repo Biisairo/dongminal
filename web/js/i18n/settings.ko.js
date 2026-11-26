@@ -70,6 +70,10 @@ I18N.register('ko', {
   'srv.cancel_tip': '바꾸지 않고 닫습니다',
   'srv.applying': '바꾸는 중…',
   'srv.apply_fail': '바인드를 바꾸지 못했습니다',
+  'tg.sec_topics': '채팅 토픽',
+  'tg.topics': '채팅 방마다 토픽',
+  'tg.topics_hint': '봇과의 1:1 대화방에 채팅 방마다 토픽을 하나씩 둡니다. 먼저 BotFather 의 봇 설정에서 토픽 모드를 켜고, 사용자가 토픽을 만들거나 지우지 못하게 막아 두세요. 토픽은 봇이 방에 맞춰 만들고 지웁니다.',
+  'tg.topics_out': '켜면 방 이름 · 목적 · 참가자 표시 이름 · 글 본문이 Telegram 서버로 나갑니다. 회사 자료가 든 채팅은 정보보호팀 승인을 받은 뒤에 켜세요.',
   'tg.read_fail': 'Telegram 설정을 읽지 못했습니다',
   'tg.pair_fail': '등록 코드를 만들지 못했습니다',
 

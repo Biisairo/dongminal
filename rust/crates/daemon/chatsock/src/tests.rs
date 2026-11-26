@@ -1,6 +1,5 @@
 //! PEER_CHAT_SRS §3.10 — 채팅 소켓 (TC-PCH-6, Go chatsock_test.go·clean_test.go).
 
-use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -18,31 +17,9 @@ use super::*;
 
 const WAIT: Duration = Duration::from_secs(3);
 
-#[derive(Default)]
-pub(crate) struct FakeTools {
-    pub resting: Mutex<HashMap<String, bool>>,
-    pub pasted: Mutex<Vec<String>>,
-}
-
-impl Tools for FakeTools {
-    fn resting(&self, id: &str) -> bool {
-        self.resting
-            .lock()
-            .unwrap()
-            .get(id)
-            .copied()
-            .unwrap_or(false)
-    }
-    fn paste(&self, id: &str, text: &str) -> Result<(), BoxError> {
-        self.pasted.lock().unwrap().push(format!("{id}|{text}"));
-        Ok(())
-    }
-}
-
 pub(crate) struct Harness {
     pub srv: Arc<Server>,
     pub svc: Arc<Service>,
-    pub tools: Arc<FakeTools>,
     pub path: PathBuf,
     mesh: Mesh,
     _rt: tokio::runtime::Runtime,
@@ -84,9 +61,7 @@ pub(crate) fn new_harness(f: impl FnOnce(&mut Options)) -> Harness {
         }
     }));
     let svc = Service::new(co);
-    let tools = Arc::new(FakeTools::default());
     let mut o = Options::new(svc.clone());
-    o.tools = Some(tools.clone());
     o.name = Some(Arc::new(|| "mac".to_string()));
     o.count_wait = Duration::from_millis(100);
     f(&mut o);
@@ -99,7 +74,6 @@ pub(crate) fn new_harness(f: impl FnOnce(&mut Options)) -> Harness {
     Harness {
         srv,
         svc,
-        tools,
         path,
         mesh,
         _rt: rt,
@@ -311,6 +285,7 @@ fn calls_and_delivery() {
         &chatwire::SendArgs {
             room: room.id.clone(),
             text: "x".into(),
+            call: None,
         },
     );
     let e = f.error.unwrap();
@@ -327,6 +302,7 @@ fn calls_and_delivery() {
         &chatwire::SendArgs {
             room: room.id.clone(),
             text: "안녕".into(),
+            call: None,
         },
     );
     assert!(f.error.is_none());
@@ -405,33 +381,6 @@ fn disconnect_unregisters() {
     assert!(rooms.rooms.unwrap().is_empty(), "방이 남았다");
 }
 
-// FR-PCH-61·62: 0→1 알림은 쉬는 중일 때만 붙여 넣는다.
-#[test]
-fn rise_pastes_only_when_resting() {
-    let h = new_harness(|_| {});
-    h.tools.resting.lock().unwrap().insert("rest".into(), true);
-    let (rest, _) = h.agent("s1", "rest", "a");
-    let (busy, _) = h.agent("s2", "busy", "b");
-    rest.send(&Frame {
-        t: chatwire::TYPE_RISE.into(),
-        total: 2,
-        ..Frame::default()
-    });
-    busy.send(&Frame {
-        t: chatwire::TYPE_RISE.into(),
-        total: 1,
-        ..Frame::default()
-    });
-    eventually("붙여넣기", || h.tools.pasted.lock().unwrap().len() == 1);
-    std::thread::sleep(Duration::from_millis(50));
-    let ps = h.tools.pasted.lock().unwrap().clone();
-    // 방 이름은 망에서 온 값이라 붙여 넣지 않는다.
-    assert_eq!(
-        ps,
-        ["rest|[otterminal chat] 새 글 2건. chat_read 로 확인한다."]
-    );
-}
-
 // FR-PCH-60: 훅 질의는 그 세션의 MCP 에 물어 그대로 전한다.
 #[test]
 fn unread_relays_to_session() {
@@ -506,6 +455,7 @@ fn user_participant() {
         &chatwire::SendArgs {
             room: rr.room.id.clone(),
             text: "배포함".into(),
+            call: None,
         },
     );
     assert!(f.error.is_none());
@@ -600,5 +550,308 @@ fn create_dir_error_matches_go() {
     assert_eq!(
         e.to_string(),
         format!("mkdir {}: not a directory", blocker.display())
+    );
+}
+
+fn send_with(cl: &mut Client, room: &str, text: &str, call: &[&str]) -> Frame {
+    cl.call(
+        chatwire::OP_SEND,
+        &chatwire::SendArgs {
+            room: room.into(),
+            text: text.into(),
+            call: Some(call.iter().map(|s| s.to_string()).collect()),
+        },
+    )
+}
+
+fn join(cl: &mut Client, room: &str) {
+    must_room(&cl.call(chatwire::OP_JOIN, &chatwire::RoomArgs { room: room.into() }));
+}
+
+// ISSUE_TREE_CHAT_SRS FR-CAL-1·4 (결정 I-2): call 의 도구 id 는 이 노드의 참가자 id 로 바뀐다.
+// 참가자 id 와 user 는 그대로 쓰고, 방에 없는 상대는 bad_request 다.
+#[test]
+fn send_call_maps_tool_id() {
+    let h = new_harness(|_| {});
+    let (mut a, _) = h.agent("sa", "ta", "a");
+    let (mut b, _) = h.agent("sb", "tb", "b");
+    let (mut c, hc) = h.agent("sc", "tc", "c");
+    let room = must_room(&a.call(
+        chatwire::OP_CREATE,
+        &chatwire::CreateArgs {
+            name: "r".into(),
+            purpose: String::new(),
+        },
+    ));
+    join(&mut b, &room.id);
+    join(&mut c, &room.id);
+
+    assert!(send_with(&mut a, &room.id, "to-b", &["tb"]).error.is_none());
+    assert!(
+        b.next(chatwire::TYPE_MSG).msg.unwrap().called,
+        "도구 id 로 부른 b"
+    );
+    assert!(!c.next(chatwire::TYPE_MSG).msg.unwrap().called);
+
+    assert!(
+        send_with(&mut a, &room.id, "to-c", &[&hc.id])
+            .error
+            .is_none()
+    );
+    assert!(!b.next(chatwire::TYPE_MSG).msg.unwrap().called);
+    let mc = c.next(chatwire::TYPE_MSG).msg.unwrap();
+    assert!(mc.called, "참가자 id 로 부른 c");
+    // FR-CUX-7: 받은 글은 부른 상대를 싣는다.
+    assert_eq!(mc.call, vec![hc.id.clone()]);
+
+    assert!(
+        send_with(&mut a, &room.id, "to-user", &["user"])
+            .error
+            .is_none()
+    );
+    assert!(!b.next(chatwire::TYPE_MSG).msg.unwrap().called);
+    c.next(chatwire::TYPE_MSG);
+
+    for bad in ["nobody", "tz"] {
+        let e = send_with(&mut a, &room.id, "x", &[bad]).error.unwrap();
+        assert_eq!(e.code, chatwire::CODE_BAD_REQUEST, "{bad}");
+    }
+    let (_out, _) = h.agent("so", "tout", "out");
+    let e = send_with(&mut a, &room.id, "x", &["tout"]).error.unwrap();
+    assert_eq!(e.code, chatwire::CODE_BAD_REQUEST, "방 밖의 도구");
+}
+
+// FR-CAL-5·6: notify 로 내 단계를 바꾸고 rooms 가 방마다 내 단계를 싣는다.
+#[test]
+fn notify_op_sets_my_level() {
+    let h = new_harness(|_| {});
+    let (mut a, _) = h.agent("sa", "ta", "a");
+    let (mut b, _) = h.agent("sb", "tb", "b");
+    let room = must_room(&a.call(
+        chatwire::OP_CREATE,
+        &chatwire::CreateArgs {
+            name: "r".into(),
+            purpose: String::new(),
+        },
+    ));
+    assert_eq!(room.notify, chatwire::NOTIFY_CALLED);
+    join(&mut b, &room.id);
+    let f = a.call(
+        chatwire::OP_NOTIFY,
+        &chatwire::NotifyArgs {
+            room: room.id.clone(),
+            level: chatwire::NOTIFY_ALL.into(),
+        },
+    );
+    assert!(f.error.is_none(), "{:?}", f.error);
+    let level = |cl: &mut Client| {
+        let rs: chatwire::Rooms =
+            json::unmarshal(&cl.call(chatwire::OP_ROOMS, &Empty {}).result.0).unwrap();
+        rs.rooms.unwrap()[0].notify.clone()
+    };
+    assert_eq!(level(&mut a), chatwire::NOTIFY_ALL);
+    assert_eq!(level(&mut b), chatwire::NOTIFY_CALLED);
+    let e = a
+        .call(
+            chatwire::OP_NOTIFY,
+            &chatwire::NotifyArgs {
+                room: room.id.clone(),
+                level: "loud".into(),
+            },
+        )
+        .error
+        .unwrap();
+    assert_eq!(e.code, chatwire::CODE_BAD_REQUEST);
+}
+
+// FR-CAL-7 (결정 I-1): 사람 참가자의 단계도 데몬 메모리에 두고 state 로 읽는다.
+#[test]
+fn user_notify_in_state() {
+    let h = new_harness(|_| {});
+    h.srv.start_user();
+    let raw = h
+        .srv
+        .user_call(
+            chatwire::OP_CREATE,
+            &RawMessage(br#"{"name":"ops","purpose":""}"#.to_vec()),
+        )
+        .unwrap();
+    let rr: chatwire::RoomResult = json::unmarshal(&raw.0).unwrap();
+    let state = || {
+        let raw = h
+            .srv
+            .user_call(chatwire::OP_STATE, &RawMessage::default())
+            .unwrap();
+        let st: chatwire::State = json::unmarshal(&raw.0).unwrap();
+        st.rooms.unwrap()[0].notify.clone()
+    };
+    assert_eq!(state(), chatwire::NOTIFY_CALLED);
+    let args = format!(r#"{{"room":"{}","level":"off"}}"#, rr.room.id);
+    h.srv
+        .user_call(chatwire::OP_NOTIFY, &RawMessage(args.into_bytes()))
+        .unwrap();
+    assert_eq!(state(), chatwire::NOTIFY_OFF);
+}
+
+fn waiter(h: &Harness, session: &str) -> Client {
+    let w = h.dial();
+    w.send(&Frame {
+        t: chatwire::TYPE_WAIT.into(),
+        session: session.into(),
+        ..Frame::default()
+    });
+    w
+}
+
+// FR-CAL-9: 그 세션의 MCP 연결이 없으면 곧바로 0건으로 끝낸다.
+#[test]
+fn wait_without_session_ends() {
+    let h = new_harness(|_| {});
+    let _a = h.agent("s1", "t1", "a");
+    let mut w = waiter(&h, "nobody");
+    let f = w.next(chatwire::TYPE_WAIT);
+    assert_eq!((f.total, f.called), (0, 0));
+    assert!(w.closed());
+}
+
+// FR-CAL-9·10: 대기는 그 세션의 가장 나중 MCP 에 묻고, MCP 가 깨울 글을 답하면 개수만 전한다.
+// 답이 올 때까지 시한 없이 기다린다.
+#[test]
+fn wait_relays_wake() {
+    let h = new_harness(|_| {});
+    let (old, _) = h.agent("s1", "t1", "a");
+    let (mut mcp, _) = h.agent("s1", "t2", "b");
+    let mut w = waiter(&h, "s1");
+    let ask = mcp.next(chatwire::TYPE_WAKE_ASK);
+    assert!(
+        matches!(
+            w.inbox.recv_timeout(Duration::from_millis(700)),
+            Err(RecvTimeoutError::Timeout)
+        ),
+        "MCP 의 답 전에 끝났다"
+    );
+    mcp.send(&Frame {
+        t: chatwire::TYPE_WAKE.into(),
+        n: ask.n,
+        total: 4,
+        called: 1,
+        ..Frame::default()
+    });
+    let f = w.next(chatwire::TYPE_WAIT);
+    assert_eq!((f.total, f.called), (4, 1));
+    assert!(w.closed());
+    assert!(old.inbox.try_recv().is_err(), "먼저 연결에 물었다");
+}
+
+// FR-CAL-9: 기다리는 동안 MCP 연결이 끊기면 0건으로 끝낸다.
+#[test]
+fn wait_ends_when_mcp_leaves() {
+    let h = new_harness(|_| {});
+    let (mut mcp, _) = h.agent("s1", "t1", "a");
+    let mut w = waiter(&h, "s1");
+    mcp.next(chatwire::TYPE_WAKE_ASK);
+    mcp.c.shutdown(Shutdown::Both).unwrap();
+    let f = w.next(chatwire::TYPE_WAIT);
+    assert_eq!((f.total, f.called), (0, 0));
+}
+
+// 대기하던 훅이 먼저 사라지면 MCP 에 그 대기를 거둔다고 알린다 — 글에 표식을 붙이지 않게 한다.
+#[test]
+fn wait_gone_drops_ask() {
+    let h = new_harness(|_| {});
+    let (mut mcp, _) = h.agent("s1", "t1", "a");
+    let w = waiter(&h, "s1");
+    let ask = mcp.next(chatwire::TYPE_WAKE_ASK);
+    w.c.shutdown(Shutdown::Both).unwrap();
+    let d = mcp.next(chatwire::TYPE_WAKE_DROP);
+    assert_eq!(d.n, ask.n);
+}
+
+// FR-CAL-13: rise 는 없어진 프레임이다. 모르는 프레임이라 연결을 끊는다.
+#[test]
+fn rise_is_gone() {
+    let h = new_harness(|_| {});
+    let (a, _) = h.agent("s1", "t1", "a");
+    a.send(&Frame {
+        t: "rise".into(),
+        total: 1,
+        ..Frame::default()
+    });
+    assert!(a.closed());
+}
+
+// 같은 세션의 새 대기는 앞선 대기를 0건으로 끝낸다 — 쉴 때마다 훅이 하나씩 쌓이지 않게 한다.
+#[test]
+fn newer_wait_supersedes_older() {
+    let h = new_harness(|_| {});
+    let (mut mcp, _) = h.agent("s1", "t1", "a");
+    let mut old = waiter(&h, "s1");
+    let first = mcp.next(chatwire::TYPE_WAKE_ASK);
+    let mut new = waiter(&h, "s1");
+    let f = old.next(chatwire::TYPE_WAIT);
+    assert_eq!((f.total, f.called), (0, 0));
+    let mut asks = Vec::new();
+    for _ in 0..2 {
+        asks.push(mcp.inbox.recv_timeout(WAIT).unwrap());
+    }
+    assert!(
+        asks.iter()
+            .any(|f| f.t == chatwire::TYPE_WAKE_DROP && f.n == first.n),
+        "{asks:?}"
+    );
+    let second = asks
+        .iter()
+        .find(|f| f.t == chatwire::TYPE_WAKE_ASK)
+        .unwrap()
+        .n;
+    mcp.send(&Frame {
+        t: chatwire::TYPE_WAKE.into(),
+        n: second,
+        total: 1,
+        called: 1,
+        ..Frame::default()
+    });
+    assert_eq!(new.next(chatwire::TYPE_WAIT).total, 1);
+}
+
+// FR-CUX-12 (결정 I-10): 사람 화면의 state 는 방 참가자마다 단계를, 이 노드의 에이전트에는 도구 id 를 싣는다.
+#[test]
+fn state_people_carry_notify_and_tool() {
+    let h = new_harness(|_| {});
+    let me = h.srv.start_user();
+    let (mut a, ha) = h.agent("sa", "tool-a", "a");
+    let room = must_room(&a.call(
+        chatwire::OP_CREATE,
+        &chatwire::CreateArgs {
+            name: "r".into(),
+            purpose: String::new(),
+        },
+    ));
+    a.call(
+        chatwire::OP_NOTIFY,
+        &chatwire::NotifyArgs {
+            room: room.id.clone(),
+            level: chatwire::NOTIFY_ALL.into(),
+        },
+    );
+    let join = format!(r#"{{"room":"{}"}}"#, room.id);
+    h.srv
+        .user_call(chatwire::OP_JOIN, &RawMessage(join.into_bytes()))
+        .unwrap();
+    let raw = h
+        .srv
+        .user_call(chatwire::OP_STATE, &RawMessage::default())
+        .unwrap();
+    let st: chatwire::State = json::unmarshal(&raw.0).unwrap();
+    let people = st.rooms.unwrap()[0].people.clone().unwrap();
+    let of = |id: &str| people.iter().find(|p| p.id == id).unwrap().clone();
+    let (ag, hu) = (of(&ha.id), of(&me.id));
+    assert_eq!(
+        (ag.notify.as_str(), ag.tool.as_str()),
+        (chatwire::NOTIFY_ALL, "tool-a")
+    );
+    assert_eq!(
+        (hu.notify.as_str(), hu.tool.as_str()),
+        (chatwire::NOTIFY_CALLED, "")
     );
 }

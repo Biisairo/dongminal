@@ -286,8 +286,8 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 }
 /* FR-PAN-16: 알람 표식. 공통 클래스로 쓴다 — 다음 목록도 `attn` 을 줄 수 있다. */
 /* 왼쪽 3px 바 하나로 알리는 자리들 — 사이드바 항목과 에이전트 카드가 같은 표식이다. */
-.sbl-item.attn,.ag-card.attn{position:relative}
-.sbl-item.attn::before,.ag-card.attn::before{content:'';position:absolute;inset:0;pointer-events:none;
+.sbl-item.attn,.ag-card.attn,.chat-row.attn{position:relative}
+.sbl-item.attn::before,.ag-card.attn::before,.chat-row.attn::before{content:'';position:absolute;inset:0;pointer-events:none;
   box-shadow:inset 3px 0 0 var(--attn);animation:attn-pulse-fade 2s ease-in-out infinite}
 /* 점은 사라지지 않고 평소 색으로 돌아간다 — 자리가 비면 목록이 흔들린다. */
 /* UX_BATCH12_SRS FR-RGT-1: 그룹 머리의 점은 테두리로 그린 삼각형이다 — 칠하면 사각형이 된다.

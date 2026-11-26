@@ -115,7 +115,7 @@ function setup() {
   const local = memStore(), session = memStore();
   const sbDefs = [
     { id: 'a', label: 'A', panelId: 'sb-panel-a', badge: (app) => app.nA || 0 },
-    { id: 'b', label: 'B', panelId: 'sb-panel-b' },
+    { id: 'b', label: 'B', panelId: 'sb-panel-b', attn: (app) => !!app.attnB },
     { id: 'c', label: 'C', panelId: 'sb-panel-c', visible: (app) => !!app.cOn },
   ];
   const sections = [
@@ -254,6 +254,22 @@ test('SidebarTabBar: 숨은 탭·패널·배지, 보던 탭이 숨으면 첫 탭
   app.sbBusy = false;
   assert.equal(sb.select('b'), true);
   assert.equal(app.sbTab, 'b');
+});
+
+// ISSUE_TREE_CHAT_SRS FR-CAL-15: 서술자의 attn 이 참이면 탭에 알람 표식(attn)이 선다. attn 이 없는 탭은 건드리지 않는다.
+test('SidebarTabBar: 서술자의 attn 이 탭의 알람 표식이다', () => {
+  const { app, ids } = setup();
+  const sb = app.layout.tabOps.sbPanel().tabs;
+  sb.paint();
+  const tab = (id) => ids['sb-tabs'].querySelector('.sb-tab[data-panel="' + id + '"]');
+  assert.equal(tab('b').classList.contains('attn'), false);
+  app.attnB = true;
+  sb.paintBadges();
+  assert.equal(tab('b').classList.contains('attn'), true);
+  assert.equal(tab('a').classList.contains('attn'), false);
+  app.attnB = false;
+  sb.paintBadges();
+  assert.equal(tab('b').classList.contains('attn'), false);
 });
 
 test('ActivityTabBar: 수 배지·알람 점·툴팁, 탭마다 몸통 스크롤 자리, 모르는 저장 값은 첫 탭', () => {

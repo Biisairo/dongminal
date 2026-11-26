@@ -1,0 +1,237 @@
+# 채팅 고도화·이슈트리 채팅 진행 문서 — 착수 블록 포함
+
+- 작성: 2026-11-26, 기능 추가 첫 세션(인터뷰·SRS·묶음 A 1단계)이 다음 세션에게 넘긴다. 마지막 갱신: 격리실측 세션.
+- 요구·결정의 원본은 `docs/internal/ISSUE_TREE_CHAT_SRS.md` 다. 이 문서는 진행 상태와 이 세션이 배운 것만 담는다. 문서와 코드가 다르면 코드가 기준이다.
+
+## 착수 블록 — 다음 세션의 지시 전부
+
+1. 이 문서를 끝까지 읽는다.
+2. 먼저 읽는다: `docs/internal/FEATURE_DEV_RULES.md`(규칙 전부, 특히 §3 설계 규칙·§4 시험·§5 운영 보호), `docs/internal/ISSUE_TREE_CHAT_SRS.md`(§3.4·§3.5, §4 결정, §10 가정 — 모두 사용자 승인됨).
+3. 저장소 상태 확인: 브랜치 `feature`, `git log -1` 이 이 문서의 마지막 갱신 커밋이다. `git status` 가 깨끗해야 한다. `main` 에 `--no-ff` 로 병합하고 origin/main 에 push 했다(사용자 지시 2026-11-26). origin/feature 는 `98618cb1` 그대로다.
+4. **다섯 묶음(A·U·T·L·C)의 코드와 격리 실측이 모두 끝났다(2026-11-26).** 결과는 §2 「격리 실측」 이다. 남은 것은 T-7 실측 TC-ITH-14(사용자 봇, 사용자가 다음에 운영 바이너리를 바꿀 때 한꺼번에 한다 — 사용자 결정)와 §2 의 후속 후보다.
+5. 커밋은 단계마다 스스로 한다(사용자 지시 2026-11-26, AI 서명 금지). main 병합·push 는 사용자의 분명한 지시가 있을 때만.
+6. 운영 바이너리 재빌드는 하지 않았다(운영 보호 §5). 사용자가 정할 때까지 빌드하지 않는다.
+
+## 1. 끝난 것
+
+| 커밋 | 내용 |
+|---|---|
+| `1ec9d6eb` | SRS `ISSUE_TREE_CHAT_SRS.md`(상태 승인·구현중) · `decisions.md` 재생성 |
+| `b388a73f` | 묶음 A 1단계 — `rust/crates/daemon/chat`: `CALL_USER`, `Service::send_call`(방 밖 상대는 bad_request), `MsgBody.call`(비면 원문에 키 없음), `Message.called`, `is_called`·`room_has_member_locked`(service.rs). 시험 `tests_call.rs` 5개. 기존 `send` 는 빈 call 로 `send_call` 을 부른다 |
+| `9cdafa44` | 묶음 A 1단계(와이어·소켓) — chatwire `Message.called`·`SendArgs.call`·`Room.notify`·`OP_NOTIFY`·`NOTIFY_*`·깨움 대기 프레임 `wait`/`wake?`/`wake`/`wake-drop`. chat `set_notify`(기본 called, 나가면 지움). chatsock 도구 id → 참가자 id, notify 연산, 깨움 대기 중계. rise·paste·ChatTools 제거(MCP 의 rise 보내기도 여기서 지웠다. MCP 시험은 개수 질의 `settle()` 로 맞춘다) |
+
+## 2. 남은 일과 순서
+
+구현 순서(사용자 결정 D-ITH-2): 묶음 A → U → T → L → C.
+
+### 묶음 A (알림) — 끝남
+
+| 단계 | 커밋 |
+|---|---|
+| 1 와이어·소켓 | `9cdafa44` |
+| 2 MCP(`chat_send` call · `chat_notify` · 글마다 called · 깨움 대기 응답) | `ec655dd4` |
+| 3 깨움 훅(`otterctl chat-wait`, Stop `asyncRewake`, timeout 7일 `CHAT_WAIT_TIMEOUT_SECS`) | `f5b549d1` |
+| 4 웹 사용자 알람(방 행·방 탭·메인 패널 채팅 탭, 청구 `chat` 키) | `f8384b14` |
+| 5 TC-ITH-7 실측 · e2e(chat-window · rail-chat-usage · screens-run-chat · attention-dedupe) | 통과 (2026-11-26) |
+
+TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글로 "읽지 않은 글 2건(나를 부른 글 1건)" 깨움이 왔다. 입력창에 쳐 둔 글은 남아 엔터로 따로 제출됐다. 깨어난 claude 의 `chat_read` 는 claude 쪽 auto mode 분류기가 "허가되지 않은 통신" 으로 막았다 — otterminal 밖의 일이다(아래 후속 후보).
+
+### 묶음 U (채팅 화면) — 끝남
+
+| 단계 | 상태 |
+|---|---|
+| U-1 서버 바탕: `POST /api/chat/notify`, `state` 의 방 참가자 `notify`·`tool` | 끝남 (`cc416342`) |
+| U-2 지연 묶음에 마크다운: `markdown-it`(원시 HTML 끔) · `purify.js` · `highlight.js` 를 `web/bundles.txt` 의 `chat` 묶음에(FR-CUX-8·15). 부팅 JS 는 늘지 않는다 | 끝남 (결정 I-11·I-12) |
+| U-3 대화 그리기(`chat-views.js`): 보낸 이 묶음·이어진 글(5분, 상수)·날짜 구분선·내 글 바탕·부른 글 띠 `@나`·`@<이름>`·폭 상한(FR-CUX-1~8) | 끝남 (결정 I-13·I-14) |
+| U-4 이름 규칙(FR-CUX-9·14)과 색(FR-CUX-10: 에이전트는 참가자 id 로 테마 색 목록, 사람은 배경 대비 최대 색이며 그 색은 에이전트 목록에서 뺀다. 테마 바뀌면 다시 계산) | 끝남 (결정 I-15·I-16) |
+| U-5 방 머리 세 줄과 내 단계 고르기(FR-CUX-11 → `/api/chat/notify`), 참가자 목록(FR-CUX-12: 사람 먼저·노드별·`<종류> · <상태> · 알림: <단계>`. 상태는 `people[].tool` 로 `app._activity` 를 읽는다. 다른 노드 참가자의 단계는 비어 있으면 적지 않는다) | 끝남 (결정 I-17) |
+| U-6 입력칸 `@` 자동완성과 글의 `답장` → `/api/chat/send` 의 `call`(FR-CUX-13) | 끝남 (결정 I-18) · e2e `chat-ux.spec.ts` 4건(TC-ITH-8·9) |
+| U-7 잠듦(FR-CUX-16) 확인, 좁힌 e2e(chat-window · screens-run-chat), 목업 사진과 격리 인스턴스 화면 비교 | 끝남 — e2e `chat-ux.spec.ts` 5건(잠듦 포함) · 좁힌 e2e 26건 통과. 목업과 비교해 동그라미(보낸 이 색으로 꽉 참)·종류 배지·부른 글 띠(본문 영역 + 옅은 바탕)를 맞췄다. 사진은 `.playwright-mcp/u5-chat.png` |
+
+결정 I-10: 다른 노드 참가자의 알림 단계는 망 상태 프레임에 싣지 않는다(서명 프레임 변경을 피한다). 화면은 모르는 단계를 적지 않는다.
+
+### 묶음 T (텔레그램 토픽) — 진행 중
+
+| 단계 | 상태 |
+|---|---|
+| T-1 설정: `Config.topics`·View·`Store.set_topics`, 설정 API 와 화면 토글(켜기·token·허용 계정이 전제), getMe 의 `has_topics_enabled` 안내, BotFather 안내, 밖으로 나가는 데이터 목록(FR-TGT-1·2·13) | 끝남 (결정 I-19) |
+| T-2 짝 파일: 방 id ↔ 토픽 thread id · 고정 글 id. 설정 파일 옆, 권한 600, 다시 시작해도 이어 쓴다(FR-TGT-4) | 끝남 — `telegram/src/topics.rs`(`TopicMap`·`Topic{threadId,pinId,name,pinText}`·`topics_path`, 파일 `telegram-topics.json`). 시험 5. 모듈의 `allow(dead_code)` 는 T-3 에서 지웠다. 아직 쓰지 않는 `by_thread` 하나에만 남았다 — T-5 에서 쓰면 지운다 |
+| T-3 거울 맞추기: Host 가 채팅 상태(방·사람 참가자)를 준다. 방 생김/사라짐 → createForumTopic/deleteForumTopic, 고정 안내 글(목적·참가자 수·들어감·단추) 만들기·고치기, 짝만 있고 방 없음 → 지움(FR-TGT-3·5) | 끝남 (결정 I-20) — `telegram/src/bridge/mirror.rs`(`ChatRoom`·`display_name`·`Bridge::on_chat_changed`·`sync_topics`), `Host::chat_rooms`, 서버 `TelegramHost::chat_rooms`·`telegram_chat_changed`. 시험: mirror 14 · httpapi 4. T-2 시험의 unix 전용 import 를 `cfg(unix)` 로 묶었다(check-cross windows 실패) |
+| T-4 글 올리기: 사람 참가자에게 온 글과 내가 보낸 글 → 토픽. 머리(굵은 표시 이름·시각·@부름), 마크다운 → Telegram HTML, 4,096자 나누기, 깨울 글만 소리(FR-TGT-7·8) | 끝남 (결정 I-21) — `telegram/src/bridge/post.rs`(`ChatPost`·`on_chat_post`·`post_chat`·`split_chunks`), `render::chat_md_html`, `Host::chat_view`(T-3 의 `chat_rooms` 를 바꿈), 시험 공용 틀 `bridge/chatrig.rs`. 서버 `chat_pushed`(msg)·`chat_do`(send 성공) → `telegram_chat_post`. 시험: post 9 · httpapi 2 |
+| T-5 받기: 허용 계정의 토픽 글 → 방에 사람 글(답장·@ → call), 들어가지 않음 → 안내, 단추 → join/leave, 남의 업데이트 무시(FR-TGT-6·9·10) | 끝남 (결정 I-22) — `telegram/src/bridge/inbox.rs`(`room_button`·`topic_message`·`calls_in`·`Senders`), `Host::chat_join`·`chat_send`, client `Message.message_thread_id`·`reply_to_message`, 서버 `TelegramHost::chat_op`. `by_thread` 의 allow 도 지웠다. 시험: inbox 9 · httpapi 2 |
+| T-6 토픽 없음 오류 → 다시 만들고 짝 고친 뒤 다시 보냄(FR-TGT-11). 끄면 토픽 요청 0(NFR-ITH-4, TC-ITH-13). 기존 알림은 토픽 밖 그대로(FR-TGT-12) | 끝남 (결정 I-23) — `mirror::topic_missing`·`reopen_topic`, `post_chat` 의 한 번 다시 보내기, `send_alarm` 은 토픽 없음이면 되풀이하지 않는다. 시험: post 2 · mirror 3(TC-ITH-13 은 `off_makes_no_topic_requests`). 워크스페이스 전체 시험 · check-cross · 게이트 통과 |
+| T-7 실측 TC-ITH-14 — 사용자 봇이 필요하다. 사용자에게 요청한다 | 남음 |
+
+#### T-3 설계 메모 (전 세션이 조사한 것, 코드가 기준)
+
+- 브리지: `telegram/src/bridge.rs`. 사건은 `Item` 큐 → `process`(작업자 하나). `active()` 는 켜기·token·허용 계정만 본다 — 토픽 일은 `Config::topics_active()` 로 따로 거른다(NFR-ITH-4). Bot API 호출은 `self.call(&c, method, &json)`(결과 버림) 또는 `self.client(&c).call::<T>(…)`(결과 받음). 1:1 대화방 chat_id 는 `c.user_id`.
+- `Host` 트레이트(bridge.rs:48)에 채팅 몫을 기본 구현과 함께 더한다: 방 목록(사람 참가자가 보는 `state` 의 방 — id·kind·제목·목적·참가자 수·joined), join/leave, 사람 글 보내기(text·call). 서버 구현은 `httpapi/src/telegram_api.rs` 의 `TelegramHost`(Weak<Server>)다. 채팅 데몬 경로는 `httpapi/src/chat_api.rs` 의 `chat_do`(op 를 데몬에 넘김)와 `chat_pushed`(:174, 사람에게 온 글)다.
+- 거울 맞추기 사건: 채팅 상태가 바뀔 때(서버가 `chat` 토픽을 새로 낼 때) `Item::ChatSync` 를 넣는다. 처리: 방마다 짝이 없으면 `createForumTopic{chat_id,name}` → `message_thread_id`, 고정 안내 글 `sendMessage{message_thread_id, reply_markup:[[들어가기|나가기]]}` → `pinChatMessage`, 짝 저장. 이름이 바뀌면 `editForumTopic`, 안내 글이 바뀌면 `editMessageText`(+reply_markup). 짝만 있고 방이 없으면 `deleteForumTopic` 뒤 짝을 지운다.
+- 단추 callback_data 는 64바이트 상한이다 — 방 id 길이를 확인하고 접두(예: `cj:`/`cl:`)를 짧게 둔다. 기존 `[읽음]` 단추의 접두는 `render::READ_PREFIX` 다.
+- 시험 틀: `bridge/tests.rs` 의 `FakeTg`(호출 기록 + 메서드별 응답)·`FakeHost`·`testsrv`. createForumTopic 응답은 `{"ok":true,"result":{"message_thread_id":N,"name":"…"}}` 로 늘린다.
+
+### 묶음 L (로컬 이슈트리) — 진행 중
+
+| 단계 | 상태 |
+|---|---|
+| L-1 이슈 파일 한 벌과 `otterctl issue`(init·tree·show·new·set·log, `--dir`)(FR-LIS-3~6·8, TC-ITH-15) | 끝남 (결정 I-25) — 새 crate `rust/crates/shared/issuefile`(`Dir`·`Issue`·`Status`·`transition_ok`·`is_ready`·`alias`), `runtimebin/src/otterctl/issue.rs`, 도움말 `OTTERCTL_ISSUE_HELP`, commands.md 한 줄. 시험: issuefile 12 · otterctl 4 |
+| L-2 원본 폴더를 Run 에 기록하고 명령이 Run 멤버 배정으로 찾는다(FR-LIS-7). `/api/runs/tree`·대시보드가 로컬 트리를 같은 모양으로, 보관 방식을 싣는다(FR-LIS-16·17, TC-ITH-16) | 끝남 (결정 I-26) — Run `issueDir`, `otterctl run start --tree <별칭>:<ID> --issue-dir <폴더>`, `GET /api/runs/issues`, `otterctl issue resolve`, `--dir` 없는 `otterctl issue`. 시험: run 도메인 1 · httpapi 3 · otterctl 3 · issuefile 1 |
+| L-3 `/otterminal:issue-tree` 의 보관 방식·실행 방식 인자(FR-LIS-1·2)와 local+tree·coord 절차, 일꾼 규칙 주입(FR-LIS-9~15·18) | 끝남 (결정 I-27) — 명령 문서 `issue-tree.md` 에 「보관 방식과 실행 방식」(네 조합·`otterctl issue resolve`)·「로컬 이슈」(대응표·이름·Run)·「조정자 절차」·「일꾼 규칙」 절. Run `mode`(`otterctl run start --mode tree\|coord`). 프리앰블: local+tree 는 `otterctl issue` 운영, coord 는 일꾼 머리·일꾼 규칙·`review` 보고. 로컬 트리의 그룹은 이름으로 찾는다. 시험: domain/run preamble_local 3 · store 1 · httpapi 1 · otterctl 1 · runtime 문서 1. GitHub 트리 프리앰블은 Go 비교 시험 그대로 |
+| L-4 시범: local+coord · local+tree 를 한 번씩 끝까지(TC-ITH-17, 묶음 C 와 함께) | 끝남 — §2 「격리 실측」 |
+
+#### L-3 설계 메모 (이 세션이 조사한 것, 코드가 기준)
+
+- 명령 문서: `rust/crates/shared/runtime/assets/agentplugin/commands/issue-tree.md`(512줄). 절: 역할·절대 원칙·식별자·이름·이슈 규약·이슈 접근 규칙(권한·설정 점검·하위 만들기)·발사대 절차 0~6·노드 띄우기·노드 절차 1~6(맥락 판단·선행 이슈)·잎 노드의 일·트리 종료 1~5·하지 않는 것. 모두 GitHub(gh GraphQL) 전제다. 설치 목록은 `shared/runtime/src/assets.rs`, 시험 `shared/runtime/src/tests.rs`(파일 목록 :162). commands/ 의 파일은 곧 슬래시 명령이므로 새 절차는 **issue-tree.md 안의 절**로 둔다(새 파일을 만들면 명령이 하나 더 생긴다).
+- 프리앰블: `webserver/domain/run/src/preamble.rs` 의 `tree_preamble`(문서 경로 `TreeContext.doc_path` 를 먼저 읽으라고 한다)과 `TREE_OPS`(GitHub 이슈 운영 규약 문장). 로컬 트리면 이 규약이 맞지 않는다 — Run 의 `issue_dir`(L-2) 로 갈라 `otterctl issue` 판 규약을 넣는다. 일꾼 규칙(FR-LIS-14)도 여기로 주입한다. 프리앰블 문장은 Go 비교 시험(`domain/run/tests/go_parity.rs`·`httpapi/src/tests/golden_554.rs`)이 잡을 수 있다 — GitHub 트리 문장은 그대로 두고 로컬일 때만 다른 줄을 낸다.
+- 할 일: ① 인자 `<이슈: owner/repo#N | URL | #N | <폴더>#<ID>> [--mode tree|coord]` 와 판정(`otterctl issue resolve`), 네 조합 표(FR-LIS-1·2). ② 로컬 대응표: 읽기 `otterctl issue show/tree`, 부모 = ID 마지막 조각 뗌, 하위 만들기 `otterctl issue new`, 순서 = ID 차례, 착수 `set --status in-progress`(ready 거침), 끝 `review→done`, 막힘 `blocked --reason`, 「이슈 접근 규칙」 은 건너뜀, 트리 표지 `<별칭>:<ID>`, `run start --tree <별칭>:<ID> --issue-dir <폴더>`, 노드 배정 `--issue <별칭>:<ID>`(FR-LIS-15·16). ③ coord 절(FR-LIS-9~13·18, R-7): 조정자 = 실행 세션, 통합 브랜치·통합 worktree(원본 폴더가 그 안), ready 마다 일꾼(이슈 worktree, 브랜치 `<별칭>/<ID>`), 동시 수는 디스크·크기로 판단(상한 없음, `rust/target/debug/incremental` 정리), review 확인 → `--no-ff` 병합 → done, 사용자 브랜치 병합·push 는 확인 뒤. github+coord 의 ready 는 §10 A-6(blocked by + 열림/닫힘 + Run 멤버 상태). ④ 일꾼 규칙(FR-LIS-11·12·14): 상태는 원본만(`otterctl issue`), 시험 먼저, 막히면 blocked, 문서와 코드가 다르면 기록, 하위 만들면 split 후 조정자에게 알림, 다른 에이전트를 띄우지 않음, 커밋이 막히면 메시지를 파일로 남김(FEATURE_DEV_RULES §6 의 교훈과 같음). 통신은 지금 `otterctl msg` 로 쓰고, 묶음 C 가 트리 방으로 바꾼다(FR-ITR-4).
+- 시험(TC-ITH-17 의 문장 확인): 문서에 필수 문장(네 조합·`otterctl issue`·coord 절·일꾼 규칙)이 있는지 `shared/runtime` 시험으로, 로컬 프리앰블 줄은 `domain/run` 시험으로 잰다.
+
+### 묶음 C (트리 방) — 진행 중
+
+| 단계 | 상태 |
+|---|---|
+| C-1 데몬의 트리 방 규칙: 사람 참가자 연산 `tree {room, tools, close}`. 세우면 사람 참가자와 붙어 있는 트리 멤버가 들어가고, 나중에 hello 한 트리 멤버도 들어간다. 연결이 끊기면 unregister 로 나간다. close 면 규칙을 지우고 사람이 나간다(FR-ITR-2·3·10, TC-ITH-18) | 끝남 (결정 I-28) — chatwire `OP_TREE`·`TreeArgs`, chatsock `State.trees`·`tree`·`join_tree_rooms`. 시험: chatsock tests_tree 2 |
+| C-2 Run 의 `chatRoom`(`otterctl run start --chat-room`, 가지 Run 은 루트의 것을 잇는다)과 서버의 규칙 맞추기(Run 이 바뀔 때마다 열린 트리 Run 의 조정자·멤버 도구로 `tree`, 열린 Run 이 없으면 close)(FR-ITR-1·3·10) | 끝남 (결정 I-28) — `httpapi/src/runs_tree_room.rs`(`sync_tree_room`·`apply_tree_room`), `broadcast_run_changed` 끝에서 부른다. 시험: store 1 · httpapi 2 · otterctl 1 |
+| C-3 프리앰블과 명령 문서의 통신을 트리 방 + `call` 로(FR-ITR-4~9), 첫 지시는 실행 인자(FR-ITR-6) | 끝남 (결정 I-29) — 프리앰블 `tree_room_block`(트리 방 id·call 규약·사용자 확인·화면 옮기기·무관한 글은 턴 끝·부모 보고 예), `/api/runs/preamble` 의 `promptFile`, `otterctl run launch` 가 `<홈>/prompts/<member>.md`(600)를 쓰고 한 줄 프롬프트. 명령 문서 「트리 방」 절, 발사대·로컬·조정자의 방 만들기와 `--chat-room`, 끝의 `chat_leave`. 시험: preamble_local 2 · httpapi 1 · otterctl 1 · runtime 문서 1 |
+| C-4 시범(L-4 와 함께, TC-ITH-17): local+coord · local+tree 를 한 번씩 끝까지 | 끝남 — §2 「격리 실측」 |
+
+### 검증 (2026-11-26, 다섯 묶음의 코드가 끝난 뒤)
+
+| 항목 | 결과 |
+|---|---|
+| Rust 워크스페이스 전체(`cargo test --workspace`) | 4,275 통과 · 실패 0 |
+| `scripts/check-cross.sh` | 다섯 대상 통과 |
+| 게이트(`check-*.mjs`·`check-*.sh`) · `npm run unit`(2,028) · typecheck · eslint | 통과 |
+| e2e 전량(`make e2e`, 8샤드) | 2,325 통과 · 실패 2 → 고침 · flaky 4(재시도 통과: git-history-fresh H1 · notes-live-explorer V-19 · activity TC-AAP-19 · fd-leak PERF 1.20) · 건너뜀 4(docker 없음 3 · 성능 시험 1) |
+
+e2e 실패 2건은 둘 다 낡은 시험이었다(제품 동작은 의도대로):
+- `telegram-settings.spec.ts`: T-1(결정 I-19)이 채팅 토픽 절을 넷째 절로 더했다. 절 수 3 → 4, `#tg-topics` 꺼짐을 함께 본다.
+- `bundle-strip.spec.ts` TC-BST-1: 결정 I-11 의 `[hljs]` 묶음은 축약된 vendor 한 파일이라 걷을 주석이 없다. "모든 묶음이 줄어든다" → "걷을 것이 있으면 줄고, 없으면 원본 그대로다" 로 고쳤다.
+
+### 격리 실측 (2026-11-26, 끝남 — 격리실측 세션)
+
+시범과 측정을 모두 끝냈다. 실측에서 찾은 결함은 시험 먼저로 고쳤다. 화면 캡처는 `.playwright-mcp/ith-*.png`(gitignore 됨)다.
+
+| 실측 | 결과 |
+|---|---|
+| local+coord 시범(트리 방 포함, TC-ITH-17) | 통과. 조정자가 트리 방을 만들었다. 일꾼 둘이 자동으로 들어왔다(참가자 4). 일꾼은 `review` 를 방에 call 로 보냈다. 조정자는 `--no-ff` 로 병합하고 1·1.1·1.2 를 done 으로 닫았다. 사용자 확인은 방의 `@나` 로 왔다. **채팅으로 답하자** 조정자가 깨어나 Run·그룹을 정리하고 방에서 나갔다. 캡처: `ith-04-tree-room`·`ith-06-run-dashboard`·`ith-11-chat-after-cleanup` |
+| local+tree 시범(TC-ITH-17) | 통과(약 3분). 노드들이 방에 `완료 <ID>` 를 call 로 보고했다. 조율 에이전트가 `@나` 로 결과 브랜치 처리를 물었고, 채팅 답으로 Run·그룹을 정리했다. 캡처: `ith-21-tree-chat-2`·`ith-22-tree-answer` |
+| TC-ITH-19 유휴 측정 | 통과. `scenario.mjs --windows 5 --tabs 3 --phase-s 60 --idle-s 60 --only idle,idle-git,idle-closed`, 기본과 `--idle-fg 'sleep 86400'` 을 한 번씩 돌렸다. 서버·데몬의 외부 프로세스는 모든 구간에서 0 이다. 문맥 전환/초(서버/데몬): idle 9.0/5.7 · 8.1/6.0, idle-git 6.5/0.5 · 6.1/0.6, idle-closed 4.0/0.5 · 3.4/0.5. M4 기준선은 8.9/5.8 · 6.1/0.5 · 2.9/0.5 다. idle-closed 의 서버 값은 기준선 범위(2.8~3.0)보다 0.2~1.1 높다(1회 측정, CPU 0%). 부팅 JS 1,145,259 B. 원자료는 `/private/tmp/ith19-run0.json`·`ith19-fg0.json` 이다 |
+| 마무리 검증 | `cargo test --workspace` 4,280 통과·실패 0, `check-cross.sh` 다섯 대상 통과, 게이트 전부 통과, `make e2e` 8샤드 통과(flaky 0, 건너뜀 4 — 이전과 같음) |
+
+**찾은 결함과 고침**
+
+| # | 결함 | 고침(커밋) |
+|---|---|---|
+| 1 | 채팅 소켓이 연결을 받지 않았다(MCP `chat_*` 가 `daemon_unavailable`). darwin 에서 받기 전에 상대가 닫은 연결(shim 의 dial 검사)에 `SO_NOSIGPIPE` 가 EINVAL 을 냈다. 그 오류가 `accept` 오류로 올라가 `chatsock::Server::serve` 가 루프를 끝냈다 | 연결 준비 실패를 무시하고 그 연결을 돌려준다(`cbe8cb20`, `b200a098`). 첫 판(`cbe8cb20`)은 그 연결을 버리고 다시 기다렸다. 그러자 닫기가 막힌 accept 를 깨우려 거는 연결도 버려져, 데몬이 종료 신호에 끝나지 않았다(`boot_listens_and_saves_on_signal`). `b200a098` 이 바로잡았다 |
+| 2 | `otterctl issue log` 가 글을 stdin 으로만 받았다. 프리앰블이 "(stdin)" 이라고만 적어 일꾼이 `< /dev/stdin` 을 붙였고, 10분 동안 멈췄다(claude Bash 시한에 걸려 풀림) | `otterctl issue log <ID> "<글>"`. 프리앰블·도움말·명령 문서도 인자 꼴로 고쳤다(`cf414283`) |
+| 5 | Run 종료 뒤 셸이 먼저 정리된 빈 탭은 `otterctl close-tab --force` 로 닫히지 않았다(`도구가 존재하지 않음`) | `closeTab` 은 좌표로 바꾸지 못하는 알려진 탭 uuid 를 그대로 넘긴다(`d589d1aa`). 단위 시험만 했고, 실측에서는 다시 생기지 않아 현장 확인은 못 했다 |
+| 6 | 로컬 트리의 가지 Run(`run start --tree <별칭>:<ID> --branch`)을 CLI 가 GitHub 꼴이 아니라며 거절했다. 병렬 자식이 사슬로 돌았다 | 로컬 표지에 `--branch` 면 원본 폴더 없이 보낸다(서버가 루트의 것을 잇는다, I-26). 루트는 `--issue-dir` 를 요구한다(`5b0b55f7`) |
+| 7 | `otterctl issue init` 의 README 가 owner 를 "탭 uuid" 라고 적었다. 지시는 toolId 다 | README 를 toolId 로 고쳤다(`8de3814b`) |
+
+**후속 후보(손대지 않음)**
+
+- 발견 3: 트리 방의 참가자 이름은 MCP 가 처음 붙을 때의 탭 이름으로 굳는다. 조정자 탭은 그때 아직 자동 이름 `Shell` 이어서 방에 `Shell` 로 보였다(뒤에 탭 이름은 `claude` 가 됐다). 탭 이름이 바뀌면 데몬의 참가자 이름을 바꾸는 경로가 필요하다(채팅 핵심·망 전파에 닿는다 — 스펙부터).
+- 발견 4: local+coord 정리 중 브라우저 페이지가 16:33:56~16:34:09 사이에 네 번 다시 열렸다. 사람 쪽 대화는 메모리에만 있어 그 전 글이 화면에서 사라졌다. 첫 번은 `closeTab` 명령 0.2초 뒤였다. 시험용 창의 탭 닫기와 그 뒤의 정리(그룹 삭제·Run 종료)로는 재현되지 않았다. 원인은 미확정이다.
+- 발견 2 의 뿌리: 에이전트 셸에서 stdin 을 읽는 다른 otterctl 명령(`msg -` 등)도 같은 함정이 있을 수 있다. 점검 후보다.
+
+**격리 실측 방법(운영 보호를 지키는 법) — 그대로 다시 쓸 수 있다:**
+1. 빌드: `BINARY=otterminal-ith rust/scripts/hermetic.sh scripts/build.sh`.
+2. 기동은 **운영 shim 과 `OTTERMINAL_*` 를 뺀 깨끗한 환경**으로 한다: `env -i HOME=/Users/dykim USER=dykim LOGNAME=dykim SHELL=/bin/zsh TERM=xterm-256color LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 TMPDIR=$TMPDIR PATH=<PATH 에서 .otterminal 이 든 항목을 뺀 것> ./otterminal-ith start --isolated`. 그러면 격리 탭의 `claude`·`otterctl` 이 모두 격리 바이너리를 가리킨다(`type -a` 로 확인함).
+3. 격리 탭의 HOME 은 `<격리 홈>/tool-home`(빈 홈)이다. claude 로그인·설정을 쓰려면 그 아래에 `.claude → ~/.claude`, `.claude.json → ~/.claude.json`, `Library → ~/Library`(macOS 키체인), `.gitconfig`(user.name/email)를 둔다. 사용자 전역 설정의 `defaultMode: auto` 로 노드가 멈추지 않고 돈다.
+4. 격리 인스턴스용 otterctl 은 `env -i HOME=/Users/dykim PATH=<위 PATH> OTTERMINAL_HOME=<격리 홈> OTTERMINAL_PORT=<포트> <격리 홈>/bin/otterctl …` 로 부른다.
+5. 레이아웃 명령에는 화면을 연 브라우저가 필요하다 — Playwright MCP 로 `http://127.0.0.1:<포트>/` 를 연다. 폴더 신뢰 창(기본 선택이 No)은 Playwright 로 `.xterm` 을 누르고 `ArrowDown`·`Enter` 를 친다. **상위 폴더(`/private/tmp/ithtrial`)를 한 번 신뢰하면 하위 worktree 에는 신뢰 창이 뜨지 않는다.**
+6. 정지: `./otterminal-<이름> stop --all --port <포트> --home <격리 홈>`(위 깨끗한 환경으로). PATH 에 공백이 든 항목이 있으므로 `PATH=` 값은 따옴표로 감싼다. 이 세션이 띄운 인스턴스는 모두 내렸다.
+
+### 그 뒤
+
+- 묶음 U(채팅 화면): 목업 사진은 `.playwright-mcp/before.png`·`after.png`·`after2.png`(gitignore 됨). 목업 CSS·DOM 은 §4.3 에 원리를 적었다.
+- 묶음 T(텔레그램 토픽): 코드는 `rust/crates/webserver/domain/telegram`(bridge.rs·client.rs·render.rs·testsrv.rs). TC-ITH-14 는 사용자 봇으로 실측해야 한다.
+- 묶음 L·C: SRS §3.4·§3.5. 명령 문서는 `rust/crates/shared/runtime/assets/agentplugin/commands/issue-tree.md`.
+
+## 3. 이 세션이 정한 구현 결정 (SRS 범위 안, 사용자에게 보고함)
+
+| # | 결정 | 이유 |
+|---|---|---|
+| I-1 | 사람 참가자의 방별 알림 단계는 데몬 메모리에 둔다. 웹·텔레그램은 `state` 로 읽는다 | 채팅 상태는 원래 메모리만(NFR-PCH-1). 데몬 재시작이면 방 참여도 사라지므로 어긋나지 않는다 |
+| I-2 | `call` 의 도구 id 는 보내는 노드의 데몬이 참가자 id 로 바꾼 뒤 전파한다. `called` 는 받는 노드가 참가자마다 판정한다(1단계에서 구현) | 도구 id 는 노드 로컬이다 |
+| I-3 | 웹 채팅 알람의 중복 방지는 서버 claim 에 글 id 키 종류를 더한다 | 여러 기기에서 동시에 울리지 않게 한다 |
+| I-4 | 알림 단계는 채팅 핵심의 참가자 기록(`Part.notify`)에 둔다. 나가는 모든 경로에서 함께 지워지고 다시 들면 called 다 | 강퇴 등 어느 경로로 나가도 낡은 값이 남지 않는다 |
+| I-5 | 깨움 대기는 `wait`(훅↔데몬)·`wake?`/`wake`/`wake-drop`(데몬↔MCP) 네 프레임이다. 시한 없다. 훅이 먼저 끊기면 데몬이 `wake-drop` 을 보낸다 | 받는 이 없는 답에 표식을 붙이지 않는다 |
+| I-6 | `call` 의 도구 id 는 그 노드의 MCP 연결 가운데 도구 id 가 같은 것의 참가자 id 로 바꾼다. 그 밖의 항목은 그대로다 | 결정 I-2 의 구현 |
+| I-7 | 같은 세션의 새 깨움 대기는 앞선 대기를 0건으로 끝낸다(`waits` 세션당 하나) | 쉴 때마다 Stop 훅이 하나씩 떠 쌓이지 않게 한다 |
+| I-8 | 깨움 훅의 timeout 은 7일이다(agentadapter `CHAT_WAIT_TIMEOUT_SECS`) | claude 명령 훅은 시한이 지나면 끊기고, 그 뒤 온 글로는 다음 Stop 까지 깨우지 못한다. JS 타이머 상한(약 24.8일) 안 |
+| I-11 | highlight.js 를 `[docrender]` 에서 새 라이브러리 묶음 `[hljs]` 로 옮기고, `chat`·`docrender` 가 needs `['mdlib','hljs']` 로 싣는다. 채팅 마크다운은 `js/core/chat-md.js`(`chatMdHtml`·`chatMdFragment`, `[chat]` 묶음)다. 문서 렌더의 인스턴스와 나눈다(그쪽은 원시 HTML 을 살린다). 부팅 JS 는 등록 한 줄과 needs 로 61 B 늘었다(라이브러리 자체는 지연) | 한 파일은 한 묶음에만 둔다(bundles.txt). mdlib 에 넣으면 터미널 첫 hover 가 129 KB 를 더 받는다. `settings` 가 `chat` 을 needs 로 싣으므로 설정을 처음 열 때도 mdlib·hljs 가 실린다 |
+| I-12 | 채팅 마크다운은 `breaks: true`(한 줄 바꿈도 줄 바꿈)이고, 코드 블록은 `<pre class="chat-code" data-lang=…>` 로 언어를 싣는다. 언어 표시의 그리기는 U-3 의 CSS 다 | 채팅 글은 한 줄 바꿈을 뜻대로 쓴다 |
+| I-13 | 글(`chat::Message`·`chatwire::Message`)이 부른 상대 `call`(참가자 id 또는 user)을 싣는다. 비면 키가 없다(옛 형식 그대로). 화면은 `called` 면 `@나`, 그 밖의 항목은 방 참가자 표시 이름으로 `@<이름>` 을 적는다 | 받는 이 기준 `called` 만으로는 다른 상대를 부른 글을 알 수 없다(FR-CUX-7) |
+| I-14 | 채팅 탭의 CSS 를 `style-activity.css` 에서 `[chat]` 묶음의 `style-chat.css` 로 옮겼다(`css: true`). 채팅 목록 행 CSS 는 부팅에 남는다. 묶음 간격 상수는 `constants-chat.js`(`[chat]` 맨 앞) | CSS 최대 파일 기준선(415줄)·타이밍 상수 규칙. e2e 둘을 고쳤다: TC-LZ9-2 는 `chat.css` 도 받고, TC-UXF-44 는 부팅 CSS 의 `chat-row-sub` 로 잰다. 글 머리의 짧은 id 는 이름의 `title` 로 옮겼다 |
+| I-15 | 색은 테마 파생(`themeVarsOf` → `deriveChatColors`, contrast.js)이 `--chat-me`(구문 색 여섯 가운데 배경 대비 최대)와 `--chat-a0`~`--chat-a4`(나머지)로 세운다. 글은 `--chat-c` 에 `chatColorVar(id)`(FNV 해시 % 5) 를 단다. 나만 사람 색이고, 다른 노드의 사람은 id 로 고른다 | 테마를 바꾸면 applyThemeObj 가 변수만 다시 세우므로 그린 글을 다시 그리지 않는다 |
+| I-16 | 이름 규칙 `chatName`·`#` 겹침 제거는 부팅 패널도 쓰므로 `chat-store.js`(부팅)에 둔다. 노드 구분은 id 의 지문(마지막 `-` 앞)이다. `›` 는 카탈로그 `chat.name_remote` 이고 문자 아이콘 시험의 허용 목록에 이유와 함께 넣었다. 부팅 JS 는 U-2~U-4 합계 945 B 늘었다(1,143,889 → 1,144,834, 상한 1,150,000) | NFR-ITH-2 의 "늘지 않는다" 를 글자 그대로는 지키지 못했다 — 패널 이름 규칙(FR-CUX-14)과 테마 파생 색(FR-CUX-10)이 부팅 코드에 산다. 사용자에게 보고할 것 |
+| I-17 | 참가자 목록은 노드별 묶음(내 노드 먼저, 나머지는 노드 이름 차례)이고 묶음 안에서 사람이 먼저다. 노드 머리는 묶음이 둘 이상일 때만 선다. 내 알림 단계는 셋째 줄의 단추 → 메뉴(`cur` 표시) → `POST /api/chat/notify` 뒤 state 를 다시 읽는다. 들어가지 않은 방에서는 단추가 꺼진다. 활동 상태가 바뀌면(`_onToolActivity`) 채팅 뷰를 다시 그린다(참가자 행 서명이 같으면 건너뜀) | FR-CUX-11·12. 상태 이름은 활동 패널의 `AGENT_STATE_LABEL` 을 그대로 쓴다(작업 중·대기·완료·멈춤) |
+| I-18 | 부른 상대는 따로 든 상태 없이 **본문의 `@<표시 이름>`** 에서 뽑는다(`chatCallsIn`, 긴 이름 먼저·낱말 처음의 `@` 만·나는 뺌). `@` 목록은 고르면 `@이름 ` 을 넣고, 답장 단추(글에 올리면 보임)는 입력칸 앞에 `@보낸 이 ` 를 붙인다. 보낸 글의 즉시 표시에도 `call` 을 싣는다 | 사용자가 지운 이름은 부르지 않는다 — 화면에 보이는 것과 보내는 것이 같다 |
+| I-19 | 채팅 토픽 설정은 `telegram.json` 의 `chatTopics`(꺼지면 키 없음 — 1판의 `topics` 객체와 이름을 나눔)다. `Config::topics_active()` = 켜기·token·허용 계정·chatTopics 모두. `PUT /api/telegram/topics {topics}` — 전제 없음 409 `telegram_topics_need_bridge`, 켤 때 getMe 의 `has_topics_enabled` 가 거짓이면 409 `telegram_topics_mode_off`(저장 안 함). 응답·GET 은 켜져 있을 때만 `chatTopics: true`(Go 골든 그대로). 설정 화면의 블록은 지연 묶음 `settings-telegram.js` 가 만든다(부팅 카탈로그를 늘리지 않음). 밖으로 나가는 데이터는 설정 화면과 TELEGRAM_BRIDGE_SRS §8 에 적었다 | FR-TGT-1·2·13, R-5 |
+| I-20 | 거울 맞추기(FR-TGT-3·5): 서버가 방을 바꾸는 채팅 연산 성공 · 데몬의 `changed` · 데몬 재연결 · 채팅 토픽 켜기 · 브리지 시작 때 `on_chat_changed` 를 부른다. 브리지는 `topics_active` 일 때만 `Item::ChatSync` 를 넣고, 처리 전의 맞추기는 하나로 합친다. 방 목록은 데몬 `state` 를 블로킹 스레드에서 읽고, 읽지 못하면(None) 아무것도 지우지 않는다. 토픽 이름은 단체채팅 = `#` 없는 방 이름, 개인채팅 = 상대 표시 이름(없으면 `개인채팅`), 128자에서 자름. 고정 글은 HTML(굵은 이름 · 목적 · `참가자 N명 · 들어가 있음/있지 않음`)이고 단추는 상태에 맞는 **하나**(`[들어가기]` 또는 `[나가기]`)다. 단추 데이터는 `cj:`/`cl:` + **토픽 thread id** 다. 토픽 지우기를 Telegram 이 거절하면(이미 없음) 짝을 지우고, 닿지 못하면 남겨 다음에 다시 지운다. 만들기·고정 글이 실패하면 다음 맞추기에서 다시 한다 | 방 id 는 64자 hex 라 `cj:` 를 붙이면 callback_data 상한 64바이트를 넘는다. 고정 글은 들어감이 바뀔 때마다 고치므로 단추 하나로 충분하다 |
+| I-21 | 글 올리기(FR-TGT-7·8): 서버가 데몬이 사람에게 민 글(`chat_pushed` msg)과 웹에서 보낸 내 글(`/api/chat/send` 성공, 시각은 서버 지금)을 `ChatPost` 로 넘긴다. 브리지는 마지막 맞추기의 보기(`ChatView`: 나 · 방별 알림 단계 · 참가자 표시 이름)로 머리 줄(`<b>이름</b> HH:MM · @이름…`, `user`·나는 `@나`, 모르는 id 는 id 그대로)과 소리를 정한다. 소리는 내 글이 아니고 단계 all · (called·빈 값이면 called 글)일 때 첫 조각만. 짝이 없는 방의 글은 먼저 맞춘다. 4,096자는 원문을 줄 단위로 `MESSAGE_MAX-256` 단위 조각으로 나누고, 열린 코드 블록은 다음 조각 앞에 여는 줄을 다시 붙인다. 보내기는 알림과 같은 `send_alarm`(429·HTML 오류 재시도)이다. 코드 블록은 `<pre>`(언어가 있으면 `<code class="language-…">`) | 데몬은 보낸 이에게 글을 되밀지 않는다(`local_deliveries_locked` 가 보낸 이를 뺀다). 옮긴 HTML 의 보이는 글은 원문보다 길지 않다 |
+| I-22 | 받기(FR-TGT-6·9·10): 허용 계정 판정 뒤에 `cj:`/`cl:<thread>` 단추를 `Host::chat_join` 으로 처리하고(`들어갔습니다`/`나갔습니다`/`처리하지 못했습니다`, 모르는 토픽·꺼짐은 `지원하지 않는 버튼입니다.`) 맞추기를 넣는다. 거울 토픽의 글은 그때 `chat_view` 를 새로 읽어 들어가 있으면 `Host::chat_send`(부름 = 답장한 글의 보낸 이 + 본문의 `@표시이름`, 긴 이름 먼저·낱말 처음만·나 뺌, 없으면 데몬 규칙 D-ITH-12), 아니면 토픽에 안내를 단다. 빈 글은 버린다. 거울 토픽이 아닌 글과 꺼져 있을 때는 예전 안내 그대로다. 답장 대상은 토픽에 올린 남의 글 id → 보낸 이를 최근 1,024개(`SENDERS_MAX`) 기억해 찾는다. 서버 Host 의 채팅 연산은 웹 `chat_do` 처럼 성공하면 `chat` 토픽과 거울을 다시 맞춘다. 토픽에서 쓴 글은 토픽에 되올리지 않는다 | 토픽 안의 답장 아닌 글은 Telegram 이 토픽 첫 글을 reply_to 로 달 수 있다 — 기억에 없는 id 라 부름이 생기지 않는다 |
+| I-23 | 토픽 없음(FR-TGT-11)은 Bot API 400 의 설명에 `message thread not found`·`TOPIC_ID_INVALID`·`TOPIC_DELETED` 가 든 것이다. 글 올리기에서 나면 짝을 지우고 맞추기로 다시 만든 뒤 그 조각부터 **한 번만** 다시 보낸다. 거울 맞추기의 `editForumTopic`·`editMessageText` 에서 나면 짝을 지우고 그 방의 토픽을 다시 만든다. `send_alarm` 은 이 오류를 되풀이해 보내지 않는다(알림은 토픽 밖이라 이 오류가 나지 않는다) | 같은 글이 끝없이 토픽을 만들지 않게 한다 |
+| I-24 | 텔레그램 토픽에서 쓴 글은 PC 채팅 창에도 **내 글**로 보인다(사용자 결정 2026-11-26). 서버 `TelegramHost::chat_send` 가 성공하면 데몬 `state` 로 나를 읽어 `chat_message`(id `tg-<나노초>`, 보낸 이 = 나, 시각 = 서버 지금, call 그대로)를 웹에 방송한다. 웹 `_onChatMessage` 는 보낸 이가 나인 글을 읽은 글로 넣고 알람을 울리지 않는다. 텔레그램에는 되올리지 않는다 | 데몬은 보낸 이에게 글을 되밀지 않고, 사람 쪽 대화는 브라우저 메모리에만 있다 |
+| I-25 | 이슈 파일은 `shared/issuefile` 한 벌이다(otterctl 과 서버 트리가 같이 쓴다). 머리말은 perf 이슈 모양 그대로 다시 쓴다(id·owner 는 따옴표, deps 는 JSON 배열, branch 가 비면 `""`). ID 는 영문·숫자 조각을 점으로 잇는다. 같은 상태로의 set 은 허용(바뀌지 않음). `→blocked` 는 끝나지 않은 상태(todo·ready·in-progress·review)에서만, 이유는 진행 기록에 `<날짜>:\nblocked — <이유>` 로 남긴다. `tree` 는 시작할 수 있는 todo 를 ready 로 보이고 거르기도 그 값으로 한다. 쓰기는 폴더의 `.issue.lock`(10초) 아래에서 읽기 → 검사 → 렌더 뒤 다시 읽어 검사 → `write_file_atomic`. 파일 이름은 `<ID>-<제목 슬러그(40자)>.md` 이고 읽을 때 id 로 시작하는지 본다. 메인 도움말은 Go 골든이라 바꾸지 않고 `otterctl issue --help` 만 둔다 | FR-LIS-3~8 |
+| I-26 | 로컬 트리(FR-LIS-7·16·17): Run 기록에 `issueDir`(절대 경로, 트리와 함께만, 가지 Run 은 비우면 열린 루트의 것을 잇는다). 트리 표지는 `<별칭>:<ID>`(별칭 = 영문·숫자·`-_.`). `otterctl run start` 는 `--issue-dir` 가 있으면 표지가 로컬 꼴인지와 폴더가 있는지 본다. 새 종단 `GET /api/runs/issues?toolId=` 은 부르는 도구가 멤버이거나 조율하는 열린 Run 의 `runId·tree·storage(local|github)·issueDir` 을 내고, 아니면 403 `sender_not_member`. `otterctl issue` 는 `--dir` 이 없으면 이것을 쓰고, github 이면 2 로 끝난다. `GET /api/runs/tree` 는 로컬일 때만 `storage:"local"`·`issueDir` 를 싣는다 — GitHub 트리 응답은 Go 골든 모양 그대로다(키 없음 = github). 대시보드는 표지 문자열로 트리를 읽으므로 바꾸지 않았다. `otterctl issue resolve <폴더>#<ID>` 는 `local\t<폴더>\t<ID>\t<별칭>:<ID>` 또는 `github\t<인자>` 를 낸다(FR-LIS-2 판정). 메인·run 도움말은 Go 골든이라 `otterctl issue --help` 에만 적었다 | Go 골든을 깨지 않는다 |
+| I-27 | 실행 방식은 Run 기록의 `mode` 다(`coord` 일 때만 키가 있다 — 없으면 tree, Go 골든 그대로). `otterctl run start --mode tree\|coord` 는 `--tree` 와 함께만 받고, 서버는 그 밖의 값·트리 없는 coord 를 400 으로 거절한다. 프리앰블(`tree_preamble`)은 셋으로 갈린다: GitHub+tree 는 바이트 그대로, local+tree 는 `TREE_OPS` 대신 `otterctl issue` 운영(원본 폴더·show·set·log·new·review→done·blocked), coord 는 머리가 「일꾼」 이고 부모 줄이 「조정자」, 일꾼 규칙(상태는 원본만·시험 먼저·blocked·문서 어긋남 기록·split 뒤 알림·다른 에이전트 금지·이슈 브랜치에만 커밋·커밋이 막히면 파일·빌드 잔여물 정리)과 `review <role>` 보고를 싣는다. 배정의 `<별칭>:<ID>` 에서 ID 만 떼어 명령에 넣는다. 로컬 트리의 그룹은 `new-group --tree` 가 GitHub 꼴만 받으므로 표지 없이 만들고, 서버가 이름 `<별칭>:<루트>[ <제목>]` 으로 찾는다. coord 의 worktree 는 Run 격리가 아니라 조정자가 `git worktree add` 로 만든다: 통합 `integ/<별칭>`(저장소 옆 `<저장소>-<별칭>`), 일꾼 `<별칭>/<ID>`(`<저장소>-<별칭>-wt/<ID>`). github+coord 의 의존은 GraphQL `blockedBy`, 거절되면 본문 `의존:` 이다 | per-member 격리의 브랜치 이름은 `otter/r/…` 로 정해져 FR-LIS-10 의 `<별칭>/<ID>` 와 다르다. 그룹 표지(`WsGroupTree.root`)는 숫자라 로컬 ID 를 실을 수 없다 — 웹·workspace 를 바꾸지 않는다 |
+| I-28 | 트리 방 입장·퇴장(FR-ITR-2·3·10)은 데몬의 채팅 소켓이 한다: 서버가 사람 참가자 연산 `tree {room, tools}` 로 규칙(방 → 트리 멤버 도구 id)을 주면, 사람 참가자를 그 방에 넣고, 도구 id 가 맞는 연결(지금 붙은 것과 나중에 hello 하는 것)을 넣는다. 나가는 것은 연결이 끊길 때의 unregister(모든 방에서 나감) 그대로다. `close` 는 규칙을 지우고 사람이 나간다 — 방에 이 노드의 참가자가 없으면 방 기록이 사라진다(FR-PCH-22). 규칙은 데몬 메모리에만 있다(데몬이 다시 뜨면 방도 사라진다). 방은 조율·조정자가 MCP `chat_create` 로 만들고 `run start --chat-room` 으로 Run 에 적는다. 서버는 `broadcast_run_changed` 마다 그 트리의 열린 Run 들의 조정자·멤버 도구 id 전체로 규칙을 다시 준다(블로킹 스레드, 잠금으로 한 줄 — 늦게 끝난 것이 언제나 지금 기록이다). 열린 Run 이 없으면 close 다 | 데몬은 Run 을 모른다. 같은 규칙을 다시 주어도 결과가 같아(이미 든 참가자는 그대로) 캐시 없이 다시 준다 |
+| I-29 | 트리 방이 있는 Run 의 트리 멤버 프리앰블은 `otterctl msg` 보고 블록 대신 트리 방 블록을 싣는다(GitHub 트리라도 방이 없으면 바이트 그대로 — Go 골든). 명령 문서는 `otterctl msg --to <X>` 를 낱낱이 고치지 않고 「트리 방」 절의 대응 규칙(X 를 call 에, 본문 그대로)으로 바꾼다. 사용자 확인은 AskUserQuestion 대신 트리 방 `call=["user"]` + 응답에 같은 질문 + 턴 끝이다(터미널과 채팅 가운데 먼저 온 답을 받으려면 막는 TUI 질문을 쓸 수 없다). 첫 지시 파일은 트리 방이 있는 트리 멤버만(`promptFile`)이고, 홈을 모르면 예전처럼 기동줄에 싣는다. 서버의 승계 알림은 엔벨로프 그대로다 | FR-ITR-6·8. 프리앰블 응답의 새 키는 방이 있을 때만이라 Go 골든을 깨지 않는다 |
+| I-9 | 웹 알람의 단계는 `state` 의 방 `notify` 로 판정하고, 알람은 `ChatStore` 에 방마다 둔다. 방 탭이 보이면 안 읽은 수와 함께 꺼진다 | FR-CAL-15·16 |
+
+## 4. 이 세션이 값을 치르고 배운 것
+
+### 4.1 진짜 claude 와 shim
+
+- **PATH 의 첫 `claude` 는 otterminal shim(`~/.otterminal/bin/agent-shims/claude`)이고, 이것은 운영 바이너리 `/Users/dykim/personal/dongminal/otterminal` 을 가리킨다.** `claude --version` 만 쳐도 운영 바이너리를 실행한다(이 세션이 한 번 어겼고 사용자에게 보고했다). 실측에는 진짜 claude 를 절대경로로 쓴다: `/Users/dykim/.local/share/claude/versions/2.1.332`(`~/.local/bin/claude` 가 가리키는 것).
+- 실측용 claude 는 자기 칸의 새 탭에서 띄운다. **신뢰되지 않은 폴더(예: /private/tmp)에서 띄우면 폴더 신뢰 창이 뜨고, `otterctl send-input` 은 붙여넣기 방식이라 화살표·ESC 키를 보낼 수 없다.** 이미 신뢰된 저장소 폴더(`/Users/dykim/personal/dongminal`)에서 띄운다. 기본 선택이 맞는 창은 `send-input --execute ''`(엔터)로 넘긴다.
+- 깨움 훅 실측 재료가 `/private/tmp/` 의 `*-chtest/` 폴더에 남아 있다(`ls -d /private/tmp/*-chtest` 로 찾는다. 폴더 이름의 앞머리가 옛 약칭이라 문서에 그대로 적지 않는다): `waiter.mjs`(신호 파일 `trigger` 가 바뀌면 출력하고 exit 2), `rewake-settings.json`(Stop 훅 asyncRewake), `run-rw.sh`. 채널 실측 재료(`server.mjs`·`mkt/`)도 있다. `~/.claude` 백업은 그 폴더의 `backup/`(이미 원상 복구 확인).
+- 입력창 보존 확인법: 입력창에 글을 쳐 두고(엔터 없이) 신호를 준 뒤, 엔터를 쳐 그 글이 따로 제출되는지 본다.
+
+### 4.2 격리 인스턴스로 화면 보기
+
+- 빌드: `BINARY=otterminal-<이름> rust/scripts/hermetic.sh scripts/build.sh`(저장소 루트에서, 약 2분). 실행: `./otterminal-<이름> start --isolated` → 포트·홈·정지 명령을 출력한다. 정지는 출력된 `stop --all --port … --home …` 그대로.
+- 가짜 에이전트: `<격리 홈>/bin/otterctl chat-mcp` 를 env `OTTERMINAL_HOME`·`CLAUDE_CODE_SESSION_ID`(아무 uuid)·`OTTERMINAL_TOOL_ID` 로 띄워 MCP JSON-RPC 를 stdin 으로 보낸다. 이 세션의 드라이버: `/private/tmp/` 의 `*-chatui/driver.mjs`(방 만들기 → `go` 파일을 기다렸다가 `msgs.json` 을 올린다).
+- **사람 쪽 대화는 브라우저 메모리에만 있다.** 페이지가 다시 그려지면 사라진다. `otterctl open-url` 로 사용자 브라우저에 같은 인스턴스를 열면 작업 공간이 공유되어 Playwright 화면이 바뀌므로, 목업을 다시 그려야 했다.
+- Playwright 스크린숏은 `/Users/dykim/personal/dongminal/.playwright-mcp/` 아래만 쓸 수 있다(gitignore 됨). 페이지의 `window.markdownit` 은 지연 묶음이라 새로고침 뒤 없을 수 있다 — `/vendor/markdown-it.js` 를 직접 싣고 `new` 로 만든다.
+
+### 4.3 목업(묶음 U) 원리
+
+보낸 이 묶음(32px 동그라미 + 머리글자, 이름 13px 600 보낸 이 색, `에이전트`/`사람` 표시, 시각), 이어진 글은 머리 없이, 묶음 위 여백 10px, 본문 13.5px·줄 높이 1.6·폭 760px, 내 글 옅은 파란 바탕, 날짜 구분선, 부른 글 왼쪽 노란 띠 + `@나 · 확인 요청`, 코드 블록 어두운 바탕·고정폭·언어 표시·가로 스크롤, 인라인 코드 바탕. 참가자 목록 행 = 동그라미 + 이름 + `종류 · 상태 · 알림: 단계`. 방 머리 세 줄. 값은 디자인 토큰으로 옮긴다(하드코딩 금지).
+
+### 4.4 저장소 규칙에서 걸린 것
+
+- SRS 상태 줄은 enum(`초안 승인대기 승인·구현중 승인·구현완료 폐기 대체`)만 받는다(`check-srs-status.sh`).
+- 결정 표를 바꾸면 `cargo run -q --locked --manifest-path rust/Cargo.toml -p otter-scripts-gen-decisions` 로 `decisions.md` 를 다시 만든다.
+- Rust 시험은 `rust/` 안에서 `scripts/hermetic.sh cargo test -p <crate> --lib` 로 돈다(저장소 루트에서 `rust/scripts/hermetic.sh cargo …` 는 Cargo.toml 을 못 찾는다).
+- clippy 는 시험 코드의 `&[x.clone()]`(→ `std::slice::from_ref`)와 Default 뒤 필드 대입을 잡는다.
+- **`make e2e`(8샤드 병렬)에 `OTTER_E2E_RUN` 을 주지 않는다.** 주면 동시에 도는 샤드가 같은 워커 홈(`<run>/w0`)을 써 서로의 서버를 죽인다(실측 2026-11-26: `SIGKILL`, `otterServer` 90초 시한 초과가 줄줄이). `make e2e` 는 홈이 pid 로 갈리므로 `PLAYWRIGHT_BROWSERS_PATH` 만 주고 `rust/scripts/hermetic.sh make e2e` 로 돈다. `OTTER_E2E_RUN` 은 한 프로세스 실행(`npx playwright test <스펙>`)에만 쓴다. FEATURE_DEV_RULES §4.3 은 이 구분을 적지 않았다(사용자에게 보고할 것).
+
+### 4.5 사실 확인 결과 (다시 조사하지 않는다)
+
+- 채널(`claude/channel`)은 보류: 개발용 인자는 동작하지만 시작 경고 창이 매번 뜨고 끄는 설정이 없다. `--settings`·`--managed-settings`·`CLAUDE_CODE_MANAGED_SETTINGS_PATH` 로 넣은 `allowedChannelPlugins` 는 모두 거절됐다(SRS §2.2).
+- `asyncRewake` 는 Claude Code 2.1.332 설정 스키마의 공개 항목이다("hook runs in background and wakes the model on exit code 2"). 실측 통과.
+- 구조 분석(파일:줄 지도)은 SRS 착수 때 분석 에이전트가 만든 것이다. 요점: 채팅 핵심 `daemon/chat/src/service.rs`(send :~606, local_deliveries_locked), 와이어 `shared/chatwire/src/lib.rs`(프레임 종류 :19-27, op :29-38), 소켓 `daemon/chatsock/src/lib.rs`(serve_tracked :569-614 — 첫 프레임 unread 는 :580, 그 밖은 hello 필수; dispatch :699-744; deliver :453; start_user :492; rise :749; answer_unread :769), 웹↔사람 참가자 통로 `httpapi/src/chat_api.rs`(:89 send, :174 chat_pushed), MCP `otterctl/chatmcp.rs`(Inbox :143, 도구 :263-317, read_loop :580-599, CHAT_INSTRUCTIONS :34), ctx-hook `otterctl/hooks.rs`(:362, 안 읽은 수 :409·:423), 훅 생성 `agentadapter/src/claude.rs`(:350-398). 걸리는 시험: chatwire tests.rs, chat tests.rs·tests_human.rs, chatsock tests.rs·tests_human.rs, runtimebin tests/chatmcp.rs·hooks.rs·shim.rs, agentadapter tests/adapter.rs, 웹 peer-chat-*.test.mjs·chat-window.test.mjs·attn-*.test.mjs·state-registry.test.mjs, e2e chat-window·screens-run-chat·rail-chat-usage.
+
+## 4.6 후속 후보 (손대지 않음)
+
+- claude 2.1.332 는 시작할 때 "subagentStatusLine is deprecated in favor of mods" 경고를 띄운다. shim 이 주입하는 `subagentStatusLine`(FR-SAU-5) 이 대상이다.
+- 깨어난 에이전트의 `chat_read` 를 claude auto mode 분류기가 막을 수 있다. 실사용에서는 사용자가 `/permissions` 로 otterminal MCP 도구를 허용해야 할 수 있다. 안내 문서나 shim 의 허용 설정 주입을 검토한다.
+
+## 5. 변하지 않는 규약
+
+- **e2e 전량은 모든 묶음(A·U·T·L·C)의 구현이 끝난 뒤 한 번만 돌린다(2026-11-26 사용자 지시).** FEATURE_DEV_RULES §4.2 의 "마일스톤마다" 를 이 작업에서는 대신한다. 묶음 중간에는 바꾼 동작을 재는 스펙만 `--grep`·파일로 좁혀 돌린다. 워크스페이스 전체 시험·cross 는 묶음 끝마다 돌려도 된다.
+- 사용자는 모든 단계를 묻지 않고 진행하라고 했다(2026-11-26). 단계마다 커밋은 스스로 한다(AI 서명 금지). main 병합·push·운영 바이너리 재빌드는 여전히 사용자 지시가 있어야 한다.
+
+- `FEATURE_DEV_RULES.md` §2~§6 전부. 특히 운영 보호(§5): 운영 바이너리·`~/.otterminal` 실행·접근 금지, 시험 빌드는 이름을 나눈다, `pkill`·`killall` 금지(내가 띄운 PID 만).
+- 유휴 규칙: 새 작업은 사건 기반, 시간 값은 `cadence` 또는 crate 상수(NFR-ITH-1). 부팅 JS 1,150,000 B 이하(NFR-ITH-2).
+- 커밋은 사용자 확인 뒤, AI 서명 금지. 설명은 한국어로 쉽게.
+- 텔레그램으로 채팅 본문이 나가는 것은 사내 규정상 회사 자료면 정보보호팀 승인 대상이다(SRS R-5). 기능은 기본 꺼짐.
+
+## 6. 유효한 사용자 결정
+
+SRS §4 의 D-ITH-1~23 과 §10 의 가정 A-1~8 이 모두 유효하다(2026-11-26 승인). 요점만:
+알림은 asyncRewake 깨움 훅(붙여넣기 제거) · 깨울 때 개수만 · 같은 글로 두 번 깨우지 않음 · 부른 글은 `call` 필드 · 사람 글은 지정 없으면 방의 모든 에이전트를 부름 · 알림 단계(사용자는 방마다 고름, 기본 called / 에이전트는 각자, 기본 called) · 웹 알람은 에이전트 알람과 같은 방식 · 채팅 화면은 목업대로 · 색은 참가자 id / 사용자는 배경 대비 최대 색 · 텔레그램은 1:1 대화방 토픽, 모든 방의 거울, 토픽 안 들어가기·나가기, 사용자 글 전달, 사용자는 토픽 삭제 불가 · 로컬 이슈트리는 보관×실행 네 조합, `otterctl issue`, 조정자가 일꾼 수 판단, 일꾼 커밋·조정자 병합, 규칙은 otterminal 이 주입 · 트리 방은 자동 입장, 상대 지정 통신, 화면에도 옮김, 먼저 온 답, 첫 지시는 실행 인자 · 대화 기록 보관 안 함 · 일반 세션 채팅 작업은 다음 SRS.

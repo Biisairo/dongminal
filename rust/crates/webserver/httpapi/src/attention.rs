@@ -178,6 +178,8 @@ pub(crate) struct AttnClaimRec {
 #[derive(Default)]
 pub(crate) struct AttnClaims {
     pub(crate) by_seq: Mutex<HashMap<u64, AttnClaimRec>>,
+    /// 채팅 글 id 의 기록이다.
+    pub(crate) by_chat: Mutex<HashMap<String, AttnClaimRec>>,
     /// 시험 전용 시계다. `None` 이면 벽시계다.
     pub(crate) now: Mutex<Option<Instant>>,
 }
@@ -186,28 +188,48 @@ impl AttnClaims {
     /// 이 컴퓨터가 seq 알람의 kinds 중 무엇을 맡는지 답한다. 이미 다른 창이 맡은 종류와 모르는
     /// 종류는 빠진다. 지난 기록은 이 자리에서 치운다.
     pub(crate) fn claim(&self, seq: u64, host: &str, kinds: &[String]) -> Vec<String> {
-        let now = self
-            .now
+        let now = self.now();
+        claim_in(&self.by_seq, seq, now, host, kinds)
+    }
+
+    /// 채팅 글 id 의 알람을 청구한다 (ISSUE_TREE_CHAT_SRS FR-CAL-15, 결정 I-3). 규칙은
+    /// [`AttnClaims::claim`] 과 같고 기록은 따로 둔다.
+    pub(crate) fn claim_chat(&self, id: &str, host: &str, kinds: &[String]) -> Vec<String> {
+        let now = self.now();
+        claim_in(&self.by_chat, id.to_owned(), now, host, kinds)
+    }
+
+    fn now(&self) -> Instant {
+        self.now
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .unwrap_or_else(Instant::now);
-        let mut by_seq = self.by_seq.lock().unwrap_or_else(|e| e.into_inner());
-        by_seq.retain(|_, r| now.saturating_duration_since(r.at) <= ATTN_CLAIM_TTL);
-        let rec = by_seq.entry(seq).or_insert_with(|| AttnClaimRec {
-            at: now,
-            granted: Default::default(),
-        });
-        let mut granted = Vec::new();
-        for kind in kinds {
-            let key = format!("{host}\x00{kind}");
-            if !ATTN_CLAIM_KINDS.contains(&kind.as_str()) || rec.granted.contains(&key) {
-                continue;
-            }
-            rec.granted.insert(key);
-            granted.push(kind.clone());
-        }
-        granted
+            .unwrap_or_else(Instant::now)
     }
+}
+
+fn claim_in<K: std::hash::Hash + Eq>(
+    m: &Mutex<HashMap<K, AttnClaimRec>>,
+    key: K,
+    now: Instant,
+    host: &str,
+    kinds: &[String],
+) -> Vec<String> {
+    let mut by = m.lock().unwrap_or_else(|e| e.into_inner());
+    by.retain(|_, r| now.saturating_duration_since(r.at) <= ATTN_CLAIM_TTL);
+    let rec = by.entry(key).or_insert_with(|| AttnClaimRec {
+        at: now,
+        granted: Default::default(),
+    });
+    let mut granted = Vec::new();
+    for kind in kinds {
+        let key = format!("{host}\x00{kind}");
+        if !ATTN_CLAIM_KINDS.contains(&kind.as_str()) || rec.granted.contains(&key) {
+            continue;
+        }
+        rec.granted.insert(key);
+        granted.push(kind.clone());
+    }
+    granted
 }
 
 #[derive(Serialize)]
@@ -292,6 +314,8 @@ struct ClearBody {
 #[serde(default)]
 struct ClaimBody {
     seq: u64,
+    /// 채팅 글 id 다. seq 와 함께 주지 않는다.
+    chat: String,
     kinds: Option<Vec<String>>,
 }
 
@@ -441,17 +465,27 @@ impl Server {
             BodyRead::NotJson => return bad_request(apierr::CODE_INVALID_JSON),
             BodyRead::Ok(b) => b,
         };
-        if req.seq == 0 {
+        if req.seq == 0 && req.chat.is_empty() {
             return http_err(
                 "seq required",
                 StatusCode::BAD_REQUEST,
                 apierr::CODE_MISSING_ARG,
             );
         }
+        if req.seq != 0 && !req.chat.is_empty() {
+            return http_err(
+                "seq and chat are exclusive",
+                StatusCode::BAD_REQUEST,
+                apierr::CODE_BAD_REQUEST,
+            );
+        }
         let host = self.claim_host(&r.remote_addr);
-        let granted =
-            self.attn_claims
-                .claim(req.seq, &host, req.kinds.as_deref().unwrap_or_default());
+        let kinds = req.kinds.as_deref().unwrap_or_default();
+        let granted = if req.chat.is_empty() {
+            self.attn_claims.claim(req.seq, &host, kinds)
+        } else {
+            self.attn_claims.claim_chat(&req.chat, &host, kinds)
+        };
         write_json(&Granted { granted })
     }
 

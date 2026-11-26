@@ -15,6 +15,9 @@ class TelegramSection extends SettingsSection {
   _tgPaint(v=this.app._tg){
     if(!v||!document.getElementById('panel-telegram')) return;
     document.getElementById('tg-enabled').checked=!!v.enabled;
+    // ISSUE_TREE_CHAT_SRS FR-TGT-1: 채팅 토픽은 켜기·token·허용 계정이 있어야 켠다. 켜져 있으면 끌 수는 있다.
+    const top=document.getElementById('tg-topics');
+    if(top){ top.checked=!!v.chatTopics; top.disabled=!v.chatTopics&&!(v.enabled&&v.tokenSet&&v.paired) }
     document.getElementById('tg-bot').textContent=v.tokenSet
       ?t('tg.bot_set',{name:v.botName?'@'+v.botName:''}):t('tg.bot_none');
     document.getElementById('tg-account').textContent=v.paired?t('tg.paired'):t('tg.unpaired');
@@ -96,6 +99,7 @@ class TelegramSection extends SettingsSection {
       document.getElementById('tg-silence-status'),{ok:t('core.saved'),fail:t('core.save_fail')},
       async()=>this._tgApply(await apiPut('/api/telegram/silence',
         {minutes:parseInt(document.getElementById('tg-silence').value,10)||0}))));
+    this._tgTopicsBuild();
     this.app.timers.every({
       id:'telegram.pair', owner:this, whenHidden:'pause',
       every:()=>TG_PAIR_TICK_MS,
@@ -103,6 +107,27 @@ class TelegramSection extends SettingsSection {
       // 등록 여부는 `telegram` 토픽이 준다(`_tgTopic`) — 여기서는 남은 시간만 다시 그린다 (D-9).
       run:()=>this._tgPairPaint(),
     });
+  }
+
+  /**
+   * ISSUE_TREE_CHAT_SRS FR-TGT-1·2·13: 채팅 토픽 켜기와 안내. 봇의 토픽 모드가 꺼져 있으면 서버가 409 로 답하고, 그 사유를
+   * 상태 줄에 보인다. 밖으로 나가는 데이터를 함께 적는다(SRS R-5).
+   */
+  _tgTopicsBuild(){
+    const panel=document.getElementById('panel-telegram');
+    const box=panel&&panel.querySelector&&panel.querySelector('.display-settings');
+    if(!box||document.getElementById('tg-topics')) return;
+    const sw=domEl('input','ui-switch');
+    sw.type='checkbox'; sw.id='tg-topics';
+    const flag=domEl('label','sbx-flag');
+    flag.append(sw,domEl('span','',t('html.acl_on')));
+    const row=domEl('div','ds-row');
+    row.append(domEl('span','',t('tg.topics')),flag);
+    const st=domEl('span','sbx-status');
+    st.id='tg-topics-status';
+    box.append(domEl('div','ds-sec',t('tg.sec_topics')),row,st,domEl('div','ds-hint',t('tg.topics_hint')),domEl('div','ds-hint',t('tg.topics_out')));
+    this.listen(sw,'change',e=>statusRun(st,{ok:t('core.saved'),fail:t('core.save_fail')},
+      async()=>{ const r=this._tgApply(await apiPut('/api/telegram/topics',{topics:e.target.checked})); if(!r.ok) this._tgPaint(); return r }));
   }
 
   onTab(){ return this._loadTelegramPanel() }

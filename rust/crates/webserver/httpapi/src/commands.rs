@@ -23,6 +23,10 @@ use crate::req::Req;
 /// uuid 를 좌표로 바꾸지 않고 그대로 넘기는 명령이다(이름 바꾸기는 uuid 로 탭을 찾는다).
 const UUID_LOCATION_ACTIONS: &[&str] = &["renameTab", "renameWindow"];
 
+/// 도구가 이미 사라진 탭(색인에는 남음)을 uuid 그대로 넘기는 명령이다. 좌표로 바꿀 수 없어도 브라우저는
+/// uuid 로 자리를 찾는다 — 그런 탭을 닫을 길이 이것뿐이다(Run 종료 뒤 남은 빈 탭).
+const DANGLING_UUID_ACTIONS: &[&str] = &["closeTab"];
+
 /// 생성 명령의 결과를 답하기 전에 새 탭 uuid 가 워크스페이스 색인에 들어오기를 기다리는 상한이다.
 /// 브라우저의 저장 충돌 뒤 미룸 상한(`WS_SAVE_BACKOFF_MAX_MS`)과 같다.
 pub(crate) const NEW_TAB_INDEX_WAIT: Duration = Duration::from_secs(2);
@@ -46,6 +50,7 @@ pub(crate) fn translate_location_uuid(
     args: &mut Option<otter_gocompat::json::RawMessage>,
     ws: Option<&dyn crate::WorkspaceStore>,
     keep_uuid: bool,
+    pass_dangling: bool,
 ) -> Result<(String, String), String> {
     let (Some(raw), Some(ws)) = (args.as_ref(), ws) else {
         return Ok((String::new(), String::new()));
@@ -66,7 +71,11 @@ pub(crate) fn translate_location_uuid(
             otter_gocompat::strconv::quote(&loc)
         ));
     }
-    let coord = ws.coordinate_of(&loc).map_err(|e| e.to_string())?;
+    let coord = match ws.coordinate_of(&loc) {
+        Ok(c) => c,
+        Err(_) if pass_dangling => return Ok((loc.clone(), loc)),
+        Err(e) => return Err(e.to_string()),
+    };
     if keep_uuid {
         return Ok((loc, coord));
     }
@@ -140,7 +149,9 @@ impl Server {
             open_url_where = self.open_url_where().0;
         }
         let keep = UUID_LOCATION_ACTIONS.contains(&req.action.as_str());
-        let (orig, fin) = match translate_location_uuid(&mut req.args, self.work(), keep) {
+        let dangling = DANGLING_UUID_ACTIONS.contains(&req.action.as_str());
+        let (orig, fin) = match translate_location_uuid(&mut req.args, self.work(), keep, dangling)
+        {
             Ok(v) => v,
             Err(e) => return fail(StatusCode::BAD_REQUEST, &e, None),
         };

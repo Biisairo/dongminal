@@ -124,6 +124,7 @@ rust/                    # Cargo 워크스페이스 — crate 하나가 디렉�
       agentrec/          #   ①②③ — 에이전트 보고의 해석·기록 값의 모양·보고 소켓 경로 (AGENT_RECORD_DAEMON_SRS §3.2a)
       agentadapter/      #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료)
       handover/          #   ③④  — 데몬 교체(세션 유지 재시작)의 와이어 — 교체 요청·사유 코드·인계 판 (DAEMON_SESSION_KEEP_SRS)
+      issuefile/         #   ①③  — 로컬 이슈 파일 한 벌: 형식·상태 전이·ready·잠금과 원자적 쓰기 (otterctl issue 와 서버 이슈 트리, ISSUE_TREE_CHAT_SRS FR-LIS-3~8)
       runfile/           #   ②③  — runs.json 읽기만 (헤드리스 도구 id). 스키마의 주인은 domain/run
       statusline/        #   ①③  — statusLine 입력의 허용 목록 한 벌 (otterctl statusline 이 채우고 서버가 같은 타입으로 받는다)
       runwait/           #   ①③  — Run 종단이 요청을 붙잡는 상한 (서버와 otterctl 이 같은 수를 읽는다, M8 D-A-1·24)

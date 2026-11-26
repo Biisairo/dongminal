@@ -22,6 +22,10 @@ const CHAT_DOWN_KEYS=Object.freeze({
   chat_daemon_restart:'chat.need_restart',
 });
 
+/** 사람 참가자의 알림 단계 (ISSUE_TREE_CHAT_SRS FR-CAL-5, 와이어 `chatwire::NOTIFY_*`). */
+const CHAT_NOTIFY_ALL='all';
+const CHAT_NOTIFY_CALLED='called';
+
 /** 노드 지문은 화면에 앞 16자리를 보인다 (`edges-controller.js` 의 EDGE_FP_SHOWN 과 같다). */
 const CHAT_FP_SHOWN=16;
 
@@ -71,14 +75,48 @@ class ChatController extends Controller {
 
   _onChatChanged(){ return this._chatRestore() }
 
-  /** FR-PCH-85: 사람에게 온 글. 그 방의 탭이 보이지 않으면 안 읽은 수가 는다. */
+  /**
+   * FR-PCH-85: 사람에게 온 글. 그 방의 탭이 보이지 않으면 안 읽은 수가 는다.
+   * ISSUE_TREE_CHAT_SRS FR-CAL-15: 그때 내 단계에 걸리는 글이면 방에 알람을 걸고 소리·OS 알림을 낸다. 낼지는 서버가
+   * 글 id 로 컴퓨터마다 한 번 승낙한다(결정 I-3).
+   */
   _onChatMessage(a){
     const m=a&&a.msg;
     if(!m||!m.room) return;
-    if(!this._chatS().add(m.room,m,!!this.views?._chatRoomShown(m.room))) return;
+    // ISSUE_TREE_CHAT_SRS FR-TGT-9: 텔레그램 토픽에서 쓴 내 글도 온다 — 읽은 글로 넣고 알람을 울리지 않는다.
+    const me=this._chatMe();
+    const mine=!!(me&&me.id&&m.from===me.id);
+    const shown=mine||!!this.views?._chatRoomShown(m.room);
+    if(!this._chatS().add(m.room,m,shown)) return;
+    if(!shown&&this._chatWakes(m)){
+      this._chatS().alarm(m.room);
+      this.app.attn?.claim?._attnAnnounceChat(m.id,()=>this._chatBanner(m));
+      this.app.render?.(); // 방 탭의 알람 표식은 칸을 그릴 때 선다
+    }
     if(this.app.chat.window._chatRepaint) this.app.chat.window._chatRepaint();
     this.app.chat.views?._chatViewsPaint(m.room);
   }
+
+  /** FR-CAL-5·7: 사람 참가자의 그 방 단계에 걸리는 글인가. 단계가 없으면 called 다(A-1). */
+  _chatWakes(m){
+    const r=this._chatRoom(m.room);
+    const level=(r&&r.notify)||CHAT_NOTIFY_CALLED;
+    return level===CHAT_NOTIFY_ALL||(level===CHAT_NOTIFY_CALLED&&!!m.called);
+  }
+
+  /** FR-CAL-15: OS 알림. 에이전트 알람과 같은 설정을 따른다. 본문은 방 이름이다. */
+  _chatBanner(m){
+    const a=this.app;
+    if(!a.attnDesktop||a.attnDesktopBlocked||typeof Notification==='undefined'||Notification.permission!=='granted') return;
+    const me=this._chatMe();
+    const body=chatRoomTitle(this._chatRoom(m.room),me&&me.id);
+    ErrorLog.quiet('notify',()=>new Notification(t('chat.attn_head'),{body}));
+  }
+
+  chatRoomAlarmed(id){ return this._chatS().alarmed(id) }
+
+  /** 메인 패널 `채팅` 탭의 알람 — 지금 있는 방 가운데 알람이 걸린 방이 있는가. */
+  chatAlarmAny(){ return this._chatRooms().some(r=>this._chatS().alarmed(r.id)) }
 
   _chatRooms(){ return (this.app._chat&&Array.isArray(this.app._chat.rooms))?this.app._chat.rooms:[] }
   _chatMe(){ return (this.app._chat&&this.app._chat.me)||null }
@@ -124,7 +162,7 @@ class ChatController extends Controller {
 
   _chatRoomRowEl(r,meId){
     const sel=this._chatRoomsSel&&this._chatRoomsSel.sel.has(r.id);
-    const row=domEl('div','chat-row chat-room'+(r.joined?' joined':'')+(sel?' sel':''));
+    const row=domEl('div','chat-row chat-room'+(r.joined?' joined':'')+(sel?' sel':'')+(this._chatS().alarmed(r.id)?' attn':''));
     row.dataset.room=r.id;
     const title=chatRoomTitle(r,meId);
     row.title=title;
@@ -153,7 +191,7 @@ class ChatController extends Controller {
   _chatPersonEl(p,meId){
     const row=domEl('div','chat-row chat-person'+(p.online?'':' off')+(p.kind==='user'?' human':''));
     row.title=p.label+' · '+chatShortId(p.id);
-    row.appendChild(domEl('span','chat-row-name',p.label));
+    row.appendChild(domEl('span','chat-row-name',chatName(p.label,p.id,meId)));
     row.appendChild(domEl('span','chat-row-sub',(p.kind==='user'?t('chat.human')+' · ':'')+chatShortId(p.id)+(p.id===meId?' · '+t('chat.me'):'')));
     if(p.id!==meId&&p.online) row.addEventListener('click',e=>this._chatPersonMenu(p,{x:e.clientX,y:e.clientY}));
     return row;
@@ -227,12 +265,13 @@ class ChatController extends Controller {
   }
 
   /** FR-PCH-85: 보낸 글은 보낸 순간 대화에 넣는다. 데몬은 보낸 이에게 되돌려 주지 않는다. */
-  async _chatSend(roomId,text){
+  /** ISSUE_TREE_CHAT_SRS FR-CUX-13: `call` 은 부른 상대의 참가자 id 들이다. 비면 싣지 않는다. */
+  async _chatSend(roomId,text,call){
     if(!text.trim()) return false;
-    if(!(await this._chatPost('send',{room:roomId,text},t('chat.err_send')))) return false;
+    if(!(await this._chatPost('send',call&&call.length?{room:roomId,text,call}:{room:roomId,text},t('chat.err_send')))) return false;
     const me=this._chatMe()||{};
     this._chatSeq=(this._chatSeq||0)+1;
-    this._chatS().add(roomId,{id:'local-'+this._chatSeq,room:roomId,from:me.id,fromLabel:me.label,fromKind:'user',text,at:Date.now()},true);
+    this._chatS().add(roomId,{id:'local-'+this._chatSeq,room:roomId,from:me.id,fromLabel:me.label,fromKind:'user',text,at:Date.now(),call},true);
     this.app.chat.views?._chatViewsPaint(roomId);
     return true;
   }
@@ -246,4 +285,4 @@ class ChatController extends Controller {
 }
 
 // PERF 3.4.9 (D-30): 채팅 탭의 본문은 `chat` 묶음이 그린다. 렌더러는 묶음이 실릴 때까지 자리표시를 둔다.
-Screens.register('chat', { i18n: true, tab: (at) => at.type === TAB_TYPE_CHAT });
+Screens.register('chat', { css: true, needs: ['mdlib', 'hljs'], i18n: true, tab: (at) => at.type === TAB_TYPE_CHAT });

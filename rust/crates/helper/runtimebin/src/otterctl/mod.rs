@@ -4,6 +4,7 @@ pub(crate) mod account;
 pub(crate) mod chatmcp;
 pub(crate) mod edge;
 pub(crate) mod hooks;
+pub(crate) mod issue;
 pub(crate) mod listworkspace;
 pub(crate) mod notify;
 pub(crate) mod order;
@@ -48,6 +49,7 @@ fn command(name: &str) -> Option<Command> {
             0
         }),
         "run" => Raw(|ctx, _, a| run::run_otterctl_run(ctx, a)),
+        "issue" => Raw(|ctx, _, a| issue::run_otterctl_issue(ctx, a)),
         "send" => Raw(|ctx, _, a| post::otterctl_send(ctx, a)),
         "list-workspace" => Raw(|ctx, _, a| listworkspace::otterctl_list_workspace(ctx, a)),
         "who-am-i" => Raw(|ctx, _, a| whoami::otterctl_who_am_i(ctx, a)),
@@ -63,6 +65,7 @@ fn command(name: &str) -> Option<Command> {
             Raw(|ctx, _, a| statusline::run_otterctl_subagent_statusline(ctx, a))
         }
         "chat-mcp" => Raw(|ctx, _, a| chatmcp::run_otterctl_chat_mcp(ctx, a)),
+        "chat-wait" => Raw(|ctx, _, a| hooks::run_otterctl_chat_wait(ctx, a)),
         "read-screen" | "read-output" => Raw(toolio::run_otterctl_read),
         "send-input" => Raw(|ctx, _, a| toolio::run_otterctl_send_input(ctx, a)),
         "msg" => Raw(|ctx, _, a| toolio::run_otterctl_msg(ctx, a)),

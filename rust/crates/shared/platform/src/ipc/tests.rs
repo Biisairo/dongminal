@@ -328,3 +328,32 @@ fn inherited_fd_must_be_unix_socket() {
     // SAFETY: 실패한 from_inherited_fd 는 fd 를 가져가지 않으므로 여기서 다시 소유해 닫는다.
     drop(unsafe { std::fs::File::from_raw_fd(fd) });
 }
+
+/// 받기 전에 상대가 닫아 버린 연결(붙자마자 닫는 dial 검사)이 리스너를 끝내지 않는다. 받는 쪽은
+/// 오류 없이 다음 연결을 받는다. darwin 의 SO_NOSIGPIPE 는 닫힌 소켓에서 EINVAL 이다.
+#[cfg(unix)]
+#[test]
+fn accept_survives_peer_closed_before_accept() {
+    use std::io::{Read, Write};
+    let home = tempfile::tempdir().unwrap();
+    let path = home.path().join("s");
+    let t = crate::current();
+    let ln = t.ipc.listen(&path).unwrap();
+    for _ in 0..8 {
+        drop(t.ipc.dial(&path, Duration::from_secs(2)).unwrap());
+    }
+    thread::sleep(Duration::from_millis(50));
+    let c = t.ipc.dial(&path, Duration::from_secs(2)).unwrap();
+    (&c).write_all(b"hi").unwrap();
+    let mut got = Vec::new();
+    for _ in 0..9 {
+        let s = ln.accept().expect("닫힌 연결 때문에 accept 가 오류를 냈다");
+        let mut buf = [0u8; 2];
+        let _ = s.set_read_timeout(Some(Duration::from_millis(200)));
+        if (&s).read_exact(&mut buf).is_ok() {
+            got.push(buf);
+            break;
+        }
+    }
+    assert_eq!(got, vec![*b"hi"], "살아 있는 연결을 받지 못했다");
+}

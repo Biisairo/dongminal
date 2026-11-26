@@ -16,6 +16,7 @@ use otter_gocompat::json::RawMessage;
 use otter_gocompat::{filepath, strconv};
 use otter_shared_platform::ShellProvider;
 
+pub use claude::CHAT_WAIT_TIMEOUT_SECS;
 pub use install::InstallSpec;
 pub use omp::{OMP_MEMBER_CONFIG_FILE, OMP_SHIM_FILE};
 pub use resume::valid_session_id;

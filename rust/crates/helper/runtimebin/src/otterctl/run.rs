@@ -49,6 +49,9 @@ const VALS: &[&str] = &[
     "--parent",
     "--goal",
     "--ctx",
+    "--issue-dir",
+    "--mode",
+    "--chat-room",
     "--to",
 ];
 const BOOLS: &[&str] = &[
@@ -91,6 +94,9 @@ pub(crate) struct RunFlags {
     pub headless: bool,
     pub timeout_ms: String,
     pub tree: String,
+    pub issue_dir: String,
+    pub mode: String,
+    pub chat_room: String,
     pub branch: bool,
     pub ref_: String,
     pub issue: String,
@@ -135,6 +141,9 @@ impl RunFlags {
             "--parent" => self.parent = v,
             "--goal" => self.goal = v,
             "--ctx" => self.ctx = v,
+            "--issue-dir" => self.issue_dir = v,
+            "--mode" => self.mode = v,
+            "--chat-room" => self.chat_room = v,
             _ => self.to = v,
         }
     }
@@ -332,8 +341,71 @@ fn sub_start(ctx: &mut Ctx<'_>, mut f: RunFlags) -> i32 {
         errf!(ctx, "run start: --branch 는 --tree 와 함께 쓴다\n");
         return 2;
     }
-    if !f.tree.is_empty() {
-        if !repo_issue_ref_matches(&f.tree) {
+    if !f.chat_room.is_empty() {
+        if f.tree.is_empty() {
+            errf!(ctx, "run start: --chat-room 는 --tree 와 함께 쓴다\n");
+            return 2;
+        }
+        body.insert("chatRoom".into(), Value::from(f.chat_room.as_str()));
+    }
+    if !f.mode.is_empty() {
+        if f.tree.is_empty() {
+            errf!(ctx, "run start: --mode 는 --tree 와 함께 쓴다\n");
+            return 2;
+        }
+        match f.mode.as_str() {
+            "tree" => {}
+            "coord" => {
+                body.insert("mode".into(), Value::from("coord"));
+            }
+            m => {
+                errf!(ctx, "run start: --mode 는 tree 또는 coord 다: {m}\n");
+                return 2;
+            }
+        }
+    }
+    if !f.issue_dir.is_empty() {
+        if f.tree.is_empty() {
+            errf!(ctx, "run start: --issue-dir 는 --tree 와 함께 쓴다\n");
+            return 2;
+        }
+        if !otter_shared_issuefile::is_local_tree_ref(&f.tree) {
+            errf!(
+                ctx,
+                "run start: 로컬 트리의 --tree 는 <별칭>:<ID> 꼴이다: {}\n",
+                f.tree
+            );
+            return 2;
+        }
+        let p = std::path::Path::new(&f.issue_dir);
+        let abs = if p.is_absolute() {
+            p.to_path_buf()
+        } else {
+            std::path::PathBuf::from(try_code!(getwd(ctx, "run start"))).join(p)
+        };
+        if !abs.is_dir() {
+            errf!(ctx, "run start: --issue-dir 폴더가 없다: {}\n", f.issue_dir);
+            return 2;
+        }
+        body.insert("tree".into(), Value::from(f.tree.as_str()));
+        body.insert(
+            "issueDir".into(),
+            Value::from(abs.to_string_lossy().as_ref()),
+        );
+        if f.branch {
+            body.insert("treeBranch".into(), Value::Bool(true));
+        }
+    } else if !f.tree.is_empty() {
+        // 로컬 트리의 가지 Run 은 원본 폴더를 비운다 — 서버가 열린 루트의 것을 잇는다(결정 I-26).
+        if otter_shared_issuefile::is_local_tree_ref(&f.tree) && !f.branch {
+            errf!(
+                ctx,
+                "run start: 로컬 트리의 루트 Run 은 --issue-dir 가 필요하다(가지 Run 은 --branch 로 루트의 폴더를 잇는다): {}\n",
+                f.tree
+            );
+            return 2;
+        }
+        if !otter_shared_issuefile::is_local_tree_ref(&f.tree) && !repo_issue_ref_matches(&f.tree) {
             errf!(
                 ctx,
                 "run start: --tree 는 owner/repo#N 꼴이다: {}\n",
@@ -468,6 +540,8 @@ fn sub_launch(ctx: &mut Ctx<'_>, f: &RunFlags) -> i32 {
         #[serde(rename = "tabId")]
         tab_id: String,
         preamble: String,
+        #[serde(rename = "promptFile")]
+        prompt_file: bool,
     }
     let got: Got = try_code!(decode(ctx, &raw, "preamble response"));
     let adapter = match agentadapter::get(&got.agent) {
@@ -481,14 +555,24 @@ fn sub_launch(ctx: &mut Ctx<'_>, f: &RunFlags) -> i32 {
         outf!(ctx, "{}", got.preamble);
         return 0;
     }
-    let line =
-        match adapter.launch_line(&crate::agent_hooks_dir_in(ctx.env), &f.model, &got.preamble) {
-            Ok(l) => l,
+    let mut prompt = got.preamble.clone();
+    if got.prompt_file {
+        match write_prompt_file(ctx, &got.member_id, &got.preamble) {
+            Ok(Some(path)) => prompt = format!("{PROMPT_FILE_LINE}{path}"),
+            Ok(None) => {}
             Err(e) => {
-                errf!(ctx, "run launch: {e}\n");
+                errf!(ctx, "run launch: 첫 지시 파일: {e}\n");
                 return 1;
             }
-        };
+        }
+    }
+    let line = match adapter.launch_line(&crate::agent_hooks_dir_in(ctx.env), &f.model, &prompt) {
+        Ok(l) => l,
+        Err(e) => {
+            errf!(ctx, "run launch: {e}\n");
+            return 1;
+        }
+    };
     for n in launch_notes(adapter, &got.member_id, &got.tab_id, &f.model) {
         errf!(ctx, "run launch: {n}\n");
     }
@@ -511,6 +595,30 @@ fn sub_launch(ctx: &mut Ctx<'_>, f: &RunFlags) -> i32 {
     }
     outf!(ctx, "{line}\n");
     0
+}
+
+/// 첫 지시를 파일로 받는 멤버의 기동 프롬프트 한 줄이다. 뒤에 파일 경로가 붙는다 (ISSUE_TREE_CHAT_SRS FR-ITR-6).
+const PROMPT_FILE_LINE: &str =
+    "otterminal 이슈 트리의 첫 지시는 이 파일에 있다. 먼저 끝까지 읽고 그대로 시작한다: ";
+/// 첫 지시 파일의 자리(홈 아래)와 권한이다.
+const PROMPT_DIR: &str = "prompts";
+const PROMPT_PERM: u32 = 0o600;
+
+/// 프리앰블을 `<홈>/prompts/<member>.md` 로 쓴다. 홈을 모르면 None — 기동줄에 그대로 싣는다.
+fn write_prompt_file(
+    ctx: &Ctx<'_>,
+    member_id: &str,
+    preamble: &str,
+) -> std::io::Result<Option<String>> {
+    let home = ctx.env.get(otter_shared_otterenv::ENV_HOME);
+    if home.is_empty() || member_id.is_empty() || member_id.contains(['/', '\\']) {
+        return Ok(None);
+    }
+    let dir = std::path::Path::new(&home).join(PROMPT_DIR);
+    std::fs::create_dir_all(&dir)?;
+    let path = dir.join(format!("{member_id}.md"));
+    otter_shared_platform::write_file_atomic(&path, preamble.as_bytes(), PROMPT_PERM)?;
+    Ok(Some(path.to_string_lossy().into_owned()))
 }
 
 fn launch_notes(a: &Adapter, member_id: &str, tab_id: &str, model: &str) -> Vec<String> {

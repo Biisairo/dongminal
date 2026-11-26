@@ -15,6 +15,7 @@ otter-shared-agentadapter = { path = "../../shared/agentadapter" }
 otter-shared-agentrec = { path = "../../shared/agentrec" }
 otter-shared-apipath = { path = "../../shared/apipath" }
 otter-shared-chatwire = { path = "../../shared/chatwire" }
+otter-shared-issuefile = { path = "../../shared/issuefile" }
 otter-shared-otterenv = { path = "../../shared/otterenv" }
 otter-shared-platform = { path = "../../shared/platform" }
 otter-shared-runwait = { path = "../../shared/runwait" }

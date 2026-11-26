@@ -18,8 +18,8 @@ use super::{TestServer, run_with};
 use crate::budgets::HOOK_BUDGET;
 use crate::ctx::{Ctx, Env};
 use crate::otterctl::hooks::{
-    USAGE_TAIL_MAX, run_otterctl_activity, run_otterctl_agent_context, run_otterctl_ctx_hook,
-    transcript_size, transcript_usage,
+    USAGE_TAIL_MAX, run_otterctl_activity, run_otterctl_agent_context, run_otterctl_chat_wait,
+    run_otterctl_ctx_hook, transcript_size, transcript_usage,
 };
 use crate::otterctl::notify::report_notify_activity;
 use crate::otterctl::statusline::{
@@ -729,6 +729,92 @@ fn ctx_hook_carries_chat_unread() {
         out,
         "{\"hookSpecificOutput\":{\"additionalContext\":\"[otterminal chat] 읽지 않은 글 3건. 하던 일을 마친 뒤 chat_read 로 확인한다.\",\"hookEventName\":\"PostToolUse\"}}\n"
     );
+}
+
+// ---- chat-wait (ISSUE_TREE_CHAT_SRS FR-CAL-9·10) ----
+
+/// 채팅 소켓 자리에서 한 연결을 받아 첫 줄을 돌려주고, delay 뒤 answer 를 쓴다(빈 값이면 닫는다).
+fn fake_chat_sock(
+    home: &Path,
+    delay: Duration,
+    answer: &'static str,
+) -> std::thread::JoinHandle<String> {
+    let sock = otter_shared_chatwire::socket_path(home);
+    std::fs::create_dir_all(sock.parent().unwrap()).unwrap();
+    let ln = otter_shared_platform::current().ipc.listen(&sock).unwrap();
+    std::thread::spawn(move || {
+        let mut c = ln.accept().unwrap();
+        let mut line = String::new();
+        BufReader::new(&mut c).read_line(&mut line).unwrap();
+        std::thread::sleep(delay);
+        if !answer.is_empty() {
+            let _ = c.write_all(answer.as_bytes());
+        }
+        line
+    })
+}
+
+fn chat_wait_env(home: &Path) -> Env {
+    let mut env = Env::default();
+    env.set(otterenv::ENV_HOME, home.to_str().unwrap());
+    env
+}
+
+const WAIT_IN: &[u8] = br#"{"hook_event_name":"Stop","session_id":"s9"}"#;
+
+// 깨울 글이 있으면 개수만 stderr 에 쓰고 2 로 끝난다. 데몬의 답을 시한 없이 기다린다.
+#[test]
+fn chat_wait_wakes_with_counts() {
+    let home = tempfile::Builder::new().tempdir_in("/tmp").unwrap();
+    let got = fake_chat_sock(
+        home.path(),
+        Duration::from_millis(1500),
+        "{\"t\":\"wait\",\"total\":3,\"called\":1}\n",
+    );
+    let (rc, out, err) = run_with(
+        &chat_wait_env(home.path()),
+        run_otterctl_chat_wait,
+        &[],
+        WAIT_IN,
+    );
+    assert_eq!(got.join().unwrap(), "{\"t\":\"wait\",\"session\":\"s9\"}\n");
+    assert_eq!((rc, out.as_str()), (2, ""));
+    assert_eq!(
+        err,
+        "[otterminal chat] 읽지 않은 글 3건(나를 부른 글 1건). chat_read 로 확인한다.\n"
+    );
+}
+
+// 0건 답·답 없이 닫힘·소켓 없음·세션 없음은 모두 조용히 0 이다.
+#[test]
+fn chat_wait_quiet_cases() {
+    for answer in ["{\"t\":\"wait\"}\n", ""] {
+        let home = tempfile::Builder::new().tempdir_in("/tmp").unwrap();
+        let got = fake_chat_sock(home.path(), Duration::ZERO, answer);
+        let r = run_with(
+            &chat_wait_env(home.path()),
+            run_otterctl_chat_wait,
+            &[],
+            WAIT_IN,
+        );
+        got.join().unwrap();
+        assert_eq!(r, (0, String::new(), String::new()), "{answer:?}");
+    }
+    let home = tempfile::Builder::new().tempdir_in("/tmp").unwrap();
+    let r = run_with(
+        &chat_wait_env(home.path()),
+        run_otterctl_chat_wait,
+        &[],
+        WAIT_IN,
+    );
+    assert_eq!(r, (0, String::new(), String::new()), "소켓 없음");
+    let r = run_with(
+        &chat_wait_env(home.path()),
+        run_otterctl_chat_wait,
+        &[],
+        br#"{"hook_event_name":"Stop"}"#,
+    );
+    assert_eq!(r, (0, String::new(), String::new()), "세션 없음");
 }
 
 // ---- statusLine ----

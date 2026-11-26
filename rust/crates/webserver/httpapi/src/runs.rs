@@ -348,6 +348,12 @@ struct StartBody {
     /// 이슈 트리 표지와 가지 여부 (FR-ITU-1).
     tree: String,
     tree_branch: bool,
+    /// 로컬 이슈 트리의 원본 이슈 폴더(절대 경로) (ISSUE_TREE_CHAT_SRS FR-LIS-7).
+    issue_dir: String,
+    /// 트리 실행 방식 `tree`·`coord` (FR-LIS-1).
+    mode: String,
+    /// 트리 방의 채팅 방 id (FR-ITR-1).
+    chat_room: String,
 }
 
 /// Go `memberAddReq`: `POST /api/runs/members` 의 본문.
@@ -570,6 +576,9 @@ impl Server {
             ));
             return write_run_error(&e, Obj::new());
         }
+        if !body.issue_dir.is_empty() && !std::path::Path::new(&body.issue_dir).is_absolute() {
+            return write_run_error(&invalid("issueDir 는 절대 경로다"), Obj::new());
+        }
         // 격리 준비가 레코드보다 먼저다 (FR-WKT-3/11). 실패한 Run 은 기록에 남지 않는다.
         let prov = match self.provision_run(rt, &iso, &body.cwd, &body.base) {
             Ok(p) => p,
@@ -583,6 +592,9 @@ impl Server {
             window_id: body.window_id,
             tree: body.tree,
             tree_branch: body.tree_branch,
+            issue_dir: body.issue_dir,
+            mode: body.mode,
+            chat_room: body.chat_room,
             ..run::StartOptions::default()
         };
         if let Some(p) = &prov {
@@ -751,6 +763,10 @@ impl Server {
         out.insert("toolId", raw(&m.tool_id));
         out.insert("runState", raw(&rec.state));
         out.insert("preamble", raw(&self.member_preamble(&rec, &m)));
+        // ISSUE_TREE_CHAT_SRS FR-ITR-6: 트리 방이 있는 트리 멤버의 첫 지시는 파일로 넘긴다. 그 밖은 Go 기준선 모양 그대로다.
+        if !rec.chat_room.is_empty() && m.assign.is_some() {
+            out.insert("promptFile", raw(&true));
+        }
         write_json(&out)
     }
 

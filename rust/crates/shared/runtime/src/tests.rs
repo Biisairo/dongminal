@@ -573,3 +573,77 @@ fn reaps_legacy_control_helper() {
     assert!(!helper_path(&bin, otter_shared_otterenv::legacy::LEGACY_CONTROL_HELPER).exists());
     assert!(helper_path(&bin, "otterctl").exists());
 }
+
+/// ISSUE_TREE_CHAT_SRS FR-LIS-1·2·9~15·18 (TC-ITH-17 의 문장 확인): 명령 문서가 네 조합과 로컬·coord 절차를 싣는다.
+/// 프리앰블(`domain/run`)이 가리키는 절 이름(「로컬 이슈」·「일꾼 규칙」)도 여기 있어야 한다.
+#[test]
+fn issue_tree_doc_covers_local_and_coord() {
+    let doc = fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/agentplugin/commands/issue-tree.md"),
+    )
+    .unwrap();
+    let hint = doc
+        .lines()
+        .find(|l| l.starts_with("argument-hint:"))
+        .unwrap();
+    for w in ["<폴더>#<ID>", "--mode tree|coord"] {
+        assert!(hint.contains(w), "argument-hint: {w}");
+    }
+    for w in [
+        "## 보관 방식과 실행 방식",
+        "otterctl issue resolve",
+        "github + tree",
+        "github + coord",
+        "local + tree",
+        "local + coord",
+        "## 로컬 이슈",
+        "otterctl issue show",
+        "otterctl issue tree",
+        "otterctl issue new",
+        "otterctl issue log",
+        "--status blocked --reason",
+        "--issue-dir",
+        "<별칭>:<ID>",
+        "## 조정자 절차",
+        "--mode coord",
+        "git worktree add",
+        "<별칭>/<ID>",
+        "--no-ff",
+        "rust/target/debug/incremental",
+        "df -h",
+        "blockedBy",
+        "## 일꾼 규칙",
+        "상태는 원본 폴더만",
+        "시험을 먼저",
+        "문서와 코드가 다르면",
+        "--status split",
+        "다른 에이전트를 띄우지 않는다",
+        "커밋이 막히면",
+    ] {
+        assert!(doc.contains(w), "issue-tree.md 에 없음: {w}");
+    }
+}
+
+/// ISSUE_TREE_CHAT_SRS FR-ITR-1·4~10 (TC-ITH-17 의 문장 확인): 트리 방에서 상대를 call 로 불러 주고받는다.
+#[test]
+fn issue_tree_doc_covers_tree_room() {
+    let doc = fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/agentplugin/commands/issue-tree.md"),
+    )
+    .unwrap();
+    for w in [
+        "## 트리 방",
+        "chat_create",
+        "--chat-room",
+        "chat_send",
+        r#"call=["user"]"#,
+        "보냄 → <상대>: <본문>",
+        "받음 ← <보낸 이>: <요지>",
+        "결정: <내용> (터미널에서|채팅에서)",
+        "아무것도 하지 않고 턴을 끝낸다",
+        "chat_leave",
+        "promptFile",
+    ] {
+        assert!(doc.contains(w), "issue-tree.md 에 없음: {w}");
+    }
+}

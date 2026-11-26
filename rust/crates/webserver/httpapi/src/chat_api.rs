@@ -9,6 +9,7 @@ use otter_shared_chatwire as chatwire;
 use otter_shared_httpresp::{self as httpresp, Response};
 use otter_shared_toolipc::{CHAT_KIND_CHANGED, CHAT_KIND_MSG, ChatEvent, ChatParams, ChatResult};
 use otter_webserver_apierr as apierr;
+use otter_webserver_domain_telegram::ChatPost;
 use serde::Serialize;
 
 use crate::Server;
@@ -60,6 +61,8 @@ pub(crate) fn raw_json(status: StatusCode, body: &[u8]) -> Response {
     res
 }
 
+const NANOS_PER_MS: i128 = 1_000_000;
+
 #[derive(Serialize)]
 struct ChatMsgArgs<'a> {
     msg: &'a chatwire::Message,
@@ -91,6 +94,11 @@ impl Server {
     }
 
     /// 사람 명령이다. 본문에 OTP 코드가 든다 (§3.12).
+    /// ISSUE_TREE_CHAT_SRS FR-CAL-7: 사람 참가자의 방별 알림 단계.
+    pub(crate) async fn api_chat_notify(&self, r: &mut Req) -> Response {
+        self.chat_do(r, chatwire::OP_NOTIFY).await
+    }
+
     pub(crate) async fn api_chat_kill(&self, r: &mut Req) -> Response {
         self.chat_do(r, chatwire::OP_KILL).await
     }
@@ -139,11 +147,19 @@ impl Server {
             }
             p.args = RawMessage(raw.to_vec());
         }
+        // 웹에서 보낸 내 글은 데몬이 나에게 밀지 않는다 — 성공하면 여기서 토픽에 올린다 (FR-TGT-7).
+        let sent = (op == chatwire::OP_SEND)
+            .then(|| json::unmarshal::<chatwire::SendArgs>(&p.args.0).ok())
+            .flatten();
         let changes = op != chatwire::OP_STATE;
         let res = match off_thread(move || d.chat(p)).await {
             Some(Ok(res)) => {
                 if changes && res.error.is_none() {
                     self.refresh_full_topic("chat");
+                    self.telegram_chat_changed();
+                    if let Some(a) = sent {
+                        self.telegram_chat_post(my_post(a));
+                    }
                 }
                 res
             }
@@ -173,22 +189,57 @@ impl Server {
     /// 읽기 루프에서 불리므로 데몬 RPC 를 기다리지 않는다.
     pub fn chat_pushed(&self, ev: &ChatEvent) {
         if ev.chat_kind == CHAT_KIND_MSG {
-            if let Some(m) = &ev.chat
-                && let Some(c) = self.commands()
-            {
-                c.broadcast(&otter_webserver_envelope::payload(
-                    "chat_message",
-                    Some(&ChatMsgArgs { msg: m }),
-                ));
+            if let Some(m) = &ev.chat {
+                self.chat_broadcast(m);
+                self.telegram_chat_post(pushed_post(m));
             }
         } else if ev.chat_kind == CHAT_KIND_CHANGED {
             self.refresh_full_topic("chat");
+            self.telegram_chat_changed();
+        }
+    }
+
+    /// 글 하나를 웹 채팅 창에 `chat_message` 로 방송한다.
+    pub(crate) fn chat_broadcast(&self, m: &chatwire::Message) {
+        if let Some(c) = self.commands() {
+            c.broadcast(&otter_webserver_envelope::payload(
+                "chat_message",
+                Some(&ChatMsgArgs { msg: m }),
+            ));
         }
     }
 
     /// Go `ChatResync`: 데몬에 다시 붙은 뒤다. 끊긴 동안의 바뀜을 잃었으므로 화면이 다시 읽게 한다.
     pub fn chat_resync(&self) {
         self.refresh_full_topic("chat");
+        self.telegram_chat_changed();
+    }
+}
+
+/// 데몬이 사람 참가자에게 민 글 (ISSUE_TREE_CHAT_SRS FR-TGT-7).
+fn pushed_post(m: &chatwire::Message) -> ChatPost {
+    ChatPost {
+        room: m.room.clone(),
+        from: m.from.clone(),
+        from_label: m.from_label.clone(),
+        text: m.text.clone(),
+        at_ms: m.at,
+        call: m.call.clone(),
+        called: m.called,
+        mine: false,
+    }
+}
+
+/// 웹에서 보낸 내 글. 시각은 지금이다.
+fn my_post(a: chatwire::SendArgs) -> ChatPost {
+    let now = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / NANOS_PER_MS;
+    ChatPost {
+        room: a.room,
+        text: a.text,
+        at_ms: i64::try_from(now).unwrap_or_default(),
+        call: a.call.unwrap_or_default(),
+        mine: true,
+        ..ChatPost::default()
     }
 }
 

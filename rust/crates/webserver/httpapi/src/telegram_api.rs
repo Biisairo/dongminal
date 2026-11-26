@@ -7,8 +7,10 @@ use std::time::Duration;
 
 use http::StatusCode;
 use otter_shared_agentrec as agentrec;
+use otter_shared_chatwire as chatwire;
 use otter_shared_httpresp::{self as httpresp, Response};
 use otter_shared_otterlog::infof;
+use otter_shared_toolipc::ChatParams;
 use otter_webserver_apierr as apierr;
 use otter_webserver_domain_telegram as telegram;
 use otter_webserver_hub::CommandHub;
@@ -25,6 +27,16 @@ use crate::{Config, Server};
 static TG_TOKEN_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^[0-9]{1,20}:[A-Za-z0-9_-]{30,64}$").expect("고정 식"));
 
+/// 개인채팅 방의 종류 (PEER_CHAT_SRS FR-PCH-14).
+const CHAT_KIND_DIRECT: &str = "direct";
+/// 토픽에서 쓴 글을 웹에 보일 때 쓰는 글 id 의 접두. 웹은 같은 id 를 한 번만 넣는다.
+const WEB_ECHO_PREFIX: &str = "tg-";
+const NANOS_PER_MS: i128 = 1_000_000;
+/// 채팅 데몬에 닿지 못한 것.
+const CHAT_UNAVAILABLE: &str = chatwire::CODE_DAEMON_UNAVAILABLE;
+/// 상대를 모르는 개인채팅의 토픽 이름. 웹 카탈로그 `chat.direct` 와 같다.
+const DIRECT_TOPIC_NAME: &str = "개인채팅";
+
 /// Go `tgGetMeTimeout`: token 확인의 상한이다.
 const TG_GET_ME_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -34,6 +46,10 @@ pub(crate) trait TelegramSink: Send + Sync {
     fn on_attention(&self, tool_id: &str, reason: &str);
     fn on_attention_clear(&self, tool_id: &str);
     fn on_tool_gone(&self, tool_id: &str);
+    /// 채팅 방이 바뀌었다 (ISSUE_TREE_CHAT_SRS FR-TGT-3).
+    fn on_chat_changed(&self);
+    /// 토픽에 올릴 채팅 글 (FR-TGT-7).
+    fn on_chat_post(&self, p: telegram::ChatPost);
 }
 
 impl TelegramSink for telegram::Bridge {
@@ -48,6 +64,12 @@ impl TelegramSink for telegram::Bridge {
     }
     fn on_tool_gone(&self, tool_id: &str) {
         telegram::Bridge::on_tool_gone(self, tool_id);
+    }
+    fn on_chat_changed(&self) {
+        telegram::Bridge::on_chat_changed(self);
+    }
+    fn on_chat_post(&self, p: telegram::ChatPost) {
+        telegram::Bridge::on_chat_post(self, p);
     }
 }
 
@@ -98,6 +120,9 @@ struct TelegramView {
     #[serde(rename = "silenceMin")]
     silence_min: i64,
     pair: Option<PairView>,
+    /// ISSUE_TREE_CHAT_SRS FR-TGT-1. 꺼져 있으면 싣지 않는다 — Go 기준 골든 그대로다.
+    #[serde(rename = "chatTopics", skip_serializing_if = "std::ops::Not::not")]
+    chat_topics: bool,
 }
 
 #[derive(Serialize)]
@@ -117,6 +142,12 @@ struct TokenReq {
 #[serde(default)]
 struct EnabledReq {
     enabled: bool,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct TopicsReq {
+    topics: bool,
 }
 
 #[derive(Deserialize, Default)]
@@ -146,6 +177,7 @@ impl Server {
             paired: v.paired,
             silence_min: v.silence_min,
             pair: b.pairing().pending().map(|expires| PairView { expires }),
+            chat_topics: v.chat_topics,
         }
     }
 
@@ -164,6 +196,11 @@ impl Server {
             Err(e @ telegram::StoreError::InvalidSilence) => code_fail(
                 StatusCode::BAD_REQUEST,
                 apierr::CODE_TELEGRAM_CONFIG_INVALID,
+                &e.to_string(),
+            ),
+            Err(e @ telegram::StoreError::TopicsNeedBridge) => code_fail(
+                StatusCode::CONFLICT,
+                apierr::CODE_TELEGRAM_TOPICS_NEED_BRIDGE,
                 &e.to_string(),
             ),
             Err(_) => code_fail(
@@ -251,6 +288,47 @@ impl Server {
         self.telegram_saved(tg, b, tg.st.set_silence(req.minutes))
     }
 
+    /// ISSUE_TREE_CHAT_SRS FR-TGT-1·2: 채팅 토픽을 켜고 끈다. 켤 때는 전제(켜기·token·허용 계정)를 보고, getMe 로 봇의
+    /// 1:1 대화방 토픽 모드를 확인한다. 꺼져 있으면 켜지 않고 켜는 법을 알리는 코드로 답한다.
+    pub(crate) async fn api_telegram_topics(&self, r: &mut Req) -> Response {
+        let (tg, b) = match self.telegram_ready() {
+            Ok(v) => v,
+            Err(res) => return res,
+        };
+        let req: TopicsReq = match read_json_body(r).await {
+            Ok(v) => v,
+            Err(res) => return res,
+        };
+        let c = tg.st.config();
+        if req.topics && c.enabled && !c.token.is_empty() && c.user_id != 0 {
+            let client = telegram::Client::new(&self.cfg.telegram_api, &c.token);
+            let me = tokio::select! {
+                got = tokio::time::timeout(TG_GET_ME_TIMEOUT, client.get_me()) => got,
+                () = r.ctx.cancelled() => return telegram_unreachable(),
+            };
+            match me {
+                Ok(Ok(me)) if me.has_topics_enabled => {}
+                Ok(Ok(_)) => {
+                    return code_fail(
+                        StatusCode::CONFLICT,
+                        apierr::CODE_TELEGRAM_TOPICS_MODE_OFF,
+                        "bot topic mode is off",
+                    );
+                }
+                Ok(Err(e)) => {
+                    infof!(None, "telegram: 토픽 모드 확인 실패: {e}");
+                    return telegram_unreachable();
+                }
+                Err(_) => return telegram_unreachable(),
+            }
+        }
+        let res = tg.st.set_chat_topics(req.topics);
+        if res.is_ok() {
+            self.telegram_chat_changed();
+        }
+        self.telegram_saved(tg, b, res)
+    }
+
     /// Go `apiTelegramPair`: 등록 코드를 만든다 (FR-TGB-10). 코드는 이 응답에만 있다.
     pub(crate) async fn api_telegram_pair(&self, _r: &mut Req) -> Response {
         let (tg, b) = match self.telegram_ready() {
@@ -322,11 +400,30 @@ impl Server {
         hub.set_tool_gone_observer(Some(Arc::new(move |id: &str| s.on_tool_gone(id))));
     }
 
+    /// 채팅 방이 바뀌었다 — 브리지가 거울 토픽을 맞춘다 (ISSUE_TREE_CHAT_SRS FR-TGT-3). 채팅 토픽이 꺼져 있으면
+    /// 브리지가 거른다 (NFR-ITH-4).
+    pub(crate) fn telegram_chat_changed(&self) {
+        if let Some(tg) = &self.tg {
+            tg.sink.on_chat_changed();
+        }
+    }
+
+    /// 채팅 글을 브리지에 넘긴다 — 거울 토픽에 오른다 (ISSUE_TREE_CHAT_SRS FR-TGT-7). 채팅 토픽이 꺼져 있으면
+    /// 브리지가 거른다 (NFR-ITH-4).
+    pub(crate) fn telegram_chat_post(&self, p: telegram::ChatPost) {
+        if let Some(tg) = &self.tg {
+            tg.sink.on_chat_post(p);
+        }
+    }
+
     /// Go `StartTelegram`: 브리지를 돌리고, stop 이 취소되면 멈춘다. 돌려준 task 는 멈춘 뒤 끝난다.
     /// 꺼져 있으면 브리지는 Telegram 에 아무 요청도 하지 않는다 (NFR-TGB-1).
     pub fn start_telegram(&self, stop: CancellationToken) -> tokio::task::JoinHandle<()> {
         match self.tg.as_ref().and_then(|tg| tg.bridge.clone()) {
-            Some(b) => tokio::spawn(b.run(stop)),
+            Some(b) => {
+                b.on_chat_changed();
+                tokio::spawn(b.run(stop))
+            }
             None => tokio::spawn(async {}),
         }
     }
@@ -404,6 +501,150 @@ impl telegram::Host for TelegramHost {
         if let Some(s) = self.0.upgrade() {
             s.attention().attend(tool_id, typed);
         }
+    }
+
+    /// 토픽의 단추 — 사람 참가자의 join·leave 다 (ISSUE_TREE_CHAT_SRS FR-TGT-6).
+    fn chat_join(&self, room: &str, join: bool) -> Result<(), String> {
+        let op = if join {
+            chatwire::OP_JOIN
+        } else {
+            chatwire::OP_LEAVE
+        };
+        self.chat_op(
+            op,
+            &chatwire::RoomArgs {
+                room: room.to_owned(),
+            },
+        )
+    }
+
+    /// 토픽에 쓴 글 — 사람 참가자의 send 다 (FR-TGT-9). 토픽에서 온 글이라 토픽에 되올리지 않고, 웹 채팅 창에는 내
+    /// 글로 보인다 — 데몬은 보낸 이에게 글을 되밀지 않는다.
+    fn chat_send(&self, room: &str, text: &str, call: &[String]) -> Result<(), String> {
+        self.chat_op(
+            chatwire::OP_SEND,
+            &chatwire::SendArgs {
+                room: room.to_owned(),
+                text: text.to_owned(),
+                call: (!call.is_empty()).then(|| call.to_vec()),
+            },
+        )?;
+        self.show_mine(room, text, call);
+        Ok(())
+    }
+
+    /// 사람 참가자의 채팅 상태를 옮긴다 (ISSUE_TREE_CHAT_SRS FR-TGT-3·7). 데몬 RPC 라 막힐 수 있다.
+    fn chat_view(&self) -> Option<telegram::ChatView> {
+        let d = self.0.upgrade()?.deps.chat_daemon.clone()?;
+        if !d.chat_ready() {
+            return None;
+        }
+        let res = d
+            .chat(ChatParams {
+                op: chatwire::OP_STATE.to_owned(),
+                ..ChatParams::default()
+            })
+            .ok()?;
+        if res.error.is_some() {
+            return None;
+        }
+        let st: chatwire::State = otter_gocompat::json::unmarshal(&res.result.0).ok()?;
+        let me = &st.me.id;
+        let rooms = st.rooms.unwrap_or_default();
+        Some(telegram::ChatView {
+            me: chat_person(&st.me, me),
+            rooms: rooms.iter().map(|r| chat_room(r, me)).collect(),
+        })
+    }
+}
+
+impl TelegramHost {
+    /// 토픽에서 쓴 내 글을 웹 채팅 창에 내 글로 방송한다. 나를 읽지 못하면 하지 않는다.
+    fn show_mine(&self, room: &str, text: &str, call: &[String]) {
+        let Some(s) = self.0.upgrade() else {
+            return;
+        };
+        let Some(d) = s.deps.chat_daemon.clone() else {
+            return;
+        };
+        let Ok(res) = d.chat(ChatParams {
+            op: chatwire::OP_STATE.to_owned(),
+            ..ChatParams::default()
+        }) else {
+            return;
+        };
+        let Ok(st) = otter_gocompat::json::unmarshal::<chatwire::State>(&res.result.0) else {
+            return;
+        };
+        if st.me.id.is_empty() {
+            return;
+        }
+        let nanos = OffsetDateTime::now_utc().unix_timestamp_nanos();
+        s.chat_broadcast(&chatwire::Message {
+            id: format!("{WEB_ECHO_PREFIX}{nanos}"),
+            room: room.to_owned(),
+            from: st.me.id,
+            from_label: st.me.label,
+            from_kind: st.me.kind,
+            text: text.to_owned(),
+            at: i64::try_from(nanos / NANOS_PER_MS).unwrap_or_default(),
+            call: call.to_vec(),
+            ..chatwire::Message::default()
+        });
+    }
+
+    /// 데몬의 사람 참가자 연산 하나. 오류는 데몬의 채팅 코드나 RPC 오류 문구다. 성공하면 웹 화면(`chat` 토픽)과 거울을
+    /// 다시 맞추게 한다 — 웹의 `chat_do` 와 같다.
+    fn chat_op(&self, op: &str, args: &impl serde::Serialize) -> Result<(), String> {
+        let s = self.0.upgrade().ok_or(CHAT_UNAVAILABLE)?;
+        let d = s.deps.chat_daemon.clone().ok_or(CHAT_UNAVAILABLE)?;
+        if !d.chat_ready() {
+            return Err(CHAT_UNAVAILABLE.to_owned());
+        }
+        let raw = otter_gocompat::json::marshal(args).map_err(|e| e.to_string())?;
+        let res = d.chat(ChatParams {
+            op: op.to_owned(),
+            args: otter_gocompat::json::RawMessage(raw),
+        })?;
+        if let Some(e) = res.error {
+            return Err(e.code);
+        }
+        s.refresh_full_topic("chat");
+        s.telegram_chat_changed();
+        Ok(())
+    }
+}
+
+/// 방 하나의 거울 값. 단체채팅은 겹친 `#` 없는 방 이름, 개인채팅은 상대의 표시 이름이다 (FR-CUX-9·14).
+fn chat_room(r: &chatwire::Room, me: &str) -> telegram::ChatRoom {
+    let name = if r.kind == CHAT_KIND_DIRECT {
+        r.people.iter().flatten().find(|p| p.id != me).map_or_else(
+            || DIRECT_TOPIC_NAME.to_owned(),
+            |p| telegram::display_name(&p.label, &p.id, me),
+        )
+    } else {
+        r.name.trim_start_matches('#').to_owned()
+    };
+    telegram::ChatRoom {
+        id: r.id.clone(),
+        name,
+        purpose: r.purpose.clone(),
+        members: r.members,
+        joined: r.joined,
+        notify: r.notify.clone(),
+        people: r
+            .people
+            .iter()
+            .flatten()
+            .map(|p| chat_person(p, me))
+            .collect(),
+    }
+}
+
+fn chat_person(p: &chatwire::Member, me: &str) -> telegram::ChatPerson {
+    telegram::ChatPerson {
+        id: p.id.clone(),
+        name: telegram::display_name(&p.label, &p.id, me),
     }
 }
 

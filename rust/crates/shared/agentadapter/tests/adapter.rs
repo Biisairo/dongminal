@@ -8,7 +8,7 @@ use std::time::{Duration, SystemTime};
 use otter_gocompat::json;
 use otter_shared_agentadapter::*;
 use otter_shared_platform::{ShellProvider, ShellSpec};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 fn host_quote(s: &str) -> String {
     otter_shared_platform::current().shell.quote(s)
@@ -889,10 +889,18 @@ fn claude_settings_hooks_statusline_and_ctx() {
     let hooks = hook_commands(&blob);
     assert_eq!(hooks.len(), 14);
     let ctx = r#""/opt/otter/bin/otterctl" ctx-hook claude"#;
+    // ISSUE_TREE_CHAT_SRS FR-CAL-8: Stop 에 깨움 훅을 따로 건다. 활동 훅에는 asyncRewake 가 없다.
+    let wait = r#""/opt/otter/bin/otterctl" chat-wait"#;
+    let stop = &v["hooks"]["Stop"][0]["hooks"];
+    assert_eq!(stop[1]["asyncRewake"], json!(true), "{stop}");
+    assert_eq!(stop[1]["timeout"], json!(CHAT_WAIT_TIMEOUT_SECS), "{stop}");
+    assert!(stop[0].get("asyncRewake").is_none(), "{stop}");
     for (ev, cmds) in &hooks {
         assert_eq!(cmds[0], r#""/opt/otter/bin/otterctl" activity claude"#);
         if ev == "PostToolUse" || ev == "UserPromptSubmit" {
             assert_eq!(cmds, &[cmds[0].clone(), ctx.to_owned()]);
+        } else if ev == "Stop" {
+            assert_eq!(cmds, &[cmds[0].clone(), wait.to_owned()]);
         } else {
             assert_eq!(cmds.len(), 1, "{ev}");
         }

@@ -11,6 +11,8 @@ const SB_CHAT_TAB={
   title:'Chat rooms and people online',
   // PEER_CHAT_SRS FR-PCH-81 → FR-CW-20: 배지는 지금 있는 방의 안 읽은 수의 합이다.
   badge:app=>app.chat.chatUnreadTotal?app.chat.chatUnreadTotal():0,
+  // ISSUE_TREE_CHAT_SRS FR-CAL-15: 알람이 걸린 방이 있으면 탭에 알람 표식이 선다.
+  attn:app=>!!app.chat.chatAlarmAny?.(),
   // FR-CW-22: 탭을 고르면 콘텐츠가 채팅 창으로 바뀐다 (FR-SBT-22). FR-CW-50: 모바일은 바꾸지 않는다 —
   // 창이 바뀌면 서랍이 닫혀 방 목록이 사라진다. 모바일은 방을 누를 때 채팅 창으로 간다.
   onActivate:app=>{if(!app.isMobile&&app.chat.window.chatWindowOpen)app.chat.window.chatWindowOpen()},

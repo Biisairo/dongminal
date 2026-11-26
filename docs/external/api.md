@@ -258,7 +258,8 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | POST | `/api/chat/direct` | `{participant, purpose?}` → `{room}`. 개인채팅을 만든다. 상대는 자동으로 들어간다 |
 | POST | `/api/chat/join` | `{room}` → `{room}`. 단체채팅 방에 들어간다 |
 | POST | `/api/chat/leave` | `{room}` → `{ok}`. 방에서 나간다 |
-| POST | `/api/chat/send` | `{room, text}` → `{ok}`. 글을 쓴다 |
+| POST | `/api/chat/send` | `{room, text, call?}` → `{ok}`. 글을 쓴다. `call` 은 부를 상대(참가자 id · `user`)의 배열이다 |
+| POST | `/api/chat/notify` | `{room, level}` → `{ok}`. 이 방에서 내(사람 참가자) 알림 단계를 정한다. `level` 은 `all` · `called` · `off` 다 |
 | POST | `/api/chat/kill` | `{rooms[], code}` → `{ok}`. 방을 강제 삭제한다. `code` 는 OTP 6자리나 복구 코드다. 도우미가 묶음에 서명하면 망에 퍼진다(대상 1~64개) |
 | POST | `/api/chat/kick` | `{kicks[{room, participant}], code}` → `{ok}`. 참가자를 방에서 내보낸다. 다시 들어오는 것은 막지 않는다 |
 
@@ -283,6 +284,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | PUT | `/api/telegram/token` | `{token}` — Telegram `getMe` 로 확인한 뒤 저장하고 화면 값을 돌려줍니다. 모양이 틀리거나 Telegram 이 거절하면 400 `telegram_token_invalid`, Telegram 에 닿지 못하면 502 `telegram_unreachable` 입니다. token 을 저장하면 살아 있는 등록 코드를 버리고, token 이 바뀌면 허용 계정도 지웁니다 |
 | PUT | `/api/telegram/enabled` | `{enabled}` — 켜기·끄기. 꺼져 있으면 Telegram 에 아무 요청도 보내지 않습니다 |
 | PUT | `/api/telegram/silence` | `{minutes}` — PC 브라우저에서 그 탭에 입력한 뒤 알림을 소리 없이 보내는 시간(0~1440분). 범위 밖은 400 `telegram_config_invalid` |
+| PUT | `/api/telegram/topics` | `{topics}` — 채팅 토픽 켜기·끄기(ISSUE_TREE_CHAT_SRS). 켜려면 Telegram 이 켜져 있고 token 과 허용 계정이 있어야 합니다(아니면 409 `telegram_topics_need_bridge`). 켤 때 getMe 로 봇의 1:1 대화방 토픽 모드를 보고, 꺼져 있으면 409 `telegram_topics_mode_off` 입니다. 응답과 `GET /api/telegram` 은 켜져 있을 때만 `chatTopics: true` 를 싣습니다 |
 | POST | `/api/telegram/pair` | `{code, expires}` — 6자리 등록 코드(10분, 한 번). 코드는 이 응답에만 있습니다. 새 코드를 만들면 이전 코드는 버립니다. 틀린 코드가 5번 오면 코드를 버립니다. 봇에 `/pair <코드>` 를 보내면 보낸 계정이 허용 계정이 됩니다. token 이 없으면 409 `telegram_no_token` |
 | DELETE | `/api/telegram/pair` | 허용 계정을 지우고 살아 있는 등록 코드도 버립니다 |
 
@@ -318,7 +320,8 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | POST | `/api/runs` | Run 을 연다 (`otterctl run start`) |
 | DELETE | `/api/runs/<id>` | Run 기록을 지운다. close 와 달리 미보고 검사를 하지 않는다. 다른 쓰기 요청처럼 `Content-Type: application/json` 이 있어야 한다. 응답은 `{id, short, state, worktrees, residue}` 이고 `residue` 는 지우지 못한 worktree 수다 |
 | GET | `/api/runs/<id>/graph` | Run 하나의 팀 구조 — 누가 누구를 조정하는가 |
-| GET | `/api/runs/tree` | `?ref=<owner/repo#N>` 이슈 트리의 열린 Run 과 노드(역할 · 상태 · 부모 · 잎) |
+| GET | `/api/runs/tree` | `?ref=<owner/repo#N>` 또는 로컬 트리 `<별칭>:<ID>` 이슈 트리의 열린 Run 과 노드(역할 · 상태 · 부모 · 잎). 로컬 트리면 `storage:"local"` 과 원본 이슈 폴더 `issueDir` 를 싣는다 |
+| GET | `/api/runs/issues` | `?toolId=` 부르는 도구가 멤버이거나 조율하는 열린 Run 의 트리 · 보관 방식(`storage`: `local`·`github`) · 로컬이면 원본 이슈 폴더(`issueDir`). `otterctl issue` 가 폴더를 찾는다 |
 | POST | `/api/runs/members` | Run 에 팀원을 등록한다 |
 | GET | `/api/runs/preamble` | 그 팀원의 기동 프리앰블 |
 | GET | `/api/runs/team` | 같은 Run 의 다른 팀원들 |

@@ -309,3 +309,206 @@ fn run_succeed_lines_and_launch() {
     assert_eq!(graph_time(0), "-");
     assert_eq!(graph_time(1000).len(), 8);
 }
+
+/// ISSUE_TREE_CHAT_SRS FR-LIS-7·16: 로컬 트리는 `<별칭>:<ID>` 표지와 원본 이슈 폴더(절대 경로)로 연다.
+#[test]
+fn run_start_local_tree() {
+    let home = tmp();
+    let issues = home.path().join("perf").join("issues");
+    std::fs::create_dir_all(&issues).unwrap();
+    let srv = TestServer::fixed(
+        200,
+        r#"{"id":"r1","short":"r1s","state":"open","projection":"dedicated-window","isolation":"none"}"#,
+    );
+    let env = srv.env(home.path());
+    let dir = issues.to_string_lossy().into_owned();
+    let got = ctl(
+        &env,
+        &[
+            "run",
+            "start",
+            "--objective",
+            "o",
+            "--tree",
+            "perf:2",
+            "--issue-dir",
+            &dir,
+        ],
+    );
+    assert_eq!(got.0, 0, "{}", got.2);
+    let body = srv.requests()[0].json();
+    assert_eq!(body["tree"], "perf:2");
+    assert_eq!(body["issueDir"], dir.as_str());
+    for (args, want) in [
+        (
+            vec![
+                "run",
+                "start",
+                "--objective",
+                "o",
+                "--issue-dir",
+                dir.as_str(),
+            ],
+            "run start: --issue-dir 는 --tree 와 함께 쓴다\n",
+        ),
+        (
+            vec![
+                "run",
+                "start",
+                "--objective",
+                "o",
+                "--tree",
+                "o/r#1",
+                "--issue-dir",
+                dir.as_str(),
+            ],
+            "run start: 로컬 트리의 --tree 는 <별칭>:<ID> 꼴이다: o/r#1\n",
+        ),
+        (
+            vec!["run", "start", "--objective", "o", "--tree", "perf:2"],
+            "run start: 로컬 트리의 루트 Run 은 --issue-dir 가 필요하다(가지 Run 은 --branch 로 루트의 폴더를 잇는다): perf:2\n",
+        ),
+        (
+            vec![
+                "run",
+                "start",
+                "--objective",
+                "o",
+                "--tree",
+                "perf:2",
+                "--issue-dir",
+                "/no/such/dir",
+            ],
+            "run start: --issue-dir 폴더가 없다: /no/such/dir\n",
+        ),
+    ] {
+        let got = ctl(&env, &args);
+        assert_eq!((got.0, got.2.as_str()), (2, want), "{args:?}");
+    }
+}
+
+/// 격리 실측 발견 6: 로컬 트리의 가지 Run 은 --issue-dir 없이 연다 — 서버가 열린 루트의 원본 폴더를 잇는다(I-26).
+#[test]
+fn run_start_local_tree_branch_inherits_dir() {
+    let home = tmp();
+    let srv = TestServer::fixed(
+        200,
+        r#"{"id":"r2","short":"r2s","state":"open","projection":"dedicated-window","isolation":"none"}"#,
+    );
+    let env = srv.env(home.path());
+    let got = ctl(
+        &env,
+        &[
+            "run",
+            "start",
+            "--objective",
+            "o",
+            "--tree",
+            "perf:2",
+            "--branch",
+        ],
+    );
+    assert_eq!(got.0, 0, "{}", got.2);
+    let body = srv.requests()[0].json();
+    assert_eq!(body["tree"], "perf:2");
+    assert_eq!(body["treeBranch"], true);
+    assert!(body.get("issueDir").is_none(), "{body}");
+}
+
+/// ISSUE_TREE_CHAT_SRS FR-ITR-6: promptFile 이면 프리앰블을 홈의 파일로 쓰고, 기동줄의 첫 프롬프트는 그 파일을
+/// 읽으라는 한 줄이다.
+#[test]
+fn run_launch_prompt_file() {
+    let home = tmp();
+    let srv = TestServer::fixed(
+        200,
+        r#"{"runId":"r","memberId":"m-7","role":"dev","agent":"claude","tabId":"t","preamble":"긴 첫 지시\n","promptFile":true}"#,
+    );
+    let mut env = srv.env(home.path());
+    env.set(
+        otter_shared_otterenv::ENV_HOME,
+        home.path().to_str().unwrap(),
+    );
+    let got = ctl(&env, &["run", "launch", "--member", "m-7"]);
+    assert_eq!(got.0, 0, "{}", got.2);
+    let path = home.path().join("prompts").join("m-7.md");
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "긴 첫 지시\n");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+    }
+    assert!(got.1.contains(&*path.to_string_lossy()), "{}", got.1);
+    assert!(!got.1.contains("긴 첫 지시"), "{}", got.1);
+    assert_eq!(
+        ctl(&env, &["run", "launch", "--member", "m-7", "--text"]).1,
+        "긴 첫 지시\n",
+        "--text 는 프리앰블 그대로다"
+    );
+}
+
+/// ISSUE_TREE_CHAT_SRS FR-ITR-1: 트리 방 id 는 `--chat-room` 으로 넘기고 트리와 함께만 받는다.
+#[test]
+fn run_start_chat_room() {
+    let home = tmp();
+    let srv = TestServer::fixed(
+        200,
+        r#"{"id":"r1","short":"r1s","state":"open","projection":"dedicated-window","isolation":"none"}"#,
+    );
+    let env = srv.env(home.path());
+    let got = ctl(
+        &env,
+        &[
+            "run",
+            "start",
+            "--objective",
+            "o",
+            "--tree",
+            "o/r#1",
+            "--chat-room",
+            "room-1",
+        ],
+    );
+    assert_eq!(got.0, 0, "{}", got.2);
+    assert_eq!(srv.requests()[0].json()["chatRoom"], "room-1");
+    let got = ctl(
+        &env,
+        &["run", "start", "--objective", "o", "--chat-room", "room-1"],
+    );
+    assert_eq!(
+        (got.0, got.2.as_str()),
+        (2, "run start: --chat-room 는 --tree 와 함께 쓴다\n")
+    );
+}
+
+/// ISSUE_TREE_CHAT_SRS FR-LIS-1: 실행 방식은 `--mode tree|coord` 이고 트리와 함께만 받는다. tree 는 본문에 싣지 않는다.
+#[test]
+fn run_start_mode() {
+    let home = tmp();
+    let srv = TestServer::fixed(
+        200,
+        r#"{"id":"r1","short":"r1s","state":"open","projection":"dedicated-window","isolation":"none"}"#,
+    );
+    let env = srv.env(home.path());
+    let base = ["run", "start", "--objective", "o", "--tree", "o/r#1"];
+    let got = ctl(&env, &[&base[..], &["--mode", "coord"]].concat());
+    assert_eq!(got.0, 0, "{}", got.2);
+    assert_eq!(srv.requests()[0].json()["mode"], "coord");
+    let got = ctl(&env, &[&base[..], &["--mode", "tree"]].concat());
+    assert_eq!(got.0, 0, "{}", got.2);
+    assert!(srv.requests()[1].json().get("mode").is_none());
+    for (args, want) in [
+        (
+            vec!["run", "start", "--objective", "o", "--mode", "coord"],
+            "run start: --mode 는 --tree 와 함께 쓴다\n",
+        ),
+        (
+            [&base[..], &["--mode", "x"]].concat(),
+            "run start: --mode 는 tree 또는 coord 다: x\n",
+        ),
+    ] {
+        let got = ctl(&env, &args);
+        assert_eq!((got.0, got.2.as_str()), (2, want), "{args:?}");
+    }
+}

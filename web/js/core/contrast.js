@@ -309,6 +309,18 @@ function deriveAccountColors(mode){
 
 const SYNTAX_KEYS=['red','green','yellow','blue','magenta','cyan'];
 
+/**
+ * ISSUE_TREE_CHAT_SRS FR-CUX-10: 채팅 보낸 이의 색. 나(사람)는 구문 색 가운데 배경과 대비가 가장 큰 색이고, 에이전트는
+ * 나머지 다섯에서 참가자 id 로 고른다(`chat-log.js` `chatColorVar`). 테마를 바꾸면 applyThemeObj 가 다시 세운다.
+ */
+function deriveChatColors(syntax,bg){
+  const c=SYNTAX_KEYS.map(k=>syntax&&syntax[k]).filter(Boolean);
+  if(c.length<SYNTAX_KEYS.length) return {};
+  const me=c.reduce((b,x,i)=>contrastRatio(x,bg)>contrastRatio(c[b],bg)?i:b,0);
+  const a=c.filter((_,i)=>i!==me);
+  return {'--chat-me':c[me],'--chat-a0':a[0],'--chat-a1':a[1],'--chat-a2':a[2],'--chat-a3':a[3],'--chat-a4':a[4]};
+}
+
 function deriveContrastTokens(ui,mode,attn,term){
   const bgs=referenceBackgrounds(ui);
   const anchor=pickContrastAnchor(ui,mode);

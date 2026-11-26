@@ -37,6 +37,7 @@ struct WsGroups {
 #[serde(default)]
 struct WsGroup {
     id: String,
+    name: String,
     tree: Option<WsGroupTree>,
 }
 
@@ -72,7 +73,7 @@ impl Server {
         let conf = self.migration_conf();
         let mut tc = TreeContext {
             parent_tool_id: self.tree_parent_tool(rec, m),
-            group_id: self.tree_group_id(&rec.tree),
+            group_id: self.tree_group_id(rec),
             doc_path: issue_tree_doc_path(&self.cfg.data_dir.to_string_lossy()),
             ctx_pct: conf.tree_pct,
         };
@@ -120,16 +121,35 @@ impl Server {
         String::new()
     }
 
-    /// Go `treeGroupID`: 트리 표지(`repo#root`)에 맞는 창 그룹.
-    fn tree_group_id(&self, tree: &str) -> String {
+    /// Go `treeGroupID`: 트리 표지(`repo#root`)에 맞는 창 그룹. 로컬 트리(FR-LIS-16)의 그룹은 표지가 없으므로
+    /// 이름이 `<별칭>:<ID>` 이거나 그 뒤에 빈칸과 제목이 붙은 그룹이다.
+    fn tree_group_id(&self, rec: &Record) -> String {
+        let tree = rec.tree.as_str();
         let Some(work) = self.work() else {
             return String::new();
         };
+        let (blob, _) = work.snapshot();
+        if !rec.issue_dir.is_empty() {
+            let Ok(ws) = json::unmarshal::<WsGroups>(&blob) else {
+                return String::new();
+            };
+            return ws
+                .window_groups
+                .unwrap_or_default()
+                .into_iter()
+                .find(|g| {
+                    g.tree.is_none()
+                        && g.name
+                            .strip_prefix(tree)
+                            .is_some_and(|r| r.is_empty() || r.starts_with(' '))
+                })
+                .map(|g| g.id)
+                .unwrap_or_default();
+        }
         let Some(i) = tree.rfind('#').filter(|_| !tree.is_empty()) else {
             return String::new();
         };
         let (repo, root) = (&tree[..i], &tree[i + 1..]);
-        let (blob, _) = work.snapshot();
         let Ok(ws) = json::unmarshal::<WsGroups>(&blob) else {
             return String::new();
         };

@@ -85,6 +85,9 @@ pub(crate) struct MsgBody {
     pub text: String,
     #[serde(with = "otter_gocompat::time::json_time")]
     pub at: OffsetDateTime,
+    /// 지정 (ISSUE_TREE_CHAT_SRS FR-CAL-1). 비면 원문에 싣지 않는다 — 옛 노드의 글과 원문이 같다.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub call: Vec<String>,
 }
 
 impl Default for MsgBody {
@@ -98,6 +101,7 @@ impl Default for MsgBody {
             from: String::new(),
             text: String::new(),
             at: otter_gocompat::time::zero_time(),
+            call: Vec::new(),
         }
     }
 }

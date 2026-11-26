@@ -77,6 +77,14 @@ stdio 로 MCP 를 말하고 데몬의 채팅 소켓에 붙는다. 세션 id 는 
 CLAUDE_CODE_SESSION_ID 다. 사람이 직접 실행하는 명령이 아니다.
 "#;
 
+/// ISSUE_TREE_CHAT_SRS FR-CAL-9
+pub(crate) const OTTERCTL_CHAT_WAIT_HELP: &str = r#"otterctl chat-wait — 노드 망 채팅 깨움 훅 (claude shim 이 Stop 훅으로 주입한다)
+
+stdin 의 훅 JSON 에서 session_id 를 읽고 데몬의 채팅 소켓에서 그 세션을 깨울 글을 기다린다.
+깨울 글이 오면 개수만 stderr 에 쓰고 2 로 끝난다(asyncRewake 가 에이전트를 깨운다).
+세션의 MCP 연결이 없거나 끊기면 0 으로 끝난다. 사람이 직접 실행하는 명령이 아니다.
+"#;
+
 /// `otterctlCtxHookHelp` (otterctl_ctxhook.go)
 pub(crate) const OTTERCTL_CTX_HOOK_HELP: &str = r#"otterctl ctx-hook <agent> — 맥락 기준 migration 제안 (에이전트 훅에서 호출)
 
@@ -147,6 +155,7 @@ pub(crate) const OTTERCTL_HELP: &str = r#"otterctl — otterminal 워크스페�
   otterctl agent-context               # 세션 상시 주입 컨텍스트 (에이전트 hook 에서 호출)
   otterctl ctx-hook <agent>            # 맥락 기준 migration 제안 (에이전트 hook 에서 호출)
   otterctl chat-mcp                    # 노드 망 채팅 MCP 서버 (claude shim 이 주입)
+  otterctl chat-wait                   # 노드 망 채팅 깨움 훅 (claude shim 이 주입)
   otterctl send <action> [json-args]   # raw 전송
 
 에이전트 접합면 — 다른 도구의 화면을 읽고 입력을 넣는다:
@@ -531,4 +540,25 @@ pub(crate) const OPEN_URL_HELP: &str = r#"open-url — URL 을 보고 있는 기
 워크스페이스를 원격 기기에서 보고 있으면 그 기기에 확인 팝업이 뜨고, 확인하면
 그쪽 브라우저에서 열린다. 서버와 같은 컴퓨터에서 보고 있으면 바로 열린다.
 OTTERMINAL_URL_OPEN=local|viewer 로 그 판정을 강제할 수 있다.
+"#;
+
+/// `otterctl issue --help` (ISSUE_TREE_CHAT_SRS FR-LIS-6).
+pub(crate) const OTTERCTL_ISSUE_HELP: &str = r#"otterctl issue — 로컬 이슈 폴더 (파일 하나가 이슈 하나)
+
+사용법:
+  otterctl issue init <폴더>                              # 폴더와 README.md(형식·상태 흐름)를 만든다
+  otterctl issue resolve <폴더>#<ID>                      # 로컬(local 폴더 ID 트리이름)인지 GitHub 인지 판정한다
+  otterctl issue tree [상태…] --dir <폴더>                # 트리를 찍는다(시작할 수 있는 todo 는 ready 로 보인다)
+  otterctl issue show <ID> --dir <폴더>                   # 이슈 하나
+  otterctl issue new <ID> <제목> [--deps a,b] --dir <폴더> # 하위 이슈 파일을 만든다(부모가 있어야 한다)
+  otterctl issue set <ID> [--status s] [--owner o] [--branch b] [--reason r] --dir <폴더>
+                                                          # blocked 는 --reason 이 있어야 한다
+  otterctl issue log <ID> ["<글>"] --dir <폴더>           # 글(없으면 stdin)을 진행 기록에 덧붙인다
+
+--dir 을 빼면 부르는 탭의 Run 이 기록한 원본 폴더를 쓴다. 로컬 트리는
+  otterctl run start --objective <목적> --tree <별칭>:<ID> --issue-dir <폴더> [--branch] [--mode tree|coord]
+로 연다(가지 Run 은 루트의 폴더를 잇는다). --mode coord 는 조정자가 일꾼을 띄우는 실행 방식이다(기본 tree).
+
+상태 흐름: todo → ready → in-progress → review → done, →blocked(이유), blocked → ready|in-progress, in-progress → split
+종료 코드: 0 성공 · 1 거절(형식·전이·없는 이슈) · 2 사용법
 "#;

@@ -600,6 +600,8 @@ I18N.register('en', {
   'err.telegram_token_invalid': 'The bot token is wrong or Telegram refused it.',
   'err.telegram_unreachable': 'Could not reach Telegram. Nothing was saved.',
   'err.telegram_config_invalid': 'Quiet time must be 0–1440 minutes.',
+  'err.telegram_topics_mode_off': 'Turn on the bot topic mode in BotFather, then try again.',
+  'err.telegram_topics_need_bridge': 'Turn on Telegram and register a token and account first.',
   'err.telegram_no_token': 'Save a bot token first.',
 
   // ── poll ──
@@ -740,6 +742,7 @@ I18N.register('en', {
   'edge.invited_notice': '{name} wants to make an edge. Accept or reject it in Settings ▸ Edges.',
   'edge.removed_notice': 'The edge with {name} was removed',
   'chat.title': 'Chats',
+  'chat.attn_head': 'Chat — new message for you',
   'chat.window_empty': 'Pick a room from the chat list',
   'chat.empty': 'Chat state has not loaded yet.',
   'chat.direct': 'Direct chat',
@@ -748,6 +751,7 @@ I18N.register('en', {
   'chat.online': 'Online',
   'chat.no_rooms': 'No open rooms.',
   'chat.me': 'me',
+  'chat.name_remote': '{node} › {tab}',
   'chat.human': 'person',
   'chat.members': 'Members {n}',
   'chat.direct_open': 'Open direct chat',

@@ -75,6 +75,7 @@ Otterminal 서버는 기동 시 `$OTTERMINAL_HOME/bin/` 에 헬퍼를 설치하�
 | `otterctl agent-context` | 세션에 상시 주입할 **컨텍스트**를 냅니다 (이 도구가 어느 워크스페이스의 무엇인지) |
 | `otterctl ctx-hook <agent>` | 설정 `migrationHook`(기본 끔)이 켜져 있고 맥락 사용률이 기준(`migrationHookCtxPct`, 기본 50)의 80% 이상이면 다음 일의 크기를 보고 `/otterminal:migration` 시점을 정하라고 알리고, 85% 이상이면 지금 넘기라고 알립니다. 데몬 모드에서는 노드 망 채팅의 읽지 않은 글 수도 함께 알립니다. 에이전트 훅(PostToolUse·UserPromptSubmit)이 부릅니다 |
 | `otterctl chat-mcp` | 노드 망 채팅의 MCP 서버입니다. 데몬 모드에서 otterminal 탭의 `claude` 를 띄우면 shim 이 주입합니다. 사람이 직접 실행하는 명령이 아닙니다 |
+| `otterctl chat-wait` | 노드 망 채팅의 깨움 훅입니다. shim 이 `Stop` 훅(`asyncRewake`)으로 주입합니다. 쉬는 에이전트에게 깨울 글이 오면 읽지 않은 글 수만 알리고 에이전트를 깨웁니다. 사람이 직접 실행하는 명령이 아닙니다 |
 
 #### 파일·URL 열기
 
@@ -92,6 +93,7 @@ Otterminal 서버는 기동 시 `$OTTERMINAL_HOME/bin/` 에 헬퍼를 설치하�
 | `otterctl run launch --member <uuid> [--model <m>]` | 그 팀원의 **기동줄**(프리앰블 포함)을 낸다 |
 | `otterctl run report --outcome succeeded\|failed --summary <3문장>` | 자기 몫의 결과를 보고한다 |
 | `otterctl run status [--run <uuid>] [--json]` · `otterctl run list` | 조회. `--json` 이면 열린 Run 에 생존(`liveness`)이 실린다 — `open`(살아 있다)·`gone`(데몬이 답했는데 도구가 없다)·`unknown`(데몬이 답하지 못해 모른다) |
+| `otterctl issue init <폴더>` · `otterctl issue tree [상태…] --dir <폴더>` · `show`·`new`·`set`·`log` | 로컬 이슈 폴더(파일 하나가 이슈 하나)를 만들고 고친다. 상태 전이를 검사하고 잠금·원자적 쓰기로 고친다. 상세는 `otterctl issue --help` |
 | `otterctl run close --run <uuid> [--force] [--keep-worktrees] [--keep-tools]` | Run 을 닫고 탭과 worktree 를 정리한다. 서버는 otterctl 의 연결과 무관하게 정리를 끝까지 한다. otterctl 은 5분 20초까지 기다리고, 넘기면 `otterctl run status --run <id>` 로 결과를 보라고 알린다. worktree 의 경로와 브랜치가 모두 없으면 정리된 것으로 본다 |
 | `otterctl run delete --run <uuid>` | 레코드를 지운다 — close 와 달리 미보고 검사 없이 (웹 UI 의 삭제와 같다). 잔여물은 보고한다 |
 | `otterctl run coordinate --to <toolId>` | 이 세션이 조율하는 열린 Run 을 그 도구로 넘긴다(조율 migration). 넘긴 Run 이 없으면 `(조율하는 열린 Run 없음)` 을 낸다 |

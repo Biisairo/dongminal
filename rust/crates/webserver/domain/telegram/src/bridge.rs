@@ -20,7 +20,17 @@ use crate::client::{CallbackQuery, Client, Error, Message, POLL_TIMEOUT, Update,
 use crate::config::{Config, Store};
 use crate::pair::{NowFn, Pairing};
 use crate::render::{AlarmKind, Body, READ_PREFIX, fit_alarm, plain_text, read_keyboard};
+use crate::topics::{TopicMap, topics_path};
 use crate::transcript::last_reply;
+
+#[cfg(test)]
+mod chatrig;
+mod inbox;
+mod mirror;
+mod post;
+
+pub use mirror::{ChatPerson, ChatRoom, ChatView, display_name};
+pub use post::ChatPost;
 
 /// hook 보고 하나 (FR-TGB-80·81). 서버가 활동 보고에서 옮겨 넣는다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -53,6 +63,19 @@ pub trait Host: Send + Sync {
     fn attend(&self, tool_id: &str, typed: bool);
     /// 짝맞춤으로 허용 계정이 바뀌었다.
     fn paired(&self) {}
+    /// 사람 참가자가 보는 채팅 (ISSUE_TREE_CHAT_SRS FR-TGT-3). 읽지 못하면 None 이다. 막힐 수 있어 작업자는
+    /// 블로킹 스레드에서 부른다. 아래 채팅 연산도 같다.
+    fn chat_view(&self) -> Option<ChatView> {
+        None
+    }
+    /// 사람 참가자가 방에 들어가거나(join) 나간다 (FR-TGT-6).
+    fn chat_join(&self, _room: &str, _join: bool) -> Result<(), String> {
+        Err(CHAT_UNSUPPORTED.to_owned())
+    }
+    /// 사람 참가자로 방에 글을 보낸다 (FR-TGT-9).
+    fn chat_send(&self, _room: &str, _text: &str, _call: &[String]) -> Result<(), String> {
+        Err(CHAT_UNSUPPORTED.to_owned())
+    }
 }
 
 pub(crate) const QUEUE_SIZE: usize = 256;
@@ -72,6 +95,9 @@ const PARSE_ERROR_TEXT: &str = "can't parse entities";
 /// 사용자에게 선택지를 묻는 도구.
 pub(crate) const ASK_TOOL: &str = "AskUserQuestion";
 const HTTP_TOO_MANY: i64 = 429;
+/// 채팅을 모르는 Host 의 답.
+const CHAT_UNSUPPORTED: &str = "chat unsupported";
+pub(crate) const UNSUPPORTED_BUTTON: &str = "지원하지 않는 버튼입니다.";
 const HTTP_BAD_REQUEST: i64 = 400;
 
 /// 알림 재전송 전의 기다림. 시험은 자지 않는 것으로 바꾼다.
@@ -91,6 +117,10 @@ pub(crate) enum Item {
     Gone(String),
     /// 탭과 무관한 글 (FR-CAC-100a).
     Notice(String),
+    /// 채팅 상태가 바뀌었다 — 거울 토픽을 맞춘다 (ISSUE_TREE_CHAT_SRS FR-TGT-3).
+    ChatSync,
+    /// 토픽에 올릴 채팅 글 (FR-TGT-7).
+    ChatPost(ChatPost),
 }
 
 /// 탭 하나의 직전 hook (FR-TGB-51·55). 알람이 울릴 때 종류와 내용을 정한다.
@@ -188,6 +218,8 @@ pub(crate) struct State {
     pub(crate) tabs: HashMap<String, TabState>,
     /// 탭마다 `[읽음]` 이 남은 알림의 메시지 id (FR-TGB-58b).
     pub(crate) buttons: HashMap<String, Vec<i64>>,
+    /// 토픽에 올린 글의 보낸 이 (ISSUE_TREE_CHAT_SRS FR-TGT-9).
+    pub(crate) senders: inbox::Senders,
 }
 
 /// Telegram 알림.
@@ -201,6 +233,12 @@ pub struct Bridge {
     pub(crate) rx: Mutex<Option<mpsc::Receiver<Item>>>,
     pub(crate) sleep: Mutex<SleepFn>,
     pub(crate) state: Mutex<State>,
+    /// 방과 토픽의 짝 (FR-TGT-4).
+    topics: TopicMap,
+    /// 큐에 처리하지 않은 ChatSync 가 있다.
+    sync_queued: AtomicBool,
+    /// 마지막 맞추기에서 읽은 채팅 (FR-TGT-7·8).
+    view: Mutex<Option<ChatView>>,
 }
 
 #[derive(Deserialize, Default)]
@@ -213,6 +251,7 @@ impl Bridge {
     /// 브리지를 만든다. base 가 비면 Bot API 주소다.
     pub fn new(st: Arc<Store>, host: Arc<dyn Host>, base: &str, now: NowFn) -> Arc<Bridge> {
         let (tx, rx) = mpsc::channel(QUEUE_SIZE);
+        let st_path = st.path();
         let sleep: SleepFn = Arc::new(|d| Box::pin(tokio::time::sleep(d)));
         Arc::new(Bridge {
             st,
@@ -224,6 +263,9 @@ impl Bridge {
             rx: Mutex::new(Some(rx)),
             sleep: Mutex::new(sleep),
             state: Mutex::new(State::default()),
+            topics: TopicMap::open(&topics_path(&st_path)),
+            sync_queued: AtomicBool::new(false),
+            view: Mutex::new(None),
         })
     }
 
@@ -299,6 +341,9 @@ impl Bridge {
             self.lock().tabs.remove(t);
             return;
         }
+        if let Item::ChatSync = it {
+            self.sync_queued.store(false, Ordering::Release);
+        }
         let Some(c) = self.active() else {
             return;
         };
@@ -315,6 +360,8 @@ impl Bridge {
                 }
             }
             Item::Attention { tool, reason } => self.alarm(&c, &tool, &reason).await,
+            Item::ChatSync => self.sync_topics(&c).await,
+            Item::ChatPost(p) => self.post_chat(&c, p).await,
             Item::Gone(_) => {}
         }
     }
@@ -439,6 +486,9 @@ impl Bridge {
             );
             return;
         }
+        if self.topic_message(&c, &m).await {
+            return;
+        }
         self.reply(&c, &m, "이 봇은 알림만 보냅니다.").await;
     }
 
@@ -452,10 +502,13 @@ impl Bridge {
             );
             return;
         }
+        if self.room_button(c, &q).await {
+            return;
+        }
         let tool = match q.data.strip_prefix(READ_PREFIX) {
             Some(t) if !t.is_empty() => t.to_owned(),
             _ => {
-                self.answer(c, &q.id, "지원하지 않는 버튼입니다.").await;
+                self.answer(c, &q.id, UNSUPPORTED_BUTTON).await;
                 return;
             }
         };
@@ -529,6 +582,8 @@ impl Bridge {
     async fn send_alarm(&self, c: &Config, mut p: Map<String, Value>) -> Result<Sent, Error> {
         let err = match self.send_once(c, &p).await {
             Ok(s) => return Ok(s),
+            // 토픽이 없어졌다 — 같은 것을 다시 보내도 같다. 부른 쪽이 토픽을 다시 만든다 (FR-TGT-11).
+            Err(e) if mirror::topic_missing(&e) => return Err(e),
             Err(e) => e,
         };
         let sleep = Arc::clone(&self.sleep.lock().unwrap_or_else(|x| x.into_inner()));

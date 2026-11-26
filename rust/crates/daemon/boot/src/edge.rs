@@ -1,4 +1,3 @@
-use std::io;
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
@@ -8,15 +7,12 @@ use otter_daemon_chatsock as chatsock;
 use otter_daemon_ipc::{ChatUser, PanedServer};
 use otter_gocompat::json::RawMessage;
 use otter_gocompat::oserr::go_error_string;
-use otter_shared_activity as activity;
 use otter_shared_chatwire as chatwire;
 use otter_shared_edge::{Acceptor, Config, Listener};
 use otter_shared_edgenode::{self as edgenode, Change, Node};
 use otter_shared_edgerelay as edgerelay;
 use otter_shared_humancmd as humancmd;
 use otter_shared_otterlog::errorf;
-use otter_shared_toolhub::{ActivityState, ToolManager};
-use tokio::runtime::Handle;
 use tokio::time::{Instant, MissedTickBehavior};
 use tokio_util::sync::CancellationToken;
 
@@ -30,7 +26,7 @@ type Closer = Box<dyn FnOnce() + Send>;
 /// 못해도 데몬은 뜬다 — edge 는 503 으로 답한다. 노드가 서면 간선 계층을 유지하고
 /// (EDGE_MESH_SRS FR-EGM-1) 그 위에 채팅을 세운다. 돌려준 함수가 채팅·간선 연결·노드 소켓을
 /// 닫는다. tokio 런타임 안에서 부른다.
-pub fn start_edge(home: &Path, ps: &PanedServer, pm: &Arc<ToolManager>) -> Closer {
+pub fn start_edge(home: &Path, ps: &PanedServer) -> Closer {
     let hostname = otter_shared_platform::hostname().unwrap_or_default();
     let ln: Arc<OnceLock<Listener>> = Arc::new(OnceLock::new());
     let on_config = {
@@ -60,7 +56,7 @@ pub fn start_edge(home: &Path, ps: &PanedServer, pm: &Arc<ToolManager>) -> Close
             return Box::new(|| {});
         }
     };
-    let stop_chat = start_chat(home, &n, Arc::new(ChatTools::new(pm)), ps);
+    let stop_chat = start_chat(home, &n, ps);
     let cancel = CancellationToken::new();
     {
         let n = Arc::clone(&n);
@@ -101,12 +97,7 @@ impl ChatUser for ChatUserOf {
 /// 채팅을 간선 계층의 위층으로 세운다 (EDGE_MESH_SRS FR-EGM-40). 채팅 소켓을 열어 MCP 연결을
 /// 참가자로 받는다 (PEER_CHAT_SRS §3.10). 소켓을 열지 못하면 MCP 를 주입하지 않을 뿐 채팅은 그대로
 /// 선다. 사람 참가자를 세워 서버에 잇는다 (§3.11).
-fn start_chat(
-    home: &Path,
-    n: &Arc<Node>,
-    tools: Arc<dyn chatsock::Tools>,
-    ps: &PanedServer,
-) -> Closer {
+fn start_chat(home: &Path, n: &Arc<Node>, ps: &PanedServer) -> Closer {
     let sock: Arc<OnceLock<Arc<chatsock::Server>>> = Arc::new(OnceLock::new());
     let mut o = chat::Options::new(n.identity().clone());
     o.mesh = n.mesh().cloned();
@@ -141,7 +132,6 @@ fn start_chat(
         timeout: Duration::ZERO,
     };
     let mut co = chatsock::Options::new(Arc::clone(&s));
-    co.tools = Some(tools);
     {
         let n = Arc::clone(n);
         co.name = Some(Arc::new(move || n.config().name));
@@ -214,40 +204,4 @@ impl HelperWatch {
         self.fails += 1;
         (self.fails >= HELPER_DROP).then(String::new)
     }
-}
-
-/// 채팅 소켓이 쓰는 도구 계층이다.
-pub(crate) struct ChatTools {
-    pm: Arc<ToolManager>,
-    rt: Handle,
-}
-
-impl ChatTools {
-    /// tokio 런타임 안에서 만든다(붙여넣기가 async 다).
-    pub(crate) fn new(pm: &Arc<ToolManager>) -> Self {
-        Self {
-            pm: Arc::clone(pm),
-            rt: Handle::current(),
-        }
-    }
-}
-
-impl chatsock::Tools for ChatTools {
-    fn resting(&self, tool_id: &str) -> bool {
-        self.pm
-            .get(tool_id)
-            .is_some_and(|p| resting(p.activity().as_ref()))
-    }
-
-    /// 채팅 소켓의 스레드(런타임 밖)에서 불린다.
-    fn paste(&self, tool_id: &str, text: &str) -> Result<(), chatsock::BoxError> {
-        self.rt
-            .block_on(self.pm.send_paste(tool_id, text.as_bytes(), true))
-            .map_err(|e| io::Error::other(go_error_string(&e)).into())
-    }
-}
-
-/// 쉬는 중(idle·done)인가다. 보고가 없으면 쉬는 중이 아니다 (FR-PCH-61).
-pub(crate) fn resting(a: Option<&ActivityState>) -> bool {
-    a.is_some_and(|a| a.state == activity::IDLE || a.state == activity::DONE)
 }

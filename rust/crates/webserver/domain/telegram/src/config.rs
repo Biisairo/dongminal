@@ -20,6 +20,8 @@ const FILE_MODE: u32 = 0o600;
 pub enum StoreError {
     InvalidSilence,
     SaveFailed,
+    /// 채팅 토픽은 켜기·token·허용 계정이 있어야 켠다 (ISSUE_TREE_CHAT_SRS FR-TGT-1).
+    TopicsNeedBridge,
 }
 
 impl fmt::Display for StoreError {
@@ -27,6 +29,9 @@ impl fmt::Display for StoreError {
         f.write_str(match self {
             StoreError::InvalidSilence => "무음 시간은 0~1440분입니다",
             StoreError::SaveFailed => "Telegram 설정을 저장하지 못했습니다",
+            StoreError::TopicsNeedBridge => {
+                "채팅 토픽은 Telegram 이 켜져 있고 token 과 허용 계정이 있을 때만 켭니다"
+            }
         })
     }
 }
@@ -46,6 +51,17 @@ pub struct Config {
     pub user_id: i64,
     #[serde(rename = "silenceMin")]
     pub silence_min: i64,
+    /// 채팅 토픽 (ISSUE_TREE_CHAT_SRS FR-TGT-1). 꺼져 있으면 싣지 않는다 — 옛 파일 형식 그대로다. 1판의 `topics`
+    /// 객체와 이름이 겹치지 않게 한다.
+    #[serde(rename = "chatTopics", skip_serializing_if = "json::is_empty")]
+    pub chat_topics: bool,
+}
+
+impl Config {
+    /// 채팅 토픽이 실제로 도는가. 켜기·token·허용 계정 가운데 하나라도 빠지면 없는 것과 같다 (NFR-ITH-4).
+    pub fn topics_active(&self) -> bool {
+        self.chat_topics && self.enabled && !self.token.is_empty() && self.user_id != 0
+    }
 }
 
 impl Default for Config {
@@ -56,6 +72,7 @@ impl Default for Config {
             bot_name: String::new(),
             user_id: 0,
             silence_min: DEFAULT_SILENCE_MIN,
+            chat_topics: false,
         }
     }
 }
@@ -71,6 +88,8 @@ pub struct View {
     pub paired: bool,
     #[serde(rename = "silenceMin")]
     pub silence_min: i64,
+    #[serde(rename = "chatTopics", skip_serializing_if = "json::is_empty")]
+    pub chat_topics: bool,
 }
 
 struct Inner {
@@ -116,6 +135,11 @@ impl Store {
         self.inner.lock().unwrap_or_else(|p| p.into_inner())
     }
 
+    /// 설정 파일의 경로.
+    pub(crate) fn path(&self) -> PathBuf {
+        self.lock().path.clone()
+    }
+
     /// 지금 값의 사본.
     pub fn config(&self) -> Config {
         self.lock().cfg.clone()
@@ -129,6 +153,7 @@ impl Store {
             bot_name: g.cfg.bot_name.clone(),
             paired: g.cfg.user_id != 0,
             silence_min: g.cfg.silence_min,
+            chat_topics: g.cfg.chat_topics,
         }
     }
 
@@ -169,6 +194,15 @@ impl Store {
             return Err(StoreError::InvalidSilence);
         }
         self.update(|c| c.silence_min = min)
+    }
+
+    /// 채팅 토픽을 켜고 끈다. 켜기는 켜기·token·허용 계정이 있어야 한다 (FR-TGT-1).
+    pub fn set_chat_topics(&self, on: bool) -> Result<(), StoreError> {
+        let c = self.config();
+        if on && !(c.enabled && !c.token.is_empty() && c.user_id != 0) {
+            return Err(StoreError::TopicsNeedBridge);
+        }
+        self.update(|c| c.chat_topics = on)
     }
 
     /// 허용 계정을 바꾼다. 0 이면 해제다.

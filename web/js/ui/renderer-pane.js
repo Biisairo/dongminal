@@ -240,7 +240,8 @@ Object.assign(Renderer.prototype, {
       // FR-ATV-1·3: 보고 있는 탭도 알람을 그린다. 활성 배경은 활성 색에 머물고
       // 밑줄만 맥박하므로(`.pn-tab.active.attn`) 알람이 활성 표시를 빼앗지 않는다.
       const active=tab.id===shown;
-      const attn=app.attn.attnHas(tab.toolId);
+      // ISSUE_TREE_CHAT_SRS FR-CAL-15: 채팅 방 탭은 그 방의 알람을 그린다.
+      const attn=tab.type===TAB_TYPE_CHAT?!!app.chat.chatRoomAlarmed?.(tab.roomId):app.attn.attnHas(tab.toolId);
       // FR-RTU-41: 미리보기 탭은 기울임이다 — "이 자리는 곧 대체된다".
       // CLAUDE_ACCOUNTS_SRS FR-CAC-95: 적용되는 계정의 배경 틴트. 활성·알람 표식은 그 위에 그대로 선다.
       const tint=app.claude.maps.claudeTabTint?app.claude.maps.claudeTabTint(tab):null;

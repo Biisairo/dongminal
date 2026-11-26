@@ -76,6 +76,7 @@ mod runs_headless;
 mod runs_marks;
 mod runs_recover;
 mod runs_tree;
+mod runs_tree_room;
 mod runs_worktree;
 mod sandbox_api;
 mod screen_config;
@@ -244,6 +245,8 @@ pub struct Server {
     pub(crate) full_topics: full_topics::FullTopics,
     /// `PUT /api/sandbox/config` 의 지문 검사와 저장을 한 덩이로 묶는다 (FR-LIV-2).
     pub(crate) sandbox_put: tokio::sync::Mutex<()>,
+    /// 트리 방 규칙 맞추기를 한 줄로 세운다 — 늦게 끝난 맞추기가 언제나 지금 기록을 싣는다 (ISSUE_TREE_CHAT_SRS FR-ITR-3).
+    pub(crate) tree_rooms: std::sync::Mutex<()>,
     me: Weak<Server>,
     pub(crate) started: Instant,
     /// workspace.json 최상위의 두 목록(git.pinned[]·editors.list[])이다 (EDITOR_TAB_SRS
@@ -379,6 +382,7 @@ impl Server {
             state_topics: state_topics::StateTopics::default(),
             full_topics: full_topics::FullTopics::default(),
             sandbox_put: tokio::sync::Mutex::new(()),
+            tree_rooms: std::sync::Mutex::new(()),
             me,
             started: Instant::now(),
             entries,

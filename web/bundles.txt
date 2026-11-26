@@ -404,16 +404,24 @@ js/ui/run-recover.js
 style-run-view.css
 
 [chat]
-# 채팅 탭의 뷰 (PERF 3.4.9, D-30). `ChatController.views` 가 묶음이 실린 뒤에 세운다. CSS 는 부팅의
-# style-activity.css 에 남는다 — 목록 행과 선택자를 나누고, 크기가 작다.
+# 채팅 탭의 뷰 (PERF 3.4.9, D-30). `ChatController.views` 가 묶음이 실린 뒤에 세운다. 채팅 탭의 CSS 는 style-chat.css 이고
+# (ISSUE_TREE_CHAT_SRS §3.2), 채팅 목록 행의 CSS 는 부팅의 style-activity.css 에 남는다.
 # 망 그림 계산 (EDGE_MESH_SRS FR-EGM-50~56) — 채팅 뷰의 `meshDirectPeer` 와 설정 ▸ Edges 의 그림이 함께 쓴다. 그래서
 # `settings` 는 이 묶음을 needs 로 싣는다 (PERF 3.4.12.10, D-47 — D-41 의 부팅 잔류를 개정).
 js/core/edges-mesh.js
+js/core/constants-chat.js
+# 채팅 글의 마크다운 (ISSUE_TREE_CHAT_SRS FR-CUX-8). needs 로 mdlib·hljs 가 먼저 실린다.
+js/core/chat-md.js
+# 대화 그리기의 순수 판정 — 보낸 이 묶음·날짜 구분선·부른 글 표시 (ISSUE_TREE_CHAT_SRS FR-CUX-1~7).
+js/core/chat-log.js
+# 입력칸의 @ 자동완성과 답장 (ISSUE_TREE_CHAT_SRS FR-CUX-13).
+js/core/chat-mention.js
 js/core/chat-views.js
 # 사람 명령(`ChatController.human`)과 채팅 창 열기·방 탭의 본체(`ChatWindow` 원형 증강). 채팅 목록을 처음 그리거나
 # 채팅 창을 처음 열 때 실린다 (PERF 3.4.12.10).
 js/core/chat-human.js
 js/core/chat-window-open.js
+style-chat.css
 
 [settings]
 # 설정 창 본체 (PERF D-41, 3.4.9.2). 설정을 처음 열 때 `SettingsController.ready` 가 싣는다.
@@ -481,8 +489,7 @@ js/ui/file-tree-download.js
 
 [docrender]
 # 문서 렌더 뷰 (DOC_RENDER_VIEW_SRS, PERF 3.4.8). 렌더 탭을 처음 그릴 때 싣는다 — 렌더러의 자리표시가 기다린다.
-# markdown-it·DOMPurify 는 needs 로 mdlib 가 먼저 싣는다(PERF 3.4.12.2, D-43).
-vendor/highlight.js
+# markdown-it·DOMPurify 는 needs 로 mdlib 가, highlight.js 는 hljs 가 먼저 싣는다(PERF 3.4.12.2, D-43).
 js/core/constants-docrender.js
 js/ui/doc-render-util.js
 js/ui/doc-render.js
@@ -500,6 +507,10 @@ js/ui/diag.js
 # provideLinks(bare-link.js), loadCodeMirror(cm-load.js, CM 과 나란히), docrender 의 needs.
 vendor/markdown-it.js
 vendor/purify.js
+
+[hljs]
+# highlight.js 라이브러리 묶음 (ISSUE_TREE_CHAT_SRS FR-CUX-8·15). 문서 렌더와 채팅이 needs 로 먼저 싣는다.
+vendor/highlight.js
 
 [search]
 # 터미널 찾기 (PERF 3.4.12.4, D-43). 찾기 줄을 처음 열 때(Ctrl+F·메뉴 찾기) `ToolSearch.toggleSearch` 가 싣는다.
