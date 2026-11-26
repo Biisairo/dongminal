@@ -434,6 +434,7 @@ class AgentsController extends Controller {
     what.appendChild(st);
     if(info.detail){const dt=document.createElement('span');dt.className='ag-detail';dt.textContent=info.detail;what.appendChild(dt);}
     card.append(head,what);
+    if(info.state) card.title=st.textContent; // UX_BATCH14_SRS FR-RAS-2: 레일은 상태 글을 감추므로 마우스로 읽는다
     const uv=agentUsageView(info.usage); // FR-ACU-10·11
     if(uv) card.appendChild(this._agUsageEl(uv));
     const subs=Array.isArray(info.subagents)?info.subagents:[];

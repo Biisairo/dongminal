@@ -25,7 +25,7 @@ async function setActivity(page: Page, toolId: string, state: string, tool: stri
 }
 
 test.describe('FR-ACF Activity 레일', () => {
-  test('TC-ACF-1: 첫 화면은 레일이고 단축키가 펼침과 레일을 오간다. 레일의 카드는 이름만 보인다', async ({ page }) => {
+  test('TC-ACF-1: 첫 화면은 레일이고 단축키가 펼침과 레일을 오간다. 레일의 카드는 이름과 상태 점만 보인다', async ({ page }) => {
     await waitForInit(page);
     await expect(page.locator('#agents-toggle')).toHaveCount(0);
     await expect(panel(page)).toBeVisible();
@@ -102,5 +102,28 @@ test.describe('FR-ACF Activity 레일', () => {
     const b = await context.newPage();
     await waitForInit(b);
     await expect(b.locator('#agents-panel')).toHaveClass(/\bopen\b/);
+  });
+// UX_BATCH14_SRS FR-RAS-1~3 (TC-UB14-1): 레일의 카드도 펼친 카드와 같은 상태 점을 보이고, 마우스를 올리면 상태 · 도구를 말한다.
+  test('TC-UB14-1: 레일의 카드는 상태 점을 보이고 상태가 바뀌면 따라 바뀐다', async ({ page }) => {
+    await waitForInit(page);
+    await expect(panel(page)).not.toHaveClass(/\bopen\b/);
+    const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
+    await keepToolBusy(page, pid);
+    expect(await setActivity(page, pid!, 'working', 'Bash', 'npm test')).toBe(200);
+    const card = panel(page).locator('.ag-card');
+    await expect(card).toHaveCount(1, { timeout: 10000 });
+    const dot = card.locator('.ag-dot');
+    await expect(dot).toBeVisible();
+    await expect(dot).toHaveClass(/\bworking\b/);
+    const label = (s: string) => page.evaluate((st) => (globalThis as any).eval('AGENT_STATE_LABEL')[st] as string, s);
+    await expect(card).toHaveAttribute('title', (await label('working')) + ' · Bash');
+    // 점은 이름 위, 카드 가운데에 선다.
+    const box = await card.boundingBox(), dbox = await dot.boundingBox(), lbox = await card.locator('.ag-loc').boundingBox();
+    expect(Math.abs((dbox!.x + dbox!.width / 2) - (box!.x + box!.width / 2))).toBeLessThanOrEqual(2);
+    expect(dbox!.y + dbox!.height).toBeLessThanOrEqual(lbox!.y + 1);
+
+    expect(await setActivity(page, pid!, 'waiting', '', '')).toBe(200);
+    await expect(dot).toHaveClass(/\bwaiting\b/, { timeout: 10000 });
+    await expect(card).toHaveAttribute('title', await label('waiting'));
   });
 });
