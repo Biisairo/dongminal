@@ -470,7 +470,7 @@ mod tests {
         assert_eq!(parse_github_ref("o/r#x"), None);
         assert_eq!(parse_github_ref("perf:2"), None);
         // gh 의 `-F key=@file` 이 파일을 읽지 않게 이름 글자만 받는다.
-        assert_eq!(parse_github_ref("o/@/etc/passwd#1"), None);
+        assert_eq!(parse_github_ref("o/@/etc/hosts#1"), None);
         assert_eq!(parse_github_ref("@o/r#1"), None);
         assert_eq!(parse_github_ref("o/r/x#1"), None);
         assert_eq!(
