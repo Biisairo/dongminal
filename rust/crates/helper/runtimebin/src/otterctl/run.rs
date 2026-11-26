@@ -396,7 +396,16 @@ fn sub_start(ctx: &mut Ctx<'_>, mut f: RunFlags) -> i32 {
             body.insert("treeBranch".into(), Value::Bool(true));
         }
     } else if !f.tree.is_empty() {
-        if !repo_issue_ref_matches(&f.tree) {
+        // 로컬 트리의 가지 Run 은 원본 폴더를 비운다 — 서버가 열린 루트의 것을 잇는다(결정 I-26).
+        if otter_shared_issuefile::is_local_tree_ref(&f.tree) && !f.branch {
+            errf!(
+                ctx,
+                "run start: 로컬 트리의 루트 Run 은 --issue-dir 가 필요하다(가지 Run 은 --branch 로 루트의 폴더를 잇는다): {}\n",
+                f.tree
+            );
+            return 2;
+        }
+        if !otter_shared_issuefile::is_local_tree_ref(&f.tree) && !repo_issue_ref_matches(&f.tree) {
             errf!(
                 ctx,
                 "run start: --tree 는 owner/repo#N 꼴이다: {}\n",

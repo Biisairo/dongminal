@@ -366,7 +366,7 @@ fn run_start_local_tree() {
         ),
         (
             vec!["run", "start", "--objective", "o", "--tree", "perf:2"],
-            "run start: --tree 는 owner/repo#N 꼴이다: perf:2\n",
+            "run start: 로컬 트리의 루트 Run 은 --issue-dir 가 필요하다(가지 Run 은 --branch 로 루트의 폴더를 잇는다): perf:2\n",
         ),
         (
             vec![
@@ -385,6 +385,34 @@ fn run_start_local_tree() {
         let got = ctl(&env, &args);
         assert_eq!((got.0, got.2.as_str()), (2, want), "{args:?}");
     }
+}
+
+/// 격리 실측 발견 6: 로컬 트리의 가지 Run 은 --issue-dir 없이 연다 — 서버가 열린 루트의 원본 폴더를 잇는다(I-26).
+#[test]
+fn run_start_local_tree_branch_inherits_dir() {
+    let home = tmp();
+    let srv = TestServer::fixed(
+        200,
+        r#"{"id":"r2","short":"r2s","state":"open","projection":"dedicated-window","isolation":"none"}"#,
+    );
+    let env = srv.env(home.path());
+    let got = ctl(
+        &env,
+        &[
+            "run",
+            "start",
+            "--objective",
+            "o",
+            "--tree",
+            "perf:2",
+            "--branch",
+        ],
+    );
+    assert_eq!(got.0, 0, "{}", got.2);
+    let body = srv.requests()[0].json();
+    assert_eq!(body["tree"], "perf:2");
+    assert_eq!(body["treeBranch"], true);
+    assert!(body.get("issueDir").is_none(), "{body}");
 }
 
 /// ISSUE_TREE_CHAT_SRS FR-ITR-6: promptFile 이면 프리앰블을 홈의 파일로 쓰고, 기동줄의 첫 프롬프트는 그 파일을
