@@ -79,8 +79,13 @@ function chatRoomTitle(room,meId){
 function chatName(label,id,meId){
   const s=String(label||''),i=s.indexOf('/');
   if(i<0) return s||chatShortId(id);
-  const node=x=>{ const v=String(x||''); return v.slice(0,Math.max(0,v.lastIndexOf('-'))) };
-  return node(id)===node(meId)?s.slice(i+1):t('chat.name_remote',{node:s.slice(0,i),tab:s.slice(i+1)});
+  return chatNodeOf(id)===chatNodeOf(meId)?s.slice(i+1):t('chat.name_remote',{node:s.slice(0,i),tab:s.slice(i+1)});
+}
+
+/** 참가자 id 의 노드 지문 — 마지막 `-` 앞이다 (FR-PCH-46). */
+function chatNodeOf(id){
+  const s=String(id||'');
+  return s.slice(0,Math.max(0,s.lastIndexOf('-')));
 }
 
 /** 참가자 id 의 짧은 표시. 앞은 노드 지문이라 모두 같으므로 `-` 뒤 앞자리를 쓴다 (FR-PCH-46). */

@@ -17,6 +17,42 @@ function chatDayLabel(ms){
   return new Date(ms||0).toLocaleDateString(I18N.locale,{year:'numeric',month:'long',day:'numeric',weekday:'short'});
 }
 
+/** 알림 단계의 이름. 비면 기본값(called, §10 A-1)이다. */
+function chatNotifyLabel(level){
+  return t(level==='all'?'chat.notify_all':level==='off'?'chat.notify_off':'chat.notify_called');
+}
+
+/** 참가자를 노드별로 묶는다 (FR-CUX-12). 내 노드가 먼저, 다른 노드는 이름 차례다. 묶음 안에서는 사람이 먼저다. */
+function chatPeopleGroups(people,meId){
+  const nodeOf=p=>p.node||chatNodeOf(p.id);
+  const mine=chatNodeOf(meId);
+  const groups=new Map();
+  for(const p of people||[]){
+    const k=nodeOf(p);
+    if(!groups.has(k)) groups.set(k,{node:k,name:String(p.label||'').split('/')[0],people:[]});
+    groups.get(k).people.push(p);
+  }
+  const name=p=>chatName(p.label,p.id,meId);
+  for(const g of groups.values()) g.people.sort((a,b)=>(a.kind==='user'?0:1)-(b.kind==='user'?0:1)||name(a).localeCompare(name(b)));
+  return [...groups.values()].sort((a,b)=>(a.node===mine?0:1)-(b.node===mine?0:1)||a.name.localeCompare(b.name));
+}
+
+/** 참가자 행의 부제 `<종류> · <상태> · 알림: <단계>`. 상태는 내 노드의 에이전트만, 단계는 아는 것만 적는다 (FR-CUX-12, 결정 I-10). */
+function chatPersonSub(p,meId,activity){
+  const parts=[t(p.kind==='user'?'chat.human':'chat.agent')];
+  const local=chatNodeOf(p.id)===chatNodeOf(meId);
+  const st=local&&p.kind!=='user'&&p.tool&&activity&&activity.get(p.tool);
+  if(st&&AGENT_STATE_LABEL[st.state]) parts.push(AGENT_STATE_LABEL[st.state]);
+  if(p.notify) parts.push(t('chat.notify_is',{level:chatNotifyLabel(p.notify)}));
+  return parts.join(' · ');
+}
+
+/** 방 머리 셋째 줄의 글 — 만든 이 · 참가자 수 (FR-CUX-11). 내 알림 단계는 그 옆의 단추다. */
+function chatRoomMeta(r,meId){
+  const n=t('chat.members',{n:r.members||0});
+  return r.creator||r.creatorName?t('chat.made_by',{name:chatName(r.creatorName,r.creator,meId)})+' · '+n:n;
+}
+
 /** 참가자의 색 변수. 나는 `--chat-me`, 그 밖은 id 로 고른 에이전트 칸이다 (FR-CUX-10). */
 function chatColorVar(id,meId){
   if(id&&id===meId) return '--chat-me';

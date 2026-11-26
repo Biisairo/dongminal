@@ -61,17 +61,25 @@ class ChatViews extends Controller {
 
   _chatViewBuild(key,tab){
     const root=domEl('div','chat-view');
+    // ISSUE_TREE_CHAT_SRS FR-CUX-11: 방 머리는 세 줄 — 이름·종류 / 목적 / 만든 이·참가자 수·내 알림 단계.
     const head=domEl('div','chat-head');
+    const top=domEl('div','chat-head-top');
     const title=domEl('span','chat-title');
     const kind=domEl('span','chat-kind ui-badge');
-    const purpose=domEl('span','chat-purpose');
+    const purpose=domEl('div','chat-purpose');
+    const meta=domEl('div','chat-head-meta');
     const v={key,tabId:tab.id,roomId:tab.roomId,root,title,kind,purpose,drawn:[],peopleSig:''};
+    v.metaText=domEl('span','chat-meta-text');
+    v.notify=UIKit.button({label:chatNotifyLabel(''),icon:'bell',kind:'ghost',size:'sm',cls:'chat-notify',title:TIP_CHAT_NOTIFY,
+      onClick:e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect();this._chatNotifyMenu(v,{x:r.left,y:r.bottom})}});
+    meta.append(v.metaText,v.notify);
     // EDGE_MESH_SRS FR-EGM-56: 개인채팅 상대 노드가 간선이 아닌 온라인 망 이웃이면 간선 초대를 보낸다.
     v.invite=UIKit.button({label:t('edge.invite_send'),kind:'ghost',size:'sm',cls:'chat-edge-invite',
       title:TIP_EDGE_INVITE_SEND,onClick:e=>{e.stopPropagation();if(v.invitePeer) this.app.edges._egInviteSend(v.invitePeer)}});
     v.invite.hidden=true;
-    head.append(title,kind,purpose,v.invite,UIKit.button({icon:'ellipsis',title:TIP_CHAT_ROOM_ACTIONS,kind:'ghost',size:'sm',cls:'chat-more',
+    top.append(title,kind,v.invite,UIKit.button({icon:'ellipsis',title:TIP_CHAT_ROOM_ACTIONS,kind:'ghost',size:'sm',cls:'chat-more',
       onClick:e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect();this._chatViewMenu(v,{x:r.left,y:r.bottom})}}));
+    head.append(top,purpose,meta);
     const main=domEl('div','chat-main');
     v.log=document.createElement('div');
     v.log.className='chat-log ui-scroll';
@@ -95,6 +103,14 @@ class ChatViews extends Controller {
     e.preventDefault();
     const text=v.input.value;
     if(await this.app.chat._chatSend(v.roomId,text)) v.input.value='';
+  }
+
+  /** FR-CUX-11 · FR-CAL-7: 이 방에서 내(사람 참가자) 알림 단계를 고른다. */
+  _chatNotifyMenu(v,at){
+    const r=this.app.chat._chatRoom(v.roomId),cur=(r&&r.notify)||CHAT_NOTIFY_CALLED;
+    UIKit.menu([CHAT_NOTIFY_ALL,CHAT_NOTIFY_CALLED,CHAT_NOTIFY_OFF].map(level=>({id:level,label:chatNotifyLabel(level),cur:level===cur,
+      onClick:async()=>{ if(level!==cur&&await this.app.chat._chatPost('notify',{room:v.roomId,level},t('chat.err_notify'))) await this.app.chat._chatRestore() }})),
+    {at,cls:'chat-menu'});
   }
 
   _chatViewMenu(v,at){
@@ -135,7 +151,11 @@ class ChatViews extends Controller {
       v.title.textContent=chatRoomTitle(r,meId);
       v.kind.textContent=t(r.kind==='direct'?'chat.direct':'chat.group');
       v.purpose.textContent=r.purpose||'';
+      v.purpose.hidden=!r.purpose;
+      v.metaText.textContent=chatRoomMeta(r,meId);
+      v.notify.querySelector('.ui-btn-label').textContent=t('chat.notify_is',{level:chatNotifyLabel(r.notify)});
     }
+    v.notify.disabled=!(r&&r.joined);
     v.invitePeer=meshDirectPeer(r,meId,this.app._edges&&this.app._edges.mesh);
     v.invite.hidden=!v.invitePeer;
     // FR-PCH-84·§3.11: 방이 사라졌거나 내가 들어 있지 않으면 입력칸을 막고 그 사실을 보인다.
@@ -147,26 +167,38 @@ class ChatViews extends Controller {
     this._chatLogPaint(v,meId);
   }
 
+  /** FR-CUX-12: 노드별 묶음(내 노드 먼저, 사람 먼저). 행은 동그라미 · 이름 · 종류 · 상태 · 알림 단계다. */
   _chatPeoplePaint(v,r,meId){
-    const people=(r&&r.people)||[];
+    const groups=chatPeopleGroups((r&&r.people)||[],meId),act=this.app._activity;
+    const people=groups.flatMap(g=>g.people);
     v.order=people.map(p=>p.id);
     const sel=v.sel||new Set();
-    const sig=JSON.stringify([people.map(p=>[p.id,p.label,p.kind,p.online]),[...sel]]);
+    const subs=people.map(p=>chatPersonSub(p,meId,act));
+    const sig=JSON.stringify([people.map(p=>[p.id,p.label,p.kind,p.online]),subs,[...sel]]);
     if(sig===v.peopleSig) return;
     v.peopleSig=sig;
     const els=[domEl('div','chat-sub-h',t('chat.people'))];
-    for(const p of people){
-      const row=domEl('div','chat-person'+(p.online?'':' off')+(p.kind==='user'?' human':'')+(sel.has(p.id)?' sel':''));
-      row.title=p.label+' · '+chatShortId(p.id);
-      row.append(domEl('span','chat-row-name',chatName(p.label,p.id,meId)),domEl('span','chat-row-sub',(p.kind==='user'?t('chat.human')+' · ':'')+chatShortId(p.id)));
-      row.addEventListener('click',e=>{
-        if(this.app.chat.human._chatPeoplePick(v,p.id,e)) return;
-        if(p.id!==meId&&p.online) this.app.chat._chatPersonMenu(p,{x:e.clientX,y:e.clientY});
-      });
-      row.addEventListener('contextmenu',e=>this.app.chat.human._chatPersonCtx(v,p,e));
-      els.push(row);
+    for(const g of groups){
+      if(groups.length>1) els.push(domEl('div','chat-people-node',g.name));
+      for(const p of g.people) els.push(this._chatPersonRow(v,p,meId,subs[people.indexOf(p)],sel));
     }
     v.people.replaceChildren(...els);
+  }
+
+  _chatPersonRow(v,p,meId,sub,sel){
+    const name=chatName(p.label,p.id,meId);
+    const row=domEl('div','chat-person'+(p.online?'':' off')+(p.kind==='user'?' human':'')+(sel.has(p.id)?' sel':''));
+    row.title=p.label+' · '+chatShortId(p.id);
+    row.style.setProperty('--chat-c','var('+chatColorVar(p.id,meId)+')');
+    const main=domEl('div','chat-person-main');
+    main.append(domEl('span','chat-row-name',name),domEl('span','chat-row-sub',sub));
+    row.append(domEl('span','chat-avatar',chatInitial(name)),main);
+    row.addEventListener('click',e=>{
+      if(this.app.chat.human._chatPeoplePick(v,p.id,e)) return;
+      if(p.id!==meId&&p.online) this.app.chat._chatPersonMenu(p,{x:e.clientX,y:e.clientY});
+    });
+    row.addEventListener('contextmenu',e=>this.app.chat.human._chatPersonCtx(v,p,e));
+    return row;
   }
 
   /** 그린 글 뒤에 새 글만 붙인다. 앞이 잘렸으면(방별 상한) 다시 그린다. */

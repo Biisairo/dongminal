@@ -1,16 +1,25 @@
 /* 채팅 탭의 화면 (PEER_CHAT_SRS §3.11, ISSUE_TREE_CHAT_SRS §3.2). `[chat]` 지연 묶음의 CSS 다 — 채팅 목록 행은 style-activity.css 에 남는다. */
 /* PEER_CHAT_SRS FR-PCH-84: 채팅 탭 — 위 머리, 가운데 대화와 오른쪽 참가자, 아래 입력칸. */
 /* ISSUE_TREE_CHAT_SRS FR-CUX-4: 본문 폭의 상한과 동그라미 크기. */
-.chat-view{display:flex;flex-direction:column;width:100%;height:100%;min-height:0;background:var(--bg);--chat-msg-max:760px;--chat-avatar:32px}
-.chat-head{display:flex;align-items:baseline;gap:var(--sp-4);padding:var(--sp-3) var(--sp-5);border-bottom:1px solid var(--border)}
-.chat-title{font-size:var(--fs-lg);font-weight:600;color:var(--text-bright)}
+.chat-view{display:flex;flex-direction:column;width:100%;height:100%;min-height:0;background:var(--bg);--chat-msg-max:760px;--chat-avatar:32px;--chat-avatar-sm:24px}
+/* ISSUE_TREE_CHAT_SRS FR-CUX-11: 머리 세 줄 — 이름·종류 / 목적 / 만든 이·참가자 수·내 알림 단계. */
+.chat-head{display:flex;flex-direction:column;gap:var(--sp-1);padding:var(--sp-3) var(--sp-5);border-bottom:1px solid var(--border)}
+.chat-head-top{display:flex;align-items:baseline;gap:var(--sp-4);min-width:0}
+.chat-head-meta{display:flex;align-items:center;gap:var(--sp-4);font-size:var(--fs-sm);color:var(--text-hint)}
+.chat-notify{flex:none}
+.chat-title{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-lg);font-weight:600;color:var(--text-bright)}
 .chat-kind{flex:none}
-.chat-purpose{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-md);color:var(--text-muted)}
-.chat-more{flex:none;align-self:center}
+.chat-purpose{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-md);color:var(--text-muted)}
+.chat-more{flex:none;align-self:center;margin-left:auto}
 .chat-main{flex:1;min-height:0;display:flex}
 .chat-log{flex:1;min-width:0;overflow-y:auto;padding:var(--sp-4) var(--sp-5)}
-.chat-people{flex:0 0 180px;overflow-y:auto;border-left:1px solid var(--border)}
-.chat-people .chat-person{display:flex;flex-direction:column;padding:var(--sp-2) var(--sp-5);cursor:pointer;font-size:var(--fs-md)}
+.chat-people{flex:0 0 220px;overflow-y:auto;border-left:1px solid var(--border)}
+/* FR-CUX-12: 노드 머리와 행(동그라미 · 이름 · 종류 · 상태 · 알림 단계). */
+.chat-people-node{padding:var(--sp-3) var(--sp-5) var(--sp-1);font-size:var(--fs-sm);font-weight:600;color:var(--text-muted)}
+.chat-people .chat-person{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-5);cursor:pointer;font-size:var(--fs-md)}
+.chat-person-main{display:flex;flex-direction:column;min-width:0}
+.chat-person-main .chat-row-sub{font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-people .chat-avatar{width:var(--chat-avatar-sm);height:var(--chat-avatar-sm);font-size:var(--fs-sm)}
 .chat-people .chat-person:hover{background:var(--accent-hover)}
 /* ISSUE_TREE_CHAT_SRS FR-CUX-1~8: 보낸 이 묶음 · 이어진 글 · 내 글 바탕 · 날짜 구분선 · 부른 글 띠 · 마크다운. */
 .chat-msg{position:relative;max-width:var(--chat-msg-max);padding:var(--sp-1) var(--sp-4) var(--sp-1) calc(var(--chat-avatar) + var(--sp-4) * 2);
@@ -19,7 +28,8 @@
 .chat-msg.mine{background:var(--accent-subtle)}
 .chat-msg.called{box-shadow:inset 3px 0 0 var(--attn)}
 .chat-msg-who{display:flex;align-items:baseline;gap:var(--sp-3);min-width:0}
-.chat-avatar{position:absolute;left:var(--sp-4);top:var(--sp-2);width:var(--chat-avatar);height:var(--chat-avatar);border-radius:50%;
+.chat-msg .chat-avatar{position:absolute;left:var(--sp-4);top:var(--sp-2)}
+.chat-avatar{flex:none;width:var(--chat-avatar);height:var(--chat-avatar);border-radius:50%;
   display:flex;align-items:center;justify-content:center;font-size:var(--fs-md);font-weight:600;
   color:var(--chat-c,var(--text-bright));background:color-mix(in srgb,var(--chat-c,var(--text)) 20%,var(--bg))}
 /* FR-CUX-10: 보낸 이의 색은 `--chat-c`(글에 단 `--chat-me`·`--chat-a0`~)다. */

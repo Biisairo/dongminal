@@ -50,6 +50,7 @@ class AgentsController extends Controller {
     const prev=this.app._activity.get(toolId);
     this.app._activity.set(toolId,{state,tool:tool||'',detail:detail||'',usage:prev&&prev.usage,subagents:prev&&prev.subagents});
     this.agentsRender();
+    this.app.chat?.views?._chatViewsPaint?.(); // ISSUE_TREE_CHAT_SRS FR-CUX-12: 참가자 행의 상태
   }
 
   // FR-AAP-15: 합류/재연결 시 현재 활동 스냅샷 복원
