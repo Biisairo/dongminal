@@ -166,6 +166,8 @@ pub const CODE_TELEGRAM_TOKEN_INVALID: &str = "telegram_token_invalid";
 pub const CODE_TELEGRAM_UNREACHABLE: &str = "telegram_unreachable";
 pub const CODE_TELEGRAM_CONFIG_INVALID: &str = "telegram_config_invalid";
 pub const CODE_TELEGRAM_NO_TOKEN: &str = "telegram_no_token";
+pub const CODE_TELEGRAM_TOPICS_NEED_BRIDGE: &str = "telegram_topics_need_bridge";
+pub const CODE_TELEGRAM_TOPICS_MODE_OFF: &str = "telegram_topics_mode_off";
 pub const CODE_RUN_CLOSED: &str = "run_closed";
 pub const CODE_MEMBER_NOT_ATTACHED: &str = "member_not_attached";
 
@@ -307,6 +309,8 @@ pub(crate) const TELEGRAM_CODES: &[&str] = &[
     CODE_TELEGRAM_UNREACHABLE,
     CODE_TELEGRAM_CONFIG_INVALID,
     CODE_TELEGRAM_NO_TOKEN,
+    CODE_TELEGRAM_TOPICS_NEED_BRIDGE,
+    CODE_TELEGRAM_TOPICS_MODE_OFF,
 ];
 pub(crate) const CLAUDE_CODES: &[&str] = &[
     CODE_CLAUDE_ACCOUNTS_UNAVAILABLE,
@@ -1387,6 +1391,20 @@ pub const CODE_DOC: &[(&str, Doc)] = &[
         Doc {
             meaning: "봇 token 의 모양이 틀렸거나 Telegram 이 그 token 을 받지 않았습니다.",
             recover: "BotFather 가 준 token 전체(`숫자:글자`)를 다시 넣으세요. 폐기한 token 은 쓸 수 없습니다.",
+        },
+    ),
+    (
+        "telegram_topics_mode_off",
+        Doc {
+            meaning: "봇의 1:1 대화방 토픽 모드가 꺼져 있어 채팅 토픽을 켤 수 없습니다.",
+            recover: "BotFather 의 봇 설정(Mini App)에서 토픽 모드를 켠 뒤 다시 켜세요.",
+        },
+    ),
+    (
+        "telegram_topics_need_bridge",
+        Doc {
+            meaning: "채팅 토픽은 Telegram 이 켜져 있고 봇 token 과 허용 계정이 있을 때만 켤 수 있습니다.",
+            recover: "Telegram 을 켜고 token 을 저장한 뒤 계정을 등록하세요.",
         },
     ),
     (

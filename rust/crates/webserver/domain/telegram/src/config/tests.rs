@@ -131,3 +131,34 @@ fn file_mode_600() {
     let mode = std::fs::metadata(&p).unwrap().permissions().mode() & 0o777;
     assert_eq!(mode, 0o600);
 }
+
+// ISSUE_TREE_CHAT_SRS FR-TGT-1: 채팅 토픽은 켜기·token·허용 계정이 있을 때만 켠다. 끄면 옛 파일 형식 그대로다.
+#[test]
+fn chat_topics_needs_bridge() {
+    let (s, p, _d) = open_temp();
+    assert_eq!(s.set_chat_topics(true), Err(StoreError::TopicsNeedBridge));
+    s.set_enabled(true).unwrap();
+    s.set_token(TEST_TOKEN, "b").unwrap();
+    assert_eq!(s.set_chat_topics(true), Err(StoreError::TopicsNeedBridge));
+    s.set_user(42).unwrap();
+    assert_eq!(s.set_chat_topics(true), Ok(()));
+    assert!(s.config().topics_active());
+    assert!(s.view().chat_topics);
+    assert!(
+        std::fs::read_to_string(&p)
+            .unwrap()
+            .contains("\"chatTopics\": true")
+    );
+    s.set_enabled(false).unwrap();
+    assert!(
+        !s.config().topics_active(),
+        "켜기가 꺼지면 토픽도 없는 것과 같다"
+    );
+    assert_eq!(s.set_chat_topics(false), Ok(()));
+    assert!(!std::fs::read_to_string(&p).unwrap().contains("chatTopics"));
+    assert!(
+        !String::from_utf8(json::marshal(&s.view()).unwrap())
+            .unwrap()
+            .contains("chatTopics")
+    );
+}

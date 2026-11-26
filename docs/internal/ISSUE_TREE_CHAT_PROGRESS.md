@@ -54,7 +54,7 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 
 | 단계 | 상태 |
 |---|---|
-| T-1 설정: `Config.topics`·View·`Store.set_topics`, 설정 API 와 화면 토글(켜기·token·허용 계정이 전제), getMe 의 `has_topics_enabled` 안내, BotFather 안내, 밖으로 나가는 데이터 목록(FR-TGT-1·2·13) | 남음 |
+| T-1 설정: `Config.topics`·View·`Store.set_topics`, 설정 API 와 화면 토글(켜기·token·허용 계정이 전제), getMe 의 `has_topics_enabled` 안내, BotFather 안내, 밖으로 나가는 데이터 목록(FR-TGT-1·2·13) | 끝남 (결정 I-19) |
 | T-2 짝 파일: 방 id ↔ 토픽 thread id · 고정 글 id. 설정 파일 옆, 권한 600, 다시 시작해도 이어 쓴다(FR-TGT-4) | 남음 |
 | T-3 거울 맞추기: Host 가 채팅 상태(방·사람 참가자)를 준다. 방 생김/사라짐 → createForumTopic/deleteForumTopic, 고정 안내 글(목적·참가자 수·들어감·단추) 만들기·고치기, 짝만 있고 방 없음 → 지움(FR-TGT-3·5) | 남음 |
 | T-4 글 올리기: 사람 참가자에게 온 글과 내가 보낸 글 → 토픽. 머리(굵은 표시 이름·시각·@부름), 마크다운 → Telegram HTML, 4,096자 나누기, 깨울 글만 소리(FR-TGT-7·8) | 남음 |
@@ -88,6 +88,7 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | I-16 | 이름 규칙 `chatName`·`#` 겹침 제거는 부팅 패널도 쓰므로 `chat-store.js`(부팅)에 둔다. 노드 구분은 id 의 지문(마지막 `-` 앞)이다. `›` 는 카탈로그 `chat.name_remote` 이고 문자 아이콘 시험의 허용 목록에 이유와 함께 넣었다. 부팅 JS 는 U-2~U-4 합계 945 B 늘었다(1,143,889 → 1,144,834, 상한 1,150,000) | NFR-ITH-2 의 "늘지 않는다" 를 글자 그대로는 지키지 못했다 — 패널 이름 규칙(FR-CUX-14)과 테마 파생 색(FR-CUX-10)이 부팅 코드에 산다. 사용자에게 보고할 것 |
 | I-17 | 참가자 목록은 노드별 묶음(내 노드 먼저, 나머지는 노드 이름 차례)이고 묶음 안에서 사람이 먼저다. 노드 머리는 묶음이 둘 이상일 때만 선다. 내 알림 단계는 셋째 줄의 단추 → 메뉴(`cur` 표시) → `POST /api/chat/notify` 뒤 state 를 다시 읽는다. 들어가지 않은 방에서는 단추가 꺼진다. 활동 상태가 바뀌면(`_onToolActivity`) 채팅 뷰를 다시 그린다(참가자 행 서명이 같으면 건너뜀) | FR-CUX-11·12. 상태 이름은 활동 패널의 `AGENT_STATE_LABEL` 을 그대로 쓴다(작업 중·대기·완료·멈춤) |
 | I-18 | 부른 상대는 따로 든 상태 없이 **본문의 `@<표시 이름>`** 에서 뽑는다(`chatCallsIn`, 긴 이름 먼저·낱말 처음의 `@` 만·나는 뺌). `@` 목록은 고르면 `@이름 ` 을 넣고, 답장 단추(글에 올리면 보임)는 입력칸 앞에 `@보낸 이 ` 를 붙인다. 보낸 글의 즉시 표시에도 `call` 을 싣는다 | 사용자가 지운 이름은 부르지 않는다 — 화면에 보이는 것과 보내는 것이 같다 |
+| I-19 | 채팅 토픽 설정은 `telegram.json` 의 `chatTopics`(꺼지면 키 없음 — 1판의 `topics` 객체와 이름을 나눔)다. `Config::topics_active()` = 켜기·token·허용 계정·chatTopics 모두. `PUT /api/telegram/topics {topics}` — 전제 없음 409 `telegram_topics_need_bridge`, 켤 때 getMe 의 `has_topics_enabled` 가 거짓이면 409 `telegram_topics_mode_off`(저장 안 함). 응답·GET 은 켜져 있을 때만 `chatTopics: true`(Go 골든 그대로). 설정 화면의 블록은 지연 묶음 `settings-telegram.js` 가 만든다(부팅 카탈로그를 늘리지 않음). 밖으로 나가는 데이터는 설정 화면과 TELEGRAM_BRIDGE_SRS §8 에 적었다 | FR-TGT-1·2·13, R-5 |
 | I-9 | 웹 알람의 단계는 `state` 의 방 `notify` 로 판정하고, 알람은 `ChatStore` 에 방마다 둔다. 방 탭이 보이면 안 읽은 수와 함께 꺼진다 | FR-CAL-15·16 |
 
 ## 4. 이 세션이 값을 치르고 배운 것

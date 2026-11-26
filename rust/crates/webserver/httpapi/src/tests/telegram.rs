@@ -495,3 +495,45 @@ async fn telegram_wire_off_sends_no_requests() {
     done.await.unwrap();
     assert_eq!(hits.load(Ordering::SeqCst), 0);
 }
+
+// ISSUE_TREE_CHAT_SRS FR-TGT-1·2: 채팅 토픽 켜기. 전제(켜기·token·허용 계정)와 봇의 토픽 모드를 본다.
+#[tokio::test]
+async fn telegram_api_chat_topics() {
+    let (base, _, _t) = tg_fake_api().await;
+    let e = tg_api_server(&base);
+    let st = || e.srv.tg.as_ref().unwrap().st.clone();
+    let r = tg_do(&e, "PUT", "/api/telegram/topics", r#"{"topics":true}"#).await;
+    want_err(&r, 409, "telegram_topics_need_bridge");
+
+    let r = tg_do(
+        &e,
+        "PUT",
+        "/api/telegram/token",
+        &format!(r#"{{"token":"{TG_NO_TOPICS_TOKEN}"}}"#),
+    )
+    .await;
+    assert_eq!(r.status, 200, "{}", r.body);
+    tg_do(&e, "PUT", "/api/telegram/enabled", r#"{"enabled":true}"#).await;
+    st().set_user(42).unwrap();
+    let r = tg_do(&e, "PUT", "/api/telegram/topics", r#"{"topics":true}"#).await;
+    want_err(&r, 409, "telegram_topics_mode_off");
+    assert!(!st().config().chat_topics);
+
+    tg_do(
+        &e,
+        "PUT",
+        "/api/telegram/token",
+        &format!(r#"{{"token":"{TG_GOOD_TOKEN}"}}"#),
+    )
+    .await;
+    st().set_user(42).unwrap();
+    let r = tg_do(&e, "PUT", "/api/telegram/topics", r#"{"topics":true}"#).await;
+    assert_eq!(r.status, 200, "{}", r.body);
+    assert!(r.body.contains(r#""chatTopics":true"#), "{}", r.body);
+    let r = tg_do(&e, "GET", "/api/telegram", "").await;
+    assert!(r.body.contains(r#""chatTopics":true"#), "{}", r.body);
+
+    let r = tg_do(&e, "PUT", "/api/telegram/topics", r#"{"topics":false}"#).await;
+    assert_eq!(r.status, 200, "{}", r.body);
+    assert!(!r.body.contains("chatTopics"), "{}", r.body);
+}

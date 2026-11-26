@@ -98,6 +98,9 @@ struct TelegramView {
     #[serde(rename = "silenceMin")]
     silence_min: i64,
     pair: Option<PairView>,
+    /// ISSUE_TREE_CHAT_SRS FR-TGT-1. 꺼져 있으면 싣지 않는다 — Go 기준 골든 그대로다.
+    #[serde(rename = "chatTopics", skip_serializing_if = "std::ops::Not::not")]
+    chat_topics: bool,
 }
 
 #[derive(Serialize)]
@@ -117,6 +120,12 @@ struct TokenReq {
 #[serde(default)]
 struct EnabledReq {
     enabled: bool,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct TopicsReq {
+    topics: bool,
 }
 
 #[derive(Deserialize, Default)]
@@ -146,6 +155,7 @@ impl Server {
             paired: v.paired,
             silence_min: v.silence_min,
             pair: b.pairing().pending().map(|expires| PairView { expires }),
+            chat_topics: v.chat_topics,
         }
     }
 
@@ -164,6 +174,11 @@ impl Server {
             Err(e @ telegram::StoreError::InvalidSilence) => code_fail(
                 StatusCode::BAD_REQUEST,
                 apierr::CODE_TELEGRAM_CONFIG_INVALID,
+                &e.to_string(),
+            ),
+            Err(e @ telegram::StoreError::TopicsNeedBridge) => code_fail(
+                StatusCode::CONFLICT,
+                apierr::CODE_TELEGRAM_TOPICS_NEED_BRIDGE,
                 &e.to_string(),
             ),
             Err(_) => code_fail(
@@ -249,6 +264,43 @@ impl Server {
             Err(res) => return res,
         };
         self.telegram_saved(tg, b, tg.st.set_silence(req.minutes))
+    }
+
+    /// ISSUE_TREE_CHAT_SRS FR-TGT-1·2: 채팅 토픽을 켜고 끈다. 켤 때는 전제(켜기·token·허용 계정)를 보고, getMe 로 봇의
+    /// 1:1 대화방 토픽 모드를 확인한다. 꺼져 있으면 켜지 않고 켜는 법을 알리는 코드로 답한다.
+    pub(crate) async fn api_telegram_topics(&self, r: &mut Req) -> Response {
+        let (tg, b) = match self.telegram_ready() {
+            Ok(v) => v,
+            Err(res) => return res,
+        };
+        let req: TopicsReq = match read_json_body(r).await {
+            Ok(v) => v,
+            Err(res) => return res,
+        };
+        let c = tg.st.config();
+        if req.topics && c.enabled && !c.token.is_empty() && c.user_id != 0 {
+            let client = telegram::Client::new(&self.cfg.telegram_api, &c.token);
+            let me = tokio::select! {
+                got = tokio::time::timeout(TG_GET_ME_TIMEOUT, client.get_me()) => got,
+                () = r.ctx.cancelled() => return telegram_unreachable(),
+            };
+            match me {
+                Ok(Ok(me)) if me.has_topics_enabled => {}
+                Ok(Ok(_)) => {
+                    return code_fail(
+                        StatusCode::CONFLICT,
+                        apierr::CODE_TELEGRAM_TOPICS_MODE_OFF,
+                        "bot topic mode is off",
+                    );
+                }
+                Ok(Err(e)) => {
+                    infof!(None, "telegram: 토픽 모드 확인 실패: {e}");
+                    return telegram_unreachable();
+                }
+                Err(_) => return telegram_unreachable(),
+            }
+        }
+        self.telegram_saved(tg, b, tg.st.set_chat_topics(req.topics))
     }
 
     /// Go `apiTelegramPair`: 등록 코드를 만든다 (FR-TGB-10). 코드는 이 응답에만 있다.

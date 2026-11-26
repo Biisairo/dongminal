@@ -264,6 +264,7 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         put("/api/telegram/token", h!(api_telegram_token)),
         put("/api/telegram/enabled", h!(api_telegram_enabled)),
         put("/api/telegram/silence", h!(api_telegram_silence)),
+        put("/api/telegram/topics", h!(api_telegram_topics)),
         post("/api/telegram/pair", h!(api_telegram_pair)),
         when(
             METHOD_DELETE,

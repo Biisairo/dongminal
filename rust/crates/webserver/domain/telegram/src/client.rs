@@ -244,6 +244,8 @@ pub struct User {
     pub id: i64,
     pub is_bot: bool,
     pub username: String,
+    /// 봇의 1:1 대화방 토픽 모드 (getMe, ISSUE_TREE_CHAT_SRS FR-TGT-2).
+    pub has_topics_enabled: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]

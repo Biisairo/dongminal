@@ -627,6 +627,8 @@ I18N.register('ko', {
   'err.telegram_token_invalid': '봇 token 이 틀렸거나 Telegram 이 받지 않았습니다.',
   'err.telegram_unreachable': 'Telegram 에 닿지 못했습니다. 저장하지 않았습니다.',
   'err.telegram_config_invalid': '무음 시간은 0~1440분입니다.',
+  'err.telegram_topics_mode_off': '봇의 토픽 모드를 켠 뒤 다시 켜세요(BotFather 의 봇 설정).',
+  'err.telegram_topics_need_bridge': 'Telegram 을 켜고 token 과 계정을 먼저 등록하세요.',
   'err.telegram_no_token': '먼저 봇 token 을 저장하세요.',
 
   // ── poll ──
