@@ -340,6 +340,7 @@ pub(crate) fn msg_frame(
             from: from.into(),
             text: text.into(),
             at: OffsetDateTime::now_utc(),
+            call: Vec::new(),
         },
     )
     .unwrap()

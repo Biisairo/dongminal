@@ -45,6 +45,8 @@ pub(crate) const MAX_MARKS: usize = 4096;
 /// 참가자 id 앞에 붙는 노드 지문의 길이(지문 전체)다. id 를 노드에 묶는다.
 pub(crate) const ID_PREFIX: usize = 64;
 pub(crate) const ID_BYTES: usize = 16;
+/// 지정(call)에서 그 방의 사람 참가자 모두를 뜻하는 별칭이다 (ISSUE_TREE_CHAT_SRS FR-CAL-1).
+pub const CALL_USER: &str = "user";
 const RATE_WINDOW: Duration = Duration::from_secs(60);
 
 /// 이 노드의 참가자 하나다.
@@ -72,6 +74,8 @@ pub struct Message {
     pub at: OffsetDateTime,
     pub epoch: i64,
     pub seq: u64,
+    /// 받는 참가자를 부른 글인가 (ISSUE_TREE_CHAT_SRS FR-CAL-3·4). 받는 노드가 참가자마다 정한다.
+    pub called: bool,
 }
 
 /// 방이나 온라인 목록의 참가자 하나다. online 은 그 노드에 지금 닿는지다.
@@ -289,6 +293,31 @@ fn room_cap(p: &Part, node_rooms: usize) -> Result<(), Error> {
         return Err(Error::fail(CODE_BAD_REQUEST, "too many rooms"));
     }
     Ok(())
+}
+
+/// 받는 참가자 pid(종류 pkind)를 부른 글인가 (ISSUE_TREE_CHAT_SRS FR-CAL-3).
+/// 개인채팅은 언제나 부른다. 지정이 없으면 사람 글만 방의 에이전트를 모두 부른다.
+pub(crate) fn is_called(
+    room_kind: &str,
+    from_kind: &str,
+    call: &[String],
+    pid: &str,
+    pkind: &str,
+) -> bool {
+    if room_kind == KIND_DIRECT {
+        return true;
+    }
+    if call.is_empty() {
+        return from_kind == KIND_USER && pkind == KIND_AGENT;
+    }
+    call.iter()
+        .any(|c| c == pid || (c == CALL_USER && pkind == KIND_USER))
+}
+
+/// pid 가 방 room 에 든 참가자인가 — 이 노드의 참가자와 닿은 노드가 알린 참가자를 본다.
+pub(crate) fn room_has_member_locked(st: &State, pid: &str, room: &str) -> bool {
+    st.parts.get(pid).is_some_and(|q| q.rooms.contains(room))
+        || st.nodes.values().any(|r| part_in_room(&r.st, pid, room))
 }
 
 pub(crate) fn part_in_room(st: &StateBody, pid: &str, room: &str) -> bool {
@@ -555,6 +584,18 @@ impl Service {
 
     /// pid 의 글을 방에 보낸다. 노드는 글을 들지 않는다 (FR-PCH-24·55).
     pub fn send(&self, pid: &str, room_id: &str, text: &str) -> Result<(), Error> {
+        self.send_call(pid, room_id, text, &[])
+    }
+
+    /// pid 의 글을 call 에 든 상대를 지정해 방에 보낸다 (ISSUE_TREE_CHAT_SRS FR-CAL-1).
+    /// call 의 항목은 그 방의 참가자 id 이거나 [`CALL_USER`] 다.
+    pub fn send_call(
+        &self,
+        pid: &str,
+        room_id: &str,
+        text: &str,
+        call: &[String],
+    ) -> Result<(), Error> {
         let mut st = self.lock();
         let p = part_locked(&st, pid)?;
         if !p.rooms.contains(room_id) {
@@ -565,6 +606,12 @@ impl Service {
         }
         if text.is_empty() || !valid_body(text) {
             return Err(Error::fail(CODE_BAD_REQUEST, "text"));
+        }
+        if call
+            .iter()
+            .any(|c| c != CALL_USER && !room_has_member_locked(&st, c, room_id))
+        {
+            return Err(Error::fail(CODE_BAD_REQUEST, "call"));
         }
         let (label, kind) = (p.p.label.clone(), p.p.kind.clone());
         let now = self.now();
@@ -581,6 +628,7 @@ impl Service {
             from: pid.into(),
             text: text.into(),
             at: now,
+            call: call.to_vec(),
         };
         let fr = sign_frame(&self.id, FRAME_MSG, &body).map_err(Error::plain)?;
         self.broadcast_locked(&fr, "");
@@ -666,6 +714,7 @@ impl Service {
                     at: b.at,
                     epoch: b.epoch,
                     seq: b.seq,
+                    called: is_called(&rk, kind, &b.call, &q.p.id, &q.p.kind),
                 },
             })
             .collect();

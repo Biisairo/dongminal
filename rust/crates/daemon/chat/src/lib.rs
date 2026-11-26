@@ -16,6 +16,7 @@ pub use error::{
     CODE_BAD_REQUEST, CODE_NO_SUCH_PARTICIPANT, CODE_NO_SUCH_ROOM, CODE_NOT_IN_ROOM,
     CODE_RATE_LIMITED, CODE_TOO_LARGE, Error,
 };
+pub use service::CALL_USER;
 pub use service::{
     DeliverFn, KIND_AGENT, KIND_DIRECT, KIND_GROUP, KIND_USER, MAX_PARTICIPANTS, MAX_TEXT, Member,
     Message, NodeInfo, NowFn, OnlineView, Options, PER_MINUTE, Participant, PinFn, RoomInfo,
@@ -24,5 +25,7 @@ pub use service::{
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_call;
 #[cfg(test)]
 mod tests_human;
