@@ -363,15 +363,16 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 var(--sp-4) 0 var(--sp-2
   .act-usage-head .cacct-smart{margin-left:auto}
   .cacct,.act-usage-sl-h,.act-usage-sl{padding-left:var(--sp-7)}
   .cacct-bar{width:12px}
-  .cacct-head,.act-usage-sl{flex-wrap:wrap;row-gap:var(--sp-1)}
-  .cacct-who{flex:1 1 100%}
+  .act-usage-sl{flex-wrap:wrap;row-gap:var(--sp-1)}
+  .act-usage-sl .cacct-who{flex:1 1 100%}
   .act-usage-sl .cacct-who:empty{display:none}
   .cacct-cells{flex:1 1 100%;grid-template-columns:repeat(2,minmax(0,1fr))}
-  /* 요약 줄은 한 줄이다 — 남은 시간을 빼고 칸이 제 글자 폭을 가져 `세션 34%` 가 잘리지 않는다. 이름이 대신 줄어든다. */
-  .act-usage-sum .cacct-cells{flex:0 0 auto;grid-template-columns:repeat(2,auto)}
-  .act-usage-sum .cacct-cell-left{display:none}
+  /* 요약 줄과 접힌 계정 줄은 한 줄이다 — 칸이 제 글자 폭을 가져 `5h 34% 2시간` 이 잘리지 않는다. 이름이 대신 줄어든다.
+     UX_BATCH14_SRS FR-UHD-1·2: 이전 — 요약 줄은 남은 시간을 감췄고, 접힌 계정 줄은 칸을 이름 아래 줄로 내렸다 /
+     새 — 둘 다 남은 시간을 보이는 같은 한 줄이다 / 이유 — 사용자 결정 D-UB14-3. */
+  :is(.act-usage-sum,.cacct-head) .cacct-cells{flex:0 0 auto;grid-template-columns:repeat(2,auto)}
 }
-.act-usage-sum .cacct-who{flex-wrap:nowrap}
+:is(.act-usage-sum,.cacct-head) .cacct-who{flex-wrap:nowrap}
 @container (max-width:149px){
   .cacct-cells{grid-template-columns:minmax(0,1fr);row-gap:var(--sp-2)}
 }
@@ -383,6 +384,9 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 var(--sp-4) 0 var(--sp-2
   #agents-panel:not([data-rail]) .act-usage-sum .cacct-who{flex:1 1 0;min-width:0}
   #agents-panel:not([data-rail]) .act-usage-sum>.ui-icon{order:1}
   #agents-panel:not([data-rail]) .act-usage-sum .cacct-cells{order:2;flex:1 1 100%;grid-template-columns:repeat(2,auto);justify-content:start}
+  /* UX_BATCH14_SRS FR-UHD-2: 접힌 계정 줄도 요약 줄처럼 둘째 줄에 두 칸이다. */
+  .cacct-head{flex-wrap:wrap;row-gap:var(--sp-1)}
+  .cacct-head .cacct-cells{flex:1 1 100%;grid-template-columns:repeat(2,auto);justify-content:start}
 }
 
 .pn-body{flex:1;position:relative;overflow:hidden}

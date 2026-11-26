@@ -610,10 +610,10 @@ I18N.register('en', {
 
   // ── panel (UIUX_OVERHAUL_SRS FR-ACT-1) ──
   'panel.sec_agents': 'Agents',
-  'usage.win.five_hour': 'Current session',
-  'usage.win.seven_day': 'Current week',
-  'usage.win.seven_day_opus': 'Current week (Opus)',
-  'usage.win.seven_day_sonnet': 'Current week (Sonnet)',
+  'usage.win.five_hour': '5h',
+  'usage.win.seven_day': '7d',
+  'usage.win.seven_day_opus': '7d (Opus)',
+  'usage.win.seven_day_sonnet': '7d (Sonnet)',
   'usage.used': '{n}% used',
   'usage.resets_in': 'Resets in {t}',
   'usage.resets_soon': 'Resets soon',
@@ -626,8 +626,8 @@ I18N.register('en', {
   'usage.short.m': '{n}m',
   // CLAUDE_ACCOUNTS_SRS FR-CAC-90~93: Activity 하단의 계정 묶음과 statusLine 한 줄
   'usage.sl.label': 'statusLine',
-  'usage.sl.five_hour': 'Session',
-  'usage.sl.seven_day': 'Week',
+  'usage.sl.five_hour': '5h',
+  'usage.sl.seven_day': '7d',
   'usage.rail.five_hour': '5h',
   'usage.rail.seven_day': '7d',
   'cacct.title': 'Claude accounts',

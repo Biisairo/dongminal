@@ -42,8 +42,10 @@ const ALLOW = new Set([
 /** 툴팁·`aria-label` 로만 쓰이는 키 — 이름이 `_title` 로 끝나지 않는 것. */
 const TIP_KEYS = new Set(['html.btn_split_h', 'html.btn_split_v']);
 const isTipKey = (k) => /_title$/.test(k) || TIP_KEYS.has(k);
-/** §3.5.1 의 키 단위 예외 — 낱말로 풀면 `{n}d` 같은 남은 시간까지 통과한다. 레일 사용량 창 이름 `5h`·`7d` (RAIL_CHAT_USAGE_SRS D-RCU-2 개정). */
-const LATIN_KEYS = new Set(['usage.rail.five_hour', 'usage.rail.seven_day']);
+/** §3.5.1 의 키 단위 예외 — 낱말로 풀면 `{n}d` 같은 남은 시간까지 통과한다. 레일 사용량 창 이름 `5h`·`7d` (RAIL_CHAT_USAGE_SRS D-RCU-2 개정).
+ *  UX_BATCH14_SRS FR-UHD-3·4 (D-UB14-3): 칸 라벨과 막대 제목도 창 이름 `5h`·`7d` 다. */
+const LATIN_KEYS = new Set(['usage.rail.five_hour', 'usage.rail.seven_day', 'usage.sl.five_hour', 'usage.sl.seven_day',
+  'usage.win.five_hour', 'usage.win.seven_day', 'usage.win.seven_day_opus', 'usage.win.seven_day_sonnet']);
 
 const HANGUL = /[가-힣ㄱ-ㆎ]/;
 const WORD = /[A-Za-z][A-Za-z0-9]*(?:[.-][A-Za-z0-9]+)*/g;
