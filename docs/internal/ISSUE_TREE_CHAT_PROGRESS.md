@@ -8,7 +8,7 @@
 1. 이 문서를 끝까지 읽는다.
 2. 먼저 읽는다: `docs/internal/FEATURE_DEV_RULES.md`(규칙 전부, 특히 §3 설계 규칙·§4 시험·§5 운영 보호), `docs/internal/ISSUE_TREE_CHAT_SRS.md`(§3.4·§3.5, §4 결정, §10 가정 — 모두 사용자 승인됨).
 3. 저장소 상태 확인: 브랜치 `feature`, `git log -1` 이 이 문서의 마지막 갱신 커밋이다. `git status` 가 깨끗해야 한다. origin/feature 는 `98618cb1` 까지 push 됐고 그 뒤 커밋은 push 하지 않았다(사용자 지시가 있어야 한다).
-4. **다섯 묶음(A·U·T·L·C)의 코드는 모두 끝났다.** 검증 결과는 §2 「검증(2026-11-26)」 이다. 남은 것은 실측 셋이다 — 모두 사용자가 정한다:
+4. **다섯 묶음(A·U·T·L·C)의 코드는 모두 끝났다.** 검증 결과는 §2 「검증(2026-11-26)」 이다. **사용자가 격리 실측을 지시했다(2026-11-26).** §2 「격리 실측」 을 먼저 읽고, 그 절의 "발견 1"(채팅 소켓이 연결을 받지 않음)을 시험 먼저로 고친 뒤 남은 실측을 이어 간다. 아래는 옛 설명이다 — 실측 셋:
    - T-7 실측 TC-ITH-14(사용자 봇). 사용자가 다음에 운영 바이너리를 바꿀 때 한꺼번에 한다(사용자 결정 2026-11-26).
    - C-4/L-4 시범 TC-ITH-17(진짜 claude 로 local+coord · local+tree 를 끝까지). 격리 인스턴스 안에서 진짜 claude 를 띄우면 PATH 의 shim 이 운영 바이너리를 가리키는 문제(§4.1)와 claude 인증 HOME 문제가 있어, 운영 보호(§5)를 지키는 방법을 사용자와 정한 뒤 한다.
    - TC-ITH-19 유휴 측정(`scripts/perf/scenario.mjs`). 시범과 같은 격리 빌드로 한다.
@@ -110,6 +110,26 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 e2e 실패 2건은 둘 다 낡은 시험이었다(제품 동작은 의도대로):
 - `telegram-settings.spec.ts`: T-1(결정 I-19)이 채팅 토픽 절을 넷째 절로 더했다. 절 수 3 → 4, `#tg-topics` 꺼짐을 함께 본다.
 - `bundle-strip.spec.ts` TC-BST-1: 결정 I-11 의 `[hljs]` 묶음은 축약된 vendor 한 파일이라 걷을 주석이 없다. "모든 묶음이 줄어든다" → "걷을 것이 있으면 줄고, 없으면 원본 그대로다" 로 고쳤다.
+
+### 격리 실측 (2026-11-26, 이슈트리L-3 세션 — 진행 중)
+
+**local+coord 시범(TC-ITH-17 의 절반): 끝까지 통과.** 시험 저장소 `/private/tmp/ithtrial/coord`(이슈 폴더 `trial/issues`, 루트 1 · 하위 1.1 hello.sh · 1.2 bye.sh)에서 `/otterminal:issue-tree trial/issues#1 --mode coord`. 조정자가 통합 worktree `/private/tmp/ithtrial/coord-trial`(`integ/trial`)을 만들고, 일꾼 둘을 함께 띄웠다(브랜치 `trial/1.1`·`trial/1.2`). 일꾼이 시험 먼저·커밋·review 를 했고, 조정자가 `--no-ff` 로 병합한 뒤 1.1·1.2·1 을 done 으로 닫았다. 통합 브랜치에서 두 시험 모두 PASS. 끝에 사용자 확인("브랜치만 남기기")을 받은 뒤 Run 과 그룹을 정리했다. 약 5분이 걸렸다.
+
+**발견 1 — 채팅 소켓이 연결을 받지 않는다(코드 결함 의심, 미해결).** 조정자의 MCP `chat_create` 가 `daemon_unavailable` 이었다. 조정자는 문서대로 트리 방 없이 `otterctl msg` 로 진행했다 → **트리 방(묶음 C)은 아직 실측하지 못했다.** 확인한 사실:
+- 같은 환경에서 `otterctl chat-mcp` 를 직접 띄워 `chat_rooms` 를 부르면 "데몬의 채팅 소켓에 연결할 수 없다" 가 난다. python 으로 `<격리 홈>/chat.sock` 에 붙으면 `ECONNREFUSED` 다.
+- 데몬(PID 58241)은 그 소켓 fd 를 쥐고 있고(lsof), 소켓 파일의 inode·시각은 데몬이 기동한 때(16:03:48) 그대로다. 데몬 로그에는 `채팅 소켓:` 오류가 없다.
+- 16:10 에 조정자 claude 가 뜰 때 shim 의 dial 검사는 통과했다(그래서 MCP 가 주입됐다). dial 은 대기열만 있어도 성공한다.
+- 가설: `chatsock::Server::serve` 는 `ln.accept()` 가 한 번이라도 Err 이면 루프를 끝낸다(`daemon/chatsock/src/lib.rs` serve). 받는 쪽이 멈추면 대기열이 차고 그 뒤로 `ECONNREFUSED` 다. `sample` 로 떠 보니 막혀 있는 `__accept` 스레드는 하나뿐이었다(심볼이 없어 어느 소켓인지 모른다). **다음 세션이 원인을 확정하고 고친다**(시험 먼저: accept 가 오류를 내도 serve 가 계속 받는지).
+
+**격리 실측 방법(운영 보호를 지키는 법) — 그대로 다시 쓸 수 있다:**
+1. 빌드: `BINARY=otterminal-ith rust/scripts/hermetic.sh scripts/build.sh`.
+2. 기동은 **운영 shim 과 `OTTERMINAL_*` 를 뺀 깨끗한 환경**으로 한다: `env -i HOME=/Users/dykim USER=dykim LOGNAME=dykim SHELL=/bin/zsh TERM=xterm-256color LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 TMPDIR=$TMPDIR PATH=<PATH 에서 .otterminal 이 든 항목을 뺀 것> ./otterminal-ith start --isolated`. 그러면 격리 탭의 `claude`·`otterctl` 이 모두 격리 바이너리를 가리킨다(`type -a` 로 확인함).
+3. 격리 탭의 HOME 은 `<격리 홈>/tool-home`(빈 홈)이다. claude 로그인·설정을 쓰려면 그 아래에 `.claude → ~/.claude`, `.claude.json → ~/.claude.json`, `Library → ~/Library`(macOS 키체인), `.gitconfig`(user.name/email)를 둔다. 사용자 전역 설정의 `defaultMode: auto` 로 노드가 멈추지 않고 돈다.
+4. 격리 인스턴스용 otterctl 은 `env -i HOME=/Users/dykim PATH=<위 PATH> OTTERMINAL_HOME=<격리 홈> OTTERMINAL_PORT=<포트> <격리 홈>/bin/otterctl …` 로 부른다.
+5. 레이아웃 명령에는 화면을 연 브라우저가 필요하다 — Playwright MCP 로 `http://127.0.0.1:<포트>/` 를 연다. 폴더 신뢰 창(기본 선택이 No)은 Playwright 로 `.xterm` 을 누르고 `ArrowDown`·`Enter` 를 친다. **상위 폴더(`/private/tmp/ithtrial`)를 한 번 신뢰하면 하위 worktree 에는 신뢰 창이 뜨지 않는다.**
+6. 지금 떠 있는 격리 인스턴스: 포트 49417, 홈 `/var/folders/8s/s404j_ps7x94zc59bb2fp1c00000gn/T/otterminal-iso-3582717237`, 서버 PID 58194, 데몬 PID 58241, 조정자 탭 uuid `9ac0f397-e7d6-4e44-836d-ff53b2bd1b9c`(claude 가 떠 있다). 정지: `./otterminal-ith stop --all --port 49417 --home <격리 홈>`(위 깨끗한 환경으로).
+
+**남은 실측:** ① 발견 1 을 고친 뒤 다시 빌드해 트리 방(C: 자동 입장, call 로 주고받기, 첫 지시 파일, 끝의 나가기)을 local+coord 로 다시 본다 ② local+tree 시범 ③ TC-ITH-19 유휴 측정.
 
 ### 그 뒤
 
