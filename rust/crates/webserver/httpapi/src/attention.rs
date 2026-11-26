@@ -465,11 +465,18 @@ impl Server {
             BodyRead::NotJson => return bad_request(apierr::CODE_INVALID_JSON),
             BodyRead::Ok(b) => b,
         };
-        if (req.seq == 0) == req.chat.is_empty() {
+        if req.seq == 0 && req.chat.is_empty() {
             return http_err(
-                "seq or chat required",
+                "seq required",
                 StatusCode::BAD_REQUEST,
                 apierr::CODE_MISSING_ARG,
+            );
+        }
+        if req.seq != 0 && !req.chat.is_empty() {
+            return http_err(
+                "seq and chat are exclusive",
+                StatusCode::BAD_REQUEST,
+                apierr::CODE_BAD_REQUEST,
             );
         }
         let host = self.claim_host(&r.remote_addr);
