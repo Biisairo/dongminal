@@ -23,9 +23,13 @@ use crate::render::{AlarmKind, Body, READ_PREFIX, fit_alarm, plain_text, read_ke
 use crate::topics::{TopicMap, topics_path};
 use crate::transcript::last_reply;
 
+#[cfg(test)]
+mod chatrig;
 mod mirror;
+mod post;
 
-pub use mirror::{ChatRoom, display_name};
+pub use mirror::{ChatPerson, ChatRoom, ChatView, display_name};
+pub use post::ChatPost;
 
 /// hook 보고 하나 (FR-TGB-80·81). 서버가 활동 보고에서 옮겨 넣는다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -58,9 +62,9 @@ pub trait Host: Send + Sync {
     fn attend(&self, tool_id: &str, typed: bool);
     /// 짝맞춤으로 허용 계정이 바뀌었다.
     fn paired(&self) {}
-    /// 사람 참가자에게 보이는 방들 (ISSUE_TREE_CHAT_SRS FR-TGT-3). 읽지 못하면 None 이다. 막힐 수 있어 작업자는
+    /// 사람 참가자가 보는 채팅 (ISSUE_TREE_CHAT_SRS FR-TGT-3). 읽지 못하면 None 이다. 막힐 수 있어 작업자는
     /// 블로킹 스레드에서 부른다.
-    fn chat_rooms(&self) -> Option<Vec<ChatRoom>> {
+    fn chat_view(&self) -> Option<ChatView> {
         None
     }
 }
@@ -103,6 +107,8 @@ pub(crate) enum Item {
     Notice(String),
     /// 채팅 상태가 바뀌었다 — 거울 토픽을 맞춘다 (ISSUE_TREE_CHAT_SRS FR-TGT-3).
     ChatSync,
+    /// 토픽에 올릴 채팅 글 (FR-TGT-7).
+    ChatPost(ChatPost),
 }
 
 /// 탭 하나의 직전 hook (FR-TGB-51·55). 알람이 울릴 때 종류와 내용을 정한다.
@@ -217,6 +223,8 @@ pub struct Bridge {
     topics: TopicMap,
     /// 큐에 처리하지 않은 ChatSync 가 있다.
     sync_queued: AtomicBool,
+    /// 마지막 맞추기에서 읽은 채팅 (FR-TGT-7·8).
+    view: Mutex<Option<ChatView>>,
 }
 
 #[derive(Deserialize, Default)]
@@ -243,6 +251,7 @@ impl Bridge {
             state: Mutex::new(State::default()),
             topics: TopicMap::open(&topics_path(&st_path)),
             sync_queued: AtomicBool::new(false),
+            view: Mutex::new(None),
         })
     }
 
@@ -338,6 +347,7 @@ impl Bridge {
             }
             Item::Attention { tool, reason } => self.alarm(&c, &tool, &reason).await,
             Item::ChatSync => self.sync_topics(&c).await,
+            Item::ChatPost(p) => self.post_chat(&c, p).await,
             Item::Gone(_) => {}
         }
     }

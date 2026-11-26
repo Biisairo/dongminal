@@ -280,6 +280,7 @@ struct TgRec {
     evs: Mutex<Vec<telegram::Event>>,
     attn: Mutex<Vec<String>>,
     chat: AtomicI64,
+    posts: Mutex<Vec<telegram::ChatPost>>,
 }
 
 impl TelegramSink for TgRec {
@@ -300,6 +301,9 @@ impl TelegramSink for TgRec {
     }
     fn on_chat_changed(&self) {
         self.chat.fetch_add(1, Ordering::SeqCst);
+    }
+    fn on_chat_post(&self, p: telegram::ChatPost) {
+        self.posts.lock().unwrap().push(p);
     }
 }
 
@@ -638,17 +642,18 @@ async fn telegram_failed_chat_op_does_not_sync() {
 
 const STATE: &str = r##"{"me":{"id":"fpA-u1","label":"mac/나","kind":"user"},
  "rooms":[
-  {"id":"g1","kind":"group","name":"#설계","purpose":"설계 논의","members":3,"joined":true},
+  {"id":"g1","kind":"group","name":"#설계","purpose":"설계 논의","members":3,"joined":true,"notify":"all",
+   "people":[{"id":"fpA-u1","label":"mac/나"},{"id":"fpA-a1","label":"mac/설계탭"},{"id":"fpB-a7","label":"office/빌드"}]},
   {"id":"g2","kind":"group","name":"리뷰","purpose":"","members":1,"joined":false},
   {"id":"d1","kind":"direct","purpose":"질문","members":2,"joined":true,
    "people":[{"id":"fpA-u1","label":"mac/나"},{"id":"fpB-a7","label":"office/빌드"}]},
   {"id":"d2","kind":"direct","purpose":"","members":1,"joined":true,
    "people":[{"id":"fpA-u1","label":"mac/나"}]}]}"##;
 
-/// FR-TGT-3·CUX-9: 채팅 상태의 방을 브리지의 방으로 옮긴다. 단체채팅은 `#` 없는 방 이름, 개인채팅은 상대의
-/// 표시 이름이고, 상대가 없으면 `개인채팅` 이다.
+/// FR-TGT-3·CUX-9: 채팅 상태를 브리지의 보기로 옮긴다. 단체채팅은 `#` 없는 방 이름, 개인채팅은 상대의
+/// 표시 이름이고, 상대가 없으면 `개인채팅` 이다. 방마다 내 알림 단계와 참가자 표시 이름을 싣는다.
 #[tokio::test]
-async fn telegram_host_reads_chat_rooms() {
+async fn telegram_host_reads_chat_view() {
     let d = Arc::new(FakeChat {
         ready: true,
         res: ChatResult {
@@ -659,7 +664,12 @@ async fn telegram_host_reads_chat_rooms() {
     });
     let (srv, _rec, _d) = tg_chat_server(d.clone());
     let host = TelegramHost(Arc::downgrade(&srv));
-    let rooms = host.chat_rooms().expect("방을 읽지 못했다");
+    let view = host.chat_view().expect("채팅을 읽지 못했다");
+    let person = |id: &str, name: &str| telegram::ChatPerson {
+        id: id.into(),
+        name: name.into(),
+    };
+    assert_eq!(view.me, person("fpA-u1", "나"));
     let room =
         |id: &str, name: &str, purpose: &str, members: i64, joined: bool| telegram::ChatRoom {
             id: id.into(),
@@ -667,30 +677,133 @@ async fn telegram_host_reads_chat_rooms() {
             purpose: purpose.into(),
             members,
             joined,
+            ..Default::default()
         };
+    let mut g1 = room("g1", "설계", "설계 논의", 3, true);
+    g1.notify = "all".into();
+    g1.people = vec![
+        person("fpA-u1", "나"),
+        person("fpA-a1", "설계탭"),
+        person("fpB-a7", "office › 빌드"),
+    ];
+    let mut d1 = room("d1", "office › 빌드", "질문", 2, true);
+    d1.people = vec![person("fpA-u1", "나"), person("fpB-a7", "office › 빌드")];
+    let mut d2 = room("d2", "개인채팅", "", 1, true);
+    d2.people = vec![person("fpA-u1", "나")];
     assert_eq!(
-        rooms,
-        vec![
-            room("g1", "설계", "설계 논의", 3, true),
-            room("g2", "리뷰", "", 1, false),
-            room("d1", "office › 빌드", "질문", 2, true),
-            room("d2", "개인채팅", "", 1, true),
-        ]
+        view.rooms,
+        vec![g1, room("g2", "리뷰", "", 1, false), d1, d2]
     );
     assert_eq!(d.got.lock().unwrap()[0].op, chatwire::OP_STATE);
 }
 
 /// 데몬이 없거나, 준비되지 않았거나, 실패하면 방 목록을 모른다(None) — 브리지는 아무것도 지우지 않는다.
 #[tokio::test]
-async fn telegram_host_rooms_unknown_without_daemon() {
+async fn telegram_host_view_unknown_without_daemon() {
     let srv = Server::new(Config::default(), Deps::default());
-    assert_eq!(TelegramHost(Arc::downgrade(&srv)).chat_rooms(), None);
+    assert_eq!(TelegramHost(Arc::downgrade(&srv)).chat_view(), None);
     let (srv, _r, _d) = tg_chat_server(Arc::new(FakeChat::default()));
-    assert_eq!(TelegramHost(Arc::downgrade(&srv)).chat_rooms(), None);
+    assert_eq!(TelegramHost(Arc::downgrade(&srv)).chat_view(), None);
     let (srv, _r, _d) = tg_chat_server(Arc::new(FakeChat {
         ready: true,
         err: Some("broken pipe".into()),
         ..Default::default()
     }));
-    assert_eq!(TelegramHost(Arc::downgrade(&srv)).chat_rooms(), None);
+    assert_eq!(TelegramHost(Arc::downgrade(&srv)).chat_view(), None);
+}
+
+/// FR-TGT-7: 데몬이 사람에게 민 글은 브리지 글로 옮긴다(부름·시각·보낸 이 그대로).
+#[tokio::test]
+async fn telegram_pushed_message_reaches_bridge() {
+    let (srv, rec, _d) = tg_chat_server(Arc::new(FakeChat::default()));
+    srv.chat_pushed(&ChatEvent {
+        chat_kind: CHAT_KIND_MSG.into(),
+        chat: Some(chatwire::Message {
+            id: "m1".into(),
+            room: "g1".into(),
+            from: "fpB-a7".into(),
+            from_label: "office/빌드".into(),
+            text: "**확인** 부탁".into(),
+            at: 1_700_000_000_123,
+            call: vec!["user".into()],
+            called: true,
+            ..Default::default()
+        }),
+        ..Default::default()
+    });
+    assert_eq!(
+        rec.posts.lock().unwrap().clone(),
+        vec![telegram::ChatPost {
+            room: "g1".into(),
+            from: "fpB-a7".into(),
+            from_label: "office/빌드".into(),
+            text: "**확인** 부탁".into(),
+            at_ms: 1_700_000_000_123,
+            call: vec!["user".into()],
+            called: true,
+            mine: false,
+        }]
+    );
+}
+
+/// FR-TGT-7: 웹에서 보낸 내 글도 올린다. 데몬이 거절한 글은 올리지 않는다.
+#[tokio::test]
+async fn telegram_my_sent_message_reaches_bridge() {
+    let ok = Arc::new(FakeChat {
+        ready: true,
+        res: ChatResult {
+            result: RawMessage(br#"{"ok":true}"#.to_vec()),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    let (srv, rec, _d) = tg_chat_server(ok);
+    let hdr = [("Content-Type", "application/json")];
+    let body = r#"{"room":"g1","text":"안녕","call":["fpB-a7"]}"#;
+    let r = call(&srv, "POST", "/api/chat/send", &hdr, body, support::LOCAL).await;
+    assert_eq!(r.status, 200);
+    let posts = rec.posts.lock().unwrap().clone();
+    assert_eq!(posts.len(), 1);
+    let p = &posts[0];
+    assert_eq!(
+        (
+            p.room.as_str(),
+            p.text.as_str(),
+            p.call.clone(),
+            p.mine,
+            p.called
+        ),
+        ("g1", "안녕", vec!["fpB-a7".to_string()], true, false)
+    );
+    assert!(p.at_ms > 0);
+    let r = call(
+        &srv,
+        "POST",
+        "/api/chat/join",
+        &hdr,
+        r#"{"room":"g1"}"#,
+        support::LOCAL,
+    )
+    .await;
+    assert_eq!(r.status, 200);
+    assert_eq!(
+        rec.posts.lock().unwrap().len(),
+        1,
+        "send 아닌 연산이 글을 올렸다"
+    );
+    let bad = Arc::new(FakeChat {
+        ready: true,
+        res: ChatResult {
+            error: Some(chatwire::Error {
+                code: "not_in_room".into(),
+                message: "g1".into(),
+            }),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    let (srv, rec, _d) = tg_chat_server(bad);
+    let r = call(&srv, "POST", "/api/chat/send", &hdr, body, support::LOCAL).await;
+    assert_eq!(r.status, 409);
+    assert!(rec.posts.lock().unwrap().is_empty());
 }

@@ -8,7 +8,7 @@
 1. 이 문서를 끝까지 읽는다.
 2. 먼저 읽는다: `docs/internal/FEATURE_DEV_RULES.md`(규칙 전부, 특히 §3 설계 규칙·§4 시험·§5 운영 보호), `docs/internal/ISSUE_TREE_CHAT_SRS.md`(§3.1 묶음 A, §4 결정, §10 가정 — 모두 사용자 승인됨).
 3. 저장소 상태 확인: 브랜치 `feature`, 직전 코드 커밋 `9cdafa44`. `git status` 가 깨끗해야 한다. main 은 origin/main 보다 2 커밋 앞(push 전), feature 는 main 보다 6 커밋 앞(착수 문서 · SRS · A1 · 진행 문서 · A1 와이어·소켓 · 진행 문서 갱신).
-4. §2 의 묶음 T 표에서 "남음" 인 첫 단계(T-4)부터 이어 간다. 묶음 A·U 와 T-1~T-3 은 끝났다. 거울 맞추기의 구조는 결정 I-20 과 `telegram/src/bridge/mirror.rs` 에 있다. 단계마다 시험 먼저(RED 확인) → 구현(GREEN) → fmt·clippy·관련 게이트.
+4. §2 의 묶음 T 표에서 "남음" 인 첫 단계(T-5)부터 이어 간다. 묶음 A·U 와 T-1~T-4 는 끝났다. 거울 맞추기·글 올리기의 구조는 결정 I-20·I-21 과 `telegram/src/bridge/mirror.rs`·`post.rs` 에 있다. 단계마다 시험 먼저(RED 확인) → 구현(GREEN) → fmt·clippy·관련 게이트.
 5. 커밋은 단계마다 스스로 한다(사용자 지시 2026-11-26, AI 서명 금지). main 병합·push 는 사용자의 분명한 지시가 있을 때만.
 6. 운영 바이너리 재빌드는 하지 않았다(운영 보호 §5). 사용자에게 보고했다. 사용자가 정할 때까지 빌드하지 않는다.
 
@@ -57,7 +57,7 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | T-1 설정: `Config.topics`·View·`Store.set_topics`, 설정 API 와 화면 토글(켜기·token·허용 계정이 전제), getMe 의 `has_topics_enabled` 안내, BotFather 안내, 밖으로 나가는 데이터 목록(FR-TGT-1·2·13) | 끝남 (결정 I-19) |
 | T-2 짝 파일: 방 id ↔ 토픽 thread id · 고정 글 id. 설정 파일 옆, 권한 600, 다시 시작해도 이어 쓴다(FR-TGT-4) | 끝남 — `telegram/src/topics.rs`(`TopicMap`·`Topic{threadId,pinId,name,pinText}`·`topics_path`, 파일 `telegram-topics.json`). 시험 5. 모듈의 `allow(dead_code)` 는 T-3 에서 지웠다. 아직 쓰지 않는 `by_thread` 하나에만 남았다 — T-5 에서 쓰면 지운다 |
 | T-3 거울 맞추기: Host 가 채팅 상태(방·사람 참가자)를 준다. 방 생김/사라짐 → createForumTopic/deleteForumTopic, 고정 안내 글(목적·참가자 수·들어감·단추) 만들기·고치기, 짝만 있고 방 없음 → 지움(FR-TGT-3·5) | 끝남 (결정 I-20) — `telegram/src/bridge/mirror.rs`(`ChatRoom`·`display_name`·`Bridge::on_chat_changed`·`sync_topics`), `Host::chat_rooms`, 서버 `TelegramHost::chat_rooms`·`telegram_chat_changed`. 시험: mirror 14 · httpapi 4. T-2 시험의 unix 전용 import 를 `cfg(unix)` 로 묶었다(check-cross windows 실패) |
-| T-4 글 올리기: 사람 참가자에게 온 글과 내가 보낸 글 → 토픽. 머리(굵은 표시 이름·시각·@부름), 마크다운 → Telegram HTML, 4,096자 나누기, 깨울 글만 소리(FR-TGT-7·8) | 남음 |
+| T-4 글 올리기: 사람 참가자에게 온 글과 내가 보낸 글 → 토픽. 머리(굵은 표시 이름·시각·@부름), 마크다운 → Telegram HTML, 4,096자 나누기, 깨울 글만 소리(FR-TGT-7·8) | 끝남 (결정 I-21) — `telegram/src/bridge/post.rs`(`ChatPost`·`on_chat_post`·`post_chat`·`split_chunks`), `render::chat_md_html`, `Host::chat_view`(T-3 의 `chat_rooms` 를 바꿈), 시험 공용 틀 `bridge/chatrig.rs`. 서버 `chat_pushed`(msg)·`chat_do`(send 성공) → `telegram_chat_post`. 시험: post 9 · httpapi 2 |
 | T-5 받기: 허용 계정의 토픽 글 → 방에 사람 글(답장·@ → call), 들어가지 않음 → 안내, 단추 → join/leave, 남의 업데이트 무시(FR-TGT-6·9·10) | 남음 |
 | T-6 토픽 없음 오류 → 다시 만들고 짝 고친 뒤 다시 보냄(FR-TGT-11). 끄면 토픽 요청 0(NFR-ITH-4, TC-ITH-13). 기존 알림은 토픽 밖 그대로(FR-TGT-12) | 남음 |
 | T-7 실측 TC-ITH-14 — 사용자 봇이 필요하다. 사용자에게 요청한다 | 남음 |
@@ -98,6 +98,7 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | I-18 | 부른 상대는 따로 든 상태 없이 **본문의 `@<표시 이름>`** 에서 뽑는다(`chatCallsIn`, 긴 이름 먼저·낱말 처음의 `@` 만·나는 뺌). `@` 목록은 고르면 `@이름 ` 을 넣고, 답장 단추(글에 올리면 보임)는 입력칸 앞에 `@보낸 이 ` 를 붙인다. 보낸 글의 즉시 표시에도 `call` 을 싣는다 | 사용자가 지운 이름은 부르지 않는다 — 화면에 보이는 것과 보내는 것이 같다 |
 | I-19 | 채팅 토픽 설정은 `telegram.json` 의 `chatTopics`(꺼지면 키 없음 — 1판의 `topics` 객체와 이름을 나눔)다. `Config::topics_active()` = 켜기·token·허용 계정·chatTopics 모두. `PUT /api/telegram/topics {topics}` — 전제 없음 409 `telegram_topics_need_bridge`, 켤 때 getMe 의 `has_topics_enabled` 가 거짓이면 409 `telegram_topics_mode_off`(저장 안 함). 응답·GET 은 켜져 있을 때만 `chatTopics: true`(Go 골든 그대로). 설정 화면의 블록은 지연 묶음 `settings-telegram.js` 가 만든다(부팅 카탈로그를 늘리지 않음). 밖으로 나가는 데이터는 설정 화면과 TELEGRAM_BRIDGE_SRS §8 에 적었다 | FR-TGT-1·2·13, R-5 |
 | I-20 | 거울 맞추기(FR-TGT-3·5): 서버가 방을 바꾸는 채팅 연산 성공 · 데몬의 `changed` · 데몬 재연결 · 채팅 토픽 켜기 · 브리지 시작 때 `on_chat_changed` 를 부른다. 브리지는 `topics_active` 일 때만 `Item::ChatSync` 를 넣고, 처리 전의 맞추기는 하나로 합친다. 방 목록은 데몬 `state` 를 블로킹 스레드에서 읽고, 읽지 못하면(None) 아무것도 지우지 않는다. 토픽 이름은 단체채팅 = `#` 없는 방 이름, 개인채팅 = 상대 표시 이름(없으면 `개인채팅`), 128자에서 자름. 고정 글은 HTML(굵은 이름 · 목적 · `참가자 N명 · 들어가 있음/있지 않음`)이고 단추는 상태에 맞는 **하나**(`[들어가기]` 또는 `[나가기]`)다. 단추 데이터는 `cj:`/`cl:` + **토픽 thread id** 다. 토픽 지우기를 Telegram 이 거절하면(이미 없음) 짝을 지우고, 닿지 못하면 남겨 다음에 다시 지운다. 만들기·고정 글이 실패하면 다음 맞추기에서 다시 한다 | 방 id 는 64자 hex 라 `cj:` 를 붙이면 callback_data 상한 64바이트를 넘는다. 고정 글은 들어감이 바뀔 때마다 고치므로 단추 하나로 충분하다 |
+| I-21 | 글 올리기(FR-TGT-7·8): 서버가 데몬이 사람에게 민 글(`chat_pushed` msg)과 웹에서 보낸 내 글(`/api/chat/send` 성공, 시각은 서버 지금)을 `ChatPost` 로 넘긴다. 브리지는 마지막 맞추기의 보기(`ChatView`: 나 · 방별 알림 단계 · 참가자 표시 이름)로 머리 줄(`<b>이름</b> HH:MM · @이름…`, `user`·나는 `@나`, 모르는 id 는 id 그대로)과 소리를 정한다. 소리는 내 글이 아니고 단계 all · (called·빈 값이면 called 글)일 때 첫 조각만. 짝이 없는 방의 글은 먼저 맞춘다. 4,096자는 원문을 줄 단위로 `MESSAGE_MAX-256` 단위 조각으로 나누고, 열린 코드 블록은 다음 조각 앞에 여는 줄을 다시 붙인다. 보내기는 알림과 같은 `send_alarm`(429·HTML 오류 재시도)이다. 코드 블록은 `<pre>`(언어가 있으면 `<code class="language-…">`) | 데몬은 보낸 이에게 글을 되밀지 않는다(`local_deliveries_locked` 가 보낸 이를 뺀다). 옮긴 HTML 의 보이는 글은 원문보다 길지 않다 |
 | I-9 | 웹 알람의 단계는 `state` 의 방 `notify` 로 판정하고, 알람은 `ChatStore` 에 방마다 둔다. 방 탭이 보이면 안 읽은 수와 함께 꺼진다 | FR-CAL-15·16 |
 
 ## 4. 이 세션이 값을 치르고 배운 것

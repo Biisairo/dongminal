@@ -43,6 +43,8 @@ pub(crate) trait TelegramSink: Send + Sync {
     fn on_tool_gone(&self, tool_id: &str);
     /// 채팅 방이 바뀌었다 (ISSUE_TREE_CHAT_SRS FR-TGT-3).
     fn on_chat_changed(&self);
+    /// 토픽에 올릴 채팅 글 (FR-TGT-7).
+    fn on_chat_post(&self, p: telegram::ChatPost);
 }
 
 impl TelegramSink for telegram::Bridge {
@@ -60,6 +62,9 @@ impl TelegramSink for telegram::Bridge {
     }
     fn on_chat_changed(&self) {
         telegram::Bridge::on_chat_changed(self);
+    }
+    fn on_chat_post(&self, p: telegram::ChatPost) {
+        telegram::Bridge::on_chat_post(self, p);
     }
 }
 
@@ -398,6 +403,14 @@ impl Server {
         }
     }
 
+    /// 채팅 글을 브리지에 넘긴다 — 거울 토픽에 오른다 (ISSUE_TREE_CHAT_SRS FR-TGT-7). 채팅 토픽이 꺼져 있으면
+    /// 브리지가 거른다 (NFR-ITH-4).
+    pub(crate) fn telegram_chat_post(&self, p: telegram::ChatPost) {
+        if let Some(tg) = &self.tg {
+            tg.sink.on_chat_post(p);
+        }
+    }
+
     /// Go `StartTelegram`: 브리지를 돌리고, stop 이 취소되면 멈춘다. 돌려준 task 는 멈춘 뒤 끝난다.
     /// 꺼져 있으면 브리지는 Telegram 에 아무 요청도 하지 않는다 (NFR-TGB-1).
     pub fn start_telegram(&self, stop: CancellationToken) -> tokio::task::JoinHandle<()> {
@@ -485,8 +498,8 @@ impl telegram::Host for TelegramHost {
         }
     }
 
-    /// 사람 참가자의 채팅 상태에서 방을 옮긴다 (ISSUE_TREE_CHAT_SRS FR-TGT-3). 데몬 RPC 라 막힐 수 있다.
-    fn chat_rooms(&self) -> Option<Vec<telegram::ChatRoom>> {
+    /// 사람 참가자의 채팅 상태를 옮긴다 (ISSUE_TREE_CHAT_SRS FR-TGT-3·7). 데몬 RPC 라 막힐 수 있다.
+    fn chat_view(&self) -> Option<telegram::ChatView> {
         let d = self.0.upgrade()?.deps.chat_daemon.clone()?;
         if !d.chat_ready() {
             return None;
@@ -501,8 +514,12 @@ impl telegram::Host for TelegramHost {
             return None;
         }
         let st: chatwire::State = otter_gocompat::json::unmarshal(&res.result.0).ok()?;
+        let me = &st.me.id;
         let rooms = st.rooms.unwrap_or_default();
-        Some(rooms.iter().map(|r| chat_room(r, &st.me.id)).collect())
+        Some(telegram::ChatView {
+            me: chat_person(&st.me, me),
+            rooms: rooms.iter().map(|r| chat_room(r, me)).collect(),
+        })
     }
 }
 
@@ -522,6 +539,20 @@ fn chat_room(r: &chatwire::Room, me: &str) -> telegram::ChatRoom {
         purpose: r.purpose.clone(),
         members: r.members,
         joined: r.joined,
+        notify: r.notify.clone(),
+        people: r
+            .people
+            .iter()
+            .flatten()
+            .map(|p| chat_person(p, me))
+            .collect(),
+    }
+}
+
+fn chat_person(p: &chatwire::Member, me: &str) -> telegram::ChatPerson {
+    telegram::ChatPerson {
+        id: p.id.clone(),
+        name: telegram::display_name(&p.label, &p.id, me),
     }
 }
 

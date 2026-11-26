@@ -28,7 +28,22 @@ const JOINED_TEXT: &str = "들어가 있음";
 const NOT_JOINED_TEXT: &str = "들어가 있지 않음";
 /// 다른 노드 참가자 이름의 나눔 (FR-CUX-9). 웹 카탈로그 `chat.name_remote` 와 같다.
 const REMOTE_SEP: &str = " › ";
-/// 사람 참가자에게 보이는 방 하나 (FR-TGT-3). 서버가 채팅 상태에서 옮긴다.
+/// 참가자 하나의 id 와 표시 이름 (FR-CUX-9).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ChatPerson {
+    pub id: String,
+    pub name: String,
+}
+
+/// 사람 참가자가 보는 채팅 (FR-TGT-3). 서버가 채팅 상태에서 옮긴다.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ChatView {
+    /// 사람 참가자(나).
+    pub me: ChatPerson,
+    pub rooms: Vec<ChatRoom>,
+}
+
+/// 사람 참가자에게 보이는 방 하나 (FR-TGT-3).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ChatRoom {
     pub id: String,
@@ -38,6 +53,10 @@ pub struct ChatRoom {
     pub members: i64,
     /// 사람 참가자가 들어가 있는가.
     pub joined: bool,
+    /// 이 방에서 내 알림 단계(`all`·`called`·`off`). 비면 called 다 (FR-CAL-5·7).
+    pub notify: String,
+    /// 방의 참가자. 부른 상대의 이름을 찾는다 (FR-TGT-7).
+    pub people: Vec<ChatPerson>,
 }
 
 /// 참가자의 표시 이름 (FR-CUX-9). 원래 이름은 `<노드>/<탭>` 이다. 내 노드의 참가자는 탭 이름, 다른 노드는
@@ -113,15 +132,18 @@ impl Bridge {
         }
     }
 
-    /// 방 목록과 짝을 맞춘다 (FR-TGT-3·4·5). 방 목록을 읽지 못하면 아무것도 지우지 않는다.
+    /// 방 목록과 짝을 맞춘다 (FR-TGT-3·4·5). 방 목록을 읽지 못하면 아무것도 지우지 않는다. 읽은 보기는 글 올리기
+    /// (FR-TGT-7·8)가 쓰도록 기억한다.
     pub(crate) async fn sync_topics(&self, c: &Config) {
         if !c.topics_active() {
             return;
         }
         let host = Arc::clone(&self.host);
-        let Ok(Some(rooms)) = tokio::task::spawn_blocking(move || host.chat_rooms()).await else {
+        let Ok(Some(view)) = tokio::task::spawn_blocking(move || host.chat_view()).await else {
             return;
         };
+        let rooms = view.rooms.clone();
+        *self.view.lock().unwrap_or_else(|p| p.into_inner()) = Some(view);
         for r in &rooms {
             self.sync_room(c, r).await;
         }
