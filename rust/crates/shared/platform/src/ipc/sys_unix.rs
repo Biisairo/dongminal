@@ -282,7 +282,11 @@ impl Socket {
             }
             // SAFETY: accept 가 막 돌려준, 아무도 소유하지 않은 fd 다.
             let fd = unsafe { OwnedFd::from_raw_fd(r) };
-            prepare(r)?;
+            // 받기 전에 상대가 닫은 연결은 darwin 의 SO_NOSIGPIPE 가 EINVAL 이다. 리스너의 오류가
+            // 아니므로 그 연결만 버리고 다음 연결을 받는다.
+            if prepare(r).is_err() {
+                continue;
+            }
             return Ok((Socket(fd), parse_name(&sa)));
         }
     }
