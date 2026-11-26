@@ -157,12 +157,19 @@ fn run_gh(args: Vec<String>) -> GhFuture {
     })
 }
 
-/// `owner/repo#N` → (owner, repo, N).
+/// GitHub 의 owner·repo 이름에 드는 글자. gh 인자로 넘기기 전에 거른다 — `@` 로 시작하는 값은 gh 가 파일로 읽는다.
+fn gh_name_ok(s: &str) -> bool {
+    !s.is_empty()
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+}
+
+/// `owner/repo#N` → (owner, repo, N). 이름 글자가 아니면 거절한다.
 fn parse_github_ref(r: &str) -> Option<(String, String, u64)> {
     let (repo, n) = r.rsplit_once('#')?;
     let (owner, name) = repo.split_once('/')?;
     let n = n.parse().ok()?;
-    (!owner.is_empty() && !name.is_empty()).then(|| (owner.to_owned(), name.to_owned(), n))
+    (gh_name_ok(owner) && gh_name_ok(name)).then(|| (owner.to_owned(), name.to_owned(), n))
 }
 
 fn gh_errors(v: &Value) -> Option<GhFail> {
@@ -223,9 +230,9 @@ async fn fetch_github(gh: &GhCall, reference: &str) -> Result<Vec<IssueNode>, Gh
         "graphql".into(),
         "-f".into(),
         format!("query={q}"),
-        "-F".into(),
+        "-f".into(),
         format!("o={owner}"),
-        "-F".into(),
+        "-f".into(),
         format!("r={name}"),
         "-F".into(),
         format!("n={n}"),
@@ -462,6 +469,14 @@ mod tests {
         assert_eq!(parse_github_ref("/r#1"), None);
         assert_eq!(parse_github_ref("o/r#x"), None);
         assert_eq!(parse_github_ref("perf:2"), None);
+        // gh 의 `-F key=@file` 이 파일을 읽지 않게 이름 글자만 받는다.
+        assert_eq!(parse_github_ref("o/@/etc/passwd#1"), None);
+        assert_eq!(parse_github_ref("@o/r#1"), None);
+        assert_eq!(parse_github_ref("o/r/x#1"), None);
+        assert_eq!(
+            parse_github_ref("my-org/my.repo_1#7"),
+            Some(("my-org".into(), "my.repo_1".into(), 7))
+        );
     }
 
     #[test]
