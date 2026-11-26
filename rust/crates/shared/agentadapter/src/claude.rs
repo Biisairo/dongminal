@@ -367,8 +367,9 @@ pub(crate) const HOOK_EVENTS: &[&str] = &[
 /// 맥락 훅(`otterctl ctx-hook`)을 함께 거는 이벤트 (FR-ITM-10).
 const CTX_HOOK_EVENTS: &[&str] = &["PostToolUse", "UserPromptSubmit"];
 
-/// 깨움 훅(`otterctl chat-wait`)을 거는 이벤트 (ISSUE_TREE_CHAT_SRS FR-CAL-8).
-const CHAT_WAIT_EVENT: &str = "Stop";
+/// 깨움 훅(`otterctl chat-wait`)을 거는 이벤트 (ISSUE_TREE_CHAT_SRS FR-CAL-8). `SessionStart` 에도 걸어 막 띄운
+/// 세션도 첫 턴 전에 깨운다 (AGENT_MSG_REWAKE_SRS FR-AMW-23).
+const CHAT_WAIT_EVENTS: &[&str] = &["SessionStart", "Stop"];
 
 /// 깨움 훅의 시한(초)이다. claude 의 명령 훅은 시한이 지나면 끊기고, 끊긴 뒤에 온 글로는 다음
 /// Stop 까지 깨우지 않는다. 그래서 쉬는 동안 내내 기다리도록 길게 둔다. 7일이다 — JS 타이머의
@@ -390,7 +391,7 @@ pub(crate) fn write_activity_hooks(s: &InstallSpec) -> io::Result<()> {
     for ev in HOOK_EVENTS {
         let list = if CTX_HOOK_EVENTS.contains(ev) {
             json!([hook, ctx])
-        } else if *ev == CHAT_WAIT_EVENT {
+        } else if CHAT_WAIT_EVENTS.contains(ev) {
             json!([hook, {
                 "type": "command",
                 "command": s.hook_command(&["chat-wait"]),
