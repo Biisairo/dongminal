@@ -763,6 +763,10 @@ impl Server {
         out.insert("toolId", raw(&m.tool_id));
         out.insert("runState", raw(&rec.state));
         out.insert("preamble", raw(&self.member_preamble(&rec, &m)));
+        // ISSUE_TREE_CHAT_SRS FR-ITR-6: 트리 방이 있는 트리 멤버의 첫 지시는 파일로 넘긴다. 그 밖은 Go 기준선 모양 그대로다.
+        if !rec.chat_room.is_empty() && m.assign.is_some() {
+            out.insert("promptFile", raw(&true));
+        }
         write_json(&out)
     }
 

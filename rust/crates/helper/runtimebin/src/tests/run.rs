@@ -387,6 +387,39 @@ fn run_start_local_tree() {
     }
 }
 
+/// ISSUE_TREE_CHAT_SRS FR-ITR-6: promptFile 이면 프리앰블을 홈의 파일로 쓰고, 기동줄의 첫 프롬프트는 그 파일을
+/// 읽으라는 한 줄이다.
+#[test]
+fn run_launch_prompt_file() {
+    let home = tmp();
+    let srv = TestServer::fixed(
+        200,
+        r#"{"runId":"r","memberId":"m-7","role":"dev","agent":"claude","tabId":"t","preamble":"긴 첫 지시\n","promptFile":true}"#,
+    );
+    let mut env = srv.env(home.path());
+    env.set(
+        otter_shared_otterenv::ENV_HOME,
+        home.path().to_str().unwrap(),
+    );
+    let got = ctl(&env, &["run", "launch", "--member", "m-7"]);
+    assert_eq!(got.0, 0, "{}", got.2);
+    let path = home.path().join("prompts").join("m-7.md");
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "긴 첫 지시\n");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+    }
+    assert!(got.1.contains(&*path.to_string_lossy()), "{}", got.1);
+    assert!(!got.1.contains("긴 첫 지시"), "{}", got.1);
+    assert_eq!(
+        ctl(&env, &["run", "launch", "--member", "m-7", "--text"]).1,
+        "긴 첫 지시\n",
+        "--text 는 프리앰블 그대로다"
+    );
+}
+
 /// ISSUE_TREE_CHAT_SRS FR-ITR-1: 트리 방 id 는 `--chat-room` 으로 넘기고 트리와 함께만 받는다.
 #[test]
 fn run_start_chat_room() {

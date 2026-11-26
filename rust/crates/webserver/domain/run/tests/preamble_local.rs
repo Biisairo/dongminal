@@ -140,3 +140,45 @@ fn github_coord_worker_does_not_close_issue() {
     );
     has_none(&p, &["otterctl issue", "원본 폴더"]);
 }
+
+/// FR-ITR-4·5·7·8·9: 트리 방이 있으면 통신은 트리 방에서 받을 상대를 call 로 부른다. otterctl msg 를 쓰지 않는다.
+#[test]
+fn tree_room_replaces_msg() {
+    let mut r = rec("o/r#1", "", "");
+    r.chat_room = "room-9".into();
+    let mut m = member("#3");
+    m.role = "otter#1›3".into();
+    m.assign.as_mut().unwrap().parent = "m-parent".into();
+    let p = tree_preamble(&r, &m, &ctx());
+    has_all(
+        &p,
+        &[
+            "트리 방: room-9",
+            "「트리 방」",
+            r#"chat_send room=room-9 call=["coord-1"] text="완료 otter#1›3"#,
+            r#"call=["user"]"#,
+            "결정: <내용> (터미널에서|채팅에서)",
+            "보냄 → <상대>: <본문>",
+            "받음 ← <보낸 이>: <요지>",
+            "chat_read",
+            "아무것도 하지 않고 턴을 끝낸다",
+        ],
+    );
+    has_none(&p, &["otterctl msg --to"]);
+}
+
+/// coord 일꾼도 트리 방이 있으면 조정자를 call 로 부른다.
+#[test]
+fn coord_worker_reports_in_tree_room() {
+    let mut r = rec("perf:2", "/repo/perf/issues", MODE_COORD);
+    r.chat_room = "room-7".into();
+    let p = tree_preamble(&r, &member("2.3"), &ctx());
+    has_all(
+        &p,
+        &[
+            "트리 방: room-7",
+            r#"chat_send room=room-7 call=["coord-1"] text="review perf:2.3"#,
+        ],
+    );
+    has_none(&p, &["otterctl msg --to"]);
+}

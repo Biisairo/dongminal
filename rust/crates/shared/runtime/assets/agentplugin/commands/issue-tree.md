@@ -58,7 +58,7 @@ otterctl issue resolve <첫 낱말>
 
 1. **노드는 바로 아래 자식만 띄운다.** 여러 단계를 한꺼번에 띄우지 않는다.
 2. **일하지 않을 노드로 가는 길은 띄우지 않는다.** 병렬이 없으면 일하는 잎은 하나다.
-3. **중간 노드는 하위를 띄운 뒤 턴을 끝낸다.** `otterctl msg` 가 와야 깨어난다. 상태를 폴링하지 않는다. sleep 루프를 짜지 않는다.
+3. **중간 노드는 하위를 띄운 뒤 턴을 끝낸다.** 메시지(트리 방에서 나를 부른 글, 「트리 방」)가 와야 깨어난다. 상태를 폴링하지 않는다. sleep 루프를 짜지 않는다.
 4. **트리의 window·탭은 트리 그룹 안에만 만든다.** 그룹 밖의 window·탭을 만들거나 옮기거나 닫지 않는다.
 5. **각 걸음은 기대 출력을 확인한 뒤 다음으로 간다.** 확인하지 못하면 멈추고 말한다.
 6. **push 와 사용자 브랜치로의 병합은 사용자의 확인 뒤에만 한다.** 커밋과 이슈 닫기는 이 명령의 실행으로 승인된 것이다. `--no-commit` 이면 커밋하지 않는다.
@@ -82,6 +82,22 @@ otterctl issue resolve <첫 낱말>
 - **탭 이름**: `<사슬 이름> <이슈 제목의 짧은 형태>`. 예: `ccr#32›33›35›62 피킹`.
 - **window 이름**: 그 window 에 처음 선 노드의 사슬 이름.
 - **그룹 이름**: `<별칭>#<루트> <루트 제목>`. 트리 표지는 `owner/repo#<루트>` 다.
+
+## 트리 방
+
+트리의 통신은 채팅 방 하나(트리 방)에서 한다. 이 문서의 메시지(보고 · 지시 · 완료 · 실패 · 종료 요청 · 종료 준비 · 준비됨 · 막힘 · review · blocked · split · commit)는 모두 트리 방에서 오간다.
+
+- **만들기**: 발사대(조율) 또는 조정자가 그룹을 만든 뒤 MCP `chat_create` 로 만든다. 이름은 그룹 이름, 목적은 `<트리 표지> <루트 제목>` 이다. 돌려받은 방 id 를 `otterctl run start … --chat-room <방 id>` 로 Run 에 적는다. 가지 Run 은 루트 Run 의 방을 잇는다 — `--chat-room` 을 주지 않는다.
+- **들어가기 · 나가기**는 otterminal 이 한다. Run 에 방을 적으면 이 PC 의 사람 참가자가 들어간다. 트리 멤버(배정을 가진 Run 멤버)와 조율 · 조정자의 세션이 채팅에 붙으면 들어가고, 세션이 끝나면 나간다. 에이전트는 `chat_join` · `chat_leave` 를 하지 않는다(트리 종료의 마지막 나가기만 예외다).
+- **보내기**: `chat_send room=<방 id> call=[<받을 이의 toolId>] text="<종류> <사슬 이름>\n<본문>"`. 이 문서의 `otterctl msg --to <X> - <<'M' … M` 는 트리 방이 있으면 모두 이 꼴로 바꾼다 — 받을 이 X 를 `call` 에 넣고, 본문(첫 줄의 종류 포함)은 그대로다. 트리 안에서는 `otterctl msg` 를 쓰지 않는다.
+- **받기**: 나를 부른 글이 오면 깨어난다. `chat_read` 로 읽는다. 나를 부르지 않았거나 나와 무관한 글이면 아무것도 하지 않고 턴을 끝낸다.
+- **화면에 옮기기**: 보낸 글과 받은 글을 응답에도 쓴다. 그 탭의 화면만 봐도 주고받은 것이 보인다.
+  - `보냄 → <상대>: <본문>`
+  - `받음 ← <보낸 이>: <요지>`
+- **사용자 확인**: 안내 · 공지 · 알람 · 사용자 확인도 트리 방에 쓴다. 사용자 확인은 AskUserQuestion 대신 트리 방에 `call=["user"]` 로 묻고, 같은 질문을 응답에도 쓴 뒤 턴을 끝낸다. 답은 터미널 입력과 채팅(웹 · 텔레그램) 가운데 먼저 온 것을 따른다. 답을 받으면 트리 방에 `결정: <내용> (터미널에서|채팅에서)` 를 남긴다.
+- **첫 지시**: 노드 · 일꾼의 첫 지시(배정 · 프리앰블 · 이슈)는 claude 실행 인자다. 트리 방이 있는 Run 이면 서버가 프리앰블 응답에 `promptFile` 을 싣고, `otterctl run launch` 가 프리앰블을 `<홈>/prompts/<member>.md` 로 쓴다. 첫 프롬프트는 그 파일을 읽으라는 한 줄이다. 대화 기록은 남지 않으므로 brief 에 일에 필요한 맥락을 모두 담는다.
+- 서버가 보내는 승계 알림(`[ISSUE-TREE 승계]`)은 지금처럼 엔벨로프로 온다. 트리 밖의 일에는 `otterctl msg` 를 그대로 쓴다.
+- **끝**: 트리 종료의 마지막 걸음에서 조율 · 조정자가 `chat_leave` 로 트리 방에서 나간다. 트리의 Run 이 모두 닫히면 사람 참가자도 나가고, 이 PC 의 참가자가 없으면 방이 사라진다(텔레그램 토픽도 지워진다).
 
 ## 이슈 규약
 
@@ -187,7 +203,7 @@ gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$
 ```
 otterctl new-group --name "<별칭>:<루트> <루트 제목>"
 otterctl run start --objective "<별칭>:<루트> 이슈 트리" --window <newWindows[0]> --isolation per-run \
-  --tree <별칭>:<루트> --issue-dir <원본 폴더 절대 경로>
+  --tree <별칭>:<루트> --issue-dir <원본 폴더 절대 경로> --chat-room <방 id>
 ```
 
 - 같은 트리의 그룹은 `otterctl list-groups --json` 에서 이름이 `<별칭>:<루트> ` 로 시작하는 행이다.
@@ -243,12 +259,14 @@ otterctl new-group --name "<별칭>#<루트> <루트 제목>" --tree <owner/repo
 
 기대 출력: `newGroups` 가 하나. 그 값을 적는다.
 
+그룹을 만들었으면 트리 방을 만든다(「트리 방」): MCP `chat_create` 에 이름 `<별칭>#<루트> <루트 제목>`, 목적 `<owner/repo>#<루트> <루트 제목>` 을 준다. 돌려받은 방 id 를 적는다. 그룹이 이미 있었고 그 트리의 방이 `chat_rooms` 에 보이면 그 방을 쓴다.
+
 ### 4. 루트 window 와 Run
 
 ```
 otterctl new-window -n --group <그룹> --name "<별칭>#<루트>" --cwd "<저장소 루트>"
 cd "<저장소 루트>"
-otterctl run start --objective "<별칭>#<루트> 이슈 트리" --window <newWindows[0]> --isolation per-run --tree <owner/repo>#<루트>
+otterctl run start --objective "<별칭>#<루트> 이슈 트리" --window <newWindows[0]> --isolation per-run --tree <owner/repo>#<루트> --chat-room <방 id>
 ```
 
 **같은 트리는 두 번 열리지 않는다.** 같은 트리의 열린 Run 이 있으면 `run start` 가 `tree_open` 으로 거절한다.
@@ -555,7 +573,7 @@ otterctl who-am-i
    otterctl close-window -n --at <그 window 의 탭 uuid> --force
    otterctl delete-group --at <그룹 uuid>
    ```
-4. 내 탭에 최종 보고를 남긴다: 닫은 이슈 · 남긴 브랜치 · worktree 잔여물(`run close` 응답의 `residue` 와 사유) · 병합/push 결과. **내 탭은 닫지 않는다.**
+4. 내 탭에 최종 보고를 남긴다: 닫은 이슈 · 남긴 브랜치 · worktree 잔여물(`run close` 응답의 `residue` 와 사유) · 병합/push 결과. 같은 요약을 트리 방에도 쓴 뒤 `chat_leave` 로 트리 방에서 나간다. **내 탭은 닫지 않는다.**
 
 ### 5. 대신 조율 (루트)
 
@@ -607,8 +625,10 @@ otterctl new-group --name "<트리 이름> <루트 제목>"             # github
 otterctl new-window -n --group <그룹> --name "<트리 이름> 일꾼" --cwd "<통합 worktree>"
 cd "<통합 worktree>"
 otterctl run start --objective "<트리 이름> coord" --window <newWindows[0]> \
-  --tree <트리 표지> --mode coord [--issue-dir <통합 worktree 안의 원본 폴더>]
+  --tree <트리 표지> --mode coord --chat-room <방 id> [--issue-dir <통합 worktree 안의 원본 폴더>]
 ```
+
+- 그룹을 만든 뒤 `run start` 전에 트리 방을 만든다(「트리 방」의 만들기). 이름은 그룹 이름, 목적은 `<트리 표지> <루트 제목>` 이다.
 
 - `--issue-dir` 은 local 일 때만 준다. `--isolation` 은 주지 않는다 — worktree 는 조정자가 이슈마다 만든다.
 - 이 Run 의 조정자가 나다. 일꾼의 프리앰블에서 부모는 나의 `toolId` 다.
@@ -692,7 +712,7 @@ otterctl status --at <새 탭 uuid>
 2. 사용자에게 통합 브랜치를 어떻게 할지 묻는다: 사용자 브랜치에 병합 · push · PR · 브랜치만 남김. **답을 받기 전에는 하지 않는다.** 병합은 `--no-ff` 다.
 3. `otterctl run close --run <Run>` 뒤 그룹의 window 를 닫고 그룹을 지운다(「트리 종료」 4의 3).
 4. 통합 worktree 는 사용자 브랜치에 병합된 뒤에만 지운다(`git worktree remove`). 아니면 남기고 보고에 적는다.
-5. 내 탭에 최종 보고를 남긴다: 닫은 이슈 · 남은 이슈 · 통합 브랜치 · 남은 worktree · 병합/push 결과. **내 탭은 닫지 않는다.**
+5. 내 탭에 최종 보고를 남긴다: 닫은 이슈 · 남은 이슈 · 통합 브랜치 · 남은 worktree · 병합/push 결과. 같은 요약을 트리 방에도 쓴 뒤 `chat_leave` 로 트리 방에서 나간다. **내 탭은 닫지 않는다.**
 
 **중간 종료**: 사용자가 멈추자고 하면 일하는 일꾼마다 보존(WIP 커밋) · 버림(커밋하지 않은 변경 버림)을 묻고, 일꾼에게 `종료 준비` 와 고른 답을 보낸다. 모든 일꾼이 `준비됨` 을 보내면 3~5를 한다. 하나라도 `막힘` 이면 아무것도 닫지 않고 사용자에게 알린다.
 

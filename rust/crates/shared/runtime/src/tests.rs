@@ -623,3 +623,27 @@ fn issue_tree_doc_covers_local_and_coord() {
         assert!(doc.contains(w), "issue-tree.md 에 없음: {w}");
     }
 }
+
+/// ISSUE_TREE_CHAT_SRS FR-ITR-1·4~10 (TC-ITH-17 의 문장 확인): 트리 방에서 상대를 call 로 불러 주고받는다.
+#[test]
+fn issue_tree_doc_covers_tree_room() {
+    let doc = fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/agentplugin/commands/issue-tree.md"),
+    )
+    .unwrap();
+    for w in [
+        "## 트리 방",
+        "chat_create",
+        "--chat-room",
+        "chat_send",
+        r#"call=["user"]"#,
+        "보냄 → <상대>: <본문>",
+        "받음 ← <보낸 이>: <요지>",
+        "결정: <내용> (터미널에서|채팅에서)",
+        "아무것도 하지 않고 턴을 끝낸다",
+        "chat_leave",
+        "promptFile",
+    ] {
+        assert!(doc.contains(w), "issue-tree.md 에 없음: {w}");
+    }
+}

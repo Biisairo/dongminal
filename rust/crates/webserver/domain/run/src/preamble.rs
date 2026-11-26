@@ -174,16 +174,15 @@ pub fn tree_preamble(rec: &Record, m: &Member, tc: &TreeContext) -> String {
         "otterctl run report --run {} --member {} --outcome succeeded --summary \"...\"",
         rec.id, m.id
     ));
-    if !tc.parent_tool_id.is_empty() {
+    let kind = if worker { "review" } else { "완료" };
+    if !rec.chat_room.is_empty() {
+        tree_room_block(&mut b, &rec.chat_room, &tc.parent_tool_id, kind, &m.role);
+    } else if !tc.parent_tool_id.is_empty() {
         b.w("");
         b.w("# 보고·완료·실패·부모 범위의 사실 질문은 부모에게 보낸다. 본문 첫 줄이 종류와 사슬 이름이다.");
         b.w("# 종료자 MSG 는 반드시 줄 맨 앞(열 0)이어야 한다.");
         b.w(format!("otterctl msg --to {} - <<'MSG'", tc.parent_tool_id));
-        b.w(format!(
-            "{} {}",
-            if worker { "review" } else { "완료" },
-            m.role
-        ));
+        b.w(format!("{kind} {}", m.role));
         b.w("...본문...");
         b.w("MSG");
     }
@@ -195,6 +194,24 @@ pub fn tree_preamble(rec: &Record, m: &Member, tc: &TreeContext) -> String {
     b.w("");
     b.w(USER_FIRST_RULE);
     b.0
+}
+
+/// 트리 방의 통신 규약 (ISSUE_TREE_CHAT_SRS FR-ITR-4·5·7·8·9). 부모가 있으면 보고의 예를 싣는다.
+fn tree_room_block(b: &mut Lines, room: &str, parent: &str, kind: &str, role: &str) {
+    b.w("");
+    b.w("# 트리의 모든 통신(보고·지시·완료·실패·종료 요청·준비됨·막힘)은 트리 방에서 한다. otterctl msg 를 쓰지 않는다 (문서의 「트리 방」).");
+    b.w(format!("트리 방: {room}"));
+    b.w("# 보낼 때는 받을 상대의 toolId 를 call 로 부른다. 본문 첫 줄이 종류와 사슬 이름이다.");
+    b.w("# 사용자 확인은 AskUserQuestion 대신 트리 방에 call=[\"user\"] 로 묻고, 같은 질문을 응답에도 쓴 뒤 턴을 끝낸다.");
+    b.w("# 답은 터미널 입력과 채팅 가운데 먼저 온 것을 따르고, 트리 방에 `결정: <내용> (터미널에서|채팅에서)` 를 남긴다.");
+    b.w("# 보낸 글과 받은 글은 응답에도 옮긴다: `보냄 → <상대>: <본문>` · `받음 ← <보낸 이>: <요지>`.");
+    b.w("# 깨어나면 chat_read 로 읽는다. 나를 부르지 않았거나 나와 무관한 글이면 아무것도 하지 않고 턴을 끝낸다.");
+    if !parent.is_empty() {
+        b.w("# 보고·완료·실패·부모 범위의 사실 질문은 부모에게 보낸다:");
+        b.w(format!(
+            "chat_send room={room} call=[\"{parent}\"] text=\"{kind} {role}\\n...본문...\""
+        ));
+    }
 }
 
 /// 로컬 이슈의 ID: 배정의 `<별칭>:<ID>` 에서 ID 만 남긴다.

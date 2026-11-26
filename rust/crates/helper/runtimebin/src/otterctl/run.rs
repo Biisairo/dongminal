@@ -531,6 +531,8 @@ fn sub_launch(ctx: &mut Ctx<'_>, f: &RunFlags) -> i32 {
         #[serde(rename = "tabId")]
         tab_id: String,
         preamble: String,
+        #[serde(rename = "promptFile")]
+        prompt_file: bool,
     }
     let got: Got = try_code!(decode(ctx, &raw, "preamble response"));
     let adapter = match agentadapter::get(&got.agent) {
@@ -544,14 +546,24 @@ fn sub_launch(ctx: &mut Ctx<'_>, f: &RunFlags) -> i32 {
         outf!(ctx, "{}", got.preamble);
         return 0;
     }
-    let line =
-        match adapter.launch_line(&crate::agent_hooks_dir_in(ctx.env), &f.model, &got.preamble) {
-            Ok(l) => l,
+    let mut prompt = got.preamble.clone();
+    if got.prompt_file {
+        match write_prompt_file(ctx, &got.member_id, &got.preamble) {
+            Ok(Some(path)) => prompt = format!("{PROMPT_FILE_LINE}{path}"),
+            Ok(None) => {}
             Err(e) => {
-                errf!(ctx, "run launch: {e}\n");
+                errf!(ctx, "run launch: 첫 지시 파일: {e}\n");
                 return 1;
             }
-        };
+        }
+    }
+    let line = match adapter.launch_line(&crate::agent_hooks_dir_in(ctx.env), &f.model, &prompt) {
+        Ok(l) => l,
+        Err(e) => {
+            errf!(ctx, "run launch: {e}\n");
+            return 1;
+        }
+    };
     for n in launch_notes(adapter, &got.member_id, &got.tab_id, &f.model) {
         errf!(ctx, "run launch: {n}\n");
     }
@@ -574,6 +586,30 @@ fn sub_launch(ctx: &mut Ctx<'_>, f: &RunFlags) -> i32 {
     }
     outf!(ctx, "{line}\n");
     0
+}
+
+/// 첫 지시를 파일로 받는 멤버의 기동 프롬프트 한 줄이다. 뒤에 파일 경로가 붙는다 (ISSUE_TREE_CHAT_SRS FR-ITR-6).
+const PROMPT_FILE_LINE: &str =
+    "otterminal 이슈 트리의 첫 지시는 이 파일에 있다. 먼저 끝까지 읽고 그대로 시작한다: ";
+/// 첫 지시 파일의 자리(홈 아래)와 권한이다.
+const PROMPT_DIR: &str = "prompts";
+const PROMPT_PERM: u32 = 0o600;
+
+/// 프리앰블을 `<홈>/prompts/<member>.md` 로 쓴다. 홈을 모르면 None — 기동줄에 그대로 싣는다.
+fn write_prompt_file(
+    ctx: &Ctx<'_>,
+    member_id: &str,
+    preamble: &str,
+) -> std::io::Result<Option<String>> {
+    let home = ctx.env.get(otter_shared_otterenv::ENV_HOME);
+    if home.is_empty() || member_id.is_empty() || member_id.contains(['/', '\\']) {
+        return Ok(None);
+    }
+    let dir = std::path::Path::new(&home).join(PROMPT_DIR);
+    std::fs::create_dir_all(&dir)?;
+    let path = dir.join(format!("{member_id}.md"));
+    otter_shared_platform::write_file_atomic(&path, preamble.as_bytes(), PROMPT_PERM)?;
+    Ok(Some(path.to_string_lossy().into_owned()))
 }
 
 fn launch_notes(a: &Adapter, member_id: &str, tab_id: &str, model: &str) -> Vec<String> {

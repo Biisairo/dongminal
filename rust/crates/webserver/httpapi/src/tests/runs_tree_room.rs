@@ -72,6 +72,14 @@ async fn tree_room_rule_follows_run() {
     )
     .await;
     assert_eq!(code, 200, "{out}");
+    let member_id = out["id"].as_str().unwrap().to_owned();
+    let r = get(&env.srv, &format!("/api/runs/preamble?member={member_id}")).await;
+    let v: Value = serde_json::from_str(&r.body).unwrap();
+    assert_eq!(
+        v["promptFile"], true,
+        "트리 방이 있는 트리 멤버는 첫 지시를 파일로 받는다 (FR-ITR-6)"
+    );
+    assert!(v["preamble"].as_str().unwrap().contains("트리 방: room-1"));
     eventually("멤버를 더하면 규칙에 그 도구가 든다", || {
         last_tree(&chat).is_some_and(|a| {
             let t = a.tools.unwrap_or_default();
