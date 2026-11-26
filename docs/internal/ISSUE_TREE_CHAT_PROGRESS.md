@@ -8,9 +8,9 @@
 1. 이 문서를 끝까지 읽는다.
 2. 먼저 읽는다: `docs/internal/FEATURE_DEV_RULES.md`(규칙 전부, 특히 §3 설계 규칙·§4 시험·§5 운영 보호), `docs/internal/ISSUE_TREE_CHAT_SRS.md`(§3.1 묶음 A, §4 결정, §10 가정 — 모두 사용자 승인됨).
 3. 저장소 상태 확인: 브랜치 `feature`, 직전 코드 커밋 `9cdafa44`. `git status` 가 깨끗해야 한다. main 은 origin/main 보다 2 커밋 앞(push 전), feature 는 main 보다 6 커밋 앞(착수 문서 · SRS · A1 · 진행 문서 · A1 와이어·소켓 · 진행 문서 갱신).
-4. §2 의 순서로 묶음 A 의 2단계(MCP)부터 이어 간다. 단계마다 시험 먼저(RED 확인) → 구현(GREEN) → fmt·clippy·관련 게이트.
+4. §2 의 순서로 묶음 U(채팅 화면)부터 이어 간다. 묶음 A 는 끝났다. 단계마다 시험 먼저(RED 확인) → 구현(GREEN) → fmt·clippy·관련 게이트.
 5. 커밋은 단계마다 사용자에게 확인을 받은 뒤 한다(AI 서명 금지). main 병합·push 는 사용자의 분명한 지시가 있을 때만.
-6. 운영 바이너리 재빌드 여부는 아직 사용자에게 묻지 않았다. 묶음 A 가 끝나면 묻는다. 묻기 전에 빌드하지 않는다.
+6. 운영 바이너리 재빌드는 하지 않았다(운영 보호 §5). 사용자에게 보고했다. 사용자가 정할 때까지 빌드하지 않는다.
 
 ## 1. 끝난 것
 
@@ -24,23 +24,17 @@
 
 구현 순서(사용자 결정 D-ITH-2): 묶음 A → U → T → L → C.
 
-### 묶음 A (알림) 남은 단계
+### 묶음 A (알림) — 끝남
 
-1. ~~**와이어·소켓**~~ — 끝남(`9cdafa44`). (`shared/chatwire`, `daemon/chatsock`, `daemon/boot/src/edge.rs`)
-   - chatwire `Message` 에 `called`, `SendArgs` 에 `call`. chat-wait 용 프레임 종류(예: `wait` 첫 프레임 — `unread` 처럼 한 번 묻고 답을 기다리는 연결)와 MCP 쪽 중계 프레임.
-   - chatsock dispatch(OP_SEND, lib.rs:737 근처): `call` 의 도구 id 를 같은 노드 연결(Conn.tool)의 참가자 id 로 바꾼 뒤 `svc.send_call`. 도구 id 는 노드 로컬이라 보내는 노드에서 바꾼다.
-   - `chat_notify` op: 참가자·방별 알림 단계(all/called/off)를 데몬 메모리에 둔다. 사람 참가자의 단계도 데몬 메모리(아래 결정 I-1). `state`(사람 화면)와 `rooms` 결과에 단계를 싣는다.
-   - `rise` 프레임·`Tools::paste`·`resting` 경로와 그 시험(`rise_pastes_only_when_resting`)을 지운다(FR-CAL-13). edge.rs:235-248 의 paste 배선도.
-2. **MCP** (`helper/runtimebin/src/otterctl/chatmcp.rs`)
-   - `chat_send` 에 `call`(배열 — 지금 `schema()` 는 문자열 속성만 만든다, 배열 속성 지원 필요), 새 도구 `chat_notify`(도구 9개). `chat_read` 글마다 `called`. `chat_rooms` 에 내 단계.
-   - 글함에 글마다 알림 표식. 깨울 글 = 내 단계에 걸린 글(`all` 이면 모두, `called` 면 called, `off` 면 없음). 단계는 MCP 가 자기 `chat_notify` 호출로 알고 있다.
-   - `CHAT_INSTRUCTIONS`(chatmcp.rs:34-39) 의 "새 글 알림" 문구를 깨움 훅에 맞게 고친다. FR-ITR-9(무관한 글이면 턴을 끝낸다)도 넣는다.
-   - rise 보내기 제거는 1단계에서 끝냈다.
-   - 깨움 대기 MCP 쪽: `wake?`(n)를 받으면 표식 없는 깨울 글이 생길 때 표식을 붙이고 `wake{n,total,called}` 로 답한다. `wake-drop`(n)을 받으면 그 물음을 버린다.
-3. **깨움 훅** — 새 명령 `otterctl chat-wait`(otterctl/mod.rs 명령 표, helptext.rs 도움말). stdin 의 `session_id` 로 chat.sock 에 묻는다. 연결 없음 → 0, 표식 없는 깨울 글 있음 → 표식 붙이고 출력 뒤 2, 없으면 기다림(주기 없음), MCP 연결 끊김 → 0. 출력은 개수만(FR-CAL-10).
-   - `shared/agentadapter/src/claude.rs` `write_activity_hooks`(:378-398) 의 `Stop` 목록에 `{"type":"command","command":"<otterctl> chat-wait","asyncRewake":true}` 를 별도 객체로 더한다(공유 hook 값 재사용 금지). 시험: agentadapter tests/adapter.rs:875 근처.
-4. **웹 사용자 알람** (FR-CAL-15·16) — `chat-controller.js` `_onChatMessage`(:75-81)에서 사람 참가자의 깨울 글이고 방 탭이 안 보이면 알람. 재사용: `attn-controller.js` `_attnBeep`, `attn-claim.js` `_attnCanBanner`·`_attnCanSound`. `_attnDesktopNotify` 는 도구 위치에 묶여 채팅용 변형이 필요. 중복 방지는 서버 claim(attention.rs:188·438)에 채팅 글 id 를 키로 하는 종류를 더한다(결정 I-3).
-5. 묶음 A 끝: TC-ITH-7 실측(진짜 claude 로 깨움 훅 — §4.1 의 방법), 관련 e2e 를 좁혀 돌린다. 사용자에게 운영 바이너리 재빌드 여부를 묻는다.
+| 단계 | 커밋 |
+|---|---|
+| 1 와이어·소켓 | `9cdafa44` |
+| 2 MCP(`chat_send` call · `chat_notify` · 글마다 called · 깨움 대기 응답) | `ec655dd4` |
+| 3 깨움 훅(`otterctl chat-wait`, Stop `asyncRewake`, timeout 7일 `CHAT_WAIT_TIMEOUT_SECS`) | `f5b549d1` |
+| 4 웹 사용자 알람(방 행·방 탭·메인 패널 채팅 탭, 청구 `chat` 키) | `f8384b14` |
+| 5 TC-ITH-7 실측 · e2e(chat-window · rail-chat-usage · screens-run-chat · attention-dedupe) | 통과 (2026-11-26) |
+
+TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글로 "읽지 않은 글 2건(나를 부른 글 1건)" 깨움이 왔다. 입력창에 쳐 둔 글은 남아 엔터로 따로 제출됐다. 깨어난 claude 의 `chat_read` 는 claude 쪽 auto mode 분류기가 "허가되지 않은 통신" 으로 막았다 — otterminal 밖의 일이다(아래 후속 후보).
 
 ### 그 뒤
 
@@ -58,6 +52,9 @@
 | I-4 | 알림 단계는 채팅 핵심의 참가자 기록(`Part.notify`)에 둔다. 나가는 모든 경로에서 함께 지워지고 다시 들면 called 다 | 강퇴 등 어느 경로로 나가도 낡은 값이 남지 않는다 |
 | I-5 | 깨움 대기는 `wait`(훅↔데몬)·`wake?`/`wake`/`wake-drop`(데몬↔MCP) 네 프레임이다. 시한 없다. 훅이 먼저 끊기면 데몬이 `wake-drop` 을 보낸다 | 받는 이 없는 답에 표식을 붙이지 않는다 |
 | I-6 | `call` 의 도구 id 는 그 노드의 MCP 연결 가운데 도구 id 가 같은 것의 참가자 id 로 바꾼다. 그 밖의 항목은 그대로다 | 결정 I-2 의 구현 |
+| I-7 | 같은 세션의 새 깨움 대기는 앞선 대기를 0건으로 끝낸다(`waits` 세션당 하나) | 쉴 때마다 Stop 훅이 하나씩 떠 쌓이지 않게 한다 |
+| I-8 | 깨움 훅의 timeout 은 7일이다(agentadapter `CHAT_WAIT_TIMEOUT_SECS`) | claude 명령 훅은 시한이 지나면 끊기고, 그 뒤 온 글로는 다음 Stop 까지 깨우지 못한다. JS 타이머 상한(약 24.8일) 안 |
+| I-9 | 웹 알람의 단계는 `state` 의 방 `notify` 로 판정하고, 알람은 `ChatStore` 에 방마다 둔다. 방 탭이 보이면 안 읽은 수와 함께 꺼진다 | FR-CAL-15·16 |
 
 ## 4. 이 세션이 값을 치르고 배운 것
 
@@ -91,6 +88,11 @@
 - 채널(`claude/channel`)은 보류: 개발용 인자는 동작하지만 시작 경고 창이 매번 뜨고 끄는 설정이 없다. `--settings`·`--managed-settings`·`CLAUDE_CODE_MANAGED_SETTINGS_PATH` 로 넣은 `allowedChannelPlugins` 는 모두 거절됐다(SRS §2.2).
 - `asyncRewake` 는 Claude Code 2.1.332 설정 스키마의 공개 항목이다("hook runs in background and wakes the model on exit code 2"). 실측 통과.
 - 구조 분석(파일:줄 지도)은 SRS 착수 때 분석 에이전트가 만든 것이다. 요점: 채팅 핵심 `daemon/chat/src/service.rs`(send :~606, local_deliveries_locked), 와이어 `shared/chatwire/src/lib.rs`(프레임 종류 :19-27, op :29-38), 소켓 `daemon/chatsock/src/lib.rs`(serve_tracked :569-614 — 첫 프레임 unread 는 :580, 그 밖은 hello 필수; dispatch :699-744; deliver :453; start_user :492; rise :749; answer_unread :769), 웹↔사람 참가자 통로 `httpapi/src/chat_api.rs`(:89 send, :174 chat_pushed), MCP `otterctl/chatmcp.rs`(Inbox :143, 도구 :263-317, read_loop :580-599, CHAT_INSTRUCTIONS :34), ctx-hook `otterctl/hooks.rs`(:362, 안 읽은 수 :409·:423), 훅 생성 `agentadapter/src/claude.rs`(:350-398). 걸리는 시험: chatwire tests.rs, chat tests.rs·tests_human.rs, chatsock tests.rs·tests_human.rs, runtimebin tests/chatmcp.rs·hooks.rs·shim.rs, agentadapter tests/adapter.rs, 웹 peer-chat-*.test.mjs·chat-window.test.mjs·attn-*.test.mjs·state-registry.test.mjs, e2e chat-window·screens-run-chat·rail-chat-usage.
+
+## 4.6 후속 후보 (손대지 않음)
+
+- claude 2.1.332 는 시작할 때 "subagentStatusLine is deprecated in favor of mods" 경고를 띄운다. shim 이 주입하는 `subagentStatusLine`(FR-SAU-5) 이 대상이다.
+- 깨어난 에이전트의 `chat_read` 를 claude auto mode 분류기가 막을 수 있다. 실사용에서는 사용자가 `/permissions` 로 otterminal MCP 도구를 허용해야 할 수 있다. 안내 문서나 shim 의 허용 설정 주입을 검토한다.
 
 ## 5. 변하지 않는 규약
 
