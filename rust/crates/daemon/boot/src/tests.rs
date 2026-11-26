@@ -4,32 +4,12 @@ use std::time::Duration;
 
 use otter_daemon_ipc::PanedServer;
 use otter_gocompat::json;
-use otter_shared_activity as activity;
 use otter_shared_edge::Config;
 use otter_shared_otterenv as otterenv;
-use otter_shared_toolhub::{ActivityState, ToolManager};
+use otter_shared_toolhub::ToolManager;
 
-use crate::edge::{HELPER_DROP, HelperWatch, resting};
+use crate::edge::{HELPER_DROP, HelperWatch};
 use crate::{referenced_tools, start_edge};
-
-// PEER_CHAT_SRS §3.10 (FR-PCH-61): 쉬는 중은 idle·done 뿐이다. 보고가 없으면 쉬는 중이 아니다.
-#[test]
-fn resting_is_idle_or_done() {
-    for (state, want) in [
-        (activity::IDLE, true),
-        (activity::DONE, true),
-        (activity::WORKING, false),
-        (activity::WAITING, false),
-        (activity::ENDED, false),
-    ] {
-        let a = ActivityState {
-            state: state.into(),
-            ..ActivityState::default()
-        };
-        assert_eq!(resting(Some(&a)), want, "{state}");
-    }
-    assert!(!resting(None), "보고 없음을 쉬는 중으로 봤다");
-}
 
 // PEER_CHAT_SRS §3.12a R-7: 키는 얻으면 바로 싣고, 비우는 것은 연속 3번 실패한 뒤다.
 #[test]
@@ -92,7 +72,7 @@ async fn start_edge_identity_and_node_socket() {
     let pm = Arc::new(ToolManager::new(&tools.path().to_string_lossy(), None));
     let ps = PanedServer::new(Arc::clone(&pm), &home.join("s"), None);
 
-    let close_edge = start_edge(&home, &ps, &pm);
+    let close_edge = start_edge(&home, &ps);
 
     assert!(
         home.join(otterenv::EDGE_KEY_FILE).exists(),

@@ -157,6 +157,7 @@ fn user_kick_through_helper() {
         &chatwire::SendArgs {
             room,
             text: "x".into(),
+            call: None,
         },
     );
     assert_eq!(

@@ -161,7 +161,7 @@ fn serve(home: &str, version: &str, daemon_build: &str, handover_fd: i64) {
     ps.set_reloader(Some(reloader.into_ipc()));
 
     // PEER_DAEMON_SRS §3.5a: 데몬이 노드다.
-    let close_edge = start_edge(&home_path, &ps, &pm);
+    let close_edge = start_edge(&home_path, &ps);
 
     let shutdown = CancellationToken::new();
     let signals = sys::shutdown_signals(platform.process.shutdown_signals());

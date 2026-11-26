@@ -34,6 +34,16 @@ impl FakeDaemon {
         f
     }
 
+    /// 앞서 보낸 프레임이 모두 처리되기를 기다린다 — 프레임은 차례로 처리되므로 개수 질의의 답이
+    /// 오면 앞선 글은 글함에 들었다.
+    fn settle(&self) {
+        self.send(&chatwire::Frame {
+            t: chatwire::TYPE_COUNT_ASK.to_owned(),
+            ..Default::default()
+        });
+        self.next(chatwire::TYPE_COUNT);
+    }
+
     fn quiet(&self) {
         if let Ok(f) = self.got.recv_timeout(Duration::from_millis(50)) {
             panic!("뜻밖의 프레임 {f:?}");
@@ -355,7 +365,6 @@ fn chat_mcp_inbox_cap_and_read() {
         d.send(&msg_frame(&i.to_string(), "r1", "auth", &format!("m{i}")));
     }
     d.send(&msg_frame("b", "r2", "ops", "다른 방"));
-    d.next(chatwire::TYPE_RISE);
     // 프레임은 차례로 처리된다 — 개수 질의의 답이 오면 앞선 글은 모두 글함에 들었다.
     d.send(&chatwire::Frame {
         t: chatwire::TYPE_COUNT_ASK.to_owned(),
@@ -390,27 +399,11 @@ fn chat_mcp_read_bytes() {
     h.start();
     d.next(chatwire::TYPE_HELLO);
     d.send(&msg_frame("1", "r1", "auth", "a<b"));
-    d.next(chatwire::TYPE_RISE);
+    d.settle();
     assert_eq!(
         h.tool("chat_read", Value::Null).0,
         r#"{"dropped":0,"rooms":[{"room":"r1","kind":"group","name":"auth","purpose":"p-auth","messages":[{"from":"x","label":"mac/x","kind":"","node":"","at":1,"text":"a\u003cb"}]}]}"#
     );
-}
-
-/// FR-PCH-61·62: 0건에서 생기는 순간에만 rise 를 보낸다.
-#[test]
-fn chat_mcp_rise_only_from_zero() {
-    let mut h = Harness::new("s1");
-    let d = h.daemon();
-    h.start();
-    d.next(chatwire::TYPE_HELLO);
-    d.send(&msg_frame("1", "r1", "auth", "a"));
-    assert_eq!(d.next(chatwire::TYPE_RISE).total, 1);
-    d.send(&msg_frame("2", "r1", "auth", "b"));
-    d.quiet();
-    h.tool("chat_read", json!({}));
-    d.send(&msg_frame("3", "r1", "auth", "c"));
-    d.next(chatwire::TYPE_RISE);
 }
 
 /// FR-PCH-60: 훅 질의에 지금 개수를 답한다.
@@ -423,7 +416,6 @@ fn chat_mcp_count_answer() {
     d.send(&msg_frame("1", "r1", "auth", "a"));
     d.send(&msg_frame("2", "r2", "ops", "b"));
     d.send(&msg_frame("3", "r1", "auth", "c"));
-    d.next(chatwire::TYPE_RISE);
     d.send(&chatwire::Frame {
         t: chatwire::TYPE_COUNT_ASK.to_owned(),
         n: 7,
@@ -440,7 +432,7 @@ fn chat_mcp_rooms_fill_unread() {
     h.start();
     d.next(chatwire::TYPE_HELLO);
     d.send(&msg_frame("1", "r1", "auth", "a"));
-    d.next(chatwire::TYPE_RISE);
+    d.settle();
     h.tool_send("chat_rooms", json!({}));
     let call = d.next(chatwire::TYPE_CALL);
     assert_eq!(call.op, chatwire::OP_ROOMS);
@@ -461,7 +453,7 @@ fn chat_mcp_reconnect_clears_inbox() {
     h.start();
     d.next(chatwire::TYPE_HELLO);
     d.send(&msg_frame("1", "r1", "auth", "a"));
-    d.next(chatwire::TYPE_RISE);
+    d.settle();
     d.c.shutdown(Shutdown::Both).unwrap();
     thread::sleep(Duration::from_millis(50));
     assert_eq!(

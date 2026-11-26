@@ -15,6 +15,7 @@ otter-gocompat = { path = "../../gocompat" }
 otter-shared-otterlog = { path = "../../shared/otterlog" }
 otter-shared-edge = { path = "../../shared/edge" }
 otter-shared-edgemesh = { path = "../../shared/edgemesh" }
+otter-shared-chatwire = { path = "../../shared/chatwire" }
 otter-shared-humancmd = { path = "../../shared/humancmd" }
 otter-shared-termtext = { path = "../../shared/termtext" }
 hex = { workspace = true }

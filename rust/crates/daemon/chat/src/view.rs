@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::service::{
-    KIND_DIRECT, Member, NodeInfo, OnlineView, Room, RoomInfo, Service, State, part_in_room,
-    party_ok, record_locked,
+    KIND_DIRECT, Member, NOTIFY_CALLED, NodeInfo, OnlineView, Room, RoomInfo, Service, State,
+    part_in_room, party_ok, record_locked,
 };
 
 pub(crate) fn sort_members(ms: &mut [Member]) {
@@ -132,6 +132,11 @@ impl Service {
             creator: body.creator.clone(),
             members: Vec::new(),
             joined: st.parts.get(pid).is_some_and(|p| p.rooms.contains(id)),
+            notify: st
+                .parts
+                .get(pid)
+                .and_then(|p| p.notify.get(id).cloned())
+                .unwrap_or_else(|| NOTIFY_CALLED.into()),
         };
         for p in st.parts.values() {
             if p.rooms.contains(id) {

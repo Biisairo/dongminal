@@ -20,7 +20,6 @@ otter-daemon-chatsock = { path = "../chatsock" }
 otter-daemon-ipc = { path = "../ipc" }
 otter-daemon-swap = { path = "../swap" }
 otter-gocompat = { path = "../../gocompat" }
-otter-shared-activity = { path = "../../shared/activity" }
 otter-shared-agentrec = { path = "../../shared/agentrec" }
 otter-shared-cadence = { path = "../../shared/cadence" }
 otter-shared-chatwire = { path = "../../shared/chatwire" }

@@ -148,3 +148,60 @@ fn msg_body_without_call_has_no_key() {
     let s = otter_gocompat::json::marshal(&c).unwrap();
     assert!(String::from_utf8_lossy(&s).contains("\"call\""));
 }
+
+fn notify_of(n: &crate::tests::TestNode, pid: &str, room: &str) -> String {
+    n.rooms(pid)
+        .into_iter()
+        .find(|r| r.id == room)
+        .map(|r| r.notify)
+        .unwrap_or_default()
+}
+
+// FR-CAL-5·6: 알림 단계는 참가자·방마다다. 정하지 않으면 called, 나가면 지운다.
+#[test]
+fn notify_level_per_participant_and_room() {
+    rt().block_on(async {
+        let a = new_test_node("a");
+        let pa = a.register("a/x", KIND_AGENT);
+        let pb = a.register("a/y", KIND_AGENT);
+        let r1 = a.create(&pa.id, "r1", "").unwrap();
+        let r2 = a.create(&pa.id, "r2", "").unwrap();
+        a.join(&pb.id, &r1.id).unwrap();
+        assert_eq!(notify_of(&a, &pa.id, &r1.id), NOTIFY_CALLED);
+
+        a.set_notify(&pa.id, &r1.id, NOTIFY_ALL).unwrap();
+        assert_eq!(notify_of(&a, &pa.id, &r1.id), NOTIFY_ALL);
+        assert_eq!(notify_of(&a, &pa.id, &r2.id), NOTIFY_CALLED, "다른 방");
+        assert_eq!(notify_of(&a, &pb.id, &r1.id), NOTIFY_CALLED, "다른 참가자");
+        a.set_notify(&pa.id, &r1.id, NOTIFY_OFF).unwrap();
+        assert_eq!(notify_of(&a, &pa.id, &r1.id), NOTIFY_OFF);
+
+        a.set_notify(&pb.id, &r1.id, NOTIFY_ALL).unwrap();
+        a.leave(&pb.id, &r1.id).unwrap();
+        a.join(&pb.id, &r1.id).unwrap();
+        assert_eq!(
+            notify_of(&a, &pb.id, &r1.id),
+            NOTIFY_CALLED,
+            "다시 들면 기본값"
+        );
+    });
+}
+
+// FR-CAL-6: 모르는 단계는 bad_request, 들지 않은 방은 not_in_room, 없는 참가자는 그 오류다.
+#[test]
+fn notify_rejects_bad_input() {
+    rt().block_on(async {
+        let a = new_test_node("a");
+        let pa = a.register("a/x", KIND_AGENT);
+        let pb = a.register("a/y", KIND_AGENT);
+        let r = a.create(&pa.id, "r", "").unwrap();
+        for bad in ["", "ALL", "loud"] {
+            must_code(a.set_notify(&pa.id, &r.id, bad), CODE_BAD_REQUEST);
+        }
+        must_code(a.set_notify(&pb.id, &r.id, NOTIFY_ALL), CODE_NOT_IN_ROOM);
+        must_code(
+            a.set_notify("nobody", &r.id, NOTIFY_ALL),
+            CODE_NO_SUCH_PARTICIPANT,
+        );
+    });
+}

@@ -47,6 +47,8 @@ pub(crate) const ID_PREFIX: usize = 64;
 pub(crate) const ID_BYTES: usize = 16;
 /// 지정(call)에서 그 방의 사람 참가자 모두를 뜻하는 별칭이다 (ISSUE_TREE_CHAT_SRS FR-CAL-1).
 pub const CALL_USER: &str = "user";
+
+pub use otter_shared_chatwire::{NOTIFY_ALL, NOTIFY_CALLED, NOTIFY_OFF};
 const RATE_WINDOW: Duration = Duration::from_secs(60);
 
 /// 이 노드의 참가자 하나다.
@@ -99,6 +101,8 @@ pub struct RoomInfo {
     pub creator_name: String,
     pub members: Vec<Member>,
     pub joined: bool,
+    /// 이 방에서 보는 참가자의 알림 단계다 (ISSUE_TREE_CHAT_SRS FR-CAL-5).
+    pub notify: String,
 }
 
 /// 온라인 목록의 노드 하나다.
@@ -165,6 +169,8 @@ pub(crate) struct Part {
     pub left: HashSet<String>,
     /// 개인채팅 상대가 그 방에 든 것을 본 방이다.
     pub peer_seen: HashSet<String>,
+    /// 방마다 정한 알림 단계다. 없으면 [`NOTIFY_CALLED`] 다 (FR-CAL-5·6). 나가면 지운다.
+    pub notify: HashMap<String, String>,
 }
 
 #[derive(Clone)]
@@ -464,6 +470,7 @@ impl Service {
                 rooms: HashSet::new(),
                 left: HashSet::new(),
                 peer_seen: HashSet::new(),
+                notify: HashMap::new(),
             },
         );
         self.changed_locked(&mut st);
@@ -585,6 +592,20 @@ impl Service {
     /// pid 의 글을 방에 보낸다. 노드는 글을 들지 않는다 (FR-PCH-24·55).
     pub fn send(&self, pid: &str, room_id: &str, text: &str) -> Result<(), Error> {
         self.send_call(pid, room_id, text, &[])
+    }
+
+    /// pid 의 방 room_id 알림 단계를 level 로 정한다 (ISSUE_TREE_CHAT_SRS FR-CAL-5~7).
+    pub fn set_notify(&self, pid: &str, room_id: &str, level: &str) -> Result<(), Error> {
+        if ![NOTIFY_ALL, NOTIFY_CALLED, NOTIFY_OFF].contains(&level) {
+            return Err(Error::fail(CODE_BAD_REQUEST, "level"));
+        }
+        let mut st = self.lock();
+        part_locked(&st, pid)?;
+        let Some(p) = st.parts.get_mut(pid).filter(|p| p.rooms.contains(room_id)) else {
+            return Err(Error::fail(CODE_NOT_IN_ROOM, room_id));
+        };
+        p.notify.insert(room_id.into(), level.into());
+        Ok(())
     }
 
     /// pid 의 글을 call 에 든 상대를 지정해 방에 보낸다 (ISSUE_TREE_CHAT_SRS FR-CAL-1).
@@ -947,6 +968,7 @@ pub(crate) fn leave_locked(st: &mut State, pid: &str, room: &str) {
     if let Some(p) = st.parts.get_mut(pid) {
         p.rooms.remove(room);
         p.peer_seen.remove(room);
+        p.notify.remove(room);
         if direct {
             p.left.insert(room.to_string());
         }

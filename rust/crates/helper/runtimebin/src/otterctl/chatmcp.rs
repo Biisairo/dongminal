@@ -578,14 +578,8 @@ impl ChatMcp {
                     }
                 }
                 chatwire::TYPE_MSG => {
-                    if let Some(msg) = f.msg
-                        && self.push(msg)
-                    {
-                        let _ = cc.write(&chatwire::Frame {
-                            t: chatwire::TYPE_RISE.to_owned(),
-                            total: 1,
-                            ..Default::default()
-                        });
+                    if let Some(msg) = f.msg {
+                        self.push(msg);
                     }
                 }
                 chatwire::TYPE_COUNT_ASK => {
@@ -620,17 +614,15 @@ impl ChatMcp {
         }
     }
 
-    /// 글을 글함에 넣는다. 0건에서 생긴 순간이면 true 다 (FR-PCH-61).
-    fn push(&self, msg: chatwire::Message) -> bool {
+    /// 글을 글함에 넣는다.
+    fn push(&self, msg: chatwire::Message) {
         let mut st = lock(&self.st);
-        let rose = st.msgs.is_empty();
         st.msgs.push(msg);
         if st.msgs.len() > INBOX_MAX {
             let over = st.msgs.len() - INBOX_MAX;
             st.msgs.drain(..over);
             st.dropped += over;
         }
-        rose
     }
 
     /// 안 읽은 글을 방별로 묶어 주고 글함에서 지운다. room 이 비면 모든 방이다.
