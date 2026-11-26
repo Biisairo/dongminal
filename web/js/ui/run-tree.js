@@ -6,7 +6,7 @@ Object.assign(RunsPanel.prototype, {
   /**
    * ISSUE_AGENT_TREE_SRS FR-ITD-1~4: 이슈 트리. 노드 = 그 트리의 열린 Run 들의 멤버이고,
    * 부모·잎은 서버가 사슬 이름에서 정했다. 누르면 그 에이전트의 탭으로 간다.
-   * ISSUE_TREE_OPS_SRS FR-ITC-6·10: 위에서 아래로 내려가는 도형 다이어그램(SVG)이다.
+   * ISSUE_TREE_OPS_SRS FR-ITC-6·10: 도형 다이어그램(SVG)이다. UX_BATCH14_SRS FR-ITV-11 로 왼쪽→오른쪽이다(이전: 위→아래).
    */
   _runPaintTree(root, tree, d) {
     const el = root.querySelector('.run-tree');
@@ -290,8 +290,9 @@ const RUN_TREE_NODE_H_ENDED = 30;
 // FR-RIN-5: 끝난 노드의 상자 폭과, 그 머리 한 줄에 드는 폭(반각 칸).
 const RUN_TREE_NODE_W_ENDED = 112;
 const RUN_TREE_TEXT_UNITS_ENDED = 14;
-const RUN_TREE_GAP_X = 24;
-const RUN_TREE_GAP_Y = 44;
+// FR-ITV-11: 열(깊이) 사이 — 꺾이는 선이 지나는 자리 — 와 같은 열의 상자 사이.
+const RUN_TREE_GAP_X = 44;
+const RUN_TREE_GAP_Y = 14;
 const RUN_TREE_PAD = 12;
 const RUN_TREE_PAD_IN = 10;
 // 상자 한 줄에 드는 폭(반각 글자 칸). 한글 같은 전각 글자는 두 칸으로 센다.
@@ -304,9 +305,11 @@ const RUN_TREE_WHEEL = 0.002;
 const RUN_TREE_DRAG_PX = 4;
 
 /**
- * FR-ITC-10: 노드 목록(깊이 우선)만으로 배치를 정한다. 잎은 가로 칸을 하나씩 받고,
- * 부모는 첫 자식과 끝 자식의 가운데에 선다. 부모가 목록에 없는 노드는 루트다.
- * RUN_INACTIVE_NODE_SRS FR-RIN-5: 칸 폭은 상자 폭이다. 부모가 자식들보다 넓으면 가지를 민다.
+ * FR-ITC-10: 노드 목록(깊이 우선)만으로 배치를 정한다. 부모가 목록에 없는 노드는 루트다.
+ * UX_BATCH14_SRS FR-ITV-11 (D-UB14-11): 이전 — 위→아래였고 잎이 가로로 나란히 서서 큰 트리가 옆으로 너무 넓었다 /
+ *   새 — 왼쪽→오른쪽이다. 깊이는 열이고, 잎은 세로 칸을 하나씩 받고, 부모는 첫 자식과 끝 자식의 세로 가운데에 선다 /
+ *   이유 — 폭이 깊이에만 비례한다(사용자 결정).
+ * RUN_INACTIVE_NODE_SRS FR-RIN-5: 칸 높이는 상자 높이다. 부모가 자식들보다 크면 가지를 민다.
  * `pos[i]` 는 i 번째 노드의 {x(가운데), y(위), depth, w, h}, `edges` 는 [부모, 자식] 자리 쌍이다.
  */
 function runTreeLayout(nodes) {
@@ -321,38 +324,39 @@ function runTreeLayout(nodes) {
   });
   const pos = new Array(nodes.length);
   const edges = [];
-  // 다음 칸이 시작하는 x. 노드 하나를 놓을 때마다 그 가지의 오른쪽 끝 + 간격으로 옮긴다.
+  // 다음 칸이 시작하는 y. 노드 하나를 놓을 때마다 그 가지의 아래 끝 + 간격으로 옮긴다.
   let next = RUN_TREE_PAD, maxDepth = 0;
-  const shift = (i, dx) => { pos[i].x += dx; for (const [p, c] of edges) if (p === i) shift(c, dx) };
+  const shift = (i, dy) => { pos[i].y += dy; for (const [p, c] of edges) if (p === i) shift(c, dy) };
+  const mid = i => pos[i].y + pos[i].h / 2;
   const place = (i, depth) => {
     const ended = runNodeKind(nodes[i].state) === 'ended';
     const w = ended ? RUN_TREE_NODE_W_ENDED : RUN_TREE_NODE_W;
-    pos[i] = { x: 0, y: RUN_TREE_PAD + depth * (RUN_TREE_NODE_H + RUN_TREE_GAP_Y), depth, w,
-      h: ended ? RUN_TREE_NODE_H_ENDED : RUN_TREE_NODE_H };
+    const h = ended ? RUN_TREE_NODE_H_ENDED : RUN_TREE_NODE_H;
+    pos[i] = { x: RUN_TREE_PAD + depth * (RUN_TREE_NODE_W + RUN_TREE_GAP_X) + w / 2, y: 0, depth, w, h };
     maxDepth = Math.max(maxDepth, depth);
     const start = next;
     const ks = kids[i].filter(k => !pos[k]);
     for (const k of ks) { edges.push([i, k]); place(k, depth + 1) }
-    if (!ks.length) { pos[i].x = start + w / 2; next = start + w + RUN_TREE_GAP_X; return }
-    pos[i].x = (pos[ks[0]].x + pos[ks[ks.length - 1]].x) / 2;
-    const over = start - (pos[i].x - w / 2);
+    if (!ks.length) { pos[i].y = start; next = start + h + RUN_TREE_GAP_Y; return }
+    pos[i].y = (mid(ks[0]) + mid(ks[ks.length - 1])) / 2 - h / 2;
+    const over = start - pos[i].y;
     if (over > 0) shift(i, over);
-    next = Math.max(next, pos[i].x + w / 2 + RUN_TREE_GAP_X);
+    next = Math.max(next, pos[i].y + h + RUN_TREE_GAP_Y);
   };
   for (const r of roots) place(r, 0);
   // 부모 고리로 루트에 닿지 못한 노드도 버리지 않는다 — 루트로 세운다.
   nodes.forEach((_, i) => { if (!pos[i]) place(i, 0) });
   return {
-    w: next - RUN_TREE_GAP_X + RUN_TREE_PAD,
-    h: RUN_TREE_PAD * 2 + (maxDepth + 1) * (RUN_TREE_NODE_H + RUN_TREE_GAP_Y) - RUN_TREE_GAP_Y,
+    w: RUN_TREE_PAD * 2 + (maxDepth + 1) * (RUN_TREE_NODE_W + RUN_TREE_GAP_X) - RUN_TREE_GAP_X,
+    h: next - RUN_TREE_GAP_Y + RUN_TREE_PAD,
     pos, edges,
   };
 }
 
-/** 부모 상자 아래 → 두 줄 사이 → 자식 상자 위로 꺾여 내려가는 선. 상자 높이는 노드마다다 (FR-RIN-4). */
+/** FR-ITV-12: 부모 상자 오른쪽 → 두 열 사이 → 자식 상자 왼쪽으로 꺾이는 선. 상자 크기는 노드마다다 (FR-RIN-4). */
 function runTreeEdgePath(p, c) {
-  const y1 = p.y + p.h, y2 = c.y, my = (y1 + y2) / 2;
-  return `M${p.x},${y1} V${my} H${c.x} V${y2}`;
+  const x1 = p.x + p.w / 2, x2 = c.x - c.w / 2, mx = (x1 + x2) / 2;
+  return `M${x1},${p.y + p.h / 2} H${mx} V${c.y + c.h / 2} H${x2}`;
 }
 
 /** SVG 글자 조각 하나 — `svgEl` 위에 선택 속성 `dx` 와 글자를 더한다. */

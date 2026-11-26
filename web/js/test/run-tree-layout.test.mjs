@@ -4,7 +4,8 @@ import { load } from './harness.mjs';
 
 /**
  * ISSUE_TREE_OPS_SRS TC-ITC-4 (FR-ITC-10): 이슈 트리 다이어그램의 배치.
- * 노드 목록(깊이 우선)만으로 정해지고, 잎은 가로 칸을 하나씩 받고, 부모는 자식의 가운데에 선다.
+ * UX_BATCH14_SRS FR-ITV-11 (TC-UB14-11) 로 개정: 왼쪽→오른쪽이다. 깊이는 열(x), 잎은 세로 칸을 하나씩 받고,
+ * 부모는 첫 자식과 끝 자식의 세로 가운데에 선다.
  */
 const ctx = load(['core/screens.js', 'ui/runs-panel.js', 'ui/run-tree.js'], {
   globals: { t: (k) => k, panesOf: () => [] },
@@ -27,38 +28,47 @@ test('루트 하나는 깊이 0 이고 그림 안에 든다', () => {
   assert.ok(l.pos[0].y >= 0 && l.pos[0].y + H <= l.h);
 });
 
-test('사슬은 깊이마다 한 줄 아래로 내려가고 같은 x 에 선다', () => {
+test('사슬은 깊이마다 한 열 오른쪽으로 가고 같은 y 에 선다', () => {
   const l = runTreeLayout([n('a'), n('a›b', 'a'), n('a›b›c', 'a›b')]);
   assert.deepEqual([...l.pos.map((p) => p.depth)], [0, 1, 2]);
-  assert.ok(l.pos[0].y < l.pos[1].y && l.pos[1].y < l.pos[2].y);
-  assert.ok(l.pos[1].y - l.pos[0].y >= H);
-  assert.equal(l.pos[0].x, l.pos[1].x);
-  assert.equal(l.pos[1].x, l.pos[2].x);
+  assert.ok(l.pos[0].x < l.pos[1].x && l.pos[1].x < l.pos[2].x);
+  assert.ok(l.pos[1].x - l.pos[0].x >= W);
+  assert.equal(l.pos[0].y, l.pos[1].y);
+  assert.equal(l.pos[1].y, l.pos[2].y);
   assert.deepEqual(JSON.parse(JSON.stringify(l.edges)), [[0, 1], [1, 2]]);
 });
 
-test('부모는 첫 자식과 끝 자식의 가운데에 선다', () => {
+test('부모는 첫 자식과 끝 자식의 세로 가운데에 선다', () => {
   const l = runTreeLayout([n('r'), n('r›a', 'r'), n('r›a›x', 'r›a'), n('r›a›y', 'r›a'), n('r›b', 'r')]);
   const [r, a, x, y, b] = l.pos;
-  assert.equal(a.x, (x.x + y.x) / 2);
-  assert.equal(r.x, (a.x + b.x) / 2);
+  const cy = (p) => p.y + p.h / 2;
+  assert.equal(cy(a), (cy(x) + cy(y)) / 2);
+  assert.equal(cy(r), (cy(a) + cy(b)) / 2);
   assert.deepEqual(JSON.parse(JSON.stringify(l.edges)), [[0, 1], [1, 2], [1, 3], [0, 4]]);
 });
 
-test('같은 줄의 상자는 겹치지 않고 깊이 우선 순서대로 왼쪽부터 선다', () => {
+test('같은 열의 상자는 겹치지 않고 깊이 우선 순서대로 위부터 선다', () => {
   const l = runTreeLayout([n('r'), n('r›a', 'r'), n('r›a›x', 'r›a'), n('r›a›y', 'r›a'), n('r›b', 'r')]);
-  const rows = new Map();
-  l.pos.forEach((p) => rows.set(p.depth, [...(rows.get(p.depth) || []), p.x]));
-  for (const xs of rows.values()) {
-    for (let i = 1; i < xs.length; i++) assert.ok(xs[i] - xs[i - 1] >= W, JSON.stringify(xs));
+  const cols = new Map();
+  l.pos.forEach((p) => cols.set(p.depth, [...(cols.get(p.depth) || []), p]));
+  for (const ps of cols.values()) {
+    for (let i = 1; i < ps.length; i++) assert.ok(ps[i].y >= ps[i - 1].y + ps[i - 1].h, JSON.stringify(ps));
   }
+});
+
+test('TC-UB14-11: 형제가 많아도 폭은 깊이만큼이고, 높이가 늘어난다', () => {
+  const kids = (k) => [n('r'), ...Array.from({ length: k }, (_, i) => n('r›' + i, 'r'))];
+  const few = runTreeLayout(kids(2)), many = runTreeLayout(kids(20));
+  assert.equal(many.w, few.w);
+  assert.ok(many.w < 3 * W, String(many.w));
+  assert.ok(many.h > few.h * 5, many.h + ' > ' + few.h * 5);
 });
 
 test('부모가 목록에 없는 노드는 루트로 선다', () => {
   const l = runTreeLayout([n('a'), n('z›q', 'z')]);
   assert.equal(l.pos[1].depth, 0);
   assert.equal(l.edges.length, 0);
-  assert.ok(Math.abs(l.pos[1].x - l.pos[0].x) >= W);
+  assert.ok(Math.abs(l.pos[1].y - l.pos[0].y) >= H);
 });
 
 test('같은 입력은 같은 배치다', () => {
@@ -93,7 +103,7 @@ test('TC-RIN-1·2: 상태마다 노드의 종류가 갈린다', () => {
   }
 });
 
-test('TC-RIN-1·4: 끝난 노드는 작은 상자이고, 선은 상자의 실제 아래 끝에서 나간다', () => {
+test('TC-RIN-1·4: 끝난 노드는 작은 상자이고, 선은 상자의 실제 오른쪽 끝 가운데에서 나간다', () => {
   assert.ok(ix.RUN_TREE_NODE_H_ENDED < ix.RUN_TREE_NODE_H);
   const l = ix.runTreeLayout([
     { id: 'a', role: 'a', parent: '', state: 'done' },
@@ -102,21 +112,23 @@ test('TC-RIN-1·4: 끝난 노드는 작은 상자이고, 선은 상자의 실제
   assert.equal(l.pos[0].h, ix.RUN_TREE_NODE_H_ENDED);
   assert.equal(l.pos[1].h, ix.RUN_TREE_NODE_H);
   const d = ix.runTreeEdgePath(l.pos[0], l.pos[1]);
-  assert.ok(d.startsWith(`M${l.pos[0].x},${l.pos[0].y + ix.RUN_TREE_NODE_H_ENDED} `), d);
+  assert.ok(d.startsWith(`M${l.pos[0].x + l.pos[0].w / 2},${l.pos[0].y + ix.RUN_TREE_NODE_H_ENDED / 2} `), d);
+  // 선은 자식 상자의 왼쪽 끝 가운데에서 끝난다.
+  assert.ok(d.endsWith(`H${l.pos[1].x - l.pos[1].w / 2}`), d);
 });
 
-/** 같은 줄 상자들의 [왼쪽, 오른쪽] 구간이 서로 겹치지 않는지 본다. */
+/** 같은 열 상자들의 [위, 아래] 구간이 서로 겹치지 않는지 본다. */
 function assertNoOverlap(l) {
   const rows = new Map();
-  l.pos.forEach((p) => rows.set(p.depth, [...(rows.get(p.depth) || []), [p.x - p.w / 2, p.x + p.w / 2]]));
+  l.pos.forEach((p) => rows.set(p.depth, [...(rows.get(p.depth) || []), [p.y, p.y + p.h]]));
   for (const spans of rows.values()) {
     spans.sort((a, b) => a[0] - b[0]);
     for (let i = 1; i < spans.length; i++) assert.ok(spans[i][0] >= spans[i - 1][1], JSON.stringify(spans));
   }
-  for (const p of l.pos) assert.ok(p.x - p.w / 2 >= 0 && p.x + p.w / 2 <= l.w, JSON.stringify(p));
+  for (const p of l.pos) assert.ok(p.x - p.w / 2 >= 0 && p.x + p.w / 2 <= l.w && p.y >= 0 && p.y + p.h <= l.h, JSON.stringify(p));
 }
 
-test('TC-RIN-5: 끝난 노드는 폭도 좁고, 가로 칸을 그 폭만큼만 받는다', () => {
+test('TC-RIN-5: 끝난 노드는 폭도 좁고, 세로 칸을 그 높이만큼만 받는다', () => {
   const W = ix.RUN_TREE_NODE_W, WE = ix.RUN_TREE_NODE_W_ENDED;
   assert.ok(WE < W);
   const s = (role, parent, state) => ({ id: role, role, parent, state });
@@ -125,10 +137,10 @@ test('TC-RIN-5: 끝난 노드는 폭도 좁고, 가로 칸을 그 폭만큼만 �
   assert.deepEqual([...l.pos.map((p) => p.w)], [W, WE, WE, W]);
   assertNoOverlap(l);
   const all = ix.runTreeLayout(nodes.map((n) => ({ ...n, state: 'working' })));
-  assert.ok(l.w < all.w, `${l.w} < ${all.w}`);
+  assert.ok(l.h < all.h, `${l.h} < ${all.h}`);
 });
 
-test('TC-RIN-5: 부모가 자식들보다 넓으면 가지를 밀어 같은 줄이 겹치지 않는다', () => {
+test('TC-RIN-5: 부모가 자식들보다 크면 가지를 밀어 같은 열이 겹치지 않는다', () => {
   const s = (role, parent, state) => ({ id: role, role, parent, state });
   // 보통 폭 부모 아래 끝난 자식 하나, 그 옆에 보통 폭 형제 — 부모 상자가 형제와 겹치기 쉽다.
   const l = ix.runTreeLayout([
@@ -136,8 +148,8 @@ test('TC-RIN-5: 부모가 자식들보다 넓으면 가지를 밀어 같은 줄�
     s('r›b', 'r', 'working'), s('r›b›y', 'r›b', 'working'),
   ]);
   assertNoOverlap(l);
-  // 부모는 자식 하나의 가운데에 그대로 선다.
-  assert.equal(l.pos[1].x, l.pos[2].x);
+  // 부모는 자식 하나의 세로 가운데에 선다(부모가 더 크면 부모를 따라 자식이 밀린다).
+  assert.equal(l.pos[1].y + l.pos[1].h / 2, l.pos[2].y + l.pos[2].h / 2);
 });
 
 test('TC-RIN-3: 카드 목록은 끝난 멤버를 빼고 잃은 멤버는 남긴다', () => {
