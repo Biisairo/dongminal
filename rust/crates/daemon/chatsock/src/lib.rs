@@ -273,6 +273,8 @@ fn members_of(ms: &[chat::Member]) -> Vec<chatwire::Member> {
             kind: m.kind.clone(),
             node: termtext::cut(&m.node, FP_SHOWN).to_string(),
             online: m.online,
+            notify: m.notify.clone(),
+            ..chatwire::Member::default()
         })
         .collect()
 }
@@ -519,12 +521,24 @@ impl Server {
         }
         if op == chatwire::OP_STATE {
             let svc = &self.o.chat;
+            let tools: HashMap<String, String> = self
+                .lock()
+                .by_pid
+                .iter()
+                .map(|(pid, c)| (pid.clone(), c.tool.clone()))
+                .collect();
             let rooms = svc
                 .rooms(&me.id)
                 .iter()
-                .map(|r| chatwire::Room {
-                    people: Some(members_of(&r.members)),
-                    ..room_of(r)
+                .map(|r| {
+                    let mut people = members_of(&r.members);
+                    for p in &mut people {
+                        p.tool = tools.get(&p.id).cloned().unwrap_or_default();
+                    }
+                    chatwire::Room {
+                        people: Some(people),
+                        ..room_of(r)
+                    }
                 })
                 .collect();
             let st = chatwire::State {
@@ -534,6 +548,7 @@ impl Server {
                     kind: me.kind.clone(),
                     node: String::new(),
                     online: true,
+                    ..chatwire::Member::default()
                 },
                 online: online_of(&svc.online()),
                 rooms: Some(rooms),

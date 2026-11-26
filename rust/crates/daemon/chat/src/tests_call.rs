@@ -187,6 +187,30 @@ fn notify_level_per_participant_and_room() {
     });
 }
 
+// ISSUE_TREE_CHAT_SRS FR-CUX-12 (결정 I-10): 방 보기의 참가자는 이 노드의 참가자면 그 방의 단계를 싣는다.
+#[test]
+fn room_members_carry_local_notify() {
+    rt().block_on(async {
+        let a = new_test_node("a");
+        let pa = a.register("a/x", KIND_AGENT);
+        let pb = a.register("a/y", KIND_AGENT);
+        let r = a.create(&pa.id, "r", "").unwrap();
+        a.join(&pb.id, &r.id).unwrap();
+        a.set_notify(&pb.id, &r.id, NOTIFY_OFF).unwrap();
+        let info = a.rooms(&pa.id).into_iter().find(|x| x.id == r.id).unwrap();
+        let of = |id: &str| {
+            info.members
+                .iter()
+                .find(|m| m.id == id)
+                .unwrap()
+                .notify
+                .clone()
+        };
+        assert_eq!(of(&pa.id), NOTIFY_CALLED);
+        assert_eq!(of(&pb.id), NOTIFY_OFF);
+    });
+}
+
 // FR-CAL-6: 모르는 단계는 bad_request, 들지 않은 방은 not_in_room, 없는 참가자는 그 오류다.
 #[test]
 fn notify_rejects_bad_input() {

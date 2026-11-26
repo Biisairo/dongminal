@@ -157,6 +157,12 @@ pub struct Member {
     pub kind: String,
     pub node: String,
     pub online: bool,
+    /// 사람 화면의 state: 이 노드의 참가자면 그 방의 알림 단계다 (FR-CUX-12).
+    #[serde(skip_serializing_if = "json::is_empty")]
+    pub notify: String,
+    /// 사람 화면의 state: 이 노드의 에이전트면 그 도구 id 다. 화면이 활동 상태를 읽는다 (FR-CUX-12).
+    #[serde(skip_serializing_if = "json::is_empty")]
+    pub tool: String,
 }
 
 /// online 의 결과다.

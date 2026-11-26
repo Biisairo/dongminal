@@ -88,6 +88,8 @@ pub struct Member {
     pub kind: String,
     pub node: String,
     pub online: bool,
+    /// 방 보기에서 이 노드의 참가자면 그 방의 알림 단계다. 모르면 비어 있다 (FR-CUX-12).
+    pub notify: String,
 }
 
 /// 방 하나의 보기다.

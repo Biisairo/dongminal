@@ -153,6 +153,7 @@ async fn chat_passes_op_and_body() {
         chatwire::OP_JOIN,
         chatwire::OP_LEAVE,
         chatwire::OP_SEND,
+        chatwire::OP_NOTIFY,
         chatwire::OP_KILL,
         chatwire::OP_KICK,
     ] {

@@ -813,3 +813,45 @@ fn newer_wait_supersedes_older() {
     });
     assert_eq!(new.next(chatwire::TYPE_WAIT).total, 1);
 }
+
+// FR-CUX-12 (결정 I-10): 사람 화면의 state 는 방 참가자마다 단계를, 이 노드의 에이전트에는 도구 id 를 싣는다.
+#[test]
+fn state_people_carry_notify_and_tool() {
+    let h = new_harness(|_| {});
+    let me = h.srv.start_user();
+    let (mut a, ha) = h.agent("sa", "tool-a", "a");
+    let room = must_room(&a.call(
+        chatwire::OP_CREATE,
+        &chatwire::CreateArgs {
+            name: "r".into(),
+            purpose: String::new(),
+        },
+    ));
+    a.call(
+        chatwire::OP_NOTIFY,
+        &chatwire::NotifyArgs {
+            room: room.id.clone(),
+            level: chatwire::NOTIFY_ALL.into(),
+        },
+    );
+    let join = format!(r#"{{"room":"{}"}}"#, room.id);
+    h.srv
+        .user_call(chatwire::OP_JOIN, &RawMessage(join.into_bytes()))
+        .unwrap();
+    let raw = h
+        .srv
+        .user_call(chatwire::OP_STATE, &RawMessage::default())
+        .unwrap();
+    let st: chatwire::State = json::unmarshal(&raw.0).unwrap();
+    let people = st.rooms.unwrap()[0].people.clone().unwrap();
+    let of = |id: &str| people.iter().find(|p| p.id == id).unwrap().clone();
+    let (ag, hu) = (of(&ha.id), of(&me.id));
+    assert_eq!(
+        (ag.notify.as_str(), ag.tool.as_str()),
+        (chatwire::NOTIFY_ALL, "tool-a")
+    );
+    assert_eq!(
+        (hu.notify.as_str(), hu.tool.as_str()),
+        (chatwire::NOTIFY_CALLED, "")
+    );
+}

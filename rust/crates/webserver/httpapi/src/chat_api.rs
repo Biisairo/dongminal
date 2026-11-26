@@ -91,6 +91,11 @@ impl Server {
     }
 
     /// 사람 명령이다. 본문에 OTP 코드가 든다 (§3.12).
+    /// ISSUE_TREE_CHAT_SRS FR-CAL-7: 사람 참가자의 방별 알림 단계.
+    pub(crate) async fn api_chat_notify(&self, r: &mut Req) -> Response {
+        self.chat_do(r, chatwire::OP_NOTIFY).await
+    }
+
     pub(crate) async fn api_chat_kill(&self, r: &mut Req) -> Response {
         self.chat_do(r, chatwire::OP_KILL).await
     }

@@ -258,7 +258,8 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | POST | `/api/chat/direct` | `{participant, purpose?}` → `{room}`. 개인채팅을 만든다. 상대는 자동으로 들어간다 |
 | POST | `/api/chat/join` | `{room}` → `{room}`. 단체채팅 방에 들어간다 |
 | POST | `/api/chat/leave` | `{room}` → `{ok}`. 방에서 나간다 |
-| POST | `/api/chat/send` | `{room, text}` → `{ok}`. 글을 쓴다 |
+| POST | `/api/chat/send` | `{room, text, call?}` → `{ok}`. 글을 쓴다. `call` 은 부를 상대(참가자 id · `user`)의 배열이다 |
+| POST | `/api/chat/notify` | `{room, level}` → `{ok}`. 이 방에서 내(사람 참가자) 알림 단계를 정한다. `level` 은 `all` · `called` · `off` 다 |
 | POST | `/api/chat/kill` | `{rooms[], code}` → `{ok}`. 방을 강제 삭제한다. `code` 는 OTP 6자리나 복구 코드다. 도우미가 묶음에 서명하면 망에 퍼진다(대상 1~64개) |
 | POST | `/api/chat/kick` | `{kicks[{room, participant}], code}` → `{ok}`. 참가자를 방에서 내보낸다. 다시 들어오는 것은 막지 않는다 |
 

@@ -57,6 +57,7 @@ impl Service {
                 kind: p.p.kind.clone(),
                 node: self.id.fingerprint.clone(),
                 online: true,
+                notify: String::new(),
             })
             .collect();
         for (fp, r) in &st.nodes {
@@ -66,6 +67,7 @@ impl Service {
                 kind: sp.kind.clone(),
                 node: fp.clone(),
                 online: reach.contains(fp),
+                notify: String::new(),
             }));
         }
         sort_members(&mut participants);
@@ -146,6 +148,11 @@ impl Service {
                     kind: p.p.kind.clone(),
                     node: self.id.fingerprint.clone(),
                     online: true,
+                    notify: p
+                        .notify
+                        .get(id)
+                        .cloned()
+                        .unwrap_or_else(|| NOTIFY_CALLED.into()),
                 });
             }
         }
@@ -163,6 +170,7 @@ impl Service {
                         kind: sp.kind.clone(),
                         node: fp.clone(),
                         online: reach.contains(fp),
+                        notify: String::new(),
                     });
                 }
             }

@@ -189,6 +189,7 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         post("/api/chat/join", h!(api_chat_join)),
         post("/api/chat/leave", h!(api_chat_leave)),
         post("/api/chat/send", h!(api_chat_send)),
+        post("/api/chat/notify", h!(api_chat_notify)),
         post("/api/chat/kill", h!(api_chat_kill)),
         post("/api/chat/kick", h!(api_chat_kick)),
         get("/api/edges", h!(api_edges_get)),
