@@ -779,3 +779,37 @@ fn rise_is_gone() {
     });
     assert!(a.closed());
 }
+
+// 같은 세션의 새 대기는 앞선 대기를 0건으로 끝낸다 — 쉴 때마다 훅이 하나씩 쌓이지 않게 한다.
+#[test]
+fn newer_wait_supersedes_older() {
+    let h = new_harness(|_| {});
+    let (mut mcp, _) = h.agent("s1", "t1", "a");
+    let mut old = waiter(&h, "s1");
+    let first = mcp.next(chatwire::TYPE_WAKE_ASK);
+    let mut new = waiter(&h, "s1");
+    let f = old.next(chatwire::TYPE_WAIT);
+    assert_eq!((f.total, f.called), (0, 0));
+    let mut asks = Vec::new();
+    for _ in 0..2 {
+        asks.push(mcp.inbox.recv_timeout(WAIT).unwrap());
+    }
+    assert!(
+        asks.iter()
+            .any(|f| f.t == chatwire::TYPE_WAKE_DROP && f.n == first.n),
+        "{asks:?}"
+    );
+    let second = asks
+        .iter()
+        .find(|f| f.t == chatwire::TYPE_WAKE_ASK)
+        .unwrap()
+        .n;
+    mcp.send(&Frame {
+        t: chatwire::TYPE_WAKE.into(),
+        n: second,
+        total: 1,
+        called: 1,
+        ..Frame::default()
+    });
+    assert_eq!(new.next(chatwire::TYPE_WAIT).total, 1);
+}

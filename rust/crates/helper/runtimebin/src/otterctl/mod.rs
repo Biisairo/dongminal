@@ -63,6 +63,7 @@ fn command(name: &str) -> Option<Command> {
             Raw(|ctx, _, a| statusline::run_otterctl_subagent_statusline(ctx, a))
         }
         "chat-mcp" => Raw(|ctx, _, a| chatmcp::run_otterctl_chat_mcp(ctx, a)),
+        "chat-wait" => Raw(|ctx, _, a| hooks::run_otterctl_chat_wait(ctx, a)),
         "read-screen" | "read-output" => Raw(toolio::run_otterctl_read),
         "send-input" => Raw(|ctx, _, a| toolio::run_otterctl_send_input(ctx, a)),
         "msg" => Raw(|ctx, _, a| toolio::run_otterctl_msg(ctx, a)),

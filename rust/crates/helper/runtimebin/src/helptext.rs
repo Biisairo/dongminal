@@ -77,6 +77,14 @@ stdio 로 MCP 를 말하고 데몬의 채팅 소켓에 붙는다. 세션 id 는 
 CLAUDE_CODE_SESSION_ID 다. 사람이 직접 실행하는 명령이 아니다.
 "#;
 
+/// ISSUE_TREE_CHAT_SRS FR-CAL-9
+pub(crate) const OTTERCTL_CHAT_WAIT_HELP: &str = r#"otterctl chat-wait — 노드 망 채팅 깨움 훅 (claude shim 이 Stop 훅으로 주입한다)
+
+stdin 의 훅 JSON 에서 session_id 를 읽고 데몬의 채팅 소켓에서 그 세션을 깨울 글을 기다린다.
+깨울 글이 오면 개수만 stderr 에 쓰고 2 로 끝난다(asyncRewake 가 에이전트를 깨운다).
+세션의 MCP 연결이 없거나 끊기면 0 으로 끝난다. 사람이 직접 실행하는 명령이 아니다.
+"#;
+
 /// `otterctlCtxHookHelp` (otterctl_ctxhook.go)
 pub(crate) const OTTERCTL_CTX_HOOK_HELP: &str = r#"otterctl ctx-hook <agent> — 맥락 기준 migration 제안 (에이전트 훅에서 호출)
 
@@ -147,6 +155,7 @@ pub(crate) const OTTERCTL_HELP: &str = r#"otterctl — otterminal 워크스페�
   otterctl agent-context               # 세션 상시 주입 컨텍스트 (에이전트 hook 에서 호출)
   otterctl ctx-hook <agent>            # 맥락 기준 migration 제안 (에이전트 hook 에서 호출)
   otterctl chat-mcp                    # 노드 망 채팅 MCP 서버 (claude shim 이 주입)
+  otterctl chat-wait                   # 노드 망 채팅 깨움 훅 (claude shim 이 주입)
   otterctl send <action> [json-args]   # raw 전송
 
 에이전트 접합면 — 다른 도구의 화면을 읽고 입력을 넣는다:

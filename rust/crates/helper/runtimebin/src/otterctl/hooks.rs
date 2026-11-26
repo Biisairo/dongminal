@@ -1,5 +1,6 @@
-//! 에이전트 훅 — `otterctl activity`·`agent-context`·`ctx-hook`. 훅은 에이전트의 핫패스이므로
-//! 어떤 실패에서도 0 으로 끝난다 (NFR-AAP-5·FR-DMA-7·FR-ITM-10).
+//! 에이전트 훅 — `otterctl activity`·`agent-context`·`ctx-hook`·`chat-wait`. 훅은 에이전트의
+//! 핫패스이므로 어떤 실패에서도 0 으로 끝난다 (NFR-AAP-5·FR-DMA-7·FR-ITM-10). chat-wait 만 깨울 때
+//! 2 로 끝난다 (ISSUE_TREE_CHAT_SRS FR-CAL-9).
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -18,9 +19,11 @@ use serde_json::{Map, Value, json};
 
 use super::whoami::query_escape;
 use crate::argparse::is_help_arg;
-use crate::budgets::{CHAT_UNREAD_WAIT, HOOK_BUDGET};
+use crate::budgets::{CHAT_DIAL_WAIT, CHAT_UNREAD_WAIT, HOOK_BUDGET};
 use crate::ctx::{Ctx, Env, errf, outf};
-use crate::helptext::{OTTERCTL_AGENT_CONTEXT_HELP, OTTERCTL_CTX_HOOK_HELP};
+use crate::helptext::{
+    OTTERCTL_AGENT_CONTEXT_HELP, OTTERCTL_CHAT_WAIT_HELP, OTTERCTL_CTX_HOOK_HELP,
+};
 use crate::http::{base_url, http_get_within, http_post_json_within, self_tool_id};
 use crate::report::post_report;
 
@@ -387,6 +390,52 @@ pub(crate) fn run_otterctl_ctx_hook(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
     }
     write_hook_output(ctx, &input.hook_event_name, &lines.join("\n"));
     0
+}
+
+/// asyncRewake 가 깨움으로 읽는 종료 코드다 (FR-CAL-8).
+const REWAKE_EXIT: i32 = 2;
+
+/// 깨움 훅이다 (FR-CAL-9·10). 데몬이 깨울 글의 개수를 답할 때까지 시한 없이 기다린다. 출력은
+/// 개수만이다 — 방 이름·본문·보낸 이는 싣지 않는다 (FR-PCH-52).
+pub(crate) fn run_otterctl_chat_wait(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
+    if args.iter().any(|a| is_help_arg(a)) {
+        outf!(ctx, "{OTTERCTL_CHAT_WAIT_HELP}");
+        return 0;
+    }
+    let data = read_hook_stdin(ctx).unwrap_or_default();
+    let input = json::unmarshal::<CtxHookIn>(&data).unwrap_or_default();
+    let home = ctx.env.get(otterenv::ENV_HOME);
+    if home.is_empty() || input.session_id.is_empty() {
+        return 0;
+    }
+    match chat_wait_counts(Path::new(&home), &input.session_id) {
+        Some((total, called)) if total > 0 => {
+            errf!(
+                ctx,
+                "[otterminal chat] 읽지 않은 글 {total}건(나를 부른 글 {called}건). chat_read 로 확인한다.\n"
+            );
+            REWAKE_EXIT
+        }
+        _ => 0,
+    }
+}
+
+fn chat_wait_counts(home: &Path, session: &str) -> Option<(i64, i64)> {
+    let mut c = otter_shared_platform::current()
+        .ipc
+        .dial(&chatwire::socket_path(home), CHAT_DIAL_WAIT)
+        .ok()?;
+    c.set_write_timeout(Some(CHAT_DIAL_WAIT)).ok()?;
+    let b = chatwire::encode(&chatwire::Frame {
+        t: chatwire::TYPE_WAIT.to_owned(),
+        session: session.to_owned(),
+        ..Default::default()
+    })
+    .ok()?;
+    c.write_all(&b).ok()?;
+    let line = chatwire::Scanner::new(&mut c).next_line()?;
+    let f = json::unmarshal::<chatwire::Frame>(&line).ok()?;
+    (f.t == chatwire::TYPE_WAIT).then_some((f.total, f.called))
 }
 
 fn fetch_ctx_advice(env: &Env, tool: &str) -> CtxAdvice {

@@ -75,6 +75,7 @@ Otterminal 서버는 기동 시 `$OTTERMINAL_HOME/bin/` 에 헬퍼를 설치하�
 | `otterctl agent-context` | 세션에 상시 주입할 **컨텍스트**를 냅니다 (이 도구가 어느 워크스페이스의 무엇인지) |
 | `otterctl ctx-hook <agent>` | 설정 `migrationHook`(기본 끔)이 켜져 있고 맥락 사용률이 기준(`migrationHookCtxPct`, 기본 50)의 80% 이상이면 다음 일의 크기를 보고 `/otterminal:migration` 시점을 정하라고 알리고, 85% 이상이면 지금 넘기라고 알립니다. 데몬 모드에서는 노드 망 채팅의 읽지 않은 글 수도 함께 알립니다. 에이전트 훅(PostToolUse·UserPromptSubmit)이 부릅니다 |
 | `otterctl chat-mcp` | 노드 망 채팅의 MCP 서버입니다. 데몬 모드에서 otterminal 탭의 `claude` 를 띄우면 shim 이 주입합니다. 사람이 직접 실행하는 명령이 아닙니다 |
+| `otterctl chat-wait` | 노드 망 채팅의 깨움 훅입니다. shim 이 `Stop` 훅(`asyncRewake`)으로 주입합니다. 쉬는 에이전트에게 깨울 글이 오면 읽지 않은 글 수만 알리고 에이전트를 깨웁니다. 사람이 직접 실행하는 명령이 아닙니다 |
 
 #### 파일·URL 열기
 

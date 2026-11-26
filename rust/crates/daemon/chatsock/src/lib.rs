@@ -178,41 +178,6 @@ impl Conn {
         got
     }
 
-    /// 깨울 글을 MCP 에 묻고 답(wake)을 시한 없이 기다린다 (FR-CAL-9). MCP 가 끊기거나 훅 연결 w 가
-    /// 닫히면 None 이다. 훅이 먼저 닫히면 MCP 에 물음을 거둔다고 알린다 — MCP 가 아무도 받지 않을
-    /// 답에 표식을 붙이지 않게 한다.
-    fn wait_wake(self: &Arc<Self>, w: &Arc<IpcStream>) -> Option<Frame> {
-        let (tx, rx) = sync_channel(1);
-        let n = self.enlist(tx);
-        if relock(&self.out.q).1 {
-            relock(&self.asks).1.remove(&n);
-            return None;
-        }
-        self.push(&Frame {
-            t: chatwire::TYPE_WAKE_ASK.into(),
-            n,
-            ..Frame::default()
-        });
-        {
-            let (me, w) = (Arc::clone(self), Arc::clone(w));
-            std::thread::spawn(move || {
-                let mut sc = Scanner::new(&*w);
-                while sc.next_line().is_some() {}
-                relock(&me.asks).1.remove(&n);
-            });
-        }
-        let got = rx.recv().ok();
-        relock(&self.asks).1.remove(&n);
-        if got.is_none() {
-            self.push(&Frame {
-                t: chatwire::TYPE_WAKE_DROP.into(),
-                n,
-                ..Frame::default()
-            });
-        }
-        got
-    }
-
     fn answer(&self, f: Frame) {
         let tx = relock(&self.asks).1.get(&f.n).cloned();
         if let Some(tx) = tx {
@@ -229,6 +194,8 @@ struct State {
     pending: HashMap<u64, Arc<IpcStream>>,
     next_pending: u64,
     sessions: HashMap<String, Vec<Arc<Conn>>>,
+    /// 세션마다 살아 있는 깨움 대기다: (물은 연결, 물음 번호).
+    waits: HashMap<String, (Arc<Conn>, u64)>,
     closed: bool,
     user: Participant,
 }
@@ -408,6 +375,7 @@ impl Server {
                 pending: HashMap::new(),
                 next_pending: 0,
                 sessions: HashMap::new(),
+                waits: HashMap::new(),
                 closed: false,
                 user: Participant::default(),
             }),
@@ -814,6 +782,59 @@ impl Server {
         let _ = nc.shutdown(Shutdown::Both);
     }
 
+    /// 깨울 글을 MCP 연결 c 에 묻고 답(wake)을 시한 없이 기다린다 (FR-CAL-9). MCP 가 끊기거나 훅
+    /// 연결 w 가 닫히거나 같은 세션의 새 대기가 오면 None 이다. 그때는 MCP 에 물음을 거둔다고
+    /// 알린다 — MCP 가 아무도 받지 않을 답에 표식을 붙이지 않게 한다. 세션마다 대기는 하나만 살아
+    /// 있다 — 쉴 때마다 거는 훅이 쌓이지 않는다.
+    fn wait_wake(&self, c: &Arc<Conn>, w: &Arc<IpcStream>, session: &str) -> Option<Frame> {
+        let (tx, rx) = sync_channel(1);
+        let n = c.enlist(tx);
+        if relock(&c.out.q).1 {
+            relock(&c.asks).1.remove(&n);
+            return None;
+        }
+        let prev = self
+            .lock()
+            .waits
+            .insert(session.to_string(), (Arc::clone(c), n));
+        if let Some((pc, pn)) = prev {
+            relock(&pc.asks).1.remove(&pn);
+        }
+        c.push(&Frame {
+            t: chatwire::TYPE_WAKE_ASK.into(),
+            n,
+            ..Frame::default()
+        });
+        {
+            let (me, w) = (Arc::clone(c), Arc::clone(w));
+            std::thread::spawn(move || {
+                let mut sc = Scanner::new(&*w);
+                while sc.next_line().is_some() {}
+                relock(&me.asks).1.remove(&n);
+            });
+        }
+        let got = rx.recv().ok();
+        relock(&c.asks).1.remove(&n);
+        {
+            let mut st = self.lock();
+            if st
+                .waits
+                .get(session)
+                .is_some_and(|(x, k)| Arc::ptr_eq(x, c) && *k == n)
+            {
+                st.waits.remove(session);
+            }
+        }
+        if got.is_none() {
+            c.push(&Frame {
+                t: chatwire::TYPE_WAKE_DROP.into(),
+                n,
+                ..Frame::default()
+            });
+        }
+        got
+    }
+
     /// 깨움 대기다 (FR-CAL-9·10). 그 세션의 가장 나중 연결에 깨울 글을 묻고, 답의 개수만 전한다.
     /// 연결이 없거나 끊기면 0건으로 끝낸다.
     fn answer_wait(&self, nc: &Arc<IpcStream>, session: &str) {
@@ -827,7 +848,7 @@ impl Server {
             t: chatwire::TYPE_WAIT.into(),
             ..Frame::default()
         };
-        if let Some(got) = c.and_then(|c| c.wait_wake(nc)) {
+        if let Some(got) = c.and_then(|c| self.wait_wake(&c, nc, session)) {
             reply.total = got.total;
             reply.called = got.called;
         }
