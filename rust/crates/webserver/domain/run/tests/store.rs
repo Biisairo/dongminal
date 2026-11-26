@@ -381,6 +381,36 @@ fn local_tree_records_issue_dir() {
     assert!(matches!(bad, Err(Error::InvalidArgument(_))), "{bad:?}");
 }
 
+/// ISSUE_TREE_CHAT_SRS FR-ITR-1: 트리 방 id 를 Run 에 기록한다. 가지 Run 은 열린 루트의 것을 잇고, 트리 없는 Run 은 받지 않는다.
+#[test]
+fn tree_records_chat_room() {
+    let d = tempfile::tempdir().unwrap();
+    let s = store(d.path());
+    let root = s
+        .start(StartOptions {
+            tree: "o/r#1".into(),
+            chat_room: "room-1".into(),
+            ..opts("루트")
+        })
+        .unwrap();
+    assert_eq!(root.chat_room, "room-1");
+    let branch = s
+        .start(StartOptions {
+            tree: "o/r#1".into(),
+            tree_branch: true,
+            ..opts("가지")
+        })
+        .unwrap();
+    assert_eq!(branch.chat_room, "room-1");
+    let blob = fs::read_to_string(d.path().join("runs.json")).unwrap();
+    assert!(blob.contains(r#""chatRoom":"room-1""#), "{blob}");
+    let bad = s.start(StartOptions {
+        chat_room: "r".into(),
+        ..opts("트리 없음")
+    });
+    assert!(matches!(bad, Err(Error::InvalidArgument(_))), "{bad:?}");
+}
+
 /// ISSUE_TREE_CHAT_SRS FR-LIS-1: 실행 방식 coord 는 Run 에 기록한다. tree(기본)는 기록하지 않는다(키 없음).
 #[test]
 fn coord_mode_is_recorded() {

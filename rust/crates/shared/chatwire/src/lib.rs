@@ -47,6 +47,8 @@ pub const OP_SEND: &str = "send";
 pub const OP_NOTIFY: &str = "notify";
 /// 사람 화면의 한 번 읽기다: 나·온라인 목록·방 목록 (§3.11).
 pub const OP_STATE: &str = "state";
+/// 트리 방 규칙이다 (ISSUE_TREE_CHAT_SRS FR-ITR-2·3·10). 사람 참가자 연산이며 서버만 부른다.
+pub const OP_TREE: &str = "tree";
 /// 사람 명령이다 (§3.12). 서명한 명령 본문의 종류로 그대로 건네지므로 humancmd 의 이름을 가리킨다.
 pub const OP_KILL: &str = otter_shared_humancmd::OP_KILL;
 pub const OP_KICK: &str = otter_shared_humancmd::OP_KICK;
@@ -249,6 +251,18 @@ pub struct DirectArgs {
 #[serde(default, rename = "chatwire.RoomArgs")]
 pub struct RoomArgs {
     pub room: String,
+}
+
+/// tree 의 인자다. tools 는 트리 멤버의 도구 id 이고, 그 세션이 붙으면 방에 넣는다. close 면 규칙을 지우고
+/// 사람 참가자가 나간다.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename = "chatwire.TreeArgs")]
+pub struct TreeArgs {
+    pub room: String,
+    #[serde(skip_serializing_if = "json::is_empty")]
+    pub tools: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "json::is_empty")]
+    pub close: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

@@ -88,6 +88,8 @@ pub struct StartOptions {
     pub issue_dir: String,
     /// 트리 실행 방식(`tree`·`coord`, 비면 tree). 트리와 함께만 받는다 (FR-LIS-1).
     pub mode: String,
+    /// 트리 방의 채팅 방 id. 트리와 함께만 받는다. 가지 Run 은 비워 두면 루트의 것을 잇는다 (FR-ITR-1).
+    pub chat_room: String,
 }
 
 /// 멤버를 더하는 값.
@@ -337,11 +339,19 @@ impl Store {
                 return Err(Error::invalid(format!("알 수 없는 mode: {}", quote(m))));
             }
         };
-        if issue_dir.is_empty() && opt.tree_branch {
-            issue_dir = open_tree_runs(&g.runs, &tree)
-                .find(|r| !r.tree_branch)
-                .map(|r| r.issue_dir.clone())
-                .unwrap_or_default();
+        let mut chat_room = opt.chat_room.trim().to_owned();
+        if tree.is_empty() && !chat_room.is_empty() {
+            return Err(Error::invalid("chatRoom 은 tree 와 함께 쓴다"));
+        }
+        if opt.tree_branch
+            && let Some(root) = open_tree_runs(&g.runs, &tree).find(|r| !r.tree_branch)
+        {
+            if issue_dir.is_empty() {
+                issue_dir = root.issue_dir.clone();
+            }
+            if chat_room.is_empty() {
+                chat_room = root.chat_room.clone();
+            }
         }
         let mut id = opt.id.trim().to_owned();
         if id.is_empty() {
@@ -364,6 +374,7 @@ impl Store {
             tree,
             issue_dir,
             mode,
+            chat_room,
             created_at: self.now(),
             ..Record::default()
         };

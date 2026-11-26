@@ -392,6 +392,9 @@ pub struct Record {
     /// 트리 실행 방식. coord 일 때만 `coord` 이고, 비면 노드 트리다 (ISSUE_TREE_CHAT_SRS FR-LIS-1).
     #[serde(skip_serializing_if = "is_empty")]
     pub mode: String,
+    /// 트리 방의 채팅 방 id. 트리와 함께만 있고, 가지 Run 은 루트의 것을 잇는다 (ISSUE_TREE_CHAT_SRS FR-ITR-1).
+    #[serde(skip_serializing_if = "is_empty")]
+    pub chat_room: String,
     #[serde(skip_serializing_if = "is_empty")]
     pub members: Vec<Member>,
     #[serde(skip_serializing_if = "is_empty")]

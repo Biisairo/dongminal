@@ -352,6 +352,8 @@ struct StartBody {
     issue_dir: String,
     /// 트리 실행 방식 `tree`·`coord` (FR-LIS-1).
     mode: String,
+    /// 트리 방의 채팅 방 id (FR-ITR-1).
+    chat_room: String,
 }
 
 /// Go `memberAddReq`: `POST /api/runs/members` 의 본문.
@@ -592,6 +594,7 @@ impl Server {
             tree_branch: body.tree_branch,
             issue_dir: body.issue_dir,
             mode: body.mode,
+            chat_room: body.chat_room,
             ..run::StartOptions::default()
         };
         if let Some(p) = &prov {

@@ -51,6 +51,7 @@ const VALS: &[&str] = &[
     "--ctx",
     "--issue-dir",
     "--mode",
+    "--chat-room",
     "--to",
 ];
 const BOOLS: &[&str] = &[
@@ -95,6 +96,7 @@ pub(crate) struct RunFlags {
     pub tree: String,
     pub issue_dir: String,
     pub mode: String,
+    pub chat_room: String,
     pub branch: bool,
     pub ref_: String,
     pub issue: String,
@@ -141,6 +143,7 @@ impl RunFlags {
             "--ctx" => self.ctx = v,
             "--issue-dir" => self.issue_dir = v,
             "--mode" => self.mode = v,
+            "--chat-room" => self.chat_room = v,
             _ => self.to = v,
         }
     }
@@ -337,6 +340,13 @@ fn sub_start(ctx: &mut Ctx<'_>, mut f: RunFlags) -> i32 {
     if f.branch && f.tree.is_empty() {
         errf!(ctx, "run start: --branch 는 --tree 와 함께 쓴다\n");
         return 2;
+    }
+    if !f.chat_room.is_empty() {
+        if f.tree.is_empty() {
+            errf!(ctx, "run start: --chat-room 는 --tree 와 함께 쓴다\n");
+            return 2;
+        }
+        body.insert("chatRoom".into(), Value::from(f.chat_room.as_str()));
     }
     if !f.mode.is_empty() {
         if f.tree.is_empty() {

@@ -387,6 +387,40 @@ fn run_start_local_tree() {
     }
 }
 
+/// ISSUE_TREE_CHAT_SRS FR-ITR-1: 트리 방 id 는 `--chat-room` 으로 넘기고 트리와 함께만 받는다.
+#[test]
+fn run_start_chat_room() {
+    let home = tmp();
+    let srv = TestServer::fixed(
+        200,
+        r#"{"id":"r1","short":"r1s","state":"open","projection":"dedicated-window","isolation":"none"}"#,
+    );
+    let env = srv.env(home.path());
+    let got = ctl(
+        &env,
+        &[
+            "run",
+            "start",
+            "--objective",
+            "o",
+            "--tree",
+            "o/r#1",
+            "--chat-room",
+            "room-1",
+        ],
+    );
+    assert_eq!(got.0, 0, "{}", got.2);
+    assert_eq!(srv.requests()[0].json()["chatRoom"], "room-1");
+    let got = ctl(
+        &env,
+        &["run", "start", "--objective", "o", "--chat-room", "room-1"],
+    );
+    assert_eq!(
+        (got.0, got.2.as_str()),
+        (2, "run start: --chat-room 는 --tree 와 함께 쓴다\n")
+    );
+}
+
 /// ISSUE_TREE_CHAT_SRS FR-LIS-1: 실행 방식은 `--mode tree|coord` 이고 트리와 함께만 받는다. tree 는 본문에 싣지 않는다.
 #[test]
 fn run_start_mode() {

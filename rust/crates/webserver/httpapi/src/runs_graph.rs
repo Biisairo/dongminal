@@ -340,6 +340,7 @@ impl Server {
             );
         }
         self.broadcast_layout("run_changed", Some(&args));
+        self.sync_tree_room(rec);
     }
 
     /// Go `messageRun`: 받는 쪽의 Run 이 먼저다.

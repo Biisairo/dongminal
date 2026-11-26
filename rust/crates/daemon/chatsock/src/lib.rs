@@ -6,7 +6,7 @@
 
 mod human;
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::{self, Write};
 use std::net::Shutdown;
 use std::path::{Path, PathBuf};
@@ -196,6 +196,9 @@ struct State {
     sessions: HashMap<String, Vec<Arc<Conn>>>,
     /// 세션마다 살아 있는 깨움 대기다: (물은 연결, 물음 번호).
     waits: HashMap<String, (Arc<Conn>, u64)>,
+    /// 트리 방 규칙: 방 id → 트리 멤버의 도구 id (ISSUE_TREE_CHAT_SRS FR-ITR-3). 메모리에만 있다 —
+    /// 데몬이 다시 뜨면 서버가 다시 준다.
+    trees: HashMap<String, HashSet<String>>,
     closed: bool,
     user: Participant,
 }
@@ -378,6 +381,7 @@ impl Server {
                 next_pending: 0,
                 sessions: HashMap::new(),
                 waits: HashMap::new(),
+                trees: HashMap::new(),
                 closed: false,
                 user: Participant::default(),
             }),
@@ -520,6 +524,9 @@ impl Server {
         if op == chatwire::OP_KILL || op == chatwire::OP_KICK {
             return self.human(op, args);
         }
+        if op == chatwire::OP_TREE {
+            return self.tree(&me.id, args).map_err(CallError::wire);
+        }
         if op == chatwire::OP_STATE {
             let svc = &self.o.chat;
             let tools: HashMap<String, String> = self
@@ -615,6 +622,7 @@ impl Server {
                 return;
             }
         };
+        self.join_tree_rooms(&c);
         let _ = nc.set_read_timeout(None);
         let w = c.clone();
         std::thread::spawn(move || w.write_loop());
@@ -629,6 +637,52 @@ impl Server {
             }
         }
         self.drop_conn(&c);
+    }
+
+    /// 트리 방 규칙을 세우거나 지운다 (FR-ITR-2·3·10). 세우면 사람 참가자와 지금 붙어 있는 트리 멤버가
+    /// 들어가고, 지우면 사람 참가자가 나간다. 같은 규칙을 다시 주어도 된다.
+    fn tree(&self, user: &str, args: &RawMessage) -> Result<RawMessage, CallError> {
+        let a: chatwire::TreeArgs = decode(args)?;
+        if a.room.is_empty() {
+            return Err(CallError::Plain("room 이 필요하다".into()));
+        }
+        let svc = &self.o.chat;
+        if a.close {
+            self.lock().trees.remove(&a.room);
+            if svc.rooms(user).iter().any(|r| r.id == a.room && r.joined) {
+                svc.leave(user, &a.room)?;
+            }
+            return marshal_raw(&chatwire::Ok { ok: true });
+        }
+        svc.join(user, &a.room)?;
+        let tools: HashSet<String> = a.tools.unwrap_or_default().into_iter().collect();
+        let joiners: Vec<String> = {
+            let mut st = self.lock();
+            st.trees.insert(a.room.clone(), tools.clone());
+            st.by_pid
+                .values()
+                .filter(|c| tools.contains(&c.tool))
+                .map(|c| c.pid.clone())
+                .collect()
+        };
+        for pid in joiners {
+            let _ = svc.join(&pid, &a.room);
+        }
+        marshal_raw(&chatwire::Ok { ok: true })
+    }
+
+    /// 붙은 세션이 트리 멤버면 그 트리 방에 넣는다 (FR-ITR-3). 나가는 것은 연결이 끊길 때의 unregister 다.
+    fn join_tree_rooms(&self, c: &Conn) {
+        let rooms: Vec<String> = self
+            .lock()
+            .trees
+            .iter()
+            .filter(|(_, tools)| tools.contains(&c.tool))
+            .map(|(room, _)| room.clone())
+            .collect();
+        for room in rooms {
+            let _ = self.o.chat.join(&c.pid, &room);
+        }
     }
 
     /// hello 전 연결을 pending 에 넣는다. 이미 닫힌 서버면 `None` 이다.
@@ -877,3 +931,5 @@ impl Server {
 mod tests;
 #[cfg(test)]
 mod tests_human;
+#[cfg(test)]
+mod tests_tree;
