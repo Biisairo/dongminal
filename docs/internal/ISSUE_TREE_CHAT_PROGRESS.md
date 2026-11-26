@@ -7,7 +7,7 @@
 
 1. 이 문서를 끝까지 읽는다.
 2. 먼저 읽는다: `docs/internal/FEATURE_DEV_RULES.md`(규칙 전부, 특히 §3 설계 규칙·§4 시험·§5 운영 보호), `docs/internal/ISSUE_TREE_CHAT_SRS.md`(§3.1 묶음 A, §4 결정, §10 가정 — 모두 사용자 승인됨).
-3. 저장소 상태 확인: 브랜치 `feature`, 직전 코드 커밋 `9cdafa44`. `git status` 가 깨끗해야 한다. main 은 origin/main 보다 2 커밋 앞(push 전), feature 는 main 보다 6 커밋 앞(착수 문서 · SRS · A1 · 진행 문서 · A1 와이어·소켓 · 진행 문서 갱신).
+3. 저장소 상태 확인: 브랜치 `feature`, 직전 커밋 `8a6aa18c` 바로 뒤의 진행 문서 커밋(`git log -1`). origin/feature 는 `98618cb1` 까지 push 됐고 그 뒤 커밋은 push 하지 않았다(사용자 지시가 있어야 한다). 아래 옛 설명: `git status` 가 깨끗해야 한다. main 은 origin/main 보다 2 커밋 앞(push 전), feature 는 main 보다 6 커밋 앞(착수 문서 · SRS · A1 · 진행 문서 · A1 와이어·소켓 · 진행 문서 갱신).
 4. §2 의 묶음 T 표에서 묶음 T 의 코드(T-1~T-6)는 끝났다. T-7 실측(TC-ITH-14)은 사용자가 다음에 운영 바이너리를 바꿀 때 한꺼번에 한다(사용자 결정 2026-11-26 — 지금 연결된 운영 봇을 쓴다). §2 의 묶음 L 표에서 "남음" 인 첫 단계(L-3)부터 이어 간다. 텔레그램 구조는 결정 I-19~I-23 과 `telegram/src/bridge/mirror.rs`·`post.rs`·`inbox.rs` 에 있다. 단계마다 시험 먼저(RED 확인) → 구현(GREEN) → fmt·clippy·관련 게이트.
 5. 커밋은 단계마다 스스로 한다(사용자 지시 2026-11-26, AI 서명 금지). main 병합·push 는 사용자의 분명한 지시가 있을 때만.
 6. 운영 바이너리 재빌드는 하지 않았다(운영 보호 §5). 사용자에게 보고했다. 사용자가 정할 때까지 빌드하지 않는다.
