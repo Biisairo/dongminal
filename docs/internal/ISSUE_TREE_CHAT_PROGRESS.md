@@ -6,11 +6,14 @@
 ## 착수 블록 — 다음 세션의 지시 전부
 
 1. 이 문서를 끝까지 읽는다.
-2. 먼저 읽는다: `docs/internal/FEATURE_DEV_RULES.md`(규칙 전부, 특히 §3 설계 규칙·§4 시험·§5 운영 보호), `docs/internal/ISSUE_TREE_CHAT_SRS.md`(§3.1 묶음 A, §4 결정, §10 가정 — 모두 사용자 승인됨).
-3. 저장소 상태 확인: 브랜치 `feature`, 직전 커밋 `8a6aa18c` 바로 뒤의 진행 문서 커밋(`git log -1`). origin/feature 는 `98618cb1` 까지 push 됐고 그 뒤 커밋은 push 하지 않았다(사용자 지시가 있어야 한다). 아래 옛 설명: `git status` 가 깨끗해야 한다. main 은 origin/main 보다 2 커밋 앞(push 전), feature 는 main 보다 6 커밋 앞(착수 문서 · SRS · A1 · 진행 문서 · A1 와이어·소켓 · 진행 문서 갱신).
-4. §2 의 묶음 T 표에서 묶음 T 의 코드(T-1~T-6)는 끝났다. T-7 실측(TC-ITH-14)은 사용자가 다음에 운영 바이너리를 바꿀 때 한꺼번에 한다(사용자 결정 2026-11-26 — 지금 연결된 운영 봇을 쓴다). §2 의 묶음 L 표에서 "남음" 인 첫 단계(L-3)부터 이어 간다. 텔레그램 구조는 결정 I-19~I-23 과 `telegram/src/bridge/mirror.rs`·`post.rs`·`inbox.rs` 에 있다. 단계마다 시험 먼저(RED 확인) → 구현(GREEN) → fmt·clippy·관련 게이트.
+2. 먼저 읽는다: `docs/internal/FEATURE_DEV_RULES.md`(규칙 전부, 특히 §3 설계 규칙·§4 시험·§5 운영 보호), `docs/internal/ISSUE_TREE_CHAT_SRS.md`(§3.4·§3.5, §4 결정, §10 가정 — 모두 사용자 승인됨).
+3. 저장소 상태 확인: 브랜치 `feature`, `git log -1` 이 이 문서의 마지막 갱신 커밋이다. `git status` 가 깨끗해야 한다. origin/feature 는 `98618cb1` 까지 push 됐고 그 뒤 커밋은 push 하지 않았다(사용자 지시가 있어야 한다).
+4. **다섯 묶음(A·U·T·L·C)의 코드는 모두 끝났다.** 검증 결과는 §2 「검증(2026-11-26)」 이다. 남은 것은 실측 셋이다 — 모두 사용자가 정한다:
+   - T-7 실측 TC-ITH-14(사용자 봇). 사용자가 다음에 운영 바이너리를 바꿀 때 한꺼번에 한다(사용자 결정 2026-11-26).
+   - C-4/L-4 시범 TC-ITH-17(진짜 claude 로 local+coord · local+tree 를 끝까지). 격리 인스턴스 안에서 진짜 claude 를 띄우면 PATH 의 shim 이 운영 바이너리를 가리키는 문제(§4.1)와 claude 인증 HOME 문제가 있어, 운영 보호(§5)를 지키는 방법을 사용자와 정한 뒤 한다.
+   - TC-ITH-19 유휴 측정(`scripts/perf/scenario.mjs`). 시범과 같은 격리 빌드로 한다.
 5. 커밋은 단계마다 스스로 한다(사용자 지시 2026-11-26, AI 서명 금지). main 병합·push 는 사용자의 분명한 지시가 있을 때만.
-6. 운영 바이너리 재빌드는 하지 않았다(운영 보호 §5). 사용자에게 보고했다. 사용자가 정할 때까지 빌드하지 않는다.
+6. 운영 바이너리 재빌드는 하지 않았다(운영 보호 §5). 사용자가 정할 때까지 빌드하지 않는다.
 
 ## 1. 끝난 것
 
@@ -95,6 +98,19 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | C-3 프리앰블과 명령 문서의 통신을 트리 방 + `call` 로(FR-ITR-4~9), 첫 지시는 실행 인자(FR-ITR-6) | 끝남 (결정 I-29) — 프리앰블 `tree_room_block`(트리 방 id·call 규약·사용자 확인·화면 옮기기·무관한 글은 턴 끝·부모 보고 예), `/api/runs/preamble` 의 `promptFile`, `otterctl run launch` 가 `<홈>/prompts/<member>.md`(600)를 쓰고 한 줄 프롬프트. 명령 문서 「트리 방」 절, 발사대·로컬·조정자의 방 만들기와 `--chat-room`, 끝의 `chat_leave`. 시험: preamble_local 2 · httpapi 1 · otterctl 1 · runtime 문서 1 |
 | C-4 시범(L-4 와 함께, TC-ITH-17): local+coord · local+tree 를 한 번씩 끝까지 | 남음 |
 
+### 검증 (2026-11-26, 다섯 묶음의 코드가 끝난 뒤)
+
+| 항목 | 결과 |
+|---|---|
+| Rust 워크스페이스 전체(`cargo test --workspace`) | 4,275 통과 · 실패 0 |
+| `scripts/check-cross.sh` | 다섯 대상 통과 |
+| 게이트(`check-*.mjs`·`check-*.sh`) · `npm run unit`(2,028) · typecheck · eslint | 통과 |
+| e2e 전량(`make e2e`, 8샤드) | 2,325 통과 · 실패 2 → 고침 · flaky 4(재시도 통과: git-history-fresh H1 · notes-live-explorer V-19 · activity TC-AAP-19 · fd-leak PERF 1.20) · 건너뜀 4(docker 없음 3 · 성능 시험 1) |
+
+e2e 실패 2건은 둘 다 낡은 시험이었다(제품 동작은 의도대로):
+- `telegram-settings.spec.ts`: T-1(결정 I-19)이 채팅 토픽 절을 넷째 절로 더했다. 절 수 3 → 4, `#tg-topics` 꺼짐을 함께 본다.
+- `bundle-strip.spec.ts` TC-BST-1: 결정 I-11 의 `[hljs]` 묶음은 축약된 vendor 한 파일이라 걷을 주석이 없다. "모든 묶음이 줄어든다" → "걷을 것이 있으면 줄고, 없으면 원본 그대로다" 로 고쳤다.
+
 ### 그 뒤
 
 - 묶음 U(채팅 화면): 목업 사진은 `.playwright-mcp/before.png`·`after.png`·`after2.png`(gitignore 됨). 목업 CSS·DOM 은 §4.3 에 원리를 적었다.
@@ -160,6 +176,7 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 - 결정 표를 바꾸면 `cargo run -q --locked --manifest-path rust/Cargo.toml -p otter-scripts-gen-decisions` 로 `decisions.md` 를 다시 만든다.
 - Rust 시험은 `rust/` 안에서 `scripts/hermetic.sh cargo test -p <crate> --lib` 로 돈다(저장소 루트에서 `rust/scripts/hermetic.sh cargo …` 는 Cargo.toml 을 못 찾는다).
 - clippy 는 시험 코드의 `&[x.clone()]`(→ `std::slice::from_ref`)와 Default 뒤 필드 대입을 잡는다.
+- **`make e2e`(8샤드 병렬)에 `OTTER_E2E_RUN` 을 주지 않는다.** 주면 동시에 도는 샤드가 같은 워커 홈(`<run>/w0`)을 써 서로의 서버를 죽인다(실측 2026-11-26: `SIGKILL`, `otterServer` 90초 시한 초과가 줄줄이). `make e2e` 는 홈이 pid 로 갈리므로 `PLAYWRIGHT_BROWSERS_PATH` 만 주고 `rust/scripts/hermetic.sh make e2e` 로 돈다. `OTTER_E2E_RUN` 은 한 프로세스 실행(`npx playwright test <스펙>`)에만 쓴다. FEATURE_DEV_RULES §4.3 은 이 구분을 적지 않았다(사용자에게 보고할 것).
 
 ### 4.5 사실 확인 결과 (다시 조사하지 않는다)
 

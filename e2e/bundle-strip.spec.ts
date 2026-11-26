@@ -36,6 +36,11 @@ type Parsed = ReturnType<typeof espree.parse> & { comments: { value: string }[] 
 const tokens = (src: string) =>
   espree.tokenize(src, { ecmaVersion: 'latest', sourceType: 'script' }).map((t: { type: string; value: string }) => `${t.type}:${t.value}`);
 
+const comments = (src: string) =>
+  (espree.parse(src, { ecmaVersion: 'latest', sourceType: 'script', comment: true }) as Parsed).comments.map((c) => c.value);
+/** 서버가 남기는 주석: 파일 머리 표지와 `/*!` 저작권. */
+const kept = (v: string) => /^ ==== .+ ==== $/.test(v) || v.startsWith('!');
+
 test('TC-BST-1: 걷은 묶음마다 원본 이음과 토큰 열·줄 수가 같고, 주석은 남지 않는다', async ({ request }) => {
   const defs = bundleDefs();
   expect(defs.has('boot')).toBe(true);
@@ -47,11 +52,11 @@ test('TC-BST-1: 걷은 묶음마다 원본 이음과 토큰 열·줄 수가 같�
     const want = joined(name, files);
     expect(got.split('\n').length, name).toBe(want.split('\n').length);
     expect(tokens(got), name).toEqual(tokens(want));
-    expect(got.length, name).toBeLessThan(want.length);
-    const ast = espree.parse(got, { ecmaVersion: 'latest', sourceType: 'script', comment: true }) as Parsed;
-    const left = ast.comments
-      .map((c) => c.value)
-      .filter((v: string) => !/^ ==== .+ ==== $/.test(v) && !v.startsWith('!') && !v.startsWith('# sourceMappingURL='));
+    // 걷을 주석·줄 끝 공백이 없는 묶음(축약된 vendor 한 파일, 예: hljs)은 원본 그대로다.
+    const toStrip = comments(want).filter((v) => !kept(v) && v !== `# sourceMappingURL=${name}.js.map`);
+    if (toStrip.length || /[ \t]+$/m.test(want)) expect(got.length, name).toBeLessThan(want.length);
+    else expect(got, name).toBe(want);
+    const left = comments(got).filter((v) => !kept(v) && !v.startsWith('# sourceMappingURL='));
     expect(left, name).toEqual([]);
   }
 });

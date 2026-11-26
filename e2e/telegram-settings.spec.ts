@@ -18,7 +18,9 @@ test.describe('Telegram 설정', () => {
   test('패널이 서고, token 칸은 비밀번호 칸이며 비어 있다', async ({ page }) => {
     await waitForInit(page);
     await openTelegramTab(page);
-    await expect(page.locator('#panel-telegram .ds-sec')).toHaveCount(3);
+    // ISSUE_TREE_CHAT_SRS FR-TGT-1: 채팅 토픽 절이 넷째 절로 선다(기본 꺼짐).
+    await expect(page.locator('#panel-telegram .ds-sec')).toHaveCount(4);
+    await expect(page.locator('#tg-topics')).not.toBeChecked();
     await expect(page.locator('#tg-enabled')).not.toBeChecked();
     await expect(page.locator('#tg-token')).toHaveAttribute('type', 'password');
     await expect(page.locator('#tg-token')).toHaveValue('');
