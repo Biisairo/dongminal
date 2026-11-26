@@ -285,7 +285,7 @@ class ChatViews extends Controller {
       d.style.setProperty('--chat-c','var('+chatColorVar(m.from,meId)+')');
       if(!mine) name.addEventListener('contextmenu',e=>this.app.chat.human._chatAuthorCtx(m,e));
       who.append(domEl('span','chat-avatar',chatInitial(label)),name,
-        domEl('span','chat-msg-kind',t(human?'chat.human':'chat.agent')),domEl('span','chat-msg-meta',chatClock(m.at)));
+        domEl('span','chat-msg-kind ui-badge',t(human?'chat.human':'chat.agent')),domEl('span','chat-msg-meta',chatClock(m.at)));
       d.append(who);
     }
     if(!mine) d.append(UIKit.button({icon:'corner-down-right',title:TIP_CHAT_REPLY,kind:'ghost',size:'sm',cls:'chat-msg-reply',

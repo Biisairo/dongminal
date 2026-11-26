@@ -26,15 +26,15 @@
   border-radius:var(--radius-md)}
 .chat-msg.head{margin-top:var(--sp-5);padding-top:var(--sp-2)}
 .chat-msg.mine{background:var(--accent-subtle)}
-.chat-msg.called{box-shadow:inset 3px 0 0 var(--attn)}
+.chat-msg.called .chat-msg-text{padding:var(--sp-2) var(--sp-4);border-radius:var(--radius-sm);box-shadow:inset 3px 0 0 var(--attn);background:var(--attn-subtle)}
 .chat-msg-who{display:flex;align-items:baseline;gap:var(--sp-3);min-width:0}
 .chat-msg .chat-avatar{position:absolute;left:var(--sp-4);top:var(--sp-2)}
 .chat-avatar{flex:none;width:var(--chat-avatar);height:var(--chat-avatar);border-radius:50%;
   display:flex;align-items:center;justify-content:center;font-size:var(--fs-md);font-weight:600;
-  color:var(--chat-c,var(--text-bright));background:color-mix(in srgb,var(--chat-c,var(--text)) 20%,var(--bg))}
+  color:var(--bg);background:var(--chat-c,var(--text-muted))}
 /* FR-CUX-10: 보낸 이의 색은 `--chat-c`(글에 단 `--chat-me`·`--chat-a0`~)다. */
 .chat-msg-name{font-size:var(--fs-md);font-weight:600;color:var(--chat-c,var(--text-bright));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chat-msg-kind{flex:none;font-size:var(--fs-sm);color:var(--text-muted)}
+.chat-msg-kind{flex:none}
 .chat-msg-meta{flex:none;font-size:var(--fs-sm);color:var(--text-hint);font-family:var(--mono)}
 .chat-msg-call{font-size:var(--fs-sm);font-weight:600;color:var(--text-muted)}
 .chat-msg.called .chat-msg-call{color:var(--attn-text)}

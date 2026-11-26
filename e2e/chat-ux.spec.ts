@@ -19,7 +19,9 @@ function state() {
         { id: 'AAAA-b', label: 'mac/builder', kind: 'agent', node: 'AAAA', online: true, notify: 'all', tool: 't-b' },
         { id: 'BBBB-x', label: 'linux/reviewer', kind: 'agent', node: 'BBBB', online: true },
         { id: 'BBBB-u', label: 'linux/User', kind: 'user', node: 'BBBB', online: true },
-      ] }],
+      ] },
+    { id: 'r2', kind: 'group', name: 'dev', purpose: '', joined: true, members: 1, notify: 'called',
+      people: [{ id: ME, label: 'mac/User', kind: 'user', node: 'AAAA', online: true }] }],
     online: { nodes: [], participants: [] },
   };
 }
@@ -142,4 +144,19 @@ test('TC-ITH-9 마크다운 — 코드 블록은 언어를 싣고 가로로 구�
   expect(await page.evaluate(() => (window as any).__x)).toBeUndefined();
   await expect(body.locator('a')).toHaveAttribute('target', '_blank');
   await expect(body.locator('a')).toHaveAttribute('rel', 'noopener noreferrer');
+});
+
+test('FR-CUX-16 가려진 채팅 탭은 잠들어 그리지 않고, 다시 보이면 밀린 글을 그린다', async ({ page }) => {
+  await openRoom(page);
+  // 다른 방을 열면 같은 채팅 창의 다른 탭이 되어 #ops 탭이 가려진다.
+  await page.locator('#sb-panel-chat .chat-room[data-room="r2"]').click();
+  await expect(page.locator(VIEW + ' .chat-title')).toHaveText('#dev');
+  const sleeping = () => page.evaluate(() => (window as any).app.testing.sleepers().filter((s: any) => s.kind === 'ChatView').length);
+  await expect.poll(sleeping, { timeout: 10000 }).toBe(1);
+  await addMsgs(page, [{ id: 's1', from: 'AAAA-b', fromLabel: 'mac/builder', fromKind: 'agent', text: 'while asleep', min: 0 }]);
+  await expect(page.locator('#area .chat-view .chat-msg')).toHaveCount(0);
+  await page.locator('#sb-panel-chat .chat-room[data-room="r1"]').click();
+  await expect(page.locator(VIEW + ' .chat-title')).toHaveText('#ops');
+  await expect(page.locator(VIEW + ' .chat-msg')).toHaveCount(1);
+  await expect.poll(sleeping).toBe(0);
 });
