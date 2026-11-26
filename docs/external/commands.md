@@ -93,6 +93,7 @@ Otterminal 서버는 기동 시 `$OTTERMINAL_HOME/bin/` 에 헬퍼를 설치하�
 | `otterctl run launch --member <uuid> [--model <m>]` | 그 팀원의 **기동줄**(프리앰블 포함)을 낸다 |
 | `otterctl run report --outcome succeeded\|failed --summary <3문장>` | 자기 몫의 결과를 보고한다 |
 | `otterctl run status [--run <uuid>] [--json]` · `otterctl run list` | 조회. `--json` 이면 열린 Run 에 생존(`liveness`)이 실린다 — `open`(살아 있다)·`gone`(데몬이 답했는데 도구가 없다)·`unknown`(데몬이 답하지 못해 모른다) |
+| `otterctl issue init <폴더>` · `otterctl issue tree [상태…] --dir <폴더>` · `show`·`new`·`set`·`log` | 로컬 이슈 폴더(파일 하나가 이슈 하나)를 만들고 고친다. 상태 전이를 검사하고 잠금·원자적 쓰기로 고친다. 상세는 `otterctl issue --help` |
 | `otterctl run close --run <uuid> [--force] [--keep-worktrees] [--keep-tools]` | Run 을 닫고 탭과 worktree 를 정리한다. 서버는 otterctl 의 연결과 무관하게 정리를 끝까지 한다. otterctl 은 5분 20초까지 기다리고, 넘기면 `otterctl run status --run <id>` 로 결과를 보라고 알린다. worktree 의 경로와 브랜치가 모두 없으면 정리된 것으로 본다 |
 | `otterctl run delete --run <uuid>` | 레코드를 지운다 — close 와 달리 미보고 검사 없이 (웹 UI 의 삭제와 같다). 잔여물은 보고한다 |
 | `otterctl run coordinate --to <toolId>` | 이 세션이 조율하는 열린 Run 을 그 도구로 넘긴다(조율 migration). 넘긴 Run 이 없으면 `(조율하는 열린 Run 없음)` 을 낸다 |

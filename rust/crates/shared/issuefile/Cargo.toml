@@ -1,0 +1,17 @@
+[package]
+name = "otter-shared-issuefile"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+otter-shared-platform = { path = "../platform" }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

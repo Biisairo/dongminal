@@ -1678,6 +1678,7 @@ dependencies = [
  "otter-shared-agentrec",
  "otter-shared-apipath",
  "otter-shared-chatwire",
+ "otter-shared-issuefile",
  "otter-shared-otterenv",
  "otter-shared-platform",
  "otter-shared-runwait",
@@ -1955,6 +1956,15 @@ dependencies = [
  "otter-shared-platform",
  "rand",
  "serde",
+ "tempfile",
+]
+
+[[package]]
+name = "otter-shared-issuefile"
+version = "1.3.7"
+dependencies = [
+ "otter-shared-platform",
+ "serde_json",
  "tempfile",
 ]
 

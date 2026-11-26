@@ -8,6 +8,7 @@ mod chatmcp;
 mod edge;
 mod golden;
 mod hooks;
+mod issue;
 mod run;
 mod shim;
 

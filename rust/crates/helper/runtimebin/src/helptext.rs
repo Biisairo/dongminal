@@ -541,3 +541,19 @@ pub(crate) const OPEN_URL_HELP: &str = r#"open-url — URL 을 보고 있는 기
 그쪽 브라우저에서 열린다. 서버와 같은 컴퓨터에서 보고 있으면 바로 열린다.
 OTTERMINAL_URL_OPEN=local|viewer 로 그 판정을 강제할 수 있다.
 "#;
+
+/// `otterctl issue --help` (ISSUE_TREE_CHAT_SRS FR-LIS-6).
+pub(crate) const OTTERCTL_ISSUE_HELP: &str = r#"otterctl issue — 로컬 이슈 폴더 (파일 하나가 이슈 하나)
+
+사용법:
+  otterctl issue init <폴더>                              # 폴더와 README.md(형식·상태 흐름)를 만든다
+  otterctl issue tree [상태…] --dir <폴더>                # 트리를 찍는다(시작할 수 있는 todo 는 ready 로 보인다)
+  otterctl issue show <ID> --dir <폴더>                   # 이슈 하나
+  otterctl issue new <ID> <제목> [--deps a,b] --dir <폴더> # 하위 이슈 파일을 만든다(부모가 있어야 한다)
+  otterctl issue set <ID> [--status s] [--owner o] [--branch b] [--reason r] --dir <폴더>
+                                                          # blocked 는 --reason 이 있어야 한다
+  otterctl issue log <ID> --dir <폴더> < 글               # stdin 의 글을 진행 기록에 덧붙인다
+
+상태 흐름: todo → ready → in-progress → review → done, →blocked(이유), blocked → ready|in-progress, in-progress → split
+종료 코드: 0 성공 · 1 거절(형식·전이·없는 이슈) · 2 사용법
+"#;

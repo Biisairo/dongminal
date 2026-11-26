@@ -4,6 +4,7 @@ pub(crate) mod account;
 pub(crate) mod chatmcp;
 pub(crate) mod edge;
 pub(crate) mod hooks;
+pub(crate) mod issue;
 pub(crate) mod listworkspace;
 pub(crate) mod notify;
 pub(crate) mod order;
@@ -48,6 +49,7 @@ fn command(name: &str) -> Option<Command> {
             0
         }),
         "run" => Raw(|ctx, _, a| run::run_otterctl_run(ctx, a)),
+        "issue" => Raw(|ctx, _, a| issue::run_otterctl_issue(ctx, a)),
         "send" => Raw(|ctx, _, a| post::otterctl_send(ctx, a)),
         "list-workspace" => Raw(|ctx, _, a| listworkspace::otterctl_list_workspace(ctx, a)),
         "who-am-i" => Raw(|ctx, _, a| whoami::otterctl_who_am_i(ctx, a)),
