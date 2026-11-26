@@ -22,6 +22,10 @@ const CHAT_DOWN_KEYS=Object.freeze({
   chat_daemon_restart:'chat.need_restart',
 });
 
+/** 사람 참가자의 알림 단계 (ISSUE_TREE_CHAT_SRS FR-CAL-5, 와이어 `chatwire::NOTIFY_*`). */
+const CHAT_NOTIFY_ALL='all';
+const CHAT_NOTIFY_CALLED='called';
+
 /** 노드 지문은 화면에 앞 16자리를 보인다 (`edges-controller.js` 의 EDGE_FP_SHOWN 과 같다). */
 const CHAT_FP_SHOWN=16;
 
@@ -71,14 +75,45 @@ class ChatController extends Controller {
 
   _onChatChanged(){ return this._chatRestore() }
 
-  /** FR-PCH-85: 사람에게 온 글. 그 방의 탭이 보이지 않으면 안 읽은 수가 는다. */
+  /**
+   * FR-PCH-85: 사람에게 온 글. 그 방의 탭이 보이지 않으면 안 읽은 수가 는다.
+   * ISSUE_TREE_CHAT_SRS FR-CAL-15: 그때 내 단계에 걸리는 글이면 방에 알람을 걸고 소리·OS 알림을 낸다. 낼지는 서버가
+   * 글 id 로 컴퓨터마다 한 번 승낙한다(결정 I-3).
+   */
   _onChatMessage(a){
     const m=a&&a.msg;
     if(!m||!m.room) return;
-    if(!this._chatS().add(m.room,m,!!this.views?._chatRoomShown(m.room))) return;
+    const shown=!!this.views?._chatRoomShown(m.room);
+    if(!this._chatS().add(m.room,m,shown)) return;
+    if(!shown&&this._chatWakes(m)){
+      this._chatS().alarm(m.room);
+      this.app.attn?.claim?._attnAnnounceChat(m.id,()=>this._chatBanner(m));
+      this.app.render?.(); // 방 탭의 알람 표식은 칸을 그릴 때 선다
+    }
     if(this.app.chat.window._chatRepaint) this.app.chat.window._chatRepaint();
     this.app.chat.views?._chatViewsPaint(m.room);
   }
+
+  /** FR-CAL-5·7: 사람 참가자의 그 방 단계에 걸리는 글인가. 단계가 없으면 called 다(A-1). */
+  _chatWakes(m){
+    const r=this._chatRoom(m.room);
+    const level=(r&&r.notify)||CHAT_NOTIFY_CALLED;
+    return level===CHAT_NOTIFY_ALL||(level===CHAT_NOTIFY_CALLED&&!!m.called);
+  }
+
+  /** FR-CAL-15: OS 알림. 에이전트 알람과 같은 설정을 따른다. 본문은 방 이름이다. */
+  _chatBanner(m){
+    const a=this.app;
+    if(!a.attnDesktop||a.attnDesktopBlocked||typeof Notification==='undefined'||Notification.permission!=='granted') return;
+    const me=this._chatMe();
+    const body=chatRoomTitle(this._chatRoom(m.room),me&&me.id);
+    ErrorLog.quiet('notify',()=>new Notification(t('chat.attn_head'),{body}));
+  }
+
+  chatRoomAlarmed(id){ return this._chatS().alarmed(id) }
+
+  /** 메인 패널 `채팅` 탭의 알람 — 지금 있는 방 가운데 알람이 걸린 방이 있는가. */
+  chatAlarmAny(){ return this._chatRooms().some(r=>this._chatS().alarmed(r.id)) }
 
   _chatRooms(){ return (this.app._chat&&Array.isArray(this.app._chat.rooms))?this.app._chat.rooms:[] }
   _chatMe(){ return (this.app._chat&&this.app._chat.me)||null }
@@ -124,7 +159,7 @@ class ChatController extends Controller {
 
   _chatRoomRowEl(r,meId){
     const sel=this._chatRoomsSel&&this._chatRoomsSel.sel.has(r.id);
-    const row=domEl('div','chat-row chat-room'+(r.joined?' joined':'')+(sel?' sel':''));
+    const row=domEl('div','chat-row chat-room'+(r.joined?' joined':'')+(sel?' sel':'')+(this._chatS().alarmed(r.id)?' attn':''));
     row.dataset.room=r.id;
     const title=chatRoomTitle(r,meId);
     row.title=title;

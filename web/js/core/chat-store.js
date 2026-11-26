@@ -2,7 +2,8 @@
  * 채팅 — 사람이 본 대화 (PEER_CHAT_SRS §3.11, FR-PCH-85).
  *
  * 대화는 브라우저 메모리에만 둔다. 데몬·서버는 글을 들지 않는다. 새로고침하면 사라진다.
- * 안 읽은 수도 여기서 센다: 그 방의 탭이 보이지 않을 때 온 글이다.
+ * 안 읽은 수도 여기서 센다: 그 방의 탭이 보이지 않을 때 온 글이다. 알람(ISSUE_TREE_CHAT_SRS FR-CAL-15·16)도 방마다
+ * 여기 둔다 — 탭이 보이면 안 읽은 수와 함께 꺼진다.
  */
 
 /** 방마다 남기는 글의 수. 넘으면 오래된 글부터 버린다. */
@@ -16,7 +17,7 @@ class ChatStore{
 
   _room(id){
     let r=this.rooms.get(id);
-    if(!r) this.rooms.set(id,r={msgs:[],ids:new Set(),unread:0});
+    if(!r) this.rooms.set(id,r={msgs:[],ids:new Set(),unread:0,alarm:false});
     return r;
   }
 
@@ -45,11 +46,20 @@ class ChatStore{
     return r?r.unread:0;
   }
 
-  /** 그 방의 탭이 보였다 — 안 읽은 수가 0 이 된다. 바뀌었으면 참이다. */
+  /** 그 방에 알람을 건다 (FR-CAL-15). */
+  alarm(roomId){ if(roomId) this._room(roomId).alarm=true }
+
+  alarmed(roomId){
+    const r=this.rooms.get(roomId);
+    return !!(r&&r.alarm);
+  }
+
+  /** 그 방의 탭이 보였다 — 안 읽은 수가 0 이 되고 알람이 꺼진다 (FR-CAL-16). 바뀌었으면 참이다. */
   read(roomId){
     const r=this.rooms.get(roomId);
-    if(!r||!r.unread) return false;
+    if(!r||(!r.unread&&!r.alarm)) return false;
     r.unread=0;
+    r.alarm=false;
     return true;
   }
 }

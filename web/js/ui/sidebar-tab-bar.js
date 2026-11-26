@@ -23,6 +23,16 @@ class SidebarTabBar extends TabBar {
   set current(v){ this.app.sbTab=v }
   tabSel(id){ return '.sb-tab[data-panel="'+id+'"]' }
   scrollRoot(id){ return SidebarTabBar.panelOf(id) }
+  /** ISSUE_TREE_CHAT_SRS FR-CAL-15: 서술자의 `attn(app)` 이 참이면 탭에 알람 표식(`attn`)을 세운다. */
+  paintBadges(){
+    super.paintBadges();
+    for(const d of this.defs()){
+      if(!d.attn) continue;
+      const b=this.tabEl(d.id);
+      if(b) b.classList.toggle('attn',!!d.attn(this.app));
+    }
+  }
+
   // FR-SBT-13: 0·null 이면 배지가 없다. UX_AUDIT_FIX_SRS FR-UXF-120 (D-41): 고른 탭에도 보인다 — 작업 패널과 같은 규칙이다.
   badgeFor(d){ return badgeOf(d.badge?d.badge(this.app):0) }
 

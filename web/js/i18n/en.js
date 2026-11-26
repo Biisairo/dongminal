@@ -740,6 +740,7 @@ I18N.register('en', {
   'edge.invited_notice': '{name} wants to make an edge. Accept or reject it in Settings ▸ Edges.',
   'edge.removed_notice': 'The edge with {name} was removed',
   'chat.title': 'Chats',
+  'chat.attn_head': 'Chat — new message for you',
   'chat.window_empty': 'Pick a room from the chat list',
   'chat.empty': 'Chat state has not loaded yet.',
   'chat.direct': 'Direct chat',

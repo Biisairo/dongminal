@@ -17,7 +17,7 @@ const plain = (v) => JSON.parse(JSON.stringify(v));
 function claim(ctx, a) {
   const c = new ctx.AttnClaim(a);
   a.attn = { claim: c, _attnDesktopNotify: (...x) => a._attnDesktopNotify(...x), _attnBeep: a.beep };
-  for (const n of ['_attnCanBanner', '_attnCanSound', '_attnAnnounce']) a[n] = (...x) => c[n](...x);
+  for (const n of ['_attnCanBanner', '_attnCanSound', '_attnAnnounce', '_attnAnnounceChat']) a[n] = (...x) => c[n](...x);
   return a;
 }
 
@@ -107,4 +107,22 @@ test('userActivation 이 없는 브라우저는 조작이 있었던 것으로 �
   a.attnDesktop = true; a.attnDesktopBlocked = false; a.attnSound = true;
   await a._attnAnnounce('done', 't1', 1);
   assert.deepEqual(plain(posts[0].kinds), ['sound']);
+});
+
+/** ISSUE_TREE_CHAT_SRS FR-CAL-15 (결정 I-3): 채팅 글 알람은 글 id 로 청구하고, 배너는 넘겨받은 함수로 낸다. */
+test('채팅 글 알람은 글 id 로 청구한다', async () => {
+  const { a, posts, fired } = setup({ reply: () => ({ ok: true, status: 200, data: { granted: ['banner', 'sound'] } }) });
+  await a._attnAnnounceChat('m1', () => fired.push(['chat-banner']));
+  assert.deepEqual(plain(posts), [{ path: '/api/tools/attention/claim', body: { chat: 'm1', kinds: ['banner', 'sound'] } }]);
+  assert.deepEqual(fired, [['chat-banner'], ['sound']]);
+});
+
+test('채팅 글 알람: 다른 창이 맡았으면 내지 않고, id 가 없으면 청구 없이 낸다', async () => {
+  const taken = setup({ reply: () => ({ ok: true, status: 200, data: { granted: [] } }) });
+  await taken.a._attnAnnounceChat('m1', () => taken.fired.push(['chat-banner']));
+  assert.deepEqual(taken.fired, []);
+  const bare = setup();
+  await bare.a._attnAnnounceChat('', () => bare.fired.push(['chat-banner']));
+  assert.equal(bare.posts.length, 0);
+  assert.deepEqual(bare.fired, [['chat-banner'], ['sound']]);
 });

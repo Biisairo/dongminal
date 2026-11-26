@@ -133,8 +133,7 @@ body:not(.mobile) #agents-handle{display:block}
 .chat-row-icon{flex:none;color:var(--text-muted)}
 .chat-row-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chat-row-sub{flex:none;font-size:var(--fs-sm);color:var(--text-hint);font-family:var(--mono)}
-.chat-row-n{flex:none}
-.chat-node{display:flex;align-items:baseline;gap:var(--sp-3);padding:var(--sp-2) var(--sp-5);font-size:var(--fs-sm);font-weight:600;color:var(--text-muted)}
+.chat-row-n{flex:none}.chat-node{display:flex;align-items:baseline;gap:var(--sp-3);padding:var(--sp-2) var(--sp-5);font-size:var(--fs-sm);font-weight:600;color:var(--text-muted)}
 .chat-node-fp{font-family:var(--mono);font-size:var(--fs-sm);font-weight:400;color:var(--text-hint)}
 .chat-person{padding-left:20px}
 :is(.chat-node,.chat-person).off{opacity:.5}

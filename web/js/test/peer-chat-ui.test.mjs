@@ -191,3 +191,65 @@ test('FR-PCH-83: 같은 방의 채팅 탭은 하나다 — 이미 있으면 그�
   assert.equal(pane.tabs.length, 1);
   assert.equal(app.chat._addChatTab(app.ws.windows[0], pane, {}), undefined);
 });
+
+// ── ISSUE_TREE_CHAT_SRS FR-CAL-15·16: 사람 참가자의 알람 ──
+
+function alarmRig() {
+  const ctx = loadUI();
+  const app = rig(ctx);
+  app._chat = { me: { id: 'me' }, rooms: [{ id: 'r1', joined: true }, { id: 'r2', joined: true, notify: 'all' }, { id: 'r3', joined: true, notify: 'off' }] };
+  app.announced = [];
+  app.attn = { claim: { _attnAnnounceChat: (id) => { app.announced.push(id) } } };
+  return app;
+}
+
+test('FR-CAL-15: 기본 단계(called)는 부른 글만 알람이다', () => {
+  const app = alarmRig();
+  app.chat._onChatMessage({ msg: { id: 'm1', room: 'r1', text: 'a' } });
+  assert.equal(app.chat.chatRoomAlarmed('r1'), false);
+  app.chat._onChatMessage({ msg: { id: 'm2', room: 'r1', text: 'b', called: true } });
+  assert.equal(app.chat.chatRoomAlarmed('r1'), true);
+  assert.deepEqual(plain(app.announced), ['m2']);
+  assert.equal(app.chat.chatAlarmAny(), true);
+});
+
+test('FR-CAL-15: all 은 모든 글, off 는 어떤 글도 알람이 아니다', () => {
+  const app = alarmRig();
+  app.chat._onChatMessage({ msg: { id: 'm1', room: 'r2', text: 'a' } });
+  app.chat._onChatMessage({ msg: { id: 'm2', room: 'r3', text: 'b', called: true } });
+  assert.equal(app.chat.chatRoomAlarmed('r2'), true);
+  assert.equal(app.chat.chatRoomAlarmed('r3'), false);
+  assert.deepEqual(plain(app.announced), ['m1']);
+});
+
+test('FR-CAL-15·16: 방 탭이 보이면 알람을 걸지 않고, 보이게 되면 알람이 꺼진다', () => {
+  const app = alarmRig();
+  app.chat.views._chatViewMap().set('k', { roomId: 'r1', root: { isConnected: true, classList: { contains: (c) => c === 'vis' } } });
+  app.chat._onChatMessage({ msg: { id: 'm1', room: 'r1', text: 'a', called: true } });
+  assert.equal(app.chat.chatRoomAlarmed('r1'), false);
+  assert.deepEqual(plain(app.announced), []);
+  app.chat._onChatMessage({ msg: { id: 'm2', room: 'r2', text: 'b' } });
+  assert.equal(app.chat.chatRoomAlarmed('r2'), true);
+  assert.equal(app.chat._chatS().read('r2'), true);
+  assert.equal(app.chat.chatRoomAlarmed('r2'), false);
+  assert.equal(app.chat.chatAlarmAny(), false);
+});
+
+test('채팅 저장소: 알람은 안 읽은 수와 따로 꺼지지 않는다 — 읽으면 함께 꺼진다', () => {
+  const { ChatStore } = loadUI();
+  const s = new ChatStore();
+  assert.equal(s.alarmed('r'), false);
+  s.alarm('r');
+  assert.equal(s.alarmed('r'), true);
+  assert.equal(s.read('r'), true, '안 읽은 수가 0 이어도 알람이 꺼지면 바뀐 것이다');
+  assert.equal(s.alarmed('r'), false);
+  assert.equal(s.read('r'), false);
+});
+
+test('FR-CAL-15: 알람이 걸린 방 행에는 attn 이 붙는다', () => {
+  const app = alarmRig();
+  app.chat._onChatMessage({ msg: { id: 'm1', room: 'r2', text: 'a' } });
+  const row = (id) => app.chat._chatRoomRowEl({ id, kind: 'group', name: id, members: 1, joined: false }, 'me').className;
+  assert.match(row('r2'), /\battn\b/);
+  assert.doesNotMatch(row('r1'), /\battn\b/);
+});

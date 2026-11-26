@@ -35,7 +35,8 @@ class ChatViews extends Controller {
     v.roomId=tab.roomId;
     this._chatViewPaint(v);
     // 탭이 보였다 — 그 방의 안 읽은 수가 0 이 된다. 패널은 그리는 중이 아닐 때 다시 그린다.
-    if(this.app.chat._chatS().read(v.roomId)) TIMERS.defer(()=>{if(this.app.chat.window._chatRepaint)this.app.chat.window._chatRepaint()},{owner:this.app,label:'chat-read'});
+    // ISSUE_TREE_CHAT_SRS FR-CAL-16: 알람도 함께 꺼진다 — 방 탭의 표식은 다음 그리기에서 빠진다.
+    if(this.app.chat._chatS().read(v.roomId)) TIMERS.defer(()=>{if(this.app.chat.window._chatRepaint)this.app.chat.window._chatRepaint();this.app.render?.()},{owner:this.app,label:'chat-read'});
     return v.root;
   }
 

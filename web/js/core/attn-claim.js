@@ -38,17 +38,27 @@ class AttnClaim extends Controller {
    * FR-ATD-7: 청구가 실패하면 낸다 — 망 오류·비 2xx·읽을 수 없는 응답 모두. 중복은
    * 침묵보다 낫다 (D-10). FR-ATD-8: 번호가 없으면(옛 서버) 청구 없이 낸다.
    */
-  async _attnAnnounce(reason,toolId,seq){
+  _attnAnnounce(reason,toolId,seq){
+    return this._attnClaimFire(seq?{seq}:null,()=>this.app.attn._attnDesktopNotify(reason,toolId)); // FR-PAN-13a
+  }
+
+  /** ISSUE_TREE_CHAT_SRS FR-CAL-15 (결정 I-3): 채팅 글 알람. 청구의 열쇠는 글 id 이고 배너는 banner 가 낸다. */
+  _attnAnnounceChat(msgId,banner){
+    return this._attnClaimFire(msgId?{chat:msgId}:null,banner);
+  }
+
+  /** key 가 없으면 청구 없이 낸다. */
+  async _attnClaimFire(key,banner){
     const kinds=[];
     if(this._attnCanBanner()) kinds.push('banner');
     if(this._attnCanSound()) kinds.push('sound');
     if(!kinds.length) return;
     let granted=kinds;
-    if(seq){
-      const res=await apiPost('/api/tools/attention/claim',{seq,kinds});
+    if(key){
+      const res=await apiPost('/api/tools/attention/claim',{...key,kinds});
       if(res&&res.ok&&res.data&&Array.isArray(res.data.granted)) granted=res.data.granted;
     }
-    if(granted.includes('banner')) this.app.attn._attnDesktopNotify(reason,toolId); // FR-PAN-13a
+    if(granted.includes('banner')) banner();
     if(granted.includes('sound')) this.app.attn._attnBeep(); // FR-PAN-13c
   }
 }

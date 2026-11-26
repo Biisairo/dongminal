@@ -767,6 +767,7 @@ I18N.register('ko', {
   'edge.invited_notice': '{name} 노드가 간선을 맺자고 합니다. 설정 ▸ 간선에서 맺거나 거절합니다.',
   'edge.removed_notice': '{name} 간선이 끊겼습니다',
   'chat.title': '채팅',
+  'chat.attn_head': '채팅 — 새 알림 글',
   'chat.window_empty': '채팅 목록에서 방을 고르세요',
   'chat.empty': '아직 채팅 상태를 받지 못했습니다.',
   'chat.direct': '개인채팅',
