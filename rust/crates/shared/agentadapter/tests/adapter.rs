@@ -895,7 +895,11 @@ fn claude_settings_hooks_statusline_and_ctx() {
     for ev in ["SessionStart", "Stop"] {
         let list = &v["hooks"][ev][0]["hooks"];
         assert_eq!(list[1]["asyncRewake"], json!(true), "{ev}: {list}");
-        assert_eq!(list[1]["timeout"], json!(CHAT_WAIT_TIMEOUT_SECS), "{ev}: {list}");
+        assert_eq!(
+            list[1]["timeout"],
+            json!(CHAT_WAIT_TIMEOUT_SECS),
+            "{ev}: {list}"
+        );
         assert!(list[0].get("asyncRewake").is_none(), "{ev}: {list}");
     }
     for (ev, cmds) in &hooks {
