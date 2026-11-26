@@ -63,7 +63,11 @@
 .chat-md .hljs-type,.chat-md .hljs-class .hljs-title,.chat-md .hljs-params{color:var(--term-yellow,var(--text))}
 .chat-md .hljs-comment,.chat-md .hljs-quote{color:var(--text-hint);font-style:italic}
 .chat-md .hljs-deletion{color:var(--term-red,var(--danger))}
-.chat-foot{border-top:1px solid var(--border);padding:var(--sp-3) var(--sp-5)}
+.chat-foot{position:relative;border-top:1px solid var(--border);padding:var(--sp-3) var(--sp-5)}
+/* FR-CUX-13: `@` 목록은 입력칸 바로 위에 뜬다. 답장 단추는 글에 올렸을 때만 보인다. */
+.chat-mention.ui-menu{position:absolute;left:var(--sp-5);bottom:100%;max-height:240px;overflow-y:auto}
+.chat-msg-reply{position:absolute;right:var(--sp-2);top:var(--sp-1);opacity:0}
+.chat-msg:hover .chat-msg-reply,.chat-msg-reply:focus-visible{opacity:1}
 .chat-note{padding-bottom:var(--sp-2);font-size:var(--fs-sm);color:var(--attn-text)}
 .chat-input{width:100%;box-sizing:border-box;resize:vertical;min-height:36px;padding:var(--sp-3) var(--sp-4);
   background:var(--bg-alt);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);font:inherit;font-size:var(--fs-md)}

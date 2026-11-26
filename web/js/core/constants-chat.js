@@ -11,4 +11,5 @@ const CHAT_AGENT_COLORS=5;
 /** 알림 단계 off (데몬 `NOTIFY_OFF`). all·called 는 부팅의 chat-controller.js 에 있다. */
 const CHAT_NOTIFY_OFF='off';
 
+const TIP_CHAT_REPLY='Reply — mention the sender';
 const TIP_CHAT_NOTIFY='My notification level in this room';

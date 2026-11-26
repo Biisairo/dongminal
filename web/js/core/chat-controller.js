@@ -262,12 +262,13 @@ class ChatController extends Controller {
   }
 
   /** FR-PCH-85: 보낸 글은 보낸 순간 대화에 넣는다. 데몬은 보낸 이에게 되돌려 주지 않는다. */
-  async _chatSend(roomId,text){
+  /** ISSUE_TREE_CHAT_SRS FR-CUX-13: `call` 은 부른 상대의 참가자 id 들이다. 비면 싣지 않는다. */
+  async _chatSend(roomId,text,call){
     if(!text.trim()) return false;
-    if(!(await this._chatPost('send',{room:roomId,text},t('chat.err_send')))) return false;
+    if(!(await this._chatPost('send',call&&call.length?{room:roomId,text,call}:{room:roomId,text},t('chat.err_send')))) return false;
     const me=this._chatMe()||{};
     this._chatSeq=(this._chatSeq||0)+1;
-    this._chatS().add(roomId,{id:'local-'+this._chatSeq,room:roomId,from:me.id,fromLabel:me.label,fromKind:'user',text,at:Date.now()},true);
+    this._chatS().add(roomId,{id:'local-'+this._chatSeq,room:roomId,from:me.id,fromLabel:me.label,fromKind:'user',text,at:Date.now(),call},true);
     this.app.chat.views?._chatViewsPaint(roomId);
     return true;
   }

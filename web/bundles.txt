@@ -414,6 +414,8 @@ js/core/constants-chat.js
 js/core/chat-md.js
 # 대화 그리기의 순수 판정 — 보낸 이 묶음·날짜 구분선·부른 글 표시 (ISSUE_TREE_CHAT_SRS FR-CUX-1~7).
 js/core/chat-log.js
+# 입력칸의 @ 자동완성과 답장 (ISSUE_TREE_CHAT_SRS FR-CUX-13).
+js/core/chat-mention.js
 js/core/chat-views.js
 # 사람 명령(`ChatController.human`)과 채팅 창 열기·방 탭의 본체(`ChatWindow` 원형 증강). 채팅 목록을 처음 그리거나
 # 채팅 창을 처음 열 때 실린다 (PERF 3.4.12.10).

@@ -17,7 +17,7 @@ const defs = readBundles(ROOT);
 const boot = pageScripts(html, defs);
 
 const UIACT = ['js/core/layout-dnd-move.js', 'js/core/attn-center-view.js', 'js/ui/path-suggest.js', 'js/ui/term-transfer-io.js'];
-const CHAT = ['js/core/edges-mesh.js', 'js/core/constants-chat.js', 'js/core/chat-md.js', 'js/core/chat-log.js', 'js/core/chat-views.js', 'js/core/chat-human.js', 'js/core/chat-window-open.js'];
+const CHAT = ['js/core/edges-mesh.js', 'js/core/constants-chat.js', 'js/core/chat-md.js', 'js/core/chat-log.js', 'js/core/chat-mention.js', 'js/core/chat-views.js', 'js/core/chat-human.js', 'js/core/chat-window-open.js'];
 // 부팅 껍데기(동기 몫)와 부팅에 남기는 파일 — 이유는 이슈 3.4.12.10 진행 기록.
 const STAY = ['js/core/layout-dnd.js', 'js/core/attn-center.js', 'js/ui/term-transfer.js', 'js/core/chat-window.js',
   'js/core/layout-tab-reopen.js', 'js/core/repo-preview.js', 'js/ui/drop-entries.js'];

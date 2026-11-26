@@ -92,17 +92,74 @@ class ChatViews extends Controller {
     v.input.rows=2;
     v.input.placeholder=t('chat.input_ph');
     v.input.addEventListener('keydown',e=>this._chatViewKey(v,e));
-    foot.append(v.note,v.input);
+    // FR-CUX-13: `@` 를 치면 방의 참가자를 고르는 목록이 뜬다.
+    v.mention=domEl('div','ui-menu chat-mention ui-scroll-sm');
+    v.mention.hidden=true;
+    v.mention.setAttribute('role','listbox');
+    v.input.addEventListener('input',()=>this._chatMentionUpdate(v));
+    v.input.addEventListener('blur',()=>this._chatMentionClose(v));
+    foot.append(v.note,v.mention,v.input);
     root.append(head,main,foot);
     return v;
   }
 
   /** Enter 는 보내고 Shift+Enter 는 줄을 바꾼다. 한글 조합 중의 Enter 는 조합을 끝낼 뿐이다. */
   async _chatViewKey(v,e){
+    if(!v.mention.hidden&&!e.isComposing&&this._chatMentionKey(v,e)) return;
     if(e.key!=='Enter'||e.shiftKey||e.isComposing) return;
     e.preventDefault();
     const text=v.input.value;
-    if(await this.app.chat._chatSend(v.roomId,text)) v.input.value='';
+    const r=this.app.chat._chatRoom(v.roomId),me=this.app.chat._chatMe();
+    const call=chatCallsIn(text,(r&&r.people)||[],me&&me.id);
+    if(await this.app.chat._chatSend(v.roomId,text,call)) v.input.value='';
+  }
+
+  /** 열린 `@` 목록의 키. 쓴 키면 참이다. */
+  _chatMentionKey(v,e){
+    const n=v.mItems.length;
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){ v.mIdx=(v.mIdx+(e.key==='ArrowDown'?1:n-1))%n; this._chatMentionPaint(v) }
+    else if(e.key==='Enter'||e.key==='Tab') this._chatMentionPick(v,v.mItems[v.mIdx]);
+    else if(e.key==='Escape') this._chatMentionClose(v);
+    else return false;
+    e.preventDefault(); e.stopPropagation();
+    return true;
+  }
+
+  _chatMentionUpdate(v){
+    const q=chatMentionQuery(v.input.value.slice(0,v.input.selectionStart));
+    const r=this.app.chat._chatRoom(v.roomId),me=this.app.chat._chatMe();
+    v.mItems=q===null?[]:chatMentionMatches((r&&r.people)||[],me&&me.id,q);
+    v.mIdx=0;
+    if(!v.mItems.length){ this._chatMentionClose(v); return }
+    this._chatMentionPaint(v);
+  }
+
+  _chatMentionPaint(v){
+    v.mention.replaceChildren(...v.mItems.map((m,i)=>{
+      const d=domEl('div','ui-menu-item'+(i===v.mIdx?' active':''),m.name);
+      d.setAttribute('role','option');
+      // 입력칸의 포커스를 잃지 않게 누름에서 고른다.
+      d.addEventListener('mousedown',e=>{ e.preventDefault(); this._chatMentionPick(v,m) });
+      return d;
+    }));
+    v.mention.hidden=false;
+  }
+
+  _chatMentionPick(v,m){
+    const r=chatMentionPick(v.input.value,v.input.selectionStart,m.name);
+    v.input.value=r.text;
+    v.input.setSelectionRange(r.caret,r.caret);
+    this._chatMentionClose(v);
+  }
+
+  _chatMentionClose(v){ v.mention.hidden=true; v.mItems=[] }
+
+  /** FR-CUX-13: 답장 — 그 글의 보낸 이를 입력칸 앞에 `@이름` 으로 붙인다. 보낼 때 `call` 이 된다. */
+  _chatReply(v,m){
+    const me=this.app.chat._chatMe();
+    v.input.value=chatReplyText(v.input.value,chatName(m.fromLabel,m.from,me&&me.id));
+    v.input.focus();
+    v.input.setSelectionRange(v.input.value.length,v.input.value.length);
   }
 
   /** FR-CUX-11 · FR-CAL-7: 이 방에서 내(사람 참가자) 알림 단계를 고른다. */
@@ -211,13 +268,13 @@ class ChatViews extends Controller {
     for(let i=v.drawn.length;i<list.length;i++){
       const m=list[i],place=chatMsgPlace(v.drawn[i-1]||null,m);
       if(place.day) v.log.appendChild(domEl('div','chat-day',chatDayLabel(m.at)));
-      v.log.appendChild(this._chatMsgEl(m,meId,place,people));
+      v.log.appendChild(this._chatMsgEl(v,m,meId,place,people));
       v.drawn.push(m);
     }
     if(atEnd||!same) v.log.scrollTop=v.log.scrollHeight;
   }
 
-  _chatMsgEl(m,meId,place,people){
+  _chatMsgEl(v,m,meId,place,people){
     const mine=m.from&&m.from===meId,human=m.fromKind==='user';
     const d=domEl('div','chat-msg'+(mine?' mine':'')+(human?' human':'')+(place.head?' head':'')+(m.called?' called':''));
     if(place.head){
@@ -231,6 +288,8 @@ class ChatViews extends Controller {
         domEl('span','chat-msg-kind',t(human?'chat.human':'chat.agent')),domEl('span','chat-msg-meta',chatClock(m.at)));
       d.append(who);
     }
+    if(!mine) d.append(UIKit.button({icon:'corner-down-right',title:TIP_CHAT_REPLY,kind:'ghost',size:'sm',cls:'chat-msg-reply',
+      onClick:e=>{e.stopPropagation();this._chatReply(v,m)}}));
     const tags=chatCallTags(m,meId,people);
     if(tags.length) d.append(domEl('div','chat-msg-call',tags.join(' ')));
     const body=domEl('div','chat-msg-text');
