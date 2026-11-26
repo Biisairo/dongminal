@@ -380,3 +380,40 @@ fn local_tree_records_issue_dir() {
     });
     assert!(matches!(bad, Err(Error::InvalidArgument(_))), "{bad:?}");
 }
+
+/// ISSUE_TREE_CHAT_SRS FR-LIS-1: 실행 방식 coord 는 Run 에 기록한다. tree(기본)는 기록하지 않는다(키 없음).
+#[test]
+fn coord_mode_is_recorded() {
+    let d = tempfile::tempdir().unwrap();
+    let s = store(d.path());
+    let coord = s
+        .start(StartOptions {
+            tree: "perf:2".into(),
+            issue_dir: "/repo/perf/issues".into(),
+            mode: MODE_COORD.into(),
+            ..opts("조정")
+        })
+        .unwrap();
+    assert_eq!(coord.mode, MODE_COORD);
+    let blob = fs::read_to_string(d.path().join("runs.json")).unwrap();
+    assert!(blob.contains(r#""mode":"coord""#), "{blob}");
+    let tree = s
+        .start(StartOptions {
+            tree: "o/r#3".into(),
+            mode: MODE_TREE.into(),
+            ..opts("노드 트리")
+        })
+        .unwrap();
+    assert!(tree.mode.is_empty(), "{tree:?}");
+    for (tree, mode) in [("o/r#4", "bogus"), ("", MODE_COORD)] {
+        let bad = s.start(StartOptions {
+            tree: tree.into(),
+            mode: mode.into(),
+            ..opts("나쁨")
+        });
+        assert!(
+            matches!(bad, Err(Error::InvalidArgument(_))),
+            "{mode}: {bad:?}"
+        );
+    }
+}

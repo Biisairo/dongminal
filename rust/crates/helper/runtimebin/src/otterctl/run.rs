@@ -50,6 +50,7 @@ const VALS: &[&str] = &[
     "--goal",
     "--ctx",
     "--issue-dir",
+    "--mode",
     "--to",
 ];
 const BOOLS: &[&str] = &[
@@ -93,6 +94,7 @@ pub(crate) struct RunFlags {
     pub timeout_ms: String,
     pub tree: String,
     pub issue_dir: String,
+    pub mode: String,
     pub branch: bool,
     pub ref_: String,
     pub issue: String,
@@ -138,6 +140,7 @@ impl RunFlags {
             "--goal" => self.goal = v,
             "--ctx" => self.ctx = v,
             "--issue-dir" => self.issue_dir = v,
+            "--mode" => self.mode = v,
             _ => self.to = v,
         }
     }
@@ -334,6 +337,22 @@ fn sub_start(ctx: &mut Ctx<'_>, mut f: RunFlags) -> i32 {
     if f.branch && f.tree.is_empty() {
         errf!(ctx, "run start: --branch 는 --tree 와 함께 쓴다\n");
         return 2;
+    }
+    if !f.mode.is_empty() {
+        if f.tree.is_empty() {
+            errf!(ctx, "run start: --mode 는 --tree 와 함께 쓴다\n");
+            return 2;
+        }
+        match f.mode.as_str() {
+            "tree" => {}
+            "coord" => {
+                body.insert("mode".into(), Value::from("coord"));
+            }
+            m => {
+                errf!(ctx, "run start: --mode 는 tree 또는 coord 다: {m}\n");
+                return 2;
+            }
+        }
     }
     if !f.issue_dir.is_empty() {
         if f.tree.is_empty() {

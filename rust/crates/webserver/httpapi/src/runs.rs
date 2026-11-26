@@ -350,6 +350,8 @@ struct StartBody {
     tree_branch: bool,
     /// 로컬 이슈 트리의 원본 이슈 폴더(절대 경로) (ISSUE_TREE_CHAT_SRS FR-LIS-7).
     issue_dir: String,
+    /// 트리 실행 방식 `tree`·`coord` (FR-LIS-1).
+    mode: String,
 }
 
 /// Go `memberAddReq`: `POST /api/runs/members` 의 본문.
@@ -589,6 +591,7 @@ impl Server {
             tree: body.tree,
             tree_branch: body.tree_branch,
             issue_dir: body.issue_dir,
+            mode: body.mode,
             ..run::StartOptions::default()
         };
         if let Some(p) = &prov {

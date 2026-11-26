@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::assign::Assignment;
 use crate::{
-    CLOSED, DONE, Error, FAILED, Member, MsgEvent, OPEN, OUTCOME_FAILED, OUTCOME_SUCCEEDED, Record,
-    STARTING, Worktree, valid_isolation, valid_projection,
+    CLOSED, DONE, Error, FAILED, MODE_COORD, MODE_TREE, Member, MsgEvent, OPEN, OUTCOME_FAILED,
+    OUTCOME_SUCCEEDED, Record, STARTING, Worktree, valid_isolation, valid_projection,
 };
 
 const SCHEMA_VERSION: i64 = 1;
@@ -86,6 +86,8 @@ pub struct StartOptions {
     pub tree_branch: bool,
     /// 로컬 이슈 트리의 원본 이슈 폴더. 트리와 함께만 받는다. 가지 Run 은 비워 두면 루트의 것을 잇는다 (FR-LIS-7).
     pub issue_dir: String,
+    /// 트리 실행 방식(`tree`·`coord`, 비면 tree). 트리와 함께만 받는다 (FR-LIS-1).
+    pub mode: String,
 }
 
 /// 멤버를 더하는 값.
@@ -327,6 +329,14 @@ impl Store {
         if tree.is_empty() && !issue_dir.is_empty() {
             return Err(Error::invalid("issueDir 는 tree 와 함께 쓴다"));
         }
+        let mode = match opt.mode.trim() {
+            "" | MODE_TREE => String::new(),
+            MODE_COORD if !tree.is_empty() => MODE_COORD.to_owned(),
+            MODE_COORD => return Err(Error::invalid("mode 는 tree 와 함께 쓴다")),
+            m => {
+                return Err(Error::invalid(format!("알 수 없는 mode: {}", quote(m))));
+            }
+        };
         if issue_dir.is_empty() && opt.tree_branch {
             issue_dir = open_tree_runs(&g.runs, &tree)
                 .find(|r| !r.tree_branch)
@@ -353,6 +363,7 @@ impl Store {
             tree_branch: !tree.is_empty() && opt.tree_branch,
             tree,
             issue_dir,
+            mode,
             created_at: self.now(),
             ..Record::default()
         };

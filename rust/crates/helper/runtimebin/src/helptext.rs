@@ -556,8 +556,8 @@ pub(crate) const OTTERCTL_ISSUE_HELP: &str = r#"otterctl issue — 로컬 이슈
   otterctl issue log <ID> --dir <폴더> < 글               # stdin 의 글을 진행 기록에 덧붙인다
 
 --dir 을 빼면 부르는 탭의 Run 이 기록한 원본 폴더를 쓴다. 로컬 트리는
-  otterctl run start --objective <목적> --tree <별칭>:<ID> --issue-dir <폴더> [--branch]
-로 연다(가지 Run 은 루트의 폴더를 잇는다).
+  otterctl run start --objective <목적> --tree <별칭>:<ID> --issue-dir <폴더> [--branch] [--mode tree|coord]
+로 연다(가지 Run 은 루트의 폴더를 잇는다). --mode coord 는 조정자가 일꾼을 띄우는 실행 방식이다(기본 tree).
 
 상태 흐름: todo → ready → in-progress → review → done, →blocked(이유), blocked → ready|in-progress, in-progress → split
 종료 코드: 0 성공 · 1 거절(형식·전이·없는 이슈) · 2 사용법

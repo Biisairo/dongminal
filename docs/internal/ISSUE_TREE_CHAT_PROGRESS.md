@@ -1,6 +1,6 @@
 # 채팅 고도화·이슈트리 채팅 진행 문서 — 착수 블록 포함
 
-- 작성: 2026-11-26, 기능 추가 첫 세션(인터뷰·SRS·묶음 A 1단계)이 다음 세션에게 넘긴다. 마지막 갱신: 채팅토픽-T3 세션(T-3~T-6·I-24·L-1·L-2, 맥락 기준으로 L-3 앞에서 넘김).
+- 작성: 2026-11-26, 기능 추가 첫 세션(인터뷰·SRS·묶음 A 1단계)이 다음 세션에게 넘긴다. 마지막 갱신: 이슈트리L-3 세션(L-3).
 - 요구·결정의 원본은 `docs/internal/ISSUE_TREE_CHAT_SRS.md` 다. 이 문서는 진행 상태와 이 세션이 배운 것만 담는다. 문서와 코드가 다르면 코드가 기준이다.
 
 ## 착수 블록 — 다음 세션의 지시 전부
@@ -76,7 +76,7 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 |---|---|
 | L-1 이슈 파일 한 벌과 `otterctl issue`(init·tree·show·new·set·log, `--dir`)(FR-LIS-3~6·8, TC-ITH-15) | 끝남 (결정 I-25) — 새 crate `rust/crates/shared/issuefile`(`Dir`·`Issue`·`Status`·`transition_ok`·`is_ready`·`alias`), `runtimebin/src/otterctl/issue.rs`, 도움말 `OTTERCTL_ISSUE_HELP`, commands.md 한 줄. 시험: issuefile 12 · otterctl 4 |
 | L-2 원본 폴더를 Run 에 기록하고 명령이 Run 멤버 배정으로 찾는다(FR-LIS-7). `/api/runs/tree`·대시보드가 로컬 트리를 같은 모양으로, 보관 방식을 싣는다(FR-LIS-16·17, TC-ITH-16) | 끝남 (결정 I-26) — Run `issueDir`, `otterctl run start --tree <별칭>:<ID> --issue-dir <폴더>`, `GET /api/runs/issues`, `otterctl issue resolve`, `--dir` 없는 `otterctl issue`. 시험: run 도메인 1 · httpapi 3 · otterctl 3 · issuefile 1 |
-| L-3 `/otterminal:issue-tree` 의 보관 방식·실행 방식 인자(FR-LIS-1·2)와 local+tree·coord 절차, 일꾼 규칙 주입(FR-LIS-9~15·18) | 남음 |
+| L-3 `/otterminal:issue-tree` 의 보관 방식·실행 방식 인자(FR-LIS-1·2)와 local+tree·coord 절차, 일꾼 규칙 주입(FR-LIS-9~15·18) | 끝남 (결정 I-27) — 명령 문서 `issue-tree.md` 에 「보관 방식과 실행 방식」(네 조합·`otterctl issue resolve`)·「로컬 이슈」(대응표·이름·Run)·「조정자 절차」·「일꾼 규칙」 절. Run `mode`(`otterctl run start --mode tree\|coord`). 프리앰블: local+tree 는 `otterctl issue` 운영, coord 는 일꾼 머리·일꾼 규칙·`review` 보고. 로컬 트리의 그룹은 이름으로 찾는다. 시험: domain/run preamble_local 3 · store 1 · httpapi 1 · otterctl 1 · runtime 문서 1. GitHub 트리 프리앰블은 Go 비교 시험 그대로 |
 | L-4 시범: local+coord · local+tree 를 한 번씩 끝까지(TC-ITH-17, 묶음 C 와 함께) | 남음 |
 
 #### L-3 설계 메모 (이 세션이 조사한 것, 코드가 기준)
@@ -120,6 +120,7 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | I-24 | 텔레그램 토픽에서 쓴 글은 PC 채팅 창에도 **내 글**로 보인다(사용자 결정 2026-11-26). 서버 `TelegramHost::chat_send` 가 성공하면 데몬 `state` 로 나를 읽어 `chat_message`(id `tg-<나노초>`, 보낸 이 = 나, 시각 = 서버 지금, call 그대로)를 웹에 방송한다. 웹 `_onChatMessage` 는 보낸 이가 나인 글을 읽은 글로 넣고 알람을 울리지 않는다. 텔레그램에는 되올리지 않는다 | 데몬은 보낸 이에게 글을 되밀지 않고, 사람 쪽 대화는 브라우저 메모리에만 있다 |
 | I-25 | 이슈 파일은 `shared/issuefile` 한 벌이다(otterctl 과 서버 트리가 같이 쓴다). 머리말은 perf 이슈 모양 그대로 다시 쓴다(id·owner 는 따옴표, deps 는 JSON 배열, branch 가 비면 `""`). ID 는 영문·숫자 조각을 점으로 잇는다. 같은 상태로의 set 은 허용(바뀌지 않음). `→blocked` 는 끝나지 않은 상태(todo·ready·in-progress·review)에서만, 이유는 진행 기록에 `<날짜>:\nblocked — <이유>` 로 남긴다. `tree` 는 시작할 수 있는 todo 를 ready 로 보이고 거르기도 그 값으로 한다. 쓰기는 폴더의 `.issue.lock`(10초) 아래에서 읽기 → 검사 → 렌더 뒤 다시 읽어 검사 → `write_file_atomic`. 파일 이름은 `<ID>-<제목 슬러그(40자)>.md` 이고 읽을 때 id 로 시작하는지 본다. 메인 도움말은 Go 골든이라 바꾸지 않고 `otterctl issue --help` 만 둔다 | FR-LIS-3~8 |
 | I-26 | 로컬 트리(FR-LIS-7·16·17): Run 기록에 `issueDir`(절대 경로, 트리와 함께만, 가지 Run 은 비우면 열린 루트의 것을 잇는다). 트리 표지는 `<별칭>:<ID>`(별칭 = 영문·숫자·`-_.`). `otterctl run start` 는 `--issue-dir` 가 있으면 표지가 로컬 꼴인지와 폴더가 있는지 본다. 새 종단 `GET /api/runs/issues?toolId=` 은 부르는 도구가 멤버이거나 조율하는 열린 Run 의 `runId·tree·storage(local|github)·issueDir` 을 내고, 아니면 403 `sender_not_member`. `otterctl issue` 는 `--dir` 이 없으면 이것을 쓰고, github 이면 2 로 끝난다. `GET /api/runs/tree` 는 로컬일 때만 `storage:"local"`·`issueDir` 를 싣는다 — GitHub 트리 응답은 Go 골든 모양 그대로다(키 없음 = github). 대시보드는 표지 문자열로 트리를 읽으므로 바꾸지 않았다. `otterctl issue resolve <폴더>#<ID>` 는 `local\t<폴더>\t<ID>\t<별칭>:<ID>` 또는 `github\t<인자>` 를 낸다(FR-LIS-2 판정). 메인·run 도움말은 Go 골든이라 `otterctl issue --help` 에만 적었다 | Go 골든을 깨지 않는다 |
+| I-27 | 실행 방식은 Run 기록의 `mode` 다(`coord` 일 때만 키가 있다 — 없으면 tree, Go 골든 그대로). `otterctl run start --mode tree\|coord` 는 `--tree` 와 함께만 받고, 서버는 그 밖의 값·트리 없는 coord 를 400 으로 거절한다. 프리앰블(`tree_preamble`)은 셋으로 갈린다: GitHub+tree 는 바이트 그대로, local+tree 는 `TREE_OPS` 대신 `otterctl issue` 운영(원본 폴더·show·set·log·new·review→done·blocked), coord 는 머리가 「일꾼」 이고 부모 줄이 「조정자」, 일꾼 규칙(상태는 원본만·시험 먼저·blocked·문서 어긋남 기록·split 뒤 알림·다른 에이전트 금지·이슈 브랜치에만 커밋·커밋이 막히면 파일·빌드 잔여물 정리)과 `review <role>` 보고를 싣는다. 배정의 `<별칭>:<ID>` 에서 ID 만 떼어 명령에 넣는다. 로컬 트리의 그룹은 `new-group --tree` 가 GitHub 꼴만 받으므로 표지 없이 만들고, 서버가 이름 `<별칭>:<루트>[ <제목>]` 으로 찾는다. coord 의 worktree 는 Run 격리가 아니라 조정자가 `git worktree add` 로 만든다: 통합 `integ/<별칭>`(저장소 옆 `<저장소>-<별칭>`), 일꾼 `<별칭>/<ID>`(`<저장소>-<별칭>-wt/<ID>`). github+coord 의 의존은 GraphQL `blockedBy`, 거절되면 본문 `의존:` 이다 | per-member 격리의 브랜치 이름은 `otter/r/…` 로 정해져 FR-LIS-10 의 `<별칭>/<ID>` 와 다르다. 그룹 표지(`WsGroupTree.root`)는 숫자라 로컬 ID 를 실을 수 없다 — 웹·workspace 를 바꾸지 않는다 |
 | I-9 | 웹 알람의 단계는 `state` 의 방 `notify` 로 판정하고, 알람은 `ChatStore` 에 방마다 둔다. 방 탭이 보이면 안 읽은 수와 함께 꺼진다 | FR-CAL-15·16 |
 
 ## 4. 이 세션이 값을 치르고 배운 것

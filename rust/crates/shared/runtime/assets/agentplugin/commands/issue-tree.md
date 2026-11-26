@@ -1,6 +1,6 @@
 ---
 description: 이슈 하나를 받아 이슈 트리를 따라 에이전트를 세운다. 최상위 이슈부터 받은 이슈까지의 조상과, 지금 해야 할 하위 이슈에만 에이전트를 띄운다. 사슬은 한 칸의 탭으로, 병렬 가지는 새 window 로 세우고, 트리 하나를 window 그룹 하나로 묶는다.
-argument-hint: "<이슈: owner/repo#N | URL | #N> [--ctx <퍼센트>] [--no-commit]"
+argument-hint: "<이슈: owner/repo#N | URL | #N | <폴더>#<ID>> [--mode tree|coord] [--ctx <퍼센트>] [--no-commit]"
 allowed-tools: Bash
 ---
 
@@ -14,8 +14,33 @@ allowed-tools: Bash
 |---|---|---|
 | `--ctx <퍼센트>` | 설정 `issueTreeCtxPct`(기본 50) | 노드가 안전 지점에서 migration 을 판단하는 맥락 기준(「맥락 판단」). 주면 설정보다 우선한다. 설정 `issueTreeMigration` 이 꺼져 있으면 맥락 때문에 넘기지 않는다 |
 | `--no-commit` | 없음 | 트리 전체가 커밋하지 않는다. 사용자가 그렇게 말했을 때만 붙인다 |
+| `--mode tree\|coord` | `tree` | 실행 방식(「보관 방식과 실행 방식」). `tree` 는 이슈마다 노드를 세우고, `coord` 는 이 세션이 조정자가 되어 ready 이슈마다 일꾼을 띄운다 |
 
 노드가 따를 절차는 **이 문서뿐**이다. 대상 저장소에서 otterminal 의 SRS 를 찾지 않는다.
+
+## 보관 방식과 실행 방식
+
+이슈를 어디에 두는가(보관 방식)와 누가 일을 나누는가(실행 방식)를 따로 고른다. 네 조합을 모두 쓴다.
+
+**보관 방식**은 첫 낱말로 정한다. 먼저 판정한다:
+
+```
+otterctl issue resolve <첫 낱말>
+```
+
+- `local\t<폴더>\t<ID>\t<별칭>:<ID>` 이면 **local** 이다. `<폴더>#<ID>` 꼴이고 그 폴더가 있다(예: `docs/internal/perf/issues#2`). 이슈는 폴더의 파일 하나가 하나다. 「로컬 이슈」 를 따른다.
+- `github\t<인자>` 이면 **github** 다. 지금처럼 GitHub 이슈로 읽는다.
+
+**실행 방식**은 `--mode` 다. 주지 않으면 `tree` 다.
+
+| 조합 | 따를 절차 |
+|---|---|
+| `github + tree` | 「발사대 절차」 → 「노드 절차」 → 「트리 종료」 그대로 |
+| `local + tree` | 같은 절차를 따르되, 이슈에 닿는 걸음은 「로컬 이슈」 의 대응표로 바꾼다 |
+| `github + coord` | 「조정자 절차」. 일꾼은 「일꾼 규칙」. 이슈 쓰기는 「이슈 접근 규칙」 을 지난다 |
+| `local + coord` | 「조정자 절차」 와 「로컬 이슈」. 일꾼은 「일꾼 규칙」 |
+
+`tree` 에서 노드는 자기 이슈를 나누고 하위 노드를 띄운다. `coord` 에서는 조정자 하나가 ready 이슈마다 일꾼을 띄운다. 일꾼은 자기 이슈 하나만 하고, 다른 에이전트를 띄우지 않는다. 일꾼이 커밋하고 조정자가 병합한다.
 
 ---
 
@@ -26,6 +51,8 @@ allowed-tools: Bash
 | **발사대 · 조율 에이전트** | 이 명령을 실행한 세션 | 트리를 세우고 루트 노드만 띄운다. 그 뒤 **조율 에이전트로 남는다**: 루트의 `완료` · `실패` · `종료 요청` 을 받고, 「트리 종료」 를 한다. 그룹 밖에 있다. 자기 탭은 닫지 않는다(사용자의 탭이다) |
 | **노드** | 이슈 하나를 맡은 에이전트 | 아래 「노드 절차」. 이 문서를 엔벨로프로 받아 읽는다 |
 | **루트 노드** | 최상위 이슈의 노드 | 노드 절차. 부모는 조율 에이전트다. 조율이 없으면 「대신 조율」 |
+| **조정자** (`coord`) | 이 명령을 실행한 세션 | 「조정자 절차」. 통합 브랜치를 만들고, ready 이슈마다 일꾼을 띄우고, review 를 확인해 병합한다 |
+| **일꾼** (`coord`) | 이슈 하나를 맡은 에이전트 | 「일꾼 규칙」. 자기 이슈 브랜치에서 일하고 `review` 까지 한다 |
 
 ## 절대 원칙
 
@@ -59,6 +86,8 @@ allowed-tools: Bash
 ## 이슈 규약
 
 이슈 규약(프로젝트 보드 · 담당자 · 필드 · 커밋 메시지의 이슈 번호 · 닫는 방식)은 **그 프로젝트의 지시 문서**(CLAUDE.md · README 등)를 따른다. 이 명령은 규약을 만들지 않는다. 규약이 없으면 GitHub 기본 동작(하위 이슈 만들기 · 닫기)만 한다.
+
+로컬 이슈(보관 방식 local)는 이 절과 「이슈 접근 규칙」 대신 「로컬 이슈」 를 따른다.
 
 이슈 관계는 GitHub 하위 이슈(sub-issues)를 근거로 한다.
 
@@ -121,6 +150,50 @@ gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$
 ### 하위 이슈 만들기
 
 만들 때 기준의 설정(어사인 · 라벨 · 마일스톤 · 프로젝트)을 함께 준다. 이 트리가 진행할 하위면 어사인은 지금 계정이고, 다른 사람이 할 일이면 그 사람이다(모르면 묻는다). 만든 뒤 「설정 점검」 으로 다시 읽어 확인한다. 하위로 붙이는 것(`addSubIssue`)과 순서(`reprioritizeSubIssue`)도 쓰기이므로 「권한」 을 먼저 지난다.
+
+## 로컬 이슈
+
+보관 방식이 local 이면 이슈는 원본 폴더의 파일이다. 파일 하나가 이슈 하나이고, 머리말은 `id · title · status · deps · owner · branch` 다. 폴더의 `README.md` 가 형식과 상태 흐름을 적는다. 원본 폴더는 `otterctl issue resolve` 가 준 `<폴더>` 다(절대 경로로 적는다).
+
+- **이슈는 `otterctl issue` 로만 읽고 고친다.** 파일을 직접 고치지 않는다. 명령이 형식을 검사하고, 잠금 아래에서 원자적으로 쓰고, 허용되지 않은 전이를 거절한다.
+- 원본 폴더는 `run start --issue-dir` 로 Run 에 기록된다. 트리 안에서는 `--dir` 없이 부르면 명령이 그 폴더를 찾는다. 트리 밖(Run 이 서기 전)에서는 `--dir <원본 폴더>` 를 붙인다.
+- worktree 안의 이슈 폴더는 사본이다. 사본은 고치지 않는다. `local + tree` 에서 원본 폴더는 사용자 작업 트리 안에 있을 수 있다 — 사용자 작업 트리를 고치지 않는다는 원칙에서 이 폴더의 이슈 파일만 예외다.
+- 상태 흐름: `todo → ready → in-progress → review → done`. 곁가지는 `→ blocked`(이유 필수) · `blocked → ready | in-progress` · `in-progress → split` 이다. `ready` 는 `deps` 가 모두 `done` 인 `todo` 다. `otterctl issue tree` 는 시작할 수 있는 `todo` 를 `ready` 로 보인다.
+- 「이슈 접근 규칙」(권한 · 설정 점검)은 건너뛴다. 발사대 「0. 접근 확인」 대신 원본 폴더가 있고 `otterctl issue tree --dir <원본 폴더>` 가 읽히는지 본다.
+
+**GitHub 걸음 → 로컬 걸음**
+
+| GitHub 이슈의 걸음 | 로컬 이슈에서 |
+|---|---|
+| 이슈 읽기(GraphQL) | `otterctl issue show <ID>` |
+| 트리 · 하위 이슈 목록 | `otterctl issue tree [상태…]`. `<ID>.` 로 시작하는 바로 아래 ID 가 하위다 |
+| 부모 · 루트 | 부모는 ID 의 마지막 조각을 뗀 ID 다. 조각이 하나인 ID 가 루트다 |
+| 서브이슈 순서 · 본문의 `의존:` | ID 차례가 진행 순서다. 의존은 머리말 `deps` 다. 앞 형제를 기다리는 기본 규칙은 없다 — 열 수 있는 것은 `ready` 다 |
+| 하위 이슈 만들기 | `otterctl issue new <ID>.<n> "<제목>" [--deps a,b]`. 순서를 바꿀 일은 없다 — ID 를 고를 때 정한다 |
+| 보드의 진행 중으로 옮기기(착수) | `otterctl issue set <ID> --status ready`(`todo` 일 때) 뒤 `otterctl issue set <ID> --status in-progress --owner <내 toolId>` |
+| 코멘트 · 결정(`결정:`) | `otterctl issue log <ID> <<'L'` … `L`(진행 기록에 덧붙는다) |
+| 닫기 · 보드의 완료 | `otterctl issue set <ID> --status review` 뒤 `--status done` |
+| 막힘 | `otterctl issue set <ID> --status blocked --reason "<이유>"` |
+| 브랜치 기록 | `otterctl issue set <ID> --branch <브랜치>` |
+
+**이름**
+
+- **별칭**: `otterctl issue resolve` 의 넷째 칸 `<별칭>:<ID>` 의 앞부분이다. 폴더 이름이고, 폴더 이름이 `issues` 면 부모 폴더 이름이다(예: `perf`).
+- **트리 표지**: `<별칭>:<ID>`(루트 ID). 사슬 이름은 `<별칭>:<루트>›<ID>›…` 다.
+- **그룹 이름**: `<별칭>:<루트> <루트 제목>`. 그룹은 `--tree` 없이 만든다(`new-group --tree` 는 GitHub 꼴만 받는다). 서버는 이 이름으로 트리의 그룹을 찾는다. 이름을 바꾸지 않는다.
+
+**Run 과 배정**
+
+```
+otterctl new-group --name "<별칭>:<루트> <루트 제목>"
+otterctl run start --objective "<별칭>:<루트> 이슈 트리" --window <newWindows[0]> --isolation per-run \
+  --tree <별칭>:<루트> --issue-dir <원본 폴더 절대 경로>
+```
+
+- 같은 트리의 그룹은 `otterctl list-groups --json` 에서 이름이 `<별칭>:<루트> ` 로 시작하는 행이다.
+- 가지 Run 은 `--tree <별칭>:<루트> --branch` 로 연다. `--issue-dir` 을 빼면 루트 Run 의 원본 폴더를 잇는다.
+- 노드 배정은 `run member … --issue <별칭>:<ID>` 다. 트리 보기는 `otterctl run tree --ref <별칭>:<루트>` 다.
+- 트리 종료의 이슈 쓰기도 위 표로 바꾼다: WIP 메모는 `otterctl issue log`, 닫기는 `review → done`. 버린 노드의 이슈는 `blocked --reason "트리 종료로 중단"` 으로 둔다.
 
 ---
 
@@ -499,6 +572,153 @@ otterctl who-am-i
   otterctl run close --run <루트 Run> --keep-tools
   ```
 - 최종 보고에 「이 탭과 window 는 직접 닫는다」 를 적는다.
+
+---
+
+## 조정자 절차
+
+실행 방식 `coord` 에서 이 명령을 실행한 세션이 조정자다. 조정자는 일을 직접 하지 않는다. 통합 브랜치를 만들고, ready 이슈마다 일꾼을 띄우고, 일꾼의 `review` 를 확인해 병합한다. 「절대 원칙」 의 4~7과 「식별자」 는 그대로 지킨다.
+
+이 절의 `<트리 이름>` 은 local 이면 `<별칭>:<루트>`, github 이면 `<별칭>#<루트>` 다. `<트리 표지>` 는 local 이면 `<별칭>:<루트>`, github 이면 `owner/repo#<루트>` 다.
+
+### 1. 자리와 이슈
+
+1. `otterctl who-am-i` 로 `uuid=` · `toolId=` 를 적는다.
+2. 이슈 트리를 읽는다.
+   - local: `otterctl issue tree --dir <원본 폴더>`.
+   - github: 발사대 「0. 접근 확인」 을 그대로 한다. 그 뒤 루트의 하위 이슈를 GraphQL 로 읽는다(「이슈 규약」).
+3. 일감을 사용자에게 한 번 보인다: 이슈 수 · 지금 ready 인 이슈 · 통합 브랜치 이름. 사용자가 멈추라고 하지 않으면 진행한다.
+
+### 2. 통합 브랜치와 통합 worktree
+
+사용자 작업 트리는 고치지 않는다. 통합 worktree 를 저장소 옆에 만든다.
+
+```
+git worktree add "<저장소 루트>-<별칭>" -b integ/<별칭>
+```
+
+- 통합 브랜치는 `integ/<별칭>` 이다. 일꾼 브랜치 `<별칭>/<ID>` 와 이름이 겹치지 않는다.
+- local 이면 **원본 폴더를 통합 worktree 안의 이슈 폴더로 옮겨 잡는다**: `<통합 worktree>/<저장소 안의 이슈 폴더 상대 경로>`. 이 뒤로 상태는 이 폴더만 고친다. 사용자 작업 트리의 이슈 폴더는 병합 전까지 그대로다.
+
+### 3. 그룹 · window · Run
+
+```
+otterctl new-group --name "<트리 이름> <루트 제목>"             # github 이면 --tree owner/repo#<루트> 를 붙인다
+otterctl new-window -n --group <그룹> --name "<트리 이름> 일꾼" --cwd "<통합 worktree>"
+cd "<통합 worktree>"
+otterctl run start --objective "<트리 이름> coord" --window <newWindows[0]> \
+  --tree <트리 표지> --mode coord [--issue-dir <통합 worktree 안의 원본 폴더>]
+```
+
+- `--issue-dir` 은 local 일 때만 준다. `--isolation` 은 주지 않는다 — worktree 는 조정자가 이슈마다 만든다.
+- 이 Run 의 조정자가 나다. 일꾼의 프리앰블에서 부모는 나의 `toolId` 다.
+- `tree_open` 으로 거절되면 「발사대 절차」 4의 안내를 그대로 따른다.
+
+### 4. ready 이슈
+
+- local: `otterctl issue tree ready`. 하위가 있는 이슈(`<ID>.` 로 시작하는 이슈가 있는 것)는 일꾼에게 맡기지 않는다 — 그 하위가 일감이다.
+- github: 열린 잎 이슈 가운데 의존(blocked by)이 모두 닫힌 것이다. 의존은 GraphQL 의 `blockedBy` 로 읽는다.
+  ```
+  gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){
+    number state blockedBy(first:50){ nodes{ number state repository{ nameWithOwner } } }
+  }}}' -F o=<owner> -F r=<repo> -F n=<번호>
+  ```
+  API 가 `blockedBy` 를 거절하면 본문의 `의존:` 줄로 판정한다(「노드 절차」 3과 같다). github 에는 상태 필드가 없으므로 상태는 이렇게 센다: 열림 + 맡은 멤버 없음 = ready, 맡은 멤버가 일함 = in-progress, 멤버가 `run report --outcome succeeded` = review, 닫힘 = done.
+
+### 5. 일꾼을 띄운다
+
+ready 이슈마다 띄운다. **동시 일꾼 수에 정해진 상한은 없다.** 조정자가 정한다:
+
+- 디스크를 본다: `df -h "<저장소 루트>/.."`. worktree 마다 빌드 산출물(예: `rust/target`)이 커진다. 남은 공간이 빌드 몇 벌을 못 담으면 줄인다.
+- 이슈 크기와 겹침을 본다. 같은 파일을 고칠 이슈는 함께 띄우지 않는다. 성능 측정 · 부하 시험 이슈는 혼자 돌린다.
+
+이슈 하나마다:
+
+```
+git -C "<통합 worktree>" worktree add "<저장소 루트>-<별칭>-wt/<ID>" -b <별칭>/<ID> integ/<별칭>
+otterctl issue set <ID> --status ready --branch <별칭>/<ID>           # local. 이미 ready 면 --branch 만
+otterctl new-tab -n --at <일꾼 window 의 탭 uuid> --name "<트리 이름>›<ID> <제목의 짧은 형태>"
+otterctl send-input --at <새 탭 uuid> --execute "cd '<저장소 루트>-<별칭>-wt/<ID>'"
+otterctl run member --run <Run> --role "<트리 이름>›<ID>" --agent claude --at <새 탭 uuid> \
+  --issue <별칭>:<ID 또는 owner/repo#번호> --title "<제목>" [--no-commit] --brief - <<'B'
+작업 경로: <저장소 루트>-<별칭>-wt/<ID>  브랜치: <별칭>/<ID>
+<이슈 한 줄 요약>
+B
+otterctl run launch --member <member uuid> | otterctl send-input --at <새 탭 uuid> --execute -
+otterctl wait --at <새 탭 uuid> --for ready --timeout-ms 180000
+otterctl read-screen --at <새 탭 uuid>
+otterctl status --at <새 탭 uuid>
+```
+
+- `--issue` 는 local 이면 `<별칭>:<ID>`, github 이면 `owner/repo#번호` 다. `--parent` 는 주지 않는다.
+- 일꾼 window 는 3에서 만든 window 하나다. 탭이 많아지면 같은 그룹에 window 를 더 만든다(`new-window -n --group <그룹>`).
+- 신뢰 · 권한 확인과 `state=working` 확인은 「노드 띄우기」 와 같다.
+- 띄운 뒤 **턴을 끝낸다.** 일꾼의 메시지가 와야 깨어난다. 폴링하지 않는다.
+
+### 6. 메시지가 왔을 때
+
+본문 첫 줄이 종류다.
+
+| 종류 | 할 일 |
+|---|---|
+| `review <트리 이름>›<ID>` | 아래 「병합」 |
+| `blocked <트리 이름>›<ID>` | 이유를 읽는다. 내가 풀 수 있으면(다른 이슈를 먼저 끝내야 함 등) 순서를 바꾼다. 판단이 필요하면 사용자에게 묻는다. 탭은 그대로 둔다 |
+| `split <트리 이름>›<ID>` | 일꾼이 하위 이슈를 만들고 자기 이슈를 `split` 으로 바꿨다. 그 일꾼의 변경을 확인하고(커밋이 있으면 병합), 탭을 닫고, 4로 간다 |
+| `질문` | 범위 밖 사실(다른 이슈의 상태 · 결과)이면 답한다. 판단 질문은 일꾼이 자기 탭에서 사용자에게 묻는다 |
+| `commit <트리 이름>›<ID>` | 일꾼의 커밋이 막혔다. 둘째 줄의 메시지 파일로 내가 커밋한다: `git -C <일꾼 worktree> add -A` 뒤 `git -C <일꾼 worktree> commit -F <파일>`. 일꾼에게 `커밋함 <해시>` 를 보낸다 |
+| `실패` | 지우지 않는다. 사용자에게 알린다 |
+| `종료 요청` | 사용자가 일꾼 탭에서 트리를 닫자고 했다. 아래 「중간 종료」 를 한다 |
+
+**병합**
+
+1. 일꾼의 일을 확인한다: `git -C "<통합 worktree>" log --oneline integ/<별칭>..<별칭>/<ID>`, 진행 기록(local: `otterctl issue show <ID>`), 프로젝트 규약의 시험.
+2. 충돌을 미리 본다: `git -C "<통합 worktree>" merge-tree --write-tree --name-only integ/<별칭> <별칭>/<ID>`. 충돌하면 그 일꾼에게 자기 worktree 에서 `git merge --no-commit integ/<별칭>` 으로 풀게 하고, 풀린 뒤 다시 1.
+3. 통합 브랜치에 병합한다: `git -C "<통합 worktree>" merge --no-ff <별칭>/<ID>`.
+4. 이슈를 닫는다. local: `otterctl issue set <ID> --status done`. github: 「이슈 접근 규칙」 을 지나 이슈를 닫는다.
+5. 일꾼 탭을 닫고 worktree 를 지운다. 디스크를 비운다.
+   ```
+   otterctl close-tab --at <일꾼 탭 uuid> --force
+   git -C "<통합 worktree>" worktree remove "<저장소 루트>-<별칭>-wt/<ID>"
+   ```
+   worktree 를 남겨야 하면(사용자가 보려 함 등) 지우지 않고, 그 안의 `rust/target/debug/incremental` 처럼 큰 빌드 잔여물만 지운다.
+6. 하위가 모두 done 인 상위 이슈가 있으면 닫는다. local: `ready` → `in-progress` → `review` → `done` 을 차례로 `set` 한다(`todo` 면 `ready` 부터).
+7. 4로 간다. ready 가 없고 일하는 일꾼도 없으면 7. 「끝」 으로 간다.
+
+맥락은 안전 지점(병합 하나를 끝낸 뒤)에서 「맥락 판단」 으로 본다. 넘길 때는 `/otterminal:migration` 을 쓴다.
+
+### 7. 끝
+
+1. 남은 이슈가 없는지 본다(local: `otterctl issue tree`, github: 루트의 하위가 모두 닫힘). `blocked` 가 남았으면 사용자에게 알리고 어떻게 할지 묻는다.
+2. 사용자에게 통합 브랜치를 어떻게 할지 묻는다: 사용자 브랜치에 병합 · push · PR · 브랜치만 남김. **답을 받기 전에는 하지 않는다.** 병합은 `--no-ff` 다.
+3. `otterctl run close --run <Run>` 뒤 그룹의 window 를 닫고 그룹을 지운다(「트리 종료」 4의 3).
+4. 통합 worktree 는 사용자 브랜치에 병합된 뒤에만 지운다(`git worktree remove`). 아니면 남기고 보고에 적는다.
+5. 내 탭에 최종 보고를 남긴다: 닫은 이슈 · 남은 이슈 · 통합 브랜치 · 남은 worktree · 병합/push 결과. **내 탭은 닫지 않는다.**
+
+**중간 종료**: 사용자가 멈추자고 하면 일하는 일꾼마다 보존(WIP 커밋) · 버림(커밋하지 않은 변경 버림)을 묻고, 일꾼에게 `종료 준비` 와 고른 답을 보낸다. 모든 일꾼이 `준비됨` 을 보내면 3~5를 한다. 하나라도 `막힘` 이면 아무것도 닫지 않고 사용자에게 알린다.
+
+---
+
+## 일꾼 규칙
+
+`coord` 의 일꾼이 따른다. 프리앰블의 `[ISSUE-TREE 배정]` 이 이슈와 조정자(부모)를 알려 주고, brief 가 작업 경로와 브랜치를 알려 준다. 프로젝트 지시 문서도 지금처럼 따른다.
+
+1. **자리**: `otterctl who-am-i` 로 `toolId=` 를 적는다. brief 의 작업 경로(자기 worktree) 안에서만 파일을 고친다. 브랜치는 `<별칭>/<ID>` 다.
+2. **상태는 원본 폴더만** 고친다(local). `otterctl issue` 로만 고치고, worktree 안의 사본은 고치지 않는다. 착수할 때 `otterctl issue set <ID> --status in-progress --owner <내 toolId>` 를 한다. github 이면 상태 필드가 없다 — 진행 메모만 이슈 코멘트로 남기고(「이슈 접근 규칙」), 이슈를 닫지 않는다.
+3. **시험을 먼저** 쓰고 실패(RED)를 확인한 뒤 구현한다. RED 를 확인하지 못했으면 진행 기록에 그 사실을 적는다.
+4. **막히면** 추측해서 구현하지 않는다. 다른 이슈의 결과가 필요하거나 판단 근거가 없으면 `otterctl issue set <ID> --status blocked --reason "<이유>"`(github 이면 코멘트) 뒤 조정자에게 `blocked <트리 이름>›<ID>` 를 보낸다. 판단 질문은 먼저 기존 결정을 찾고, 없으면 자기 탭에서 사용자에게 묻는다.
+5. **문서와 코드가 다르면** 코드가 기준이다. 문서는 고치지 않고 진행 기록(`otterctl issue log`)에 목록으로 남긴다.
+6. **나눌 필요가 있으면** 하위 이슈 파일을 만든다(`otterctl issue new <ID>.<n> "<제목>" [--deps …]`). 그 뒤 `otterctl issue set <ID> --status split` 을 하고 조정자에게 `split <트리 이름>›<ID>` 와 만든 ID 목록을 보낸다. 하위를 누가 언제 할지는 조정자가 정한다.
+7. **다른 에이전트를 띄우지 않는다.** 다른 이슈로 스스로 옮겨 가지 않는다. 자기 탭을 닫지 않는다 — 조정자가 닫는다.
+8. **커밋**: 자기 브랜치에만 커밋한다(배정이 커밋 `금지` 면 하지 않는다). 메시지는 프로젝트 규약을 따르고 AI 서명을 넣지 않는다. 통합 브랜치나 사용자 브랜치에 병합하지 않는다. push 하지 않는다. **커밋이 막히면**(권한 확인 · 분류기 거절) 메시지를 `/private/tmp/<별칭>-<ID>-commit.txt` 로 남기고 조정자에게 `commit <트리 이름>›<ID>` 와 그 파일 경로를 보낸다.
+9. **끝내기**: 진행 기록에 바꾼 것 · 동작 변경(이전 / 새 / 이유) · 시험 결과 · 남은 위험 · 코드와 어긋난 문서를 남긴다. `otterctl issue set <ID> --status review`(local) 뒤 `otterctl run report --outcome succeeded --summary "<세 문장>"` 을 하고 조정자에게 보낸다. done 은 조정자가 한다.
+   ```
+   otterctl msg --to <조정자 toolId> - <<'M'
+   review <트리 이름>›<ID>
+   커밋: <해시 목록>  브랜치: <별칭>/<ID>
+   M
+   ```
+10. **디스크**: 일이 끝나면 자기 worktree 의 큰 빌드 잔여물(예: `rust/target/debug/incremental`)을 지운다.
+11. `종료 준비` 를 받으면 고른 답대로 한다: 보존이면 `wip(<ID>): <한 줄>` 커밋, 버림이면 커밋하지 않은 변경만 버린다. 그 뒤 `준비됨 <트리 이름>›<ID>` 또는 `막힘 <트리 이름>›<ID>` 를 보낸다.
 
 ---
 

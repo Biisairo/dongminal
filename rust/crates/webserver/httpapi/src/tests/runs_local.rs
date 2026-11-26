@@ -85,6 +85,40 @@ async fn issue_dir_must_be_absolute_and_with_tree() {
     assert_eq!(code, 400, "{out}");
 }
 
+/// FR-LIS-1·14: coord 는 Run 에 기록되고, 그 멤버는 일꾼 프리앰블을 받는다. 로컬 트리의 그룹은
+/// 표지가 없으므로 이름(`<별칭>:<ID> <제목>`)으로 찾는다.
+#[tokio::test]
+async fn coord_mode_and_local_group_reach_preamble() {
+    let env = run_env(true, |_| {});
+    *env.ws.raw.lock().unwrap() = r#"{"windows":[{"id":"win-1","layout":{"tabs":[{"id":"tab-b"}]}}],"windowGroups":[{"id":"grp-gh","tree":{"repo":"o/r","root":1}},{"id":"grp-perf","name":"perf:2 묶음 둘"}]}"#.as_bytes().to_vec();
+    let (code, out) = post(
+        &env,
+        "/api/runs",
+        r#"{"objective":"o","projection":"dedicated-window","windowId":"win-1","toolId":"coord-1","tree":"perf:2","issueDir":"/repo/perf/issues","mode":"coord"}"#,
+    )
+    .await;
+    assert_eq!(code, 200, "{out}");
+    assert_eq!(out["mode"], "coord");
+    let run_id = out["id"].as_str().unwrap().to_owned();
+    let (code, out) = post(
+        &env,
+        "/api/runs/members",
+        &format!(r#"{{"runId":"{run_id}","role":"perf:2.1","agent":"claude","id":"tab-b","assign":{{"issue":"2.1"}}}}"#),
+    )
+    .await;
+    assert_eq!(code, 200, "{out}");
+    let p = out["preamble"].as_str().unwrap();
+    assert!(p.contains("(coord)의 일꾼이다"), "{p}");
+    assert!(p.contains("그룹: grp-perf"), "{p}");
+    let (code, out) = post(
+        &env,
+        "/api/runs",
+        r#"{"objective":"o","projection":"dedicated-window","toolId":"coord-2","tree":"o/r#9","mode":"bogus"}"#,
+    )
+    .await;
+    assert_eq!(code, 400, "{out}");
+}
+
 /// FR-LIS-17: 트리 응답은 로컬이면 보관 방식과 원본 폴더를 싣는다. GitHub 트리는 Go 기준선 모양 그대로(키 없음 = github)다.
 #[tokio::test]
 async fn runs_tree_carries_storage() {

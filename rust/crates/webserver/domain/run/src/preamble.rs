@@ -3,7 +3,7 @@
 use std::fmt::Write as _;
 
 use crate::context::handoff_clause;
-use crate::{Assignment, Member, Record};
+use crate::{Assignment, MODE_COORD, Member, Record};
 
 /// 두 프리앰블이 같이 쓰는 계약 문장 (NFR-ITO-3).
 const USER_FIRST_RULE: &str = "# 사용자가 이 도구에 직접 지시하면 언제나 그쪽이 우선한다. 그 작업은 사용자\n\
@@ -109,17 +109,27 @@ fn or_none(s: &str) -> &str {
 pub fn tree_preamble(rec: &Record, m: &Member, tc: &TreeContext) -> String {
     let empty = Assignment::default();
     let a = m.assign.as_ref().unwrap_or(&empty);
+    let worker = rec.mode == MODE_COORD;
     let mut b = Lines(String::new());
-    b.w(
-        "너는 otterminal 이슈 트리의 노드다. 아래 배정으로 일한다. 절차는 이 문서다 — 먼저 읽는다:",
-    );
+    if worker {
+        b.w("너는 otterminal 이슈 트리(coord)의 일꾼이다. 아래 배정으로 일한다. 규칙은 이 문서의 「일꾼 규칙」 이다 — 먼저 읽는다:");
+    } else {
+        b.w(
+            "너는 otterminal 이슈 트리의 노드다. 아래 배정으로 일한다. 절차는 이 문서다 — 먼저 읽는다:",
+        );
+    }
     b.w(format!("  {}", tc.doc_path));
     b.w("");
     b.w("[ISSUE-TREE 배정]");
     b.w(format!("노드: {} — {}", a.issue, a.title));
     b.w(format!("사슬 이름: {}", m.role));
     b.w(format!("목표 경로: {}", or_none(&a.goal)));
-    if tc.parent_tool_id.is_empty() {
+    if worker && !tc.parent_tool_id.is_empty() {
+        b.w(format!(
+            "부모: {} — 조정자다. review·blocked·split 알림과 범위 밖 사실 질문을 여기로 보낸다. 판단 질문은 자기 탭의 사용자에게 한다",
+            tc.parent_tool_id
+        ));
+    } else if tc.parent_tool_id.is_empty() {
         b.w("부모: 없음 — 루트 노드다. 보고·질문은 자기 탭의 사용자에게 한다. 트리 종료는 문서의 「대신 조율」 을 따른다");
     } else if a.parent.is_empty() {
         b.w(format!(
@@ -151,8 +161,14 @@ pub fn tree_preamble(rec: &Record, m: &Member, tc: &TreeContext) -> String {
     brief_and_handoff(&mut b, rec, m);
     worktree_block(&mut b, m);
     b.w("");
-    for line in TREE_OPS {
-        b.w(line);
+    if worker {
+        worker_ops(&mut b, rec, &a.issue);
+    } else if rec.issue_dir.is_empty() {
+        for line in TREE_OPS {
+            b.w(line);
+        }
+    } else {
+        local_ops(&mut b, rec, &a.issue);
     }
     b.w(format!(
         "otterctl run report --run {} --member {} --outcome succeeded --summary \"...\"",
@@ -163,7 +179,11 @@ pub fn tree_preamble(rec: &Record, m: &Member, tc: &TreeContext) -> String {
         b.w("# 보고·완료·실패·부모 범위의 사실 질문은 부모에게 보낸다. 본문 첫 줄이 종류와 사슬 이름이다.");
         b.w("# 종료자 MSG 는 반드시 줄 맨 앞(열 0)이어야 한다.");
         b.w(format!("otterctl msg --to {} - <<'MSG'", tc.parent_tool_id));
-        b.w(format!("완료 {}", m.role));
+        b.w(format!(
+            "{} {}",
+            if worker { "review" } else { "완료" },
+            m.role
+        ));
         b.w("...본문...");
         b.w("MSG");
     }
@@ -176,6 +196,79 @@ pub fn tree_preamble(rec: &Record, m: &Member, tc: &TreeContext) -> String {
     b.w(USER_FIRST_RULE);
     b.0
 }
+
+/// 로컬 이슈의 ID: 배정의 `<별칭>:<ID>` 에서 ID 만 남긴다.
+fn local_id(issue: &str) -> &str {
+    issue.rsplit_once(':').map_or(issue, |(_, id)| id)
+}
+
+/// 로컬 트리 노드의 이슈 운영 (FR-LIS-15). GitHub 이슈 대신 `otterctl issue` 로 원본 폴더를 고친다.
+fn local_ops(b: &mut Lines, rec: &Record, issue: &str) {
+    let id = local_id(issue);
+    b.w("# 이슈 운영은 이 노드의 일이다. 이 트리는 로컬 이슈 파일이다 — 문서의 「로컬 이슈」 를 따른다.");
+    b.w(format!("# 원본 폴더: {}", rec.issue_dir));
+    b.w("# 이슈는 otterctl issue 로만 읽고 고친다(원본 폴더는 Run 에서 찾는다). worktree 안의 사본은 고치지 않는다.");
+    b.w(format!(
+        "#  0) 세션을 시작할 때마다(승계로 들어온 세션도) otterctl issue show {id} 로 상태를 본다."
+    ));
+    b.w(format!("#  1) 착수: otterctl issue set {id} --status in-progress --owner <내 toolId> (todo 면 ready 를 먼저 거친다)."));
+    b.w(format!(
+        "#  2) 진행 메모와 받은 결정(첫 줄 `결정:`)은 otterctl issue log {id} 로 남긴다(stdin)."
+    ));
+    b.w(format!("#  3) 나누면 otterctl issue new {id}.<n> \"<제목>\" [--deps …] 로 하위를 만들고 하위를 띄운다."));
+    b.w(format!(
+        "#  4) 끝나면 otterctl issue set {id} --status review 뒤 --status done 으로 닫는다."
+    ));
+    b.w(format!("#  막히면 otterctl issue set {id} --status blocked --reason \"<이유>\" 를 하고 부모에게 알린다."));
+    b.w("");
+    b.w("# 판단이 필요한 질문은 먼저 프로젝트 문서와 자기·부모 이슈의 진행 기록에서 기존 결정을 찾는다.");
+    b.w("# 없으면 부모를 거치지 않고 자기 탭에서 사용자에게 묻는다(AskUserQuestion 을 써도 된다).");
+    b.w("# 받은 결정은 진행 기록에 남긴다 — 자기 이슈에만 걸리면 자기 이슈에, 형제에도 걸리면 부모 이슈에.");
+    b.w("");
+    for line in &TREE_OPS[TREE_OPS.len() - REPORT_LINES..] {
+        b.w(line);
+    }
+}
+
+/// coord 일꾼의 규칙 (FR-LIS-10~14, R-7). 일꾼은 자기 이슈 하나만 하고, 병합·done 은 조정자가 한다.
+fn worker_ops(b: &mut Lines, rec: &Record, issue: &str) {
+    b.w("# 일꾼 규칙(문서의 「일꾼 규칙」 이 원문이다). 프로젝트 지시 문서도 지금처럼 따른다.");
+    if rec.issue_dir.is_empty() {
+        b.w("# 이슈는 GitHub 이슈다. 이슈에 닿는 모든 걸음은 문서의 「이슈 접근 규칙」 을 따른다.");
+        b.w("#  - 진행 메모와 받은 결정(첫 줄 `결정:`)은 이슈 코멘트로 남긴다.");
+        b.w("#  - 이슈를 닫지 않는다. 조정자가 병합한 뒤 닫는다. 상태는 조정자가 Run 멤버 상태로 센다.");
+    } else {
+        let id = local_id(issue);
+        b.w(format!("# 원본 폴더: {}", rec.issue_dir));
+        b.w("# 상태는 원본 폴더만 고친다 — otterctl issue 로만 고치고, worktree 안의 사본은 고치지 않는다.");
+        b.w(format!(
+            "#  - 착수: otterctl issue set {id} --status in-progress --owner <내 toolId>"
+        ));
+        b.w(format!(
+            "#  - 진행 메모와 받은 결정(첫 줄 `결정:`): otterctl issue log {id} (stdin)"
+        ));
+        b.w(format!("#  - 나눌 필요가 있으면 otterctl issue new {id}.<n> \"<제목>\" [--deps …] 로 하위를 만들고"));
+        b.w(format!("#    otterctl issue set {id} --status split 뒤 조정자에게 알린다. 하위는 조정자가 맡긴다."));
+        b.w(format!("#  - 막히면 otterctl issue set {id} --status blocked --reason \"<이유>\" 뒤 조정자에게 알린다."));
+        b.w(format!("#  - 끝나면 otterctl issue set {id} --status review 뒤 조정자에게 알린다. done 은 조정자가 한다."));
+    }
+    b.w("#  - 시험을 먼저 쓰고 실패(RED)를 확인한 뒤 구현한다. 확인하지 못했으면 진행 기록에 적는다.");
+    b.w("#  - 근거가 없거나 다른 이슈의 결과가 필요하면 추측해서 구현하지 않고 blocked 로 바꾼다.");
+    b.w("#  - 문서와 코드가 다르면 코드가 기준이다. 문서는 고치지 않고 진행 기록에 목록으로 남긴다.");
+    b.w("#  - 다른 에이전트를 띄우지 않는다. 다른 이슈로 스스로 옮겨 가지 않는다.");
+    b.w("#  - 자기 worktree·이슈 브랜치에만 커밋한다(AI 서명 금지). 통합 브랜치에 병합하지 않는다. push 하지 않는다.");
+    b.w("#    커밋이 막히면 메시지를 파일(/private/tmp/<별칭>-<ID>-commit.txt)로 남기고 조정자에게 알린다. 조정자가 커밋한다.");
+    b.w("#  - 일이 끝나면 rust/target/debug/incremental 처럼 큰 빌드 잔여물을 지워 디스크를 비운다.");
+    b.w("");
+    b.w("# 판단 질문은 먼저 프로젝트 문서와 이슈의 기록에서 기존 결정을 찾는다. 없으면 자기 탭에서 사용자에게 묻는다.");
+    b.w("");
+    for line in &TREE_OPS[TREE_OPS.len() - REPORT_LINES..] {
+        b.w(line);
+    }
+}
+
+/// `TREE_OPS` 끝의 보고 규약 줄 수. 로컬·일꾼 운영도 같은 보고 규약을 쓴다.
+const REPORT_LINES: usize = 4;
 
 /// 작업 트리 블록 뒤, report 줄 앞의 이슈 운영 규약.
 const TREE_OPS: &[&str] = &[
