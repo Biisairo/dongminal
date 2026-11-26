@@ -257,6 +257,32 @@ async fn rename_keeps_uuid_in_broadcast() {
     assert!(next_payload(&sub).is_none());
 }
 
+/// 격리 실측 발견 5: 도구가 이미 사라진 탭(색인에는 남음)도 closeTab 으로 닫는다. 좌표로 바꿀 수 없으니
+/// uuid 를 그대로 넘긴다 — 브라우저는 uuid 로도 자리를 찾는다(Run 종료가 그렇게 닫는다). 다른 명령은 그대로 거절한다.
+#[tokio::test]
+async fn close_tab_passes_dangling_tab_uuid() {
+    let uuid = "550e8400-e29b-41d4-a716-4466554400d3";
+    let dangling = || {
+        Arc::new(FakeWork {
+            coord_map: HashMap::from([(uuid.to_owned(), "W6.P1.T1".to_owned())]),
+            coord_err: HashMap::from([(uuid.to_owned(), "도구가 존재하지 않음".to_owned())]),
+            ..FakeWork::default()
+        })
+    };
+    let (h, sub) = hub_and_sub();
+    let (_d, s) = srv(deps_cw(h, dangling()));
+    let body = format!(r#"{{"action":"closeTab","args":{{"location":"{uuid}","force":true}}}}"#);
+    let r = post_cmd(&s, &body).await;
+    assert_eq!(r.status, 200, "{}", r.body);
+    assert_eq!(next_payload(&sub).unwrap()["args"]["location"], uuid);
+
+    let (h, sub) = hub_and_sub();
+    let (_d, s) = srv(deps_cw(h, dangling()));
+    let body = format!(r#"{{"action":"focus","args":{{"location":"{uuid}"}}}}"#);
+    assert_eq!(post_cmd(&s, &body).await.status, 400);
+    assert!(next_payload(&sub).is_none());
+}
+
 // ── 이름 길이 ──
 
 #[test]
