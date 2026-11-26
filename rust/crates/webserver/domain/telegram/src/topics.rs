@@ -72,8 +72,7 @@ impl TopicMap {
         self.lock().map.keys().cloned().collect()
     }
 
-    /// 토픽 thread id 의 방. 단추·토픽 글 받기(T-5)가 쓴다.
-    #[allow(dead_code)]
+    /// 토픽 thread id 의 방.
     pub(crate) fn by_thread(&self, thread: i64) -> Option<String> {
         self.lock()
             .map

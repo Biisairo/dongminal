@@ -72,6 +72,11 @@ fn handler(tg: Tg) -> Handler {
 #[derive(Default)]
 pub(crate) struct FakeHost {
     view: StdMutex<Option<ChatView>>,
+    /// (방, 들어가기인가).
+    pub(crate) joins: StdMutex<Vec<(String, bool)>>,
+    /// (방, 본문, 부른 상대).
+    pub(crate) sends: StdMutex<Vec<(String, String, Vec<String>)>>,
+    pub(crate) fail: StdMutex<bool>,
 }
 
 impl Host for FakeHost {
@@ -87,6 +92,23 @@ impl Host for FakeHost {
     fn attend(&self, _: &str, _: bool) {}
     fn chat_view(&self) -> Option<ChatView> {
         self.view.lock().unwrap().clone()
+    }
+    fn chat_join(&self, room: &str, join: bool) -> Result<(), String> {
+        if *self.fail.lock().unwrap() {
+            return Err("no_such_room".into());
+        }
+        self.joins.lock().unwrap().push((room.into(), join));
+        Ok(())
+    }
+    fn chat_send(&self, room: &str, text: &str, call: &[String]) -> Result<(), String> {
+        if *self.fail.lock().unwrap() {
+            return Err("rate_limited".into());
+        }
+        self.sends
+            .lock()
+            .unwrap()
+            .push((room.into(), text.into(), call.to_vec()));
+        Ok(())
     }
 }
 

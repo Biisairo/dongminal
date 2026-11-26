@@ -264,6 +264,10 @@ pub struct Message {
     pub from: Option<User>,
     pub chat: Chat,
     pub text: String,
+    /// 토픽 안의 글이면 그 토픽 (ISSUE_TREE_CHAT_SRS FR-TGT-9). 아니면 0 이다.
+    pub message_thread_id: i64,
+    /// 답장한 글 (FR-TGT-9).
+    pub reply_to_message: Option<Box<Message>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]

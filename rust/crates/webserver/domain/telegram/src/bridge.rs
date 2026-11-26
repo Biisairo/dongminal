@@ -25,6 +25,7 @@ use crate::transcript::last_reply;
 
 #[cfg(test)]
 mod chatrig;
+mod inbox;
 mod mirror;
 mod post;
 
@@ -63,9 +64,17 @@ pub trait Host: Send + Sync {
     /// 짝맞춤으로 허용 계정이 바뀌었다.
     fn paired(&self) {}
     /// 사람 참가자가 보는 채팅 (ISSUE_TREE_CHAT_SRS FR-TGT-3). 읽지 못하면 None 이다. 막힐 수 있어 작업자는
-    /// 블로킹 스레드에서 부른다.
+    /// 블로킹 스레드에서 부른다. 아래 채팅 연산도 같다.
     fn chat_view(&self) -> Option<ChatView> {
         None
+    }
+    /// 사람 참가자가 방에 들어가거나(join) 나간다 (FR-TGT-6).
+    fn chat_join(&self, _room: &str, _join: bool) -> Result<(), String> {
+        Err(CHAT_UNSUPPORTED.to_owned())
+    }
+    /// 사람 참가자로 방에 글을 보낸다 (FR-TGT-9).
+    fn chat_send(&self, _room: &str, _text: &str, _call: &[String]) -> Result<(), String> {
+        Err(CHAT_UNSUPPORTED.to_owned())
     }
 }
 
@@ -86,6 +95,9 @@ const PARSE_ERROR_TEXT: &str = "can't parse entities";
 /// 사용자에게 선택지를 묻는 도구.
 pub(crate) const ASK_TOOL: &str = "AskUserQuestion";
 const HTTP_TOO_MANY: i64 = 429;
+/// 채팅을 모르는 Host 의 답.
+const CHAT_UNSUPPORTED: &str = "chat unsupported";
+pub(crate) const UNSUPPORTED_BUTTON: &str = "지원하지 않는 버튼입니다.";
 const HTTP_BAD_REQUEST: i64 = 400;
 
 /// 알림 재전송 전의 기다림. 시험은 자지 않는 것으로 바꾼다.
@@ -206,6 +218,8 @@ pub(crate) struct State {
     pub(crate) tabs: HashMap<String, TabState>,
     /// 탭마다 `[읽음]` 이 남은 알림의 메시지 id (FR-TGB-58b).
     pub(crate) buttons: HashMap<String, Vec<i64>>,
+    /// 토픽에 올린 글의 보낸 이 (ISSUE_TREE_CHAT_SRS FR-TGT-9).
+    pub(crate) senders: inbox::Senders,
 }
 
 /// Telegram 알림.
@@ -472,6 +486,9 @@ impl Bridge {
             );
             return;
         }
+        if self.topic_message(&c, &m).await {
+            return;
+        }
         self.reply(&c, &m, "이 봇은 알림만 보냅니다.").await;
     }
 
@@ -485,10 +502,13 @@ impl Bridge {
             );
             return;
         }
+        if self.room_button(c, &q).await {
+            return;
+        }
         let tool = match q.data.strip_prefix(READ_PREFIX) {
             Some(t) if !t.is_empty() => t.to_owned(),
             _ => {
-                self.answer(c, &q.id, "지원하지 않는 버튼입니다.").await;
+                self.answer(c, &q.id, UNSUPPORTED_BUTTON).await;
                 return;
             }
         };

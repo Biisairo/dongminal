@@ -807,3 +807,95 @@ async fn telegram_my_sent_message_reaches_bridge() {
     assert_eq!(r.status, 409);
     assert!(rec.posts.lock().unwrap().is_empty());
 }
+
+/// FR-TGT-6·9: 토픽의 단추와 글은 데몬의 사람 참가자 연산이다. 성공하면 화면과 거울을 다시 맞추게 한다.
+#[tokio::test]
+async fn telegram_host_chat_ops() {
+    let d = Arc::new(FakeChat {
+        ready: true,
+        res: ChatResult {
+            result: RawMessage(br#"{"ok":true}"#.to_vec()),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    let (srv, rec, _d) = tg_chat_server(d.clone());
+    let host = TelegramHost(Arc::downgrade(&srv));
+    assert_eq!(host.chat_join("r1", true), Ok(()));
+    assert_eq!(host.chat_join("r1", false), Ok(()));
+    assert_eq!(
+        host.chat_send("r1", "안녕", &["fpB-a7".to_string()]),
+        Ok(())
+    );
+    assert_eq!(host.chat_send("r1", "둘", &[]), Ok(()));
+    let got: Vec<(String, String)> = d
+        .got
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|p| (p.op.clone(), String::from_utf8(p.args.0.clone()).unwrap()))
+        .collect();
+    assert_eq!(
+        got,
+        vec![
+            (
+                chatwire::OP_JOIN.to_string(),
+                r#"{"room":"r1"}"#.to_string()
+            ),
+            (
+                chatwire::OP_LEAVE.to_string(),
+                r#"{"room":"r1"}"#.to_string()
+            ),
+            (
+                chatwire::OP_SEND.to_string(),
+                r#"{"room":"r1","text":"안녕","call":["fpB-a7"]}"#.to_string()
+            ),
+            (
+                chatwire::OP_SEND.to_string(),
+                r#"{"room":"r1","text":"둘"}"#.to_string()
+            ),
+        ]
+    );
+    assert_eq!(rec.chat.load(Ordering::SeqCst), 4);
+    assert!(
+        rec.posts.lock().unwrap().is_empty(),
+        "토픽에서 온 글을 토픽에 되올렸다"
+    );
+}
+
+/// 데몬이 없거나 거절하면 오류다. 거울은 맞추지 않는다.
+#[tokio::test]
+async fn telegram_host_chat_ops_fail() {
+    let srv = Server::new(Config::default(), Deps::default());
+    let host = TelegramHost(Arc::downgrade(&srv));
+    assert!(host.chat_join("r1", true).is_err());
+    let d = Arc::new(FakeChat {
+        ready: true,
+        res: ChatResult {
+            error: Some(chatwire::Error {
+                code: "not_in_room".into(),
+                message: "r1".into(),
+            }),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    let (srv, rec, _d) = tg_chat_server(d);
+    let host = TelegramHost(Arc::downgrade(&srv));
+    assert_eq!(
+        host.chat_send("r1", "x", &[]),
+        Err("not_in_room".to_string())
+    );
+    assert_eq!(host.chat_join("r1", true), Err("not_in_room".to_string()));
+    let (srv, _r, _d) = tg_chat_server(Arc::new(FakeChat {
+        ready: true,
+        err: Some("broken pipe".into()),
+        ..Default::default()
+    }));
+    assert!(
+        TelegramHost(Arc::downgrade(&srv))
+            .chat_send("r1", "x", &[])
+            .is_err()
+    );
+    assert_eq!(rec.chat.load(Ordering::SeqCst), 0);
+}

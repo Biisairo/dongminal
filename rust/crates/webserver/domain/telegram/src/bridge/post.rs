@@ -84,9 +84,13 @@ impl Bridge {
             m.insert("text".into(), Value::String(text));
             m.insert("parse_mode".into(), json!("HTML"));
             m.insert("disable_notification".into(), json!(!(sound && i == 0)));
-            if let Err(e) = self.send_alarm(c, m).await {
-                infof!(None, "telegram: 토픽에 글을 올리지 못했다: {e}");
-                return;
+            match self.send_alarm(c, m).await {
+                Ok(s) if !p.mine => self.lock().senders.remember(s.message_id, &p.from),
+                Ok(_) => {}
+                Err(e) => {
+                    infof!(None, "telegram: 토픽에 글을 올리지 못했다: {e}");
+                    return;
+                }
             }
         }
     }

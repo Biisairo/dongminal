@@ -29,6 +29,8 @@ static TG_TOKEN_RE: LazyLock<Regex> =
 
 /// 개인채팅 방의 종류 (PEER_CHAT_SRS FR-PCH-14).
 const CHAT_KIND_DIRECT: &str = "direct";
+/// 채팅 데몬에 닿지 못한 것.
+const CHAT_UNAVAILABLE: &str = chatwire::CODE_DAEMON_UNAVAILABLE;
 /// 상대를 모르는 개인채팅의 토픽 이름. 웹 카탈로그 `chat.direct` 와 같다.
 const DIRECT_TOPIC_NAME: &str = "개인채팅";
 
@@ -498,6 +500,33 @@ impl telegram::Host for TelegramHost {
         }
     }
 
+    /// 토픽의 단추 — 사람 참가자의 join·leave 다 (ISSUE_TREE_CHAT_SRS FR-TGT-6).
+    fn chat_join(&self, room: &str, join: bool) -> Result<(), String> {
+        let op = if join {
+            chatwire::OP_JOIN
+        } else {
+            chatwire::OP_LEAVE
+        };
+        self.chat_op(
+            op,
+            &chatwire::RoomArgs {
+                room: room.to_owned(),
+            },
+        )
+    }
+
+    /// 토픽에 쓴 글 — 사람 참가자의 send 다 (FR-TGT-9). 토픽에서 온 글이라 토픽에 되올리지 않는다.
+    fn chat_send(&self, room: &str, text: &str, call: &[String]) -> Result<(), String> {
+        self.chat_op(
+            chatwire::OP_SEND,
+            &chatwire::SendArgs {
+                room: room.to_owned(),
+                text: text.to_owned(),
+                call: (!call.is_empty()).then(|| call.to_vec()),
+            },
+        )
+    }
+
     /// 사람 참가자의 채팅 상태를 옮긴다 (ISSUE_TREE_CHAT_SRS FR-TGT-3·7). 데몬 RPC 라 막힐 수 있다.
     fn chat_view(&self) -> Option<telegram::ChatView> {
         let d = self.0.upgrade()?.deps.chat_daemon.clone()?;
@@ -520,6 +549,29 @@ impl telegram::Host for TelegramHost {
             me: chat_person(&st.me, me),
             rooms: rooms.iter().map(|r| chat_room(r, me)).collect(),
         })
+    }
+}
+
+impl TelegramHost {
+    /// 데몬의 사람 참가자 연산 하나. 오류는 데몬의 채팅 코드나 RPC 오류 문구다. 성공하면 웹 화면(`chat` 토픽)과 거울을
+    /// 다시 맞추게 한다 — 웹의 `chat_do` 와 같다.
+    fn chat_op(&self, op: &str, args: &impl serde::Serialize) -> Result<(), String> {
+        let s = self.0.upgrade().ok_or(CHAT_UNAVAILABLE)?;
+        let d = s.deps.chat_daemon.clone().ok_or(CHAT_UNAVAILABLE)?;
+        if !d.chat_ready() {
+            return Err(CHAT_UNAVAILABLE.to_owned());
+        }
+        let raw = otter_gocompat::json::marshal(args).map_err(|e| e.to_string())?;
+        let res = d.chat(ChatParams {
+            op: op.to_owned(),
+            args: otter_gocompat::json::RawMessage(raw),
+        })?;
+        if let Some(e) = res.error {
+            return Err(e.code);
+        }
+        s.refresh_full_topic("chat");
+        s.telegram_chat_changed();
+        Ok(())
     }
 }
 
