@@ -660,11 +660,11 @@ msg []
   stderr=""
 msg ["-h"]
   code=0 proceed=false f={}
-  stdout="<1187 bytes, sum ef719695>"
+  stdout="<1413 bytes, sum 7ff5e143>"
   stderr=""
 msg ["--help"]
   code=0 proceed=false f={}
-  stdout="<1187 bytes, sum ef719695>"
+  stdout="<1413 bytes, sum 7ff5e143>"
   stderr=""
 msg ["--json"]
   code=2 proceed=false f={}
@@ -732,7 +732,7 @@ msg ["-5"]
   stderr="msg: unknown argument: -5\n"
 msg ["--to" "u1" "-h"]
   code=0 proceed=false f={to:u1}
-  stdout="<1187 bytes, sum ef719695>"
+  stdout="<1413 bytes, sum 7ff5e143>"
   stderr=""
 msg ["--to" "u1" "--bogus"]
   code=2 proceed=false f={to:u1}

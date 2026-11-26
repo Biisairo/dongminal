@@ -27,12 +27,12 @@
 
 ## 다른 에이전트와 메시지 주고받기
 
-`otterctl msg --to <uuid> "<본문>"` 은 받는 탭의 입력에 들어가 **곧바로 제출**된다. 받는 쪽은 보낸 탭의 uuid(`from=`)를 함께 받는다. 셸에는 의미가 없고, 에이전트가 도는 탭에만 쓴다.
+`otterctl msg --to <uuid> "<본문>"` 은 받는 쪽이 otterminal 이 띄운 claude 면 입력창을 건드리지 않고 **깨움 훅으로 전달**된다. 받는 쪽이 쉬고 있으면 곧바로, 일하는 중이면 그 턴이 끝난 뒤에 받는다. 그 밖의 에이전트(codex 등)는 입력에 들어가 곧바로 제출된다. 받는 쪽은 보낸 탭의 uuid(`from=`)를 함께 받는다. 셸에는 의미가 없고, 에이전트가 도는 탭에만 쓴다.
 
 **보내기 전에**
 - 받을 탭을 `otterctl list-workspace` 에서 찾고, `otterctl status --at <uuid>` 로 상태를 본다.
   - `idle`·`done` — 받을 수 있다.
-  - `working` — 일하는 중이다. 급하지 않으면 `otterctl wait --at <uuid> --for done` 뒤에 보낸다.
+  - `working` — 일하는 중이다. claude 는 지금 보내도 그 턴이 끝난 뒤에 받는다. codex 등 다른 에이전트는 `otterctl wait --at <uuid> --for done` 뒤에 보낸다.
   - `waiting` — 권한 확인 같은 입력을 기다린다. **준비된 것이 아니다.** 사용자에게 알린다.
   - `unknown` — 상태 보고가 없다(오류는 아니다). `read-screen` 으로 화면을 보고 판단한다.
 
@@ -42,7 +42,7 @@
 - 여러 줄·긴 본문은 stdin 으로 넣는다: `otterctl msg --to <uuid> -` (예: `cat brief.md | otterctl msg --to <uuid> -`).
 
 **보낸 뒤**
-- `otterctl wait --at <uuid> --for done [--timeout-ms N]` 로 한 턴이 끝나기를 기다린다(기본 5분, 최대 30분). 대기는 서버가 붙잡으므로 요청은 한 번이면 된다.
+- `otterctl wait --at <uuid> --for done [--timeout-ms N]` 로 한 턴이 끝나기를 기다린다(기본 5분, 최대 30분). 대기는 서버가 붙잡으므로 요청은 한 번이면 된다. 아직 건네지 않은 메시지가 있으면 받는 쪽은 `done` 이 되지 않는다 — 기다림은 받는 쪽이 메시지까지 처리한 뒤에 끝난다.
   - 종료 코드 `0` 끝남 · `4` 시간 초과 — **실패가 아니라 중간 점검이다.** 마지막 상태가 함께 나오니 다시 기다리거나 화면을 본다. 시간 초과만으로 상대를 끄거나 다시 띄우지 않는다
   - `5` blocked — 상대가 권한 확인 등을 기다린다. 저절로 풀리지 않으므로 사용자에게 알린다 · `1` 탭이 사라졌거나 서버 오류
 - 결과는 상대가 보낸 답 메시지로 받는다. 답이 없으면 `otterctl read-screen --at <uuid>` 로 확인한다.

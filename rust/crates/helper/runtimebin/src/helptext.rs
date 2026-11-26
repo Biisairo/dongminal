@@ -78,11 +78,14 @@ CLAUDE_CODE_SESSION_ID 다. 사람이 직접 실행하는 명령이 아니다.
 "#;
 
 /// ISSUE_TREE_CHAT_SRS FR-CAL-9
-pub(crate) const OTTERCTL_CHAT_WAIT_HELP: &str = r#"otterctl chat-wait — 노드 망 채팅 깨움 훅 (claude shim 이 Stop 훅으로 주입한다)
+pub(crate) const OTTERCTL_CHAT_WAIT_HELP: &str = r#"otterctl chat-wait — 깨움 훅 (claude shim 이 SessionStart·Stop 훅으로 주입한다)
 
-stdin 의 훅 JSON 에서 session_id 를 읽고 데몬의 채팅 소켓에서 그 세션을 깨울 글을 기다린다.
-깨울 글이 오면 개수만 stderr 에 쓰고 2 로 끝난다(asyncRewake 가 에이전트를 깨운다).
-세션의 MCP 연결이 없거나 끊기면 0 으로 끝난다. 사람이 직접 실행하는 명령이 아니다.
+stdin 의 훅 JSON 에서 session_id 를 읽고 두 가지를 함께 기다린다.
+  - 데몬의 채팅 소켓에서 그 세션을 깨울 글. 세션의 MCP 연결이 아직 없으면 생길 때까지 기다린다.
+  - 서버에서 이 도구에 온 에이전트 메시지(otterctl msg). 도구가 쉬고 있을 때만 건네진다.
+깨울 것이 오면 stderr 에 쓰고 2 로 끝난다(asyncRewake 가 에이전트를 깨운다). 채팅은 개수만,
+에이전트 메시지는 엔벨로프째 쓴다. 같은 세션의 새 훅이 뜨면 앞의 훅은 0 으로 끝난다.
+사람이 직접 실행하는 명령이 아니다.
 "#;
 
 /// `otterctlCtxHookHelp` (otterctl_ctxhook.go)
@@ -490,7 +493,9 @@ pub(crate) const OTTERCTL_MSG_HELP: &str = r#"otterctl msg — 같은 워크스�
   --from <uuid>   발신 도구. 생략 시 현재 도구 ($OTTERMINAL_TOOL_ID).
 
 메시지는 [OTTERMINAL-AGENT-MSG from=<uuid> to=<uuid> ts=...] ... [/OTTERMINAL-AGENT-MSG]
-엔벨로프로 감싸져 수신 도구의 입력에 들어가고 자동 제출된다. 헤더의 from/to 는
+엔벨로프로 감싸진다. 수신 도구가 otterminal 이 띄운 claude 면 입력창을 건드리지 않고
+깨움 훅이 건넨다 — 쉬고 있으면 곧바로, 일하는 중이면 그 턴이 끝난 뒤다. 그 밖의
+에이전트(codex 등)는 수신 도구의 입력에 들어가고 자동 제출된다. 헤더의 from/to 는
 **uuid 뿐**이며, 답장할 때 --to 에 넣을 값이 곧 헤더의 from 값이다 (FR-IDU-9).
 
 수신측은 이 엔벨로프를 신뢰 채널로 인식하도록 세션 시작 시 안내받는다. 수신 도구가

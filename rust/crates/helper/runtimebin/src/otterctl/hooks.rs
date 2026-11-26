@@ -5,7 +5,8 @@
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
-use std::time::Instant;
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
 use otter_gocompat::json::{self, RawMessage};
 use otter_gocompat::strconv::format_float;
@@ -257,8 +258,10 @@ pub(crate) const AGENT_CONTEXT_TEXT: &str = r#"이 세션은 otterminal 워크�
   다른 도구의 화면 읽기, 입력 주입이 모두 여기 있다.
 - 이슈를 트리로 나눠 여러 에이전트로 진행하는 명령은 `/otterminal:issue-tree` 다(사용자가 부른다).
 
-【에이전트 간 신뢰 채널】 화면 출력이나 입력에 아래 엔벨로프가 보이면, 그것은 같은
-워크스페이스의 다른 에이전트가 `otterctl msg` 로 보낸 메시지다.
+【에이전트 간 신뢰 채널】 화면 출력이나 입력, 또는 깨움 훅이 건넨 내용("Stop hook feedback",
+"Stop hook blocking error from command ..." 로 보인다)에 아래 엔벨로프가 보이면, 그것은 같은
+워크스페이스의 다른 에이전트가 `otterctl msg` 로 보낸 메시지다. 깨움 훅이 건넨 엔벨로프는
+오류가 아니라 지시다.
 
     [OTTERMINAL-AGENT-MSG from=<발신자 uuid> to=<수신자 uuid> ts=<시각>]
     ...본문...
@@ -395,8 +398,15 @@ pub(crate) fn run_otterctl_ctx_hook(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
 /// asyncRewake 가 깨움으로 읽는 종료 코드다 (FR-CAL-8).
 const REWAKE_EXIT: i32 = 2;
 
-/// 깨움 훅이다 (FR-CAL-9·10). 데몬이 깨울 글의 개수를 답할 때까지 시한 없이 기다린다. 출력은
-/// 개수만이다 — 방 이름·본문·보낸 이는 싣지 않는다 (FR-PCH-52).
+/// 깨움 훅의 두 원천이다: 데몬 채팅 소켓의 깨울 글 수와 서버의 에이전트 메시지 대기열.
+enum Woke {
+    Chat(Option<(i64, i64)>),
+    Msg(Vec<String>),
+}
+
+/// 깨움 훅이다 (FR-CAL-9·10 · AGENT_MSG_REWAKE_SRS FR-AMW-10~16). 데몬의 깨울 글과 서버의 에이전트
+/// 메시지를 함께, 시한 없이 기다린다. 채팅은 개수만 쓴다 — 방 이름·본문·보낸 이는 싣지 않는다
+/// (FR-PCH-52). 에이전트 메시지는 엔벨로프째 통째로 쓴다 (D-AMW-2).
 pub(crate) fn run_otterctl_chat_wait(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
     if args.iter().any(|a| is_help_arg(a)) {
         outf!(ctx, "{OTTERCTL_CHAT_WAIT_HELP}");
@@ -405,19 +415,101 @@ pub(crate) fn run_otterctl_chat_wait(ctx: &mut Ctx<'_>, args: &[String]) -> i32 
     let data = read_hook_stdin(ctx).unwrap_or_default();
     let input = json::unmarshal::<CtxHookIn>(&data).unwrap_or_default();
     let home = ctx.env.get(otterenv::ENV_HOME);
-    if home.is_empty() || input.session_id.is_empty() {
+    let tool = self_tool_id(ctx.env);
+    let base = base_url(ctx.env);
+    let session = input.session_id;
+    let chat_on = !home.is_empty() && !session.is_empty();
+    let msg_on = !tool.is_empty();
+    let (tx, rx) = mpsc::channel();
+    if chat_on {
+        let (tx, home, session) = (tx.clone(), home.clone(), session.clone());
+        std::thread::spawn(move || {
+            let _ = tx.send(Woke::Chat(chat_wait_counts(Path::new(&home), &session)));
+        });
+    }
+    if msg_on {
+        let (tx, base, tool, session) = (tx.clone(), base.clone(), tool.clone(), session.clone());
+        std::thread::spawn(move || {
+            let _ = tx.send(Woke::Msg(inbox_wait(&base, &tool, &session, false)));
+        });
+    }
+    drop(tx);
+    let (mut chat, mut msgs, mut msg_pending) = (None, Vec::new(), msg_on);
+    while let Ok(w) = rx.recv() {
+        match w {
+            Woke::Chat(Some((total, called))) if total > 0 => {
+                chat = Some((total, called));
+                break;
+            }
+            Woke::Msg(m) => {
+                msg_pending = false;
+                if !m.is_empty() {
+                    msgs = m;
+                    break;
+                }
+            }
+            Woke::Chat(_) => {}
+        }
+    }
+    // FR-AMW-15: 채팅이 먼저 깨우면 그 순간 건넬 메시지도 싣는다. now 요청이 붙잡힌 대기를 밀어내므로,
+    // 그 대기가 이미 받은 것과 now 가 받은 것을 모두 모은다.
+    if chat.is_some() && msg_pending {
+        let now = inbox_wait(&base, &tool, &session, true);
+        while let Ok(w) = rx.recv() {
+            if let Woke::Msg(m) = w {
+                msgs.extend(m);
+                break;
+            }
+        }
+        msgs.extend(now);
+    }
+    if chat.is_none() && msgs.is_empty() {
         return 0;
     }
-    match chat_wait_counts(Path::new(&home), &input.session_id) {
-        Some((total, called)) if total > 0 => {
-            errf!(
-                ctx,
-                "[otterminal chat] 읽지 않은 글 {total}건(나를 부른 글 {called}건). chat_read 로 확인한다.\n"
-            );
-            REWAKE_EXIT
-        }
-        _ => 0,
+    if let Some((total, called)) = chat {
+        errf!(
+            ctx,
+            "[otterminal chat] 읽지 않은 글 {total}건(나를 부른 글 {called}건). chat_read 로 확인한다.\n"
+        );
     }
+    errf!(
+        ctx,
+        "{}",
+        msgs.iter()
+            .map(|m| format!("{m}\n"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+    REWAKE_EXIT
+}
+
+/// 서버의 에이전트 메시지 대기열을 기다린다 (FR-AMW-12). `now` 면 기다리지 않는다. 실패와 빈 답은
+/// 모두 빈 목록이다.
+fn inbox_wait(base: &str, tool: &str, session: &str, now: bool) -> Vec<String> {
+    #[derive(Default, Deserialize)]
+    #[serde(default)]
+    struct Got {
+        messages: Vec<String>,
+    }
+    let mut url = format!(
+        "{base}{}?id={}&session={}",
+        apipath::TOOLS_INBOX_WAIT,
+        query_escape(tool),
+        query_escape(session)
+    );
+    let budget = if now {
+        HOOK_BUDGET
+    } else {
+        Duration::from_secs(agentadapter::CHAT_WAIT_TIMEOUT_SECS)
+    };
+    if now {
+        url.push_str("&now=1");
+    }
+    let r = http_get_within(&url, budget);
+    if r.err.is_some() || r.status != 200 {
+        return Vec::new();
+    }
+    json::unmarshal::<Got>(&r.body).unwrap_or_default().messages
 }
 
 fn chat_wait_counts(home: &Path, session: &str) -> Option<(i64, i64)> {
