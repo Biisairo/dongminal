@@ -7,8 +7,8 @@
 
 1. 이 문서를 끝까지 읽는다.
 2. 먼저 읽는다: `docs/internal/FEATURE_DEV_RULES.md`(규칙 전부, 특히 §3 설계 규칙·§4 시험·§5 운영 보호), `docs/internal/ISSUE_TREE_CHAT_SRS.md`(§3.4·§3.5, §4 결정, §10 가정 — 모두 사용자 승인됨).
-3. 저장소 상태 확인: 브랜치 `feature`, `git log -1` 이 이 문서의 마지막 갱신 커밋이다. `git status` 가 깨끗해야 한다. `main` 에 `--no-ff` 로 병합하고 origin/main 에 push 했다(사용자 지시 2026-11-26). origin/feature 는 `98618cb1` 그대로다.
-4. **다섯 묶음(A·U·T·L·C)의 코드와 격리 실측이 모두 끝났다(2026-11-26).** 결과는 §2 「격리 실측」 이다. 남은 것은 T-7 실측 TC-ITH-14(사용자 봇, 사용자가 다음에 운영 바이너리를 바꿀 때 한꺼번에 한다 — 사용자 결정)와 §2 의 후속 후보다.
+3. 저장소 상태 확인: 브랜치 `feature`, `git log -1` 이 이 문서의 마지막 갱신 커밋이다. `git status` 가 깨끗해야 한다. `main` 에 `--no-ff` 로 병합하고 origin/main 에 push 했다(병합 커밋 `0218c36d`, 사용자 지시 2026-11-26). 그 뒤 feature 에 이 문서의 인계 커밋이 하나 더 있다(main 에는 없다). origin/feature 는 `98618cb1` 그대로다(push 하지 않았다).
+4. **다섯 묶음(A·U·T·L·C)의 코드와 격리 실측이 모두 끝났고, main 에 병합·push 했다(2026-11-26).** 결과는 §2 「격리 실측」 이다. **다음 일은 사용자가 이 세션에서 지시한다 — 지시를 받기 전에 아무것도 시작하지 않는다.** 남은 후보: T-7 실측 TC-ITH-14(사용자 봇, 사용자가 다음에 운영 바이너리를 바꿀 때 한꺼번에 한다 — 사용자 결정)와 §2 의 후속 후보.
 5. 커밋은 단계마다 스스로 한다(사용자 지시 2026-11-26, AI 서명 금지). main 병합·push 는 사용자의 분명한 지시가 있을 때만.
 6. 운영 바이너리 재빌드는 하지 않았다(운영 보호 §5). 사용자가 정할 때까지 빌드하지 않는다.
 
@@ -215,6 +215,15 @@ e2e 실패 2건은 둘 다 낡은 시험이었다(제품 동작은 의도대로)
 - 채널(`claude/channel`)은 보류: 개발용 인자는 동작하지만 시작 경고 창이 매번 뜨고 끄는 설정이 없다. `--settings`·`--managed-settings`·`CLAUDE_CODE_MANAGED_SETTINGS_PATH` 로 넣은 `allowedChannelPlugins` 는 모두 거절됐다(SRS §2.2).
 - `asyncRewake` 는 Claude Code 2.1.332 설정 스키마의 공개 항목이다("hook runs in background and wakes the model on exit code 2"). 실측 통과.
 - 구조 분석(파일:줄 지도)은 SRS 착수 때 분석 에이전트가 만든 것이다. 요점: 채팅 핵심 `daemon/chat/src/service.rs`(send :~606, local_deliveries_locked), 와이어 `shared/chatwire/src/lib.rs`(프레임 종류 :19-27, op :29-38), 소켓 `daemon/chatsock/src/lib.rs`(serve_tracked :569-614 — 첫 프레임 unread 는 :580, 그 밖은 hello 필수; dispatch :699-744; deliver :453; start_user :492; rise :749; answer_unread :769), 웹↔사람 참가자 통로 `httpapi/src/chat_api.rs`(:89 send, :174 chat_pushed), MCP `otterctl/chatmcp.rs`(Inbox :143, 도구 :263-317, read_loop :580-599, CHAT_INSTRUCTIONS :34), ctx-hook `otterctl/hooks.rs`(:362, 안 읽은 수 :409·:423), 훅 생성 `agentadapter/src/claude.rs`(:350-398). 걸리는 시험: chatwire tests.rs, chat tests.rs·tests_human.rs, chatsock tests.rs·tests_human.rs, runtimebin tests/chatmcp.rs·hooks.rs·shim.rs, agentadapter tests/adapter.rs, 웹 peer-chat-*.test.mjs·chat-window.test.mjs·attn-*.test.mjs·state-registry.test.mjs, e2e chat-window·screens-run-chat·rail-chat-usage.
+
+### 4.7 격리실측 세션이 배운 것
+
+- 실측 중 막힌 에이전트의 프로세스를 `kill <PID>` 로 끄는 것은 claude 자동 모드 분류기가 막았다(사용자가 말로 허락해도 막혔다). 막히면 우회하지 말고 사용자에게 `! kill <PID>` 를 권한다.
+- 병합은 작업 트리를 바꾸지 않고 했다: main 이 feature 의 조상이면 `git commit-tree <feature 트리> -p main -p feature` 뒤 `git update-ref refs/heads/main`. 같은 폴더를 다른 탭이 쓸 수 있어 `git checkout main` 을 피했다.
+- 격리 인스턴스를 깨끗한 환경으로 다룰 때 PATH 에 공백이 든 항목(`VMware Fusion.app`)이 있다 — `env -i … PATH='<값>'` 처럼 따옴표로 감싼다.
+- 격리 화면에서 Playwright 로 채팅 방을 고를 때는 방 행의 title(`#<방 이름>`)로, Run 대시보드는 Run 카드의 title(`클릭하면 현재 분할 칸의 새 탭에 대시보드가 열립니다`)로 찾는다. 대시보드는 지금 칸이 터미널 창일 때만 열린다(채팅 칸에서는 열리지 않음).
+- `make e2e`(8샤드)는 약 26분, `cargo test --workspace` 는 약 5분, `scenario.mjs` 유휴 측정 한 번은 약 3분 반이다.
+- 시범 저장소는 `/private/tmp/ithtrial/{coord,coord2,tree}` 에 남아 있다(이슈 폴더 `trial/issues`, 루트 1 · 1.1 hello.sh · 1.2 bye.sh). 새 시범은 `git clone -q coord <새 이름>` 으로 깨끗한 판을 만든다. `/private/tmp/ithtrial` 은 claude 폴더 신뢰가 되어 있지 않아 첫 기동에 신뢰 창이 뜬다.
 
 ## 4.6 후속 후보 (손대지 않음)
 

@@ -126,6 +126,25 @@ class SlotOps extends Controller {
     this.slotFocusTo((this.app.slot.slotFocused()+delta+n)%n);
   }
 
+  /**
+   * UX_BATCH14_SRS FR-SFX-1~4: 에이전트 카드에 올린 마우스 — 그 탭을 가진 칸만 또렷하고 나머지 칸은 흐리다.
+   * 이 화면만의 일이다(D-UB14-4). null 이면 푼다. 칸 구성이 바뀌면 `slotHoverPaint` 가 다시 칠한다.
+   */
+  slotHoverTool(toolId){
+    this._hoverTool=toolId||null;
+    this.slotHoverPaint();
+  }
+
+  slotHoverPaint(){
+    const n=this.app.slot.slotCount();
+    const id=this._hoverTool;
+    const loc=id&&!this.app.isMobile&&n>1?this.app.tool.life.findToolLocation(id):null;
+    const wins=[];
+    for(let k=0;k<n;k++){const w=this.app.slot.slotWindow(k);wins.push(w?w.id:null)}
+    const blur=new Set(slotBlurTargets(wins,loc?loc.win.id:null));
+    for(const el of document.querySelectorAll('#area .slot')) el.classList.toggle('slot-blurred',blur.has(Number(el.dataset.slot)));
+  }
+
   // 강조만 칠한다. render 를 대신하는 것이 아니라 그 **앞자리**를 메운다 —
   // 사용자가 누른 칸이 즉시 켜져 보여야 하기 때문이다.
   _slotPaintFocus(){

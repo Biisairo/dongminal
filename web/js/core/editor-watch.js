@@ -23,6 +23,9 @@ class EditorWatch extends Controller {
       stores.add(st);
       for(const d of st.stampDirs()) set.add(d);
     }
+    // UX_BATCH14_SRS FR-ITV-5: 대시보드가 보이는 로컬 트리의 이슈 폴더도 본다. Run 묶음이 실리기 전에는 없다.
+    const rp=this.app._runs;
+    if(rp&&rp._runIssueWatchDirs) for(const d of rp._runIssueWatchDirs()) set.add(d);
     const out=[...set].sort();
     return capToServer(out,serverMeta.fsWatchDirsMax);
   }
@@ -70,6 +73,8 @@ class EditorWatch extends Controller {
   _onFsChanged(args){
     if(!args||document.hidden) return;
     if(args.overflow){ this.app.editor.pane._edTick(); return }
+    const rp=this.app._runs;
+    if(rp&&rp._runIssueFsChanged) rp._runIssueFsChanged((Array.isArray(args.changes)?args.changes:[]).map(c=>c&&c.path)); // UX_BATCH14_SRS FR-ITV-5
     for(const c of (Array.isArray(args.changes)?args.changes:[])){
       if(!c||typeof c.path!=='string') continue;
       if(c.type==='updated'||c.type==='added') this._edDocReload(c.path);

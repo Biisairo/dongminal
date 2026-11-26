@@ -321,6 +321,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | DELETE | `/api/runs/<id>` | Run 기록을 지운다. close 와 달리 미보고 검사를 하지 않는다. 다른 쓰기 요청처럼 `Content-Type: application/json` 이 있어야 한다. 응답은 `{id, short, state, worktrees, residue}` 이고 `residue` 는 지우지 못한 worktree 수다 |
 | GET | `/api/runs/<id>/graph` | Run 하나의 팀 구조 — 누가 누구를 조정하는가 |
 | GET | `/api/runs/tree` | `?ref=<owner/repo#N>` 또는 로컬 트리 `<별칭>:<ID>` 이슈 트리의 열린 Run 과 노드(역할 · 상태 · 부모 · 잎). 로컬 트리면 `storage:"local"` 과 원본 이슈 폴더 `issueDir` 를 싣는다 |
+| GET | `/api/runs/issue-tree` | `?ref=<트리>[&refresh=1]` 트리의 이슈 원천(GitHub 하위 이슈 또는 로컬 이슈 폴더)의 이슈 목록 — `key`·`num`·`title`·`state`·`parent`·`url`(GitHub)·`path`(로컬), 깊이 우선 차례. GitHub 은 서버가 `gh` 로 읽고 마지막 결과를 두었다가 `refresh=1` 일 때만 다시 읽는다. 실패하면 `error`(`gh_unavailable`·`gh_failed`·`issue_dir_unreadable`)와 `message`. 열린 Run 이 없는 트리는 404 |
 | GET | `/api/runs/issues` | `?toolId=` 부르는 도구가 멤버이거나 조율하는 열린 Run 의 트리 · 보관 방식(`storage`: `local`·`github`) · 로컬이면 원본 이슈 폴더(`issueDir`). `otterctl issue` 가 폴더를 찾는다 |
 | POST | `/api/runs/members` | Run 에 팀원을 등록한다 |
 | GET | `/api/runs/preamble` | 그 팀원의 기동 프리앰블 |

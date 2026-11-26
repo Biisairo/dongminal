@@ -26,7 +26,7 @@ Object.assign(RunsPanel.prototype, {
     const pos = this._runLayout(members.length);
     this._runPaintSummary(v.root, d, members);
     this._runPaintRecover(v.root, d);
-    this._runPaintTree(v.root, v.tree, d);
+    this._runPaintTree(v.root, v.tree, d, v.issues, () => this._runIssuesRefresh(v));
     this._runPaintGraph(v.root, d, members, pos);
     this._runPaintCards(v.root, d, members);
     this._runPaintTimeline(v.root, d);

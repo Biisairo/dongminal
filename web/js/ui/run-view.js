@@ -69,6 +69,7 @@ Object.assign(RunsPanel.prototype, {
       const tr = await apiGet(RUNS_TREE_API + '?ref=' + encodeURIComponent(data.tree));
       if (tr.ok) tree = tr.data;
     }
+    await this._runIssuesSync(v, tree);   // UX_BATCH14_SRS FR-ITV-3
     v.busy = false;
     if (err) v.err = err; else { v.data = data; v.tree = tree; v.err = null }
     this._runPaint(v);
@@ -98,6 +99,7 @@ Object.assign(RunsPanel.prototype, {
       const tr = await apiGet(RUNS_TREE_API + '?ref=' + encodeURIComponent(m.data.tree));
       if (tr.ok) tree = tr.data;
     }
+    await this._runIssuesSync(v, tree);   // UX_BATCH14_SRS FR-ITV-3
     v.data = m.data; v.tree = tree; v.err = null;
     this._runPaint(v);
   },
@@ -110,5 +112,7 @@ Object.assign(RunsPanel.prototype, {
     if (v.sub) { v.sub.stop(); v.sub = null; v.subRun = null }
     if (v.ro) { try { v.ro.disconnect() } catch {} v.ro = null }
     if (v.decay) { TIMERS.cancel(v.decay); v.decay = null }
+    // UX_BATCH14_SRS FR-ITV-5: 이 뷰가 보던 이슈 폴더의 감시를 거둔다.
+    if (v.issueRef && this.app.editor && this.app.editor.watch) this.app.editor.watch.edWatchSync();
   },
 });

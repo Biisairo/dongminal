@@ -2604,6 +2604,7 @@ dependencies = [
  "otter-shared-gittest",
  "otter-shared-httpreq",
  "otter-shared-httpresp",
+ "otter-shared-issuefile",
  "otter-shared-mimeprobe",
  "otter-shared-otterenv",
  "otter-shared-otterlog",

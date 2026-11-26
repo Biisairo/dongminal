@@ -1,5 +1,5 @@
 import {
-  test, expect, waitForInit, waitSettled, gotoSettled,
+  test, expect, waitForInit, waitSettled, gotoSettled, keepToolBusy,
 } from './fixtures';
 
 // 창 슬롯 — WINDOW_SLOTS_SRS §5 TC-WSL-*
@@ -899,3 +899,49 @@ test.describe('묶음 M — 탭을 다른 창으로 (FR-MOV-*)', () => {
 
 // ── 묶음 D — Runs 모달 삭제 버튼 ──
 
+// UX_BATCH14_SRS FR-SFX-1~7 (TC-UB14-4·5): 에이전트 카드 hover 의 슬롯 흐림과 포커스 없는 슬롯의 옅은 막.
+test.describe('UX_BATCH14 슬롯 흐림·막', () => {
+  const blurred = (page) => page.evaluate(() =>
+    [...document.querySelectorAll('#area .slot')].map((s) => s.classList.contains('slot-blurred')));
+  const veil = (page, i: number) => page.evaluate((n) => {
+    const b = document.querySelector('#area .slot[data-slot="' + n + '"] > .slot-body')!;
+    const s = getComputedStyle(b, '::after');
+    return { bg: s.backgroundColor, pe: s.pointerEvents, content: s.content };
+  }, i);
+
+  test('TC-UB14-4: 카드에 올리면 다른 칸만 흐려지고, 떠나면 풀린다', async ({ page }) => {
+    await waitForInit(page);
+    await slotsWith(page, 2);
+    const pid = await page.locator('#area .slot[data-slot="0"] .pn-tab.active').first().getAttribute('data-toolid');
+    await keepToolBusy(page, pid);
+    expect(await page.evaluate(async (id) => (await fetch('/api/tools/activity/set', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ toolId: id, state: 'working', tool: 'Bash', detail: '' }) })).status, pid)).toBe(200);
+    const card = page.locator('#agents-panel .ag-card[data-toolid="' + pid + '"]');
+    await expect(card).toHaveCount(1, { timeout: 10000 });
+    await card.hover();
+    await expect.poll(() => blurred(page)).toEqual([false, true]);
+    const f = await page.locator('#area .slot[data-slot="1"]').evaluate((e) => getComputedStyle(e).filter);
+    expect(f).toContain('blur');
+    await page.mouse.move(5, 5);
+    await expect.poll(() => blurred(page)).toEqual([false, false]);
+    // 칸이 하나면 아무 일도 없다.
+    await slotRemove(page);
+    await card.hover();
+    expect(await page.locator('#area .slot-blurred').count()).toBe(0);
+  });
+
+  test('TC-UB14-5: 포커스 없는 칸에만 옅은 막이 덮이고, 클릭은 막을 지난다', async ({ page }) => {
+    await waitForInit(page);
+    await slotsWith(page, 2);
+    const v0 = await veil(page, 0), v1 = await veil(page, 1);
+    expect(v0.content === 'none' || v0.bg === 'rgba(0, 0, 0, 0)').toBe(true);
+    expect(v1.content).not.toBe('none');
+    expect(v1.bg).not.toBe('rgba(0, 0, 0, 0)');
+    expect(v1.pe).toBe('none');
+    // 막 위를 누르면 그 칸으로 포커스가 옮고 막도 옮는다.
+    await page.locator('#area .slot[data-slot="1"] .slot-body').click();
+    await expect.poll(() => page.evaluate(() => (window as any).app.slot.slotFocused())).toBe(1);
+    expect((await veil(page, 1)).content === 'none' || (await veil(page, 1)).bg === 'rgba(0, 0, 0, 0)').toBe(true);
+    expect((await veil(page, 0)).content).not.toBe('none');
+  });
+});

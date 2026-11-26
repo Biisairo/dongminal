@@ -73,6 +73,7 @@ mod runs_close;
 mod runs_context;
 mod runs_graph;
 mod runs_headless;
+mod runs_issue_tree;
 mod runs_marks;
 mod runs_recover;
 mod runs_tree;
@@ -247,6 +248,8 @@ pub struct Server {
     pub(crate) sandbox_put: tokio::sync::Mutex<()>,
     /// 트리 방 규칙 맞추기를 한 줄로 세운다 — 늦게 끝난 맞추기가 언제나 지금 기록을 싣는다 (ISSUE_TREE_CHAT_SRS FR-ITR-3).
     pub(crate) tree_rooms: std::sync::Mutex<()>,
+    /// 트리의 이슈 원천 조회 — 트리마다의 마지막 GitHub 결과와 gh 호출 자리 (UX_BATCH14_SRS FR-ITV-1·4).
+    pub(crate) issue_trees: runs_issue_tree::IssueTrees,
     me: Weak<Server>,
     pub(crate) started: Instant,
     /// workspace.json 최상위의 두 목록(git.pinned[]·editors.list[])이다 (EDITOR_TAB_SRS
@@ -383,6 +386,7 @@ impl Server {
             full_topics: full_topics::FullTopics::default(),
             sandbox_put: tokio::sync::Mutex::new(()),
             tree_rooms: std::sync::Mutex::new(()),
+            issue_trees: runs_issue_tree::IssueTrees::default(),
             me,
             started: Instant::now(),
             entries,

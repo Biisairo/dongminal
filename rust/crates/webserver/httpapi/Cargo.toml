@@ -42,6 +42,7 @@ otter-shared-edgerelay = { path = "../../shared/edgerelay" }
 otter-shared-editorlimit = { path = "../../shared/editorlimit" }
 otter-shared-httpreq = { path = "../../shared/httpreq" }
 otter-shared-httpresp = { path = "../../shared/httpresp" }
+otter-shared-issuefile = { path = "../../shared/issuefile" }
 otter-shared-mimeprobe = { path = "../../shared/mimeprobe" }
 otter-shared-platform = { path = "../../shared/platform" }
 otter-shared-pollwait = { path = "../../shared/pollwait" }

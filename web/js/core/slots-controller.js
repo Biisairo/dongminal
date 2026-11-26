@@ -33,6 +33,17 @@ const SLOT_DIR_DEFAULT='horizontal';     // FR-WSL-80
 const SLOT_DIR_TITLE={horizontal:'Split side by side — click to split top and bottom',
   vertical:'Split top and bottom — click to split side by side'};
 
+/**
+ * UX_BATCH14_SRS FR-SFX-1·2: 에이전트 카드 hover 때 흐릴 칸. `wins` 는 칸마다 창 id(빈 칸은 null)다.
+ * 탭의 창을 가진 칸을 뺀 나머지이고, 칸이 하나이거나 · 어느 칸에도 없거나 · 모든 칸이 가지면 비어 있다.
+ */
+function slotBlurTargets(wins,winId){
+  if(!winId||wins.length<2) return [];
+  const out=[];
+  wins.forEach((w,i)=>{if(w!==winId) out.push(i)});
+  return out.length===wins.length?[]:out;
+}
+
 class SlotsController extends Controller {
   constructor(app){
     super(app);

@@ -49,8 +49,10 @@ body:not(.mobile) #agents-handle{display:block}
 #agents-panel[data-rail] .ag-tab-dot{position:absolute;top:4px;right:6px}
 /* 창 그룹 머리는 구분선만 남는다 — 이름도 알람 수도 40px 에 들지 않는다. */
 #agents-panel[data-rail] .ag-group{padding:0;height:0;overflow:hidden;pointer-events:none}
-/* UX_AUDIT_FIX_SRS FR-UXF-25: 레일의 카드는 이름 한 칸이다 — 상태 기호는 카드의 상태 띠가 대신한다. */
-#agents-panel[data-rail] .ag-dot{display:none}
+/* UX_BATCH14_SRS FR-RAS-1·4: 이전 — 레일의 카드는 이름만 남고 상태 점을 감췄다(「상태 띠가 대신한다」 고 적었으나 띠는 없었다) /
+   새 — 펼친 카드와 같은 상태 점이 이름 위 가운데에 선다 / 이유 — 레일에서 상태를 볼 수 없었다(사용자 결정 D-UB14-2). */
+#agents-panel[data-rail] .ag-line-head{flex-direction:column;align-items:center;gap:var(--sp-1)}
+#agents-panel[data-rail] .ag-line-head > .ag-loc{width:100%}
 #agents-panel[data-rail] :is(.ag-card,.bg-row,.runs-row){padding:var(--sp-3) 3px;display:block}
 /* FR-RAL-2 와 같다: 이름은 두 줄까지, 넘치면 둘째 줄 끝에 `…`. */
 /* RAIL_CHAT_USAGE_SRS FR-RCU-7 (D-RCU-5): 이전 — 줄 높이 1.15 에서 셋째 줄 글자 윗부분이 1px 비쳤다 / 새 — 1.3 / 이유 — 두 줄 이름 모두 같은 규칙. */
@@ -361,15 +363,16 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 var(--sp-4) 0 var(--sp-2
   .act-usage-head .cacct-smart{margin-left:auto}
   .cacct,.act-usage-sl-h,.act-usage-sl{padding-left:var(--sp-7)}
   .cacct-bar{width:12px}
-  .cacct-head,.act-usage-sl{flex-wrap:wrap;row-gap:var(--sp-1)}
-  .cacct-who{flex:1 1 100%}
+  .act-usage-sl{flex-wrap:wrap;row-gap:var(--sp-1)}
+  .act-usage-sl .cacct-who{flex:1 1 100%}
   .act-usage-sl .cacct-who:empty{display:none}
   .cacct-cells{flex:1 1 100%;grid-template-columns:repeat(2,minmax(0,1fr))}
-  /* 요약 줄은 한 줄이다 — 남은 시간을 빼고 칸이 제 글자 폭을 가져 `세션 34%` 가 잘리지 않는다. 이름이 대신 줄어든다. */
-  .act-usage-sum .cacct-cells{flex:0 0 auto;grid-template-columns:repeat(2,auto)}
-  .act-usage-sum .cacct-cell-left{display:none}
+  /* 요약 줄과 접힌 계정 줄은 한 줄이다 — 칸이 제 글자 폭을 가져 `5h 34% 2시간` 이 잘리지 않는다. 이름이 대신 줄어든다.
+     UX_BATCH14_SRS FR-UHD-1·2: 이전 — 요약 줄은 남은 시간을 감췄고, 접힌 계정 줄은 칸을 이름 아래 줄로 내렸다 /
+     새 — 둘 다 남은 시간을 보이는 같은 한 줄이다 / 이유 — 사용자 결정 D-UB14-3. */
+  :is(.act-usage-sum,.cacct-head) .cacct-cells{flex:0 0 auto;grid-template-columns:repeat(2,auto)}
 }
-.act-usage-sum .cacct-who{flex-wrap:nowrap}
+:is(.act-usage-sum,.cacct-head) .cacct-who{flex-wrap:nowrap}
 @container (max-width:149px){
   .cacct-cells{grid-template-columns:minmax(0,1fr);row-gap:var(--sp-2)}
 }
@@ -381,6 +384,9 @@ body.mobile .ag-group{height:var(--touch-min);padding:0 var(--sp-4) 0 var(--sp-2
   #agents-panel:not([data-rail]) .act-usage-sum .cacct-who{flex:1 1 0;min-width:0}
   #agents-panel:not([data-rail]) .act-usage-sum>.ui-icon{order:1}
   #agents-panel:not([data-rail]) .act-usage-sum .cacct-cells{order:2;flex:1 1 100%;grid-template-columns:repeat(2,auto);justify-content:start}
+  /* UX_BATCH14_SRS FR-UHD-2: 접힌 계정 줄도 요약 줄처럼 둘째 줄에 두 칸이다. */
+  .cacct-head{flex-wrap:wrap;row-gap:var(--sp-1)}
+  .cacct-head .cacct-cells{flex:1 1 100%;grid-template-columns:repeat(2,auto);justify-content:start}
 }
 
 .pn-body{flex:1;position:relative;overflow:hidden}

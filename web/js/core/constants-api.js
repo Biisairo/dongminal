@@ -91,5 +91,6 @@ const RUNS_DETACH_API='/api/runs/detach';
 const RUNS_RECOVER_API='/api/runs/recover'; // RUN_RECOVERY_SRS FR-RRC-20
 // ISSUE_AGENT_TREE_SRS FR-ITD-5: 이슈 트리의 열린 노드.
 const RUNS_TREE_API='/api/runs/tree';
+const RUNS_ISSUE_TREE_API='/api/runs/issue-tree';   // UX_BATCH14_SRS FR-ITV-1
 const CWD_API='/api/cwd';
 const UPLOAD_API='/api/upload';

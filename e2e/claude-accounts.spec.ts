@@ -193,3 +193,30 @@ test.describe('Claude 계정 (TC-CAC-27)', () => {
     await expect(tab).toHaveAttribute('title', /bob@y\.org/);
   });
 });
+
+// UX_BATCH14_SRS FR-UHD-1~4 (TC-UB14-2·3): 요약 줄은 남은 시간을 보이고, 접힌 계정 줄은 요약 줄과 같은 한 줄 모양이며, 창 이름은 5h·7d 다.
+test('TC-UB14-2·3: 요약 줄의 남은 시간, 접힌 계정 줄의 모양, 5h·7d 이름', async ({ page }) => {
+  const st = mockState();
+  await installMock(page, st);
+  await waitForInit(page);
+  await page.keyboard.press('Control+Shift+KeyA');
+  const foot = page.locator('#agents-panel .act-usage-foot');
+  const sum = foot.locator('.act-usage-sum');
+  await expect(sum).toHaveAttribute('aria-expanded', 'true', { timeout: 10000 });
+  const sumLeft = sum.locator('.cacct-cell-left');
+  await expect(sumLeft).toHaveCount(2);
+  for (const el of await sumLeft.all()) await expect(el).toBeVisible();
+  await expect(sum.locator('.cacct-cell-label')).toHaveText(['5h', '7d']);
+
+  // 접힌 계정(b)의 머리 줄: 이름과 칸이 한 줄에 서고(요약 줄처럼), 남은 시간이 보인다.
+  const head = foot.locator('.cacct[data-id="b"] .cacct-head');
+  await expect(head.locator('.cacct-cell-label')).toHaveText(['5h', '7d']);
+  for (const el of await head.locator('.cacct-cell-left').all()) await expect(el).toBeVisible();
+  const mid = async (sel: string) => { const b = (await head.locator(sel).first().boundingBox())!; return b.y + b.height / 2 };
+  expect(Math.abs((await mid('.cacct-name')) - (await mid('.cacct-cell')))).toBeLessThanOrEqual(4);
+  const sumMid = async (sel: string) => { const b = (await sum.locator(sel).first().boundingBox())!; return b.y + b.height / 2 };
+  expect(Math.abs((await sumMid('.cacct-name')) - (await sumMid('.cacct-cell')))).toBeLessThanOrEqual(4);
+
+  // 펼친 계정(a)의 막대 제목도 5h·7d 다.
+  await expect(foot.locator('.cacct[data-id="a"] > .act-usage-win .act-usage-label')).toHaveText(['5h', '7d']);
+});
