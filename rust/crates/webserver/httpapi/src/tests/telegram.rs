@@ -14,11 +14,15 @@ use otter_webserver_hub::{AttnTracker, CommandBroker, CommandHub};
 use otter_webserver_seam_toolaccess::{Error, WorkspaceEntry, WorkspaceReader};
 use telegram::Host;
 
+use otter_shared_chatwire as chatwire;
+use otter_shared_toolipc::{CHAT_KIND_CHANGED, CHAT_KIND_MSG, ChatEvent, ChatResult};
+
 use super::attnenv::LiveIo;
 use super::fakes::FakeHub;
+use super::peer::FakeChat;
 use super::support::{self, call};
 use crate::telegram_api::{TelegramHost, TelegramSink, TelegramWire};
-use crate::{Config, Deps, Server};
+use crate::{ChatDaemon, Config, Deps, Server};
 
 const TG_GOOD_TOKEN: &str = "111:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const TG_NO_TOPICS_TOKEN: &str = "222:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -275,6 +279,7 @@ async fn telegram_api_token_change_cancels_pairing() {
 struct TgRec {
     evs: Mutex<Vec<telegram::Event>>,
     attn: Mutex<Vec<String>>,
+    chat: AtomicI64,
 }
 
 impl TelegramSink for TgRec {
@@ -292,6 +297,9 @@ impl TelegramSink for TgRec {
     }
     fn on_tool_gone(&self, tool_id: &str) {
         self.attn.lock().unwrap().push(format!("{tool_id}:gone"));
+    }
+    fn on_chat_changed(&self) {
+        self.chat.fetch_add(1, Ordering::SeqCst);
     }
 }
 
@@ -536,4 +544,153 @@ async fn telegram_api_chat_topics() {
     let r = tg_do(&e, "PUT", "/api/telegram/topics", r#"{"topics":false}"#).await;
     assert_eq!(r.status, 200, "{}", r.body);
     assert!(!r.body.contains("chatTopics"), "{}", r.body);
+}
+
+// ── 채팅 토픽 거울 (ISSUE_TREE_CHAT_SRS FR-TGT-3) ─────────────────────────────
+
+/// 채팅 데몬과 브리지 기록기를 가진 서버다.
+fn tg_chat_server(chat: Arc<FakeChat>) -> (Arc<Server>, Arc<TgRec>, tempfile::TempDir) {
+    let dir = tempfile::tempdir().unwrap();
+    let st = Arc::new(telegram::Store::open(dir.path().join("tg.json")));
+    let rec = Arc::new(TgRec::default());
+    let r2 = rec.clone();
+    let srv = Server::new_with(
+        Config::default(),
+        Deps {
+            commands: Some(CommandHub::new()),
+            chat_daemon: Some(chat as Arc<dyn ChatDaemon>),
+            ..Deps::default()
+        },
+        move |s| {
+            s.tg = Some(TelegramWire {
+                st,
+                sink: r2,
+                bridge: None,
+            });
+        },
+    );
+    (srv, rec, dir)
+}
+
+/// FR-TGT-3: 방을 바꾸는 채팅 연산이 성공하거나, 데몬이 바뀜을 밀거나, 데몬에 다시 붙으면 거울을 맞추게 한다.
+/// 읽기·실패한 연산·글은 맞추지 않는다(글은 T-4 가 따로 다룬다).
+#[tokio::test]
+async fn telegram_chat_changes_reach_bridge() {
+    let d = Arc::new(FakeChat {
+        ready: true,
+        res: ChatResult {
+            result: RawMessage(br#"{"ok":true}"#.to_vec()),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    let (srv, rec, _d) = tg_chat_server(d);
+    let n = || rec.chat.load(Ordering::SeqCst);
+    let body = r#"{"room":"r1"}"#;
+    let hdr = [("Content-Type", "application/json")];
+    call(&srv, "GET", "/api/chat", &hdr, "", support::LOCAL).await;
+    assert_eq!(n(), 0, "읽기가 맞추기를 불렀다");
+    let r = call(&srv, "POST", "/api/chat/join", &hdr, body, support::LOCAL).await;
+    assert_eq!(r.status, 200);
+    assert_eq!(n(), 1);
+    srv.chat_pushed(&ChatEvent {
+        chat_kind: CHAT_KIND_CHANGED.into(),
+        ..Default::default()
+    });
+    assert_eq!(n(), 2);
+    srv.chat_pushed(&ChatEvent {
+        chat_kind: CHAT_KIND_MSG.into(),
+        ..Default::default()
+    });
+    assert_eq!(n(), 2, "글이 맞추기를 불렀다");
+    srv.chat_resync();
+    assert_eq!(n(), 3);
+}
+
+/// 데몬이 거절한 연산은 거울을 맞추지 않는다.
+#[tokio::test]
+async fn telegram_failed_chat_op_does_not_sync() {
+    let d = Arc::new(FakeChat {
+        ready: true,
+        res: ChatResult {
+            error: Some(chatwire::Error {
+                code: "no_such_room".into(),
+                message: "r1".into(),
+            }),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    let (srv, rec, _d) = tg_chat_server(d);
+    let hdr = [("Content-Type", "application/json")];
+    let r = call(
+        &srv,
+        "POST",
+        "/api/chat/join",
+        &hdr,
+        r#"{"room":"r1"}"#,
+        support::LOCAL,
+    )
+    .await;
+    assert_eq!(r.status, 404);
+    assert_eq!(rec.chat.load(Ordering::SeqCst), 0);
+}
+
+const STATE: &str = r##"{"me":{"id":"fpA-u1","label":"mac/나","kind":"user"},
+ "rooms":[
+  {"id":"g1","kind":"group","name":"#설계","purpose":"설계 논의","members":3,"joined":true},
+  {"id":"g2","kind":"group","name":"리뷰","purpose":"","members":1,"joined":false},
+  {"id":"d1","kind":"direct","purpose":"질문","members":2,"joined":true,
+   "people":[{"id":"fpA-u1","label":"mac/나"},{"id":"fpB-a7","label":"office/빌드"}]},
+  {"id":"d2","kind":"direct","purpose":"","members":1,"joined":true,
+   "people":[{"id":"fpA-u1","label":"mac/나"}]}]}"##;
+
+/// FR-TGT-3·CUX-9: 채팅 상태의 방을 브리지의 방으로 옮긴다. 단체채팅은 `#` 없는 방 이름, 개인채팅은 상대의
+/// 표시 이름이고, 상대가 없으면 `개인채팅` 이다.
+#[tokio::test]
+async fn telegram_host_reads_chat_rooms() {
+    let d = Arc::new(FakeChat {
+        ready: true,
+        res: ChatResult {
+            result: RawMessage(STATE.as_bytes().to_vec()),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    let (srv, _rec, _d) = tg_chat_server(d.clone());
+    let host = TelegramHost(Arc::downgrade(&srv));
+    let rooms = host.chat_rooms().expect("방을 읽지 못했다");
+    let room =
+        |id: &str, name: &str, purpose: &str, members: i64, joined: bool| telegram::ChatRoom {
+            id: id.into(),
+            name: name.into(),
+            purpose: purpose.into(),
+            members,
+            joined,
+        };
+    assert_eq!(
+        rooms,
+        vec![
+            room("g1", "설계", "설계 논의", 3, true),
+            room("g2", "리뷰", "", 1, false),
+            room("d1", "office › 빌드", "질문", 2, true),
+            room("d2", "개인채팅", "", 1, true),
+        ]
+    );
+    assert_eq!(d.got.lock().unwrap()[0].op, chatwire::OP_STATE);
+}
+
+/// 데몬이 없거나, 준비되지 않았거나, 실패하면 방 목록을 모른다(None) — 브리지는 아무것도 지우지 않는다.
+#[tokio::test]
+async fn telegram_host_rooms_unknown_without_daemon() {
+    let srv = Server::new(Config::default(), Deps::default());
+    assert_eq!(TelegramHost(Arc::downgrade(&srv)).chat_rooms(), None);
+    let (srv, _r, _d) = tg_chat_server(Arc::new(FakeChat::default()));
+    assert_eq!(TelegramHost(Arc::downgrade(&srv)).chat_rooms(), None);
+    let (srv, _r, _d) = tg_chat_server(Arc::new(FakeChat {
+        ready: true,
+        err: Some("broken pipe".into()),
+        ..Default::default()
+    }));
+    assert_eq!(TelegramHost(Arc::downgrade(&srv)).chat_rooms(), None);
 }

@@ -20,7 +20,12 @@ use crate::client::{CallbackQuery, Client, Error, Message, POLL_TIMEOUT, Update,
 use crate::config::{Config, Store};
 use crate::pair::{NowFn, Pairing};
 use crate::render::{AlarmKind, Body, READ_PREFIX, fit_alarm, plain_text, read_keyboard};
+use crate::topics::{TopicMap, topics_path};
 use crate::transcript::last_reply;
+
+mod mirror;
+
+pub use mirror::{ChatRoom, display_name};
 
 /// hook 보고 하나 (FR-TGB-80·81). 서버가 활동 보고에서 옮겨 넣는다.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -53,6 +58,11 @@ pub trait Host: Send + Sync {
     fn attend(&self, tool_id: &str, typed: bool);
     /// 짝맞춤으로 허용 계정이 바뀌었다.
     fn paired(&self) {}
+    /// 사람 참가자에게 보이는 방들 (ISSUE_TREE_CHAT_SRS FR-TGT-3). 읽지 못하면 None 이다. 막힐 수 있어 작업자는
+    /// 블로킹 스레드에서 부른다.
+    fn chat_rooms(&self) -> Option<Vec<ChatRoom>> {
+        None
+    }
 }
 
 pub(crate) const QUEUE_SIZE: usize = 256;
@@ -91,6 +101,8 @@ pub(crate) enum Item {
     Gone(String),
     /// 탭과 무관한 글 (FR-CAC-100a).
     Notice(String),
+    /// 채팅 상태가 바뀌었다 — 거울 토픽을 맞춘다 (ISSUE_TREE_CHAT_SRS FR-TGT-3).
+    ChatSync,
 }
 
 /// 탭 하나의 직전 hook (FR-TGB-51·55). 알람이 울릴 때 종류와 내용을 정한다.
@@ -201,6 +213,10 @@ pub struct Bridge {
     pub(crate) rx: Mutex<Option<mpsc::Receiver<Item>>>,
     pub(crate) sleep: Mutex<SleepFn>,
     pub(crate) state: Mutex<State>,
+    /// 방과 토픽의 짝 (FR-TGT-4).
+    topics: TopicMap,
+    /// 큐에 처리하지 않은 ChatSync 가 있다.
+    sync_queued: AtomicBool,
 }
 
 #[derive(Deserialize, Default)]
@@ -213,6 +229,7 @@ impl Bridge {
     /// 브리지를 만든다. base 가 비면 Bot API 주소다.
     pub fn new(st: Arc<Store>, host: Arc<dyn Host>, base: &str, now: NowFn) -> Arc<Bridge> {
         let (tx, rx) = mpsc::channel(QUEUE_SIZE);
+        let st_path = st.path();
         let sleep: SleepFn = Arc::new(|d| Box::pin(tokio::time::sleep(d)));
         Arc::new(Bridge {
             st,
@@ -224,6 +241,8 @@ impl Bridge {
             rx: Mutex::new(Some(rx)),
             sleep: Mutex::new(sleep),
             state: Mutex::new(State::default()),
+            topics: TopicMap::open(&topics_path(&st_path)),
+            sync_queued: AtomicBool::new(false),
         })
     }
 
@@ -299,6 +318,9 @@ impl Bridge {
             self.lock().tabs.remove(t);
             return;
         }
+        if let Item::ChatSync = it {
+            self.sync_queued.store(false, Ordering::Release);
+        }
         let Some(c) = self.active() else {
             return;
         };
@@ -315,6 +337,7 @@ impl Bridge {
                 }
             }
             Item::Attention { tool, reason } => self.alarm(&c, &tool, &reason).await,
+            Item::ChatSync => self.sync_topics(&c).await,
             Item::Gone(_) => {}
         }
     }

@@ -149,6 +149,7 @@ impl Server {
             Some(Ok(res)) => {
                 if changes && res.error.is_none() {
                     self.refresh_full_topic("chat");
+                    self.telegram_chat_changed();
                 }
                 res
             }
@@ -188,12 +189,14 @@ impl Server {
             }
         } else if ev.chat_kind == CHAT_KIND_CHANGED {
             self.refresh_full_topic("chat");
+            self.telegram_chat_changed();
         }
     }
 
     /// Go `ChatResync`: 데몬에 다시 붙은 뒤다. 끊긴 동안의 바뀜을 잃었으므로 화면이 다시 읽게 한다.
     pub fn chat_resync(&self) {
         self.refresh_full_topic("chat");
+        self.telegram_chat_changed();
     }
 }
 

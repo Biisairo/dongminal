@@ -7,8 +7,10 @@ use std::time::Duration;
 
 use http::StatusCode;
 use otter_shared_agentrec as agentrec;
+use otter_shared_chatwire as chatwire;
 use otter_shared_httpresp::{self as httpresp, Response};
 use otter_shared_otterlog::infof;
+use otter_shared_toolipc::ChatParams;
 use otter_webserver_apierr as apierr;
 use otter_webserver_domain_telegram as telegram;
 use otter_webserver_hub::CommandHub;
@@ -25,6 +27,11 @@ use crate::{Config, Server};
 static TG_TOKEN_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^[0-9]{1,20}:[A-Za-z0-9_-]{30,64}$").expect("고정 식"));
 
+/// 개인채팅 방의 종류 (PEER_CHAT_SRS FR-PCH-14).
+const CHAT_KIND_DIRECT: &str = "direct";
+/// 상대를 모르는 개인채팅의 토픽 이름. 웹 카탈로그 `chat.direct` 와 같다.
+const DIRECT_TOPIC_NAME: &str = "개인채팅";
+
 /// Go `tgGetMeTimeout`: token 확인의 상한이다.
 const TG_GET_ME_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -34,6 +41,8 @@ pub(crate) trait TelegramSink: Send + Sync {
     fn on_attention(&self, tool_id: &str, reason: &str);
     fn on_attention_clear(&self, tool_id: &str);
     fn on_tool_gone(&self, tool_id: &str);
+    /// 채팅 방이 바뀌었다 (ISSUE_TREE_CHAT_SRS FR-TGT-3).
+    fn on_chat_changed(&self);
 }
 
 impl TelegramSink for telegram::Bridge {
@@ -48,6 +57,9 @@ impl TelegramSink for telegram::Bridge {
     }
     fn on_tool_gone(&self, tool_id: &str) {
         telegram::Bridge::on_tool_gone(self, tool_id);
+    }
+    fn on_chat_changed(&self) {
+        telegram::Bridge::on_chat_changed(self);
     }
 }
 
@@ -300,7 +312,11 @@ impl Server {
                 Err(_) => return telegram_unreachable(),
             }
         }
-        self.telegram_saved(tg, b, tg.st.set_chat_topics(req.topics))
+        let res = tg.st.set_chat_topics(req.topics);
+        if res.is_ok() {
+            self.telegram_chat_changed();
+        }
+        self.telegram_saved(tg, b, res)
     }
 
     /// Go `apiTelegramPair`: 등록 코드를 만든다 (FR-TGB-10). 코드는 이 응답에만 있다.
@@ -374,11 +390,22 @@ impl Server {
         hub.set_tool_gone_observer(Some(Arc::new(move |id: &str| s.on_tool_gone(id))));
     }
 
+    /// 채팅 방이 바뀌었다 — 브리지가 거울 토픽을 맞춘다 (ISSUE_TREE_CHAT_SRS FR-TGT-3). 채팅 토픽이 꺼져 있으면
+    /// 브리지가 거른다 (NFR-ITH-4).
+    pub(crate) fn telegram_chat_changed(&self) {
+        if let Some(tg) = &self.tg {
+            tg.sink.on_chat_changed();
+        }
+    }
+
     /// Go `StartTelegram`: 브리지를 돌리고, stop 이 취소되면 멈춘다. 돌려준 task 는 멈춘 뒤 끝난다.
     /// 꺼져 있으면 브리지는 Telegram 에 아무 요청도 하지 않는다 (NFR-TGB-1).
     pub fn start_telegram(&self, stop: CancellationToken) -> tokio::task::JoinHandle<()> {
         match self.tg.as_ref().and_then(|tg| tg.bridge.clone()) {
-            Some(b) => tokio::spawn(b.run(stop)),
+            Some(b) => {
+                b.on_chat_changed();
+                tokio::spawn(b.run(stop))
+            }
             None => tokio::spawn(async {}),
         }
     }
@@ -456,6 +483,45 @@ impl telegram::Host for TelegramHost {
         if let Some(s) = self.0.upgrade() {
             s.attention().attend(tool_id, typed);
         }
+    }
+
+    /// 사람 참가자의 채팅 상태에서 방을 옮긴다 (ISSUE_TREE_CHAT_SRS FR-TGT-3). 데몬 RPC 라 막힐 수 있다.
+    fn chat_rooms(&self) -> Option<Vec<telegram::ChatRoom>> {
+        let d = self.0.upgrade()?.deps.chat_daemon.clone()?;
+        if !d.chat_ready() {
+            return None;
+        }
+        let res = d
+            .chat(ChatParams {
+                op: chatwire::OP_STATE.to_owned(),
+                ..ChatParams::default()
+            })
+            .ok()?;
+        if res.error.is_some() {
+            return None;
+        }
+        let st: chatwire::State = otter_gocompat::json::unmarshal(&res.result.0).ok()?;
+        let rooms = st.rooms.unwrap_or_default();
+        Some(rooms.iter().map(|r| chat_room(r, &st.me.id)).collect())
+    }
+}
+
+/// 방 하나의 거울 값. 단체채팅은 겹친 `#` 없는 방 이름, 개인채팅은 상대의 표시 이름이다 (FR-CUX-9·14).
+fn chat_room(r: &chatwire::Room, me: &str) -> telegram::ChatRoom {
+    let name = if r.kind == CHAT_KIND_DIRECT {
+        r.people.iter().flatten().find(|p| p.id != me).map_or_else(
+            || DIRECT_TOPIC_NAME.to_owned(),
+            |p| telegram::display_name(&p.label, &p.id, me),
+        )
+    } else {
+        r.name.trim_start_matches('#').to_owned()
+    };
+    telegram::ChatRoom {
+        id: r.id.clone(),
+        name,
+        purpose: r.purpose.clone(),
+        members: r.members,
+        joined: r.joined,
     }
 }
 

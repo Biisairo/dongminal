@@ -1,7 +1,5 @@
 //! ISSUE_TREE_CHAT_SRS FR-TGT-4 — 방과 토픽의 짝 파일.
 
-use std::os::unix::fs::PermissionsExt;
-
 use super::*;
 
 fn open_temp() -> (TopicMap, std::path::PathBuf, tempfile::TempDir) {
@@ -35,8 +33,10 @@ fn set_get_remove_and_reopen() {
     assert_eq!(again.by_thread(7), None);
 }
 
+#[cfg(unix)]
 #[test]
 fn file_mode_600() {
+    use std::os::unix::fs::PermissionsExt;
     let (m, p, _d) = open_temp();
     m.set("r1", topic(1)).unwrap();
     let mode = std::fs::metadata(&p).unwrap().permissions().mode() & 0o777;

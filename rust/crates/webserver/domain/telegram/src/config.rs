@@ -135,6 +135,11 @@ impl Store {
         self.inner.lock().unwrap_or_else(|p| p.into_inner())
     }
 
+    /// 설정 파일의 경로.
+    pub(crate) fn path(&self) -> PathBuf {
+        self.lock().path.clone()
+    }
+
     /// 지금 값의 사본.
     pub fn config(&self) -> Config {
         self.lock().cfg.clone()
