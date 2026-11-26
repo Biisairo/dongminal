@@ -8,20 +8,29 @@ Object.assign(RunsPanel.prototype, {
    * 부모·잎은 서버가 사슬 이름에서 정했다. 누르면 그 에이전트의 탭으로 간다.
    * ISSUE_TREE_OPS_SRS FR-ITC-6·10: 도형 다이어그램(SVG)이다. UX_BATCH14_SRS FR-ITV-11 로 왼쪽→오른쪽이다(이전: 위→아래).
    */
-  _runPaintTree(root, tree, d) {
+  _runPaintTree(root, tree, d, issues, refresh) {
     const el = root.querySelector('.run-tree');
     const members = (tree && tree.nodes) || [];
     // RUN_RECOVERY_SRS FR-RRC-40: 평평한 그래프가 숨으므로 조정자는 트리의 루트로 선다.
-    const nodes = runTreeWithCoord(members, runCoordItem(d));
+    // UX_BATCH14_SRS FR-ITV-6: 이슈 원천이 있으면 그 구조로 그리고 멤버를 이슈 자리에 붙인다(`run-tree-issues.js`).
+    const nodes = runTreeMerge(runTreeWithCoord(members, runCoordItem(d)), issues);
     el.classList.toggle('vis', !!tree);
     // ISSUE_TREE_OPS_SRS FR-ITC-6: 트리 Run 은 평평한 그래프 대신 트리가 중심이다.
     root.classList.toggle('tree-run', !!tree);
-    const sig = tree ? JSON.stringify(nodes.map(n => [n.id, n.role, n.parent, n.state, n.leaf, n.contextRatio || 0, n.issue || '', n.title || '', n.agent || '', n.recoverable ? 1 : 0])) : '';
+    const nodeSig = n => [n.id, n.role, n.parent, n.state, n.leaf, n.contextRatio || 0, n.issue || '', n.title || '', n.agent || '',
+      n.recoverable ? 1 : 0, n.tid || '', n.tparent || '', n.istate || '', n.linked ? 1 : 0];
+    const sig = tree ? JSON.stringify([issues ? [issues.error || '', issues.message || ''] : null, nodes.map(nodeSig)]) : '';
     paintIfChanged(el, sig, () => {
       el.textContent = '';
       if (!tree) return;
       el.appendChild(domEl('div', 'run-tree-h', t('runs.tree_title', {ref: tree.tree})));
-      if (!members.length) { el.appendChild(domEl('div', 'run-tree-empty', t('runs.tree_empty'))); return }
+      // FR-ITV-3 ③·FR-ITV-10: 이슈 새로고침 단추와 읽지 못한 까닭.
+      if (issues && refresh) {
+        const bar = el.appendChild(domEl('div', 'run-tree-bar'));
+        bar.appendChild(UIKit.button({ label: t('runs.tree_refresh'), title: t('runs.tree_refresh_title'), size: 'sm', cls: 'run-tree-refresh', onClick: refresh }));
+        if (issues.error) bar.appendChild(domEl('span', 'run-tree-err', t('runs.tree_issue_err', { msg: issues.message || issues.error })));
+      }
+      if (!nodes.length) { el.appendChild(domEl('div', 'run-tree-empty', t('runs.tree_empty'))); return }
       const lay = runTreeLayout(nodes);
       const svg = svgEl('svg', { class: 'run-tree-svg', viewBox: `0 0 ${lay.w} ${lay.h}` });
       svg.dataset.w = lay.w;
@@ -100,7 +109,7 @@ Object.assign(RunsPanel.prototype, {
     nodes.forEach((n, i) => {
       const kind = runNodeKind(n.state);
       mini.appendChild(svgEl('rect', {
-        class: 'run-tree-mini-node state-' + (n.state || 'starting') + (kind === 'active' ? '' : ' ' + kind),
+        class: n.issueNode ? 'run-tree-mini-node issue' : 'run-tree-mini-node state-' + (n.state || 'starting') + (kind === 'active' ? '' : ' ' + kind),
         x: lay.pos[i].x - lay.pos[i].w / 2, y: lay.pos[i].y, width: lay.pos[i].w, height: lay.pos[i].h,
       }));
     });
@@ -193,23 +202,24 @@ Object.assign(RunsPanel.prototype, {
    * 띄는 표시에 맥락 없이 그린다. 둘 다 누를 수 없다 — 붙일 도구가 없어 누르면 실패했다.
    */
   _runTreeNodeEl(n, p) {
+    if (n.issueNode) return this._runTreeIssueEl(n, p);
     const kind = runNodeKind(n.state);
     const active = kind === 'active';
     const cls = 'run-tree-node ' + (n.coord ? 'coord' : 'state-' + (n.state || 'starting')) + (n.leaf ? ' leaf' : '')
-      + (active ? '' : ' inactive ' + kind);
+      + (active ? '' : ' inactive ' + kind) + (n.linked ? ' linked' : '');
     const g = svgEl('g', active ? { class: cls, role: 'button', tabindex: '0' } : { class: cls });
     g.dataset.member = n.id;
     g.dataset.depth = String(p.depth);
     const x = p.x - p.w / 2;
     const tip = svgEl('title');
-    tip.textContent = [runTreeIssueNumber(n.issue), n.title, n.coord ? n.agent : n.role, n.state, active ? t('runs.tree_jump') : '']
+    tip.textContent = [n.num || runTreeIssueNumber(n.issue), n.title, n.coord ? n.agent : n.role, n.state, active ? t('runs.tree_jump') : '']
       .filter(Boolean).join(' · ');
     g.appendChild(tip);
     g.appendChild(svgEl('rect', { class: 'run-tree-box', x, y: p.y, width: p.w, height: p.h, rx: 5 }));
 
     const tx = x + RUN_TREE_PAD_IN;
     const head = svgEl('text', { x: tx, y: p.y + (kind === 'ended' ? 19 : 20) });
-    const num = runTreeIssueNumber(n.issue);
+    const num = n.num || runTreeIssueNumber(n.issue);   // UX_BATCH14_SRS FR-ITV-7: 이슈 원천을 입힌 노드는 그 번호다
     if (num) head.appendChild(runTreeSpan('run-tree-issue', num));
     if (n.title) {
       // RUN_RECOVERY_SRS FR-RRC-31: 복구 단추가 오른쪽 위에 서면 그 폭만큼 제목을 줄인다.
@@ -289,6 +299,8 @@ const RUN_TREE_NODE_H = 64;
 const RUN_TREE_NODE_H_ENDED = 30;
 // FR-RIN-5: 끝난 노드의 상자 폭과, 그 머리 한 줄에 드는 폭(반각 칸).
 const RUN_TREE_NODE_W_ENDED = 112;
+// UX_BATCH14_SRS FR-ITV-8: 에이전트가 없는 이슈 노드의 상자 높이 — 번호·제목 한 줄과 상태 한 줄이 든다.
+const RUN_TREE_NODE_H_ISSUE = 46;
 const RUN_TREE_TEXT_UNITS_ENDED = 14;
 // FR-ITV-11: 열(깊이) 사이 — 꺾이는 선이 지나는 자리 — 와 같은 열의 상자 사이.
 const RUN_TREE_GAP_X = 44;
@@ -314,12 +326,15 @@ const RUN_TREE_DRAG_PX = 4;
  */
 function runTreeLayout(nodes) {
   if (!nodes.length) return { w: 0, h: 0, pos: [], edges: [] };
+  // UX_BATCH14_SRS FR-ITV-6: 이슈 원천을 입힌 노드는 `tid`·`tparent` 로 잇는다(`runTreeMerge`). 아니면 역할 사슬이다.
+  const idOf = n => (n.tid !== undefined ? n.tid : n.role);
+  const parentOf = n => (n.tparent !== undefined ? n.tparent : n.parent);
   const byRole = new Map();
-  nodes.forEach((n, i) => { if (!byRole.has(n.role)) byRole.set(n.role, i) });
+  nodes.forEach((n, i) => { if (!byRole.has(idOf(n))) byRole.set(idOf(n), i) });
   const kids = nodes.map(() => []);
   const roots = [];
   nodes.forEach((n, i) => {
-    const p = n.parent ? byRole.get(n.parent) : undefined;
+    const p = parentOf(n) ? byRole.get(parentOf(n)) : undefined;
     if (p === undefined || p === i) roots.push(i); else kids[p].push(i);
   });
   const pos = new Array(nodes.length);
@@ -329,9 +344,10 @@ function runTreeLayout(nodes) {
   const shift = (i, dy) => { pos[i].y += dy; for (const [p, c] of edges) if (p === i) shift(c, dy) };
   const mid = i => pos[i].y + pos[i].h / 2;
   const place = (i, depth) => {
-    const ended = runNodeKind(nodes[i].state) === 'ended';
+    const issue = !!nodes[i].issueNode;
+    const ended = !issue && runNodeKind(nodes[i].state) === 'ended';
     const w = ended ? RUN_TREE_NODE_W_ENDED : RUN_TREE_NODE_W;
-    const h = ended ? RUN_TREE_NODE_H_ENDED : RUN_TREE_NODE_H;
+    const h = issue ? RUN_TREE_NODE_H_ISSUE : ended ? RUN_TREE_NODE_H_ENDED : RUN_TREE_NODE_H;
     pos[i] = { x: RUN_TREE_PAD + depth * (RUN_TREE_NODE_W + RUN_TREE_GAP_X) + w / 2, y: 0, depth, w, h };
     maxDepth = Math.max(maxDepth, depth);
     const start = next;

@@ -9,7 +9,7 @@ import { load } from './harness.mjs';
  *   TC-RLV-5  주기 실행은 살아 있는 뷰만 받고 사라진 뷰는 정리한다 (FR-RLV-7·8)
  *   TC-RLV-6  상태 등록부의 `run.views` 주기 (FR-RLV-7)
  */
-const ctx = load(['core/screens.js', 'ui/runs-panel.js', 'ui/run-view.js'], {
+const ctx = load(['core/screens.js', 'ui/runs-panel.js', 'ui/run-view.js', 'ui/run-tree.js', 'ui/run-tree-issues.js'], {
   globals: { t: (k) => k, panesOf: () => [], TIMERS: { cancel() {} } },
   expose: ['RunsPanel'],
 });

@@ -1,7 +1,7 @@
 import { execFileSync, spawn, spawnSync } from 'child_process';
 import { cpSync, createWriteStream, mkdirSync, rmSync, writeFileSync, WriteStream } from 'fs';
 import { connect } from 'net';
-import { join } from 'path';
+import { delimiter, join } from 'path';
 
 import { test as base, expect, Locator } from '@playwright/test';
 
@@ -262,6 +262,12 @@ export const test = base.extend<{ cleanTools: void }, { otterServer: DmServer }>
       // 같은 디렉터리에 쓰고, 그 쓰기가 인스턴스의 저장과 같은 자리에서 겹친다.
       const toolHome = home + '/tool-home';
       mkdirSync(toolHome, { recursive: true });
+      // UX_BATCH14_SRS FR-ITV-2: 이슈 트리의 gh 는 진짜 GitHub 으로 나가지 않는다 — PATH 앞자리에 늘 실패하는 gh 를 둔다.
+      // 막지 않으면 GitHub 꼴 트리 이름을 쓰는 스펙마다 이 PC 의 gh 계정으로 api.github.com 을 친다(OTTERMINAL_NO_UPDATE_CHECK 와 같은 취지).
+      const fakeBin = home + '/fake-bin';
+      mkdirSync(fakeBin, { recursive: true });
+      writeFileSync(fakeBin + '/gh', '#!/bin/sh\necho "gh is disabled in e2e" >&2\nexit 1\n', { mode: 0o755 });
+      writeFileSync(fakeBin + '/gh.cmd', '@echo gh is disabled in e2e 1>&2\r\n@exit /b 1\r\n');
 
       // 포트는 플래그로 준다 — 환경변수는 바인드를 정하지 않는다 (HOT_REBIND_SRS FR-HRB-1).
       const child = spawn(E2E_BIN, ['start', '--foreground', '--port', String(port)], {
@@ -269,6 +275,7 @@ export const test = base.extend<{ cleanTools: void }, { otterServer: DmServer }>
           ...hermeticEnv(),
           OTTERMINAL_HOME: home,
           OTTERMINAL_TOOL_HOME: toolHome,
+          PATH: fakeBin + delimiter + (process.env.PATH || ''),
         },
         // 서버의 말은 **모아 두었다가 실패했을 때만** 낸다. 그대로 흘리면 워커
         // 수만큼의 요청 로그가 리포터의 줄을 덮어, 무엇이 몇 개 실패했는지 로그만

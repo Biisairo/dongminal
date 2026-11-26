@@ -1,3 +1,7 @@
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+
 import { test, expect, waitForInit, JSON_HDR } from './fixtures';
 
 /**
@@ -234,4 +238,47 @@ test('TC-ITC-6: 트리 보기 영역의 맞춤·줌·패닝·미니맵·게이�
   await expect.poll(viewBox).not.toBe(dragged);
 
   await request.post('/api/runs/close', { headers: JSON_HDR, data: { runId: run.id, force: true } });
+});
+
+/**
+ * UX_BATCH14_SRS FR-ITV-5~11 (TC-UB14-9·11): 로컬 트리는 이슈 폴더의 이슈로 그린다. 에이전트가 붙은 이슈는
+ * 굵은 테두리, 나머지는 이슈 노드이고, 폴더가 바뀌면 다시 그린다. 배치는 왼쪽→오른쪽이다.
+ */
+test('TC-UB14-9: 로컬 트리는 이슈 폴더의 이슈를 그리고, 폴더가 바뀌면 따라 그린다', async ({ page, request }) => {
+  await waitForInit(page);
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'ub14-issues-')));
+  const issue = (id: string, title: string) => writeFileSync(join(dir, id + '-' + title + '.md'),
+    '---\nid: "' + id + '"\ntitle: ' + title + '\nstatus: todo\ndeps: []\nowner: ""\nbranch: ""\n---\n\n# ' + id + ' ' + title + '\n');
+  issue('1', 'root'); issue('1.1', 'a'); issue('1.2', 'b');
+  const a = await newTab(request);
+  await serverKnowsTab(request, a.uuid);
+  const run = await (await request.post('/api/runs', { headers: JSON_HDR,
+    data: { objective: 'local', projection: 'dedicated-window', tree: 'ub14:1', issueDir: dir } })).json();
+  expect(run.id, JSON.stringify(run)).toBeTruthy();
+  expect((await request.post('/api/runs/members', { headers: JSON_HDR,
+    data: { runId: run.id, role: '1.1', agent: 'claude', id: a.uuid, assign: { issue: '1.1' } } })).ok()).toBeTruthy();
+
+  if (!(await page.locator('#agents-panel.open').count())) await page.keyboard.press('Control+Shift+KeyO');
+  const row = page.locator(`#agents-panel .runs-row[data-runid="${run.id}"]`);
+  await expect(row).toBeVisible({ timeout: 10000 });
+  await row.click();
+  const tree = page.locator('#area .run-view.vis .run-tree.vis');
+  await expect(tree.locator('.run-tree-node.issue')).toHaveCount(2, { timeout: 10000 });
+  await expect(tree.locator('.run-tree-node.linked')).toHaveCount(1);
+  await expect(tree.locator('.run-tree-refresh')).toBeVisible();
+  // 왼쪽→오른쪽: 자식(1.1·1.2)은 루트(1)보다 오른쪽, 형제끼리는 위아래다.
+  const box = async (sel: string) => (await tree.locator(sel).first().locator('.run-tree-box').boundingBox())!;
+  const root = await box('.run-tree-node.issue[data-issue="1"]');
+  const kid = await box('.run-tree-node.linked');
+  const sib = await box('.run-tree-node.issue[data-issue="1.2"]');
+  expect(kid.x).toBeGreaterThan(root.x + root.width - 1);
+  expect(Math.abs(kid.x - sib.x)).toBeLessThanOrEqual(1);
+  expect(sib.y).toBeGreaterThan(kid.y);
+
+  // 폴더에 이슈가 생기면 감시 사건으로 다시 읽는다 (FR-ITV-5).
+  issue('1.3', 'c');
+  await expect(tree.locator('.run-tree-node.issue')).toHaveCount(3, { timeout: 15000 });
+
+  await request.post('/api/runs/close', { headers: JSON_HDR, data: { runId: run.id, force: true } });
+  rmSync(dir, { recursive: true, force: true });
 });

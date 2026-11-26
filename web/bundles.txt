@@ -400,6 +400,7 @@ js/ui/run-graph-fit.js
 js/ui/run-dashboard.js
 js/ui/run-tree-cam.js
 js/ui/run-tree.js
+js/ui/run-tree-issues.js
 js/ui/run-recover.js
 style-run-view.css
 
