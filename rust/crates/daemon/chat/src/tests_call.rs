@@ -36,6 +36,36 @@ fn call_must_name_room_member() {
     });
 }
 
+// FR-CUX-7: 넘기는 글은 부른 상대(call)를 그대로 싣는다. 지정이 없으면 비어 있다.
+#[test]
+fn delivered_message_carries_call() {
+    rt().block_on(async {
+        let a = new_test_node("a");
+        let pa = a.register("a/x", KIND_AGENT);
+        let pb = a.register("a/y", KIND_AGENT);
+        let pc = a.register("a/z", KIND_AGENT);
+        let room = a.create(&pa.id, "r", "").unwrap();
+        a.join(&pb.id, &room.id).unwrap();
+        a.join(&pc.id, &room.id).unwrap();
+        a.send_call(
+            &pa.id,
+            &room.id,
+            "to-b",
+            &[pb.id.clone(), CALL_USER.to_string()],
+        )
+        .unwrap();
+        a.send(&pa.id, &room.id, "plain").unwrap();
+        eventually("모두 받는다", || a.deliveries(&pc.id).len() == 2).await;
+        let got = a.deliveries(&pc.id);
+        let call_of = |t: &str| got.iter().find(|m| m.text == t).map(|m| m.call.clone());
+        assert_eq!(
+            call_of("to-b"),
+            Some(vec![pb.id.clone(), CALL_USER.to_string()])
+        );
+        assert_eq!(call_of("plain"), Some(Vec::new()));
+    });
+}
+
 // FR-CAL-3 ②③: 에이전트 글은 지정한 상대만, 사람 글은 지정이 없으면 방의 모든 에이전트를 부른다.
 #[test]
 fn called_rules_in_group() {

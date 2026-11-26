@@ -76,6 +76,8 @@ pub struct Message {
     pub at: OffsetDateTime,
     pub epoch: i64,
     pub seq: u64,
+    /// 부른 상대다 (ISSUE_TREE_CHAT_SRS FR-CUX-7). 화면이 `@<이름>` 을 그린다.
+    pub call: Vec<String>,
     /// 받는 참가자를 부른 글인가 (ISSUE_TREE_CHAT_SRS FR-CAL-3·4). 받는 노드가 참가자마다 정한다.
     pub called: bool,
 }
@@ -737,6 +739,7 @@ impl Service {
                     at: b.at,
                     epoch: b.epoch,
                     seq: b.seq,
+                    call: b.call.clone(),
                     called: is_called(&rk, kind, &b.call, &q.p.id, &q.p.kind),
                 },
             })

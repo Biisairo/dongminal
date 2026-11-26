@@ -17,14 +17,15 @@ function chatMarkdown(){
   if(chatMD) return chatMD;
   chatMD=markdownit({html:false,linkify:true,breaks:true});
   const esc=chatMD.utils.escapeHtml;
-  chatMD.renderer.rules.fence=(tokens,idx)=>{
+  // 코드 블록은 가로로 스크롤하므로 킷 스크롤바를 만드는 자리에서 단다 (FR-KIT-11).
+  chatMD.renderer.rules.fence=chatMD.renderer.rules.code_block=(tokens,idx)=>{
     const tok=tokens[idx];
     const lang=(tok.info||'').trim().split(/\s+/)[0];
     const known=lang&&typeof hljs!=='undefined'&&hljs.getLanguage(lang);
     const attr=lang?' data-lang="'+esc(lang)+'"':'';
     // hljs 는 자기 출력에서 escape 를 한다.
     const body=known?hljs.highlight(tok.content,{language:lang,ignoreIllegals:true}).value:esc(tok.content);
-    return '<pre class="chat-code"'+attr+'><code'+(known?' class="hljs"':'')+'>'+body+'</code></pre>\n';
+    return '<pre class="chat-code ui-scroll-sm"'+attr+'><code'+(known?' class="hljs"':'')+'>'+body+'</code></pre>\n';
   };
   return chatMD;
 }

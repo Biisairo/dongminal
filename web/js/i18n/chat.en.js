@@ -13,6 +13,7 @@ I18N.register('en', {
   'chat.input_ph': 'Enter sends, Shift+Enter adds a line.',
   'chat.not_joined': 'You are not in this room.',
   'chat.gone': 'This room is gone.',
+  'chat.agent': 'agent',
   'chat.people': 'People',
   'chat.kill': 'Force delete',
   'chat.kick': 'Kick',

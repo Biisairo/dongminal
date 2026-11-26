@@ -599,10 +599,10 @@ fn send_call_maps_tool_id() {
             .is_none()
     );
     assert!(!b.next(chatwire::TYPE_MSG).msg.unwrap().called);
-    assert!(
-        c.next(chatwire::TYPE_MSG).msg.unwrap().called,
-        "참가자 id 로 부른 c"
-    );
+    let mc = c.next(chatwire::TYPE_MSG).msg.unwrap();
+    assert!(mc.called, "참가자 id 로 부른 c");
+    // FR-CUX-7: 받은 글은 부른 상대를 싣는다.
+    assert_eq!(mc.call, vec![hc.id.clone()]);
 
     assert!(
         send_with(&mut a, &room.id, "to-user", &["user"])

@@ -60,6 +60,24 @@ fn scanner_max_line_boundary() {
     assert!(matches!(sc.err(), Some(ScanError::TooLong)));
 }
 
+// ISSUE_TREE_CHAT_SRS FR-CUX-7: 글은 부른 상대(call)를 싣는다. 비면 키가 없다 — 옛 형식과 같다.
+#[test]
+fn message_carries_call() {
+    let m = Message {
+        call: vec!["p1".into(), "user".into()],
+        called: true,
+        ..Default::default()
+    };
+    let s = String::from_utf8(json::marshal(&m).unwrap()).unwrap();
+    assert!(
+        s.ends_with(r#","call":["p1","user"],"called":true}"#),
+        "{s}"
+    );
+    assert_eq!(json::unmarshal::<Message>(s.as_bytes()).unwrap(), m);
+    let plain = String::from_utf8(json::marshal(&Message::default()).unwrap()).unwrap();
+    assert!(!plain.contains("\"call\""), "{plain}");
+}
+
 // ISSUE_TREE_CHAT_SRS FR-CAL-1·4·5: 지정(call)·부른 글(called)·알림 단계(notify)의 와이어 모양.
 #[test]
 fn call_called_notify_wire() {

@@ -5,7 +5,8 @@
  * 뷰는 `slotKey(탭 id, 칸)` 마다 하나이고 탭보다 오래 살지 않는다 (`runViewEl` 과 같은 규약).
  * 대화는 `ChatStore` 에만 있다 — 새로고침하면 사라진다.
  *
- * 망에서 온 문자열은 모두 `textContent` 로만 그린다. HTML 로 넣지 않는다.
+ * 망에서 온 문자열은 `textContent` 로 그린다. 글 본문만 마크다운이며 `chatMdFragment`(원시 HTML 끔 · DOMPurify)를 지난다
+ * (ISSUE_TREE_CHAT_SRS FR-CUX-8). 보낸 이 묶음·날짜 구분선·부른 글 표시는 `chat-log.js` 가 정한다 (FR-CUX-1~7).
  *
  * `ChatViews` 는 `ChatController` 의 부품이다(`chat.views`, REFACTOR3_FE_APPCTL_SRS 9c). 옛 `ui/chat-view.js` 는 App 의
  * 내부(`this.app._chat*`)를 부르므로 계층 게이트(`check-layer.sh`)에 맞춰 `core/` 로 옮겼다.
@@ -171,25 +172,38 @@ class ChatViews extends Controller {
   /** 그린 글 뒤에 새 글만 붙인다. 앞이 잘렸으면(방별 상한) 다시 그린다. */
   _chatLogPaint(v,meId){
     const list=this.app.chat._chatS().list(v.roomId);
+    const r=this.app.chat._chatRoom(v.roomId),people=(r&&r.people)||[];
     const same=v.drawn.length<=list.length&&v.drawn.every((m,i)=>m===list[i]);
     const atEnd=v.log.scrollHeight-v.log.scrollTop-v.log.clientHeight<4;
     if(!same){ v.log.replaceChildren(); v.drawn=[] }
     for(let i=v.drawn.length;i<list.length;i++){
-      v.log.appendChild(this._chatMsgEl(list[i],meId));
-      v.drawn.push(list[i]);
+      const m=list[i],place=chatMsgPlace(v.drawn[i-1]||null,m);
+      if(place.day) v.log.appendChild(domEl('div','chat-day',chatDayLabel(m.at)));
+      v.log.appendChild(this._chatMsgEl(m,meId,place,people));
+      v.drawn.push(m);
     }
     if(atEnd||!same) v.log.scrollTop=v.log.scrollHeight;
   }
 
-  _chatMsgEl(m,meId){
-    const mine=m.from&&m.from===meId;
-    const d=domEl('div','chat-msg'+(mine?' mine':'')+(m.fromKind==='user'?' human':''));
-    const who=domEl('div','chat-msg-who');
-    const name=domEl('span','chat-msg-name',m.fromLabel||chatShortId(m.from));
-    if(!mine) name.addEventListener('contextmenu',e=>this.app.chat.human._chatAuthorCtx(m,e));
-    who.append(name,
-      domEl('span','chat-msg-meta',(m.fromKind==='user'?t('chat.human')+' · ':'')+chatShortId(m.from)+' · '+chatClock(m.at)));
-    d.append(who,domEl('div','chat-msg-text',m.text||''));
+  _chatMsgEl(m,meId,place,people){
+    const mine=m.from&&m.from===meId,human=m.fromKind==='user';
+    const d=domEl('div','chat-msg'+(mine?' mine':'')+(human?' human':'')+(place.head?' head':'')+(m.called?' called':''));
+    if(place.head){
+      const label=m.fromLabel||chatShortId(m.from);
+      const who=domEl('div','chat-msg-who');
+      const name=domEl('span','chat-msg-name',label);
+      name.title=label+' · '+chatShortId(m.from);
+      if(!mine) name.addEventListener('contextmenu',e=>this.app.chat.human._chatAuthorCtx(m,e));
+      who.append(domEl('span','chat-avatar',chatInitial(label)),name,
+        domEl('span','chat-msg-kind',t(human?'chat.human':'chat.agent')),domEl('span','chat-msg-meta',chatClock(m.at)));
+      d.append(who);
+    }
+    const tags=chatCallTags(m,meId,people);
+    if(tags.length) d.append(domEl('div','chat-msg-call',tags.join(' ')));
+    const body=domEl('div','chat-msg-text');
+    if(chatMdReady()){ body.classList.add('chat-md'); body.append(chatMdFragment(m.text)) }
+    else body.textContent=m.text||'';
+    d.append(body);
     return d;
   }
 }

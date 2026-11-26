@@ -18,20 +18,25 @@ function ctxWith(globals = {}) {
 test('TC-ITH-9 코드 울타리는 <pre> 이고, 아는 언어는 강조하며 언어를 싣는다', () => {
   const ctx = ctxWith();
   const html = ctx.chatMdHtml('\x60\x60\x60js\nconst a = 1;\n\x60\x60\x60');
-  assert.match(html, /^<pre class="chat-code" data-lang="js"><code class="hljs">/);
+  assert.match(html, /^<pre class="chat-code ui-scroll-sm" data-lang="js"><code class="hljs">/);
   assert.match(html, /<span class="hljs-keyword">const<\/span>/);
 });
 
 test('TC-ITH-9 모르는 언어는 색 없이 글자로 내되 언어는 싣는다', () => {
   const ctx = ctxWith();
   const html = ctx.chatMdHtml('\x60\x60\x60nolang"x\n<b>a</b>\n\x60\x60\x60');
-  assert.match(html, /^<pre class="chat-code" data-lang="nolang&quot;x"><code>&lt;b&gt;a&lt;\/b&gt;\n<\/code><\/pre>/);
+  assert.match(html, /^<pre class="chat-code ui-scroll-sm" data-lang="nolang&quot;x"><code>&lt;b&gt;a&lt;\/b&gt;\n<\/code><\/pre>/);
   assert.doesNotMatch(html, /hljs-/);
 });
 
 test('TC-ITH-9 언어 없는 울타리도 <pre> 다', () => {
   const ctx = ctxWith();
-  assert.match(ctx.chatMdHtml('\x60\x60\x60\nx < y\n\x60\x60\x60'), /^<pre class="chat-code"><code>x &lt; y\n<\/code><\/pre>/);
+  assert.match(ctx.chatMdHtml('\x60\x60\x60\nx < y\n\x60\x60\x60'), /^<pre class="chat-code ui-scroll-sm"><code>x &lt; y\n<\/code><\/pre>/);
+});
+
+test('TC-ITH-9 들여 쓴 코드도 같은 <pre> 다', () => {
+  const ctx = ctxWith();
+  assert.match(ctx.chatMdHtml('    a < b'), /^<pre class="chat-code ui-scroll-sm"><code>a &lt; b\n<\/code><\/pre>/);
 });
 
 test('TC-ITH-9 원시 HTML 은 글자로 나오고 <script> 요소는 없다', () => {
@@ -72,7 +77,7 @@ test('TC-ITH-11 마크다운·강조 라이브러리는 채팅 지연 묶음의 
   assert.ok(!js('docrender').includes('vendor/highlight.js'), '한 파일은 한 묶음에만 둔다');
   assert.ok(js('chat').indexOf('js/core/chat-md.js') < js('chat').indexOf('js/core/chat-views.js'));
   const src = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
-  assert.match(src('core/chat-controller.js'), /Screens\.register\('chat', \{[^}]*needs: \['mdlib', 'hljs'\]/);
+  assert.match(src('core/chat-controller.js'), /Screens\.register\('chat', \{[^}]*css: true, needs: \['mdlib', 'hljs'\]/);
   assert.match(src('core/editor-doc-render.js'), /Screens\.register\('docrender', \{[^}]*needs: \['mdlib', 'hljs'\]/);
   assert.match(src('core/screens.js'), /Screens\.register\('hljs'\);/);
 });

@@ -14,6 +14,7 @@ I18N.register('ko', {
   'chat.input_ph': 'Enter 로 보내고 Shift+Enter 로 줄을 바꿉니다.',
   'chat.not_joined': '이 방에 들어가 있지 않습니다.',
   'chat.gone': '방이 사라졌습니다.',
+  'chat.agent': '에이전트',
   'chat.people': '참가자',
   'chat.kill': '강제 삭제',
   'chat.kick': '강퇴',

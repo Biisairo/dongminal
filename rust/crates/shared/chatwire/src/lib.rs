@@ -132,6 +132,9 @@ pub struct Message {
     pub node: String,
     pub text: String,
     pub at: i64,
+    /// 부른 상대(참가자 id 또는 user)다 (ISSUE_TREE_CHAT_SRS FR-CUX-7). 비면 싣지 않는다 — 옛 형식과 같다.
+    #[serde(skip_serializing_if = "json::is_empty")]
+    pub call: Vec<String>,
     /// 받는 참가자를 부른 글인가다 (FR-CAL-4). 거짓이면 싣지 않는다 — 옛 형식과 같다.
     #[serde(skip_serializing_if = "json::is_empty")]
     pub called: bool,

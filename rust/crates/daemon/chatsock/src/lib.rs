@@ -462,6 +462,7 @@ impl Server {
             from_kind: m.from_kind,
             node: m.node,
             text: m.text,
+            call: m.call,
             called: m.called,
             at: i64::try_from(m.at.unix_timestamp_nanos().div_euclid(1_000_000))
                 .unwrap_or(i64::MAX),
