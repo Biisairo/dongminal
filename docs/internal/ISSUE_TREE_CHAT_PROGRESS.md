@@ -1,6 +1,6 @@
 # 채팅 고도화·이슈트리 채팅 진행 문서 — 착수 블록 포함
 
-- 작성: 2026-11-26, 기능 추가 첫 세션(인터뷰·SRS·묶음 A 1단계)이 다음 세션에게 넘긴다.
+- 작성: 2026-11-26, 기능 추가 첫 세션(인터뷰·SRS·묶음 A 1단계)이 다음 세션에게 넘긴다. 마지막 갱신: 채팅토픽-T3 세션(T-3~T-6·I-24·L-1·L-2, 맥락 기준으로 L-3 앞에서 넘김).
 - 요구·결정의 원본은 `docs/internal/ISSUE_TREE_CHAT_SRS.md` 다. 이 문서는 진행 상태와 이 세션이 배운 것만 담는다. 문서와 코드가 다르면 코드가 기준이다.
 
 ## 착수 블록 — 다음 세션의 지시 전부
@@ -78,6 +78,13 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | L-2 원본 폴더를 Run 에 기록하고 명령이 Run 멤버 배정으로 찾는다(FR-LIS-7). `/api/runs/tree`·대시보드가 로컬 트리를 같은 모양으로, 보관 방식을 싣는다(FR-LIS-16·17, TC-ITH-16) | 끝남 (결정 I-26) — Run `issueDir`, `otterctl run start --tree <별칭>:<ID> --issue-dir <폴더>`, `GET /api/runs/issues`, `otterctl issue resolve`, `--dir` 없는 `otterctl issue`. 시험: run 도메인 1 · httpapi 3 · otterctl 3 · issuefile 1 |
 | L-3 `/otterminal:issue-tree` 의 보관 방식·실행 방식 인자(FR-LIS-1·2)와 local+tree·coord 절차, 일꾼 규칙 주입(FR-LIS-9~15·18) | 남음 |
 | L-4 시범: local+coord · local+tree 를 한 번씩 끝까지(TC-ITH-17, 묶음 C 와 함께) | 남음 |
+
+#### L-3 설계 메모 (이 세션이 조사한 것, 코드가 기준)
+
+- 명령 문서: `rust/crates/shared/runtime/assets/agentplugin/commands/issue-tree.md`(512줄). 절: 역할·절대 원칙·식별자·이름·이슈 규약·이슈 접근 규칙(권한·설정 점검·하위 만들기)·발사대 절차 0~6·노드 띄우기·노드 절차 1~6(맥락 판단·선행 이슈)·잎 노드의 일·트리 종료 1~5·하지 않는 것. 모두 GitHub(gh GraphQL) 전제다. 설치 목록은 `shared/runtime/src/assets.rs`, 시험 `shared/runtime/src/tests.rs`(파일 목록 :162). commands/ 의 파일은 곧 슬래시 명령이므로 새 절차는 **issue-tree.md 안의 절**로 둔다(새 파일을 만들면 명령이 하나 더 생긴다).
+- 프리앰블: `webserver/domain/run/src/preamble.rs` 의 `tree_preamble`(문서 경로 `TreeContext.doc_path` 를 먼저 읽으라고 한다)과 `TREE_OPS`(GitHub 이슈 운영 규약 문장). 로컬 트리면 이 규약이 맞지 않는다 — Run 의 `issue_dir`(L-2) 로 갈라 `otterctl issue` 판 규약을 넣는다. 일꾼 규칙(FR-LIS-14)도 여기로 주입한다. 프리앰블 문장은 Go 비교 시험(`domain/run/tests/go_parity.rs`·`httpapi/src/tests/golden_554.rs`)이 잡을 수 있다 — GitHub 트리 문장은 그대로 두고 로컬일 때만 다른 줄을 낸다.
+- 할 일: ① 인자 `<이슈: owner/repo#N | URL | #N | <폴더>#<ID>> [--mode tree|coord]` 와 판정(`otterctl issue resolve`), 네 조합 표(FR-LIS-1·2). ② 로컬 대응표: 읽기 `otterctl issue show/tree`, 부모 = ID 마지막 조각 뗌, 하위 만들기 `otterctl issue new`, 순서 = ID 차례, 착수 `set --status in-progress`(ready 거침), 끝 `review→done`, 막힘 `blocked --reason`, 「이슈 접근 규칙」 은 건너뜀, 트리 표지 `<별칭>:<ID>`, `run start --tree <별칭>:<ID> --issue-dir <폴더>`, 노드 배정 `--issue <별칭>:<ID>`(FR-LIS-15·16). ③ coord 절(FR-LIS-9~13·18, R-7): 조정자 = 실행 세션, 통합 브랜치·통합 worktree(원본 폴더가 그 안), ready 마다 일꾼(이슈 worktree, 브랜치 `<별칭>/<ID>`), 동시 수는 디스크·크기로 판단(상한 없음, `rust/target/debug/incremental` 정리), review 확인 → `--no-ff` 병합 → done, 사용자 브랜치 병합·push 는 확인 뒤. github+coord 의 ready 는 §10 A-6(blocked by + 열림/닫힘 + Run 멤버 상태). ④ 일꾼 규칙(FR-LIS-11·12·14): 상태는 원본만(`otterctl issue`), 시험 먼저, 막히면 blocked, 문서와 코드가 다르면 기록, 하위 만들면 split 후 조정자에게 알림, 다른 에이전트를 띄우지 않음, 커밋이 막히면 메시지를 파일로 남김(FEATURE_DEV_RULES §6 의 교훈과 같음). 통신은 지금 `otterctl msg` 로 쓰고, 묶음 C 가 트리 방으로 바꾼다(FR-ITR-4).
+- 시험(TC-ITH-17 의 문장 확인): 문서에 필수 문장(네 조합·`otterctl issue`·coord 절·일꾼 규칙)이 있는지 `shared/runtime` 시험으로, 로컬 프리앰블 줄은 `domain/run` 시험으로 잰다.
 
 ### 그 뒤
 
