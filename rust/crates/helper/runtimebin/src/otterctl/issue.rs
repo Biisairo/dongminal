@@ -1,12 +1,19 @@
 //! `otterctl issue <sub>` — 로컬 이슈 폴더 (ISSUE_TREE_CHAT_SRS FR-LIS-6~8). 파일 규칙은 issuefile crate 한 벌이다.
-//! 명령은 원본 폴더만 고친다 (FR-LIS-7). 폴더는 `--dir` 로 받는다.
+//! 명령은 원본 폴더만 고친다 (FR-LIS-7). 폴더는 `--dir` 로 받고, 없으면 부르는 탭의 Run 이 기록한 원본 폴더다.
 
 use std::path::PathBuf;
 
 use otter_shared_issuefile::{self as issuefile, Change, Dir, Status};
 
+use otter_gocompat::json;
+use otter_shared_apipath as apipath;
+use serde::Deserialize;
+
+use super::runhttp::run_get;
+use super::whoami::encode_query;
 use crate::ctx::{Ctx, errf, outf};
 use crate::helptext::OTTERCTL_ISSUE_HELP;
+use crate::http::self_tool_id;
 
 /// 새 폴더의 안내 파일 (FR-LIS-6 `init`).
 const README: &str = "# 이슈
@@ -111,11 +118,18 @@ pub(crate) fn run_otterctl_issue(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
                 .map(|()| String::new()),
         );
     }
-    if f.dir.is_empty() {
-        errf!(ctx, "issue: 이슈 폴더를 모른다 — --dir <폴더> 를 준다\n");
-        return 2;
+    if sub == "resolve" {
+        return resolve(ctx, &f.pos);
     }
-    let d = Dir::new(PathBuf::from(&f.dir));
+    let dir = if f.dir.is_empty() {
+        match run_issue_dir(ctx) {
+            Ok(d) => d,
+            Err(code) => return code,
+        }
+    } else {
+        f.dir.clone()
+    };
+    let d = Dir::new(PathBuf::from(&dir));
     match sub.as_str() {
         "tree" => {
             if let Some(s) = f.pos.iter().find(|s| Status::parse(s).is_none()) {
@@ -204,6 +218,48 @@ pub(crate) fn run_otterctl_issue(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
             2
         }
     }
+}
+
+/// `<폴더>#<ID>` 를 판정한다 (FR-LIS-2). 로컬이면 `local\t<폴더>\t<ID>\t<별칭>:<ID>`, 아니면 `github\t<인자>`.
+fn resolve(ctx: &mut Ctx<'_>, pos: &[String]) -> i32 {
+    let [arg] = pos else {
+        errf!(ctx, "issue resolve: <폴더>#<ID> 하나를 준다\n");
+        return 2;
+    };
+    let cwd = std::env::current_dir().unwrap_or_default();
+    match issuefile::resolve_arg(arg, &cwd) {
+        Some((dir, id)) => {
+            let tree = issuefile::local_tree_ref(&dir, &id);
+            outf!(ctx, "local\t{}\t{id}\t{tree}\n", dir.display());
+        }
+        None => outf!(ctx, "github\t{arg}\n"),
+    }
+    0
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default, rename_all = "camelCase")]
+struct RunIssues {
+    issue_dir: String,
+}
+
+/// 부르는 탭의 Run 이 기록한 원본 이슈 폴더 (FR-LIS-7).
+fn run_issue_dir(ctx: &mut Ctx<'_>) -> Result<String, i32> {
+    let id = self_tool_id(ctx.env);
+    let mut path = apipath::RUNS_ISSUES.to_owned();
+    if !id.is_empty() {
+        path += &format!("?{}", encode_query(&[("toolId", &id)]));
+    }
+    let raw = run_get(ctx, &path)?;
+    let got: RunIssues = json::unmarshal(&raw).unwrap_or_default();
+    if got.issue_dir.is_empty() {
+        errf!(
+            ctx,
+            "issue: 이 Run 은 로컬 이슈 트리가 아니다 — --dir <폴더> 를 준다\n"
+        );
+        return Err(2);
+    }
+    Ok(got.issue_dir)
 }
 
 fn done(ctx: &mut Ctx<'_>, r: Result<String, issuefile::Error>) -> i32 {

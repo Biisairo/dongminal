@@ -337,3 +337,28 @@ fn init_and_alias() {
     assert_eq!(alias(&t.path().join("perf").join("issues")), "perf");
     assert_eq!(alias(&t.path().join("trees").join("chat")), "chat");
 }
+
+/// FR-LIS-2·16 (TC-ITH-16): `<이슈 폴더>#<ID>` 는 폴더가 있으면 로컬이고, 트리 이름은 `<별칭>:<ID>` 다.
+#[test]
+fn resolve_args_and_local_refs() {
+    let t = tempfile::tempdir().unwrap();
+    let dir = t.path().join("docs").join("perf").join("issues");
+    std::fs::create_dir_all(&dir).unwrap();
+    let got = resolve_arg("docs/perf/issues#2.1", t.path()).unwrap();
+    assert_eq!(got.0, dir);
+    assert_eq!(got.1, "2.1");
+    assert_eq!(local_tree_ref(&got.0, &got.1), "perf:2.1");
+    let abs = format!("{}#3", dir.display());
+    assert_eq!(resolve_arg(&abs, std::path::Path::new("/")).unwrap().1, "3");
+    assert_eq!(
+        resolve_arg("owner/repo#12", t.path()),
+        None,
+        "폴더가 없으면 GitHub 이다"
+    );
+    assert_eq!(resolve_arg("docs/perf/issues#bad-id", t.path()), None);
+    assert_eq!(resolve_arg("docs/perf/issues", t.path()), None);
+    assert!(is_local_tree_ref("perf:2.1") && is_local_tree_ref("my-trees:a1"));
+    for bad in ["o/r#1", "perf:", ":1", "perf:1-2", "a b:1", "perf"] {
+        assert!(!is_local_tree_ref(bad), "{bad}");
+    }
+}

@@ -68,6 +68,7 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         post("/api/runs/coordinate", h!(api_run_coordinate)),
         post("/api/runs/recover", h!(api_run_recover)),
         get("/api/runs/tree", h!(api_runs_tree)),
+        get("/api/runs/issues", h!(api_run_issues)),
         post("/api/runs/context", h!(api_run_context)),
         post("/api/tools/headless", h!(api_tools_headless)),
         post("/api/tools/kill", h!(api_tool_kill)),

@@ -8,7 +8,7 @@
 1. 이 문서를 끝까지 읽는다.
 2. 먼저 읽는다: `docs/internal/FEATURE_DEV_RULES.md`(규칙 전부, 특히 §3 설계 규칙·§4 시험·§5 운영 보호), `docs/internal/ISSUE_TREE_CHAT_SRS.md`(§3.1 묶음 A, §4 결정, §10 가정 — 모두 사용자 승인됨).
 3. 저장소 상태 확인: 브랜치 `feature`, 직전 코드 커밋 `9cdafa44`. `git status` 가 깨끗해야 한다. main 은 origin/main 보다 2 커밋 앞(push 전), feature 는 main 보다 6 커밋 앞(착수 문서 · SRS · A1 · 진행 문서 · A1 와이어·소켓 · 진행 문서 갱신).
-4. §2 의 묶음 T 표에서 묶음 T 의 코드(T-1~T-6)는 끝났다. T-7 실측(TC-ITH-14)은 사용자가 다음에 운영 바이너리를 바꿀 때 한꺼번에 한다(사용자 결정 2026-11-26 — 지금 연결된 운영 봇을 쓴다). §2 의 묶음 L 표에서 "남음" 인 첫 단계(L-2)부터 이어 간다. 텔레그램 구조는 결정 I-19~I-23 과 `telegram/src/bridge/mirror.rs`·`post.rs`·`inbox.rs` 에 있다. 단계마다 시험 먼저(RED 확인) → 구현(GREEN) → fmt·clippy·관련 게이트.
+4. §2 의 묶음 T 표에서 묶음 T 의 코드(T-1~T-6)는 끝났다. T-7 실측(TC-ITH-14)은 사용자가 다음에 운영 바이너리를 바꿀 때 한꺼번에 한다(사용자 결정 2026-11-26 — 지금 연결된 운영 봇을 쓴다). §2 의 묶음 L 표에서 "남음" 인 첫 단계(L-3)부터 이어 간다. 텔레그램 구조는 결정 I-19~I-23 과 `telegram/src/bridge/mirror.rs`·`post.rs`·`inbox.rs` 에 있다. 단계마다 시험 먼저(RED 확인) → 구현(GREEN) → fmt·clippy·관련 게이트.
 5. 커밋은 단계마다 스스로 한다(사용자 지시 2026-11-26, AI 서명 금지). main 병합·push 는 사용자의 분명한 지시가 있을 때만.
 6. 운영 바이너리 재빌드는 하지 않았다(운영 보호 §5). 사용자에게 보고했다. 사용자가 정할 때까지 빌드하지 않는다.
 
@@ -75,7 +75,7 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | 단계 | 상태 |
 |---|---|
 | L-1 이슈 파일 한 벌과 `otterctl issue`(init·tree·show·new·set·log, `--dir`)(FR-LIS-3~6·8, TC-ITH-15) | 끝남 (결정 I-25) — 새 crate `rust/crates/shared/issuefile`(`Dir`·`Issue`·`Status`·`transition_ok`·`is_ready`·`alias`), `runtimebin/src/otterctl/issue.rs`, 도움말 `OTTERCTL_ISSUE_HELP`, commands.md 한 줄. 시험: issuefile 12 · otterctl 4 |
-| L-2 원본 폴더를 Run 에 기록하고 명령이 Run 멤버 배정으로 찾는다(FR-LIS-7). `/api/runs/tree`·대시보드가 로컬 트리를 같은 모양으로, 보관 방식을 싣는다(FR-LIS-16·17, TC-ITH-16) | 남음 |
+| L-2 원본 폴더를 Run 에 기록하고 명령이 Run 멤버 배정으로 찾는다(FR-LIS-7). `/api/runs/tree`·대시보드가 로컬 트리를 같은 모양으로, 보관 방식을 싣는다(FR-LIS-16·17, TC-ITH-16) | 끝남 (결정 I-26) — Run `issueDir`, `otterctl run start --tree <별칭>:<ID> --issue-dir <폴더>`, `GET /api/runs/issues`, `otterctl issue resolve`, `--dir` 없는 `otterctl issue`. 시험: run 도메인 1 · httpapi 3 · otterctl 3 · issuefile 1 |
 | L-3 `/otterminal:issue-tree` 의 보관 방식·실행 방식 인자(FR-LIS-1·2)와 local+tree·coord 절차, 일꾼 규칙 주입(FR-LIS-9~15·18) | 남음 |
 | L-4 시범: local+coord · local+tree 를 한 번씩 끝까지(TC-ITH-17, 묶음 C 와 함께) | 남음 |
 
@@ -112,6 +112,7 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | I-23 | 토픽 없음(FR-TGT-11)은 Bot API 400 의 설명에 `message thread not found`·`TOPIC_ID_INVALID`·`TOPIC_DELETED` 가 든 것이다. 글 올리기에서 나면 짝을 지우고 맞추기로 다시 만든 뒤 그 조각부터 **한 번만** 다시 보낸다. 거울 맞추기의 `editForumTopic`·`editMessageText` 에서 나면 짝을 지우고 그 방의 토픽을 다시 만든다. `send_alarm` 은 이 오류를 되풀이해 보내지 않는다(알림은 토픽 밖이라 이 오류가 나지 않는다) | 같은 글이 끝없이 토픽을 만들지 않게 한다 |
 | I-24 | 텔레그램 토픽에서 쓴 글은 PC 채팅 창에도 **내 글**로 보인다(사용자 결정 2026-11-26). 서버 `TelegramHost::chat_send` 가 성공하면 데몬 `state` 로 나를 읽어 `chat_message`(id `tg-<나노초>`, 보낸 이 = 나, 시각 = 서버 지금, call 그대로)를 웹에 방송한다. 웹 `_onChatMessage` 는 보낸 이가 나인 글을 읽은 글로 넣고 알람을 울리지 않는다. 텔레그램에는 되올리지 않는다 | 데몬은 보낸 이에게 글을 되밀지 않고, 사람 쪽 대화는 브라우저 메모리에만 있다 |
 | I-25 | 이슈 파일은 `shared/issuefile` 한 벌이다(otterctl 과 서버 트리가 같이 쓴다). 머리말은 perf 이슈 모양 그대로 다시 쓴다(id·owner 는 따옴표, deps 는 JSON 배열, branch 가 비면 `""`). ID 는 영문·숫자 조각을 점으로 잇는다. 같은 상태로의 set 은 허용(바뀌지 않음). `→blocked` 는 끝나지 않은 상태(todo·ready·in-progress·review)에서만, 이유는 진행 기록에 `<날짜>:\nblocked — <이유>` 로 남긴다. `tree` 는 시작할 수 있는 todo 를 ready 로 보이고 거르기도 그 값으로 한다. 쓰기는 폴더의 `.issue.lock`(10초) 아래에서 읽기 → 검사 → 렌더 뒤 다시 읽어 검사 → `write_file_atomic`. 파일 이름은 `<ID>-<제목 슬러그(40자)>.md` 이고 읽을 때 id 로 시작하는지 본다. 메인 도움말은 Go 골든이라 바꾸지 않고 `otterctl issue --help` 만 둔다 | FR-LIS-3~8 |
+| I-26 | 로컬 트리(FR-LIS-7·16·17): Run 기록에 `issueDir`(절대 경로, 트리와 함께만, 가지 Run 은 비우면 열린 루트의 것을 잇는다). 트리 표지는 `<별칭>:<ID>`(별칭 = 영문·숫자·`-_.`). `otterctl run start` 는 `--issue-dir` 가 있으면 표지가 로컬 꼴인지와 폴더가 있는지 본다. 새 종단 `GET /api/runs/issues?toolId=` 은 부르는 도구가 멤버이거나 조율하는 열린 Run 의 `runId·tree·storage(local|github)·issueDir` 을 내고, 아니면 403 `sender_not_member`. `otterctl issue` 는 `--dir` 이 없으면 이것을 쓰고, github 이면 2 로 끝난다. `GET /api/runs/tree` 는 로컬일 때만 `storage:"local"`·`issueDir` 를 싣는다 — GitHub 트리 응답은 Go 골든 모양 그대로다(키 없음 = github). 대시보드는 표지 문자열로 트리를 읽으므로 바꾸지 않았다. `otterctl issue resolve <폴더>#<ID>` 는 `local\t<폴더>\t<ID>\t<별칭>:<ID>` 또는 `github\t<인자>` 를 낸다(FR-LIS-2 판정). 메인·run 도움말은 Go 골든이라 `otterctl issue --help` 에만 적었다 | Go 골든을 깨지 않는다 |
 | I-9 | 웹 알람의 단계는 `state` 의 방 `notify` 로 판정하고, 알람은 `ChatStore` 에 방마다 둔다. 방 탭이 보이면 안 읽은 수와 함께 꺼진다 | FR-CAL-15·16 |
 
 ## 4. 이 세션이 값을 치르고 배운 것

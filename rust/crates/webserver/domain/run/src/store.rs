@@ -84,6 +84,8 @@ pub struct StartOptions {
     pub worktree: Option<Worktree>,
     pub tree: String,
     pub tree_branch: bool,
+    /// 로컬 이슈 트리의 원본 이슈 폴더. 트리와 함께만 받는다. 가지 Run 은 비워 두면 루트의 것을 잇는다 (FR-LIS-7).
+    pub issue_dir: String,
 }
 
 /// 멤버를 더하는 값.
@@ -321,6 +323,16 @@ impl Store {
         if !tree.is_empty() {
             check_tree(&g.runs, &tree, opt.tree_branch)?;
         }
+        let mut issue_dir = opt.issue_dir.trim().to_owned();
+        if tree.is_empty() && !issue_dir.is_empty() {
+            return Err(Error::invalid("issueDir 는 tree 와 함께 쓴다"));
+        }
+        if issue_dir.is_empty() && opt.tree_branch {
+            issue_dir = open_tree_runs(&g.runs, &tree)
+                .find(|r| !r.tree_branch)
+                .map(|r| r.issue_dir.clone())
+                .unwrap_or_default();
+        }
         let mut id = opt.id.trim().to_owned();
         if id.is_empty() {
             id = self.new_id();
@@ -340,6 +352,7 @@ impl Store {
             worktree: opt.worktree,
             tree_branch: !tree.is_empty() && opt.tree_branch,
             tree,
+            issue_dir,
             created_at: self.now(),
             ..Record::default()
         };

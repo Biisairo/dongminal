@@ -345,6 +345,43 @@ pub fn alias(dir: &Path) -> String {
     n
 }
 
+/// 로컬 트리 이름의 나눔 (FR-LIS-16): `<별칭>:<ID>`.
+pub const TREE_REF_SEP: char = ':';
+/// 이슈 인자의 나눔 (FR-LIS-2): `<이슈 폴더>#<ID>`.
+pub const ARG_SEP: char = '#';
+
+/// 로컬 트리의 이름 `<별칭>:<ID>` (FR-LIS-16).
+pub fn local_tree_ref(dir: &Path, id: &str) -> String {
+    format!("{}{TREE_REF_SEP}{id}", alias(dir))
+}
+
+/// `<별칭>:<ID>` 꼴인가. 별칭은 영문·숫자·`-`·`_`·`.` 이다.
+pub fn is_local_tree_ref(s: &str) -> bool {
+    let Some((a, id)) = s.split_once(TREE_REF_SEP) else {
+        return false;
+    };
+    !a.is_empty()
+        && a.chars()
+            .all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '.'))
+        && valid_id(id)
+}
+
+/// 이슈 인자를 읽는다 (FR-LIS-2). `<폴더>#<ID>` 이고 그 폴더가 있으면 (폴더, ID) 다. 상대 경로는 cwd 기준이다.
+/// 아니면 None — GitHub 이슈로 읽는다.
+pub fn resolve_arg(arg: &str, cwd: &Path) -> Option<(PathBuf, String)> {
+    let (d, id) = arg.rsplit_once(ARG_SEP)?;
+    if d.is_empty() || !valid_id(id) {
+        return None;
+    }
+    let p = Path::new(d);
+    let p = if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        cwd.join(p)
+    };
+    p.is_dir().then(|| (p, id.to_owned()))
+}
+
 /// `set` 의 바꿀 값. None 이면 그대로다.
 #[derive(Clone, Debug, Default)]
 pub struct Change {

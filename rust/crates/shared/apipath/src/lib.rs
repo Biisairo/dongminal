@@ -50,6 +50,8 @@ pub const RUNS_ASSIGN: &str = "/api/runs/assign";
 pub const RUNS_COORDINATE: &str = "/api/runs/coordinate";
 pub const RUNS_RECOVER: &str = "/api/runs/recover";
 pub const RUNS_TREE: &str = "/api/runs/tree";
+/// 부르는 도구의 Run 이 가진 이슈 트리의 보관 방식과 원본 폴더 (ISSUE_TREE_CHAT_SRS FR-LIS-7).
+pub const RUNS_ISSUES: &str = "/api/runs/issues";
 /// `RUNS_CONTEXT` 는 컨텍스트 관측의 수신 종단이다 (ORCHESTRATION_V2_SRS 묶음 C).
 /// 활동 보고(`TOOLS_ACTIVITY_SET`)와 **별도 종단**인 이유는 둘의 실패가 서로를 막으면
 /// 안 되기 때문이다 (NFR-CBG-2).
@@ -121,6 +123,7 @@ pub const ALL: &[(&str, &str)] = &[
     ("RUNS_COORDINATE", RUNS_COORDINATE),
     ("RUNS_RECOVER", RUNS_RECOVER),
     ("RUNS_TREE", RUNS_TREE),
+    ("RUNS_ISSUES", RUNS_ISSUES),
     ("RUNS_CONTEXT", RUNS_CONTEXT),
     ("CLAUDE_ACCOUNTS", CLAUDE_ACCOUNTS),
     ("CLAUDE_ACCOUNTS_ADD", CLAUDE_ACCOUNTS_ADD),

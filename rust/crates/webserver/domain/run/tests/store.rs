@@ -339,3 +339,44 @@ fn earlier_failure_covered_by_later_success() {
     s2.load();
     assert_eq!(s2.list().len(), 2);
 }
+
+/// ISSUE_TREE_CHAT_SRS FR-LIS-7: 로컬 트리는 원본 이슈 폴더를 Run 에 기록한다. 가지 Run 은 열린 루트의 것을 잇는다.
+/// 트리 없는 Run 에는 기록하지 않는다.
+#[test]
+fn local_tree_records_issue_dir() {
+    let d = tempfile::tempdir().unwrap();
+    let s = store(d.path());
+    let root = s
+        .start(StartOptions {
+            tree: "perf:2".into(),
+            issue_dir: "/repo/docs/perf/issues".into(),
+            ..opts("루트")
+        })
+        .unwrap();
+    assert_eq!(root.issue_dir, "/repo/docs/perf/issues");
+    let branch = s
+        .start(StartOptions {
+            tree: "perf:2".into(),
+            tree_branch: true,
+            ..opts("가지")
+        })
+        .unwrap();
+    assert_eq!(branch.issue_dir, "/repo/docs/perf/issues");
+    let blob = fs::read_to_string(d.path().join("runs.json")).unwrap();
+    assert!(
+        blob.contains(r#""issueDir":"/repo/docs/perf/issues""#),
+        "{blob}"
+    );
+    let gh = s
+        .start(StartOptions {
+            tree: "o/r#1".into(),
+            ..opts("github")
+        })
+        .unwrap();
+    assert!(gh.issue_dir.is_empty());
+    let bad = s.start(StartOptions {
+        issue_dir: "/x".into(),
+        ..opts("트리 없음")
+    });
+    assert!(matches!(bad, Err(Error::InvalidArgument(_))), "{bad:?}");
+}

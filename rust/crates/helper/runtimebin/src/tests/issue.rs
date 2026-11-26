@@ -143,8 +143,9 @@ fn issue_usage_errors() {
         &["issue", "tree"],
         b"",
     );
-    assert_eq!(rc, 2);
-    assert!(err.contains("--dir"), "{err}");
+    // --dir 이 없으면 Run 에 묻는다 — 서버가 없으면 그 실패다(1).
+    assert_eq!(rc, 1, "{err}");
+    assert!(!err.is_empty());
     let (rc, out, _) = run_with(
         &Env::with_vars([("HOME", "/nonexistent")]),
         crate::otterctl::run_otterctl,
@@ -168,4 +169,66 @@ fn issue_touches_only_the_source_dir() {
     issue(&t, &["set", "1", "--status", "ready"], b"");
     assert_eq!(std::fs::read(&dst).unwrap(), before);
     assert_ne!(std::fs::read(&src).unwrap(), before);
+}
+
+/// FR-LIS-2: 인자 꼴 판정을 명령으로 낸다 — 로컬이면 폴더·ID·트리 이름, 아니면 github.
+#[test]
+fn issue_resolve() {
+    let t = setup();
+    std::fs::create_dir_all(&t.dir).unwrap();
+    let env = Env::with_vars([("HOME", "/nonexistent")]);
+    let arg = format!("{}#2.1", t.dir);
+    let (rc, out, err) = run_with(
+        &env,
+        crate::otterctl::run_otterctl,
+        &["issue", "resolve", &arg],
+        b"",
+    );
+    assert_eq!(rc, 0, "{err}");
+    assert_eq!(out, format!("local\t{}\t2.1\tperf:2.1\n", t.dir));
+    let (rc, out, _) = run_with(
+        &env,
+        crate::otterctl::run_otterctl,
+        &["issue", "resolve", "o/r#5"],
+        b"",
+    );
+    assert_eq!((rc, out.as_str()), (0, "github\to/r#5\n"));
+    let (rc, _, _) = run_with(
+        &env,
+        crate::otterctl::run_otterctl,
+        &["issue", "resolve"],
+        b"",
+    );
+    assert_eq!(rc, 2);
+}
+
+/// FR-LIS-7: --dir 이 없으면 부르는 탭의 Run 이 기록한 원본 폴더를 쓴다.
+#[test]
+fn issue_dir_from_run() {
+    let t = setup();
+    issue(&t, &["new", "1", "뿌리"], b"");
+    let home = tempfile::tempdir().unwrap();
+    let srv = TestServer::fixed(
+        200,
+        &format!(
+            r#"{{"runId":"r1","tree":"perf:1","storage":"local","issueDir":"{}"}}"#,
+            t.dir
+        ),
+    );
+    let mut env = srv.env(home.path());
+    env.set("OTTERMINAL_TOOL_ID", "tool-x");
+    let (rc, out, err) = ctl(&env, &["issue", "tree"]);
+    assert_eq!(rc, 0, "{err}");
+    assert_eq!(out, "1       [ready      ] 뿌리\n");
+    let reqs = srv.requests();
+    assert_eq!(reqs[0].path(), "/api/runs/issues");
+    assert!(
+        reqs[0].target.contains("toolId=tool-x"),
+        "{}",
+        reqs[0].target
+    );
+    let gh = TestServer::fixed(200, r#"{"runId":"r1","tree":"o/r#1","storage":"github"}"#);
+    let (rc, _, err) = ctl(&gh.env(home.path()), &["issue", "tree"]);
+    assert_eq!(rc, 2);
+    assert!(err.contains("로컬 이슈 트리가 아니다"), "{err}");
 }

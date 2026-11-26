@@ -348,6 +348,8 @@ struct StartBody {
     /// 이슈 트리 표지와 가지 여부 (FR-ITU-1).
     tree: String,
     tree_branch: bool,
+    /// 로컬 이슈 트리의 원본 이슈 폴더(절대 경로) (ISSUE_TREE_CHAT_SRS FR-LIS-7).
+    issue_dir: String,
 }
 
 /// Go `memberAddReq`: `POST /api/runs/members` 의 본문.
@@ -570,6 +572,9 @@ impl Server {
             ));
             return write_run_error(&e, Obj::new());
         }
+        if !body.issue_dir.is_empty() && !std::path::Path::new(&body.issue_dir).is_absolute() {
+            return write_run_error(&invalid("issueDir 는 절대 경로다"), Obj::new());
+        }
         // 격리 준비가 레코드보다 먼저다 (FR-WKT-3/11). 실패한 Run 은 기록에 남지 않는다.
         let prov = match self.provision_run(rt, &iso, &body.cwd, &body.base) {
             Ok(p) => p,
@@ -583,6 +588,7 @@ impl Server {
             window_id: body.window_id,
             tree: body.tree,
             tree_branch: body.tree_branch,
+            issue_dir: body.issue_dir,
             ..run::StartOptions::default()
         };
         if let Some(p) = &prov {

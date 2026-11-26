@@ -309,3 +309,80 @@ fn run_succeed_lines_and_launch() {
     assert_eq!(graph_time(0), "-");
     assert_eq!(graph_time(1000).len(), 8);
 }
+
+/// ISSUE_TREE_CHAT_SRS FR-LIS-7·16: 로컬 트리는 `<별칭>:<ID>` 표지와 원본 이슈 폴더(절대 경로)로 연다.
+#[test]
+fn run_start_local_tree() {
+    let home = tmp();
+    let issues = home.path().join("perf").join("issues");
+    std::fs::create_dir_all(&issues).unwrap();
+    let srv = TestServer::fixed(
+        200,
+        r#"{"id":"r1","short":"r1s","state":"open","projection":"dedicated-window","isolation":"none"}"#,
+    );
+    let env = srv.env(home.path());
+    let dir = issues.to_string_lossy().into_owned();
+    let got = ctl(
+        &env,
+        &[
+            "run",
+            "start",
+            "--objective",
+            "o",
+            "--tree",
+            "perf:2",
+            "--issue-dir",
+            &dir,
+        ],
+    );
+    assert_eq!(got.0, 0, "{}", got.2);
+    let body = srv.requests()[0].json();
+    assert_eq!(body["tree"], "perf:2");
+    assert_eq!(body["issueDir"], dir.as_str());
+    for (args, want) in [
+        (
+            vec![
+                "run",
+                "start",
+                "--objective",
+                "o",
+                "--issue-dir",
+                dir.as_str(),
+            ],
+            "run start: --issue-dir 는 --tree 와 함께 쓴다\n",
+        ),
+        (
+            vec![
+                "run",
+                "start",
+                "--objective",
+                "o",
+                "--tree",
+                "o/r#1",
+                "--issue-dir",
+                dir.as_str(),
+            ],
+            "run start: 로컬 트리의 --tree 는 <별칭>:<ID> 꼴이다: o/r#1\n",
+        ),
+        (
+            vec!["run", "start", "--objective", "o", "--tree", "perf:2"],
+            "run start: --tree 는 owner/repo#N 꼴이다: perf:2\n",
+        ),
+        (
+            vec![
+                "run",
+                "start",
+                "--objective",
+                "o",
+                "--tree",
+                "perf:2",
+                "--issue-dir",
+                "/no/such/dir",
+            ],
+            "run start: --issue-dir 폴더가 없다: /no/such/dir\n",
+        ),
+    ] {
+        let got = ctl(&env, &args);
+        assert_eq!((got.0, got.2.as_str()), (2, want), "{args:?}");
+    }
+}

@@ -49,6 +49,7 @@ const VALS: &[&str] = &[
     "--parent",
     "--goal",
     "--ctx",
+    "--issue-dir",
     "--to",
 ];
 const BOOLS: &[&str] = &[
@@ -91,6 +92,7 @@ pub(crate) struct RunFlags {
     pub headless: bool,
     pub timeout_ms: String,
     pub tree: String,
+    pub issue_dir: String,
     pub branch: bool,
     pub ref_: String,
     pub issue: String,
@@ -135,6 +137,7 @@ impl RunFlags {
             "--parent" => self.parent = v,
             "--goal" => self.goal = v,
             "--ctx" => self.ctx = v,
+            "--issue-dir" => self.issue_dir = v,
             _ => self.to = v,
         }
     }
@@ -332,7 +335,38 @@ fn sub_start(ctx: &mut Ctx<'_>, mut f: RunFlags) -> i32 {
         errf!(ctx, "run start: --branch 는 --tree 와 함께 쓴다\n");
         return 2;
     }
-    if !f.tree.is_empty() {
+    if !f.issue_dir.is_empty() {
+        if f.tree.is_empty() {
+            errf!(ctx, "run start: --issue-dir 는 --tree 와 함께 쓴다\n");
+            return 2;
+        }
+        if !otter_shared_issuefile::is_local_tree_ref(&f.tree) {
+            errf!(
+                ctx,
+                "run start: 로컬 트리의 --tree 는 <별칭>:<ID> 꼴이다: {}\n",
+                f.tree
+            );
+            return 2;
+        }
+        let p = std::path::Path::new(&f.issue_dir);
+        let abs = if p.is_absolute() {
+            p.to_path_buf()
+        } else {
+            std::path::PathBuf::from(try_code!(getwd(ctx, "run start"))).join(p)
+        };
+        if !abs.is_dir() {
+            errf!(ctx, "run start: --issue-dir 폴더가 없다: {}\n", f.issue_dir);
+            return 2;
+        }
+        body.insert("tree".into(), Value::from(f.tree.as_str()));
+        body.insert(
+            "issueDir".into(),
+            Value::from(abs.to_string_lossy().as_ref()),
+        );
+        if f.branch {
+            body.insert("treeBranch".into(), Value::Bool(true));
+        }
+    } else if !f.tree.is_empty() {
         if !repo_issue_ref_matches(&f.tree) {
             errf!(
                 ctx,

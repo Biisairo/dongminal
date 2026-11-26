@@ -380,6 +380,9 @@ pub struct Record {
     pub tree: String,
     #[serde(skip_serializing_if = "is_empty")]
     pub tree_branch: bool,
+    /// 로컬 이슈 트리의 원본 이슈 폴더(절대 경로). 비면 GitHub 트리다 (ISSUE_TREE_CHAT_SRS FR-LIS-7).
+    #[serde(skip_serializing_if = "is_empty")]
+    pub issue_dir: String,
     #[serde(skip_serializing_if = "is_empty")]
     pub members: Vec<Member>,
     #[serde(skip_serializing_if = "is_empty")]
