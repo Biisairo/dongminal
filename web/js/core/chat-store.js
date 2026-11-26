@@ -64,12 +64,23 @@ class ChatStore{
   }
 }
 
-/** 방의 보이는 이름. 단체채팅은 `#이름`, 개인채팅은 상대의 표시 이름이다. */
+/** 방의 보이는 이름. 단체채팅은 `#이름`(# 는 겹치지 않는다), 개인채팅은 상대의 표시 이름이다 (FR-CUX-14). */
 function chatRoomTitle(room,meId){
   if(!room) return '';
-  if(room.kind!=='direct') return '#'+(room.name||'');
+  if(room.kind!=='direct') return '#'+String(room.name||'').replace(/^#+/,'');
   const other=(room.people||[]).find(p=>p&&p.id!==meId);
-  return other?other.label:t('chat.direct');
+  return other?chatName(other.label,other.id,meId):t('chat.direct');
+}
+
+/**
+ * 참가자의 표시 이름 (ISSUE_TREE_CHAT_SRS FR-CUX-9). 원래 이름은 `<노드>/<탭>` 이다(FR-PCH-46). 내 노드의 참가자는
+ * 탭 이름, 다른 노드는 `<노드> › <탭>` 이다. 노드는 id 의 지문(마지막 `-` 앞)으로 가른다.
+ */
+function chatName(label,id,meId){
+  const s=String(label||''),i=s.indexOf('/');
+  if(i<0) return s||chatShortId(id);
+  const node=x=>{ const v=String(x||''); return v.slice(0,Math.max(0,v.lastIndexOf('-'))) };
+  return node(id)===node(meId)?s.slice(i+1):t('chat.name_remote',{node:s.slice(0,i),tab:s.slice(i+1)});
 }
 
 /** 참가자 id 의 짧은 표시. 앞은 노드 지문이라 모두 같으므로 `-` 뒤 앞자리를 쓴다 (FR-PCH-46). */

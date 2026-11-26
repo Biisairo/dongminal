@@ -776,6 +776,7 @@ I18N.register('ko', {
   'chat.online': '온라인',
   'chat.no_rooms': '열린 방이 없습니다.',
   'chat.me': '나',
+  'chat.name_remote': '{node} › {tab}',
   'chat.human': '사람',
   'chat.members': '참가자 {n}',
   'chat.direct_open': '개인채팅 열기',

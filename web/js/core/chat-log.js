@@ -17,6 +17,14 @@ function chatDayLabel(ms){
   return new Date(ms||0).toLocaleDateString(I18N.locale,{year:'numeric',month:'long',day:'numeric',weekday:'short'});
 }
 
+/** 참가자의 색 변수. 나는 `--chat-me`, 그 밖은 id 로 고른 에이전트 칸이다 (FR-CUX-10). */
+function chatColorVar(id,meId){
+  if(id&&id===meId) return '--chat-me';
+  let h=2166136261;
+  for(const ch of String(id||'')){ h^=ch.codePointAt(0); h=Math.imul(h,16777619) }
+  return '--chat-a'+((h>>>0)%CHAT_AGENT_COLORS);
+}
+
 /** 동그라미의 머리글자 — 이름의 첫 글자(문자 단위)다. */
 function chatInitial(label){
   const c=[...String(label||'').trim()][0];
@@ -37,7 +45,7 @@ function chatCallTags(m,meId,people){
     if(id===meId) continue;
     if(id===CHAT_CALL_USER){ if(!m.called) tags.push('@'+t('chat.human')); continue }
     const p=(people||[]).find(x=>x.id===id);
-    tags.push('@'+(p?p.label:chatShortId(id)));
+    tags.push('@'+(p?chatName(p.label,id,meId):chatShortId(id)));
   }
   return tags;
 }

@@ -142,8 +142,9 @@ test('채팅 저장소: 같은 글은 한 번, 방별 상한, 보이지 않을 �
 test('방 이름: 단체채팅은 #이름, 개인채팅은 상대의 표시 이름이다', () => {
   const { chatRoomTitle, chatShortId } = loadUI();
   assert.equal(chatRoomTitle({ kind: 'group', name: 'ops' }, 'me'), '#ops');
-  const d = { kind: 'direct', people: [{ id: 'me', label: 'mac/User' }, { id: 'x', label: 'pc/claude' }] };
-  assert.equal(chatRoomTitle(d, 'me'), 'pc/claude');
+  // ISSUE_TREE_CHAT_SRS FR-CUX-9·14: 내 노드의 상대는 탭 이름이다(다른 노드는 chat-color.test.mjs).
+  const d = { kind: 'direct', people: [{ id: 'A-me', label: 'mac/User' }, { id: 'A-x', label: 'mac/claude' }] };
+  assert.equal(chatRoomTitle(d, 'A-me'), 'claude');
   assert.equal(chatRoomTitle({ kind: 'direct', people: [] }, 'me'), 'chat.direct');
   assert.equal(chatShortId('f'.repeat(64) + '-0123456789abcdef'), '012345');
 });

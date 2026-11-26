@@ -749,6 +749,7 @@ I18N.register('en', {
   'chat.online': 'Online',
   'chat.no_rooms': 'No open rooms.',
   'chat.me': 'me',
+  'chat.name_remote': '{node} › {tab}',
   'chat.human': 'person',
   'chat.members': 'Members {n}',
   'chat.direct_open': 'Open direct chat',

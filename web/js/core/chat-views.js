@@ -158,7 +158,7 @@ class ChatViews extends Controller {
     for(const p of people){
       const row=domEl('div','chat-person'+(p.online?'':' off')+(p.kind==='user'?' human':'')+(sel.has(p.id)?' sel':''));
       row.title=p.label+' · '+chatShortId(p.id);
-      row.append(domEl('span','chat-row-name',p.label),domEl('span','chat-row-sub',(p.kind==='user'?t('chat.human')+' · ':'')+chatShortId(p.id)));
+      row.append(domEl('span','chat-row-name',chatName(p.label,p.id,meId)),domEl('span','chat-row-sub',(p.kind==='user'?t('chat.human')+' · ':'')+chatShortId(p.id)));
       row.addEventListener('click',e=>{
         if(this.app.chat.human._chatPeoplePick(v,p.id,e)) return;
         if(p.id!==meId&&p.online) this.app.chat._chatPersonMenu(p,{x:e.clientX,y:e.clientY});
@@ -189,10 +189,11 @@ class ChatViews extends Controller {
     const mine=m.from&&m.from===meId,human=m.fromKind==='user';
     const d=domEl('div','chat-msg'+(mine?' mine':'')+(human?' human':'')+(place.head?' head':'')+(m.called?' called':''));
     if(place.head){
-      const label=m.fromLabel||chatShortId(m.from);
+      const label=chatName(m.fromLabel,m.from,meId);
       const who=domEl('div','chat-msg-who');
       const name=domEl('span','chat-msg-name',label);
-      name.title=label+' · '+chatShortId(m.from);
+      name.title=(m.fromLabel||label)+' · '+chatShortId(m.from);
+      d.style.setProperty('--chat-c','var('+chatColorVar(m.from,meId)+')');
       if(!mine) name.addEventListener('contextmenu',e=>this.app.chat.human._chatAuthorCtx(m,e));
       who.append(domEl('span','chat-avatar',chatInitial(label)),name,
         domEl('span','chat-msg-kind',t(human?'chat.human':'chat.agent')),domEl('span','chat-msg-meta',chatClock(m.at)));

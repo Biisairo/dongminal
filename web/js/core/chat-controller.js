@@ -188,7 +188,7 @@ class ChatController extends Controller {
   _chatPersonEl(p,meId){
     const row=domEl('div','chat-row chat-person'+(p.online?'':' off')+(p.kind==='user'?' human':''));
     row.title=p.label+' · '+chatShortId(p.id);
-    row.appendChild(domEl('span','chat-row-name',p.label));
+    row.appendChild(domEl('span','chat-row-name',chatName(p.label,p.id,meId)));
     row.appendChild(domEl('span','chat-row-sub',(p.kind==='user'?t('chat.human')+' · ':'')+chatShortId(p.id)+(p.id===meId?' · '+t('chat.me'):'')));
     if(p.id!==meId&&p.online) row.addEventListener('click',e=>this._chatPersonMenu(p,{x:e.clientX,y:e.clientY}));
     return row;

@@ -43,7 +43,7 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | U-1 서버 바탕: `POST /api/chat/notify`, `state` 의 방 참가자 `notify`·`tool` | 끝남 (`cc416342`) |
 | U-2 지연 묶음에 마크다운: `markdown-it`(원시 HTML 끔) · `purify.js` · `highlight.js` 를 `web/bundles.txt` 의 `chat` 묶음에(FR-CUX-8·15). 부팅 JS 는 늘지 않는다 | 끝남 (결정 I-11·I-12) |
 | U-3 대화 그리기(`chat-views.js`): 보낸 이 묶음·이어진 글(5분, 상수)·날짜 구분선·내 글 바탕·부른 글 띠 `@나`·`@<이름>`·폭 상한(FR-CUX-1~8) | 끝남 (결정 I-13·I-14) |
-| U-4 이름 규칙(FR-CUX-9·14)과 색(FR-CUX-10: 에이전트는 참가자 id 로 테마 색 목록, 사람은 배경 대비 최대 색이며 그 색은 에이전트 목록에서 뺀다. 테마 바뀌면 다시 계산) | 남음 |
+| U-4 이름 규칙(FR-CUX-9·14)과 색(FR-CUX-10: 에이전트는 참가자 id 로 테마 색 목록, 사람은 배경 대비 최대 색이며 그 색은 에이전트 목록에서 뺀다. 테마 바뀌면 다시 계산) | 끝남 (결정 I-15·I-16) |
 | U-5 방 머리 세 줄과 내 단계 고르기(FR-CUX-11 → `/api/chat/notify`), 참가자 목록(FR-CUX-12: 사람 먼저·노드별·`<종류> · <상태> · 알림: <단계>`. 상태는 `people[].tool` 로 `app._activity` 를 읽는다. 다른 노드 참가자의 단계는 비어 있으면 적지 않는다) | 남음 |
 | U-6 입력칸 `@` 자동완성과 글의 `답장` → `/api/chat/send` 의 `call`(FR-CUX-13) | 남음 |
 | U-7 잠듦(FR-CUX-16) 확인, 좁힌 e2e(chat-window · screens-run-chat), 목업 사진과 격리 인스턴스 화면 비교 | 남음 |
@@ -72,6 +72,8 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | I-12 | 채팅 마크다운은 `breaks: true`(한 줄 바꿈도 줄 바꿈)이고, 코드 블록은 `<pre class="chat-code" data-lang=…>` 로 언어를 싣는다. 언어 표시의 그리기는 U-3 의 CSS 다 | 채팅 글은 한 줄 바꿈을 뜻대로 쓴다 |
 | I-13 | 글(`chat::Message`·`chatwire::Message`)이 부른 상대 `call`(참가자 id 또는 user)을 싣는다. 비면 키가 없다(옛 형식 그대로). 화면은 `called` 면 `@나`, 그 밖의 항목은 방 참가자 표시 이름으로 `@<이름>` 을 적는다 | 받는 이 기준 `called` 만으로는 다른 상대를 부른 글을 알 수 없다(FR-CUX-7) |
 | I-14 | 채팅 탭의 CSS 를 `style-activity.css` 에서 `[chat]` 묶음의 `style-chat.css` 로 옮겼다(`css: true`). 채팅 목록 행 CSS 는 부팅에 남는다. 묶음 간격 상수는 `constants-chat.js`(`[chat]` 맨 앞) | CSS 최대 파일 기준선(415줄)·타이밍 상수 규칙. e2e 둘을 고쳤다: TC-LZ9-2 는 `chat.css` 도 받고, TC-UXF-44 는 부팅 CSS 의 `chat-row-sub` 로 잰다. 글 머리의 짧은 id 는 이름의 `title` 로 옮겼다 |
+| I-15 | 색은 테마 파생(`themeVarsOf` → `deriveChatColors`, contrast.js)이 `--chat-me`(구문 색 여섯 가운데 배경 대비 최대)와 `--chat-a0`~`--chat-a4`(나머지)로 세운다. 글은 `--chat-c` 에 `chatColorVar(id)`(FNV 해시 % 5) 를 단다. 나만 사람 색이고, 다른 노드의 사람은 id 로 고른다 | 테마를 바꾸면 applyThemeObj 가 변수만 다시 세우므로 그린 글을 다시 그리지 않는다 |
+| I-16 | 이름 규칙 `chatName`·`#` 겹침 제거는 부팅 패널도 쓰므로 `chat-store.js`(부팅)에 둔다. 노드 구분은 id 의 지문(마지막 `-` 앞)이다. `›` 는 카탈로그 `chat.name_remote` 이고 문자 아이콘 시험의 허용 목록에 이유와 함께 넣었다. 부팅 JS 는 U-2~U-4 합계 945 B 늘었다(1,143,889 → 1,144,834, 상한 1,150,000) | NFR-ITH-2 의 "늘지 않는다" 를 글자 그대로는 지키지 못했다 — 패널 이름 규칙(FR-CUX-14)과 테마 파생 색(FR-CUX-10)이 부팅 코드에 산다. 사용자에게 보고할 것 |
 | I-9 | 웹 알람의 단계는 `state` 의 방 `notify` 로 판정하고, 알람은 `ChatStore` 에 방마다 둔다. 방 탭이 보이면 안 읽은 수와 함께 꺼진다 | FR-CAL-15·16 |
 
 ## 4. 이 세션이 값을 치르고 배운 것
