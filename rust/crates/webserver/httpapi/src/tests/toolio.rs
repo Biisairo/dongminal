@@ -290,7 +290,7 @@ async fn message_wraps_in_envelope() {
     assert_eq!(r.status, 200);
     assert_eq!(
         r.body,
-        "{\"from\":\"p2\",\"len\":13,\"to\":\"p1\",\"toolId\":\"p1\"}\n"
+        "{\"delivery\":\"pasted\",\"from\":\"p2\",\"len\":13,\"to\":\"p1\",\"toolId\":\"p1\"}\n"
     );
     let p = io.pastes.lock().unwrap()[0].clone();
     assert_eq!(p.0, "p1");

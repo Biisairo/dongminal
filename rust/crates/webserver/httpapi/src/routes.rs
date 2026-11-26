@@ -42,6 +42,7 @@ pub(crate) static API_ROUTES: LazyLock<Vec<Route<Handler>>> = LazyLock::new(|| {
         get("/api/tools/search", h!(api_tool_search)),
         post("/api/tools/input", h!(api_tool_input)),
         post("/api/tools/message", h!(api_tool_message)),
+        get("/api/tools/inbox/wait", h!(api_tool_inbox_wait)),
         get("/api/tools/background", h!(api_tools_background)),
         post("/api/tools/background/set", h!(api_tool_background_set)),
         post("/api/tools/activity/set", h!(api_tool_activity_set)),

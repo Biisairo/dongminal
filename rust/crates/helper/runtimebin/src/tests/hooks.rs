@@ -817,6 +817,105 @@ fn chat_wait_quiet_cases() {
     assert_eq!(r, (0, String::new(), String::new()), "세션 없음");
 }
 
+// ---- chat-wait 의 메시지 대기 (AGENT_MSG_REWAKE_SRS FR-AMW-10·11·14~16) ----
+
+/// 메시지 대기 종단을 흉내 낸다. `now=1` 이면 now_body, 아니면 delay 뒤 wait_body 를 답한다.
+fn inbox_server(delay: Duration, wait_body: &'static str, now_body: &'static str) -> TestServer {
+    TestServer::new(move |r| {
+        if r.target.contains("now=1") {
+            return (200, now_body.as_bytes().to_vec());
+        }
+        std::thread::sleep(delay);
+        (200, wait_body.as_bytes().to_vec())
+    })
+}
+
+fn inbox_env(srv: &TestServer, home: &Path) -> Env {
+    let mut env = srv.env(home);
+    env.set(otterenv::ENV_HOME, home.to_str().unwrap());
+    env
+}
+
+// 채팅 연결이 없어도 메시지를 기다린다. 받은 메시지는 온 순서대로 빈 줄을 사이에 두고 통째로 쓴다.
+#[test]
+fn chat_wait_relays_messages() {
+    let home = tempfile::Builder::new().tempdir_in("/tmp").unwrap();
+    let srv = inbox_server(
+        Duration::from_millis(300),
+        r#"{"messages":["[OTTERMINAL-AGENT-MSG from=a to=b ts=1]\n하나\n[/OTTERMINAL-AGENT-MSG]","둘"]}"#,
+        r#"{"messages":[]}"#,
+    );
+    let (rc, out, err) = run_with(
+        &inbox_env(&srv, home.path()),
+        run_otterctl_chat_wait,
+        &[],
+        WAIT_IN,
+    );
+    assert_eq!((rc, out.as_str()), (2, ""));
+    assert_eq!(
+        err,
+        "[OTTERMINAL-AGENT-MSG from=a to=b ts=1]\n하나\n[/OTTERMINAL-AGENT-MSG]\n\n둘\n"
+    );
+    let reqs = srv.requests();
+    assert_eq!(
+        reqs.len(),
+        1,
+        "{:?}",
+        reqs.iter().map(|r| &r.target).collect::<Vec<_>>()
+    );
+    assert_eq!(reqs[0].path(), apipath::TOOLS_INBOX_WAIT);
+    assert!(
+        reqs[0].target.contains("id=self-tool"),
+        "{}",
+        reqs[0].target
+    );
+    assert!(reqs[0].target.contains("session=s9"), "{}", reqs[0].target);
+}
+
+// 채팅 깨움이 먼저 오면 그 순간 건넬 메시지도 모아 함께 쓴다. 채팅 줄이 먼저다.
+#[test]
+fn chat_wait_chat_first_collects_messages() {
+    let home = tempfile::Builder::new().tempdir_in("/tmp").unwrap();
+    let got = fake_chat_sock(
+        home.path(),
+        Duration::ZERO,
+        "{\"t\":\"wait\",\"total\":1,\"called\":1}\n",
+    );
+    let srv = inbox_server(
+        Duration::from_millis(300),
+        r#"{"messages":[]}"#,
+        r#"{"messages":["셋"]}"#,
+    );
+    let (rc, _, err) = run_with(
+        &inbox_env(&srv, home.path()),
+        run_otterctl_chat_wait,
+        &[],
+        WAIT_IN,
+    );
+    got.join().unwrap();
+    assert_eq!(rc, 2);
+    assert_eq!(
+        err,
+        "[otterminal chat] 읽지 않은 글 1건(나를 부른 글 1건). chat_read 로 확인한다.\n셋\n"
+    );
+}
+
+// 양쪽 모두 건넬 것 없이 끝나면(새 훅에 밀림·서버 없음) 조용히 0 이다.
+#[test]
+fn chat_wait_quiet_when_both_end_empty() {
+    let home = tempfile::Builder::new().tempdir_in("/tmp").unwrap();
+    let got = fake_chat_sock(home.path(), Duration::ZERO, "{\"t\":\"wait\"}\n");
+    let srv = inbox_server(Duration::ZERO, r#"{"messages":[]}"#, r#"{"messages":[]}"#);
+    let r = run_with(
+        &inbox_env(&srv, home.path()),
+        run_otterctl_chat_wait,
+        &[],
+        WAIT_IN,
+    );
+    got.join().unwrap();
+    assert_eq!(r, (0, String::new(), String::new()));
+}
+
 // ---- statusLine ----
 
 const SL_SAMPLE: &str = r#"{"session_id":"c009","transcript_path":"/Users/x/.claude/projects/p/c009.jsonl","cwd":"PROJ",

@@ -23,6 +23,8 @@ pub const TOOLS_PREFIX: &str = "/api/tools/";
 pub const TOOLS_INPUT: &str = "/api/tools/input";
 pub const TOOLS_OUTPUT: &str = "/api/tools/output";
 pub const TOOLS_MESSAGE: &str = "/api/tools/message";
+/// `TOOLS_INBOX_WAIT` 는 깨움 훅이 에이전트 메시지를 기다리는 종단이다 (AGENT_MSG_REWAKE_SRS FR-AMW-12).
+pub const TOOLS_INBOX_WAIT: &str = "/api/tools/inbox/wait";
 pub const TOOLS_HEADLESS: &str = "/api/tools/headless";
 pub const TOOLS_BACKGROUND: &str = "/api/tools/background";
 pub const TOOLS_ACTIVITY_SET: &str = "/api/tools/activity/set";
@@ -99,6 +101,7 @@ pub const ALL: &[(&str, &str)] = &[
     ("TOOLS_INPUT", TOOLS_INPUT),
     ("TOOLS_OUTPUT", TOOLS_OUTPUT),
     ("TOOLS_MESSAGE", TOOLS_MESSAGE),
+    ("TOOLS_INBOX_WAIT", TOOLS_INBOX_WAIT),
     ("TOOLS_HEADLESS", TOOLS_HEADLESS),
     ("TOOLS_BACKGROUND", TOOLS_BACKGROUND),
     ("TOOLS_ACTIVITY_SET", TOOLS_ACTIVITY_SET),

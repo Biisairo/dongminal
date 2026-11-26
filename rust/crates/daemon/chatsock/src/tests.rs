@@ -703,15 +703,44 @@ fn waiter(h: &Harness, session: &str) -> Client {
     w
 }
 
-// FR-CAL-9: 그 세션의 MCP 연결이 없으면 곧바로 0건으로 끝낸다.
+// AGENT_MSG_REWAKE_SRS FR-AMW-24: 그 세션의 MCP 연결이 아직 없으면 생길 때까지 기다리고, 생기면 그 연결에
+// 묻는다. 이전: 곧바로 0건으로 끝냈다 / 이유: SessionStart 의 훅은 MCP 연결보다 먼저 뜰 수 있다.
 #[test]
-fn wait_without_session_ends() {
+fn wait_before_session_waits_for_mcp() {
     let h = new_harness(|_| {});
     let _a = h.agent("s1", "t1", "a");
-    let mut w = waiter(&h, "nobody");
+    let mut w = waiter(&h, "s2");
+    assert!(
+        matches!(
+            w.inbox.recv_timeout(Duration::from_millis(700)),
+            Err(RecvTimeoutError::Timeout)
+        ),
+        "MCP 연결 전에 끝났다"
+    );
+    let (mut mcp, _) = h.agent("s2", "t2", "b");
+    let ask = mcp.next(chatwire::TYPE_WAKE_ASK);
+    mcp.send(&Frame {
+        t: chatwire::TYPE_WAKE.into(),
+        n: ask.n,
+        total: 2,
+        called: 0,
+        ..Frame::default()
+    });
     let f = w.next(chatwire::TYPE_WAIT);
-    assert_eq!((f.total, f.called), (0, 0));
+    assert_eq!((f.total, f.called), (2, 0));
     assert!(w.closed());
+}
+
+// FR-AMW-24·25: MCP 연결을 기다리던 대기도 같은 세션의 새 대기가 오면 0건으로 끝난다.
+#[test]
+fn newer_wait_supersedes_pending_wait() {
+    let h = new_harness(|_| {});
+    let mut old = waiter(&h, "s3");
+    std::thread::sleep(Duration::from_millis(200));
+    let _new = waiter(&h, "s3");
+    let f = old.next(chatwire::TYPE_WAIT);
+    assert_eq!((f.total, f.called), (0, 0));
+    assert!(old.closed());
 }
 
 // FR-CAL-9·10: 대기는 그 세션의 가장 나중 MCP 에 묻고, MCP 가 깨울 글을 답하면 개수만 전한다.

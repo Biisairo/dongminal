@@ -34,7 +34,7 @@
 - 시험을 먼저 쓰고 실패(RED)를 확인한 뒤 구현한다(GREEN). 단위·경계·실패 경우를 모두 넣는다.
 - 동작이 바뀌면 **이전 / 새 / 이유** 를 진행 기록과 커밋 메시지에 적는다.
 - 심볼 탐색은 LSP → Serena → grep 순서다. 코드 수정은 Serena 를 먼저 쓴다.
-- 커밋은 사용자 확인 뒤에 한다. 커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 않는다.
+- 커밋은 단계마다 스스로 한다(2026-11-26 사용자 지시). 커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 않는다.
 - main 병합과 push 는 사용자 확인 뒤에 한다. 병합은 일반 병합(`--no-ff`)이다.
 - 설명은 한국어로, 쉽고 자세하게 한다.
 
@@ -103,6 +103,7 @@
 ### 4.3 e2e 실행 방법
 
 - 환경 변수: `OTTER_E2E_RUN=/private/tmp/<이름>`, `OTTER_E2E_KEEP_PEERS=1`, `PLAYWRIGHT_BROWSERS_PATH=/Users/dykim/Library/Caches/ms-playwright`, `E2E_PORT_BASE=<포트>`, 미리 빌드한 바이너리는 `OTTER_E2E_PREBUILT_BIN`.
+- **`make e2e`(8샤드)에는 `OTTER_E2E_RUN` 을 주지 않는다.** 주면 샤드들이 한 폴더를 함께 써서 서로의 서버를 죽인다. 이 값은 스펙을 좁혀 `npx playwright test` 로 돌릴 때만 쓴다.
 - **실패를 가를 때는 매번 빈 `OTTER_E2E_RUN` 폴더를 쓴다.** 같은 폴더를 다시 쓰면 워커 홈의 설정이 남아 다음 실행을 오염시킨다.
 - 포트: 워커 i 는 `E2E_PORT_BASE + i` 를 쓴다(기본 60147). edges-settings 가 그 위 +3300 을 쓰므로 `포트 + 3300 ≤ 65535` 를 지킨다.
 - 병렬로 여러 e2e 를 돌릴 때는 실행 폴더와 포트 범위를 겹치지 않게 나눈다.

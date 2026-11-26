@@ -352,7 +352,7 @@
     "Content-Type: application/json",
     "X-Request-Id: xLT8b-sl9eem"
    ],
-   "resp": "{\"from\":\"tool-a\",\"len\":6,\"to\":\"tool-b\",\"toolId\":\"tool-b\"}\n",
+   "resp": "{\"delivery\":\"pasted\",\"from\":\"tool-a\",\"len\":6,\"to\":\"tool-b\",\"toolId\":\"tool-b\"}\n",
    "pub": [
     "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000001-1111-2222-3333-444444444444\"}}"
    ],
@@ -370,7 +370,7 @@
     "Content-Type: application/json",
     "X-Request-Id: zJ88k4FT555I"
    ],
-   "resp": "{\"from\":\"tool-a\",\"len\":3,\"to\":\"tool-b\",\"toolId\":\"tool-b\"}\n",
+   "resp": "{\"delivery\":\"pasted\",\"from\":\"tool-a\",\"len\":3,\"to\":\"tool-b\",\"toolId\":\"tool-b\"}\n",
    "pub": [
     "{\"action\":\"run_changed\",\"args\":{\"runId\":\"00000001-1111-2222-3333-444444444444\"}}"
    ],

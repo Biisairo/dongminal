@@ -889,17 +889,24 @@ fn claude_settings_hooks_statusline_and_ctx() {
     let hooks = hook_commands(&blob);
     assert_eq!(hooks.len(), 14);
     let ctx = r#""/opt/otter/bin/otterctl" ctx-hook claude"#;
-    // ISSUE_TREE_CHAT_SRS FR-CAL-8: Stop 에 깨움 훅을 따로 건다. 활동 훅에는 asyncRewake 가 없다.
+    // ISSUE_TREE_CHAT_SRS FR-CAL-8 · AGENT_MSG_REWAKE_SRS FR-AMW-23: SessionStart 와 Stop 에 깨움 훅을
+    // 따로 건다. 활동 훅에는 asyncRewake 가 없다.
     let wait = r#""/opt/otter/bin/otterctl" chat-wait"#;
-    let stop = &v["hooks"]["Stop"][0]["hooks"];
-    assert_eq!(stop[1]["asyncRewake"], json!(true), "{stop}");
-    assert_eq!(stop[1]["timeout"], json!(CHAT_WAIT_TIMEOUT_SECS), "{stop}");
-    assert!(stop[0].get("asyncRewake").is_none(), "{stop}");
+    for ev in ["SessionStart", "Stop"] {
+        let list = &v["hooks"][ev][0]["hooks"];
+        assert_eq!(list[1]["asyncRewake"], json!(true), "{ev}: {list}");
+        assert_eq!(
+            list[1]["timeout"],
+            json!(CHAT_WAIT_TIMEOUT_SECS),
+            "{ev}: {list}"
+        );
+        assert!(list[0].get("asyncRewake").is_none(), "{ev}: {list}");
+    }
     for (ev, cmds) in &hooks {
         assert_eq!(cmds[0], r#""/opt/otter/bin/otterctl" activity claude"#);
         if ev == "PostToolUse" || ev == "UserPromptSubmit" {
             assert_eq!(cmds, &[cmds[0].clone(), ctx.to_owned()]);
-        } else if ev == "Stop" {
+        } else if ev == "Stop" || ev == "SessionStart" {
             assert_eq!(cmds, &[cmds[0].clone(), wait.to_owned()]);
         } else {
             assert_eq!(cmds.len(), 1, "{ev}");

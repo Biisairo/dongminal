@@ -981,6 +981,17 @@ fn toolio_requests_and_output() {
         srv.requests()[0].json(),
         json!({"to":"u2","from":"self-tool","message":"안녕"})
     );
+    // AGENT_MSG_REWAKE_SRS FR-AMW-8: 대기열에 들어갔으면 그 사실과 언제 전달되는지를 알린다.
+    let queued = TestServer::fixed(
+        200,
+        r#"{"delivery":"queued","toolId":"x","from":"self-tool","to":"u2","len":5}"#,
+    );
+    let got = ctl(&queued.env(home.path()), &["msg", "--to", "u2", "안녕"]);
+    assert_eq!(
+        got.1,
+        "에이전트 메시지 전송 완료: from=self-tool → to=u2, 본문 5 자\n\
+         전달 대기: 받는 claude 가 쉬고 있으면 곧바로, 일하는 중이면 그 턴이 끝난 뒤 깨움 훅이 건넨다\n"
+    );
     let got = ctl(&env, &["msg", "hi"]);
     assert_eq!(
         (got.0, got.2.as_str()),

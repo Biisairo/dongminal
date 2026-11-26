@@ -43,7 +43,7 @@
 | GET | `/api/tools/output?id=&bytes=&strip=` | 도구의 화면·최근 출력. `strip=1`(read-screen)이면 데몬이 그린 화면의 글자(화면과 그 위 기록)이고, 아니면(read-output) 최근 출력 바이트를 ANSI 째로 준다. `bytes<=0`/생략이면 전체 (기본값 판단은 `otterctl` 몫). `{ toolId, text, dropped }` |
 | GET | `/api/tools/search?id=&q=&before=&regex=&case=&word=` | 서버가 남긴 터미널 기록(설정 `termHistoryLines`)에서 줄 번호 `before` 앞의 줄을 새 줄부터 찾는다. `before` 는 필수 숫자(아니면 **400**), `regex`·`case`·`word` 는 `1` 이면 켠다. `{ hits }`. 없는 도구는 **404**, 데몬이 찾지 못하면(깨진 정규식 등) **422** |
 | POST | `/api/tools/input` | `{ id, text, execute }` — bracketed paste 로 주입, `execute` 면 자동 엔터 |
-| POST | `/api/tools/message` | `{ to, from, message }` — 신뢰 봉투로 감싸 주입 + 자동 엔터. `from` 이 비면 `unknown`. 봉투 헤더와 응답의 `from`/`to` 는 **uuid** 뿐. 본문 안의 `[OTTERMINAL-AGENT-MSG` · `[/OTTERMINAL-AGENT-MSG` 는 `[\OTTERMINAL-AGENT-MSG` · `[\/OTTERMINAL-AGENT-MSG` 로 **인용**된다 — 정확한 헤더는 서버가 만든 것 하나뿐이다 |
+| POST | `/api/tools/message` | `{ to, from, message }` — 신뢰 봉투로 감싼다. 받는 탭이 otterminal 의 깨움 훅이 걸린 claude 면 입력창에 넣지 않고 전달 대기열에 두며, 그 탭의 턴이 끝나면 깨움 훅이 건넨다(`delivery: "queued"`). 그 밖의 탭은 주입 + 자동 엔터다(`delivery: "pasted"`). `from` 이 비면 `unknown`. 봉투 헤더와 응답의 `from`/`to` 는 **uuid** 뿐. 본문 안의 `[OTTERMINAL-AGENT-MSG` · `[/OTTERMINAL-AGENT-MSG` 는 `[\OTTERMINAL-AGENT-MSG` · `[\/OTTERMINAL-AGENT-MSG` 로 **인용**된다 — 정확한 헤더는 서버가 만든 것 하나뿐이다 |
 
 `id`/`to`/`from` 은 tab uuid·`toolId` 만 받는다. `W?.P?.T?` 좌표 라벨은 400, 대상이
 없으면 404 `{ "error": … }`.
@@ -200,6 +200,7 @@
 | GET | `/api/tools/migration-advice` | 맥락 훅이 묻는 migration 제안 판정 `?id=<toolId>` → `{verdict, ctxPct, judgePct, capPct, usedPct?}`. `ctxPct` 는 기준(`migrationHookCtxPct`), `judgePct` 는 판단을 시작하는 값(기준의 80%), `capPct` 는 판단 없이 넘기는 값(85)이다. `verdict` 는 `skip`(꺼짐이거나 issue-tree 노드)·`unknown`(사용률 모름, 도구마다 한 번)·`ok`·`advise`(`judgePct` 이상)·`must`(`capPct` 이상)다 |
 | POST | `/api/tools/usage` | `otterctl statusline` 이 보내는 도구별 사용량 `{toolId, usage}`. 허용 목록 밖의 필드는 저장하지 않는다(경로·본문 없음) |
 | POST | `/api/tools/subagents` | `otterctl subagent-statusline` 이 보내는 도구별 서브에이전트 목록 `{toolId, tasks}`. 보고마다 목록을 통째로 바꾼다. 허용 목록 밖의 필드(`label`·경로)는 저장하지 않는다. 작업 설명(`description`)은 저장한다. 15초 동안 보고가 없으면 목록이 없는 것으로 본다 |
+| GET | `/api/tools/inbox/wait?id=&session=[&now=1]` | 깨움 훅(`otterctl chat-wait`)이 그 탭의 전달 대기열을 **기다린다** (long-poll). 탭이 일하는 중이 아닐 때 쌓인 메시지를 온 순서대로 `{ messages }` 로 한 번에 건넨다. 같은 탭의 앞선 대기는 빈 `messages` 로 끝난다. `now=1` 이면 기다리지 않는다. 다른 `session` 이 오면 앞 세션의 대기열을 버린다 |
 | GET | `/api/tools/activity/wait` | 그 상태가 바뀔 때까지 **기다린다** (long-poll). 폴링 루프를 짜지 마세요. 도구가 사라졌다고 확인되면 `gone` 으로 끝난다. 생존을 모르는 동안(`liveUnknown`)은 `gone` 으로 끝내지 않고 계속 기다린다 |
 | POST | `/api/tools/kill` | 도구의 전경 프로세스를 정지시킨다 |
 

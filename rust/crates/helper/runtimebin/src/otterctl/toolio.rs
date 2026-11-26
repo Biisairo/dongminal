@@ -243,6 +243,7 @@ pub(crate) fn run_otterctl_msg(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
         from: String,
         to: String,
         len: i64,
+        delivery: String,
     }
     let rec = match json::unmarshal::<Rec>(&body) {
         Ok(r) => r,
@@ -259,8 +260,18 @@ pub(crate) fn run_otterctl_msg(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
         rec.to,
         rec.len
     );
+    // AGENT_MSG_REWAKE_SRS FR-AMW-8.
+    if rec.delivery == DELIVERY_QUEUED {
+        outf!(
+            ctx,
+            "전달 대기: 받는 claude 가 쉬고 있으면 곧바로, 일하는 중이면 그 턴이 끝난 뒤 깨움 훅이 건넨다\n"
+        );
+    }
     0
 }
+
+/// `POST /api/tools/message` 응답의 `delivery` 중 대기열에 들어간 값이다 (FR-AMW-7).
+const DELIVERY_QUEUED: &str = "queued";
 
 pub(crate) fn run_otterctl_open_editor(ctx: &mut Ctx<'_>, args: &[String]) -> i32 {
     let parsed = match parse_otterctl_flags(args) {

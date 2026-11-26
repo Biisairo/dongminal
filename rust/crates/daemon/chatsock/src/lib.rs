@@ -196,6 +196,10 @@ struct State {
     sessions: HashMap<String, Vec<Arc<Conn>>>,
     /// 세션마다 살아 있는 깨움 대기다: (물은 연결, 물음 번호).
     waits: HashMap<String, (Arc<Conn>, u64)>,
+    /// MCP 연결이 아직 없는 세션의 깨움 대기다: (대기 번호, 연결이 생기면 울릴 자리) (AGENT_MSG_REWAKE_SRS
+    /// FR-AMW-24). 세션마다 하나다 — 새 대기가 오면 앞의 자리를 버려 앞의 대기가 0건으로 끝난다.
+    early_waits: HashMap<String, (u64, SyncSender<()>)>,
+    next_early: u64,
     /// 트리 방 규칙: 방 id → 트리 멤버의 도구 id (ISSUE_TREE_CHAT_SRS FR-ITR-3). 메모리에만 있다 —
     /// 데몬이 다시 뜨면 서버가 다시 준다.
     trees: HashMap<String, HashSet<String>>,
@@ -381,6 +385,8 @@ impl Server {
                 next_pending: 0,
                 sessions: HashMap::new(),
                 waits: HashMap::new(),
+                early_waits: HashMap::new(),
+                next_early: 0,
                 trees: HashMap::new(),
                 closed: false,
                 user: Participant::default(),
@@ -430,6 +436,7 @@ impl Server {
         let (ln, path, conns, pending) = {
             let mut st = self.lock();
             st.closed = true;
+            st.early_waits.clear();
             (
                 st.ln.take(),
                 st.path.clone(),
@@ -722,6 +729,9 @@ impl Server {
             .entry(h.session.clone())
             .or_default()
             .push(c.clone());
+        if let Some((_, tx)) = st.early_waits.remove(&h.session) {
+            let _ = tx.try_send(());
+        }
         c.push(&Frame {
             t: chatwire::TYPE_HELLO.into(),
             id: p.id,
@@ -852,6 +862,40 @@ impl Server {
         let _ = nc.shutdown(Shutdown::Both);
     }
 
+    /// 깨움 대기가 물을 MCP 연결이다. 아직 없으면 생길 때까지 기다린다 (FR-AMW-24). 훅 연결 w 가 닫히거나,
+    /// 같은 세션의 새 대기가 오거나, 소켓이 닫히면 None 이다.
+    fn conn_for_wait(&self, w: &Arc<IpcStream>, session: &str) -> Option<Arc<Conn>> {
+        let (tx, rx) = sync_channel(1);
+        let n = {
+            let mut st = self.lock();
+            if st.closed {
+                return None;
+            }
+            if let Some(c) = st.sessions.get(session).and_then(|l| l.last().cloned()) {
+                return Some(c);
+            }
+            st.next_early += 1;
+            let n = st.next_early;
+            st.early_waits.insert(session.to_string(), (n, tx));
+            n
+        };
+        let me = self.me.upgrade()?;
+        let (w, s) = (Arc::clone(w), session.to_string());
+        std::thread::spawn(move || {
+            let mut sc = Scanner::new(&*w);
+            while sc.next_line().is_some() {}
+            let mut st = me.lock();
+            if st.early_waits.get(&s).is_some_and(|(k, _)| *k == n) {
+                st.early_waits.remove(&s);
+            }
+        });
+        rx.recv().ok()?;
+        self.lock()
+            .sessions
+            .get(session)
+            .and_then(|l| l.last().cloned())
+    }
+
     /// 깨울 글을 MCP 연결 c 에 묻고 답(wake)을 시한 없이 기다린다 (FR-CAL-9). MCP 가 끊기거나 훅
     /// 연결 w 가 닫히거나 같은 세션의 새 대기가 오면 None 이다. 그때는 MCP 에 물음을 거둔다고
     /// 알린다 — MCP 가 아무도 받지 않을 답에 표식을 붙이지 않게 한다. 세션마다 대기는 하나만 살아
@@ -906,14 +950,10 @@ impl Server {
     }
 
     /// 깨움 대기다 (FR-CAL-9·10). 그 세션의 가장 나중 연결에 깨울 글을 묻고, 답의 개수만 전한다.
-    /// 연결이 없거나 끊기면 0건으로 끝낸다.
+    /// 연결이 아직 없으면 생길 때까지 기다린다 (AGENT_MSG_REWAKE_SRS FR-AMW-24). 끊기면 0건으로 끝낸다.
     fn answer_wait(&self, nc: &Arc<IpcStream>, session: &str) {
         let _ = nc.set_read_timeout(None);
-        let c = self
-            .lock()
-            .sessions
-            .get(session)
-            .and_then(|l| l.last().cloned());
+        let c = self.conn_for_wait(nc, session);
         let mut reply = Frame {
             t: chatwire::TYPE_WAIT.into(),
             ..Frame::default()

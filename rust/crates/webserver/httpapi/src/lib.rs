@@ -50,6 +50,7 @@ mod handlers_diag;
 mod handlers_fs_ignored;
 mod health;
 mod httperr;
+mod inbox;
 mod js_strip;
 mod lsp_api;
 mod lspsvc;
@@ -267,6 +268,8 @@ pub struct Server {
     pub(crate) waits: status::StatusWaits,
     /// 활동 보고의 알림이다 — 활동 대기가 이것과 마감 시각에만 다시 본다 (FR-OPT-16-3).
     pub(crate) activity_changed: otter_shared_pollwait::Signal,
+    /// 에이전트 메시지의 전달 대기열이다 (AGENT_MSG_REWAKE_SRS).
+    pub(crate) inbox: inbox::Inbox,
     /// 실행 중 리바인드·이사 보관·연결 시한이다 (HOT_REBIND_SRS 묶음 R).
     pub(crate) rebind: rebind::RebindState,
     /// 저장소 signature 를 감시해 `git_changed` 를 방송한다 (GIT_PUSH_OBSERVE_SRS). 저장소 계층이
@@ -399,6 +402,7 @@ impl Server {
             attn_claims: attention::AttnClaims::default(),
             waits: status::StatusWaits::default(),
             activity_changed: otter_shared_pollwait::Signal::default(),
+            inbox: inbox::Inbox::default(),
             rebind: rebind::RebindState::default(),
             git_watch,
             statics,

@@ -25,6 +25,7 @@ mod golden_5572;
 mod golden_558a;
 mod golden_559;
 mod golden_files;
+mod inbox;
 mod info_api;
 mod js_strip;
 mod lsp;
