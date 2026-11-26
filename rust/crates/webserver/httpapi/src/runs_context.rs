@@ -273,7 +273,7 @@ impl Server {
             m.id
         );
         let envelope = agent_envelope(ENVELOPE_SERVER_SENDER, &rec.coordinator_tool_id, &body);
-        if let Err(e) = self.deliver_to_tool(&rec.coordinator_tool_id, &envelope, true) {
+        if let Err(e) = self.deliver_envelope(&rec.coordinator_tool_id, &envelope) {
             errorf!(
                 None,
                 "[run] context-alert 전달 실패 run={} member={}: {e}",
@@ -454,7 +454,7 @@ impl Server {
             rec.short, prev.id, prev.id
         );
         let envelope = agent_envelope(ENVELOPE_SERVER_SENDER, &prev.tool_id, &ask);
-        if let Err(e) = self.deliver_to_tool(&prev.tool_id, &envelope, true) {
+        if let Err(e) = self.deliver_envelope(&prev.tool_id, &envelope) {
             errorf!(
                 None,
                 "[run] handoff 요청 실패 run={} member={}: {e}",

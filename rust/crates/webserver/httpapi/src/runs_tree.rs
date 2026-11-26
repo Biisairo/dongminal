@@ -299,7 +299,7 @@ impl Server {
         }
         for to in targets.iter().filter(|t| !t.is_empty()) {
             if let Err(e) =
-                self.deliver_to_tool(to, &agent_envelope(ENVELOPE_SERVER_SENDER, to, &text), true)
+                self.deliver_envelope(to, &agent_envelope(ENVELOPE_SERVER_SENDER, to, &text))
             {
                 errorf!(None, "[run] 트리 승계 알림 실패 to={to}: {e}");
             }
@@ -455,7 +455,7 @@ impl Server {
                 continue;
             }
             let env = agent_envelope(ENVELOPE_SERVER_SENDER, &m.tool_id, &text);
-            if let Err(e) = self.deliver_to_tool(&m.tool_id, &env, true) {
+            if let Err(e) = self.deliver_envelope(&m.tool_id, &env) {
                 errorf!(None, "[run] 조율 승계 알림 실패 to={}: {e}", m.tool_id);
             }
         }

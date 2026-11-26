@@ -539,6 +539,8 @@ impl Server {
         detail: &str,
         turn_known: bool,
     ) {
+        // AGENT_MSG_REWAKE_SRS FR-AMW-12·17: 턴이 끝나면 대기열을 건네고, 건넸으면 working 으로 둔다.
+        let state = self.inbox.on_activity(tool_id, state);
         let tool = agentrec::sanitize(tool, agentrec::TOOL_MAX);
         let detail = agentrec::sanitize(detail, agentrec::DETAIL_MAX);
         self.attention()

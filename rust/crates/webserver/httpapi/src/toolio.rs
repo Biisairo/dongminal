@@ -13,6 +13,7 @@ use crate::Server;
 use crate::ToolHub;
 use crate::ansi::go_string;
 use crate::httperr::{decode_json_body, write_json, write_tool_io_error};
+use crate::inbox::{Attach, Batch};
 use crate::req::Req;
 use crate::toolhub::with_req;
 
@@ -104,6 +105,48 @@ impl Server {
                 .map_err(|e| e.to_string()),
             None => Err("tool io unavailable".to_owned()),
         }
+    }
+
+    /// 에이전트 메시지를 보낸다 (AGENT_MSG_REWAKE_SRS FR-AMW-1~3·9). 깨움 대상이면 대기열에 넣고
+    /// `queued`, 아니면 지금처럼 넣고 제출해 `pasted` 다.
+    pub(crate) fn deliver_envelope(
+        &self,
+        tool_id: &str,
+        envelope: &str,
+    ) -> Result<&'static str, String> {
+        if self.inbox.enqueue(tool_id, envelope) {
+            return Ok(DELIVERY_QUEUED);
+        }
+        self.deliver_to_tool(tool_id, envelope, true)
+            .map(|()| DELIVERY_PASTED)
+    }
+
+    /// GET /api/tools/inbox/wait?id=&session=[&now=1] (FR-AMW-10~13). 깨움 훅이 연다. 건넬 메시지가
+    /// 생길 때까지 붙잡는다. `now=1` 이면 기다리지 않는다. 같은 탭의 앞선 대기는 빈 답으로 끝난다.
+    pub(crate) async fn api_tool_inbox_wait(&self, r: &mut Req) -> Response {
+        if let Err(res) = self.tool_io_ready() {
+            return res;
+        }
+        let tool_id = match self.resolve_tool_id(&r.q("id")) {
+            Ok(id) => id,
+            Err(res) => return res,
+        };
+        let messages = match self
+            .inbox
+            .attach(&tool_id, &r.q("session"), r.q("now") == "1")
+        {
+            Attach::Ready(b) => b,
+            Attach::Wait(n, rx) => {
+                tokio::select! {
+                    _ = r.ctx.cancelled() => {
+                        self.inbox.detach(&tool_id, n);
+                        return write_tool_io_error(StatusCode::SERVICE_UNAVAILABLE, "canceled");
+                    }
+                    got = rx => got.unwrap_or_default(),
+                }
+            }
+        };
+        write_json(&InboxResp { messages })
     }
 
     /// GET /api/tools/output?id=&bytes=&strip=1. `strip=1`(read-screen)은 데몬 화면 상태의 글자,
@@ -206,18 +249,20 @@ impl Server {
         };
         let sender = envelope_sender(&from_tool_id);
         let envelope = agent_envelope(&sender, &tool_id, &body.message);
-        if let Err(e) = self.deliver_to_tool(&tool_id, &envelope, true) {
-            return write_tool_io_error(StatusCode::INTERNAL_SERVER_ERROR, &e);
-        }
+        let delivery = match self.deliver_envelope(&tool_id, &envelope) {
+            Ok(d) => d,
+            Err(e) => return write_tool_io_error(StatusCode::INTERNAL_SERVER_ERROR, &e),
+        };
         self.record_run_message(&from_tool_id, &tool_id, body.message.len());
         infof!(
             None,
-            "[toolio] message from={sender}(input={}) to={tool_id}(input={}) msgLen={}",
+            "[toolio] message from={sender}(input={}) to={tool_id}(input={}) msgLen={} delivery={delivery}",
             body.from,
             body.to,
             body.message.len()
         );
         write_json(&MessageResp {
+            delivery,
             from: sender,
             len: body.message.len(),
             to: tool_id.clone(),
@@ -301,8 +346,19 @@ struct MessageReq {
     message: String,
 }
 
+/// `POST /api/tools/message` 의 `delivery` 값이다 (FR-AMW-7).
+pub(crate) const DELIVERY_QUEUED: &str = "queued";
+pub(crate) const DELIVERY_PASTED: &str = "pasted";
+
+#[derive(Serialize)]
+struct InboxResp {
+    messages: Batch,
+}
+
 #[derive(Serialize)]
 struct MessageResp {
+    /// `queued`(깨움 훅이 건넨다) 또는 `pasted`(입력창에 넣고 제출했다) (FR-AMW-7).
+    delivery: &'static str,
     from: String,
     len: usize,
     to: String,

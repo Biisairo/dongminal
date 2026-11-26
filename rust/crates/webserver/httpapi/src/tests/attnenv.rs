@@ -12,10 +12,12 @@ use super::fakes::*;
 use super::support::*;
 use crate::{Deps, Server};
 
-/// Go `fakeToolIO` 중 생존(`Has`)만.
+/// Go `fakeToolIO` 중 생존(`Has`)과 붙여넣기 기록.
 #[derive(Default)]
 pub(crate) struct LiveIo {
     pub(crate) has: Mutex<HashMap<String, bool>>,
+    /// (도구, 글, 제출 여부) — AGENT_MSG_REWAKE_SRS 시험이 본다.
+    pub(crate) pastes: Mutex<Vec<(String, String, bool)>>,
 }
 
 impl LiveIo {
@@ -37,7 +39,12 @@ impl ToolReader for LiveIo {
     fn screen_text(&self, _: &str, _: usize) -> Option<String> {
         None
     }
-    fn send_paste(&self, _: &str, _: &[u8], _: bool) -> Result<(), Error> {
+    fn send_paste(&self, id: &str, text: &[u8], submit: bool) -> Result<(), Error> {
+        self.pastes.lock().unwrap().push((
+            id.to_owned(),
+            String::from_utf8_lossy(text).into_owned(),
+            submit,
+        ));
         Ok(())
     }
     fn size(&self, _: &str) -> String {
