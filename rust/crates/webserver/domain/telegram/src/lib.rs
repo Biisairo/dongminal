@@ -9,6 +9,9 @@ mod client;
 mod config;
 mod pair;
 mod render;
+// 묶음 T-2 의 짝 파일. 거울 맞추기(T-3)가 브리지에서 쓰기 전까지는 시험만 쓴다.
+#[allow(dead_code)]
+mod topics;
 mod transcript;
 
 #[cfg(test)]

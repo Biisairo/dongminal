@@ -8,7 +8,7 @@
 1. 이 문서를 끝까지 읽는다.
 2. 먼저 읽는다: `docs/internal/FEATURE_DEV_RULES.md`(규칙 전부, 특히 §3 설계 규칙·§4 시험·§5 운영 보호), `docs/internal/ISSUE_TREE_CHAT_SRS.md`(§3.1 묶음 A, §4 결정, §10 가정 — 모두 사용자 승인됨).
 3. 저장소 상태 확인: 브랜치 `feature`, 직전 코드 커밋 `9cdafa44`. `git status` 가 깨끗해야 한다. main 은 origin/main 보다 2 커밋 앞(push 전), feature 는 main 보다 6 커밋 앞(착수 문서 · SRS · A1 · 진행 문서 · A1 와이어·소켓 · 진행 문서 갱신).
-4. §2 의 다음 묶음(T)부터 이어 간다. 묶음 A 와 U 는 끝났다. 단계마다 시험 먼저(RED 확인) → 구현(GREEN) → fmt·clippy·관련 게이트.
+4. §2 의 묶음 T 표에서 "남음" 인 첫 단계(T-3)부터 이어 간다. 묶음 A·U 와 T-1·T-2 는 끝났다. T-3 설계 메모는 §2 묶음 T 표 아래에 있다. 단계마다 시험 먼저(RED 확인) → 구현(GREEN) → fmt·clippy·관련 게이트.
 5. 커밋은 단계마다 스스로 한다(사용자 지시 2026-11-26, AI 서명 금지). main 병합·push 는 사용자의 분명한 지시가 있을 때만.
 6. 운영 바이너리 재빌드는 하지 않았다(운영 보호 §5). 사용자에게 보고했다. 사용자가 정할 때까지 빌드하지 않는다.
 
@@ -55,12 +55,20 @@ TC-ITH-7 실측 결과: 부르지 않은 글로는 깨지 않았다. 부른 글�
 | 단계 | 상태 |
 |---|---|
 | T-1 설정: `Config.topics`·View·`Store.set_topics`, 설정 API 와 화면 토글(켜기·token·허용 계정이 전제), getMe 의 `has_topics_enabled` 안내, BotFather 안내, 밖으로 나가는 데이터 목록(FR-TGT-1·2·13) | 끝남 (결정 I-19) |
-| T-2 짝 파일: 방 id ↔ 토픽 thread id · 고정 글 id. 설정 파일 옆, 권한 600, 다시 시작해도 이어 쓴다(FR-TGT-4) | 남음 |
+| T-2 짝 파일: 방 id ↔ 토픽 thread id · 고정 글 id. 설정 파일 옆, 권한 600, 다시 시작해도 이어 쓴다(FR-TGT-4) | 끝남 — `telegram/src/topics.rs`(`TopicMap`·`Topic{threadId,pinId,name,pinText}`·`topics_path`, 파일 `telegram-topics.json`). 시험 5. **아직 쓰는 곳이 없어 lib.rs 에 `#[allow(dead_code)]` 를 달았다 — T-3 에서 쓰면 지운다** |
 | T-3 거울 맞추기: Host 가 채팅 상태(방·사람 참가자)를 준다. 방 생김/사라짐 → createForumTopic/deleteForumTopic, 고정 안내 글(목적·참가자 수·들어감·단추) 만들기·고치기, 짝만 있고 방 없음 → 지움(FR-TGT-3·5) | 남음 |
 | T-4 글 올리기: 사람 참가자에게 온 글과 내가 보낸 글 → 토픽. 머리(굵은 표시 이름·시각·@부름), 마크다운 → Telegram HTML, 4,096자 나누기, 깨울 글만 소리(FR-TGT-7·8) | 남음 |
 | T-5 받기: 허용 계정의 토픽 글 → 방에 사람 글(답장·@ → call), 들어가지 않음 → 안내, 단추 → join/leave, 남의 업데이트 무시(FR-TGT-6·9·10) | 남음 |
 | T-6 토픽 없음 오류 → 다시 만들고 짝 고친 뒤 다시 보냄(FR-TGT-11). 끄면 토픽 요청 0(NFR-ITH-4, TC-ITH-13). 기존 알림은 토픽 밖 그대로(FR-TGT-12) | 남음 |
 | T-7 실측 TC-ITH-14 — 사용자 봇이 필요하다. 사용자에게 요청한다 | 남음 |
+
+#### T-3 설계 메모 (전 세션이 조사한 것, 코드가 기준)
+
+- 브리지: `telegram/src/bridge.rs`. 사건은 `Item` 큐 → `process`(작업자 하나). `active()` 는 켜기·token·허용 계정만 본다 — 토픽 일은 `Config::topics_active()` 로 따로 거른다(NFR-ITH-4). Bot API 호출은 `self.call(&c, method, &json)`(결과 버림) 또는 `self.client(&c).call::<T>(…)`(결과 받음). 1:1 대화방 chat_id 는 `c.user_id`.
+- `Host` 트레이트(bridge.rs:48)에 채팅 몫을 기본 구현과 함께 더한다: 방 목록(사람 참가자가 보는 `state` 의 방 — id·kind·제목·목적·참가자 수·joined), join/leave, 사람 글 보내기(text·call). 서버 구현은 `httpapi/src/telegram_api.rs` 의 `TelegramHost`(Weak<Server>)다. 채팅 데몬 경로는 `httpapi/src/chat_api.rs` 의 `chat_do`(op 를 데몬에 넘김)와 `chat_pushed`(:174, 사람에게 온 글)다.
+- 거울 맞추기 사건: 채팅 상태가 바뀔 때(서버가 `chat` 토픽을 새로 낼 때) `Item::ChatSync` 를 넣는다. 처리: 방마다 짝이 없으면 `createForumTopic{chat_id,name}` → `message_thread_id`, 고정 안내 글 `sendMessage{message_thread_id, reply_markup:[[들어가기|나가기]]}` → `pinChatMessage`, 짝 저장. 이름이 바뀌면 `editForumTopic`, 안내 글이 바뀌면 `editMessageText`(+reply_markup). 짝만 있고 방이 없으면 `deleteForumTopic` 뒤 짝을 지운다.
+- 단추 callback_data 는 64바이트 상한이다 — 방 id 길이를 확인하고 접두(예: `cj:`/`cl:`)를 짧게 둔다. 기존 `[읽음]` 단추의 접두는 `render::READ_PREFIX` 다.
+- 시험 틀: `bridge/tests.rs` 의 `FakeTg`(호출 기록 + 메서드별 응답)·`FakeHost`·`testsrv`. createForumTopic 응답은 `{"ok":true,"result":{"message_thread_id":N,"name":"…"}}` 로 늘린다.
 
 ### 그 뒤
 
