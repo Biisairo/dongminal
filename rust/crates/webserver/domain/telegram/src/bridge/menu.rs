@@ -19,15 +19,15 @@ pub(crate) const ASK_NAME: &str = "새 방의 이름을 보내세요.";
 pub(crate) const ASK_PURPOSE: &str = "방의 목적을 보내세요. 없으면 [건너뛰기] 를 누르세요.";
 const SKIP_LABEL: &str = "건너뛰기";
 pub(crate) const SKIP_DATA: &str = "menu:skip";
-const DM_PREFIX: &str = "dm:";
-const DM_LABEL_PREFIX: &str = "개인채팅: ";
+const DIRECT_PREFIX: &str = "dc:";
+const DIRECT_LABEL_PREFIX: &str = "개인채팅: ";
 pub(crate) const CREATE_FAILED: &str = "방을 만들지 못했습니다";
 pub(crate) const MENU_EXPIRED: &str = "입력이 끝났거나 시간이 지났습니다";
 pub(crate) const WHO_EMPTY: &str = "접속한 참가자가 없습니다.";
 const WHO_FAILED: &str = "접속자를 읽지 못했습니다.";
 pub(crate) const WHO_STALE: &str = "목록이 바뀌었습니다. 다시 [접속자] 를 누르세요.";
-pub(crate) const DM_OPENED: &str = "개인채팅을 열었습니다";
-const DM_FAILED: &str = "개인채팅을 열지 못했습니다";
+pub(crate) const DIRECT_OPENED: &str = "개인채팅을 열었습니다";
+const DIRECT_FAILED: &str = "개인채팅을 열지 못했습니다";
 const KIND_HUMAN: &str = "사람";
 const KIND_AGENT: &str = "에이전트";
 /// 방 만들기의 물음에 답을 기다리는 시간 (FR-CTU-24).
@@ -167,7 +167,7 @@ impl Bridge {
             }
             return true;
         }
-        let Some(rest) = q.data.strip_prefix(DM_PREFIX) else {
+        let Some(rest) = q.data.strip_prefix(DIRECT_PREFIX) else {
             return false;
         };
         let target = rest
@@ -190,13 +190,13 @@ impl Bridge {
         let text = match res {
             Ok(Ok(())) => {
                 self.on_chat_changed();
-                DM_OPENED
+                DIRECT_OPENED
             }
             Ok(Err(e)) => {
                 infof!(None, "telegram: 개인채팅을 열지 못했다: {e}");
-                DM_FAILED
+                DIRECT_FAILED
             }
-            Err(_) => DM_FAILED,
+            Err(_) => DIRECT_FAILED,
         };
         self.answer(c, &q.id, text).await;
         true
@@ -227,8 +227,8 @@ impl Bridge {
             .iter()
             .enumerate()
             .map(|(i, p)| {
-                json!([{"text": format!("{DM_LABEL_PREFIX}{}", p.name),
-                    "callback_data": format!("{DM_PREFIX}{generation}:{i}")}])
+                json!([{"text": format!("{DIRECT_LABEL_PREFIX}{}", p.name),
+                    "callback_data": format!("{DIRECT_PREFIX}{generation}:{i}")}])
             })
             .collect();
         self.menu_send(

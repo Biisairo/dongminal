@@ -195,6 +195,7 @@ impl Rig {
             me: ChatPerson {
                 id: ME_ID.into(),
                 name: ME_NAME.into(),
+                human: false,
             },
             rooms,
         });

@@ -733,6 +733,7 @@ fn chat_person(p: &chatwire::Member, me: &str) -> telegram::ChatPerson {
     telegram::ChatPerson {
         id: p.id.clone(),
         name: telegram::display_name(&p.label, &p.id, me),
+        human: p.kind == CHAT_KIND_USER,
     }
 }
 

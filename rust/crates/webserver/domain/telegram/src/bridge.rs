@@ -536,7 +536,10 @@ impl Bridge {
             );
             return;
         }
-        if self.room_button(c, &q).await || self.menu_button(c, &q).await {
+        if self.room_button(c, &q).await
+            || self.people_button(c, &q).await
+            || self.menu_button(c, &q).await
+        {
             return;
         }
         let tool = match q.data.strip_prefix(READ_PREFIX) {

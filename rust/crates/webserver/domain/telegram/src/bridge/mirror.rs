@@ -22,6 +22,9 @@ pub(crate) const UNNAMED_TOPIC: &str = "채팅";
 /// 고정 글 단추의 데이터 접두. 뒤에 토픽 thread id 가 붙는다 (FR-TGT-6).
 pub(crate) const JOIN_PREFIX: &str = "cj:";
 pub(crate) const LEAVE_PREFIX: &str = "cl:";
+/// 안내 글의 `[참가자]` 단추 (CHAT_TELEGRAM_UX_SRS FR-CTU-70).
+pub(crate) const PEOPLE_PREFIX: &str = "cp:";
+pub(crate) const PEOPLE_TEXT: &str = "참가자";
 const JOIN_TEXT: &str = "들어가기";
 const LEAVE_TEXT: &str = "나가기";
 const JOINED_TEXT: &str = "들어가 있음";
@@ -33,6 +36,8 @@ const REMOTE_SEP: &str = " › ";
 pub struct ChatPerson {
     pub id: String,
     pub name: String,
+    /// 사람 참가자인가 (CHAT_TELEGRAM_UX_SRS FR-CTU-73).
+    pub human: bool,
 }
 
 /// 사람 참가자가 보는 채팅 (FR-TGT-3). 서버가 채팅 상태에서 옮긴다.
@@ -71,7 +76,7 @@ pub fn display_name(label: &str, id: &str, me: &str) -> String {
     format!("{node}{REMOTE_SEP}{tab}")
 }
 
-fn node_of(id: &str) -> &str {
+pub(crate) fn node_of(id: &str) -> &str {
     id.rfind('-').map_or("", |i| &id[..i])
 }
 
@@ -115,14 +120,15 @@ pub(crate) fn topic_missing(e: &Error) -> bool {
     })
 }
 
-/// 고정 글의 단추. 들어가 있으면 `[나가기]`, 아니면 `[들어가기]` 하나다 (FR-TGT-5·6).
+/// 안내 글의 단추. 들어가 있으면 `[나가기]`, 아니면 `[들어가기]` 이고, 옆에 `[참가자]` 가 있다 (FR-TGT-5·6, FR-CTU-70).
 pub(crate) fn pin_keyboard(thread: i64, joined: bool) -> Value {
     let (text, prefix) = if joined {
         (LEAVE_TEXT, LEAVE_PREFIX)
     } else {
         (JOIN_TEXT, JOIN_PREFIX)
     };
-    json!({"inline_keyboard": [[{"text": text, "callback_data": format!("{prefix}{thread}")}]]})
+    json!({"inline_keyboard": [[{"text": text, "callback_data": format!("{prefix}{thread}")},
+        {"text": PEOPLE_TEXT, "callback_data": format!("{PEOPLE_PREFIX}{thread}")}]]})
 }
 
 #[derive(Deserialize, Default)]

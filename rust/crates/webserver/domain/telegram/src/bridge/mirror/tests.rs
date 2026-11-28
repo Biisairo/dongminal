@@ -369,3 +369,14 @@ async fn alarms_stay_outside_topics() {
     assert_eq!(c[0].body["chat_id"], ME);
     assert!(c[0].body.get("message_thread_id").is_none());
 }
+
+/// CHAT_TELEGRAM_UX_SRS V-CTU-70: 안내 글 단추 줄은 들어가기/나가기와 참가자 둘이다.
+#[test]
+fn pin_keyboard_has_people_button() {
+    let kb = pin_keyboard(7, true);
+    let row = kb["inline_keyboard"][0].as_array().unwrap();
+    assert_eq!(row.len(), 2);
+    assert_eq!(row[0]["callback_data"], format!("{LEAVE_PREFIX}7"));
+    assert_eq!(row[1]["text"], PEOPLE_TEXT);
+    assert_eq!(row[1]["callback_data"], format!("{PEOPLE_PREFIX}7"));
+}

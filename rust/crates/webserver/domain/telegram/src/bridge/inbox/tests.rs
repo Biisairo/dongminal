@@ -1,8 +1,9 @@
 //! ISSUE_TREE_CHAT_SRS FR-TGT-6·9·10 — 토픽의 단추와 글을 방으로 받는다.
 
 use super::*;
+use crate::bridge::UNSUPPORTED_BUTTON;
 use crate::bridge::chatrig::*;
-use crate::bridge::mirror::{JOIN_PREFIX, LEAVE_PREFIX};
+use crate::bridge::mirror::{JOIN_PREFIX, LEAVE_PREFIX, PEOPLE_PREFIX, PEOPLE_TEXT};
 use crate::bridge::{ChatPerson, ChatPost, ChatRoom, Item};
 use crate::client::{CallbackQuery, Chat, Message, Update, User};
 use serde_json::Value;
@@ -18,14 +19,17 @@ fn room_with(joined: bool) -> ChatRoom {
             ChatPerson {
                 id: ME_ID.into(),
                 name: ME_NAME.into(),
+                human: false,
             },
             ChatPerson {
                 id: AGENT.into(),
                 name: "빌드".into(),
+                human: false,
             },
             ChatPerson {
                 id: BOT2.into(),
                 name: "빌드봇".into(),
+                human: false,
             },
         ],
         ..room("r1", "설계", joined)
@@ -262,4 +266,65 @@ fn calls_in_rules() {
         calls_in("@빌드 @빌드\n@빌드봇", &people, ME_ID),
         vec![AGENT.to_string(), BOT2.to_string()]
     );
+}
+
+fn people_room() -> ChatRoom {
+    ChatRoom {
+        people: vec![
+            ChatPerson {
+                id: AGENT.into(),
+                name: "빌드".into(),
+                human: false,
+            },
+            ChatPerson {
+                id: "fpB-u2".into(),
+                name: "linux › User".into(),
+                human: true,
+            },
+            ChatPerson {
+                id: ME_ID.into(),
+                name: ME_NAME.into(),
+                human: true,
+            },
+        ],
+        ..room("r1", "설계", true)
+    }
+}
+
+/// CHAT_TELEGRAM_UX_SRS V-CTU-71: `[참가자]` 는 그 토픽에 목록을 보낸다. 내 노드 먼저, 사람 먼저, 나는 (나).
+#[tokio::test]
+async fn people_button_lists_members() {
+    let r = rig().await;
+    r.set_rooms(Some(vec![people_room()]));
+    r.sync().await;
+    r.reset();
+    r.tg_press(ME, &format!("{PEOPLE_PREFIX}{THREAD}")).await;
+    let s = r.replies();
+    assert_eq!(s.len(), 1, "{s:?}");
+    assert_eq!(s[0]["message_thread_id"], THREAD);
+    assert_eq!(s[0]["disable_notification"], true);
+    let text = s[0]["text"].as_str().unwrap();
+    assert_eq!(
+        text,
+        format!(
+            "<b>참가자 3명</b>\n• {ME_NAME} (나) · 사람\n• 빌드 · 에이전트\n• linux › User · 사람"
+        )
+    );
+    assert_eq!(r.answer(), PEOPLE_TEXT);
+}
+
+/// CHAT_TELEGRAM_UX_SRS V-CTU-72: 모르는 토픽이나 방 보기 없음은 실패로 답하고 글을 보내지 않는다.
+#[tokio::test]
+async fn people_button_failures() {
+    let r = rig().await;
+    r.set_rooms(Some(vec![people_room()]));
+    r.sync().await;
+    r.reset();
+    r.tg_press(ME, &format!("{PEOPLE_PREFIX}4242")).await;
+    assert!(r.replies().is_empty());
+    assert_eq!(r.answer(), UNSUPPORTED_BUTTON);
+    r.set_rooms(None);
+    r.tg_press(ME, &format!("{PEOPLE_PREFIX}{THREAD}")).await;
+    assert!(r.replies().is_empty());
+    assert_eq!(r.answer(), BUTTON_FAILED);
 }

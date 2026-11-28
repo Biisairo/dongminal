@@ -16,10 +16,12 @@ fn room_with(notify: &str) -> ChatRoom {
             ChatPerson {
                 id: ME_ID.into(),
                 name: ME_NAME.into(),
+                human: false,
             },
             ChatPerson {
                 id: AGENT.into(),
                 name: "빌드".into(),
+                human: false,
             },
         ],
         ..room("r1", "설계", true)

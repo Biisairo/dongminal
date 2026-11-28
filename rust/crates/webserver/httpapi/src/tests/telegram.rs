@@ -677,8 +677,16 @@ async fn telegram_host_reads_chat_view() {
     let person = |id: &str, name: &str| telegram::ChatPerson {
         id: id.into(),
         name: name.into(),
+        human: false,
     };
-    assert_eq!(view.me, person("fpA-u1", "나"));
+    // CHAT_TELEGRAM_UX_SRS V-CTU-73: kind 가 user 인 참가자는 사람이다.
+    assert_eq!(
+        view.me,
+        telegram::ChatPerson {
+            human: true,
+            ..person("fpA-u1", "나")
+        }
+    );
     let room =
         |id: &str, name: &str, purpose: &str, members: i64, joined: bool| telegram::ChatRoom {
             id: id.into(),

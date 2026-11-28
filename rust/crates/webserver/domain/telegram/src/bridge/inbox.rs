@@ -7,10 +7,13 @@ use std::sync::Arc;
 use otter_shared_otterlog::infof;
 use serde_json::json;
 
-use super::mirror::{ChatPerson, JOIN_PREFIX, LEAVE_PREFIX};
+use super::mirror::{
+    ChatPerson, ChatRoom, JOIN_PREFIX, LEAVE_PREFIX, PEOPLE_PREFIX, PEOPLE_TEXT, node_of,
+};
 use super::{Bridge, UNSUPPORTED_BUTTON};
 use crate::client::{CallbackQuery, Message};
 use crate::config::Config;
+use crate::render::esc;
 
 pub(crate) const JOINED_ANSWER: &str = "들어갔습니다";
 pub(crate) const LEFT_ANSWER: &str = "나갔습니다";
@@ -18,6 +21,9 @@ pub(crate) const BUTTON_FAILED: &str = "처리하지 못했습니다";
 pub(crate) const NOT_JOINED_REPLY: &str =
     "이 방에 들어간 뒤에 쓸 수 있습니다. 맨 위 고정 글의 [들어가기] 를 누르세요.";
 pub(crate) const SEND_FAILED_REPLY: &str = "방에 보내지 못했습니다.";
+const PEOPLE_ME: &str = " (나)";
+const PEOPLE_HUMAN: &str = "사람";
+const PEOPLE_AGENT: &str = "에이전트";
 /// 답장한 글의 보낸 이를 찾으려고 기억하는, 토픽에 올린 글의 수.
 pub(crate) const SENDERS_MAX: usize = 1024;
 
@@ -68,7 +74,60 @@ pub(crate) fn calls_in(text: &str, people: &[ChatPerson], me: &str) -> Vec<Strin
     out
 }
 
+/// 토픽의 참가자 목록 (CHAT_TELEGRAM_UX_SRS FR-CTU-71). 내 노드 먼저, 사람 먼저, 이름 차례다. Telegram HTML 이다.
+pub(crate) fn people_text(r: &ChatRoom, me: &str) -> String {
+    let mut people: Vec<&ChatPerson> = r.people.iter().collect();
+    people.sort_by(|a, b| {
+        (node_of(&a.id) != node_of(me))
+            .cmp(&(node_of(&b.id) != node_of(me)))
+            .then_with(|| b.human.cmp(&a.human))
+            .then_with(|| a.name.cmp(&b.name))
+    });
+    let mut s = format!("<b>{PEOPLE_TEXT} {}명</b>", people.len());
+    for p in people {
+        let mine = if p.id == me { PEOPLE_ME } else { "" };
+        let kind = if p.human { PEOPLE_HUMAN } else { PEOPLE_AGENT };
+        s.push_str(&format!("\n• {}{mine} · {kind}", esc(&p.name)));
+    }
+    s
+}
+
 impl Bridge {
+    /// FR-CTU-71·72: 안내 글의 `[참가자]`. 그 토픽에 방의 참가자 목록을 보낸다. 이 단추가 아니면 false 다.
+    pub(crate) async fn people_button(&self, c: &Config, q: &CallbackQuery) -> bool {
+        let Some(rest) = q.data.strip_prefix(PEOPLE_PREFIX) else {
+            return false;
+        };
+        let target = match rest.parse::<i64>() {
+            Ok(t) if c.topics_active() => self.topics.by_thread(t).map(|room| (t, room)),
+            _ => None,
+        };
+        let Some((thread, room)) = target else {
+            self.answer(c, &q.id, UNSUPPORTED_BUTTON).await;
+            return true;
+        };
+        let host = Arc::clone(&self.host);
+        let view = tokio::task::spawn_blocking(move || host.chat_view())
+            .await
+            .ok()
+            .flatten();
+        let text = view.and_then(|v| {
+            v.rooms
+                .iter()
+                .find(|r| r.id == room)
+                .map(|r| people_text(r, &v.me.id))
+        });
+        let Some(text) = text else {
+            self.answer(c, &q.id, BUTTON_FAILED).await;
+            return true;
+        };
+        let p = json!({"chat_id": c.user_id, "message_thread_id": thread, "text": text,
+            "parse_mode": "HTML", "disable_notification": true});
+        let _ = self.call(c, "sendMessage", &p).await;
+        self.answer(c, &q.id, PEOPLE_TEXT).await;
+        true
+    }
+
     /// 고정 글의 `[들어가기]`·`[나가기]` (FR-TGT-6). 방 단추가 아니면 false 다.
     pub(crate) async fn room_button(&self, c: &Config, q: &CallbackQuery) -> bool {
         let (join, rest) = if let Some(r) = q.data.strip_prefix(JOIN_PREFIX) {

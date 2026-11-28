@@ -270,7 +270,7 @@ async fn who_caps_buttons() {
 
 /// V-CTU-27: 개인채팅 단추는 그 참가자와의 direct 다. 낡은 목록의 단추는 거절한다.
 #[tokio::test]
-async fn dm_button_opens_direct() {
+async fn direct_button_opens_direct() {
     let r = ready(true).await;
     r.set_online(vec![online(AGENT, "빌드", "mac", false)]);
     r.say(MENU_WHO).await;
@@ -281,7 +281,7 @@ async fn dm_button_opens_direct() {
         r.host.directs.lock().unwrap().clone(),
         vec![AGENT.to_string()]
     );
-    assert_eq!(r.last_answer(), DM_OPENED);
+    assert_eq!(r.last_answer(), DIRECT_OPENED);
     assert_eq!(r.queued(), 1, "맞추기를 넣지 않았다");
     r.say(MENU_WHO).await;
     r.press(&first).await;
