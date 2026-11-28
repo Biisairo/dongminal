@@ -295,6 +295,8 @@ fn chat_mcp_wire_bytes() {
         ),
         "{init}"
     );
+    // CHAT_TELEGRAM_UX_SRS V-CTU-9: 안내가 글을 Markdown 으로 쓰라고 말한다.
+    assert!(init.contains("글은 Markdown 으로 쓴다"), "{init}");
     assert!(
         init.ends_with(
             "\",\"protocolVersion\":\"2025-06-18\",\"serverInfo\":{\"name\":\"otterminal-chat\",\"version\":\"1\"}}}\n"
@@ -528,6 +530,18 @@ fn chat_mcp_send_call_and_schema() {
     let list = h.rpc("tools/list", Value::Null);
     let tools = list["result"]["tools"].as_array().unwrap();
     let send = tools.iter().find(|t| t["name"] == "chat_send").unwrap();
+    // CHAT_TELEGRAM_UX_SRS V-CTU-10: 글 형식은 Markdown 이다.
+    assert!(
+        send["description"].as_str().unwrap().contains("Markdown"),
+        "{send}"
+    );
+    assert!(
+        send["inputSchema"]["properties"]["text"]["description"]
+            .as_str()
+            .unwrap()
+            .contains("Markdown"),
+        "{send}"
+    );
     let call = &send["inputSchema"]["properties"]["call"];
     assert_eq!(call["type"], json!("array"), "{send}");
     assert_eq!(call["items"]["type"], json!("string"), "{send}");

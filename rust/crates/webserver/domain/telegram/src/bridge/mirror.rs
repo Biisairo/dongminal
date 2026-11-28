@@ -84,7 +84,7 @@ pub(crate) fn topic_name(name: &str) -> String {
     n.chars().take(TOPIC_NAME_MAX).collect()
 }
 
-/// 고정 안내 글 (FR-TGT-5): 이름 · 목적 · 참가자 수 · 들어가 있는지. Telegram HTML 이다.
+/// 토픽 안내 글 (FR-TGT-5): 이름 · 목적 · 참가자 수 · 들어가 있는지. Telegram HTML 이다.
 pub(crate) fn pin_text(r: &ChatRoom) -> String {
     let mut s = format!("<b>{}</b>\n", esc(&topic_name(&r.name)));
     if !r.purpose.trim().is_empty() {
@@ -250,7 +250,7 @@ impl Bridge {
         let _ = self.topics.set(&r.id, t);
     }
 
-    /// 고정 안내 글을 올리고 고정한다. 올린 글의 id 를 돌려준다.
+    /// 안내 글을 올린다. 고정하지 않는다 (CHAT_TELEGRAM_UX_SRS FR-CTU-40). 올린 글의 id 를 돌려준다.
     async fn post_pin(&self, c: &Config, thread: i64, joined: bool, text: &str) -> Option<i64> {
         let p = json!({"chat_id": c.user_id, "message_thread_id": thread, "text": text,
             "parse_mode": "HTML", "reply_markup": pin_keyboard(thread, joined),
@@ -270,8 +270,6 @@ impl Bridge {
                 return None;
             }
         };
-        let p = json!({"chat_id": c.user_id, "message_id": id, "disable_notification": true});
-        self.log_fail("pinChatMessage", self.call(c, "pinChatMessage", &p).await);
         Some(id)
     }
 
@@ -296,16 +294,6 @@ impl Bridge {
             }
         }
         let _ = self.topics.remove(room);
-    }
-
-    fn log_fail(&self, method: &str, r: Result<(), crate::client::Error>) -> bool {
-        match r {
-            Ok(()) => true,
-            Err(e) => {
-                infof!(None, "telegram: {method} 실패: {e}");
-                false
-            }
-        }
     }
 }
 

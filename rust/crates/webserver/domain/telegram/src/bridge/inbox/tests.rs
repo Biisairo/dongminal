@@ -225,7 +225,8 @@ async fn not_joined_or_failed_send_replies() {
     assert_eq!(r.replies()[0]["text"], SEND_FAILED_REPLY);
 }
 
-/// 토픽 밖의 글과 모르는 토픽의 글은 지금처럼 안내만 한다. 빈 글(사진 등)은 방에 올리지 않는다.
+/// 모르는 토픽의 글은 지금처럼 안내만 한다. 토픽 밖의 글은 메뉴 키보드로 답한다(CHAT_TELEGRAM_UX_SRS FR-CTU-21).
+/// 빈 글(사진 등)은 방에 올리지 않는다.
 #[tokio::test]
 async fn other_messages_keep_old_reply() {
     let r = ready(true).await;
@@ -236,7 +237,7 @@ async fn other_messages_keep_old_reply() {
     let texts: Vec<Value> = r.replies().iter().map(|b| b["text"].clone()).collect();
     assert_eq!(
         texts,
-        vec!["이 봇은 알림만 보냅니다.", "이 봇은 알림만 보냅니다."]
+        vec![crate::bridge::menu::MENU_TEXT, "이 봇은 알림만 보냅니다."]
     );
 }
 

@@ -45,6 +45,7 @@ class SettingsController extends Controller {
   init(){
     applyTabWidth();
     applyUiFontScale();
+    applyChatFontScale();
     this._initThemeFollow();
     for(const step of SETTINGS_BOOT) this._step(step);
     document.getElementById('settings-btn').addEventListener('click',()=>this._openSettings().catch(e=>ErrorLog.push('settings',(e&&e.message)||e)));

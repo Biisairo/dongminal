@@ -286,6 +286,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | PUT | `/api/telegram/enabled` | `{enabled}` — 켜기·끄기. 꺼져 있으면 Telegram 에 아무 요청도 보내지 않습니다 |
 | PUT | `/api/telegram/silence` | `{minutes}` — PC 브라우저에서 그 탭에 입력한 뒤 알림을 소리 없이 보내는 시간(0~1440분). 범위 밖은 400 `telegram_config_invalid` |
 | PUT | `/api/telegram/topics` | `{topics}` — 채팅 토픽 켜기·끄기(ISSUE_TREE_CHAT_SRS). 켜려면 Telegram 이 켜져 있고 token 과 허용 계정이 있어야 합니다(아니면 409 `telegram_topics_need_bridge`). 켤 때 getMe 로 봇의 1:1 대화방 토픽 모드를 보고, 꺼져 있으면 409 `telegram_topics_mode_off` 입니다. 응답과 `GET /api/telegram` 은 켜져 있을 때만 `chatTopics: true` 를 싣습니다 |
+| PUT | `/api/telegram/alarms` | `{alarms}` — 에이전트 알림 켜기·끄기(CHAT_TELEGRAM_UX_SRS). 끄면 에이전트 알림(완료·권한 요청·질문·입력 대기)만 보내지 않고, 메시지 받기·채팅 토픽·안내 글은 그대로입니다. 전제가 없습니다. 응답과 `GET /api/telegram` 은 꺼져 있을 때만 `alarmsOff: true` 를 싣습니다 |
 | POST | `/api/telegram/pair` | `{code, expires}` — 6자리 등록 코드(10분, 한 번). 코드는 이 응답에만 있습니다. 새 코드를 만들면 이전 코드는 버립니다. 틀린 코드가 5번 오면 코드를 버립니다. 봇에 `/pair <코드>` 를 보내면 보낸 계정이 허용 계정이 됩니다. token 이 없으면 409 `telegram_no_token` |
 | DELETE | `/api/telegram/pair` | 허용 계정을 지우고 살아 있는 등록 코드도 버립니다 |
 

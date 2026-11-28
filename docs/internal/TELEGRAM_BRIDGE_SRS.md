@@ -218,6 +218,7 @@ Telegram 은 시험에서 가짜 HTTP 서버로 바꾼다. API 주소를 주입�
 | AskUserQuestion 의 질문·선택지 | 질문 알림 |
 | Notification 문구 | 입력 대기 알림 |
 | 채팅 방 이름 · 목적 · 참가자 수 · 참가자 표시 이름 · 글 본문 · 글 시각 | 「채팅 토픽」(ISSUE_TREE_CHAT_SRS FR-TGT-13)이 켜져 있을 때. 기본은 꺼짐이다 |
+| 접속한 참가자의 표시 이름 · 종류 · 노드 이름 | 「채팅 토픽」이 켜져 있고 메뉴의 `접속자` 를 눌렀을 때 (CHAT_TELEGRAM_UX_SRS FR-CTU-25) |
 
 나가지 않는 것: 도구 결과, 파일 내용, 시스템 프롬프트, transcript 의 내부 줄, 화면, token, 이메일.
 

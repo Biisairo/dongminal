@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use serde_json::Value;
 
-use crate::bridge::{Bridge, ChatPerson, ChatRoom, ChatView, Host, Item, Location};
+use crate::bridge::{Bridge, ChatOnline, ChatPerson, ChatRoom, ChatView, Host, Item, Location};
 use crate::config::Store;
 use crate::testsrv::{self, Handler, Server};
 use crate::topics::{TopicMap, topics_path};
@@ -77,6 +77,10 @@ pub(crate) struct FakeHost {
     /// (방, 본문, 부른 상대).
     pub(crate) sends: StdMutex<Vec<(String, String, Vec<String>)>>,
     pub(crate) fail: StdMutex<bool>,
+    pub(crate) online: StdMutex<Option<Vec<ChatOnline>>>,
+    /// (이름, 목적).
+    pub(crate) creates: StdMutex<Vec<(String, String)>>,
+    pub(crate) directs: StdMutex<Vec<String>>,
 }
 
 impl Host for FakeHost {
@@ -108,6 +112,26 @@ impl Host for FakeHost {
             .lock()
             .unwrap()
             .push((room.into(), text.into(), call.to_vec()));
+        Ok(())
+    }
+    fn chat_online(&self) -> Option<Vec<ChatOnline>> {
+        self.online.lock().unwrap().clone()
+    }
+    fn chat_create(&self, name: &str, purpose: &str) -> Result<(), String> {
+        if *self.fail.lock().unwrap() {
+            return Err("no_such_room".into());
+        }
+        self.creates
+            .lock()
+            .unwrap()
+            .push((name.into(), purpose.into()));
+        Ok(())
+    }
+    fn chat_direct(&self, participant: &str) -> Result<(), String> {
+        if *self.fail.lock().unwrap() {
+            return Err("no_such_participant".into());
+        }
+        self.directs.lock().unwrap().push(participant.into());
         Ok(())
     }
 }

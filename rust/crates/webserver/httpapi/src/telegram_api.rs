@@ -29,6 +29,8 @@ static TG_TOKEN_RE: LazyLock<Regex> =
 
 /// 개인채팅 방의 종류 (PEER_CHAT_SRS FR-PCH-14).
 const CHAT_KIND_DIRECT: &str = "direct";
+/// 사람 참가자의 종류 (데몬 `KIND_USER`).
+const CHAT_KIND_USER: &str = "user";
 /// 토픽에서 쓴 글을 웹에 보일 때 쓰는 글 id 의 접두. 웹은 같은 id 를 한 번만 넣는다.
 const WEB_ECHO_PREFIX: &str = "tg-";
 const NANOS_PER_MS: i128 = 1_000_000;
@@ -123,6 +125,9 @@ struct TelegramView {
     /// ISSUE_TREE_CHAT_SRS FR-TGT-1. 꺼져 있으면 싣지 않는다 — Go 기준 골든 그대로다.
     #[serde(rename = "chatTopics", skip_serializing_if = "std::ops::Not::not")]
     chat_topics: bool,
+    /// CHAT_TELEGRAM_UX_SRS FR-CTU-32. 꺼짐일 때만 싣는다 — 골든 그대로다.
+    #[serde(rename = "alarmsOff", skip_serializing_if = "std::ops::Not::not")]
+    alarms_off: bool,
 }
 
 #[derive(Serialize)]
@@ -142,6 +147,12 @@ struct TokenReq {
 #[serde(default)]
 struct EnabledReq {
     enabled: bool,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct AlarmsReq {
+    alarms: bool,
 }
 
 #[derive(Deserialize, Default)]
@@ -178,6 +189,7 @@ impl Server {
             silence_min: v.silence_min,
             pair: b.pairing().pending().map(|expires| PairView { expires }),
             chat_topics: v.chat_topics,
+            alarms_off: v.alarms_off,
         }
     }
 
@@ -274,6 +286,19 @@ impl Server {
             Err(res) => return res,
         };
         self.telegram_saved(tg, b, tg.st.set_enabled(req.enabled))
+    }
+
+    /// CHAT_TELEGRAM_UX_SRS FR-CTU-32: 에이전트 알림을 켜고 끈다.
+    pub(crate) async fn api_telegram_alarms(&self, r: &mut Req) -> Response {
+        let (tg, b) = match self.telegram_ready() {
+            Ok(v) => v,
+            Err(res) => return res,
+        };
+        let req: AlarmsReq = match read_json_body(r).await {
+            Ok(v) => v,
+            Err(res) => return res,
+        };
+        self.telegram_saved(tg, b, tg.st.set_alarms_off(!req.alarms))
     }
 
     pub(crate) async fn api_telegram_silence(&self, r: &mut Req) -> Response {
@@ -555,6 +580,69 @@ impl telegram::Host for TelegramHost {
             me: chat_person(&st.me, me),
             rooms: rooms.iter().map(|r| chat_room(r, me)).collect(),
         })
+    }
+
+    /// 메뉴의 `방 만들기` — 사람 참가자의 create 다 (CHAT_TELEGRAM_UX_SRS FR-CTU-23).
+    fn chat_create(&self, name: &str, purpose: &str) -> Result<(), String> {
+        self.chat_op(
+            chatwire::OP_CREATE,
+            &chatwire::CreateArgs {
+                name: name.to_owned(),
+                purpose: purpose.to_owned(),
+            },
+        )
+    }
+
+    /// 접속자 목록의 개인채팅 단추 — 사람 참가자의 direct 다 (FR-CTU-26).
+    fn chat_direct(&self, participant: &str) -> Result<(), String> {
+        self.chat_op(
+            chatwire::OP_DIRECT,
+            &chatwire::DirectArgs {
+                participant: participant.to_owned(),
+                purpose: String::new(),
+            },
+        )
+    }
+
+    /// 접속한 참가자 (FR-CTU-25). 이름은 이 노드를 기준으로 한 표시 이름이다 (FR-CUX-9).
+    fn chat_online(&self) -> Option<Vec<telegram::ChatOnline>> {
+        let d = self.0.upgrade()?.deps.chat_daemon.clone()?;
+        if !d.chat_ready() {
+            return None;
+        }
+        let res = d
+            .chat(ChatParams {
+                op: chatwire::OP_ONLINE.to_owned(),
+                ..ChatParams::default()
+            })
+            .ok()?;
+        if res.error.is_some() {
+            return None;
+        }
+        let on: chatwire::Online = otter_gocompat::json::unmarshal(&res.result.0).ok()?;
+        let nodes = on.nodes.unwrap_or_default();
+        // 표시 이름은 "내 노드인가" 만 본다 — 내 노드 지문 뒤에 `-` 를 붙이면 그 판정의 기준이 된다.
+        let me = nodes
+            .iter()
+            .find(|n| n.self_)
+            .map(|n| format!("{}-", n.fp))
+            .unwrap_or_default();
+        Some(
+            on.participants
+                .unwrap_or_default()
+                .iter()
+                .filter(|p| p.online)
+                .map(|p| telegram::ChatOnline {
+                    id: p.id.clone(),
+                    name: telegram::display_name(&p.label, &p.id, &me),
+                    node: nodes
+                        .iter()
+                        .find(|n| n.fp == p.node)
+                        .map_or_else(|| p.node.clone(), |n| n.name.clone()),
+                    human: p.kind == CHAT_KIND_USER,
+                })
+                .collect(),
+        )
     }
 }
 

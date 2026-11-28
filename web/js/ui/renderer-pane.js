@@ -122,6 +122,8 @@ Object.assign(Renderer.prototype, {
     }
     // UX_BATCH12_SRS FR-RTR-10: Diff 탭도 같은 규약이다 — 붙은 뒤에 되돌린다.
     if(moved&&diffPanel) diffPanel.diffPane.diffViewRestore();
+    // CHAT_TELEGRAM_UX_SRS FR-CTU-4: 채팅 탭은 방의 읽던 자리로 되돌린다.
+    if(moved&&at.type===TAB_TYPE_CHAT) this.app.chat.views.chatViewRestore(at,slot);
     /**
      * FR-M11-17 (M11-B14): 에이전트 대화의 자리는 **여기서 되돌리지 않는다.**
      *

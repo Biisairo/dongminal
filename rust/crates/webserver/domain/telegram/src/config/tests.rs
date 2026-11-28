@@ -162,3 +162,22 @@ fn chat_topics_needs_bridge() {
             .contains("chatTopics")
     );
 }
+
+/// CHAT_TELEGRAM_UX_SRS V-CTU-30: 알림은 기본으로 켜져 있고, 꺼짐만 파일에 싣는다.
+#[test]
+fn alarms_off_round_trip() {
+    let (s, p, _d) = open_temp();
+    assert!(!s.config().alarms_off);
+    s.set_enabled(true).unwrap();
+    assert!(!std::fs::read_to_string(&p).unwrap().contains("alarmsOff"));
+    s.set_alarms_off(true).unwrap();
+    assert!(Store::open(&p).config().alarms_off);
+    assert!(s.view().alarms_off);
+    assert!(
+        std::fs::read_to_string(&p)
+            .unwrap()
+            .contains("\"alarmsOff\": true")
+    );
+    s.set_alarms_off(false).unwrap();
+    assert!(!std::fs::read_to_string(&p).unwrap().contains("alarmsOff"));
+}

@@ -26,9 +26,11 @@ use crate::transcript::last_reply;
 #[cfg(test)]
 mod chatrig;
 mod inbox;
+mod menu;
 mod mirror;
 mod post;
 
+pub use menu::ChatOnline;
 pub use mirror::{ChatPerson, ChatRoom, ChatView, display_name};
 pub use post::ChatPost;
 
@@ -74,6 +76,18 @@ pub trait Host: Send + Sync {
     }
     /// 사람 참가자로 방에 글을 보낸다 (FR-TGT-9).
     fn chat_send(&self, _room: &str, _text: &str, _call: &[String]) -> Result<(), String> {
+        Err(CHAT_UNSUPPORTED.to_owned())
+    }
+    /// 지금 접속한 참가자 (CHAT_TELEGRAM_UX_SRS FR-CTU-25). 읽지 못하면 None 이다.
+    fn chat_online(&self) -> Option<Vec<ChatOnline>> {
+        None
+    }
+    /// 사람 참가자로 방을 만든다 (FR-CTU-23).
+    fn chat_create(&self, _name: &str, _purpose: &str) -> Result<(), String> {
+        Err(CHAT_UNSUPPORTED.to_owned())
+    }
+    /// 그 참가자와의 개인채팅을 연다 (FR-CTU-26).
+    fn chat_direct(&self, _participant: &str) -> Result<(), String> {
         Err(CHAT_UNSUPPORTED.to_owned())
     }
 }
@@ -220,6 +234,8 @@ pub(crate) struct State {
     pub(crate) buttons: HashMap<String, Vec<i64>>,
     /// 토픽에 올린 글의 보낸 이 (ISSUE_TREE_CHAT_SRS FR-TGT-9).
     pub(crate) senders: inbox::Senders,
+    /// 일반 대화의 메뉴 (CHAT_TELEGRAM_UX_SRS 묶음 T).
+    pub(crate) menu: menu::Menu,
 }
 
 /// Telegram 알림.
@@ -359,7 +375,11 @@ impl Bridge {
                     infof!(None, "telegram: 글을 보내지 못했다: {e}");
                 }
             }
-            Item::Attention { tool, reason } => self.alarm(&c, &tool, &reason).await,
+            // CHAT_TELEGRAM_UX_SRS FR-CTU-31: 알림을 끄면 에이전트 알림만 보내지 않는다.
+            Item::Attention { tool, reason } if !c.alarms_off => {
+                self.alarm(&c, &tool, &reason).await;
+            }
+            Item::Attention { .. } => {}
             Item::ChatSync => self.sync_topics(&c).await,
             Item::ChatPost(p) => self.post_chat(&c, p).await,
             Item::Gone(_) => {}
@@ -468,8 +488,19 @@ impl Bridge {
                 }
                 c.user_id = from_id;
                 self.host.paired();
-                self.reply(&c, &m, "등록했습니다. 이제 이 대화방으로 알림을 보냅니다.")
-                    .await;
+                // CHAT_TELEGRAM_UX_SRS FR-CTU-21: 채팅 토픽이 켜져 있으면 메뉴 키보드도 단다.
+                let kb = if c.topics_active() {
+                    menu::menu_keyboard()
+                } else {
+                    Value::Null
+                };
+                self.menu_send(
+                    &c,
+                    "등록했습니다. 이제 이 대화방으로 알림을 보냅니다.",
+                    kb,
+                    false,
+                )
+                .await;
                 return;
             }
             infof!(None, "telegram: 짝맞춤 실패 from={from_id}");
@@ -489,6 +520,9 @@ impl Bridge {
         if self.topic_message(&c, &m).await {
             return;
         }
+        if self.menu_message(&c, &m).await {
+            return;
+        }
         self.reply(&c, &m, "이 봇은 알림만 보냅니다.").await;
     }
 
@@ -502,7 +536,7 @@ impl Bridge {
             );
             return;
         }
-        if self.room_button(c, &q).await {
+        if self.room_button(c, &q).await || self.menu_button(c, &q).await {
             return;
         }
         let tool = match q.data.strip_prefix(READ_PREFIX) {

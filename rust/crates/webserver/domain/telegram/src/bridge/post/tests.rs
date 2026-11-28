@@ -208,12 +208,7 @@ async fn post_before_topic_syncs_first() {
     r.post(post("hi")).await;
     assert_eq!(
         r.methods(),
-        [
-            "createForumTopic",
-            "sendMessage",
-            "pinChatMessage",
-            "sendMessage"
-        ]
+        ["createForumTopic", "sendMessage", "sendMessage"]
     );
     assert_eq!(r.posts()[1]["message_thread_id"], THREAD_BASE + 1);
 }
@@ -275,7 +270,6 @@ async fn missing_topic_is_recreated() {
             "sendMessage",
             "createForumTopic",
             "sendMessage",
-            "pinChatMessage",
             "sendMessage"
         ]
     );

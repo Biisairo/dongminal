@@ -265,6 +265,8 @@ Object.assign(Renderer.prototype, {
     // `_hideOthers`, 창·칸 전환은 `_domGC`, 배치 변경은 `_place`. 셋에 각각 훅을
     // 걸면 넷째 자리가 생길 때 조용히 빠진다. 이 시점은 그 셋보다 앞선다.
     if(app.fileEditors) for(const v of app.fileEditors.values()) if(v&&v.keepView) v.keepView();
+    // CHAT_TELEGRAM_UX_SRS FR-CTU-2: 채팅 뷰도 같은 시점에 읽던 자리를 방에 적는다.
+    if(app.chat&&app.chat.views) app.chat.views.chatViewsKeep();
   },
 
   /**

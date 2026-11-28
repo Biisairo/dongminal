@@ -505,6 +505,11 @@
             <input type="number" class="ds-num" id="ds-uifs" min="8" max="32" step="1">
           </div>
           <div class="ds-hint" data-i18n="html.ui_font_scale_hint"></div>
+          <!-- CHAT_TELEGRAM_UX_SRS FR-CTU-51 -->
+          <div class="ds-row">
+            <span data-i18n="html.chat_font_size"></span>
+            <input type="number" class="ds-num" id="ds-chatfs" min="8" max="32" step="1">
+          </div>
           <div class="ds-row">
             <span data-i18n="html.fg_names"></span>
             <input type="checkbox" class="ui-switch" id="ds-fgnames">
@@ -792,6 +797,10 @@
           <div class="ds-row">
             <span data-i18n="html.tg_enabled"></span>
             <label class="sbx-flag"><input type="checkbox" class="ui-switch" id="tg-enabled"><span data-i18n="html.acl_on"></span></label>
+          </div>
+          <div class="ds-row">
+            <span data-i18n="html.tg_alarms"></span>
+            <label class="sbx-flag"><input type="checkbox" class="ui-switch" id="tg-alarms"><span data-i18n="html.acl_on"></span></label>
           </div>
           <div class="ds-sec" data-i18n="html.tg_sec_bot"></div>
           <div class="ds-row"><span data-i18n="html.tg_bot"></span><span id="tg-bot" class="sbx-status"></span></div>

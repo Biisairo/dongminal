@@ -948,3 +948,100 @@ async fn telegram_sent_message_shows_on_web_as_mine() {
     assert!(m["at"].as_i64().unwrap() > 0);
     assert!(m.get("called").is_none());
 }
+
+/// CHAT_TELEGRAM_UX_SRS FR-CTU-23·26: 메뉴의 방 만들기와 개인채팅은 데몬의 create·direct 다. 성공하면 거울을 맞추게 한다.
+#[tokio::test]
+async fn telegram_host_create_and_direct() {
+    let d = Arc::new(FakeChat {
+        ready: true,
+        res: ChatResult {
+            result: RawMessage(br#"{"ok":true}"#.to_vec()),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    let (srv, rec, _d) = tg_chat_server(d.clone());
+    let host = TelegramHost(Arc::downgrade(&srv));
+    assert_eq!(host.chat_create("배포", "점검"), Ok(()));
+    assert_eq!(host.chat_direct("fpB-a7"), Ok(()));
+    let got: Vec<(String, String)> = d
+        .got
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|p| (p.op.clone(), String::from_utf8(p.args.0.clone()).unwrap()))
+        .collect();
+    assert_eq!(
+        got,
+        vec![
+            (
+                chatwire::OP_CREATE.to_string(),
+                r#"{"name":"배포","purpose":"점검"}"#.to_string()
+            ),
+            (
+                chatwire::OP_DIRECT.to_string(),
+                r#"{"participant":"fpB-a7","purpose":""}"#.to_string()
+            ),
+        ]
+    );
+    assert_eq!(rec.chat.load(Ordering::SeqCst), 2);
+}
+
+const ONLINE: &str = r#"{"nodes":[{"fp":"fpA","name":"mac","online":true,"self":true},
+  {"fp":"fpB","name":"office","online":true,"self":false}],
+ "participants":[
+  {"id":"fpA-u1","label":"mac/나","kind":"user","node":"fpA","online":true},
+  {"id":"fpB-a7","label":"office/빌드","kind":"agent","node":"fpB","online":true},
+  {"id":"fpB-a8","label":"office/쉼","kind":"agent","node":"fpB","online":false},
+  {"id":"fpC-u9","label":"lab/User","kind":"user","node":"fpC","online":true}]}"#;
+
+/// CHAT_TELEGRAM_UX_SRS FR-CTU-25: 접속자는 online 연산에서 접속한 참가자만 옮긴다. 이름은 표시 이름(FR-CUX-9),
+/// 노드는 노드 이름(모르면 지문), 사람인지는 종류로 정한다.
+#[tokio::test]
+async fn telegram_host_reads_online() {
+    let d = Arc::new(FakeChat {
+        ready: true,
+        res: ChatResult {
+            result: RawMessage(ONLINE.as_bytes().to_vec()),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+    let (srv, _rec, _d) = tg_chat_server(d.clone());
+    let host = TelegramHost(Arc::downgrade(&srv));
+    let o = |id: &str, name: &str, node: &str, human: bool| telegram::ChatOnline {
+        id: id.into(),
+        name: name.into(),
+        node: node.into(),
+        human,
+    };
+    assert_eq!(
+        host.chat_online(),
+        Some(vec![
+            o("fpA-u1", "나", "mac", true),
+            o("fpB-a7", "office › 빌드", "office", false),
+            o("fpC-u9", "lab › User", "fpC", true),
+        ])
+    );
+    assert_eq!(d.got.lock().unwrap()[0].op, chatwire::OP_ONLINE);
+    let srv = Server::new(Config::default(), Deps::default());
+    assert_eq!(TelegramHost(Arc::downgrade(&srv)).chat_online(), None);
+}
+
+/// CHAT_TELEGRAM_UX_SRS V-CTU-32: 알림 켜고 끄기. 전제 없이 저장하고, 꺼짐일 때만 화면 값에 싣는다.
+#[tokio::test]
+async fn telegram_api_alarms() {
+    let (base, _, _t) = tg_fake_api().await;
+    let e = tg_api_server(&base);
+    let st = || e.srv.tg.as_ref().unwrap().st.clone();
+    let r = tg_do(&e, "GET", "/api/telegram", "").await;
+    assert!(!r.body.contains("alarmsOff"), "{}", r.body);
+    let r = tg_do(&e, "PUT", "/api/telegram/alarms", r#"{"alarms":false}"#).await;
+    assert_eq!(r.status, 200, "{}", r.body);
+    assert!(r.body.contains(r#""alarmsOff":true"#), "{}", r.body);
+    assert!(st().config().alarms_off);
+    let r = tg_do(&e, "PUT", "/api/telegram/alarms", r#"{"alarms":true}"#).await;
+    assert_eq!(r.status, 200, "{}", r.body);
+    assert!(!r.body.contains("alarmsOff"), "{}", r.body);
+    assert!(!st().config().alarms_off);
+}

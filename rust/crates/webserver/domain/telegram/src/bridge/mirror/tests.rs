@@ -8,16 +8,14 @@ use crate::bridge::chatrig::*;
 const NOT_FOUND: &str =
     r#"{"ok":false,"error_code":400,"description":"Bad Request: TOPIC_ID_INVALID"}"#;
 
-/// FR-TGT-3·5: 짝이 없는 방은 토픽을 만들고, 고정 안내 글을 올려 고정한 뒤 짝을 저장한다.
+/// FR-TGT-3·5: 짝이 없는 방은 토픽을 만들고, 안내 글을 올린 뒤 짝을 저장한다. 안내 글은 고정하지 않는다
+/// (CHAT_TELEGRAM_UX_SRS FR-CTU-40).
 #[tokio::test]
 async fn new_room_opens_topic_and_pin() {
     let r = rig().await;
     r.set_rooms(Some(vec![room("r1", "설계", false)]));
     r.sync().await;
-    assert_eq!(
-        r.methods(),
-        ["createForumTopic", "sendMessage", "pinChatMessage"]
-    );
+    assert_eq!(r.methods(), ["createForumTopic", "sendMessage"]);
     let calls = r.calls();
     assert_eq!(calls[0].body["chat_id"], ME);
     assert_eq!(calls[0].body["name"], "설계");
@@ -35,8 +33,6 @@ async fn new_room_opens_topic_and_pin() {
     let btn = &send["reply_markup"]["inline_keyboard"][0][0];
     assert_eq!(btn["text"], JOIN_TEXT);
     assert_eq!(btn["callback_data"], format!("{JOIN_PREFIX}{thread}"));
-    assert_eq!(calls[2].body["message_id"], 2);
-    assert_eq!(calls[2].body["chat_id"], ME);
     let t = r.map().get("r1").expect("짝을 저장하지 않았다");
     assert_eq!(t.thread_id, thread);
     assert_eq!(t.pin_id, 2);
@@ -184,10 +180,7 @@ async fn create_failure_retries_next_sync() {
     assert_eq!(r.map().get("r1"), None);
     r.reset();
     r.sync().await;
-    assert_eq!(
-        r.methods(),
-        ["createForumTopic", "sendMessage", "pinChatMessage"]
-    );
+    assert_eq!(r.methods(), ["createForumTopic", "sendMessage"]);
     assert!(r.map().get("r1").is_some());
 }
 
@@ -203,7 +196,7 @@ async fn pin_failure_retries_next_sync() {
     assert_eq!((t.thread_id, t.pin_id), (THREAD_BASE + 1, 0));
     r.reset();
     r.sync().await;
-    assert_eq!(r.methods(), ["sendMessage", "pinChatMessage"]);
+    assert_eq!(r.methods(), ["sendMessage"]);
     assert_eq!(r.calls()[0].body["message_thread_id"], THREAD_BASE + 1);
     assert_ne!(r.map().get("r1").unwrap().pin_id, 0);
 }
@@ -288,12 +281,7 @@ async fn missing_topic_on_edit_is_recreated() {
     r.sync().await;
     assert_eq!(
         r.methods(),
-        [
-            "editForumTopic",
-            "createForumTopic",
-            "sendMessage",
-            "pinChatMessage"
-        ]
+        ["editForumTopic", "createForumTopic", "sendMessage",]
     );
     let t = r.map().get("r1").unwrap();
     assert_eq!((t.thread_id, t.name.as_str()), (THREAD_BASE + 2, "설계2"));
@@ -303,12 +291,7 @@ async fn missing_topic_on_edit_is_recreated() {
     r.sync().await;
     assert_eq!(
         r.methods(),
-        [
-            "editMessageText",
-            "createForumTopic",
-            "sendMessage",
-            "pinChatMessage"
-        ]
+        ["editMessageText", "createForumTopic", "sendMessage",]
     );
     assert_eq!(r.map().get("r1").unwrap().thread_id, THREAD_BASE + 3);
 }
@@ -318,7 +301,6 @@ const TOPIC_METHODS: &[&str] = &[
     "createForumTopic",
     "editForumTopic",
     "deleteForumTopic",
-    "pinChatMessage",
     "editMessageText",
 ];
 

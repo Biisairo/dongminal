@@ -91,6 +91,11 @@ const SETTINGS_ACCESS={
     applyUiFontScale();
     if(this.settings.apply._edApplyFontSize) this.settings.apply._edApplyFontSize();
   }},
+  // CHAT_TELEGRAM_UX_SRS FR-CTU-52: 채팅 화면만 움직인다.
+  chatFontSize:{get:()=>chatFontSize,set(v){
+    chatFontSize=clampSetting('chatFontSize',v);
+    applyChatFontScale();
+  }},
   // FR-FSS-12·15: 터미널만 움직인다.
   termFontSize:{get:()=>termFontSize,set(v){
     termFontSize=clampSetting('termFontSize',v);

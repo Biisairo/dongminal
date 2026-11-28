@@ -174,7 +174,7 @@ const MOVED = [
       '_initNumSetting', '_paintNumSettings',
       // 8b
       '_initFocusEdge', '_initAttnEdge', '_focusEdgePaintRow', '_attnEdgePaintRow', '_focusEdgePreview', '_attnEdgePreview'],
-    rows: [['tabFixedWidth', 'ds-tabfix', 'check'], ['tabWidthPx', 'ds-tabw', 'number'], ['uiFontSize', 'ds-uifs', 'number'],
+    rows: [['tabFixedWidth', 'ds-tabfix', 'check'], ['tabWidthPx', 'ds-tabw', 'number'], ['uiFontSize', 'ds-uifs', 'number'], ['chatFontSize', 'ds-chatfs', 'number'],
       ['fgTabNames', 'ds-fgnames', 'check'], ['confirmLeave', 'ds-confirmleave', 'check'], ['attnFavicon', 'ds-attnfavicon', 'check']] },
   { cls: 'TerminalSection', tab: 'terminal',
     gone: ['_initClaudeFullscreen', '_initTermGpu', '_initTermFontSize', '_initClaudeScrollSpeed', '_initMigrationSettings',
@@ -288,6 +288,7 @@ test('TC-FES-3: 섹션이 init 에서 선언한 행이 표와 같다', () => {
   ctx.I18N = { locale: 'ko', resolve: (v) => v };
   ctx.applyTabWidth = () => {};
   ctx.applyUiFontScale = () => {};
+  ctx.applyChatFontScale = () => {};
   Object.assign(ctx, { focusEdgeLevel: 0, attnEdgeLevel: 0, UFE_LEVEL_MAX: 10, ATTN_EDGE_LEVEL_MAX: 10 });
   for (const m of MOVED) {
     const s = new ctx[m.cls]({ ...fakeApp([]), displayMode: 'auto', mobileBreakpoint: 768, slot: { ops: { _slotDirPaint() {} } } });
@@ -549,6 +550,7 @@ function bootSetup() {
   ctx.document = { getElementById: (id) => (id === 'modal' ? { id } : id === 'settings-btn' ? btn : null) };
   ctx.applyTabWidth = () => log.push('applyTabWidth');
   ctx.applyUiFontScale = () => log.push('applyUiFontScale');
+  ctx.applyChatFontScale = () => log.push('applyChatFontScale');
   // REFACTOR3_FE_DELEG_SRS FR-DLG-3: 사이의 init 은 앱에서 주인까지의 점 경로로 부른다.
   const app = {};
   const c = new ctx.SettingsController(app);
@@ -567,7 +569,7 @@ test('TC-FES-4·D-41: 부팅의 init 은 섹션 없이 부팅 몫만 옛 상대 
   const { ctx, c, log, btn } = bootSetup();
   assert.ok(c instanceof ctx.Controller);
   assert.equal(c.init(), c);
-  assert.deepEqual(log, ['applyTabWidth', 'applyUiFontScale', 'themeFollow', ...BOOT_PART]);
+  assert.deepEqual(log, ['applyTabWidth', 'applyUiFontScale', 'applyChatFontScale', 'themeFollow', ...BOOT_PART]);
   assert.equal(c.all().length, 0, '부팅에 섹션이 섰다');
   assert.equal(c.section('theme'), null);
   assert.equal(c.modal, null);
@@ -662,6 +664,7 @@ test('TC-FFX-4: 숫자 행 다섯과 탭 폭 행은 포커스 가드를 갖는�
   ctx.I18N = { locale: 'ko', resolve: (v) => v };
   ctx.applyTabWidth = () => {};
   ctx.applyUiFontScale = () => {};
+  ctx.applyChatFontScale = () => {};
   Object.assign(ctx, { focusEdgeLevel: 0, attnEdgeLevel: 0, UFE_LEVEL_MAX: 10, ATTN_EDGE_LEVEL_MAX: 10 });
   const app = { ...fakeApp([]), displayMode: 'auto', mobileBreakpoint: 768, slot: { ops: { _slotDirPaint() {} } } };
   const rows = [];
@@ -672,7 +675,7 @@ test('TC-FFX-4: 숫자 행 다섯과 탭 폭 행은 포커스 가드를 갖는�
   }
   const guarded = rows.filter((r) => r.decl.kind === 'number').map((r) => [r.decl.key, !!r.decl.guard]);
   assert.deepEqual(plain(guarded.sort()), [
-    ['claudeScrollSpeed', true], ['issueTreeCtxPct', true], ['migrationHookCtxPct', true],
+    ['chatFontSize', true], ['claudeScrollSpeed', true], ['issueTreeCtxPct', true], ['migrationHookCtxPct', true],
     ['tabWidthPx', true], ['termFontSize', true], ['termHistoryLines', true], ['termScrollback', true],
     ['uiFontSize', true]]);
 });

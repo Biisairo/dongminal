@@ -711,6 +711,20 @@ async fn alarm_wire_bytes_match_go() {
     );
 }
 
+/// CHAT_TELEGRAM_UX_SRS V-CTU-31: 알림을 끄면 에이전트 알림을 보내지 않는다. 안내 글은 보낸다.
+#[tokio::test]
+async fn alarms_off_skips_attention_only() {
+    let r = rig().await;
+    r.st.set_alarms_off(true).unwrap();
+    r.attn(TAB_A, "bell").await;
+    assert!(methods(&r.tg).is_empty(), "{:?}", methods(&r.tg));
+    r.b.process(Item::Notice("안내".into())).await;
+    assert_eq!(methods(&r.tg), vec!["sendMessage".to_string()]);
+    r.st.set_alarms_off(false).unwrap();
+    r.attn(TAB_A, "bell").await;
+    assert_eq!(methods(&r.tg).len(), 2);
+}
+
 // ── 꺼짐 (TC-TGB-80) ──
 
 #[tokio::test]

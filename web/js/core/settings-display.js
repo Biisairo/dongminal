@@ -20,6 +20,8 @@ class DisplaySection extends SettingsSection {
       // FONT_SIZE_SETTING_SRS FR-FSS-1: 배율 하나가 CSS 토큰과 편집기 둘 다에 간다.
       // REFACTOR3_FE_FIX_SRS FR-FFX-7: 탭 폭 행과 같은 포커스 가드.
       {key:'uiFontSize',id:'ds-uifs',kind:'number',guard:true},
+      // CHAT_TELEGRAM_UX_SRS FR-CTU-51.
+      {key:'chatFontSize',id:'ds-chatfs',kind:'number',guard:true},
       // FR-TAN-19·20: 끄면 **즉시** 전 탭이 기본 이름으로 돌아간다 — 다시 칠하는 것은 set 이 한다.
       {key:'fgTabNames',id:'ds-fgnames',kind:'check'},
       // FR-LVC-1·10: 가드가 이 전역을 그때그때 읽으므로 리스너를 다시 걸 일이 없다.

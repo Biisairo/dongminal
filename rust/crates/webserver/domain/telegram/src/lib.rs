@@ -16,7 +16,8 @@ mod transcript;
 mod testsrv;
 
 pub use bridge::{
-    Bridge, ChatPerson, ChatPost, ChatRoom, ChatView, Event, Host, Location, display_name,
+    Bridge, ChatOnline, ChatPerson, ChatPost, ChatRoom, ChatView, Event, Host, Location,
+    display_name,
 };
 pub use client::{
     ApiError, CallbackQuery, Chat, Client, DEFAULT_BASE_URL, Error, Message, Update, User,

@@ -85,3 +85,29 @@ function chatCallTags(m,meId,people){
   }
   return tags;
 }
+
+/**
+ * 대화칸 맨 위에 걸친 글과 그 글 안의 거리 (CHAT_TELEGRAM_UX_SRS FR-CTU-3).
+ * `boxOf(i)` 는 글 i 의 `[위, 아래]` 이고 차례로 늘어난다. 아래변이 `scrollTop` 보다 아래인 첫 글을 고른다.
+ */
+function chatAnchorAt(n,boxOf,scrollTop){
+  if(!n) return null;
+  let lo=0,hi=n-1;
+  while(lo<hi){
+    const mid=(lo+hi)>>1;
+    if(boxOf(mid)[1]>scrollTop) hi=mid; else lo=mid+1;
+  }
+  return {idx:lo,offset:scrollTop-boxOf(lo)[0]};
+}
+
+/** 되돌릴 `scrollTop`. 자리가 없으면 null(맨 아래), 적힌 글이 버려졌으면 0(맨 위)이다 (FR-CTU-4·6·7). */
+function chatResumeTop(list,mark,topOf){
+  if(!mark) return null;
+  const i=list.indexOf(mark.msg);
+  return i<0?0:topOf(i)+mark.offset;
+}
+
+/** 입력칸의 높이 (CHAT_TELEGRAM_UX_SRS FR-CTU-60). 내용 높이를 아래 한계와 탭 높이의 반 사이로 자른다. 아래 한계가 이긴다. */
+function chatInputHeight(content,min,viewHeight){
+  return Math.max(min,Math.min(content,Math.floor(viewHeight/2)));
+}

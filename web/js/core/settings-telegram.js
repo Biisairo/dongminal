@@ -15,6 +15,8 @@ class TelegramSection extends SettingsSection {
   _tgPaint(v=this.app._tg){
     if(!v||!document.getElementById('panel-telegram')) return;
     document.getElementById('tg-enabled').checked=!!v.enabled;
+    // CHAT_TELEGRAM_UX_SRS FR-CTU-33: 서버는 꺼짐만 싣는다.
+    document.getElementById('tg-alarms').checked=!v.alarmsOff;
     // ISSUE_TREE_CHAT_SRS FR-TGT-1: 채팅 토픽은 켜기·token·허용 계정이 있어야 켠다. 켜져 있으면 끌 수는 있다.
     const top=document.getElementById('tg-topics');
     if(top){ top.checked=!!v.chatTopics; top.disabled=!v.chatTopics&&!(v.enabled&&v.tokenSet&&v.paired) }
@@ -72,6 +74,9 @@ class TelegramSection extends SettingsSection {
     this.listen(document.getElementById('tg-enabled'),'change',e=>statusRun(tokSt,
       {ok:t('core.saved'),fail:t('core.save_fail')},
       async()=>this._tgApply(await apiPut('/api/telegram/enabled',{enabled:e.target.checked}))));
+    this.listen(document.getElementById('tg-alarms'),'change',e=>statusRun(tokSt,
+      {ok:t('core.saved'),fail:t('core.save_fail')},
+      async()=>this._tgApply(await apiPut('/api/telegram/alarms',{alarms:e.target.checked}))));
     this.listen(save,'click',()=>{
       const inp=document.getElementById('tg-token');
       const token=inp.value.trim();

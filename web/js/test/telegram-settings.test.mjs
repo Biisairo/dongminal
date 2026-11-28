@@ -20,7 +20,7 @@ function el() {
 }
 
 function setup() {
-  const ids = ['panel-telegram', 'modal-overlay', 'tg-enabled', 'tg-bot', 'tg-account', 'tg-unpair',
+  const ids = ['panel-telegram', 'modal-overlay', 'tg-enabled', 'tg-alarms', 'tg-bot', 'tg-account', 'tg-unpair',
     'tg-silence', 'tg-token', 'tg-token-save', 'tg-token-status', 'tg-pair-make', 'tg-pair-status',
     'tg-pair-box', 'tg-pair-code', 'tg-pair-remain', 'tg-silence-save', 'tg-silence-status'];
   const dom = Object.fromEntries(ids.map((id) => [id, el()]));

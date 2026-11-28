@@ -1,7 +1,11 @@
 /* 채팅 탭의 화면 (PEER_CHAT_SRS §3.11, ISSUE_TREE_CHAT_SRS §3.2). `[chat]` 지연 묶음의 CSS 다 — 채팅 목록 행은 style-activity.css 에 남는다. */
 /* PEER_CHAT_SRS FR-PCH-84: 채팅 탭 — 위 머리, 가운데 대화와 오른쪽 참가자, 아래 입력칸. */
 /* ISSUE_TREE_CHAT_SRS FR-CUX-4: 본문 폭의 상한과 동그라미 크기. */
-.chat-view{display:flex;flex-direction:column;width:100%;height:100%;min-height:0;background:var(--bg);--chat-msg-max:760px;--chat-avatar:32px;--chat-avatar-sm:24px}
+.chat-view{display:flex;flex-direction:column;width:100%;height:100%;min-height:0;background:var(--bg);--chat-msg-max:760px;
+  /* CHAT_TELEGRAM_UX_SRS FR-CTU-52: 채팅 화면은 채팅 글자 크기의 배율을 쓴다. 토큰은 선언한 요소에서 계산되므로 여기서 다시 정한다. */
+  --fs-xs:calc(9px * var(--chat-fs-scale,1));--fs-sm:calc(11px * var(--chat-fs-scale,1));--fs-md:calc(12px * var(--chat-fs-scale,1));
+  --fs-lg:calc(14px * var(--chat-fs-scale,1));--fs-xl:calc(18px * var(--chat-fs-scale,1));
+  --chat-avatar:calc(32px * var(--chat-fs-scale,1));--chat-avatar-sm:calc(24px * var(--chat-fs-scale,1))}
 /* ISSUE_TREE_CHAT_SRS FR-CUX-11: 머리 세 줄 — 이름·종류 / 목적 / 만든 이·참가자 수·내 알림 단계. */
 .chat-head{display:flex;flex-direction:column;gap:var(--sp-1);padding:var(--sp-3) var(--sp-5);border-bottom:1px solid var(--border)}
 .chat-head-top{display:flex;align-items:baseline;gap:var(--sp-4);min-width:0}
@@ -69,8 +73,7 @@
 .chat-msg-reply{position:absolute;right:var(--sp-2);top:var(--sp-1);opacity:0}
 .chat-msg:hover .chat-msg-reply,.chat-msg-reply:focus-visible{opacity:1}
 .chat-note{padding-bottom:var(--sp-2);font-size:var(--fs-sm);color:var(--attn-text)}
-.chat-input{width:100%;box-sizing:border-box;resize:vertical;min-height:36px;padding:var(--sp-3) var(--sp-4);
+.chat-input{width:100%;box-sizing:border-box;resize:none;min-height:36px;padding:var(--sp-3) var(--sp-4);
   background:var(--bg-alt);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);font:inherit;font-size:var(--fs-md)}
-.chat-input:focus{outline:none;border-color:var(--accent-border)}
-.chat-input:focus-visible{outline:1px solid var(--focus-ring)}
+.chat-input:focus{outline:none;border-color:var(--accent-border)}.chat-input:focus-visible{outline:1px solid var(--focus-ring)}
 .chat-input:disabled{opacity:.5}

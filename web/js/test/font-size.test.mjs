@@ -33,6 +33,16 @@ test('V-FSS-4a: 표가 두 키의 범위와 기본값을 갖는다 (FR-FSS-2·12
     { type: 'int', min: 8, max: 32, def: 14 });
 });
 
+test('V-CTU-50: 채팅 글자 크기 키는 int 8~32 기본 14 이고 경계를 자른다', () => {
+  const { SETTINGS_BY_KEY: by, clampSetting: clamp } = ctx();
+  assert.deepEqual(
+    { type: by.chatFontSize.type, min: by.chatFontSize.min, max: by.chatFontSize.max, def: by.chatFontSize.def },
+    { type: 'int', min: 8, max: 32, def: 14 });
+  assert.equal(clamp('chatFontSize', 7), 8);
+  assert.equal(clamp('chatFontSize', 33), 32);
+  assert.equal(clamp('chatFontSize', 20), 20);
+});
+
 test('V-FSS-4b: 기본값은 종전 화면을 낸다 (FR-FSS-23)', () => {
   const { SETTINGS_BY_KEY: by } = ctx();
   // FR-FSS-2a·2b: 둘 다 px 이고 기본이 14 다 — UI 14 는 `--fs-lg` 의 기준 px 이므로

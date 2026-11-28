@@ -17,7 +17,7 @@ class ChatStore{
 
   _room(id){
     let r=this.rooms.get(id);
-    if(!r) this.rooms.set(id,r={msgs:[],ids:new Set(),unread:0,alarm:false});
+    if(!r) this.rooms.set(id,r={msgs:[],ids:new Set(),unread:0,alarm:false,mark:null});
     return r;
   }
 
@@ -52,6 +52,14 @@ class ChatStore{
   alarmed(roomId){
     const r=this.rooms.get(roomId);
     return !!(r&&r.alarm);
+  }
+
+  /** 그 방의 읽던 자리 `{msg, offset}` 를 적는다 (CHAT_TELEGRAM_UX_SRS FR-CTU-1). */
+  mark(roomId,m){ if(roomId) this._room(roomId).mark=m||null }
+
+  markOf(roomId){
+    const r=this.rooms.get(roomId);
+    return (r&&r.mark)||null;
   }
 
   /** 그 방의 탭이 보였다 — 안 읽은 수가 0 이 되고 알람이 꺼진다 (FR-CAL-16). 바뀌었으면 참이다. */

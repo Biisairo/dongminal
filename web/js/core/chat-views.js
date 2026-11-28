@@ -41,6 +41,40 @@ class ChatViews extends Controller {
     return v.root;
   }
 
+  /**
+   * CHAT_TELEGRAM_UX_SRS FR-CTU-2: 렌더러가 탭 본문을 떼기 전에 부른다(`_keepScrollAll`). 붙어 보이는 뷰만 읽던 자리를 방에 적는다.
+   */
+  chatViewsKeep(){
+    for(const v of this._chatViewMap().values()){
+      if(!v.root.isConnected||!v.root.classList.contains('vis')) continue;
+      this.app.chat._chatS().mark(v.roomId,this._chatLogMark(v));
+    }
+  }
+
+  /** FR-CTU-4·8: 뷰가 붙은 뒤 읽던 자리로 되돌린다. 아직 크기가 없으면 다음 프레임에 한 번 더 놓는다. */
+  chatViewRestore(tab,slot){
+    const v=this.chatViewOwner(tab,slot);
+    if(!v) return;
+    this._chatLogResume(v);
+    if(!v.log.clientHeight) TIMERS.frame(()=>{ if(v.root.isConnected) this._chatLogResume(v) },{owner:this.app,label:'chat-resume'});
+  }
+
+  _chatLogTops(v){
+    const base=v.log.getBoundingClientRect().top-v.log.scrollTop;
+    return i=>{ const r=v.els[i].getBoundingClientRect(); return [r.top-base,r.bottom-base] };
+  }
+
+  _chatLogMark(v){
+    const a=chatAnchorAt(v.els.length,this._chatLogTops(v),v.log.scrollTop);
+    return a&&{msg:v.drawn[a.idx],offset:a.offset};
+  }
+
+  _chatLogResume(v){
+    const boxOf=this._chatLogTops(v);
+    const top=chatResumeTop(v.drawn,this.app.chat._chatS().markOf(v.roomId),i=>boxOf(i)[0]);
+    v.log.scrollTop=top===null?v.log.scrollHeight:top;
+  }
+
   /** 렌더러가 생명주기에 넘길 그 탭·칸의 뷰 (`chatViewEl` 뒤에 부른다). */
   chatViewOwner(tab,slot){ return this._chatViewMap().get(this.app.slot.slotKey(tab.id,slot||0))||null }
 
@@ -68,7 +102,7 @@ class ChatViews extends Controller {
     const kind=domEl('span','chat-kind ui-badge');
     const purpose=domEl('div','chat-purpose');
     const meta=domEl('div','chat-head-meta');
-    const v={key,tabId:tab.id,roomId:tab.roomId,root,title,kind,purpose,drawn:[],peopleSig:''};
+    const v={key,tabId:tab.id,roomId:tab.roomId,root,title,kind,purpose,drawn:[],els:[],peopleSig:''};
     v.metaText=domEl('span','chat-meta-text');
     v.notify=UIKit.button({label:chatNotifyLabel(''),icon:'bell',kind:'ghost',size:'sm',cls:'chat-notify',title:TIP_CHAT_NOTIFY,
       onClick:e=>{e.stopPropagation();const r=e.currentTarget.getBoundingClientRect();this._chatNotifyMenu(v,{x:r.left,y:r.bottom})}});
@@ -96,7 +130,7 @@ class ChatViews extends Controller {
     v.mention=domEl('div','ui-menu chat-mention ui-scroll-sm');
     v.mention.hidden=true;
     v.mention.setAttribute('role','listbox');
-    v.input.addEventListener('input',()=>this._chatMentionUpdate(v));
+    v.input.addEventListener('input',()=>{ this._chatMentionUpdate(v); this._chatInputFit(v) });
     v.input.addEventListener('blur',()=>this._chatMentionClose(v));
     foot.append(v.note,v.mention,v.input);
     root.append(head,main,foot);
@@ -111,7 +145,21 @@ class ChatViews extends Controller {
     const text=v.input.value;
     const r=this.app.chat._chatRoom(v.roomId),me=this.app.chat._chatMe();
     const call=chatCallsIn(text,(r&&r.people)||[],me&&me.id);
-    if(await this.app.chat._chatSend(v.roomId,text,call)) v.input.value='';
+    if(await this.app.chat._chatSend(v.roomId,text,call)){ v.input.value=''; this._chatInputFit(v) }
+  }
+
+  /**
+   * FR-CTU-60~63: 입력칸 높이를 내용에 맞춘다. 위 한계는 탭 높이의 반이고, 넘으면 안에서 스크롤한다.
+   * 대화칸이 맨 아래였으면 맨 아래를 지킨다.
+   */
+  _chatInputFit(v){
+    const inp=v.input,log=v.log;
+    const atEnd=log.scrollHeight-log.scrollTop-log.clientHeight<4;
+    inp.style.height='auto';
+    const border=inp.offsetHeight-inp.clientHeight;
+    const h=chatInputHeight(inp.scrollHeight+border,parseFloat(getComputedStyle(inp).minHeight)||0,v.root.clientHeight);
+    inp.style.height=h+'px';
+    if(atEnd) log.scrollTop=log.scrollHeight;
   }
 
   /** 열린 `@` 목록의 키. 쓴 키면 참이다. */
@@ -150,6 +198,7 @@ class ChatViews extends Controller {
     v.input.value=r.text;
     v.input.setSelectionRange(r.caret,r.caret);
     this._chatMentionClose(v);
+    this._chatInputFit(v);
   }
 
   _chatMentionClose(v){ v.mention.hidden=true; v.mItems=[] }
@@ -160,6 +209,7 @@ class ChatViews extends Controller {
     v.input.value=chatReplyText(v.input.value,chatName(m.fromLabel,m.from,me&&me.id));
     v.input.focus();
     v.input.setSelectionRange(v.input.value.length,v.input.value.length);
+    this._chatInputFit(v);
   }
 
   /** FR-CUX-11 · FR-CAL-7: 이 방에서 내(사람 참가자) 알림 단계를 고른다. */
@@ -264,12 +314,14 @@ class ChatViews extends Controller {
     const r=this.app.chat._chatRoom(v.roomId),people=(r&&r.people)||[];
     const same=v.drawn.length<=list.length&&v.drawn.every((m,i)=>m===list[i]);
     const atEnd=v.log.scrollHeight-v.log.scrollTop-v.log.clientHeight<4;
-    if(!same){ v.log.replaceChildren(); v.drawn=[] }
+    if(!same){ v.log.replaceChildren(); v.drawn=[]; v.els=[] }
     for(let i=v.drawn.length;i<list.length;i++){
       const m=list[i],place=chatMsgPlace(v.drawn[i-1]||null,m);
       if(place.day) v.log.appendChild(domEl('div','chat-day',chatDayLabel(m.at)));
-      v.log.appendChild(this._chatMsgEl(v,m,meId,place,people));
+      const el=this._chatMsgEl(v,m,meId,place,people);
+      v.log.appendChild(el);
       v.drawn.push(m);
+      v.els.push(el);
     }
     if(atEnd||!same) v.log.scrollTop=v.log.scrollHeight;
   }

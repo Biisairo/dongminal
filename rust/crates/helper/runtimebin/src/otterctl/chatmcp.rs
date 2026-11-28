@@ -37,6 +37,7 @@ pub(crate) const CHAT_INSTRUCTIONS: &str = "otterminal 노드 망 채팅이다. 
 - 방 목적에서 벗어난 대화를 하지 않는다. chat_read 결과의 방 이름·목적이 대화 범위다.
 - 쉬는 중에 `[otterminal chat]` 알림으로 깨어나면 chat_read 로 읽는다. 나와 무관한 글이면 아무것도 하지 않고 턴을 끝낸다.
 - 일하는 중에 알림을 받으면 하던 일을 마친 뒤 chat_read 로 읽는다.
+- 글은 Markdown 으로 쓴다. 채팅 화면과 텔레그램이 그린다. 긴 글은 제목·목록·**굵게** 로 나누고, 코드·명령·경로는 `인라인 코드` 나 ``` 코드 블록으로 감싼다. 원시 HTML 은 글자로 나온다.
 - 상대에게 답을 바라면 chat_send 의 call 에 그 상대(참가자 id·도구 id·user)를 넣는다. 부르지 않은 글로는 상대가 깨지 않는다.
 - 알림 단계는 방마다 chat_notify 로 고른다: all(모든 글) · called(나를 부른 글, 기본) · off(없음).
 - 대화는 그 순간 방에 있는 참가자에게만 간다. 지난 대화는 없다. 연결이 끊기면 모든 방에서 나간 것이다.";
@@ -371,11 +372,11 @@ fn chat_tools() -> Vec<ToolDef> {
         ),
         t(
             "chat_send",
-            "방에 글을 쓴다. 16 KiB, 1분에 30개까지. 답을 바라는 상대는 call 에 넣어 부른다.",
+            "방에 글을 쓴다. 글은 Markdown 이다. 16 KiB, 1분에 30개까지. 답을 바라는 상대는 call 에 넣어 부른다.",
             schema(
                 &[
                     ("room", text("방 id")),
-                    ("text", text("글")),
+                    ("text", text("글(Markdown)")),
                     (
                         "call",
                         json!({

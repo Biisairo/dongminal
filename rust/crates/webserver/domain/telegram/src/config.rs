@@ -55,6 +55,9 @@ pub struct Config {
     /// 객체와 이름이 겹치지 않게 한다.
     #[serde(rename = "chatTopics", skip_serializing_if = "json::is_empty")]
     pub chat_topics: bool,
+    /// 에이전트 알림을 보내지 않는다 (CHAT_TELEGRAM_UX_SRS FR-CTU-30·31). 거짓이면 싣지 않는다 — 옛 파일 형식 그대로다.
+    #[serde(rename = "alarmsOff", skip_serializing_if = "json::is_empty")]
+    pub alarms_off: bool,
 }
 
 impl Config {
@@ -73,6 +76,7 @@ impl Default for Config {
             user_id: 0,
             silence_min: DEFAULT_SILENCE_MIN,
             chat_topics: false,
+            alarms_off: false,
         }
     }
 }
@@ -90,6 +94,8 @@ pub struct View {
     pub silence_min: i64,
     #[serde(rename = "chatTopics", skip_serializing_if = "json::is_empty")]
     pub chat_topics: bool,
+    #[serde(rename = "alarmsOff", skip_serializing_if = "json::is_empty")]
+    pub alarms_off: bool,
 }
 
 struct Inner {
@@ -154,6 +160,7 @@ impl Store {
             paired: g.cfg.user_id != 0,
             silence_min: g.cfg.silence_min,
             chat_topics: g.cfg.chat_topics,
+            alarms_off: g.cfg.alarms_off,
         }
     }
 
@@ -203,6 +210,11 @@ impl Store {
             return Err(StoreError::TopicsNeedBridge);
         }
         self.update(|c| c.chat_topics = on)
+    }
+
+    /// 에이전트 알림을 끄고 켠다 (FR-CTU-32). 전제가 없다.
+    pub fn set_alarms_off(&self, off: bool) -> Result<(), StoreError> {
+        self.update(|c| c.alarms_off = off)
     }
 
     /// 허용 계정을 바꾼다. 0 이면 해제다.

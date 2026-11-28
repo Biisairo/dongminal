@@ -22,6 +22,8 @@ test.describe('Telegram 설정', () => {
     await expect(page.locator('#panel-telegram .ds-sec')).toHaveCount(4);
     await expect(page.locator('#tg-topics')).not.toBeChecked();
     await expect(page.locator('#tg-enabled')).not.toBeChecked();
+    // CHAT_TELEGRAM_UX_SRS V-CTU-33: 켜기 아래에 에이전트 알림 스위치가 있고 기본으로 켜져 있다.
+    await expect(page.locator('#tg-alarms')).toBeChecked();
     await expect(page.locator('#tg-token')).toHaveAttribute('type', 'password');
     await expect(page.locator('#tg-token')).toHaveValue('');
     await expect(page.locator('#tg-silence')).toHaveValue('5');

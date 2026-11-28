@@ -103,6 +103,8 @@ function applyTabWidth(){
  * 값이 세 자리(표·CSS·여기)에 서고, 그 중 하나만 고쳐지는 날이 온다.
  */
 var uiFontSize;
+// CHAT_TELEGRAM_UX_SRS FR-CTU-50: 채팅 화면의 글자 크기(px).
+var chatFontSize;
 var termFontSize;
 // PERF D-25: 기록 줄 수 둘. `termHistoryLines` 는 서버가 데몬에 보낸다 — 화면은 들고 저장만 한다.
 // `termScrollback` 은 터미널이 깨어날 때(처음 보일 때·잠든 뒤 다시 보일 때) 맞추는 스크롤백이다(`term-pane.js` `wake`).
@@ -122,6 +124,7 @@ var keybarCfg;
 
 /** 지금 쓸 값. 설정이 아직 오지 않았으면 표의 기본값이다. */
 function uiFontSizeNow(){ return uiFontSize??SETTINGS_BY_KEY.uiFontSize.def }
+function chatFontSizeNow(){ return chatFontSize??SETTINGS_BY_KEY.chatFontSize.def }
 function termFontSizeNow(){ return termFontSize??SETTINGS_BY_KEY.termFontSize.def }
 function termScrollbackNow(){ return termScrollback??SETTINGS_BY_KEY.termScrollback.def }
 
@@ -134,6 +137,11 @@ function termScrollbackNow(){ return termScrollback??SETTINGS_BY_KEY.termScrollb
  */
 function applyUiFontScale(){
   document.documentElement.style.setProperty('--fs-scale',String(uiFontSizeNow()/UI_FONT_BASE_PX));
+}
+
+/** CHAT_TELEGRAM_UX_SRS FR-CTU-52: 채팅 화면의 배율. `.chat-view` 가 토큰을 이 값으로 다시 정한다. */
+function applyChatFontScale(){
+  document.documentElement.style.setProperty('--chat-fs-scale',String(chatFontSizeNow()/UI_FONT_BASE_PX));
 }
 
 /**
